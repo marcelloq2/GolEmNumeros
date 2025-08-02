@@ -1,3 +1,4 @@
+
 # ==============================================
 # Painel de Análises - com Menu Lateral e Tema
 # ==============================================
@@ -94,18 +95,13 @@ if menu == "Painel de Análises":
         if "Todas Variáveis" in placar_improv_sel:
             placar_improv_sel = placares_improvaveis
 
-        st.markdown("---")
-        dif_min, dif_max = st.slider("V1 - Diferença % entre 1º e 2º maior", 0, 100, (10, 100))
-
     # ---------------------
     # Aplicar filtros
     # ---------------------
     df_filtrado = df.query(
         "Palpite in @palpite_sel and "
         "Placar_Provável in @placar_sel and "
-        "Placar_Improvável in @placar_improv_sel and "
-        "V1_Diferença_entre_maior_e_segundo_maior_pct >= @dif_min and "
-        "V1_Diferença_entre_maior_e_segundo_maior_pct <= @dif_max"
+        "Placar_Improvável in @placar_improv_sel"
     )
 
     # ---------------------
