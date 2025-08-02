@@ -33,7 +33,6 @@ with col2:
         st.warning(f"Erro ao carregar o logo: {e}")
         st.markdown("### 🧠 Painel de Análises")
 
-
 # =====================
 # Menu lateral
 # =====================
@@ -96,9 +95,7 @@ if menu == "Painel de Análises":
             placar_improv_sel = placares_improvaveis
 
         st.markdown("---")
-        cols2 = st.columns(2)
-        dif_min, dif_max = cols2[0].slider("V1 - Diferença % entre 1º e 2º maior", 0, 100, (10, 100))
-        v2_sel = cols2[1].multiselect("V2 - Acertou Maior Probabilidade", [0, 1], default=[0, 1])
+        dif_min, dif_max = st.slider("V1 - Diferença % entre 1º e 2º maior", 0, 100, (10, 100))
 
     # ---------------------
     # Aplicar filtros
@@ -108,8 +105,7 @@ if menu == "Painel de Análises":
         "Placar_Provável in @placar_sel and "
         "Placar_Improvável in @placar_improv_sel and "
         "V1_Diferença_entre_maior_e_segundo_maior_pct >= @dif_min and "
-        "V1_Diferença_entre_maior_e_segundo_maior_pct <= @dif_max and "
-        "V2_Acertou_Maior_Probabilidade in @v2_sel"
+        "V1_Diferença_entre_maior_e_segundo_maior_pct <= @dif_max"
     )
 
     # ---------------------
