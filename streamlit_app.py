@@ -3,6 +3,8 @@
 # ==============================================
 import streamlit as st
 import pandas as pd
+from PIL import Image
+import os
 
 # =====================
 # URLs
@@ -16,10 +18,26 @@ CSV_URL_JOGOS_DIA = "https://docs.google.com/spreadsheets/d/1Zxx_oYXAchtvjjwik5w
 st.set_page_config(page_title="Painel de Análises", layout="wide")
 
 # =====================
+# Mostrar Logo
+# =====================
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    try:
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        if os.path.exists(logo_path):
+            logo = Image.open(logo_path)
+            st.image(logo, use_column_width=True)
+        else:
+            st.markdown("### 🧠 Painel de Análises")
+    except Exception as e:
+        st.warning(f"Erro ao carregar o logo: {e}")
+        st.markdown("### 🧠 Painel de Análises")
+
+
+# =====================
 # Menu lateral
 # =====================
 with st.sidebar:
-    st.image("https://i.imgur.com/CiRZK3z.png", width=180)
     st.markdown("## Menu")
     menu = st.radio("", ["Painel de Análises", "Em Desenvolvimento"])
     st.markdown("---")
