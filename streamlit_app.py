@@ -60,7 +60,6 @@ if tema_escolhido == "🌞 Claro":
 # Carregar dados
 # =====================
 @st.cache_data
-
 def carregar_dados():
     df_analise = pd.read_csv(CSV_URL_ANALISES)
     df_analise.columns = df_analise.columns.str.strip().str.replace(" ", "_")
@@ -120,7 +119,8 @@ if menu == "Painel de Análises":
         "Contra_2x0", "Contra_2x1", "Contra_2x2", "Contra_2x3",
         "Contra_3x0", "Contra_3x1", "Contra_3x2", "Contra_3x3",
         "Contra_Goleada_Casa", "Contra_Goleada_Visitante",
-        "Qualquer_outra_vitória_em_casa", "Qualquer_outra_vitória_de_visitante"
+        "Qualquer_outra_vitória_em_casa", "Qualquer_outra_vitória_de_visitante",
+        "Casa_Marcou_Gols_HT", "Visitante_Marcou_Gols_HT", "Casa_Marcou_Gols_2ªT", "Visitante_Marcou_Gols_2ªT"
     ]
 
     def cor_por_valor(valor):
@@ -138,7 +138,7 @@ if menu == "Painel de Análises":
                     media = col_data.mean()
                     qtd_total = col_data.count()
                     qtd_acertos = int(round(media * qtd_total)) if not pd.isna(media) else 0
-                    if not pd.isna(media) and media > 0:
+                    if not pd.isna(media):
                         cor = cor_por_valor(media)
                         texto = (
                             f"**{metrica}**: {cor} <span style='font-size:18px'><strong>{media:.0%}</strong></span> "
