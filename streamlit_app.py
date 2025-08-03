@@ -1,4 +1,3 @@
-
 # ==============================================
 # Painel de Análises - com Menu Lateral e Tema
 # ==============================================
@@ -6,6 +5,8 @@ import streamlit as st
 import pandas as pd
 from PIL import Image
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # =====================
 # URLs
@@ -59,6 +60,7 @@ if tema_escolhido == "🌞 Claro":
 # Carregar dados
 # =====================
 @st.cache_data
+
 def carregar_dados():
     df_analise = pd.read_csv(CSV_URL_ANALISES)
     df_analise.columns = df_analise.columns.str.strip().str.replace(" ", "_")
@@ -111,7 +113,14 @@ if menu == "Painel de Análises":
     metricas = [
         "Over_0.5FT", "Over_1.5FT", "Over_2.5FT", "Under_2.5FT", "Casa_Empate",
         "Visitante_Empate", "Casa", "Visitante", "Btts_Sim", "Btts_Não",
-        "Under_1.5_FT", "Over_0.5_HT", "Ambas_Marcam_HT", "Over_1.5_HT"
+        "Under_1.5_FT", "Over_0.5_HT", "Ambas_Marcam_HT", "Over_1.5_HT",
+        "Empate", "Casa_HT", "Visitante_HT", "Empate_HT", "Casa_Empate_HT", "Visitante_Empate_HT",
+        "Contra_0x0", "Contra_0x1", "Contra_0x2", "Contra_0x3",
+        "Contra_1x0", "Contra_1x1", "Contra_1x2", "Contra_1x3",
+        "Contra_2x0", "Contra_2x1", "Contra_2x2", "Contra_2x3",
+        "Contra_3x0", "Contra_3x1", "Contra_3x2", "Contra_3x3",
+        "Contra_Goleada_Casa", "Contra_Goleada_Visitante",
+        "Qualquer_outra_vitória_em_casa", "Qualquer_outra_vitória_de_visitante"
     ]
 
     def cor_por_valor(valor):
@@ -131,10 +140,9 @@ if menu == "Painel de Análises":
                     qtd_acertos = int(round(media * qtd_total)) if not pd.isna(media) else 0
                     if not pd.isna(media) and media > 0:
                         cor = cor_por_valor(media)
-                        odd_justa = 1 / media
                         texto = (
                             f"**{metrica}**: {cor} <span style='font-size:18px'><strong>{media:.0%}</strong></span> "
-                            f"({qtd_acertos}/{qtd_total} jogos) — 💡 Odd Justa: <strong>{odd_justa:.2f}</strong>"
+                            f"({qtd_acertos}/{qtd_total} jogos)"
                         )
                         cols[j].markdown(texto, unsafe_allow_html=True)
 
