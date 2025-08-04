@@ -60,6 +60,7 @@ if tema_escolhido == "🌞 Claro":
 # Carregar dados
 # =====================
 @st.cache_data
+
 def carregar_dados():
     df_analise = pd.read_csv(CSV_URL_ANALISES)
     df_analise.columns = df_analise.columns.str.strip().str.replace(" ", "_")
@@ -138,10 +139,13 @@ if menu == "Painel de Análises":
                     qtd_acertos = int(round(media * qtd_total)) if not pd.isna(media) else 0
                     if not pd.isna(media):
                         cor = cor_por_valor(media)
-                        texto = (
-                            f"**{metrica}**: {cor} <span style='font-size:18px'><strong>{media:.0%}</strong></span> "
-                            f"({qtd_acertos}/{qtd_total} jogos)"
-                        )
+                        texto = f"**{metrica}**: {cor} <span style='font-size:18px'><strong>{media:.0%}</strong></span> ({qtd_acertos}/{qtd_total} jogos)"
+                        if metrica.startswith("Contra_"):
+                            try:
+                                odd_max = round(1 / (1 - media), 2) if media < 1 else '∞'
+                                texto += f" - Odd Máx Lay: {odd_max}"
+                            except:
+                                pass
                         cols[j].markdown(texto, unsafe_allow_html=True)
 
     # ---------------------
