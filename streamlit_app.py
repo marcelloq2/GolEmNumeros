@@ -112,8 +112,8 @@ if menu == "Painel de Análises":
     st.subheader("📈 Taxas de Acerto (%)")
     metricas = [
         "Over_0.5FT", "Over_1.5FT", "Over_2.5FT", "Under_2.5FT", "Under_3.5FT",
-        "Casa_Empate", "Visitante_Empate", "Casa", "Visitante",
-        "Btts_Sim", "Btts_Não", "Under_1.5_FT", "Empate",
+        "Under_1.5_FT", "Casa_Empate", "Visitante_Empate", "Casa", "Visitante",
+        "Empate", "Btts_Sim", "Btts_Não",  
         "Contra_0x0", "Contra_0x1", "Contra_0x2", "Contra_0x3",
         "Contra_1x0", "Contra_1x1", "Contra_1x2", "Contra_1x3",
         "Contra_2x0", "Contra_2x1", "Contra_2x2", "Contra_2x3",
