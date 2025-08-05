@@ -1,5 +1,5 @@
 # ==============================================
-# Painel de Análises - com Menu Lateral e Tema
+# Gol em Números - com Menu Lateral e Tema
 # ==============================================
 import streamlit as st
 import pandas as pd
@@ -17,7 +17,7 @@ CSV_URL_JOGOS_DIA = "https://docs.google.com/spreadsheets/d/1Zxx_oYXAchtvjjwik5w
 # =====================
 # Layout inicial
 # =====================
-st.set_page_config(page_title="Painel de Análises", layout="wide")
+st.set_page_config(page_title="Gol em Números", layout="wide")
 
 # =====================
 # Mostrar Logo
@@ -30,10 +30,10 @@ with col2:
             logo = Image.open(logo_path)
             st.image(logo, use_column_width=True)
         else:
-            st.markdown("### 🧠 Painel de Análises")
+            st.markdown("### ⚽ Gol em Números")
     except Exception as e:
         st.warning(f"Erro ao carregar o logo: {e}")
-        st.markdown("### 🧠 Painel de Análises")
+        st.markdown("### ⚽ Gol em Números")
 
 # =====================
 # Menu lateral
@@ -74,7 +74,7 @@ df, df_jogos_dia = carregar_dados()
 # Conteúdo principal
 # =====================
 if menu == "Painel de Análises":
-    st.title("📊 Painel de Análises")
+    st.title("📊 Gol em Números")
 
     # ---------------------
     # Filtros
