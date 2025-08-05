@@ -28,7 +28,7 @@ with col2:
         logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
         if os.path.exists(logo_path):
             logo = Image.open(logo_path)
-            st.image(logo, use_column_width=True)
+            st.image(logo, use_container_width=True)
         else:
             st.markdown("### ⚽ Gol em Números")
     except Exception as e:
@@ -127,6 +127,12 @@ if menu == "Painel de Análises":
         elif valor >= 0.4: return "🟡"
         else: return "🔴"
 
+    back_odd_metricas = [
+        "Over_0.5FT", "Over_1.5FT", "Over_2.5FT", "Under_2.5FT", "Under_3.5FT",
+        "Under_1.5_FT", "Casa_Empate", "Visitante_Empate", "Casa", "Visitante",
+        "Empate", "Btts_Sim", "Btts_Não"
+    ]
+
     for i in range(0, len(metricas), 3):
         cols = st.columns(3)
         for j in range(3):
@@ -144,6 +150,12 @@ if menu == "Painel de Análises":
                             try:
                                 odd_max = round(1 / (1 - media), 2) if media < 1 else '∞'
                                 texto += f" - Odd Máx Lay: {odd_max}"
+                            except:
+                                pass
+                        elif metrica in back_odd_metricas:
+                            try:
+                                odd_back = round(1 / media, 2) if media > 0 else '∞'
+                                texto += f" - Odd Justa Back: {odd_back}"
                             except:
                                 pass
                         cols[j].markdown(texto, unsafe_allow_html=True)
