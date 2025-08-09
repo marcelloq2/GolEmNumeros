@@ -174,9 +174,72 @@ if menu == "Painel de Análises":
     else:
         st.dataframe(df_jogos_filtro.reset_index(drop=True), use_container_width=True)
 
-# =====================
-# Página futura
-# =====================
 elif menu == "Em Desenvolvimento":
     st.title("🚧 Em Desenvolvimento")
     st.info("Essa página está sendo planejada para incluir novos recursos.")
+
+    # ---------------------
+    # Médias de gols reais por Placar_Provável
+    # ---------------------
+    st.subheader("⚽ Médias de gols reais por Placar Provável")
+
+    base = df.copy()  # usa a base completa (sem filtros)
+
+    col_needed = {"Placar_Provável", "Gols_Casa_Real_FT", "Gols_Visitante_Real_FT"}
+    if not col_needed.issubset(base.columns):
+        st.warning("Colunas necessárias não encontradas (esperado: Placar_Provável, Gols_Casa_Real_FT, Gols_Visitante_Real_FT).")
+    else:
+        # garantir numéricos
+        base["Gols_Casa_Real_FT"] = pd.to_numeric(base["Gols_Casa_Real_FT"], errors="coerce")
+        base["Gols_Visitante_Real_FT"] = pd.to_numeric(base["Gols_Visitante_Real_FT"], errors="coerce")
+
+        # remove linhas sem placar real
+        df_gols = base.dropna(subset=["Placar_Provável", "Gols_Casa_Real_FT", "Gols_Visitante_Real_FT"]).copy()
+
+        if df_gols.empty:
+            st.info("Nenhum jogo com gols reais disponíveis para calcular as médias.")
+        else:
+            placares_disponiveis = sorted(df_gols["Placar_Provável"].astype(str).unique().tolist())
+            default_placar = "2x1" if "2x1" in placares_disponiveis else placares_disponiveis[0]
+            placar_focus = st.selectbox(
+                "Escolha um placar provável para detalhar",
+                placares_disponiveis,
+                index=placares_disponiveis.index(default_placar)
+            )
+
+            df_focus = df_gols[df_gols["Placar_Provável"] == placar_focus]
+            media_casa   = df_focus["Gols_Casa_Real_FT"].mean()
+            media_visit  = df_focus["Gols_Visitante_Real_FT"].mean()
+            media_total  = media_casa + media_visit
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric(f"Média gols CASA ({placar_focus})", f"{media_casa:.2f}")
+            c2.metric(f"Média gols VISITANTE ({placar_focus})", f"{media_visit:.2f}")
+            c3.metric("Média TOTAL", f"{media_total:.2f}")
+
+            fig, ax = plt.subplots(figsize=(4, 2.5))
+            ax.bar(["Casa", "Visitante"], [media_casa, media_visit])
+            ax.set_ylabel("Gols")
+            ax.set_title(f"Médias de gols reais • {placar_focus}")
+            st.pyplot(fig)
+
+            tabela = (
+                df_gols.groupby("Placar_Provável", as_index=False)
+                .agg(
+                    Jogos=("Placar_Provável", "size"),
+                    Média_Gols_Casa=("Gols_Casa_Real_FT", "mean"),
+                    Média_Gols_Visitante=("Gols_Visitante_Real_FT", "mean"),
+                )
+            )
+            tabela["Média_Gols_Total"] = tabela["Média_Gols_Casa"] + tabela["Média_Gols_Visitante"]
+            tabela = tabela.sort_values(["Jogos", "Média_Gols_Total"], ascending=[False, False])
+
+            st.markdown("#### Visão geral (todos os placares prováveis)")
+            st.dataframe(
+                tabela.style.format({
+                    "Média_Gols_Casa": "{:.2f}",
+                    "Média_Gols_Visitante": "{:.2f}",
+                    "Média_Gols_Total": "{:.2f}",
+                }),
+                use_container_width=True
+            )
