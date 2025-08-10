@@ -19,61 +19,6 @@ CSV_URL_JOGOS_DIA = "https://docs.google.com/spreadsheets/d/1Zxx_oYXAchtvjjwik5w
 # =====================
 st.set_page_config(page_title="Gol em Números", layout="wide")
 
-# ---------------------
-# Guia rápido: como este painel funciona
-# ---------------------
-with st.expander("🧠 Como este painel pensa (guia rápido)", expanded=False):
-    st.markdown("""
-**O que você está vendo aqui?**  
-Este painel mostra **taxas de acerto** e **odds justas** para várias metodologias (Over/Under, Casa/Empate/Visitante, BTTS etc.), além da lista de **Jogos do Dia** filtrados pelo que você escolher.
-
----
-
-### 🔎 Sobre os filtros
-- **Palpite / Placar Provável / Placar Improvável:** o painel **filtra o DF** (`df`) antes de calcular qualquer métrica.
-- Se você marcar **“Todas Variáveis”**, o painel considera **todas** as opções daquela dimensão.
-
----
-
-### 📈 Como calculamos as “Taxas de Acerto”
-- Para cada métrica (ex.: `Over_1.5FT`), pegamos a coluna correspondente no DF filtrado e:
-  - Convertamos para número (`to_numeric`) e **ignoramos NaN**.
-  - **Taxa de acerto** = **média** da coluna (ex.: 0.76 = 76%).
-  - **Acertos e total** mostrados (ex.: `1852/2446`) vêm de:
-    - `qtd_total` = quantidade de linhas **válidas** na coluna.
-    - `qtd_acertos` = `round(média * qtd_total)`.
-
-- **Cores**:
-  - 🟢 ≥ 70%
-  - 🟡 ≥ 40% e < 70%
-  - 🔴 < 40%
-
----
-
-### 🎯 Odds mostradas
-- Para métricas de **back** (ex.: Over/Under, Casa/Visitante/Empate, BTTS):
-  - **Odd Justa Back** = `1 / p`  (onde `p` é a taxa de acerto).
-- Para métricas “**Contra_…**” (conceito de **Lay**):
-  - **Odd Máx Lay** = `1 / (1 - p)` (se `p` = probabilidade do evento, `1-p` é a prob. de **NÃO** acontecer).
-- Obs.: se `p` = 0 ⇒ odd tende a ∞ (mostrada como “∞”).
-
----
-
-### 📌 Jogos do Dia
-- A grade usa **o mesmo conjunto de filtros** (Palpite/Placares).
-- Serve para você cruzar as taxas com os jogos que realmente acontecem hoje.
-
----
-
-### ⚠️ Boas práticas de leitura
-- **Amostra** importa: taxas com poucos jogos variam mais.
-- Use as odds justas como **referência** para precificação; compare com o mercado.
-- Combine **taxas** + **placar provável/improvável** + **contexto** do jogo.
-
-> Dica: clique no título deste bloco para abri-lo/fechá-lo quando quiser.
-""")
-
-
 # =====================
 # Mostrar Logo
 # =====================
@@ -496,4 +441,3 @@ elif menu == "Em Desenvolvimento":
             conf = pd.crosstab(df_focus["Vencedor_Real"], df_focus["Vencedor_Esperado"])
             st.markdown("##### 🧭 Matriz de confusão (Vencedor Real × Vencedor Esperado)")
             st.dataframe(conf, use_container_width=True)
-
