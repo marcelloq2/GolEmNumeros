@@ -3,9 +3,13 @@ import pandas as pd
 import numpy as np
 import unicodedata
 import re
+from io import BytesIO
 
 st.set_page_config(page_title="GolEmNúmeros Dashboard", layout="wide")
 
+# =========================================
+# SESSION STATE
+# =========================================
 if "melhores_ganhos_mercado" not in st.session_state:
     st.session_state["melhores_ganhos_mercado"] = pd.DataFrame()
 
@@ -27,11 +31,27 @@ if "probs_bt_manual" not in st.session_state:
 if "resumo_bt_manual" not in st.session_state:
     st.session_state["resumo_bt_manual"] = {}
 
-if "df_bt_manual" not in st.session_state:
-    st.session_state["df_bt_manual"] = pd.DataFrame()
+if "baseline_geral" not in st.session_state:
+    st.session_state["baseline_geral"] = pd.DataFrame()
 
-if "probs_bt_manual" not in st.session_state:
-    st.session_state["probs_bt_manual"] = {}
+if "jogos_dia_ns_importados" not in st.session_state:
+    st.session_state["jogos_dia_ns_importados"] = pd.DataFrame()
+
+if "metodologias_grafico_filtradas" not in st.session_state:
+    st.session_state["metodologias_grafico_filtradas"] = []
+
+if "metodologia_visual_selecionada" not in st.session_state:
+    st.session_state["metodologia_visual_selecionada"] = None
+
+if "metodo_manual_digitado" not in st.session_state:
+    st.session_state["metodo_manual_digitado"] = {
+        "Mercado": "",
+        "Tipo_Metodologia": "",
+        "Variaveis": "",
+        "Faixas": "",
+        "Nome_Metodologia": ""
+    }
+
 # =========================================
 # LINK DA PLANILHA
 # =========================================
@@ -208,51 +228,11 @@ st.markdown("""
         padding: 16px;
         margin-bottom: 14px;
     }
-
-    .bt-chip {
-        display: inline-block;
-        background: rgba(80,110,220,0.35);
-        border: 1px solid rgba(120,150,255,0.25);
-        color: white;
-        padding: 6px 12px;
-        border-radius: 10px;
-        margin: 4px 6px 4px 0;
-        font-size: 14px;
-    }
-
-    .bt-card {
-        background: linear-gradient(180deg, rgba(22,53,120,0.95) 0%, rgba(18,41,94,0.95) 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        padding: 14px;
-        text-align: center;
-        margin-bottom: 12px;
-    }
-
-    .bt-card-red {
-        background: linear-gradient(180deg, rgba(139,20,52,0.95) 0%, rgba(110,15,40,0.95) 100%);
-    }
-
-    .bt-card-green {
-        background: linear-gradient(180deg, rgba(28,110,78,0.95) 0%, rgba(18,80,56,0.95) 100%);
-    }
-
-    .bt-card-gold {
-        background: linear-gradient(180deg, rgba(243,207,72,0.95) 0%, rgba(209,170,42,0.95) 100%);
-        color: #101010;
-    }
-
-    .bt-rank-box {
-        background: linear-gradient(180deg, rgba(28,24,60,0.95) 0%, rgba(18,15,40,0.95) 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
-        padding: 14px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================
-# FUNÇÕES
+# FUNÇÕES BÁSICAS
 # =========================================
 @st.cache_data(ttl=60)
 def carregar_google_sheet(url_csv: str) -> pd.DataFrame:
@@ -267,8 +247,10 @@ def carregar_google_sheet(url_csv: str) -> pd.DataFrame:
 
     return df
 
+
 def coluna_existe(df, coluna):
     return coluna in df.columns
+
 
 def normalizar_nome_coluna(txt):
     if txt is None:
@@ -279,12 +261,15 @@ def normalizar_nome_coluna(txt):
     txt = re.sub(r"\s+", " ", txt)
     return txt
 
+
 def mapa_colunas(df):
     return {normalizar_nome_coluna(c): c for c in df.columns}
+
 
 def encontrar_coluna_real(df, nome_desejado):
     mp = mapa_colunas(df)
     return mp.get(normalizar_nome_coluna(nome_desejado))
+
 
 def obter_valor_coluna_flex(df, nome_desejado):
     if df.empty:
@@ -297,12 +282,55 @@ def obter_valor_coluna_flex(df, nome_desejado):
         return "-"
     return str(valor)
 
+
 def multiselect_seguro(label, df, coluna, key=None):
     if coluna_existe(df, coluna):
         valores = sorted(df[coluna].dropna().astype(str).unique().tolist())
         return st.sidebar.multiselect(label, valores, default=valores, key=key)
     return []
 
+
+def to_num_val(v):
+    try:
+        return float(str(v).replace("%", "").replace(",", ".").strip())
+    except:
+        return None
+
+
+def fmt_num(v, casas=2):
+    n = to_num_val(v)
+    if n is None:
+        return "-"
+    return f"{n:.{casas}f}"
+
+
+def fmt_pct(v, casas=0):
+    n = to_num_val(v)
+    if n is None:
+        return "-"
+    return f"{n:.{casas}f}%"
+
+
+def media_lista(valores):
+    nums = [to_num_val(v) for v in valores]
+    nums = [x for x in nums if x is not None]
+    if not nums:
+        return "-"
+    return f"{sum(nums) / len(nums):.2f}"
+
+
+def to_num_series(s):
+    return pd.to_numeric(
+        s.astype(str)
+         .str.replace("%", "", regex=False)
+         .str.replace(",", ".", regex=False)
+         .str.strip(),
+        errors="coerce"
+    )
+
+# =========================================
+# FUNÇÕES DE FILTRO E RENDER
+# =========================================
 def aplicar_filtros(
     df,
     pais_sel,
@@ -363,6 +391,7 @@ def aplicar_filtros(
 
     return filtrado
 
+
 def render_cards(cards):
     cols = st.columns(len(cards))
     for col, (titulo, valor) in zip(cols, cards):
@@ -376,6 +405,7 @@ def render_cards(cards):
                 """,
                 unsafe_allow_html=True
             )
+
 
 def render_cards_verticais(metricas_casa, metricas_visit, nome_casa="CASA", nome_visit="VISITANTE"):
     col1, col2 = st.columns(2, gap="small")
@@ -418,111 +448,11 @@ def render_cards_verticais(metricas_casa, metricas_visit, nome_casa="CASA", nome
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-def normalizar_texto(valor):
-    if pd.isna(valor):
-        return ""
-    return str(valor).strip().lower().replace("  ", " ")
-
-def obter_linha_partida_por_times(df_origem, df_destino, partida):
-    if (
-        not coluna_existe(df_origem, "Partida")
-        or not coluna_existe(df_origem, "Home Team")
-        or not coluna_existe(df_origem, "Visitor Team")
-        or not coluna_existe(df_destino, "Home Team")
-        or not coluna_existe(df_destino, "Visitor Team")
-        or df_origem.empty
-        or df_destino.empty
-        or not partida
-        or partida == "Todas"
-    ):
-        return pd.DataFrame()
-
-    linha_origem = df_origem[df_origem["Partida"].astype(str) == str(partida)].head(1).copy()
-    if linha_origem.empty:
-        return pd.DataFrame()
-
-    home_sel = normalizar_texto(linha_origem.iloc[0]["Home Team"])
-    away_sel = normalizar_texto(linha_origem.iloc[0]["Visitor Team"])
-
-    home_dest = df_destino["Home Team"].astype(str).map(normalizar_texto)
-    away_dest = df_destino["Visitor Team"].astype(str).map(normalizar_texto)
-
-    return df_destino[(home_dest == home_sel) & (away_dest == away_sel)].head(1).copy()
-
-def to_num_val(v):
-    try:
-        return float(str(v).replace("%", "").replace(",", ".").strip())
-    except:
-        return None
-
-def fmt_num(v, casas=2):
-    n = to_num_val(v)
-    if n is None:
-        return "-"
-    return f"{n:.{casas}f}"
-
-def fmt_pct(v, casas=0):
-    n = to_num_val(v)
-    if n is None:
-        return "-"
-    return f"{n:.{casas}f}%"
-
-def media_lista(valores):
-    nums = [to_num_val(v) for v in valores]
-    nums = [x for x in nums if x is not None]
-    if not nums:
-        return "-"
-    return f"{sum(nums) / len(nums):.2f}"
-
-def to_num_series(s):
-    return pd.to_numeric(
-        s.astype(str)
-         .str.replace("%", "", regex=False)
-         .str.replace(",", ".", regex=False)
-         .str.strip(),
-        errors="coerce"
-    )
-
+# =========================================
+# VARIÁVEIS COMBINADAS
+# =========================================
 def criar_variaveis_combinadas(df_base: pd.DataFrame) -> pd.DataFrame:
     df_comb = df_base.copy()
-
-    colunas_necessarias = [
-        "Confrontos diretos - vitórias casa",
-        "Vitórias casa",
-        "Quando marcam o primeiro gol e ganha o jogo casa",
-        "Vitórias visitante",
-        "Média de chutes no gol marcados 1º tempo casa",
-        "Média total de chutes sofridos 1º tempo casa",
-        "Média de chutes no gol marcados 1º tempo visitante",
-        "Média total de chutes sofridos 1º tempo visitante",
-        "Confrontos diretos - vitórias visitante",
-        "Quando marcam o primeiro gol e ganha o jogo visitante",
-        "Média de gols 46-60' minutos",
-        "Média de gols 61-75' minutos",
-        "Média de gols 76-90' minutos",
-        "Média de gols 0-15' minutos",
-        "Média de gols 16-30' minutos",
-        "Média de gols 31-45' minutos",
-        "Mais de 0.5 gols 0-15'",
-        "Mais de 0.5 gols 16-30'",
-        "Mais de 0.5 gols 31-45'",
-        "Mais de 0.5 gols 46-60'",
-        "Mais de 0.5 gols 61-75'",
-        "Mais de 0.5 gols 76-90'",
-        "Média de gols sofridos primeiro tempo casa",
-        "Média de gols sofridos primeiro tempo visitante",
-        "Média de gols marcados primeiro tempo casa",
-        "Média de gols marcados primeiro tempo visitante",
-        "Média de chutes marcados 1º tempo casa",
-        "Média de chutes marcados 1º tempo visitante",
-        "Média de chutes marcados primeiro tempo casa",
-        "Média de chutes marcados primeiro tempo visitante",
-    ]
-
-    for nome in colunas_necessarias:
-        col_real = encontrar_coluna_real(df_comb, nome)
-        if col_real:
-            df_comb[col_real] = to_num_series(df_comb[col_real])
 
     def c(nome):
         col_real = encontrar_coluna_real(df_comb, nome)
@@ -622,55 +552,27 @@ def criar_variaveis_combinadas(df_base: pd.DataFrame) -> pd.DataFrame:
 
     serie_chutes_marc_casa = c_multi(
         "Média de chutes marcados 1º tempo casa",
-        "Média de chutes marcados primeiro tempo casa",
-        "Media de chutes marcados 1º tempo casa",
-        "Media de chutes marcados primeiro tempo casa",
-        "Média de chutes 1º tempo casa",
-        "Media de chutes 1º tempo casa"
+        "Média de chutes marcados primeiro tempo casa"
     )
 
     serie_chutes_marc_visit = c_multi(
         "Média de chutes marcados 1º tempo visitante",
-        "Média de chutes marcados primeiro tempo visitante",
-        "Media de chutes marcados 1º tempo visitante",
-        "Media de chutes marcados primeiro tempo visitante",
-        "Média de chutes 1º tempo visitante",
-        "Media de chutes 1º tempo visitante"
+        "Média de chutes marcados primeiro tempo visitante"
     )
 
     if serie_chutes_marc_casa.isna().all() or serie_chutes_marc_visit.isna().all():
-        serie_chutes_marc_casa = c_multi(
-            "Média de chutes no gol marcados 1º tempo casa",
-            "Média de chutes no gol marcados primeiro tempo casa",
-            "Media de chutes no gol marcados 1º tempo casa",
-            "Media de chutes no gol marcados primeiro tempo casa"
-        )
-
-        serie_chutes_marc_visit = c_multi(
-            "Média de chutes no gol marcados 1º tempo visitante",
-            "Média de chutes no gol marcados primeiro tempo visitante",
-            "Media de chutes no gol marcados 1º tempo visitante",
-            "Media de chutes no gol marcados primeiro tempo visitante"
-        )
+        serie_chutes_marc_casa = c_multi("Média de chutes no gol marcados 1º tempo casa")
+        serie_chutes_marc_visit = c_multi("Média de chutes no gol marcados 1º tempo visitante")
 
     df_comb["[COMB] Diff | Chutes_Marcados_1T"] = (
         serie_chutes_marc_casa - serie_chutes_marc_visit
     )
 
-    return df_comb    
+    return df_comb
 
 # =========================================
-# SIDEBAR
+# CONFIG BASE ATIVA
 # =========================================
-st.sidebar.markdown("## ⚽ GOL EM NÚMEROS")
-st.sidebar.markdown("## Fonte de dados")
-st.sidebar.markdown("**Base ativa:** 1_Odds_Indicadores")
-
-if st.sidebar.button("Atualizar dados"):
-    st.cache_data.clear()
-    st.rerun()
-
-
 nome_planilha = "1_Odds_Indicadores"
 url_planilha = PLANILHA_ODDS
 chave_base = nome_planilha
@@ -706,69 +608,97 @@ if coluna_existe(df_odds, "Home Team") and coluna_existe(df_odds, "Visitor Team"
     df_odds["Partida"] = df_odds["Home Team"].astype(str) + " x " + df_odds["Visitor Team"].astype(str)
 
 # =========================================
-# FILTROS SIDEBAR
+# SIDEBAR / NAVEGAÇÃO
 # =========================================
-st.sidebar.markdown("## Filtre os dados")
+pagina = st.sidebar.radio(
+    "Área",
+    ["Dashboard", "Backtest"],
+    index=0
+)
 
-pais_sel = multiselect_seguro("Country", df, "Country", key=f"country_{chave_base}")
-liga_sel = multiselect_seguro("League", df, "League", key=f"league_{chave_base}")
-st.sidebar.markdown("### Filtro por Odds")
+if pagina == "Dashboard":
+    st.sidebar.markdown("## ⚽ GOL EM NÚMEROS")
+    st.sidebar.markdown("## Fonte de dados")
+    st.sidebar.markdown(f"**Base ativa:** {nome_planilha}")
 
-odds_colunas_disponiveis = [
-    "Odds casa para vencer",
-    "Odds empate",
-    "Odds visitante para vencer",
-    "Odds mais de 2.5",
-    "Odds menos de 2.5",
-    "Odds ambas equipes marcarem sim",
-    "Odds ambas equipes marcarem não",
-]
+    if st.sidebar.button("Atualizar dados"):
+        st.cache_data.clear()
+        st.rerun()
 
-odds_colunas_validas = [
-    c for c in odds_colunas_disponiveis
-    if coluna_existe(df, c)
-]
+    st.sidebar.markdown("## Filtre os dados")
 
-mercado_odd_sel = None
-odd_range_sel = None
+    pais_sel = multiselect_seguro("Country", df, "Country", key=f"country_{chave_base}")
+    liga_sel = multiselect_seguro("League", df, "League", key=f"league_{chave_base}")
 
-if odds_colunas_validas:
-    mercado_odd_sel = st.sidebar.selectbox(
-        "Mercado de Odds",
-        odds_colunas_validas,
-        key=f"mercado_odds_{chave_base}"
-    )
+    st.sidebar.markdown("### Filtro por Odds")
 
-    col_odd_real_sidebar = encontrar_coluna_real(df, mercado_odd_sel)
+    odds_colunas_disponiveis = [
+        "Odds casa para vencer",
+        "Odds empate",
+        "Odds visitante para vencer",
+        "Odds mais de 2.5",
+        "Odds menos de 2.5",
+        "Odds ambas equipes marcarem sim",
+        "Odds ambas equipes marcarem não",
+    ]
 
-    if col_odd_real_sidebar and col_odd_real_sidebar in df.columns:
-        serie_odds_sidebar = pd.to_numeric(df[col_odd_real_sidebar], errors="coerce").dropna()
+    odds_colunas_validas = [c for c in odds_colunas_disponiveis if encontrar_coluna_real(df, c)]
 
-        if not serie_odds_sidebar.empty:
-            odd_min_base = float(serie_odds_sidebar.min())
-            odd_max_base = float(serie_odds_sidebar.max())
+    mercado_odd_sel = None
+    odd_range_sel = None
 
-            odd_inicial = st.sidebar.number_input(
-                "Odd inicial",
-                min_value=0.0,
-                value=float(round(odd_min_base, 2)),
-                step=0.01,
-                key=f"odd_inicial_{chave_base}"
-            )
+    if odds_colunas_validas:
+        mercado_odd_sel = st.sidebar.selectbox(
+            "Mercado de Odds",
+            odds_colunas_validas,
+            key=f"mercado_odds_{chave_base}"
+        )
 
-            odd_final = st.sidebar.number_input(
-                "Odd final",
-                min_value=0.0,
-                value=float(round(odd_max_base, 2)),
-                step=0.01,
-                key=f"odd_final_{chave_base}"
-            )
+        col_odd_real_sidebar = encontrar_coluna_real(df, mercado_odd_sel)
 
-            odd_range_sel = (odd_inicial, odd_final)
-status_sel = multiselect_seguro("Status", df, "Status", key=f"status_{chave_base}")
-short_sel = multiselect_seguro("Short", df, "Short", key=f"short_{chave_base}")
-busca_partida = st.sidebar.text_input("Buscar partida", key=f"busca_partida_{chave_base}")
+        if col_odd_real_sidebar and col_odd_real_sidebar in df.columns:
+            serie_odds_sidebar = pd.to_numeric(df[col_odd_real_sidebar], errors="coerce").dropna()
 
+            if not serie_odds_sidebar.empty:
+                odd_min_base = float(serie_odds_sidebar.min())
+                odd_max_base = float(serie_odds_sidebar.max())
+
+                odd_inicial = st.sidebar.number_input(
+                    "Odd inicial",
+                    min_value=0.0,
+                    value=float(round(odd_min_base, 2)),
+                    step=0.01,
+                    key=f"odd_inicial_{chave_base}"
+                )
+
+                odd_final = st.sidebar.number_input(
+                    "Odd final",
+                    min_value=0.0,
+                    value=float(round(odd_max_base, 2)),
+                    step=0.01,
+                    key=f"odd_final_{chave_base}"
+                )
+
+                odd_range_sel = (odd_inicial, odd_final)
+
+    status_sel = multiselect_seguro("Status", df, "Status", key=f"status_{chave_base}")
+    short_sel = multiselect_seguro("Short", df, "Short", key=f"short_{chave_base}")
+    busca_partida = st.sidebar.text_input("Buscar partida", key=f"busca_partida_{chave_base}")
+
+else:
+    st.sidebar.markdown("## Painel do Backtest")
+
+    pais_sel = []
+    liga_sel = []
+    mercado_odd_sel = None
+    odd_range_sel = None
+    status_sel = []
+    short_sel = []
+    busca_partida = ""
+
+# =========================================
+# APLICAR FILTROS NA BASE PRINCIPAL
+# =========================================
 df_filtrado = aplicar_filtros(
     df,
     pais_sel,
@@ -783,7 +713,13 @@ df_filtrado = aplicar_filtros(
 # =========================================
 # TÍTULO
 # =========================================
-st.markdown('<div class="titulo-topo">⚽ GolEmNúmeros - Dashboard</div>', unsafe_allow_html=True)
+titulo_pagina = "Dashboard" if pagina == "Dashboard" else "Backtest"
+
+st.markdown(
+    f'<div class="titulo-topo">⚽ GolEmNúmeros - {titulo_pagina}</div>',
+    unsafe_allow_html=True
+)
+
 st.markdown(
     f'<div class="subtitulo-topo">Fonte atual: {nome_planilha} | Linhas carregadas: {len(df)}</div>',
     unsafe_allow_html=True
@@ -792,48 +728,29 @@ st.markdown(
 # =========================================
 # CAMPO DE SELEÇÃO DE PARTIDA NO TOPO
 # =========================================
-if coluna_existe(df_filtrado, "Partida"):
-    partidas_disponiveis = sorted(df_filtrado["Partida"].dropna().astype(str).unique())
+if pagina == "Dashboard":
+    if coluna_existe(df_filtrado, "Partida"):
+        partidas_disponiveis = sorted(df_filtrado["Partida"].dropna().astype(str).unique())
 
-    st.markdown('<div class="caixa-selecao">', unsafe_allow_html=True)
-    partida_selecionada = st.selectbox(
-        f"Selecionar partida na planilha: {nome_planilha}",
-        partidas_disponiveis,
-        index=0,
-        key=f"partida_topo_{chave_base}"
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    df_filtrado = df_filtrado[df_filtrado["Partida"].astype(str) == partida_selecionada].copy()
+        if len(partidas_disponiveis) > 0:
+            st.markdown('<div class="caixa-selecao">', unsafe_allow_html=True)
+            partida_selecionada = st.selectbox(
+                f"Selecionar partida na planilha: {nome_planilha}",
+                partidas_disponiveis,
+                index=0,
+                key=f"partida_topo_{chave_base}"
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+            df_filtrado = df_filtrado[df_filtrado["Partida"].astype(str) == partida_selecionada].copy()
+        else:
+            partida_selecionada = None
+    else:
+        partida_selecionada = None
 else:
     partida_selecionada = None
-# =========================================
-# MÉTRICAS GERAIS
-# =========================================
-total_linhas = len(df_filtrado)
-
-if coluna_existe(df_filtrado, "Partida"):
-    total_partidas = df_filtrado["Partida"].nunique()
-else:
-    total_partidas = total_linhas
-
-ligas_unicas = df_filtrado["League"].nunique() if coluna_existe(df_filtrado, "League") else 0
-paises_unicos = df_filtrado["Country"].nunique() if coluna_existe(df_filtrado, "Country") else 0
-ft_qtd = (df_filtrado["Status"].astype(str).str.upper() == "FT").sum() if coluna_existe(df_filtrado, "Status") else 0
-ns_qtd = (df_filtrado["Status"].astype(str).str.upper() == "NS").sum() if coluna_existe(df_filtrado, "Status") else 0
-
-live_qtd = (
-    df_filtrado["Status"].astype(str).str.upper().isin(["LIVE", "1H", "HT", "2H"]).sum()
-    if coluna_existe(df_filtrado, "Status") else 0
-)
-
-hoje_qtd = 0
-if coluna_existe(df_filtrado, "Hour"):
-    hoje_str = pd.Timestamp.now().strftime("%d/%m/%Y")
-    hoje_qtd = df_filtrado["Hour"].astype(str).str.startswith(hoje_str, na=False).sum()
 
 # =========================================
-# DADOS DA PLANILHA 1_Odds_Indicadores
+# DADOS DA PLANILHA
 # =========================================
 linha_odds_partida = pd.DataFrame()
 home_nome = "CASA"
@@ -844,7 +761,6 @@ if partida_selecionada is not None and coluna_existe(df_odds, "Partida"):
         df_odds["Partida"].astype(str) == str(partida_selecionada)
     ].copy()
 
-# fallback: usa a própria base filtrada se não achar na df_odds
 if linha_odds_partida.empty and not df_filtrado.empty:
     linha_odds_partida = df_filtrado.copy()
 
@@ -853,9 +769,6 @@ if not linha_odds_partida.empty:
         home_nome = str(linha_odds_partida.iloc[0]["Home Team"])
     if coluna_existe(linha_odds_partida, "Visitor Team"):
         visit_nome = str(linha_odds_partida.iloc[0]["Visitor Team"])
-
-if linha_odds_partida.empty:
-    st.warning("Não foi possível localizar a linha da partida selecionada na base.")
 
 odd_casa = obter_valor_coluna_flex(linha_odds_partida, "Odds casa para vencer")
 odd_empate = obter_valor_coluna_flex(linha_odds_partida, "Odds empate")
@@ -913,22 +826,13 @@ over05_61_75 = obter_valor_coluna_flex(linha_odds_partida, "Mais de 0.5 gols 61-
 over05_76_90 = obter_valor_coluna_flex(linha_odds_partida, "Mais de 0.5 gols 76-90'")
 
 # =========================================
-# VARIÁVEIS COMBINADAS DA LINHA
-# =========================================
-comb_pressao_liquida_1t_casa = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Pressao_Liquida_1T_Casa")
-comb_pressao_liquida_1t_visitante = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Pressao_Liquida_1T_Visitante")
-comb_soma_h2h_win_casa_atual_win_casa = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Soma | H2H_Win_Casa x Atual_Win_Casa")
-comb_soma_h2h_win_visit_atual_win_visit = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Soma | H2H_Win_Visitante x Atual_Win_Visitante")
-comb_prod_h2h_win_casa_marcou_primeiro_casa = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Produto | H2H_Win_Casa x Atual_MarcouPrimeiro_Casa")
-comb_prod_h2h_win_visit_marcou_primeiro_visit = obter_valor_coluna_flex(linha_odds_partida, "[COMB] Produto | H2H_Win_Visitante x Atual_MarcouPrimeiro_Visitante")
-
-# =========================================
 # MÉTRICAS DERIVADAS
 # =========================================
 ml_potencia_ofensiva_casa = media_lista([
     gols_marc_1t_casa, chutes_gol_casa, precisao_casa,
     marca_primeiro_ganha_casa, odd_casa
 ])
+
 ml_potencia_ofensiva_visit = media_lista([
     gols_marc_1t_visit, chutes_gol_visit, precisao_visit,
     marca_primeiro_ganha_visit, odd_visitante
@@ -938,6 +842,7 @@ ml_solidez_defensiva_casa = media_lista([
     gols_sofr_1t_casa, chutes_sofr_1t_casa,
     sofre_primeiro_ganha_casa, odd_under25
 ])
+
 ml_solidez_defensiva_visit = media_lista([
     gols_sofr_1t_visit, chutes_sofr_1t_visit,
     sofre_primeiro_ganha_visit, odd_under25
@@ -946,6 +851,7 @@ ml_solidez_defensiva_visit = media_lista([
 ml_pressao_jogo_casa = media_lista([
     chutes_gol_1t_casa, gols_0_15, gols_16_30, over05_0_15, over05_16_30
 ])
+
 ml_pressao_jogo_visit = media_lista([
     chutes_gol_1t_visit, gols_31_45, gols_46_60, over05_31_45, over05_46_60
 ])
@@ -953,6 +859,7 @@ ml_pressao_jogo_visit = media_lista([
 ml_controle_partida_casa = media_lista([
     vitorias_casa, h2h_vit_casa, odd_casa, odd_empate
 ])
+
 ml_controle_partida_visit = media_lista([
     vitorias_visit, h2h_vit_visit, odd_visitante, odd_empate
 ])
@@ -976,22 +883,11 @@ metricas_base_casa = [
     ("Quando marcam o primeiro gol e ganha o jogo casa", fmt_pct(marca_primeiro_ganha_casa)),
     ("Quando sofre o primeiro gol e ganha o jogo casa", fmt_pct(sofre_primeiro_ganha_casa)),
     ("Média de gols marcados primeiro tempo casa", fmt_num(gols_marc_1t_casa)),
-    ("Média de gols sofridos primeiro tempo visitante", fmt_num(gols_sofr_1t_visit)),
     ("Média de chutes no gol marcados 1º tempo casa", fmt_num(chutes_gol_1t_casa)),
     ("Média total de chutes sofridos 1º tempo casa", fmt_num(chutes_sofr_1t_casa)),
     ("Confrontos diretos - vitórias casa", fmt_pct(h2h_vit_casa)),
     ("Confrontos diretos - marcou primeiro casa", fmt_pct(h2h_marcou_primeiro_casa)),
     ("Vitórias casa", fmt_pct(vitorias_casa)),
-    ("[COMB] Pressao_Liquida_1T_Casa", fmt_num(comb_pressao_liquida_1t_casa)),
-    ("[COMB] Soma | H2H_Win_Casa x Atual_Win_Casa", fmt_num(comb_soma_h2h_win_casa_atual_win_casa)),
-    ("[COMB] Produto | H2H_Win_Casa x Atual_MarcouPrimeiro_Casa", fmt_num(comb_prod_h2h_win_casa_marcou_primeiro_casa)),
-    ("[COMB] Diff | Gols_Marcados_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Gols_Marcados_1T"))),
-    ("[COMB] Diff | Pressao_Liquida_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Pressao_Liquida_1T"))),
-    ("[COMB] Diff | Gols_Sofridos_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Gols_Sofridos_1T"))),
-    ("[COMB] Diff | Chutes_Sofridos_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Chutes_Sofridos_1T"))),
-    ("Odds menos de 2.5", fmt_num(odd_under25)),
-    ("Odds ambas equipes marcarem sim", fmt_num(odd_btts_sim)),
-    ("Odds ambas equipes marcarem não", fmt_num(odd_btts_nao)),
     ("Potência Ofensiva casa", ml_potencia_ofensiva_casa),
     ("Solidez Defensiva casa", ml_solidez_defensiva_casa),
     ("Pressão de Jogo casa", ml_pressao_jogo_casa),
@@ -1004,22 +900,11 @@ metricas_base_visit = [
     ("Quando marcam o primeiro gol e ganha o jogo visitante", fmt_pct(marca_primeiro_ganha_visit)),
     ("Quando sofre o primeiro gol e ganha o jogo visitante", fmt_pct(sofre_primeiro_ganha_visit)),
     ("Média de gols marcados primeiro tempo visitante", fmt_num(gols_marc_1t_visit)),
-    ("Média de gols sofridos primeiro tempo casa", fmt_num(gols_sofr_1t_casa)),
     ("Média de chutes no gol marcados 1º tempo visitante", fmt_num(chutes_gol_1t_visit)),
-    ("Média total de chutes sofridos 1º tempo casa", fmt_num(chutes_sofr_1t_casa)),
+    ("Média total de chutes sofridos 1º tempo visitante", fmt_num(chutes_sofr_1t_visit)),
     ("Confrontos diretos - vitórias visitante", fmt_pct(h2h_vit_visit)),
     ("Confrontos diretos - marcou primeiro visitante", fmt_pct(h2h_marcou_primeiro_visit)),
     ("Vitórias visitante", fmt_pct(vitorias_visit)),
-    ("[COMB] Pressao_Liquida_1T_Visitante", fmt_num(comb_pressao_liquida_1t_visitante)),
-    ("[COMB] Soma | H2H_Win_Visitante x Atual_Win_Visitante", fmt_num(comb_soma_h2h_win_visit_atual_win_visit)),
-    ("[COMB] Produto | H2H_Win_Visitante x Atual_MarcouPrimeiro_Visitante", fmt_num(comb_prod_h2h_win_visit_marcou_primeiro_visit)),
-    ("[COMB] Diff | Pressao_Liquida_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Pressao_Liquida_1T"))),
-    ("[COMB] Diff | Gols_Sofridos_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Gols_Sofridos_1T"))),
-    ("[COMB] Diff | Chutes_Sofridos_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Chutes_Sofridos_1T"))),
-    ("[COMB] Diff | Chutes_Marcados_1T", fmt_num(obter_valor_coluna_flex(linha_odds_partida, "[COMB] Diff | Chutes_Marcados_1T"))),
-    ("Odds menos de 2.5", fmt_num(odd_under25)),
-    ("Odds ambas equipes marcarem sim", fmt_num(odd_btts_sim)),
-    ("Odds ambas equipes marcarem não", fmt_num(odd_btts_nao)),
     ("Potência Ofensiva visitante", ml_potencia_ofensiva_visit),
     ("Solidez Defensiva visitante", ml_solidez_defensiva_visit),
     ("Pressão de Jogo visitante", ml_pressao_jogo_visit),
@@ -1042,7 +927,7 @@ cards_janelas = [
 ]
 
 # =========================================
-# MODELO HISTÓRICO - TARGETS REAIS E TESTE POR FAIXA
+# BACKTEST - TARGETS E RESULTADOS
 # =========================================
 def criar_targets_reais(df_base: pd.DataFrame) -> pd.DataFrame:
     df_real = df_base.copy()
@@ -1063,33 +948,25 @@ def criar_targets_reais(df_base: pd.DataFrame) -> pd.DataFrame:
 
     df_real["Gols_Total"] = df_real[col_home] + df_real[col_away]
 
-    # 1X2
     df_real["Casa_Vence_Real"] = (df_real[col_home] > df_real[col_away]).astype(int)
     df_real["Empate_Real"] = (df_real[col_home] == df_real[col_away]).astype(int)
     df_real["Visitante_Vence_Real"] = (df_real[col_home] < df_real[col_away]).astype(int)
 
-    # Dupla chance
     df_real["Casa_ou_Empate_Real"] = (df_real[col_home] >= df_real[col_away]).astype(int)
     df_real["Empate_ou_Visitante_Real"] = (df_real[col_home] <= df_real[col_away]).astype(int)
     df_real["Casa_ou_Visitante_Real"] = (df_real[col_home] != df_real[col_away]).astype(int)
 
-    # Over
     df_real["Over_05_Real"] = (df_real["Gols_Total"] > 0.5).astype(int)
     df_real["Over_15_Real"] = (df_real["Gols_Total"] > 1.5).astype(int)
     df_real["Over_25_Real"] = (df_real["Gols_Total"] > 2.5).astype(int)
 
-    # Under
     df_real["Under_05_Real"] = (df_real["Gols_Total"] < 0.5).astype(int)
     df_real["Under_15_Real"] = (df_real["Gols_Total"] < 1.5).astype(int)
     df_real["Under_25_Real"] = (df_real["Gols_Total"] < 2.5).astype(int)
 
-    # BTTS
     df_real["BTTS_Sim_Real"] = ((df_real[col_home] > 0) & (df_real[col_away] > 0)).astype(int)
     df_real["BTTS_Nao_Real"] = ((df_real[col_home] == 0) | (df_real[col_away] == 0)).astype(int)
 
-    # =========================================
-    # PROFIT REAL POR MERCADO COM ODD DISPONÍVEL
-    # =========================================
     mapa_odds_profit = {
         "Casa_Vence_Real": "Odds casa para vencer",
         "Empate_Real": "Odds empate",
@@ -1113,80 +990,76 @@ def criar_targets_reais(df_base: pd.DataFrame) -> pd.DataFrame:
             df_real[f"{mercado_real}_Profit"] = np.nan
 
     return df_real
+
+
 def testar_variaveis_por_faixa(
-    df_base: pd.DataFrame,
-    variaveis_teste: list[str],
+    df_modelo: pd.DataFrame,
+    variaveis_modelo: list[str],
     min_jogos_faixa: int = 20,
     q_faixas: int = 5
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-
-    mercados_reais = [
+):
+    mercados = [
         "Casa_Vence_Real",
         "Empate_Real",
         "Visitante_Vence_Real",
-        "Casa_ou_Empate_Real",
-        "Empate_ou_Visitante_Real",
-        "Casa_ou_Visitante_Real",
-        "Over_05_Real",
-        "Over_15_Real",
         "Over_25_Real",
-        "Under_05_Real",
-        "Under_15_Real",
         "Under_25_Real",
         "BTTS_Sim_Real",
         "BTTS_Nao_Real",
     ]
 
-    df_teste = df_base.copy()
+    baseline_rows = []
+    resultado_rows = []
 
-    mercados_validos = [m for m in mercados_reais if m in df_teste.columns]
-    if not mercados_validos:
-        return pd.DataFrame(), pd.DataFrame()
-
-    baseline_geral = (
-        df_teste[mercados_validos]
-        .mean()
-        .rename("Taxa_Geral")
-        .reset_index()
-        .rename(columns={"index": "Mercado"})
-    )
-
-    resultados = []
-
-    for var in variaveis_teste:
-        col_var = encontrar_coluna_real(df_teste, var)
-        if not col_var or col_var not in df_teste.columns:
+    for mercado in mercados:
+        if mercado not in df_modelo.columns:
             continue
 
-        base_var = df_teste.copy()
-        base_var[col_var] = pd.to_numeric(base_var[col_var], errors="coerce")
-        base_var = base_var.dropna(subset=[col_var]).copy()
-
-        if len(base_var) < max(40, q_faixas * 8):
+        profit_col = f"{mercado}_Profit"
+        if profit_col not in df_modelo.columns:
             continue
 
-        try:
-            base_var["Faixa"] = pd.qcut(base_var[col_var], q=q_faixas, duplicates="drop")
-        except Exception:
-            continue
+        base_mercado = df_modelo[[mercado, profit_col]].copy()
+        base_mercado = base_mercado.dropna()
 
-        for mercado in mercados_validos:
-            taxa_geral = float(df_teste[mercado].mean())
-            col_profit = f"{mercado}_Profit"
-            profit_disponivel = col_profit in base_var.columns and base_var[col_profit].notna().any()
+        if len(base_mercado) > 0:
+            baseline_rows.append({
+                "Mercado": mercado,
+                "Jogos": len(base_mercado),
+                "Taxa_Acerto": base_mercado[mercado].mean(),
+                "Lucro_Total": base_mercado[profit_col].sum(),
+                "Ganho_pp": base_mercado[profit_col].mean(),
+            })
 
-            agg_dict = {
-                "Jogos": (mercado, "size"),
-                "Taxa": (mercado, "mean"),
-            }
+        for variavel in variaveis_modelo:
+            col_real = encontrar_coluna_real(df_modelo, variavel)
+            if not col_real or col_real not in df_modelo.columns:
+                continue
 
-            if profit_disponivel:
-                agg_dict["Profit_Total"] = (col_profit, "sum")
+            base = df_modelo[[col_real, mercado, profit_col]].copy()
+            base[col_real] = pd.to_numeric(base[col_real], errors="coerce")
+            base = base.dropna()
+
+            if len(base) < max(min_jogos_faixa, q_faixas):
+                continue
+
+            try:
+                base["Faixa"] = pd.qcut(
+                    base[col_real],
+                    q=min(q_faixas, base[col_real].nunique()),
+                    duplicates="drop"
+                )
+            except:
+                continue
 
             resumo = (
-                base_var
-                .groupby("Faixa", observed=True)
-                .agg(**agg_dict)
+                base.groupby("Faixa", observed=True)
+                .agg(
+                    Jogos=(mercado, "size"),
+                    Taxa_Acerto=(mercado, "mean"),
+                    Lucro_Total=(profit_col, "sum"),
+                    Ganho_pp=(profit_col, "mean")
+                )
                 .reset_index()
             )
 
@@ -1194,431 +1067,196 @@ def testar_variaveis_por_faixa(
             if resumo.empty:
                 continue
 
-            resumo["Variavel"] = var
             resumo["Mercado"] = mercado
-            resumo["Taxa_Geral"] = taxa_geral
-            resumo["Ganho_pp"] = (resumo["Taxa"] - resumo["Taxa_Geral"]) * 100
-            resumo["Taxa"] = resumo["Taxa"] * 100
-            resumo["Taxa_Geral"] = resumo["Taxa_Geral"] * 100
+            resumo["Variavel"] = variavel
+            resumo["Faixa"] = resumo["Faixa"].astype(str)
 
-            if profit_disponivel:
-                resumo["ROI_pct"] = np.where(
-                    resumo["Jogos"] > 0,
-                    (resumo["Profit_Total"] / resumo["Jogos"]) * 100,
-                    np.nan
-                )
+            resultado_rows.extend(resumo.to_dict("records"))
 
-                profit_geral = float(df_teste[col_profit].dropna().sum()) if col_profit in df_teste.columns else np.nan
-                jogos_profit_geral = float(df_teste[col_profit].dropna().shape[0]) if col_profit in df_teste.columns else np.nan
-
-                resumo["Profit_Geral"] = profit_geral
-                resumo["ROI_Geral_pct"] = (
-                    (profit_geral / jogos_profit_geral) * 100
-                    if jogos_profit_geral and jogos_profit_geral > 0 else np.nan
-                )
-            else:
-                resumo["Profit_Total"] = np.nan
-                resumo["ROI_pct"] = np.nan
-                resumo["Profit_Geral"] = np.nan
-                resumo["ROI_Geral_pct"] = np.nan
-
-            resultados.append(
-                resumo[[
-                    "Mercado", "Variavel", "Faixa", "Jogos",
-                    "Taxa_Geral", "Taxa", "Ganho_pp",
-                    "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-                ]]
-            )
-
-    if not resultados:
-        return baseline_geral, pd.DataFrame()
-
-    resultado_faixas = pd.concat(resultados, ignore_index=True)
-    resultado_faixas = resultado_faixas.sort_values(
-        ["Mercado", "Ganho_pp", "Jogos"],
-        ascending=[True, False, False]
-    ).reset_index(drop=True)
+    baseline_geral = pd.DataFrame(baseline_rows)
+    resultado_faixas = pd.DataFrame(resultado_rows)
 
     return baseline_geral, resultado_faixas
 
 
-# =========================================
-# VARIÁVEIS QUE SERÃO TESTADAS
-# =========================================
-variaveis_modelo = [
-    "Precisão nos chutes no alvo casa",
-    "Precisão nos chutes no alvo visitante",
-    "Chutes por gol casa",
-    "Chutes por gol visitante",
-    "Quando marcam o primeiro gol e ganha o jogo casa",
-    "Quando marcam o primeiro gol e ganha o jogo visitante",
-    "Quando sofre o primeiro gol e ganha o jogo casa",
-    "Quando sofre o primeiro gol e ganha o jogo visitante",
-    "Média de gols marcados primeiro tempo casa",
-    "Média de gols marcados primeiro tempo visitante",
-    "Média de gols sofridos primeiro tempo casa",
-    "Média de gols sofridos primeiro tempo visitante",
-    "Média de chutes no gol marcados 1º tempo casa",
-    "Média de chutes no gol marcados 1º tempo visitante",
-    "Média total de chutes sofridos 1º tempo casa",
-    "Média total de chutes sofridos 1º tempo visitante",
-    "Confrontos diretos - vitórias casa",
-    "Confrontos diretos - vitórias visitante",
-    "Confrontos diretos - marcou primeiro casa",
-    "Confrontos diretos - marcou primeiro visitante",
-    "Vitórias casa",
-    "Vitórias visitante",
-    "[COMB] Pressao_Liquida_1T_Casa",
-    "[COMB] Pressao_Liquida_1T_Visitante",
-    "[COMB] Soma | H2H_Win_Casa x Atual_Win_Casa",
-    "[COMB] Soma | H2H_Win_Visitante x Atual_Win_Visitante",
-    "[COMB] Produto | H2H_Win_Casa x Atual_MarcouPrimeiro_Casa",
-    "[COMB] Produto | H2H_Win_Visitante x Atual_MarcouPrimeiro_Visitante",
-    "[COMB] Diff | Gols_Marcados_1T",
-    "[COMB] Diff | Pressao_Liquida_1T",
-    "[COMB] Diff | Gols_Sofridos_1T",
-    "[COMB] Diff | Chutes_Sofridos_1T",
-    "[COMB] Diff | Chutes_Marcados_1T",
-    "Odds menos de 2.5",
-    "Odds ambas equipes marcarem sim",
-    "Odds ambas equipes marcarem não",
-    "Potência Ofensiva casa",
-    "Potência Ofensiva visitante",
-    "Solidez Defensiva casa",
-    "Solidez Defensiva visitante",
-    "Pressão de Jogo casa",
-    "Pressão de Jogo visitante",
-    "Controle da Partida casa",
-    "Controle da Partida visitante",
-    "Média de gols 0-15' minutos",
-    "Média de gols 16-30' minutos",
-    "Média de gols 31-45' minutos",
-    "Média de gols 46-60' minutos",
-    "Média de gols 61-75' minutos",
-    "Média de gols 76-90' minutos",
-    "Mais de 0.5 gols 0-15'",
-    "Mais de 0.5 gols 16-30'",
-    "Mais de 0.5 gols 31-45'",
-    "Mais de 0.5 gols 46-60'",
-    "Mais de 0.5 gols 61-75'",
-    "Mais de 0.5 gols 76-90'",
-]
-
-variaveis_backtest_manual = variaveis_modelo.copy() + [
-    "Diff | Precisão nos chutes no alvo",
-    "Diff | Chutes por gol",
-    "Diff | Potência Ofensiva",
-    "Diff | Solidez Defensiva",
-    "Diff | Pressão de Jogo",
-    "Diff | Controle da Partida",
-
-    "Razão | Potência Ofensiva",
-    "Razão | Pressão de Jogo",
-    "Razão | Controle da Partida",
-]
-# =========================================
-# MODELO HISTÓRICO - COMBINAÇÕES DE 2 VARIÁVEIS
-# =========================================
-# =========================================
-# MODELO HISTÓRICO - COMBINAÇÕES DE 2 VARIÁVEIS
-# =========================================
 def testar_combinacoes_2_variaveis(
-    df_base: pd.DataFrame,
-    variaveis_teste: list[str],
+    df_modelo: pd.DataFrame,
+    variaveis_modelo: list[str],
     min_jogos_combo: int = 15,
     q_faixas: int = 4,
     max_combinacoes: int = 40
-) -> pd.DataFrame:
+):
+    from itertools import combinations
 
-    mercados_reais = [
+    mercados = [
         "Casa_Vence_Real",
         "Empate_Real",
         "Visitante_Vence_Real",
-        "Casa_ou_Empate_Real",
-        "Empate_ou_Visitante_Real",
-        "Casa_ou_Visitante_Real",
-        "Over_05_Real",
-        "Over_15_Real",
         "Over_25_Real",
-        "Under_05_Real",
-        "Under_15_Real",
         "Under_25_Real",
         "BTTS_Sim_Real",
         "BTTS_Nao_Real",
     ]
 
-    df_teste = df_base.copy()
-    mercados_validos = [m for m in mercados_reais if m in df_teste.columns]
-    if not mercados_validos:
-        return pd.DataFrame()
-
     variaveis_validas = []
-    for var in variaveis_teste:
-        col = encontrar_coluna_real(df_teste, var)
-        if col and col in df_teste.columns:
-            variaveis_validas.append(var)
+    for variavel in variaveis_modelo:
+        col_real = encontrar_coluna_real(df_modelo, variavel)
+        if col_real and col_real in df_modelo.columns:
+            variaveis_validas.append((variavel, col_real))
 
-    variaveis_validas = variaveis_validas[:max_combinacoes]
-    resultados = []
+    combos = list(combinations(variaveis_validas, 2))[:max_combinacoes]
+    resultado_rows = []
 
-    for i in range(len(variaveis_validas)):
-        for j in range(i + 1, len(variaveis_validas)):
-            var1 = variaveis_validas[i]
-            var2 = variaveis_validas[j]
+    for mercado in mercados:
+        if mercado not in df_modelo.columns:
+            continue
 
-            col1 = encontrar_coluna_real(df_teste, var1)
-            col2 = encontrar_coluna_real(df_teste, var2)
+        profit_col = f"{mercado}_Profit"
+        if profit_col not in df_modelo.columns:
+            continue
 
-            if not col1 or not col2:
-                continue
+        for (var1, col1), (var2, col2) in combos:
+            base = df_modelo[[col1, col2, mercado, profit_col]].copy()
+            base[col1] = pd.to_numeric(base[col1], errors="coerce")
+            base[col2] = pd.to_numeric(base[col2], errors="coerce")
+            base = base.dropna()
 
-            base_combo = df_teste.copy()
-            base_combo[col1] = pd.to_numeric(base_combo[col1], errors="coerce")
-            base_combo[col2] = pd.to_numeric(base_combo[col2], errors="coerce")
-            base_combo = base_combo.dropna(subset=[col1, col2]).copy()
-
-            if len(base_combo) < max(60, q_faixas * q_faixas * 2):
+            if len(base) < max(min_jogos_combo, q_faixas * 2):
                 continue
 
             try:
-                base_combo["Faixa_1"] = pd.qcut(base_combo[col1], q=q_faixas, duplicates="drop")
-                base_combo["Faixa_2"] = pd.qcut(base_combo[col2], q=q_faixas, duplicates="drop")
-            except Exception:
+                base["Faixa_1"] = pd.qcut(
+                    base[col1],
+                    q=min(q_faixas, base[col1].nunique()),
+                    duplicates="drop"
+                )
+                base["Faixa_2"] = pd.qcut(
+                    base[col2],
+                    q=min(q_faixas, base[col2].nunique()),
+                    duplicates="drop"
+                )
+            except:
                 continue
 
-            for mercado in mercados_validos:
-                taxa_geral = float(df_teste[mercado].mean())
-                col_profit = f"{mercado}_Profit"
-                profit_disponivel = col_profit in base_combo.columns and base_combo[col_profit].notna().any()
-
-                agg_dict = {
-                    "Jogos": (mercado, "size"),
-                    "Taxa": (mercado, "mean"),
-                }
-
-                if profit_disponivel:
-                    agg_dict["Profit_Total"] = (col_profit, "sum")
-
-                resumo = (
-                    base_combo
-                    .groupby(["Faixa_1", "Faixa_2"], observed=True)
-                    .agg(**agg_dict)
-                    .reset_index()
+            resumo = (
+                base.groupby(["Faixa_1", "Faixa_2"], observed=True)
+                .agg(
+                    Jogos=(mercado, "size"),
+                    Taxa_Acerto=(mercado, "mean"),
+                    Lucro_Total=(profit_col, "sum"),
+                    Ganho_pp=(profit_col, "mean")
                 )
+                .reset_index()
+            )
 
-                resumo = resumo[resumo["Jogos"] >= min_jogos_combo].copy()
-                if resumo.empty:
-                    continue
+            resumo = resumo[resumo["Jogos"] >= min_jogos_combo].copy()
+            if resumo.empty:
+                continue
 
-                resumo["Variavel_1"] = var1
-                resumo["Variavel_2"] = var2
-                resumo["Mercado"] = mercado
-                resumo["Taxa_Geral"] = taxa_geral
-                resumo["Ganho_pp"] = (resumo["Taxa"] - resumo["Taxa_Geral"]) * 100
-                resumo["Taxa"] = resumo["Taxa"] * 100
-                resumo["Taxa_Geral"] = resumo["Taxa_Geral"] * 100
-                resumo["Metodo"] = resumo["Variavel_1"] + " + " + resumo["Variavel_2"]
-                resumo["Faixa"] = (
-                    resumo["Faixa_1"].astype(str) + " | " +
-                    resumo["Faixa_2"].astype(str)
-                )
+            resumo["Mercado"] = mercado
+            resumo["Variavel_1"] = var1
+            resumo["Variavel_2"] = var2
+            resumo["Faixa_1"] = resumo["Faixa_1"].astype(str)
+            resumo["Faixa_2"] = resumo["Faixa_2"].astype(str)
 
-                if profit_disponivel:
-                    resumo["ROI_pct"] = np.where(
-                        resumo["Jogos"] > 0,
-                        (resumo["Profit_Total"] / resumo["Jogos"]) * 100,
-                        np.nan
-                    )
+            resultado_rows.extend(resumo.to_dict("records"))
 
-                    profit_geral = float(df_teste[col_profit].dropna().sum()) if col_profit in df_teste.columns else np.nan
-                    jogos_profit_geral = float(df_teste[col_profit].dropna().shape[0]) if col_profit in df_teste.columns else np.nan
+    return pd.DataFrame(resultado_rows)
 
-                    resumo["Profit_Geral"] = profit_geral
-                    resumo["ROI_Geral_pct"] = (
-                        (profit_geral / jogos_profit_geral) * 100
-                        if jogos_profit_geral and jogos_profit_geral > 0 else np.nan
-                    )
-                else:
-                    resumo["Profit_Total"] = np.nan
-                    resumo["ROI_pct"] = np.nan
-                    resumo["Profit_Geral"] = np.nan
-                    resumo["ROI_Geral_pct"] = np.nan
 
-                resultados.append(
-                    resumo[[
-                        "Mercado", "Metodo",
-                        "Variavel_1", "Variavel_2",
-                        "Faixa", "Jogos", "Taxa_Geral", "Taxa", "Ganho_pp",
-                        "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-                    ]]
-                )
-
-    if not resultados:
-        return pd.DataFrame()
-
-    resultado_combos_2 = pd.concat(resultados, ignore_index=True)
-    resultado_combos_2 = resultado_combos_2.sort_values(
-        ["Mercado", "Ganho_pp", "Jogos"],
-        ascending=[True, False, False]
-    ).reset_index(drop=True)
-
-    return resultado_combos_2
 def testar_combinacoes_3_variaveis(
-    df_base: pd.DataFrame,
-    variaveis_teste: list[str],
+    df_modelo: pd.DataFrame,
+    variaveis_modelo: list[str],
     min_jogos_combo: int = 15,
     q_faixas: int = 3,
-    max_combinacoes: int = 50
-) -> pd.DataFrame:
+    max_combinacoes: int = 25
+):
+    from itertools import combinations
 
-    mercados_reais = [
+    mercados = [
         "Casa_Vence_Real",
         "Empate_Real",
         "Visitante_Vence_Real",
-        "Casa_ou_Empate_Real",
-        "Empate_ou_Visitante_Real",
-        "Casa_ou_Visitante_Real",
-        "Over_05_Real",
-        "Over_15_Real",
         "Over_25_Real",
-        "Under_05_Real",
-        "Under_15_Real",
         "Under_25_Real",
         "BTTS_Sim_Real",
         "BTTS_Nao_Real",
     ]
 
-    df_teste = df_base.copy()
-    mercados_validos = [m for m in mercados_reais if m in df_teste.columns]
-    if not mercados_validos:
-        return pd.DataFrame()
-
     variaveis_validas = []
-    for var in variaveis_teste:
-        col = encontrar_coluna_real(df_teste, var)
-        if col and col in df_teste.columns:
-            variaveis_validas.append(var)
+    for variavel in variaveis_modelo:
+        col_real = encontrar_coluna_real(df_modelo, variavel)
+        if col_real and col_real in df_modelo.columns:
+            variaveis_validas.append((variavel, col_real))
 
-    variaveis_validas = variaveis_validas[:max_combinacoes]
-    resultados = []
+    combos = list(combinations(variaveis_validas, 3))[:max_combinacoes]
+    resultado_rows = []
 
-    for i in range(len(variaveis_validas)):
-        for j in range(i + 1, len(variaveis_validas)):
-            for k in range(j + 1, len(variaveis_validas)):
-                var1 = variaveis_validas[i]
-                var2 = variaveis_validas[j]
-                var3 = variaveis_validas[k]
+    for mercado in mercados:
+        if mercado not in df_modelo.columns:
+            continue
 
-                col1 = encontrar_coluna_real(df_teste, var1)
-                col2 = encontrar_coluna_real(df_teste, var2)
-                col3 = encontrar_coluna_real(df_teste, var3)
+        profit_col = f"{mercado}_Profit"
+        if profit_col not in df_modelo.columns:
+            continue
 
-                if not col1 or not col2 or not col3:
-                    continue
+        for (var1, col1), (var2, col2), (var3, col3) in combos:
+            base = df_modelo[[col1, col2, col3, mercado, profit_col]].copy()
+            base[col1] = pd.to_numeric(base[col1], errors="coerce")
+            base[col2] = pd.to_numeric(base[col2], errors="coerce")
+            base[col3] = pd.to_numeric(base[col3], errors="coerce")
+            base = base.dropna()
 
-                base_combo = df_teste.copy()
-                base_combo[col1] = pd.to_numeric(base_combo[col1], errors="coerce")
-                base_combo[col2] = pd.to_numeric(base_combo[col2], errors="coerce")
-                base_combo[col3] = pd.to_numeric(base_combo[col3], errors="coerce")
-                base_combo = base_combo.dropna(subset=[col1, col2, col3]).copy()
+            if len(base) < max(min_jogos_combo, q_faixas * 3):
+                continue
 
-                if len(base_combo) < max(80, q_faixas * q_faixas * q_faixas * 2):
-                    continue
+            try:
+                base["Faixa_1"] = pd.qcut(
+                    base[col1],
+                    q=min(q_faixas, base[col1].nunique()),
+                    duplicates="drop"
+                )
+                base["Faixa_2"] = pd.qcut(
+                    base[col2],
+                    q=min(q_faixas, base[col2].nunique()),
+                    duplicates="drop"
+                )
+                base["Faixa_3"] = pd.qcut(
+                    base[col3],
+                    q=min(q_faixas, base[col3].nunique()),
+                    duplicates="drop"
+                )
+            except:
+                continue
 
-                try:
-                    base_combo["Faixa_1"] = pd.qcut(base_combo[col1], q=q_faixas, duplicates="drop")
-                    base_combo["Faixa_2"] = pd.qcut(base_combo[col2], q=q_faixas, duplicates="drop")
-                    base_combo["Faixa_3"] = pd.qcut(base_combo[col3], q=q_faixas, duplicates="drop")
-                except Exception:
-                    continue
+            resumo = (
+                base.groupby(["Faixa_1", "Faixa_2", "Faixa_3"], observed=True)
+                .agg(
+                    Jogos=(mercado, "size"),
+                    Taxa_Acerto=(mercado, "mean"),
+                    Lucro_Total=(profit_col, "sum"),
+                    Ganho_pp=(profit_col, "mean")
+                )
+                .reset_index()
+            )
 
-                for mercado in mercados_validos:
-                    taxa_geral = float(df_teste[mercado].mean())
-                    col_profit = f"{mercado}_Profit"
-                    profit_disponivel = col_profit in base_combo.columns and base_combo[col_profit].notna().any()
+            resumo = resumo[resumo["Jogos"] >= min_jogos_combo].copy()
+            if resumo.empty:
+                continue
 
-                    agg_dict = {
-                        "Jogos": (mercado, "size"),
-                        "Taxa": (mercado, "mean"),
-                    }
+            resumo["Mercado"] = mercado
+            resumo["Variavel_1"] = var1
+            resumo["Variavel_2"] = var2
+            resumo["Variavel_3"] = var3
+            resumo["Faixa_1"] = resumo["Faixa_1"].astype(str)
+            resumo["Faixa_2"] = resumo["Faixa_2"].astype(str)
+            resumo["Faixa_3"] = resumo["Faixa_3"].astype(str)
 
-                    if profit_disponivel:
-                        agg_dict["Profit_Total"] = (col_profit, "sum")
+            resultado_rows.extend(resumo.to_dict("records"))
 
-                    resumo = (
-                        base_combo
-                        .groupby(["Faixa_1", "Faixa_2", "Faixa_3"], observed=True)
-                        .agg(**agg_dict)
-                        .reset_index()
-                    )
+    return pd.DataFrame(resultado_rows)
 
-                    resumo = resumo[resumo["Jogos"] >= min_jogos_combo].copy()
-                    if resumo.empty:
-                        continue
 
-                    resumo["Variavel_1"] = var1
-                    resumo["Variavel_2"] = var2
-                    resumo["Variavel_3"] = var3
-                    resumo["Mercado"] = mercado
-                    resumo["Taxa_Geral"] = taxa_geral
-                    resumo["Ganho_pp"] = (resumo["Taxa"] - resumo["Taxa_Geral"]) * 100
-                    resumo["Taxa"] = resumo["Taxa"] * 100
-                    resumo["Taxa_Geral"] = resumo["Taxa_Geral"] * 100
-                    resumo["Metodo"] = (
-                        resumo["Variavel_1"] + " + " +
-                        resumo["Variavel_2"] + " + " +
-                        resumo["Variavel_3"]
-                    )
-                    resumo["Faixa"] = (
-                        resumo["Faixa_1"].astype(str) + " | " +
-                        resumo["Faixa_2"].astype(str) + " | " +
-                        resumo["Faixa_3"].astype(str)
-                    )
-
-                    if profit_disponivel:
-                        resumo["ROI_pct"] = np.where(
-                            resumo["Jogos"] > 0,
-                            (resumo["Profit_Total"] / resumo["Jogos"]) * 100,
-                            np.nan
-                        )
-
-                        profit_geral = float(df_teste[col_profit].dropna().sum()) if col_profit in df_teste.columns else np.nan
-                        jogos_profit_geral = float(df_teste[col_profit].dropna().shape[0]) if col_profit in df_teste.columns else np.nan
-
-                        resumo["Profit_Geral"] = profit_geral
-                        resumo["ROI_Geral_pct"] = (
-                            (profit_geral / jogos_profit_geral) * 100
-                            if jogos_profit_geral and jogos_profit_geral > 0 else np.nan
-                        )
-                    else:
-                        resumo["Profit_Total"] = np.nan
-                        resumo["ROI_pct"] = np.nan
-                        resumo["Profit_Geral"] = np.nan
-                        resumo["ROI_Geral_pct"] = np.nan
-
-                    resultados.append(
-                        resumo[[
-                            "Mercado", "Metodo",
-                            "Variavel_1", "Variavel_2", "Variavel_3",
-                            "Faixa", "Jogos", "Taxa_Geral", "Taxa", "Ganho_pp",
-                            "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-                        ]]
-                    )
-
-    if not resultados:
-        return pd.DataFrame()
-
-    resultado_combos_3 = pd.concat(resultados, ignore_index=True)
-    resultado_combos_3 = resultado_combos_3.sort_values(
-        ["Mercado", "Ganho_pp", "Jogos"],
-        ascending=[True, False, False]
-    ).reset_index(drop=True)
-
-    return resultado_combos_3
-
-# =========================================
-# FUNÇÃO ORQUESTRADORA DO BACKTEST
-# =========================================
 def rodar_modelo_historico(df_odds_base: pd.DataFrame, variaveis_modelo: list[str]):
     df_modelo = criar_targets_reais(df_odds_base.copy())
 
@@ -1677,125 +1315,742 @@ def rodar_modelo_historico(df_odds_base: pd.DataFrame, variaveis_modelo: list[st
 
     return baseline_geral, melhores_ganhos_mercado, melhores_combos_2_mercado, melhores_combos_3_mercado
 
+# =========================================
+# VARIÁVEIS BASE DO MODELO HISTÓRICO
+# =========================================
+variaveis_modelo = [
+    "[COMB] Produto | H2H_Win_Casa x Atual_MarcouPrimeiro_Casa",
+    "[COMB] Produto | H2H_Win_Visitante x Atual_MarcouPrimeiro_Visitante",
+    "[COMB] Diff_CV | Atual_Win",
+    "[COMB] Pressao_Liquida_1T_Casa",
+    "[COMB] Pressao_Liquida_1T_Visitante",
+    "[COMB] Diff | Pressao_Liquida_1T",
+    "[COMB] Soma | H2H_Win_Visitante x Atual_Win_Visitante",
+    "[COMB] Soma | H2H_Win_Casa x Atual_Win_Casa",
+    "[COMB] Soma Media Gols 2T",
+    "[COMB] Soma Total Media Gols",
+    "[COMB] Soma Media Gols Meio",
+    "[COMB] Soma Total % Over Gols",
+    "[COMB] Diff | Gols_Sofridos_1T",
+    "[COMB] Diff | Gols_Marcados_1T",
+    "[COMB] Diff | Chutes_Sofridos_1T",
+    "[COMB] Diff | Chutes_Marcados_1T",
+]
 
 # =========================================
 # VARIÁVEIS VÁLIDAS PARA O BACKTEST
-# usa apenas colunas reais do dataframe
 # =========================================
 variaveis_modelo_backtest = [
     v for v in variaveis_modelo
     if encontrar_coluna_real(df_odds, v) is not None
 ]
 
+# =========================================
+# FUNÇÕES AUXILIARES - GRÁFICO ROI / LUCRO ACUMULADO
+# =========================================
+def parse_faixa_intervalo(faixa_txt):
+    faixa_txt = str(faixa_txt).strip()
+
+    if len(faixa_txt) < 5:
+        return None, None, None, None
+
+    esquerda_fechada = faixa_txt.startswith("[")
+    direita_fechada = faixa_txt.endswith("]")
+
+    miolo = faixa_txt[1:-1]
+    partes = miolo.split(",")
+
+    if len(partes) != 2:
+        return None, None, None, None
+
+    def conv(v):
+        v = str(v).strip().replace(",", ".")
+        if v.lower() in ["-inf", "inf", "+inf"]:
+            return float(v.replace("+", ""))
+        return float(v)
+
+    try:
+        limite_esq = conv(partes[0])
+        limite_dir = conv(partes[1])
+        return limite_esq, limite_dir, esquerda_fechada, direita_fechada
+    except:
+        return None, None, None, None
+
+
+def aplicar_filtro_faixa(serie, faixa_txt):
+    limite_esq, limite_dir, esquerda_fechada, direita_fechada = parse_faixa_intervalo(faixa_txt)
+
+    if limite_esq is None:
+        return pd.Series(False, index=serie.index)
+
+    mask_esq = serie >= limite_esq if esquerda_fechada else serie > limite_esq
+    mask_dir = serie <= limite_dir if direita_fechada else serie < limite_dir
+
+    return mask_esq & mask_dir
+
+
+def montar_curva_metodologia(df_base_real, linha_metodo):
+    mercado = str(linha_metodo["Mercado"])
+    tipo = str(linha_metodo["Tipo_Metodologia"])
+    variaveis_txt = str(linha_metodo["Variaveis"])
+    faixas_txt = str(linha_metodo["Faixas"])
+
+    profit_col = f"{mercado}_Profit"
+    if profit_col not in df_base_real.columns:
+        return pd.DataFrame()
+
+    variaveis = [v.strip() for v in variaveis_txt.split(" + ")]
+    faixas = [f.strip() for f in faixas_txt.split(" | ")]
+
+    if len(variaveis) != len(faixas):
+        return pd.DataFrame()
+
+    df_tmp = df_base_real.copy()
+    mask_final = pd.Series(True, index=df_tmp.index)
+
+    for variavel, faixa in zip(variaveis, faixas):
+        col_real = encontrar_coluna_real(df_tmp, variavel)
+        if not col_real or col_real not in df_tmp.columns:
+            return pd.DataFrame()
+
+        serie_num = pd.to_numeric(df_tmp[col_real], errors="coerce")
+        mask_final &= aplicar_filtro_faixa(serie_num, faixa)
+
+    df_met = df_tmp[mask_final].copy()
+    if df_met.empty:
+        return pd.DataFrame()
+
+    col_data = encontrar_coluna_real(df_met, "Date")
+    col_hora = encontrar_coluna_real(df_met, "Hour")
+
+    if col_data and col_data in df_met.columns:
+        try:
+            df_met["_data_plot"] = pd.to_datetime(df_met[col_data], errors="coerce")
+
+            if col_hora and col_hora in df_met.columns:
+                df_met["_dt_plot"] = pd.to_datetime(
+                    df_met["_data_plot"].astype(str) + " " + df_met[col_hora].astype(str),
+                    errors="coerce"
+                )
+                df_met = df_met.sort_values("_dt_plot", kind="stable")
+            else:
+                df_met = df_met.sort_values("_data_plot", kind="stable")
+        except:
+            pass
+
+    df_met = df_met.reset_index(drop=True)
+    df_met["Lucro"] = pd.to_numeric(df_met[profit_col], errors="coerce").fillna(0.0)
+    df_met["Lucro_Acumulado"] = df_met["Lucro"].cumsum()
+    df_met["Entrada"] = range(1, len(df_met) + 1)
+
+    nome_metodo = f"{mercado} | {tipo} | {variaveis_txt} | {faixas_txt}"
+    df_met["Metodologia"] = nome_metodo
+
+    if "_dt_plot" in df_met.columns:
+        df_met["Data_Ordem"] = df_met["_dt_plot"]
+    elif "_data_plot" in df_met.columns:
+        df_met["Data_Ordem"] = df_met["_data_plot"]
+    else:
+        df_met["Data_Ordem"] = pd.NaT
+
+    return df_met[["Entrada", "Lucro", "Lucro_Acumulado", "Metodologia", "Data_Ordem"]].copy()
 
 # =========================================
-# ABAS PRINCIPAIS
+# FUNÇÕES AUXILIARES - IMPORTAR METODOLOGIA / JOGOS DO DIA
 # =========================================
-aba_dashboard, aba_backtest = st.tabs(["Dashboard", "Backtest"])
+def montar_jogos_do_dia_ns_por_metodologia(df_base_ns: pd.DataFrame, metodologia_dict: dict):
+    if not metodologia_dict:
+        return pd.DataFrame()
 
+    variaveis_txt = str(metodologia_dict["Variaveis"])
+    faixas_txt = str(metodologia_dict["Faixas"])
+    mercado = str(metodologia_dict["Mercado"])
+    tipo = str(metodologia_dict["Tipo_Metodologia"])
+
+    variaveis = [v.strip() for v in variaveis_txt.split(" + ")]
+    faixas = [f.strip() for f in faixas_txt.split(" | ")]
+
+    if len(variaveis) != len(faixas):
+        return pd.DataFrame()
+
+    df_tmp = df_base_ns.copy()
+    mask_final = pd.Series(True, index=df_tmp.index)
+
+    for variavel, faixa in zip(variaveis, faixas):
+        col_real = encontrar_coluna_real(df_tmp, variavel)
+        if not col_real or col_real not in df_tmp.columns:
+            return pd.DataFrame()
+
+        serie_num = pd.to_numeric(df_tmp[col_real], errors="coerce")
+        mask_final &= aplicar_filtro_faixa(serie_num, faixa)
+
+    df_saida = df_tmp[mask_final].copy()
+
+    if df_saida.empty:
+        return df_saida
+
+    df_saida["Mercado_Metodologia"] = mercado
+    df_saida["Tipo_Metodologia"] = tipo
+    df_saida["Variaveis_Metodologia"] = variaveis_txt
+    df_saida["Faixas_Metodologia"] = faixas_txt
+
+    return df_saida
+
+
+def dataframe_para_excel_bytes(df_export: pd.DataFrame) -> bytes:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_export.to_excel(writer, index=False, sheet_name="Jogos_do_Dia_NS")
+    return output.getvalue()
 
 # =========================================
-# ABA DASHBOARD
+# RENDERIZAÇÃO PRINCIPAL
 # =========================================
-with aba_dashboard:
-    render_cards(cards_1)
+if pagina == "Dashboard":
+    st.markdown("## Dashboard da Partida")
 
-    st.markdown("### Indicadores por equipe")
-    render_cards_verticais(
-        metricas_base_casa,
-        metricas_base_visit,
-        nome_casa=home_nome,
-        nome_visit=visit_nome
-    )
+    if linha_odds_partida.empty:
+        st.warning("Não foi possível localizar a linha da partida selecionada.")
+    else:
+        render_cards(cards_1)
 
-    st.markdown("### Janelas de gols e over 0.5")
-    render_cards(cards_janelas)
+        st.markdown("### Análise por Equipe")
+        render_cards_verticais(
+            metricas_base_casa,
+            metricas_base_visit,
+            home_nome,
+            visit_nome
+        )
 
+        st.markdown("### Janelas de Gols")
+        render_cards(cards_janelas)
 
-# =========================================
-# ABA BACKTEST
-# =========================================
-with aba_backtest:
+elif pagina == "Backtest":
     st.markdown("## Backtest")
 
-    if st.button("Rodar Backtest", key="rodar_backtest_aba"):
-        with st.spinner("Analisando base histórica..."):
-            (
-                baseline_geral,
-                melhores_ganhos_mercado,
-                melhores_combos_2_mercado,
-                melhores_combos_3_mercado
-            ) = rodar_modelo_historico(
-                df_odds,
-                variaveis_modelo_backtest
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown("### Modelo histórico")
+
+        if st.button("Rodar modelo histórico", key="rodar_modelo_historico_btn"):
+            with st.spinner("Processando backtest..."):
+                baseline_geral, melhores_ganhos_mercado, melhores_combos_2_mercado, melhores_combos_3_mercado = rodar_modelo_historico(
+                    df_odds,
+                    variaveis_modelo_backtest
+                )
+
+                st.session_state["baseline_geral"] = baseline_geral
+                st.session_state["melhores_ganhos_mercado"] = melhores_ganhos_mercado
+                st.session_state["melhores_combos_2_mercado"] = melhores_combos_2_mercado
+                st.session_state["melhores_combos_3_mercado"] = melhores_combos_3_mercado
+
+    with col2:
+        st.markdown("### Resumo")
+        st.write(f"Variáveis válidas: {len(variaveis_modelo_backtest)}")
+
+    # =========================================
+    # BASELINE GERAL
+    # =========================================
+    if not st.session_state["baseline_geral"].empty:
+        st.markdown("### Baseline geral por mercado")
+        st.dataframe(st.session_state["baseline_geral"], use_container_width=True)
+
+    # =========================================
+    # RESULTADOS HISTÓRICOS
+    # =========================================
+    if not st.session_state["melhores_ganhos_mercado"].empty:
+        st.markdown("### Melhores ganhos por mercado")
+        st.dataframe(st.session_state["melhores_ganhos_mercado"], use_container_width=True)
+
+    if not st.session_state["melhores_combos_2_mercado"].empty:
+        st.markdown("### Melhores combinações de 2 variáveis")
+        st.dataframe(st.session_state["melhores_combos_2_mercado"], use_container_width=True)
+
+    if not st.session_state["melhores_combos_3_mercado"].empty:
+        st.markdown("### Melhores combinações de 3 variáveis")
+        st.dataframe(st.session_state["melhores_combos_3_mercado"], use_container_width=True)
+
+    # =========================================
+    # MELHORES METODOLOGIAS COM ROI POSITIVO
+    # =========================================
+    st.markdown("### Melhores metodologias com ROI positivo")
+
+    df_gain_1 = st.session_state["melhores_ganhos_mercado"].copy()
+    df_gain_2 = st.session_state["melhores_combos_2_mercado"].copy()
+    df_gain_3 = st.session_state["melhores_combos_3_mercado"].copy()
+
+    if not df_gain_1.empty:
+        df_gain_1["Tipo_Metodologia"] = "1 variável"
+        df_gain_1["Variaveis"] = df_gain_1["Variavel"].astype(str)
+        df_gain_1["Faixas"] = df_gain_1["Faixa"].astype(str)
+    else:
+        df_gain_1 = pd.DataFrame(columns=[
+            "Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp",
+            "Tipo_Metodologia", "Variaveis", "Faixas"
+        ])
+
+    if not df_gain_2.empty:
+        df_gain_2["Tipo_Metodologia"] = "2 variáveis"
+        df_gain_2["Variaveis"] = (
+            df_gain_2["Variavel_1"].astype(str) + " + " +
+            df_gain_2["Variavel_2"].astype(str)
+        )
+        df_gain_2["Faixas"] = (
+            df_gain_2["Faixa_1"].astype(str) + " | " +
+            df_gain_2["Faixa_2"].astype(str)
+        )
+    else:
+        df_gain_2 = pd.DataFrame(columns=[
+            "Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp",
+            "Tipo_Metodologia", "Variaveis", "Faixas"
+        ])
+
+    if not df_gain_3.empty:
+        df_gain_3["Tipo_Metodologia"] = "3 variáveis"
+        df_gain_3["Variaveis"] = (
+            df_gain_3["Variavel_1"].astype(str) + " + " +
+            df_gain_3["Variavel_2"].astype(str) + " + " +
+            df_gain_3["Variavel_3"].astype(str)
+        )
+        df_gain_3["Faixas"] = (
+            df_gain_3["Faixa_1"].astype(str) + " | " +
+            df_gain_3["Faixa_2"].astype(str) + " | " +
+            df_gain_3["Faixa_3"].astype(str)
+        )
+    else:
+        df_gain_3 = pd.DataFrame(columns=[
+            "Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp",
+            "Tipo_Metodologia", "Variaveis", "Faixas"
+        ])
+
+    df_metodos_roi = pd.concat([
+        df_gain_1[["Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp", "Tipo_Metodologia", "Variaveis", "Faixas"]],
+        df_gain_2[["Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp", "Tipo_Metodologia", "Variaveis", "Faixas"]],
+        df_gain_3[["Mercado", "Jogos", "Taxa_Acerto", "Lucro_Total", "Ganho_pp", "Tipo_Metodologia", "Variaveis", "Faixas"]],
+    ], ignore_index=True)
+
+    if df_metodos_roi.empty:
+        st.info("Nenhuma metodologia encontrada ainda. Rode o backtest primeiro.")
+    else:
+        df_metodos_roi["ROI_%"] = df_metodos_roi["Ganho_pp"] * 100
+
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+
+        with col_f1:
+            mercados_disp = ["Todos"] + sorted(df_metodos_roi["Mercado"].dropna().astype(str).unique().tolist())
+            mercado_sel_roi = st.selectbox(
+                "Filtrar mercado",
+                mercados_disp,
+                key="mercado_sel_roi_positivo"
             )
 
-        st.session_state["baseline_geral_backtest"] = baseline_geral
-        st.session_state["melhores_ganhos_mercado"] = melhores_ganhos_mercado
-        st.session_state["melhores_combos_2_mercado"] = melhores_combos_2_mercado
-        st.session_state["melhores_combos_3_mercado"] = melhores_combos_3_mercado
+        with col_f2:
+            tipos_disp = ["Todos"] + sorted(df_metodos_roi["Tipo_Metodologia"].dropna().astype(str).unique().tolist())
+            tipo_sel_roi = st.selectbox(
+                "Filtrar tipo",
+                tipos_disp,
+                key="tipo_sel_roi_positivo"
+            )
 
-    st.markdown("### Baseline Geral por Mercado")
-    baseline_df = st.session_state.get("baseline_geral_backtest", pd.DataFrame())
-    if baseline_df.empty:
-        st.info("Clique em 'Rodar Backtest' para gerar os resultados.")
-    else:
-        st.dataframe(
-            baseline_df,
-            use_container_width=True,
-            hide_index=True
-        )
+        with col_f3:
+            min_jogos_roi = st.number_input(
+                "Mínimo de jogos",
+                min_value=1,
+                value=20,
+                step=1,
+                key="min_jogos_roi_positivo"
+            )
 
-    st.markdown("### Melhores Ganhos por Mercado")
-    ganhos_df = st.session_state.get("melhores_ganhos_mercado", pd.DataFrame())
-    if ganhos_df.empty:
-        st.info("Nenhum resultado disponível ainda.")
-    else:
-        colunas_ganhos = [
-            c for c in [
-                "Mercado", "Variavel", "Faixa", "Jogos",
-                "Taxa_Geral", "Taxa", "Ganho_pp",
-                "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-            ] if c in ganhos_df.columns
-        ]
-        st.dataframe(
-            ganhos_df[colunas_ganhos],
-            use_container_width=True,
-            hide_index=True
-        )
+        with col_f4:
+            roi_minimo = st.number_input(
+                "ROI mínimo %",
+                min_value=0.0,
+                value=0.0,
+                step=0.1,
+                key="roi_minimo_positivo"
+            )
 
-    st.markdown("### Melhores Combinações de 2 Variáveis")
-    combos2_df = st.session_state.get("melhores_combos_2_mercado", pd.DataFrame())
-    if combos2_df.empty:
-        st.info("Nenhum resultado de combinação de 2 variáveis ainda.")
-    else:
-        colunas_combos2 = [
-            c for c in [
-                "Mercado", "Metodo", "Variavel_1", "Variavel_2",
-                "Faixa", "Jogos", "Taxa_Geral", "Taxa", "Ganho_pp",
-                "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-            ] if c in combos2_df.columns
-        ]
-        st.dataframe(
-            combos2_df[colunas_combos2],
-            use_container_width=True,
-            hide_index=True
-        )
+        df_filtrado_roi = df_metodos_roi.copy()
 
-    st.markdown("### Melhores Combinações de 3 Variáveis")
-    combos3_df = st.session_state.get("melhores_combos_3_mercado", pd.DataFrame())
-    if combos3_df.empty:
-        st.info("Nenhum resultado de combinação de 3 variáveis ainda.")
-    else:
-        colunas_combos3 = [
-            c for c in [
-                "Mercado", "Metodo", "Variavel_1", "Variavel_2", "Variavel_3",
-                "Faixa", "Jogos", "Taxa_Geral", "Taxa", "Ganho_pp",
-                "Profit_Total", "ROI_pct", "Profit_Geral", "ROI_Geral_pct"
-            ] if c in combos3_df.columns
-        ]
-        st.dataframe(
-            combos3_df[colunas_combos3],
-            use_container_width=True,
-            hide_index=True
-        )
+        if mercado_sel_roi != "Todos":
+            df_filtrado_roi = df_filtrado_roi[
+                df_filtrado_roi["Mercado"].astype(str) == mercado_sel_roi
+            ].copy()
+
+        if tipo_sel_roi != "Todos":
+            df_filtrado_roi = df_filtrado_roi[
+                df_filtrado_roi["Tipo_Metodologia"].astype(str) == tipo_sel_roi
+            ].copy()
+
+        df_filtrado_roi = df_filtrado_roi[
+            (df_filtrado_roi["Jogos"] >= min_jogos_roi) &
+            (df_filtrado_roi["ROI_%"] > roi_minimo)
+        ].copy()
+
+        if df_filtrado_roi.empty:
+            st.warning("Nenhuma metodologia com ROI positivo encontrada com esses filtros.")
+        else:
+            df_filtrado_roi = df_filtrado_roi.sort_values(
+                ["ROI_%", "Lucro_Total", "Jogos", "Taxa_Acerto"],
+                ascending=[False, False, False, False]
+            ).reset_index(drop=True)
+
+            df_filtrado_roi.insert(0, "Ranking", range(1, len(df_filtrado_roi) + 1))
+            df_filtrado_roi["Taxa_Acerto"] = (df_filtrado_roi["Taxa_Acerto"] * 100).round(2)
+            df_filtrado_roi["ROI_%"] = df_filtrado_roi["ROI_%"].round(2)
+            df_filtrado_roi["Lucro_Total"] = df_filtrado_roi["Lucro_Total"].round(2)
+            df_filtrado_roi["Ganho_pp"] = df_filtrado_roi["Ganho_pp"].round(4)
+
+            st.dataframe(
+                df_filtrado_roi[
+                    [
+                        "Ranking",
+                        "Mercado",
+                        "Tipo_Metodologia",
+                        "Variaveis",
+                        "Faixas",
+                        "Jogos",
+                        "Taxa_Acerto",
+                        "Lucro_Total",
+                        "Ganho_pp",
+                        "ROI_%"
+                    ]
+                ],
+                use_container_width=True
+            )
+
+            st.markdown("### Melhor metodologia por mercado")
+
+            df_melhor_mercado = (
+                df_filtrado_roi
+                .sort_values(["Mercado", "ROI_%", "Lucro_Total", "Jogos"], ascending=[True, False, False, False])
+                .groupby("Mercado", as_index=False)
+                .head(1)
+                .reset_index(drop=True)
+            )
+
+            st.dataframe(
+                df_melhor_mercado[
+                    [
+                        "Mercado",
+                        "Tipo_Metodologia",
+                        "Variaveis",
+                        "Faixas",
+                        "Jogos",
+                        "Taxa_Acerto",
+                        "Lucro_Total",
+                        "Ganho_pp",
+                        "ROI_%"
+                    ]
+                ],
+                use_container_width=True
+            )
+
+            # =========================================
+            # ENTRADA MANUAL DE METODOLOGIA
+            # =========================================
+            st.markdown("### Selecionar metodologia")
+
+            col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns([1.1, 1.2, 2.5, 2.0, 0.7])
+
+            with col_s1:
+                mercado_input = st.text_input(
+                    "Mercado",
+                    value=st.session_state["metodo_manual_digitado"]["Mercado"],
+                    key="mercado_input_metodo_manual",
+                    placeholder="Ex: BTTS_Nao_Real"
+                )
+
+            with col_s2:
+                tipo_input = st.text_input(
+                    "Tipo_Metodologia",
+                    value=st.session_state["metodo_manual_digitado"]["Tipo_Metodologia"],
+                    key="tipo_input_metodo_manual",
+                    placeholder="Ex: 3 variáveis"
+                )
+
+            with col_s3:
+                variaveis_input = st.text_area(
+                    "Variáveis",
+                    value=st.session_state["metodo_manual_digitado"]["Variaveis"],
+                    key="variaveis_input_metodo_manual",
+                    height=120,
+                    placeholder="[COMB] Produto | H2H_Win_Casa x Atual_MarcouPrimeiro_Casa + [COMB] Diff_CV | Atual_Win + [COMB] Pressao_Liquida_1T_Casa"
+                )
+
+            with col_s4:
+                faixas_input = st.text_area(
+                    "Faixas",
+                    value=st.session_state["metodo_manual_digitado"]["Faixas"],
+                    key="faixas_input_metodo_manual",
+                    height=120,
+                    placeholder="(2.667, 16.0] | (20.0, 100.0] | (-21.001, -3.8]"
+                )
+
+            with col_s5:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                aplicar_metodo = st.button(
+                    "Aplicar",
+                    key="btn_aplicar_metodo_visual_manual"
+                )
+
+            if aplicar_metodo:
+                mercado_input = str(mercado_input).strip()
+                tipo_input = str(tipo_input).strip()
+                variaveis_input = str(variaveis_input).strip().replace("\n", " ")
+                faixas_input = str(faixas_input).strip().replace("\n", " ")
+
+                if not mercado_input or not tipo_input or not variaveis_input or not faixas_input:
+                    st.warning("Preencha Mercado, Tipo_Metodologia, Variáveis e Faixas.")
+                else:
+                    metodo_dict = {
+                        "Mercado": mercado_input,
+                        "Tipo_Metodologia": tipo_input,
+                        "Variaveis": variaveis_input,
+                        "Faixas": faixas_input,
+                        "Nome_Metodologia": (
+                            f"{mercado_input} | {tipo_input} | {variaveis_input} | {faixas_input}"
+                        )
+                    }
+
+                    st.session_state["metodologia_visual_selecionada"] = metodo_dict
+                    st.session_state["metodo_manual_digitado"] = metodo_dict
+
+            metodo_visual = st.session_state.get("metodologia_visual_selecionada", None)
+
+            if metodo_visual:
+                st.dataframe(
+                    pd.DataFrame([{
+                        "Mercado": metodo_visual["Mercado"],
+                        "Tipo_Metodologia": metodo_visual["Tipo_Metodologia"],
+                        "Variaveis": metodo_visual["Variaveis"],
+                        "Faixas": metodo_visual["Faixas"],
+                    }]),
+                    use_container_width=True
+                )
+
+                col_a1, col_a2, col_a3 = st.columns(3)
+
+                with col_a1:
+                    btn_adicionar_grafico = st.button(
+                        "Adicionar ao gráfico",
+                        key="btn_adicionar_metodo_select"
+                    )
+
+                with col_a2:
+                    btn_importar_ns = st.button(
+                        "Importar jogos do dia NS",
+                        key="btn_importar_ns_select"
+                    )
+
+                with col_a3:
+                    btn_limpar_grafico = st.button(
+                        "Limpar metodologias do gráfico",
+                        key="btn_limpar_metodos_grafico_select"
+                    )
+
+                if btn_limpar_grafico:
+                    st.session_state["metodologias_grafico_filtradas"] = []
+
+                if btn_adicionar_grafico:
+                    ja_existe = any(
+                        (
+                            x["Mercado"] == metodo_visual["Mercado"] and
+                            x["Tipo_Metodologia"] == metodo_visual["Tipo_Metodologia"] and
+                            x["Variaveis"] == metodo_visual["Variaveis"] and
+                            x["Faixas"] == metodo_visual["Faixas"]
+                        )
+                        for x in st.session_state["metodologias_grafico_filtradas"]
+                    )
+
+                    if not ja_existe:
+                        st.session_state["metodologias_grafico_filtradas"].append(metodo_visual)
+
+                if btn_importar_ns:
+                    df_base_ns = df_odds.copy()
+
+                    col_status_ns = encontrar_coluna_real(df_base_ns, "Status")
+                    if col_status_ns and col_status_ns in df_base_ns.columns:
+                        df_base_ns = df_base_ns[
+                            df_base_ns[col_status_ns].astype(str).str.upper() != "FT"
+                        ].copy()
+
+                    df_jogos_ns = montar_jogos_do_dia_ns_por_metodologia(
+                        df_base_ns,
+                        metodo_visual
+                    )
+
+                    st.session_state["jogos_dia_ns_importados"] = df_jogos_ns
+
+            # =========================================
+            # JOGOS DO DIA NS + EXCEL
+            # =========================================
+            if not st.session_state["jogos_dia_ns_importados"].empty:
+                st.markdown("#### Jogos do dia NS encontrados pela metodologia")
+
+                df_ns_view = st.session_state["jogos_dia_ns_importados"].copy()
+
+                colunas_prioritarias = [
+                    "Partida",
+                    "Home Team",
+                    "Visitor Team",
+                    "League",
+                    "Country",
+                    "Hour",
+                    "Status",
+                    "Mercado_Metodologia",
+                    "Tipo_Metodologia",
+                    "Variaveis_Metodologia",
+                    "Faixas_Metodologia",
+                ]
+
+                colunas_mostrar = [c for c in colunas_prioritarias if c in df_ns_view.columns]
+                restantes = [c for c in df_ns_view.columns if c not in colunas_mostrar]
+                df_ns_view = df_ns_view[colunas_mostrar + restantes]
+
+                st.dataframe(df_ns_view, use_container_width=True)
+
+                excel_bytes = dataframe_para_excel_bytes(df_ns_view)
+
+                st.download_button(
+                    label="Exportar jogos do dia NS para Excel",
+                    data=excel_bytes,
+                    file_name="jogos_do_dia_ns_metodologia.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_excel_jogos_ns_metodologia"
+                )
+
+            # =========================================
+            # GRÁFICO DE LUCRO ACUMULADO
+            # =========================================
+            st.markdown("### Gráfico de lucro acumulado por metodologia")
+
+            df_base_real_plot = criar_targets_reais(df_odds.copy())
+
+            st.markdown("#### Metodologias adicionadas para o gráfico")
+
+            if len(st.session_state["metodologias_grafico_filtradas"]) == 0:
+                st.info("Nenhuma metodologia adicionada ainda.")
+            else:
+                df_metodos_escolhidos = pd.DataFrame(
+                    st.session_state["metodologias_grafico_filtradas"]
+                )
+                st.dataframe(df_metodos_escolhidos, use_container_width=True)
+
+                modo_plot = st.selectbox(
+                    "Modo do gráfico",
+                    [
+                        "Cada metodologia separada",
+                        "Todas no mesmo gráfico",
+                        "Linha combinada"
+                    ],
+                    key="modo_plot_lucro_acumulado_manual"
+                )
+
+                curvas = []
+
+                for metodo_dict in st.session_state["metodologias_grafico_filtradas"]:
+                    linha_metodo = pd.Series(metodo_dict)
+                    curva = montar_curva_metodologia(df_base_real_plot, linha_metodo)
+
+                    if not curva.empty:
+                        curva["Metodologia_Selecionada"] = metodo_dict["Nome_Metodologia"]
+                        curvas.append(curva)
+
+                if len(curvas) == 0:
+                    st.warning("Não foi possível gerar curvas para as metodologias selecionadas.")
+                else:
+                    df_curvas = pd.concat(curvas, ignore_index=True)
+
+                    if modo_plot == "Cada metodologia separada":
+                        for nome_met in df_curvas["Metodologia_Selecionada"].unique():
+                            st.markdown(f"#### {nome_met}")
+
+                            df_plot_ind = df_curvas[
+                                df_curvas["Metodologia_Selecionada"] == nome_met
+                            ][["Entrada", "Lucro_Acumulado"]].copy()
+
+                            df_plot_ind = df_plot_ind.set_index("Entrada")
+                            st.line_chart(df_plot_ind, use_container_width=True)
+
+                    elif modo_plot == "Todas no mesmo gráfico":
+                        df_plot_multi = df_curvas.pivot_table(
+                            index="Entrada",
+                            columns="Metodologia_Selecionada",
+                            values="Lucro_Acumulado",
+                            aggfunc="last"
+                        ).sort_index()
+
+                        st.line_chart(df_plot_multi, use_container_width=True)
+
+                    else:
+                        df_comb = df_curvas.copy()
+
+                        df_comb["Ordem_Interna"] = df_comb.groupby(
+                            "Metodologia_Selecionada"
+                        ).cumcount() + 1
+
+                        if "Data_Ordem" in df_comb.columns:
+                            df_comb = df_comb.sort_values(
+                                ["Data_Ordem", "Metodologia_Selecionada", "Ordem_Interna"],
+                                kind="stable"
+                            ).reset_index(drop=True)
+                        else:
+                            df_comb = df_comb.sort_values(
+                                ["Metodologia_Selecionada", "Ordem_Interna"],
+                                kind="stable"
+                            ).reset_index(drop=True)
+
+                        df_comb["Entrada_Combinada"] = range(1, len(df_comb) + 1)
+                        df_comb["Lucro_Acumulado"] = df_comb["Lucro"].cumsum()
+
+                        st.line_chart(
+                            df_comb.set_index("Entrada_Combinada")[["Lucro_Acumulado"]],
+                            use_container_width=True
+                        )
+
+                        st.markdown("#### Operações da linha combinada")
+                        resumo_comb = df_comb[
+                            [
+                                "Entrada_Combinada",
+                                "Metodologia_Selecionada",
+                                "Lucro",
+                                "Lucro_Acumulado"
+                            ]
+                        ].copy()
+
+                        resumo_comb["Lucro"] = resumo_comb["Lucro"].round(2)
+                        resumo_comb["Lucro_Acumulado"] = resumo_comb["Lucro_Acumulado"].round(2)
+
+                        st.dataframe(resumo_comb, use_container_width=True)
+
+                    st.markdown("#### Resumo das metodologias selecionadas")
+
+                    resumo_plot = (
+                        df_curvas.groupby("Metodologia_Selecionada", as_index=False)
+                        .agg(
+                            Entradas=("Entrada", "max"),
+                            Lucro_Final=("Lucro_Acumulado", "last")
+                        )
+                        .sort_values("Lucro_Final", ascending=False)
+                        .reset_index(drop=True)
+                    )
+
+                    resumo_plot["Lucro_Final"] = resumo_plot["Lucro_Final"].round(2)
+                    st.dataframe(resumo_plot, use_container_width=True)
+
+    # =========================================
+    # BACKTEST MANUAL
+    # =========================================
+    if not st.session_state["df_bt_manual"].empty:
+        st.markdown("### Backtest manual")
+        st.dataframe(st.session_state["df_bt_manual"], use_container_width=True)
+
+    if st.session_state["probs_bt_manual"]:
+        st.markdown("### Probabilidades")
+        st.write(st.session_state["probs_bt_manual"])
+
+    if st.session_state["resumo_bt_manual"]:
+        st.markdown("### Resumo manual")
+        st.write(st.session_state["resumo_bt_manual"])
