@@ -58,7 +58,7 @@ if "metodo_manual_digitado" not in st.session_state:
 PLANILHA_ODDS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSF5WBP5KeBr6cVbAK0yH2IJf_luqoK90gOz1fj_VlS_hoAb4E6v_awCWO-bTi28I-mWYWEeewnhmTh/pub?output=csv"
 
 # =========================================
-# CSS
+# CSS RESPONSIVO
 # =========================================
 st.markdown("""
 <style>
@@ -73,41 +73,16 @@ st.markdown("""
     }
 
     .block-container {
-        padding-top: 3.2rem;
+        padding-top: 2rem;
         padding-bottom: 1rem;
-    }
-
-    .card {
-        background: linear-gradient(180deg, #0b2a59 0%, #0a2144 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 7px;
-        padding: 6px 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.20);
-        min-height: 44px;
-    }
-
-    .card-title {
-        font-size: 0.62rem;
-        color: #d7e7ff;
-        margin-bottom: 2px;
-        line-height: 1.0;
-        text-align: center;
-    }
-
-    .card-value {
-        font-size: 0.95rem;
-        font-weight: 800;
-        color: white;
-        word-break: break-word;
-        line-height: 1.0;
-        text-align: center;
+        max-width: 1400px;
     }
 
     .titulo-topo {
         font-size: 2rem;
         font-weight: 800;
         color: #ffffff;
-        margin-top: 1rem;
+        margin-top: 0.6rem;
         margin-bottom: 0.35rem;
         line-height: 1.2;
     }
@@ -122,15 +97,60 @@ st.markdown("""
         background: linear-gradient(180deg, #0b2a59 0%, #0a2144 100%);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 12px;
-        padding: 14px;
-        margin-top: 0.5rem;
-        margin-bottom: 1.2rem;
+        padding: 10px;
+        margin-top: 0.35rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(110px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .card {
+        background: linear-gradient(180deg, #0b2a59 0%, #0a2144 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 8px 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.20);
+        min-height: 52px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .card-title {
+        font-size: 0.68rem;
+        color: #d7e7ff;
+        margin-bottom: 2px;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    .card-value {
+        font-size: 1.02rem;
+        font-weight: 800;
+        color: white;
+        line-height: 1.1;
+        text-align: center;
+        word-break: break-word;
+    }
+
+    .equipes-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: start;
+        margin-top: 8px;
+        margin-bottom: 18px;
     }
 
     .painel-time {
         border-radius: 14px;
-        padding: 8px 6px;
-        margin-bottom: 10px;
+        padding: 10px 10px 6px 10px;
         box-shadow: 0 3px 12px rgba(0,0,0,0.22);
     }
 
@@ -145,7 +165,7 @@ st.markdown("""
     }
 
     .painel-time-titulo {
-        font-size: 1.10rem;
+        font-size: 1.18rem;
         font-weight: 800;
         margin-bottom: 10px;
         text-align: center;
@@ -160,17 +180,16 @@ st.markdown("""
     }
 
     .lista-metricas-time {
-        width: 48%;
-        min-width: 220px;
-        max-width: 290px;
-        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
     }
 
     .card-time {
         border-radius: 10px;
-        padding: 7px 8px;
-        margin-bottom: 7px;
-        min-height: 50px;
+        padding: 9px 10px;
+        min-height: 58px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.20);
         display: flex;
         flex-direction: column;
@@ -180,17 +199,17 @@ st.markdown("""
     }
 
     .card-time-titulo {
-        font-size: 0.78rem;
+        font-size: 0.82rem;
         opacity: 0.98;
         margin-bottom: 4px;
-        line-height: 1.12;
+        line-height: 1.15;
         text-align: center;
         width: 100%;
         font-weight: 700;
     }
 
     .card-time-valor {
-        font-size: 1.28rem;
+        font-size: 1.35rem;
         font-weight: 800;
         color: white;
         line-height: 1.05;
@@ -227,6 +246,80 @@ st.markdown("""
         border-radius: 16px;
         padding: 16px;
         margin-bottom: 14px;
+    }
+
+    @media (max-width: 1100px) {
+        .cards-grid {
+            grid-template-columns: repeat(4, minmax(110px, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 1rem;
+            padding-left: 0.8rem;
+            padding-right: 0.8rem;
+        }
+
+        .titulo-topo {
+            font-size: 1.6rem;
+            line-height: 1.15;
+        }
+
+        .subtitulo-topo {
+            font-size: 0.95rem;
+        }
+
+        .caixa-selecao {
+            padding: 8px;
+            margin-bottom: 0.8rem;
+        }
+
+        .cards-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .equipes-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .painel-time {
+            padding: 8px 8px 6px 8px;
+        }
+
+        .painel-time-titulo {
+            font-size: 1.05rem;
+            margin-bottom: 8px;
+        }
+
+        .card {
+            min-height: 50px;
+            padding: 8px;
+        }
+
+        .card-title {
+            font-size: 0.72rem;
+        }
+
+        .card-value {
+            font-size: 0.98rem;
+        }
+
+        .card-time {
+            min-height: 54px;
+            padding: 8px;
+        }
+
+        .card-time-titulo {
+            font-size: 0.78rem;
+            line-height: 1.12;
+        }
+
+        .card-time-valor {
+            font-size: 1.05rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -338,7 +431,6 @@ def aplicar_filtros(
     mercado_odd_sel,
     odd_range_sel,
     status_sel,
-    short_sel,
     busca_partida
 ):
     filtrado = df.copy()
@@ -371,19 +463,16 @@ def aplicar_filtros(
     if status_sel and coluna_existe(filtrado, "Status"):
         filtrado = filtrado[filtrado["Status"].astype(str).isin(status_sel)]
 
-    if short_sel and coluna_existe(filtrado, "Short"):
-        filtrado = filtrado[filtrado["Short"].astype(str).isin(short_sel)]
-
     if busca_partida:
         alvo = busca_partida.strip().lower()
 
         mask_home = (
-            filtrado["Home Team"].astype(str).str.lower().str.contains(alvo, na=False)
+            filtrado["Home Team"].astype(str).str.lower().str.contains(alvo, na=False, regex=False)
             if coluna_existe(filtrado, "Home Team") else pd.Series(False, index=filtrado.index)
         )
 
         mask_away = (
-            filtrado["Visitor Team"].astype(str).str.lower().str.contains(alvo, na=False)
+            filtrado["Visitor Team"].astype(str).str.lower().str.contains(alvo, na=False, regex=False)
             if coluna_existe(filtrado, "Visitor Team") else pd.Series(False, index=filtrado.index)
         )
 
@@ -393,60 +482,55 @@ def aplicar_filtros(
 
 
 def render_cards(cards):
-    cols = st.columns(len(cards))
-    for col, (titulo, valor) in zip(cols, cards):
-        with col:
-            st.markdown(
-                f"""
-                <div class="card">
-                    <div class="card-title">{titulo}</div>
-                    <div class="card-value">{valor}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+    html = '<div class="cards-grid">'
+    for titulo, valor in cards:
+        html += (
+            f'<div class="card">'
+            f'<div class="card-title">{titulo}</div>'
+            f'<div class="card-value">{valor}</div>'
+            f'</div>'
+        )
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_cards_verticais(metricas_casa, metricas_visit, nome_casa="CASA", nome_visit="VISITANTE"):
-    col1, col2 = st.columns(2, gap="small")
+    html = '<div class="equipes-grid">'
 
-    with col1:
-        st.markdown('<div class="painel-time painel-casa">', unsafe_allow_html=True)
-        st.markdown(f'<div class="painel-time-titulo">🏠 {nome_casa}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="lista-metricas-time">', unsafe_allow_html=True)
+    html += (
+        f'<div class="painel-time painel-casa">'
+        f'<div class="painel-time-titulo">🏠 {nome_casa}</div>'
+        f'<div class="lista-metricas-time">'
+    )
 
-        for titulo, valor in metricas_casa:
-            st.markdown(
-                f"""
-                <div class="card-time card-casa">
-                    <div class="card-time-titulo">{titulo}</div>
-                    <div class="card-time-valor">{valor}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+    for titulo, valor in metricas_casa:
+        html += (
+            f'<div class="card-time card-casa">'
+            f'<div class="card-time-titulo">{titulo}</div>'
+            f'<div class="card-time-valor">{valor}</div>'
+            f'</div>'
+        )
 
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    html += '</div></div>'
 
-    with col2:
-        st.markdown('<div class="painel-time painel-visit">', unsafe_allow_html=True)
-        st.markdown(f'<div class="painel-time-titulo">✈️ {nome_visit}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="lista-metricas-time">', unsafe_allow_html=True)
+    html += (
+        f'<div class="painel-time painel-visit">'
+        f'<div class="painel-time-titulo">✈️ {nome_visit}</div>'
+        f'<div class="lista-metricas-time">'
+    )
 
-        for titulo, valor in metricas_visit:
-            st.markdown(
-                f"""
-                <div class="card-time card-visit">
-                    <div class="card-time-titulo">{titulo}</div>
-                    <div class="card-time-valor">{valor}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+    for titulo, valor in metricas_visit:
+        html += (
+            f'<div class="card-time card-visit">'
+            f'<div class="card-time-titulo">{titulo}</div>'
+            f'<div class="card-time-valor">{valor}</div>'
+            f'</div>'
+        )
 
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    html += '</div></div>'
+    html += '</div>'
+
+    st.markdown(html, unsafe_allow_html=True)
 
 # =========================================
 # VARIÁVEIS COMBINADAS
@@ -581,22 +665,17 @@ chave_base = nome_planilha
 # CARREGAR BASES
 # =========================================
 try:
-    df = carregar_google_sheet(url_planilha)
+    df_base = carregar_google_sheet(PLANILHA_ODDS)
 except Exception as e:
     st.error(f"Erro ao carregar a planilha ativa: {e}")
     st.stop()
 
-if df.empty:
+if df_base.empty:
     st.warning("A planilha ativa está vazia.")
     st.stop()
 
-try:
-    df_odds = carregar_google_sheet(PLANILHA_ODDS)
-except Exception as e:
-    st.error(f"Erro ao carregar a base fixa de odds/indicadores: {e}")
-    st.stop()
-
-df_odds = criar_variaveis_combinadas(df_odds)
+df = df_base.copy()
+df_odds = criar_variaveis_combinadas(df_base.copy())
 
 # =========================================
 # CRIAR COLUNA PARTIDA
@@ -682,7 +761,6 @@ if pagina == "Dashboard":
                 odd_range_sel = (odd_inicial, odd_final)
 
     status_sel = multiselect_seguro("Status", df, "Status", key=f"status_{chave_base}")
-    short_sel = multiselect_seguro("Short", df, "Short", key=f"short_{chave_base}")
     busca_partida = st.sidebar.text_input("Buscar partida", key=f"busca_partida_{chave_base}")
 
 else:
@@ -693,7 +771,6 @@ else:
     mercado_odd_sel = None
     odd_range_sel = None
     status_sel = []
-    short_sel = []
     busca_partida = ""
 
 # =========================================
@@ -706,7 +783,6 @@ df_filtrado = aplicar_filtros(
     mercado_odd_sel,
     odd_range_sel,
     status_sel,
-    short_sel,
     busca_partida
 ).copy()
 
@@ -911,13 +987,16 @@ metricas_base_visit = [
     ("Controle da Partida visitante", ml_controle_partida_visit),
 ]
 
-cards_janelas = [
+cards_janelas_gols = [
     ("Média de gols 0-15' minutos", fmt_num(gols_0_15)),
     ("Média de gols 16-30' minutos", fmt_num(gols_16_30)),
     ("Média de gols 31-45' minutos", fmt_num(gols_31_45)),
     ("Média de gols 46-60' minutos", fmt_num(gols_46_60)),
     ("Média de gols 61-75' minutos", fmt_num(gols_61_75)),
     ("Média de gols 76-90' minutos", fmt_num(gols_76_90)),
+]
+
+cards_janelas_over = [
     ("Mais de 0.5 gols 0-15'", fmt_pct(over05_0_15)),
     ("Mais de 0.5 gols 16-30'", fmt_pct(over05_16_30)),
     ("Mais de 0.5 gols 31-45'", fmt_pct(over05_31_45)),
@@ -1257,6 +1336,7 @@ def testar_combinacoes_3_variaveis(
     return pd.DataFrame(resultado_rows)
 
 
+@st.cache_data(show_spinner=False)
 def rodar_modelo_historico(df_odds_base: pd.DataFrame, variaveis_modelo: list[str]):
     df_modelo = criar_targets_reais(df_odds_base.copy())
 
@@ -1523,7 +1603,11 @@ if pagina == "Dashboard":
         )
 
         st.markdown("### Janelas de Gols")
-        render_cards(cards_janelas)
+        st.markdown("#### Médias de gols")
+        render_cards(cards_janelas_gols)
+
+        st.markdown("#### Frequência de over 0.5")
+        render_cards(cards_janelas_over)
 
 elif pagina == "Backtest":
     st.markdown("## Backtest")
@@ -1549,16 +1633,10 @@ elif pagina == "Backtest":
         st.markdown("### Resumo")
         st.write(f"Variáveis válidas: {len(variaveis_modelo_backtest)}")
 
-    # =========================================
-    # BASELINE GERAL
-    # =========================================
     if not st.session_state["baseline_geral"].empty:
         st.markdown("### Baseline geral por mercado")
         st.dataframe(st.session_state["baseline_geral"], use_container_width=True)
 
-    # =========================================
-    # RESULTADOS HISTÓRICOS
-    # =========================================
     if not st.session_state["melhores_ganhos_mercado"].empty:
         st.markdown("### Melhores ganhos por mercado")
         st.dataframe(st.session_state["melhores_ganhos_mercado"], use_container_width=True)
@@ -1571,9 +1649,6 @@ elif pagina == "Backtest":
         st.markdown("### Melhores combinações de 3 variáveis")
         st.dataframe(st.session_state["melhores_combos_3_mercado"], use_container_width=True)
 
-    # =========================================
-    # MELHORES METODOLOGIAS COM ROI POSITIVO
-    # =========================================
     st.markdown("### Melhores metodologias com ROI positivo")
 
     df_gain_1 = st.session_state["melhores_ganhos_mercado"].copy()
@@ -1747,9 +1822,6 @@ elif pagina == "Backtest":
                 use_container_width=True
             )
 
-            # =========================================
-            # ENTRADA MANUAL DE METODOLOGIA
-            # =========================================
             st.markdown("### Selecionar metodologia")
 
             col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns([1.1, 1.2, 2.5, 2.0, 0.7])
@@ -1883,9 +1955,6 @@ elif pagina == "Backtest":
 
                     st.session_state["jogos_dia_ns_importados"] = df_jogos_ns
 
-            # =========================================
-            # JOGOS DO DIA NS + EXCEL
-            # =========================================
             if not st.session_state["jogos_dia_ns_importados"].empty:
                 st.markdown("#### Jogos do dia NS encontrados pela metodologia")
 
@@ -1921,9 +1990,6 @@ elif pagina == "Backtest":
                     key="download_excel_jogos_ns_metodologia"
                 )
 
-            # =========================================
-            # GRÁFICO DE LUCRO ACUMULADO
-            # =========================================
             st.markdown("### Gráfico de lucro acumulado por metodologia")
 
             df_base_real_plot = criar_targets_reais(df_odds.copy())
@@ -2040,9 +2106,6 @@ elif pagina == "Backtest":
                     resumo_plot["Lucro_Final"] = resumo_plot["Lucro_Final"].round(2)
                     st.dataframe(resumo_plot, use_container_width=True)
 
-    # =========================================
-    # BACKTEST MANUAL
-    # =========================================
     if not st.session_state["df_bt_manual"].empty:
         st.markdown("### Backtest manual")
         st.dataframe(st.session_state["df_bt_manual"], use_container_width=True)
