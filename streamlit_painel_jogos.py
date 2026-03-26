@@ -523,6 +523,249 @@ def rodar_backtest_cruzado(
     return resumo, detalhes_grupos
 
 
+
+
+# =========================================================
+# DASHBOARD PRINCIPAL — JOGOS DO DIA
+# =========================================================
+def score_operacional_dashboard(row, col_chance, col_odd, col_odd_justa, col_saldo):
+    pts = 0
+    chance = row[col_chance] if col_chance and col_chance in row.index else np.nan
+    odd = row[col_odd] if col_odd and col_odd in row.index else np.nan
+    odd_justa = row[col_odd_justa] if col_odd_justa and col_odd_justa in row.index else np.nan
+    saldo = row[col_saldo] if col_saldo and col_saldo in row.index else np.nan
+
+    if pd.notna(chance):
+        if chance >= 75:
+            pts += 4
+        elif chance >= 70:
+            pts += 3
+        elif chance >= 65:
+            pts += 2
+        elif chance >= 58:
+            pts += 1
+
+    if pd.notna(saldo):
+        if saldo >= 0.40:
+            pts += 4
+        elif saldo >= 0.30:
+            pts += 3
+        elif saldo >= 0.15:
+            pts += 2
+        elif saldo >= 0.05:
+            pts += 1
+        elif saldo < 0:
+            pts -= 2
+
+    if pd.notna(odd):
+        if 1.70 <= odd <= 2.20:
+            pts += 2
+        elif 1.55 <= odd < 1.70 or 2.20 < odd <= 2.50:
+            pts += 1
+        elif odd < 1.45:
+            pts -= 1
+
+    if pd.notna(odd) and pd.notna(odd_justa):
+        if odd > odd_justa:
+            pts += 2
+        elif odd < odd_justa:
+            pts -= 1
+
+    return max(0, min(100, pts * 8))
+
+
+def classificar_sinal_dashboard(score: float) -> str:
+    if score >= 80:
+        return 'FORTE'
+    if score >= 60:
+        return 'BOA'
+    if score >= 40:
+        return 'OBSERVAR'
+    return 'EVITAR'
+
+
+def preparar_dashboard_dia(df_pagina2: pd.DataFrame) -> pd.DataFrame:
+    if df_pagina2.empty:
+        return pd.DataFrame()
+
+    df = preparar_dataframe(df_pagina2.copy())
+
+    col_liga = achar_coluna(df, ['League', 'Liga'])
+    col_casa = achar_coluna(df, ['Home Team', 'Casa'])
+    col_visitante = achar_coluna(df, ['Visitor Team', 'Visitante'])
+    col_mercado = achar_coluna(df, ['A Mais Provavel', 'A Mais Provável', 'Previsões', 'Previsoes', 'Mercado'])
+    col_chance = achar_coluna(df, ['Previsão de chance', 'Previsao de chance', 'Chance'])
+    col_odd = achar_coluna(df, ['Odd Ofertada', 'Odd'])
+    col_odd_justa = achar_coluna(df, ['Valor esperado', 'Odd Justa', 'Odd Esperada'])
+    col_saldo = achar_coluna(df, ['Saldo entre odd ofertada e esperada', 'Saldo entre odd ofertada e valor esperado', 'Saldo', 'Edge'])
+
+    if not col_odd_justa and col_chance:
+        df['Odd Justa Calc'] = np.where(df[col_chance] > 0, 100 / df[col_chance], np.nan)
+        col_odd_justa = 'Odd Justa Calc'
+
+    if not col_saldo and col_odd and col_odd_justa:
+        df['Saldo Calc'] = df[col_odd] - df[col_odd_justa]
+        col_saldo = 'Saldo Calc'
+
+    df['Score_Operacional'] = df.apply(
+        lambda row: score_operacional_dashboard(row, col_chance, col_odd, col_odd_justa, col_saldo),
+        axis=1,
+    )
+    df['Sinal'] = df['Score_Operacional'].apply(classificar_sinal_dashboard)
+
+    out = pd.DataFrame()
+    out['Liga'] = df[col_liga] if col_liga else '-'
+    out['Casa'] = df[col_casa] if col_casa else '-'
+    out['Visitante'] = df[col_visitante] if col_visitante else '-'
+    out['Mercado Previsto'] = df[col_mercado] if col_mercado else '-'
+    out['Chance'] = pd.to_numeric(df[col_chance], errors='coerce') if col_chance else np.nan
+    out['Odd'] = pd.to_numeric(df[col_odd], errors='coerce') if col_odd else np.nan
+    out['Odd Justa'] = pd.to_numeric(df[col_odd_justa], errors='coerce') if col_odd_justa else np.nan
+    out['Saldo'] = pd.to_numeric(df[col_saldo], errors='coerce') if col_saldo else np.nan
+    out['Score_Operacional'] = df['Score_Operacional']
+    out['Sinal'] = df['Sinal']
+    return out
+
+
+def render_dashboard_principal(df_pagina2: pd.DataFrame):
+    st.markdown("<div class='painel-titulo'>Dashboard — Jogos do Dia</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='painel-subtitulo'>Painel principal no estilo do backtest, mas focado nas previsões, valor e seleção operacional dos jogos do dia.</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<span class='fonte-badge'>Página2 — Jogos do dia / Previsões</span>", unsafe_allow_html=True)
+
+    df_dash = preparar_dashboard_dia(df_pagina2)
+    if df_dash.empty:
+        st.warning('Não há dados suficientes na Página2 para montar o dashboard.')
+        return
+
+    with st.sidebar:
+        st.markdown('---')
+        st.markdown('### Dashboard — Filtros rápidos')
+        mercados_dash = ['Todos'] + sorted([x for x in df_dash['Mercado Previsto'].dropna().astype(str).unique() if str(x).strip()])
+        ligas_dash = ['Todas'] + sorted([x for x in df_dash['Liga'].dropna().astype(str).unique() if str(x).strip()])
+        mercado_dash = st.selectbox('Mercado do dia', mercados_dash, key='mercado_dash')
+        liga_dash = st.selectbox('Liga do dia', ligas_dash, key='liga_dash')
+        chance_min_dash = st.slider('Chance mínima', 0, 100, 55, 1, key='chance_dash')
+        odd_min_dash, odd_max_dash = st.slider('Faixa de odd', 1.00, 10.00, (1.70, 2.20), 0.01, key='odd_dash')
+        score_min_dash = st.slider('Score operacional mínimo', 0, 100, 40, 1, key='score_dash')
+        somente_valor_dash = st.checkbox('Somente saldo positivo', value=False, key='valor_dash')
+        somente_aprovados_dash = st.checkbox('Somente FORTE/BOA', value=False, key='aprovados_dash')
+
+    df_f = df_dash.copy()
+    if mercado_dash != 'Todos':
+        df_f = df_f[df_f['Mercado Previsto'].astype(str) == mercado_dash]
+    if liga_dash != 'Todas':
+        df_f = df_f[df_f['Liga'].astype(str) == liga_dash]
+    df_f = df_f[df_f['Chance'].fillna(0) >= chance_min_dash]
+    df_f = df_f[(df_f['Odd'].fillna(0) >= odd_min_dash) & (df_f['Odd'].fillna(0) <= odd_max_dash)]
+    df_f = df_f[df_f['Score_Operacional'].fillna(0) >= score_min_dash]
+    if somente_valor_dash:
+        df_f = df_f[df_f['Saldo'].fillna(-999) > 0]
+    if somente_aprovados_dash:
+        df_f = df_f[df_f['Sinal'].isin(['FORTE', 'BOA'])]
+    df_f = df_f.sort_values(['Score_Operacional', 'Saldo'], ascending=[False, False], na_position='last')
+
+    total_jogos = len(df_dash)
+    total_filtrados = len(df_f)
+    chance_media = df_f['Chance'].mean() if not df_f.empty else np.nan
+    odd_media = df_f['Odd'].mean() if not df_f.empty else np.nan
+    melhor_saldo = df_f['Saldo'].max() if not df_f.empty else np.nan
+    mercado_lider = df_f['Mercado Previsto'].mode().iloc[0] if not df_f.empty and not df_f['Mercado Previsto'].dropna().empty else '-'
+
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    with c1: card_metrica('Jogos do dia', f'{total_jogos}')
+    with c2: card_metrica('Aprovados', f'{total_filtrados}')
+    with c3: card_metrica('Chance média', '-' if pd.isna(chance_media) else f'{chance_media:.1f}%')
+    with c4: card_metrica('Odd média', '-' if pd.isna(odd_media) else f'{odd_media:.2f}')
+    with c5: card_metrica('Melhor saldo', '-' if pd.isna(melhor_saldo) else f'{melhor_saldo:.2f}')
+    with c6: card_metrica('Mercado líder', mercado_lider)
+
+    col_main, col_side = st.columns([2.15, 1.0])
+    with col_main:
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown('### Tabela principal de previsões')
+        if df_f.empty:
+            st.warning('Nenhum jogo encontrado com os filtros atuais.')
+        else:
+            view = df_f.copy()
+            view['Chance'] = view['Chance'].map(lambda x: f'{x:.1f}%' if pd.notna(x) else '-')
+            for c in ['Odd', 'Odd Justa', 'Saldo']:
+                view[c] = view[c].map(lambda x: f'{x:.2f}' if pd.notna(x) else '-')
+            view['Score_Operacional'] = view['Score_Operacional'].map(lambda x: int(x) if pd.notna(x) else 0)
+            st.dataframe(view, use_container_width=True, height=430)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_side:
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown('### Top oportunidades')
+        if df_f.empty:
+            st.info('Sem jogos após os filtros.')
+        else:
+            top_df = df_f[['Casa', 'Visitante', 'Mercado Previsto', 'Chance', 'Odd', 'Score_Operacional', 'Sinal']].head(5).copy()
+            top_df['Chance'] = top_df['Chance'].map(lambda x: f'{x:.1f}%' if pd.notna(x) else '-')
+            top_df['Odd'] = top_df['Odd'].map(lambda x: f'{x:.2f}' if pd.notna(x) else '-')
+            top_df['Score_Operacional'] = top_df['Score_Operacional'].map(lambda x: int(x) if pd.notna(x) else 0)
+            st.dataframe(top_df, use_container_width=True, height=230)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown('### Resumo por mercado')
+        if df_f.empty:
+            st.info('Sem dados suficientes para resumo por mercado.')
+        else:
+            resumo_mercado = df_f.groupby('Mercado Previsto', dropna=False).size().reset_index(name='Jogos').sort_values('Jogos', ascending=False)
+            st.dataframe(resumo_mercado, use_container_width=True, height=180)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+    st.markdown('### Detalhe do jogo selecionado')
+    if not df_f.empty:
+        opcoes_jogo = (df_f['Casa'].astype(str) + ' x ' + df_f['Visitante'].astype(str)).tolist()
+        jogo_sel = st.selectbox('Escolha um jogo para detalhar', opcoes_jogo, index=0, key='jogo_detalhe_dash')
+        row = df_f.iloc[opcoes_jogo.index(jogo_sel)]
+
+        d1, d2 = st.columns([2, 1])
+        with d1:
+            st.markdown(f"**{row.get('Casa', '-')} x {row.get('Visitante', '-')}**")
+            st.caption(f"{row.get('Liga', '-')} • Mercado: {row.get('Mercado Previsto', '-')}")
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric('Chance prevista', '-' if pd.isna(row.get('Chance', np.nan)) else f"{row.get('Chance'):.1f}%")
+            k2.metric('Odd ofertada', '-' if pd.isna(row.get('Odd', np.nan)) else f"{row.get('Odd'):.2f}")
+            k3.metric('Odd justa', '-' if pd.isna(row.get('Odd Justa', np.nan)) else f"{row.get('Odd Justa'):.2f}")
+            k4.metric('Saldo', '-' if pd.isna(row.get('Saldo', np.nan)) else f"{row.get('Saldo'):.2f}")
+
+            leitura = []
+            chance = row.get('Chance', np.nan)
+            saldo = row.get('Saldo', np.nan)
+            score = row.get('Score_Operacional', 0)
+            if pd.notna(chance):
+                leitura.append('chance prevista alta' if chance >= 70 else 'chance prevista aceitável' if chance >= 60 else 'chance prevista mais apertada')
+            if pd.notna(saldo):
+                leitura.append('odd acima do esperado com boa margem' if saldo >= 0.30 else 'odd ainda acima do esperado' if saldo > 0 else 'margem fraca ou negativa')
+            leitura.append('score operacional forte' if score >= 80 else 'score operacional bom' if score >= 60 else 'score operacional mais fraco')
+            st.success('Leitura operacional: ' + ', '.join(leitura) + '.')
+
+        with d2:
+            st.metric('Score operacional', f"{int(row.get('Score_Operacional', 0))}")
+            st.metric('Sinal', row.get('Sinal', '-'))
+            checklist = pd.DataFrame({
+                'Critério': ['Chance alta', 'Odd competitiva', 'Saldo positivo', 'Faixa operacional'],
+                'Status': [
+                    'Sim' if pd.notna(row.get('Chance', np.nan)) and row.get('Chance', 0) >= 65 else 'Não',
+                    'Sim' if pd.notna(row.get('Odd', np.nan)) and 1.70 <= row.get('Odd', 0) <= 2.20 else 'Não',
+                    'Sim' if pd.notna(row.get('Saldo', np.nan)) and row.get('Saldo', 0) > 0 else 'Não',
+                    'Sim' if row.get('Sinal', '') in ['FORTE', 'BOA'] else 'Não',
+                ]
+            })
+            st.dataframe(checklist, use_container_width=True, height=180)
+    else:
+        st.warning('Nenhum jogo encontrado para detalhamento.')
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================================================
 # CARGA DAS BASES
 # =========================================================
@@ -574,16 +817,6 @@ st.sidebar.info("Página1 → Histórico / Backtest")
 st.sidebar.info("Página2 → Jogos do dia / Previsões")
 
 # =========================================================
-# TOPO
-# =========================================================
-st.markdown("<div class='painel-titulo'>Histórico — Backtest Cruzado</div>", unsafe_allow_html=True)
-st.markdown(
-    "<div class='painel-subtitulo'>Cruza variáveis do histórico para encontrar grupos com melhor ROI, drawdown controlado, amostra mínima e profit factor consistente.</div>",
-    unsafe_allow_html=True,
-)
-st.markdown("<span class='fonte-badge'>Página1 — Histórico / Backtest</span>", unsafe_allow_html=True)
-
-# =========================================================
 # BACKTEST GERAL DA PÁGINA1
 # =========================================================
 back_geral = resumo_backtest(df_pagina1)
@@ -610,198 +843,211 @@ if rodar_bt:
 resumo_cruzado = st.session_state.get("resumo_cruzado", pd.DataFrame())
 detalhes_grupos = st.session_state.get("detalhes_grupos", {})
 
-# =========================================================
-# CARDS DO TOPO
-# =========================================================
-if not resumo_cruzado.empty:
-    melhor_roi = resumo_cruzado["ROI_%"].max()
-    melhor_pf = resumo_cruzado["Profit_Factor"].max()
-    melhor_dd = resumo_cruzado["DD_Max"].max()
-    melhor_score = resumo_cruzado["Score_Final"].max()
-    grupos = len(resumo_cruzado)
-else:
-    melhor_roi = 0.0
-    melhor_pf = 0.0
-    melhor_dd = 0.0
-    melhor_score = 0.0
-    grupos = 0
+aba_dashboard, aba_backtest = st.tabs(['Dashboard', 'Histórico / Backtest Cruzado'])
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-with c1:
-    card_metrica("Entradas analisadas", f"{back_geral['entradas']}")
-with c2:
-    card_metrica("Grupos encontrados", f"{grupos}")
-with c3:
-    card_metrica("Melhor ROI", f"{melhor_roi:.2f}%")
-with c4:
-    card_metrica("Melhor DD", f"{melhor_dd:.2f}")
-with c5:
-    card_metrica("Melhor PF", f"{melhor_pf:.2f}")
-with c6:
-    card_metrica("Melhor Score", f"{melhor_score:.2f}")
+with aba_dashboard:
+    render_dashboard_principal(df_pagina2)
 
-# =========================================================
-# CORPO
-# =========================================================
-col_esq, col_dir = st.columns([1.7, 1.0])
+with aba_backtest:
+    st.markdown("<div class='painel-titulo'>Histórico — Backtest Cruzado</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='painel-subtitulo'>Cruza variáveis do histórico para encontrar grupos com melhor ROI, drawdown controlado, amostra mínima e profit factor consistente.</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<span class='fonte-badge'>Página1 — Histórico / Backtest</span>", unsafe_allow_html=True)
 
-with col_esq:
-    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
-    st.markdown("### Ranking dos grupos")
-
-    if resumo_cruzado.empty:
-        st.info("Clique em **Rodar backtest cruzado** na sidebar para gerar os grupos.")
-        st.markdown("</div>", unsafe_allow_html=True)
+    # =========================================================
+    # CARDS DO TOPO
+    # =========================================================
+    if not resumo_cruzado.empty:
+        melhor_roi = resumo_cruzado["ROI_%"].max()
+        melhor_pf = resumo_cruzado["Profit_Factor"].max()
+        melhor_dd = resumo_cruzado["DD_Max"].max()
+        melhor_score = resumo_cruzado["Score_Final"].max()
+        grupos = len(resumo_cruzado)
     else:
-        colunas_rank = [
-            "Variáveis",
-            "Faixas",
-            "Qtd_Entradas",
-            "Acertos",
-            "Erros",
-            "Winrate_%",
-            "Odd_Media",
-            "Lucro_Total",
-            "ROI_%",
-            "DD_Max",
-            "Profit_Factor",
-            "Score_Final",
-        ]
-        st.dataframe(resumo_cruzado[colunas_rank], use_container_width=True, height=480)
-        st.markdown("</div>", unsafe_allow_html=True)
+        melhor_roi = 0.0
+        melhor_pf = 0.0
+        melhor_dd = 0.0
+        melhor_score = 0.0
+        grupos = 0
 
-        opcoes_grupo = resumo_cruzado["Faixas"].tolist()
-        grupo_escolhido = st.selectbox("Grupo para inspecionar", opcoes_grupo)
-        grupo_df = detalhes_grupos.get(grupo_escolhido, pd.DataFrame()).copy()
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    with c1:
+        card_metrica("Entradas analisadas", f"{back_geral['entradas']}")
+    with c2:
+        card_metrica("Grupos encontrados", f"{grupos}")
+    with c3:
+        card_metrica("Melhor ROI", f"{melhor_roi:.2f}%")
+    with c4:
+        card_metrica("Melhor DD", f"{melhor_dd:.2f}")
+    with c5:
+        card_metrica("Melhor PF", f"{melhor_pf:.2f}")
+    with c6:
+        card_metrica("Melhor Score", f"{melhor_score:.2f}")
+
+    # =========================================================
+    # CORPO
+    # =========================================================
+    col_esq, col_dir = st.columns([1.7, 1.0])
+
+    with col_esq:
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown("### Ranking dos grupos")
+
+        if resumo_cruzado.empty:
+            st.info("Clique em **Rodar backtest cruzado** na sidebar para gerar os grupos.")
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            colunas_rank = [
+                "Variáveis",
+                "Faixas",
+                "Qtd_Entradas",
+                "Acertos",
+                "Erros",
+                "Winrate_%",
+                "Odd_Media",
+                "Lucro_Total",
+                "ROI_%",
+                "DD_Max",
+                "Profit_Factor",
+                "Score_Final",
+            ]
+            st.dataframe(resumo_cruzado[colunas_rank], use_container_width=True, height=480)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            opcoes_grupo = resumo_cruzado["Faixas"].tolist()
+            grupo_escolhido = st.selectbox("Grupo para inspecionar", opcoes_grupo)
+            grupo_df = detalhes_grupos.get(grupo_escolhido, pd.DataFrame()).copy()
+
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+            st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+            st.markdown("### Entradas do grupo selecionado")
+
+            linha_grupo = resumo_cruzado.loc[resumo_cruzado["Faixas"] == grupo_escolhido].copy()
+            variaveis_grupo = ""
+            faixas_grupo = ""
+
+            if not linha_grupo.empty:
+                variaveis_grupo = str(linha_grupo.iloc[0]["Variáveis"])
+                faixas_grupo = str(linha_grupo.iloc[0]["Faixas"])
+
+            if grupo_df.empty:
+                st.info("Sem detalhes para o grupo selecionado.")
+            else:
+                cols_show = []
+                for nome in [
+                    "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
+                    "A Mais Provavel", "Previsões", "Previsoes", "Odd Ofertada", "Previsão de chance",
+                    "Valor esperado", "Saldo entre odd ofertada e esperada", "Profit_Odd_Ofertada", "Target_Real"
+                ]:
+                    c = achar_coluna(grupo_df, [nome])
+                    if c and c not in cols_show:
+                        cols_show.append(c)
+
+                for extra in ["Profit_Odd_Ofertada", "Target_Real"]:
+                    if extra in grupo_df.columns and extra not in cols_show:
+                        cols_show.append(extra)
+
+                st.dataframe(grupo_df[cols_show], use_container_width=True, height=340)
+
+                st.markdown("---")
+                st.markdown("### Filtros da metodologia selecionada")
+                st.caption("Essas faixas serão usadas para encontrar os jogos do dia que se encaixam na metodologia.")
+
+                col_f1, col_f2 = st.columns(2)
+
+                with col_f1:
+                    st.text_area(
+                        "Variáveis",
+                        value=variaveis_grupo,
+                        height=120,
+                        key="campo_variaveis_metodologia",
+                    )
+
+                with col_f2:
+                    st.text_area(
+                        "Faixas",
+                        value=faixas_grupo,
+                        height=120,
+                        key="campo_faixas_metodologia",
+                    )
+
+                st.markdown("---")
+                st.markdown("### Jogos do dia que se encaixam nessa metodologia")
+
+                # usa o mercado selecionado no backtest para bater com o mesmo mercado na Página2
+                df_jogos_metodologia = filtrar_jogos_do_dia_por_metodologia(
+                    df_pagina2,
+                    mercado_sel,
+                    faixas_grupo
+                )
+
+                if df_jogos_metodologia.empty:
+                    st.warning("Nenhum jogo do dia se encaixou nas faixas dessa metodologia.")
+                else:
+                    cols_jogos_dia = []
+                    for nome in [
+                        "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
+                        "A Mais Provavel", "Previsões", "Previsoes",
+                        "Odd Ofertada", "Previsão de chance", "Valor esperado",
+                        "Saldo entre odd ofertada e esperada"
+                    ]:
+                        c = achar_coluna(df_jogos_metodologia, [nome])
+                        if c and c not in cols_jogos_dia:
+                            cols_jogos_dia.append(c)
+
+                    st.dataframe(
+                        df_jogos_metodologia[cols_jogos_dia],
+                        use_container_width=True,
+                        height=260
+                    )
+                    st.success(f"{len(df_jogos_metodologia)} jogo(s) do dia encontrados para essa metodologia.")
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_dir:
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown("### Curva do grupo")
+
+        if resumo_cruzado.empty:
+            st.info("A curva do grupo aparece aqui depois do primeiro teste.")
+        else:
+            grupo_curva = st.selectbox(
+                "Curva de qual grupo?",
+                resumo_cruzado["Faixas"].tolist(),
+                key="grupo_curva_select",
+            )
+            grupo_df_curva = detalhes_grupos.get(grupo_curva, pd.DataFrame()).copy()
+
+            if not grupo_df_curva.empty and "Profit_Odd_Ofertada" in grupo_df_curva.columns:
+                curva = grupo_df_curva["Profit_Odd_Ofertada"].dropna().cumsum()
+                st.line_chart(curva, height=260)
+                met = calcular_metricas_grupo(grupo_df_curva)
+                st.markdown(f"- **Entradas:** {met['Qtd_Entradas']}")
+                st.markdown(f"- **ROI:** {met['ROI_%']}%")
+                st.markdown(f"- **DD:** {met['DD_Max']}")
+                st.markdown(f"- **PF:** {met['Profit_Factor']}")
+            else:
+                st.info("Sem profit suficiente para desenhar a curva.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
         st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
-        st.markdown("### Entradas do grupo selecionado")
-
-        linha_grupo = resumo_cruzado.loc[resumo_cruzado["Faixas"] == grupo_escolhido].copy()
-        variaveis_grupo = ""
-        faixas_grupo = ""
-
-        if not linha_grupo.empty:
-            variaveis_grupo = str(linha_grupo.iloc[0]["Variáveis"])
-            faixas_grupo = str(linha_grupo.iloc[0]["Faixas"])
-
-        if grupo_df.empty:
-            st.info("Sem detalhes para o grupo selecionado.")
-        else:
-            cols_show = []
-            for nome in [
-                "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
-                "A Mais Provavel", "Previsões", "Previsoes", "Odd Ofertada", "Previsão de chance",
-                "Valor esperado", "Saldo entre odd ofertada e esperada", "Profit_Odd_Ofertada", "Target_Real"
-            ]:
-                c = achar_coluna(grupo_df, [nome])
-                if c and c not in cols_show:
-                    cols_show.append(c)
-
-            for extra in ["Profit_Odd_Ofertada", "Target_Real"]:
-                if extra in grupo_df.columns and extra not in cols_show:
-                    cols_show.append(extra)
-
-            st.dataframe(grupo_df[cols_show], use_container_width=True, height=340)
-
-            st.markdown("---")
-            st.markdown("### Filtros da metodologia selecionada")
-            st.caption("Essas faixas serão usadas para encontrar os jogos do dia que se encaixam na metodologia.")
-
-            col_f1, col_f2 = st.columns(2)
-
-            with col_f1:
-                st.text_area(
-                    "Variáveis",
-                    value=variaveis_grupo,
-                    height=120,
-                    key="campo_variaveis_metodologia",
-                )
-
-            with col_f2:
-                st.text_area(
-                    "Faixas",
-                    value=faixas_grupo,
-                    height=120,
-                    key="campo_faixas_metodologia",
-                )
-
-            st.markdown("---")
-            st.markdown("### Jogos do dia que se encaixam nessa metodologia")
-
-            # usa o mercado selecionado no backtest para bater com o mesmo mercado na Página2
-            df_jogos_metodologia = filtrar_jogos_do_dia_por_metodologia(
-                df_pagina2,
-                mercado_sel,
-                faixas_grupo
-            )
-
-            if df_jogos_metodologia.empty:
-                st.warning("Nenhum jogo do dia se encaixou nas faixas dessa metodologia.")
-            else:
-                cols_jogos_dia = []
-                for nome in [
-                    "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
-                    "A Mais Provavel", "Previsões", "Previsoes",
-                    "Odd Ofertada", "Previsão de chance", "Valor esperado",
-                    "Saldo entre odd ofertada e esperada"
-                ]:
-                    c = achar_coluna(df_jogos_metodologia, [nome])
-                    if c and c not in cols_jogos_dia:
-                        cols_jogos_dia.append(c)
-
-                st.dataframe(
-                    df_jogos_metodologia[cols_jogos_dia],
-                    use_container_width=True,
-                    height=260
-                )
-                st.success(f"{len(df_jogos_metodologia)} jogo(s) do dia encontrados para essa metodologia.")
-
+        st.markdown("### Resumo rápido")
+        st.markdown("- O ranking usa **ROI + PF + Winrate + Qtd - DD** no Score Final.")
+        st.markdown("- ROI sozinho pode enganar; o filtro de **DD** e **amostra mínima** protege melhor.")
+        st.markdown("- O ideal é aplicar os grupos aprovados depois na aba de jogos do dia.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-with col_dir:
-    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
-    st.markdown("### Curva do grupo")
-
-    if resumo_cruzado.empty:
-        st.info("A curva do grupo aparece aqui depois do primeiro teste.")
-    else:
-        grupo_curva = st.selectbox(
-            "Curva de qual grupo?",
-            resumo_cruzado["Faixas"].tolist(),
-            key="grupo_curva_select",
-        )
-        grupo_df_curva = detalhes_grupos.get(grupo_curva, pd.DataFrame()).copy()
-
-        if not grupo_df_curva.empty and "Profit_Odd_Ofertada" in grupo_df_curva.columns:
-            curva = grupo_df_curva["Profit_Odd_Ofertada"].dropna().cumsum()
-            st.line_chart(curva, height=260)
-            met = calcular_metricas_grupo(grupo_df_curva)
-            st.markdown(f"- **Entradas:** {met['Qtd_Entradas']}")
-            st.markdown(f"- **ROI:** {met['ROI_%']}%")
-            st.markdown(f"- **DD:** {met['DD_Max']}")
-            st.markdown(f"- **PF:** {met['Profit_Factor']}")
-        else:
-            st.info("Sem profit suficiente para desenhar a curva.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
-    st.markdown("### Resumo rápido")
-    st.markdown("- O ranking usa **ROI + PF + Winrate + Qtd - DD** no Score Final.")
-    st.markdown("- ROI sozinho pode enganar; o filtro de **DD** e **amostra mínima** protege melhor.")
-    st.markdown("- O ideal é aplicar os grupos aprovados depois na aba de jogos do dia.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# =========================================================
-# DEBUG LEVE
-# =========================================================
-with st.expander("Conferência das bases"):
-    st.write("Página1:", df_pagina1.shape)
-    st.write("Página2:", df_pagina2.shape)
-    if not df_pagina1.empty:
-        st.write("Colunas Página1:", list(df_pagina1.columns))
-    if not df_pagina2.empty:
-        st.write("Colunas Página2:", list(df_pagina2.columns))
+    # =========================================================
+    # DEBUG LEVE
+    # =========================================================
+    with st.expander("Conferência das bases"):
+        st.write("Página1:", df_pagina1.shape)
+        st.write("Página2:", df_pagina2.shape)
+        if not df_pagina1.empty:
+            st.write("Colunas Página1:", list(df_pagina1.columns))
+        if not df_pagina2.empty:
+            st.write("Colunas Página2:", list(df_pagina2.columns))
