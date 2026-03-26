@@ -1,600 +1,807 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
+import itertools
 import re
+from typing import Dict, List, Tuple
 
-st.set_page_config(
-    page_title="Painel GGolEmNumeros",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+st.set_page_config(page_title="GolEmNúmeros", layout="wide")
+
+# =========================================================
+# CONFIGURAÇÕES
+# USE AS URLS PUBLICADAS DE CADA ABA
+# =========================================================
+URL_PAGINA1 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVsf4nH4SJ7cBV174FLEkkmpFLCxiS4FKKyhrTlKnKoUpVX9giYZ6V5_AMGavD3-AEadpm_zynvBK6/pub?gid=0&single=true&output=csv"
+URL_PAGINA2 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVsf4nH4SJ7cBV174FLEkkmpFLCxiS4FKKyhrTlKnKoUpVX9giYZ6V5_AMGavD3-AEadpm_zynvBK6/pub?gid=272845724&single=true&output=csv"
+
+# =========================================================
+# ESTILO
+# =========================================================
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(180deg, #061327 0%, #081a34 100%);
+        color: #ffffff;
+    }
+    section[data-testid="stSidebar"] {
+        background: #020c1d;
+        border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        max-width: 1550px;
+    }
+    .card-metrica {
+        background: rgba(19, 36, 68, 0.95);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 18px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+    }
+    .card-metrica .rotulo {
+        font-size: 12px;
+        color: #9fb3d9;
+        margin-bottom: 8px;
+    }
+    .card-metrica .valor {
+        font-size: 30px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.1;
+    }
+    .painel-bloco {
+        background: rgba(18, 33, 63, 0.95);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 24px;
+        padding: 18px;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    }
+    .painel-titulo {
+        font-size: 34px;
+        font-weight: 800;
+        color: white;
+        margin-bottom: 4px;
+    }
+    .painel-subtitulo {
+        color: #9fb3d9;
+        font-size: 15px;
+        margin-bottom: 18px;
+    }
+    .fonte-badge {
+        display: inline-block;
+        background: rgba(34,197,94,0.14);
+        color: #86efac;
+        border: 1px solid rgba(134,239,172,0.12);
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-LINK_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSF5WBP5KeBr6cVbAK0yH2IJf_luqoK90gOz1fj_VlS_hoAb4E6v_awCWO-bTi28I-mWYWEeewnhmTh/pub?output=csv"
-
-st.markdown("""
-<style>
-.block-container{
-    padding-top: 0.8rem;
-    padding-bottom: 2rem;
-    padding-left: 0.7rem;
-    padding-right: 0.7rem;
-    max-width: 760px;
-}
-.main-title {
-    font-size: 1.35rem;
-    font-weight: 800;
-    margin-bottom: 0.1rem;
-    color: #ffffff;
-}
-.sub-title {
-    font-size: 0.82rem;
-    color: #b8c3d6;
-    margin-bottom: 1rem;
-}
-.section-title {
-    font-size: 0.98rem;
-    font-weight: 800;
-    color: white;
-    margin-top: 0.8rem;
-    margin-bottom: 0.6rem;
-}
-.card-box {
-    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-}
-.badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 0.74rem;
-    font-weight: 700;
-    text-align: center;
-}
-.badge-ns {
-    background: rgba(37, 99, 235, 0.20);
-    color: #93c5fd;
-    border: 1px solid rgba(147,197,253,0.35);
-}
-.badge-ft {
-    background: rgba(34, 197, 94, 0.18);
-    color: #86efac;
-    border: 1px solid rgba(134,239,172,0.35);
-}
-.badge-soft {
-    background: rgba(255,255,255,0.06);
-    color: #d1d5db;
-    border: 1px solid rgba(255,255,255,0.08);
-}
-.small-label {
-    font-size: 0.72rem;
-    color: #94a3b8;
-}
-.big-value {
-    font-size: 0.98rem;
-    font-weight: 800;
-    color: #f8fafc;
-}
-.placar-ft {
-    font-size: 1.35rem;
-    font-weight: 900;
-    color: #ffffff;
-    margin-top: 6px;
-    margin-bottom: 6px;
-}
-.box-detalhe {
-    background: rgba(255,255,255,0.035);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 12px;
-    margin-bottom: 14px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-def normalizar_texto(txt):
-    if txt is None:
-        return ""
-    txt = str(txt).strip()
-    txt = re.sub(r"\s+", " ", txt)
-    return txt
-
-
-def slug(txt):
-    txt = normalizar_texto(txt).lower()
-    txt = (
-        txt.replace("ã", "a")
-           .replace("á", "a")
-           .replace("à", "a")
-           .replace("â", "a")
-           .replace("é", "e")
-           .replace("ê", "e")
-           .replace("í", "i")
-           .replace("ó", "o")
-           .replace("ô", "o")
-           .replace("õ", "o")
-           .replace("ú", "u")
-           .replace("ç", "c")
-    )
-    txt = re.sub(r"[^a-z0-9]+", "_", txt)
-    return txt.strip("_")
-
-
+# =========================================================
+# FUNÇÕES BÁSICAS
+# =========================================================
 @st.cache_data(show_spinner=False)
-def carregar_base():
-    df = pd.read_csv(LINK_CSV)
-    df.columns = [normalizar_texto(c) for c in df.columns]
+def carregar_csv(url: str) -> pd.DataFrame:
+    if not url or "COLE_AQUI" in url:
+        return pd.DataFrame()
+    df = pd.read_csv(url)
+    df.columns = [str(c).strip() for c in df.columns]
     return df
 
 
-def encontrar_coluna(df, candidatos):
-    mapa = {c: slug(c) for c in df.columns}
-    for cand in candidatos:
-        for col_original, col_slug in mapa.items():
-            if col_slug == cand:
-                return col_original
+def achar_coluna(df: pd.DataFrame, candidatos: List[str]) -> str | None:
+    mapa = {str(c).strip().lower(): c for c in df.columns}
+    for nome in candidatos:
+        chave = nome.strip().lower()
+        if chave in mapa:
+            return mapa[chave]
     return None
 
 
-def obter_colunas(df):
-    colunas = {}
-    colunas["country"] = encontrar_coluna(df, ["country", "pais"])
-    colunas["league"] = encontrar_coluna(df, ["league", "liga", "campeonato", "competicao", "short"])
-    colunas["hour"] = encontrar_coluna(df, ["hour", "hora", "horario", "time"])
-    colunas["status"] = encontrar_coluna(df, ["status", "estado", "situacao"])
-    colunas["home"] = encontrar_coluna(df, ["home_team", "time_casa", "casa", "mandante", "home"])
-    colunas["away"] = encontrar_coluna(df, ["visitor_team", "away_team", "time_visitante", "visitante", "fora", "away"])
-    colunas["gols_home"] = encontrar_coluna(df, ["result_home", "gols_casa", "home_goals", "placar_casa", "resultado_casa"])
-    colunas["gols_away"] = encontrar_coluna(df, ["result_visitor", "gols_visitante", "away_goals", "placar_visitante", "resultado_visitante"])
-
-    colunas["odd_casa"] = encontrar_coluna(df, ["odds_casa_para_vencer", "odds"])
-    colunas["odd_visitante"] = encontrar_coluna(df, ["odds_visitante_para_vencer", "odds_2"])
-    colunas["odd_over25"] = encontrar_coluna(df, ["odds_mais_de_2_5", "odds_3"])
-    colunas["odd_btts_sim"] = encontrar_coluna(df, ["odds_ambas_equipes_marcarem_sim", "odds_5"])
-
-    colunas["prec_casa"] = encontrar_coluna(df, ["precisao_nos_chutes_no_alvo_casa"])
-    colunas["prec_visit"] = encontrar_coluna(df, ["precisao_nos_chutes_no_alvo_visitante"])
-    colunas["chg_casa"] = encontrar_coluna(df, ["chutes_por_gol_casa"])
-    colunas["chg_visit"] = encontrar_coluna(df, ["chutes_por_gol_visitante"])
-
-    colunas["mpg_casa"] = encontrar_coluna(df, ["quando_marcam_o_primeiro_gol_e_ganha_o_jogo_casa"])
-    colunas["mpg_visit"] = encontrar_coluna(df, ["quando_marcam_o_primeiro_gol_e_ganha_o_jogo_visitante"])
-    colunas["spg_casa"] = encontrar_coluna(df, ["quando_sofre_o_primeiro_gol_e_ganha_o_jogo_casa"])
-    colunas["spg_visit"] = encontrar_coluna(df, ["quando_sofre_o_primeiro_gol_e_ganha_o_jogo_visitante"])
-
-    colunas["gm1t_casa"] = encontrar_coluna(df, ["media_de_gols_marcados_primeiro_tempo_casa"])
-    colunas["gm1t_visit"] = encontrar_coluna(df, ["media_de_gols_marcados_primeiro_tempo_visitante"])
-    colunas["gs1t_casa"] = encontrar_coluna(df, ["media_de_gols_sofridos_primeiro_tempo_casa"])
-    colunas["gs1t_visit"] = encontrar_coluna(df, ["media_de_gols_sofridos_primeiro_tempo_visitante"])
-    colunas["cgm1t_casa"] = encontrar_coluna(df, ["media_de_chutes_no_gol_marcados_1_tempo_casa"])
-    colunas["cgm1t_visit"] = encontrar_coluna(df, ["media_de_chutes_no_gol_marcados_1_tempo_visitante"])
-    colunas["cts1t_casa"] = encontrar_coluna(df, ["media_total_de_chutes_sofridos_1_tempo_casa"])
-    colunas["cts1t_visit"] = encontrar_coluna(df, ["media_total_de_chutes_sofridos_1_tempo_visitante"])
-
-    colunas["h2h_vit_casa"] = encontrar_coluna(df, ["confrontos_diretos_vitorias_casa"])
-    colunas["h2h_vit_visit"] = encontrar_coluna(df, ["confrontos_diretos_vitorias_visitante"])
-    colunas["vit_casa"] = encontrar_coluna(df, ["vitorias_casa"])
-    colunas["vit_visit"] = encontrar_coluna(df, ["vitorias_visitante"])
-
-    colunas["g_0_15"] = encontrar_coluna(df, ["media_de_gols_0_15_minutos"])
-    colunas["g_16_30"] = encontrar_coluna(df, ["media_de_gols_16_30_minutos"])
-    colunas["g_31_45"] = encontrar_coluna(df, ["media_de_gols_31_45_minutos"])
-    colunas["g_46_60"] = encontrar_coluna(df, ["media_de_gols_46_60_minutos"])
-    colunas["g_61_75"] = encontrar_coluna(df, ["media_de_gols_61_75_minutos"])
-    colunas["g_76_90"] = encontrar_coluna(df, ["media_de_gols_76_90_minutos"])
-
-    colunas["o05_0_15"] = encontrar_coluna(df, ["mais_de_0_5_gols_0_15"])
-    colunas["o05_16_30"] = encontrar_coluna(df, ["mais_de_0_5_gols_16_30"])
-    colunas["o05_31_45"] = encontrar_coluna(df, ["mais_de_0_5_gols_31_45"])
-    colunas["o05_46_60"] = encontrar_coluna(df, ["mais_de_0_5_gols_46_60"])
-    colunas["o05_61_75"] = encontrar_coluna(df, ["mais_de_0_5_gols_61_75"])
-    colunas["o05_76_90"] = encontrar_coluna(df, ["mais_de_0_5_gols_76_90"])
-
-    colunas["score_casa_pronto"] = encontrar_coluna(df, ["score_casa"])
-    colunas["score_visit_pronto"] = encontrar_coluna(df, ["score_visitante"])
-    colunas["score_gols_pronto"] = encontrar_coluna(df, ["score_gols"])
-    return colunas
+def converter_numerico_serie(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(
+        s.astype(str)
+        .str.replace("%", "", regex=False)
+        .str.replace(",", ".", regex=False)
+        .str.strip(),
+        errors="coerce",
+    )
 
 
-def to_num(s):
-    return pd.to_numeric(s, errors="coerce")
+def card_metrica(rotulo: str, valor: str):
+    st.markdown(
+        f"""
+        <div class='card-metrica'>
+            <div class='rotulo'>{rotulo}</div>
+            <div class='valor'>{valor}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def fmt(v, casas=1):
-    try:
-        if pd.isna(v):
-            return "—"
-        n = float(v)
-        if n.is_integer():
-            return str(int(n))
-        return f"{n:.{casas}f}"
-    except Exception:
-        return "—"
+# =========================================================
+# PREPARAÇÃO DAS BASES
+# =========================================================
+def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
 
-
-def fmt_placar_valor(v):
-    if pd.isna(v) or str(v).strip() == "":
-        return ""
-    try:
-        n = float(v)
-        if n.is_integer():
-            return str(int(n))
-        return str(n).replace(".0", "")
-    except Exception:
-        return str(v).strip()
-
-
-def extrair_hora_jogo(valor):
-    if pd.isna(valor):
-        return pd.NaT
-    texto = str(valor).strip()
-    match = re.search(r"(\d{1,2}:\d{2})", texto)
-    if match:
-        return pd.to_datetime(match.group(1), format="%H:%M", errors="coerce")
-    tentativa = pd.to_datetime(texto, errors="coerce", dayfirst=True)
-    if pd.notna(tentativa):
-        return tentativa
-    return pd.NaT
-
-
-def exibir_hora_curta(valor):
-    if pd.isna(valor):
-        return "—"
-    texto = str(valor).strip()
-    match = re.search(r"(\d{1,2}:\d{2})", texto)
-    if match:
-        return match.group(1)
-    dt = pd.to_datetime(texto, errors="coerce", dayfirst=True)
-    if pd.notna(dt):
-        return dt.strftime("%H:%M")
-    return texto
-
-
-def valor_col(row, col):
-    if not col:
-        return np.nan
-    return row[col] if col in row.index else np.nan
-
-
-def montar_id_partida(row, cols):
-    partes = []
-    for k in ["status", "country", "league", "hour", "home", "away"]:
-        c = cols.get(k)
-        if c:
-            partes.append(str(row[c]))
-    return " | ".join(partes)
-
-
-def normalizar_serie_0_100(s):
-    s = to_num(s)
-    minimo = s.min(skipna=True)
-    maximo = s.max(skipna=True)
-    if pd.isna(minimo) or pd.isna(maximo) or minimo == maximo:
-        return pd.Series(np.nan, index=s.index)
-    return ((s - minimo) / (maximo - minimo) * 100).clip(0, 100)
-
-
-def prob_implicita(odd):
-    odd = to_num(odd)
-    return np.where((odd > 0) & np.isfinite(odd), 1 / odd, np.nan)
-
-
-def safe_inv(s):
-    s = to_num(s)
-    return np.where((s > 0) & np.isfinite(s), 1 / s, np.nan)
-
-
-def soma_existente(df, colunas):
-    series = []
-    for c in colunas:
-        if c is not None and c in df.columns:
-            series.append(to_num(df[c]))
-    if not series:
-        return pd.Series(np.nan, index=df.index)
-    return pd.concat(series, axis=1).sum(axis=1, min_count=1)
-
-
-def criar_scores_painel(df, cols):
     df = df.copy()
 
-    if cols["score_casa_pronto"] and cols["score_casa_pronto"] in df.columns:
-        df["__score_casa__"] = to_num(df[cols["score_casa_pronto"]])
-    else:
-        prob_casa = pd.Series(prob_implicita(df[cols["odd_casa"]]), index=df.index) if cols["odd_casa"] else pd.Series(np.nan, index=df.index)
-        eff_casa = pd.Series(safe_inv(df[cols["chg_casa"]]), index=df.index) if cols["chg_casa"] else pd.Series(np.nan, index=df.index)
-        ofensivo_casa = soma_existente(df, [cols["prec_casa"], cols["gm1t_casa"], cols["cgm1t_casa"], cols["mpg_casa"], cols["vit_casa"], cols["h2h_vit_casa"]])
-        frag_rival_visit = soma_existente(df, [cols["gs1t_visit"], cols["cts1t_visit"]])
-        resiliencia_casa = soma_existente(df, [cols["spg_casa"]])
-        bruto_casa = pd.concat([prob_casa, ofensivo_casa, eff_casa, frag_rival_visit, resiliencia_casa], axis=1).mean(axis=1)
-        df["__score_casa__"] = normalizar_serie_0_100(bruto_casa)
+    for c in df.columns:
+        if df[c].dtype == object:
+            df[c] = df[c].astype(str).str.strip()
 
-    if cols["score_visit_pronto"] and cols["score_visit_pronto"] in df.columns:
-        df["__score_visitante__"] = to_num(df[cols["score_visit_pronto"]])
-    else:
-        prob_visit = pd.Series(prob_implicita(df[cols["odd_visitante"]]), index=df.index) if cols["odd_visitante"] else pd.Series(np.nan, index=df.index)
-        eff_visit = pd.Series(safe_inv(df[cols["chg_visit"]]), index=df.index) if cols["chg_visit"] else pd.Series(np.nan, index=df.index)
-        ofensivo_visit = soma_existente(df, [cols["prec_visit"], cols["gm1t_visit"], cols["cgm1t_visit"], cols["mpg_visit"], cols["vit_visit"], cols["h2h_vit_visit"]])
-        frag_rival_casa = soma_existente(df, [cols["gs1t_casa"], cols["cts1t_casa"]])
-        resiliencia_visit = soma_existente(df, [cols["spg_visit"]])
-        bruto_visit = pd.concat([prob_visit, ofensivo_visit, eff_visit, frag_rival_casa, resiliencia_visit], axis=1).mean(axis=1)
-        df["__score_visitante__"] = normalizar_serie_0_100(bruto_visit)
+    col_odd = achar_coluna(df, ["Odd Ofertada"])
+    col_valor = achar_coluna(df, ["Valor esperado"])
+    col_saldo = achar_coluna(df, ["Saldo entre odd ofertada e esperada", "Saldo entre odd ofertada e valor esperado"])
+    col_chance = achar_coluna(df, ["Previsão de chance", "Previsao de chance", "Chance"])
+    col_stats = achar_coluna(df, ["Estatisticas Ultimos Jogos", "Estatísticas Ultimos Jogos"])
 
-    if cols["score_gols_pronto"] and cols["score_gols_pronto"] in df.columns:
-        df["__score_gols__"] = to_num(df[cols["score_gols_pronto"]])
-    else:
-        prob_over = pd.Series(prob_implicita(df[cols["odd_over25"]]), index=df.index) if cols["odd_over25"] else pd.Series(np.nan, index=df.index)
-        prob_btts = pd.Series(prob_implicita(df[cols["odd_btts_sim"]]), index=df.index) if cols["odd_btts_sim"] else pd.Series(np.nan, index=df.index)
-        janelas_gols = soma_existente(df, [cols["g_0_15"], cols["g_16_30"], cols["g_31_45"], cols["g_46_60"], cols["g_61_75"], cols["g_76_90"]])
-        janelas_o05 = soma_existente(df, [cols["o05_0_15"], cols["o05_16_30"], cols["o05_31_45"], cols["o05_46_60"], cols["o05_61_75"], cols["o05_76_90"]])
-        ofensivo_total = soma_existente(df, [cols["gm1t_casa"], cols["gm1t_visit"], cols["cgm1t_casa"], cols["cgm1t_visit"]])
-        frag_total = soma_existente(df, [cols["gs1t_casa"], cols["gs1t_visit"], cols["cts1t_casa"], cols["cts1t_visit"]])
-        bruto_gols = pd.concat([prob_over, prob_btts, janelas_gols, janelas_o05, ofensivo_total, frag_total], axis=1).mean(axis=1)
-        df["__score_gols__"] = normalizar_serie_0_100(bruto_gols)
+    if col_odd:
+        df[col_odd] = converter_numerico_serie(df[col_odd])
+    if col_valor:
+        df[col_valor] = converter_numerico_serie(df[col_valor])
+    if col_chance:
+        df[col_chance] = converter_numerico_serie(df[col_chance])
+    if col_saldo:
+        df[col_saldo] = converter_numerico_serie(df[col_saldo])
+    elif col_odd and col_valor:
+        df["Saldo entre odd ofertada e esperada"] = df[col_odd] - df[col_valor]
+
+    if col_stats:
+        stats_num = converter_numerico_serie(df[col_stats])
+        if stats_num.notna().sum() >= max(20, int(len(df) * 0.2)):
+            df[col_stats] = stats_num
 
     return df
 
 
-def render_card(status_txt, country, hour, home, away, league, fc, fv, ge, placar=None):
-    with st.container():
-        st.markdown('<div class="card-box">', unsafe_allow_html=True)
+def montar_targets_basicos(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
 
-        c1, c2, c3 = st.columns([1, 1, 1])
-        with c1:
-            estilo = "badge-ns" if status_txt == "NS" else "badge-ft"
-            st.markdown(f'<span class="badge {estilo}">{status_txt}</span>', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<div style="text-align:center;"><span class="badge badge-soft">{country if pd.notna(country) else "—"}</span></div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown(f'<div style="text-align:right;"><span class="badge badge-soft">{hour}</span></div>', unsafe_allow_html=True)
+    df = df.copy()
 
-        st.markdown(f"**{home if pd.notna(home) else 'Casa'}**")
-        st.markdown("**vs**")
-        st.markdown(f"**{away if pd.notna(away) else 'Visitante'}**")
+    col_resultado = achar_coluna(df, ["Resultado"])
+    col_ht = achar_coluna(df, ["HT"])
+    col_prev = achar_coluna(df, ["A Mais Provavel", "Previsões", "Previsoes"])
+    col_odd = achar_coluna(df, ["Odd Ofertada"])
+    col_status = achar_coluna(df, ["Status"])
 
-        if placar is not None:
-            st.markdown(f'<div class="placar-ft">{placar}</div>', unsafe_allow_html=True)
+    if not col_resultado or not col_ht:
+        return df
 
-        a1, a2 = st.columns(2)
-        with a1:
-            st.markdown('<div class="small-label">Liga</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="big-value">{league if pd.notna(league) else "—"}</div>', unsafe_allow_html=True)
-        with a2:
-            st.markdown('<div class="small-label">Força Casa</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="big-value">{fc}</div>', unsafe_allow_html=True)
+    def separar_placar(coluna: pd.Series):
+        placar = coluna.astype(str).str.extract(r"^\s*(\d+)\s*-\s*(\d+)\s*$")
+        g1 = pd.to_numeric(placar[0], errors="coerce")
+        g2 = pd.to_numeric(placar[1], errors="coerce")
+        return g1, g2
 
-        b1, b2 = st.columns(2)
-        with b1:
-            st.markdown('<div class="small-label">Força Visitante</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="big-value">{fv}</div>', unsafe_allow_html=True)
-        with b2:
-            st.markdown('<div class="small-label">Gols / Potencial</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="big-value">{ge}</div>', unsafe_allow_html=True)
+    df["FT_Home_Goals"], df["FT_Away_Goals"] = separar_placar(df[col_resultado])
+    df["HT_Home_Goals"], df["HT_Away_Goals"] = separar_placar(df[col_ht])
+    df["ST_Home_Goals"] = df["FT_Home_Goals"] - df["HT_Home_Goals"]
+    df["ST_Away_Goals"] = df["FT_Away_Goals"] - df["HT_Away_Goals"]
+    df["FT_Total_Goals"] = df["FT_Home_Goals"] + df["FT_Away_Goals"]
+    df["HT_Total_Goals"] = df["HT_Home_Goals"] + df["HT_Away_Goals"]
+    df["ST_Total_Goals"] = df["ST_Home_Goals"] + df["ST_Away_Goals"]
+    df["FT_Goal_Diff"] = df["FT_Home_Goals"] - df["FT_Away_Goals"]
 
-        st.markdown('</div>', unsafe_allow_html=True)
+    targets = {
+        "Menos de 1.5 gols 2° tempo": (df["ST_Total_Goals"] < 2).astype(int),
+        "Ambas as equipes marcarem (Sim)": (((df["FT_Home_Goals"] > 0) & (df["FT_Away_Goals"] > 0))).astype(int),
+        "Mais de 2.5 gols": (df["FT_Total_Goals"] >= 3).astype(int),
+        "Menos de 2.5 gols 2° tempo": (df["ST_Total_Goals"] < 3).astype(int),
+        "Menos de 1.5 gols 1° tempo": (df["HT_Total_Goals"] < 2).astype(int),
+        "Mais de 1.5 gols": (df["FT_Total_Goals"] >= 2).astype(int),
+        "Empate ou visitante para vencer": (df["FT_Goal_Diff"] <= 0).astype(int),
+        "Mais de 1.5 gols 2° tempo": (df["ST_Total_Goals"] >= 2).astype(int),
+        "Casa para vencer": (df["FT_Goal_Diff"] > 0).astype(int),
+        "Menos de 2.5 gols 1° tempo": (df["HT_Total_Goals"] < 3).astype(int),
+        "Mais de 0.5 gols 1° tempo": (df["HT_Total_Goals"] >= 1).astype(int),
+        "Casa para vencer ou empate": (df["FT_Goal_Diff"] >= 0).astype(int),
+        "Menos de 2.5 gols": (df["FT_Total_Goals"] < 3).astype(int),
+        "Mais de 0.5 gols 2° tempo": (df["ST_Total_Goals"] >= 1).astype(int),
+        "Visitante para vencer": (df["FT_Goal_Diff"] < 0).astype(int),
+        "Menos de 3.5 gols": (df["FT_Total_Goals"] < 4).astype(int),
+        "Menos de 0.5 gols 2° tempo": (df["ST_Total_Goals"] < 1).astype(int),
+        "Mais de 3.5 gols": (df["FT_Total_Goals"] >= 4).astype(int),
+        "Menos de 4.5 gols": (df["FT_Total_Goals"] < 5).astype(int),
+        "Mais de 1.5 gols 1° tempo": (df["HT_Total_Goals"] >= 2).astype(int),
+        "Menos de 1.5 gols": (df["FT_Total_Goals"] < 2).astype(int),
+        "Menos de 0.5 gols 1° tempo": (df["HT_Total_Goals"] < 1).astype(int),
+    }
+
+    if col_prev and col_odd:
+        df["Target_Real"] = np.nan
+        for mercado, serie in targets.items():
+            mask = df[col_prev] == mercado
+            if mask.any():
+                df.loc[mask, "Target_Real"] = serie.loc[mask]
+
+        df["Profit_Odd_Ofertada"] = np.where(
+            df["Target_Real"] == 1,
+            df[col_odd] - 1,
+            np.where(df["Target_Real"] == 0, -1, np.nan),
+        )
+
+    # histórico/backtest só com jogos terminados
+    if col_status and col_status in df.columns:
+        df = df[df[col_status].astype(str).str.upper() == "FT"].copy()
+    else:
+        df = df.dropna(subset=["FT_Home_Goals", "FT_Away_Goals", "HT_Home_Goals", "HT_Away_Goals"]).copy()
+
+    return df
 
 
-def mostrar_detalhes_confronto(row, cols, status_card):
-    home = valor_col(row, cols["home"])
-    away = valor_col(row, cols["away"])
-    country = valor_col(row, cols["country"])
-    league = valor_col(row, cols["league"])
-    hour = row["__hora_exibicao__"]
-    fc = fmt(row["__score_casa__"])
-    fv = fmt(row["__score_visitante__"])
-    ge = fmt(row["__score_gols__"])
-    placar = row["__placar__"]
+def resumo_backtest(df_hist: pd.DataFrame) -> Dict[str, object]:
+    if df_hist.empty or "Profit_Odd_Ofertada" not in df_hist.columns:
+        return {"entradas": 0, "lucro": 0.0, "dd": 0.0, "pf": 0.0, "curva": pd.Series(dtype=float)}
 
-    st.markdown('<div class="box-detalhe">', unsafe_allow_html=True)
-    st.markdown(f"**{home if pd.notna(home) else 'Casa'} x {away if pd.notna(away) else 'Visitante'}**")
-    c1, c2 = st.columns(2)
-    c1.write(f"**País:** {country if pd.notna(country) else '—'}")
-    c2.write(f"**Hora:** {hour}")
-    c3, c4 = st.columns(2)
-    c3.write(f"**Liga:** {league if pd.notna(league) else '—'}")
-    c4.write(f"**Status:** {status_card}")
+    base = df_hist.dropna(subset=["Profit_Odd_Ofertada"]).copy()
+    if base.empty:
+        return {"entradas": 0, "lucro": 0.0, "dd": 0.0, "pf": 0.0, "curva": pd.Series(dtype=float)}
 
-    if status_card == "FT":
-        st.write(f"**Placar:** {placar}")
+    curva = base["Profit_Odd_Ofertada"].cumsum()
+    pico = curva.cummax()
+    dd = float((curva - pico).min()) if len(curva) else 0.0
+    ganhos = base.loc[base["Profit_Odd_Ofertada"] > 0, "Profit_Odd_Ofertada"].sum()
+    perdas = abs(base.loc[base["Profit_Odd_Ofertada"] < 0, "Profit_Odd_Ofertada"].sum())
+    pf = float(ganhos / perdas) if perdas > 0 else 0.0
 
-    c5, c6 = st.columns(2)
-    c5.write(f"**Força Casa:** {fc}")
-    c6.write(f"**Força Visitante:** {fv}")
-    st.write(f"**Gols / Potencial:** {ge}")
-    st.markdown('</div>', unsafe_allow_html=True)
+    return {
+        "entradas": int(len(base)),
+        "lucro": float(base["Profit_Odd_Ofertada"].sum()),
+        "dd": dd,
+        "pf": pf,
+        "curva": curva,
+    }
 
 
-def alternar_confronto(chave):
-    st.session_state[chave] = not st.session_state.get(chave, False)
+# =========================================================
+# BACKTEST CRUZADO
+# =========================================================
+def criar_faixas_numericas(
+    df: pd.DataFrame,
+    col: str,
+    modo: str,
+    qtd_bins: int = 4,
+) -> pd.Series:
+    s = pd.to_numeric(df[col], errors="coerce")
+    if s.dropna().nunique() < 2:
+        return pd.Series(np.nan, index=df.index, dtype=object)
+
+    try:
+        if modo == "Quartis":
+            return pd.qcut(s, q=min(qtd_bins, s.dropna().nunique()), duplicates="drop").astype(str)
+        if modo == "Quintis":
+            return pd.qcut(s, q=min(5, s.dropna().nunique()), duplicates="drop").astype(str)
+        return pd.cut(s, bins=qtd_bins, include_lowest=True, duplicates="drop").astype(str)
+    except Exception:
+        return pd.Series(np.nan, index=df.index, dtype=object)
 
 
-df = carregar_base()
-cols = obter_colunas(df)
+def score_final(roi: float, pf: float, winrate: float, qtd: int, dd: float) -> float:
+    return (
+        roi * 0.40
+        + pf * 25 * 0.25
+        + winrate * 0.10
+        + np.log1p(max(qtd, 0)) * 8 * 0.15
+        - abs(dd) * 0.10
+    )
 
-if cols["status"] is None:
-    st.error("A planilha não tem uma coluna de Status identificável.")
-    st.stop()
 
-df[cols["status"]] = df[cols["status"]].astype(str).str.upper().str.strip()
+def calcular_metricas_grupo(df: pd.DataFrame) -> Dict[str, float]:
+    base = df.dropna(subset=["Profit_Odd_Ofertada", "Target_Real"]).copy()
+    qtd = len(base)
+    if qtd == 0:
+        return {
+            "Qtd_Entradas": 0,
+            "Acertos": 0,
+            "Erros": 0,
+            "Winrate_%": np.nan,
+            "Odd_Media": np.nan,
+            "Lucro_Total": np.nan,
+            "ROI_%": np.nan,
+            "DD_Max": np.nan,
+            "Profit_Factor": np.nan,
+            "Score_Final": np.nan,
+        }
 
-if cols["gols_home"] and cols["gols_away"]:
-    df["__placar__"] = df[cols["gols_home"]].apply(fmt_placar_valor) + "x" + df[cols["gols_away"]].apply(fmt_placar_valor)
-    df["__placar__"] = df["__placar__"].replace("x", "—")
-else:
-    df["__placar__"] = "—"
+    acertos = int(base["Target_Real"].sum())
+    erros = qtd - acertos
+    winrate = float(base["Target_Real"].mean() * 100)
+    odd_media = float(base["Odd Ofertada"].mean()) if "Odd Ofertada" in base.columns else np.nan
+    lucro = float(base["Profit_Odd_Ofertada"].sum())
+    roi = float((lucro / qtd) * 100)
+    curva = base["Profit_Odd_Ofertada"].cumsum()
+    pico = curva.cummax()
+    dd_max = float((curva - pico).min())
+    ganhos = base.loc[base["Profit_Odd_Ofertada"] > 0, "Profit_Odd_Ofertada"].sum()
+    perdas = abs(base.loc[base["Profit_Odd_Ofertada"] < 0, "Profit_Odd_Ofertada"].sum())
+    pf = float(ganhos / perdas) if perdas > 0 else np.nan
+    score = float(score_final(roi, 0 if np.isnan(pf) else pf, winrate, qtd, dd_max))
 
-if cols["hour"]:
-    df["__hora_ordem__"] = df[cols["hour"]].apply(extrair_hora_jogo)
-    df["__hora_exibicao__"] = df[cols["hour"]].apply(exibir_hora_curta)
-else:
-    df["__hora_ordem__"] = pd.NaT
-    df["__hora_exibicao__"] = "—"
+    return {
+        "Qtd_Entradas": qtd,
+        "Acertos": acertos,
+        "Erros": erros,
+        "Winrate_%": round(winrate, 2),
+        "Odd_Media": round(odd_media, 2) if not np.isnan(odd_media) else np.nan,
+        "Lucro_Total": round(lucro, 2),
+        "ROI_%": round(roi, 2),
+        "DD_Max": round(dd_max, 2),
+        "Profit_Factor": round(pf, 2) if not np.isnan(pf) else np.nan,
+        "Score_Final": round(score, 2),
+    }
 
-df = criar_scores_painel(df, cols)
 
-st.markdown('<div class="main-title">⚽ Painel GGolEmNumeros</div>', unsafe_allow_html=True)
+def parse_faixas_texto(faixas_texto: str) -> List[Tuple[str, str]]:
+    pares = []
+    if not faixas_texto or not isinstance(faixas_texto, str):
+        return pares
+
+    partes = [p.strip() for p in faixas_texto.split(" | ") if p.strip()]
+    for parte in partes:
+        if ": " in parte:
+            var, faixa = parte.split(": ", 1)
+            pares.append((var.strip(), faixa.strip()))
+    return pares
+
+
+def aplicar_filtro_faixa_textual(df: pd.DataFrame, nome_variavel: str, faixa_texto: str) -> pd.DataFrame:
+    mapa_variaveis = {
+        "Estatisticas Ultimos Jogos": achar_coluna(df, ["Estatisticas Ultimos Jogos", "Estatísticas Ultimos Jogos"]),
+        "Previsão de chance": achar_coluna(df, ["Previsão de chance", "Previsao de chance", "Chance"]),
+        "Odd Ofertada": achar_coluna(df, ["Odd Ofertada"]),
+        "Valor esperado": achar_coluna(df, ["Valor esperado"]),
+        "Saldo entre odd ofertada e esperada": achar_coluna(df, ["Saldo entre odd ofertada e esperada", "Saldo entre odd ofertada e valor esperado"]),
+    }
+
+    col_real = mapa_variaveis.get(nome_variavel)
+    if not col_real or col_real not in df.columns:
+        return df.iloc[0:0].copy()
+
+    serie = pd.to_numeric(df[col_real], errors="coerce")
+
+    m = re.match(r"^([\(\[])\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*([\)\]])$", faixa_texto)
+    if not m:
+        return df.iloc[0:0].copy()
+
+    left_bracket, a_str, b_str, right_bracket = m.groups()
+    a = float(a_str)
+    b = float(b_str)
+
+    cond_left = serie >= a if left_bracket == "[" else serie > a
+    cond_right = serie <= b if right_bracket == "]" else serie < b
+
+    return df[cond_left & cond_right].copy()
+
+
+def filtrar_jogos_do_dia_por_metodologia(df_jogos_dia: pd.DataFrame, mercado: str, faixas_txt: str) -> pd.DataFrame:
+    if df_jogos_dia.empty or not faixas_txt:
+        return pd.DataFrame()
+
+    base = df_jogos_dia.copy()
+
+    # primeiro filtra o mesmo mercado/previsão, se a coluna existir
+    col_prev = achar_coluna(base, ["A Mais Provavel", "Previsões", "Previsoes"])
+    if col_prev and mercado and mercado != "Todos":
+        base = base[base[col_prev] == mercado].copy()
+
+    pares = parse_faixas_texto(faixas_txt)
+    if not pares:
+        return pd.DataFrame()
+
+    filtrado = base.copy()
+    for nome_var, faixa in pares:
+        filtrado = aplicar_filtro_faixa_textual(filtrado, nome_var, faixa)
+        if filtrado.empty:
+            break
+
+    return filtrado
+
+
+@st.cache_data(show_spinner=False)
+def rodar_backtest_cruzado(
+    df_hist: pd.DataFrame,
+    mercado: str,
+    liga: str,
+    min_entradas: int,
+    roi_min: float,
+    dd_max_aceitavel: float,
+    pf_min: float,
+    variaveis_escolhidas: Tuple[str, ...],
+    profundidade: int,
+    modo_faixa: str,
+) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+    if df_hist.empty:
+        return pd.DataFrame(), {}
+
+    base = df_hist.copy()
+
+    col_prev = achar_coluna(base, ["A Mais Provavel", "Previsões", "Previsoes"])
+    col_liga = achar_coluna(base, ["League", "Liga"])
+
+    if mercado != "Todos" and col_prev:
+        base = base[base[col_prev] == mercado].copy()
+    if liga != "Todas" and col_liga:
+        base = base[base[col_liga] == liga].copy()
+
+    base = base.dropna(subset=["Profit_Odd_Ofertada", "Target_Real"]).copy()
+    if base.empty:
+        return pd.DataFrame(), {}
+
+    mapa_variaveis = {
+        "Estatisticas Ultimos Jogos": achar_coluna(base, ["Estatisticas Ultimos Jogos", "Estatísticas Ultimos Jogos"]),
+        "Previsão de chance": achar_coluna(base, ["Previsão de chance", "Previsao de chance", "Chance"]),
+        "Odd Ofertada": achar_coluna(base, ["Odd Ofertada"]),
+        "Valor esperado": achar_coluna(base, ["Valor esperado"]),
+        "Saldo entre odd ofertada e esperada": achar_coluna(base, ["Saldo entre odd ofertada e esperada", "Saldo entre odd ofertada e valor esperado"]),
+    }
+
+    faixas_criadas = []
+    for nome_var in variaveis_escolhidas:
+        col_real = mapa_variaveis.get(nome_var)
+        if not col_real or col_real not in base.columns:
+            continue
+
+        if pd.api.types.is_numeric_dtype(base[col_real]):
+            col_faixa = f"FAIXA__{nome_var}"
+            base[col_faixa] = criar_faixas_numericas(base, col_real, modo_faixa)
+            faixas_criadas.append((nome_var, col_faixa))
+        else:
+            col_faixa = f"FAIXA__{nome_var}"
+            base[col_faixa] = base[col_real].astype(str).replace({"nan": np.nan})
+            faixas_criadas.append((nome_var, col_faixa))
+
+    if not faixas_criadas:
+        return pd.DataFrame(), {}
+
+    profundidade = max(1, min(profundidade, len(faixas_criadas)))
+
+    resultados = []
+    detalhes_grupos: Dict[str, pd.DataFrame] = {}
+
+    for tamanho in range(1, profundidade + 1):
+        for combo in itertools.combinations(faixas_criadas, tamanho):
+            nomes_vars = [x[0] for x in combo]
+            cols_faixa = [x[1] for x in combo]
+
+            temp = base.dropna(subset=cols_faixa).copy()
+            if temp.empty:
+                continue
+
+            agrupado = temp.groupby(cols_faixa, dropna=False)
+            for chaves, grupo in agrupado:
+                if not isinstance(chaves, tuple):
+                    chaves = (chaves,)
+
+                metricas = calcular_metricas_grupo(grupo)
+                if metricas["Qtd_Entradas"] < min_entradas:
+                    continue
+                if pd.notna(metricas["ROI_%"]) and metricas["ROI_%"] < roi_min:
+                    continue
+                if pd.notna(metricas["DD_Max"]) and metricas["DD_Max"] < dd_max_aceitavel:
+                    continue
+                if pd.notna(metricas["Profit_Factor"]) and metricas["Profit_Factor"] < pf_min:
+                    continue
+
+                faixas_txt = []
+                for nome_var, chave in zip(nomes_vars, chaves):
+                    faixas_txt.append(f"{nome_var}: {chave}")
+
+                chave_grupo = " | ".join(faixas_txt)
+                detalhes_grupos[chave_grupo] = grupo.copy()
+
+                resultados.append(
+                    {
+                        "Variáveis": " + ".join(nomes_vars),
+                        "Faixas": chave_grupo,
+                        **metricas,
+                    }
+                )
+
+    if not resultados:
+        return pd.DataFrame(), {}
+
+    resumo = pd.DataFrame(resultados)
+    resumo = resumo.sort_values(
+        ["Score_Final", "ROI_%", "Lucro_Total", "Winrate_%"],
+        ascending=[False, False, False, False],
+    ).reset_index(drop=True)
+
+    return resumo, detalhes_grupos
+
+
+# =========================================================
+# CARGA DAS BASES
+# =========================================================
+df_pagina1 = montar_targets_basicos(preparar_dataframe(carregar_csv(URL_PAGINA1)))
+df_pagina2 = preparar_dataframe(carregar_csv(URL_PAGINA2))
+
+# =========================================================
+# SIDEBAR GERAL
+# =========================================================
+st.sidebar.markdown("## GolEmNúmeros")
+st.sidebar.markdown("### Histórico / Backtest Cruzado")
+
+col_prev_p1 = achar_coluna(df_pagina1, ["A Mais Provavel", "Previsões", "Previsoes"])
+col_liga_p1 = achar_coluna(df_pagina1, ["League", "Liga"])
+
+mercados = ["Todos"]
+if col_prev_p1 and not df_pagina1.empty:
+    mercados += sorted([x for x in df_pagina1[col_prev_p1].dropna().astype(str).unique() if str(x).strip()])
+mercado_sel = st.sidebar.selectbox("Mercado", mercados)
+
+ligas = ["Todas"]
+if col_liga_p1 and not df_pagina1.empty:
+    ligas += sorted([x for x in df_pagina1[col_liga_p1].dropna().astype(str).unique() if str(x).strip()])
+liga_sel = st.sidebar.selectbox("Liga", ligas)
+
+min_entradas = st.sidebar.number_input("Min entradas", min_value=5, value=30, step=5)
+roi_min = st.sidebar.number_input("ROI mínimo (%)", value=0.0, step=1.0)
+dd_max_aceitavel = st.sidebar.number_input("DD máximo aceitável", value=-10.0, step=1.0)
+pf_min = st.sidebar.number_input("Profit Factor mínimo", value=1.00, step=0.05, format="%.2f")
+
+variaveis_escolhidas = st.sidebar.multiselect(
+    "Variáveis para cruzar",
+    [
+        "Estatisticas Ultimos Jogos",
+        "Previsão de chance",
+        "Odd Ofertada",
+        "Valor esperado",
+        "Saldo entre odd ofertada e esperada",
+    ],
+    default=["Previsão de chance", "Odd Ofertada", "Saldo entre odd ofertada e esperada"],
+)
+
+profundidade = st.sidebar.selectbox("Profundidade do teste", [1, 2, 3], index=1)
+modo_faixa = st.sidebar.selectbox("Modo de corte", ["Quartis", "Quintis", "Faixas automáticas"], index=0)
+rodar_bt = st.sidebar.button("Rodar backtest cruzado", use_container_width=True)
+
+st.sidebar.markdown("### Fontes")
+st.sidebar.info("Página1 → Histórico / Backtest")
+st.sidebar.info("Página2 → Jogos do dia / Previsões")
+
+# =========================================================
+# TOPO
+# =========================================================
+st.markdown("<div class='painel-titulo'>Histórico — Backtest Cruzado</div>", unsafe_allow_html=True)
 st.markdown(
-    f'<div class="sub-title">Base online carregada | Registros: <b>{len(df)}</b></div>',
-    unsafe_allow_html=True
+    "<div class='painel-subtitulo'>Cruza variáveis do histórico para encontrar grupos com melhor ROI, drawdown controlado, amostra mínima e profit factor consistente.</div>",
+    unsafe_allow_html=True,
 )
+st.markdown("<span class='fonte-badge'>Página1 — Histórico / Backtest</span>", unsafe_allow_html=True)
 
-pais_opcoes = sorted(df[cols["country"]].dropna().astype(str).unique().tolist()) if cols["country"] else []
-liga_base = sorted(df[cols["league"]].dropna().astype(str).unique().tolist()) if cols["league"] else []
-liga_opcoes = ["Todas"] + liga_base
+# =========================================================
+# BACKTEST GERAL DA PÁGINA1
+# =========================================================
+back_geral = resumo_backtest(df_pagina1)
 
-aba1, aba2 = st.tabs(["Jogos do Dia", "Finalizados"])
-
-with aba1:
-    st.markdown('<div class="section-title">Jogos NS</div>', unsafe_allow_html=True)
-
-    paises_ns_selecionados = st.multiselect(
-        "Filtrar países (NS)",
-        options=pais_opcoes,
-        default=[],
-        key="paises_ns_selecionados",
-        placeholder="Selecione um ou mais países"
+# =========================================================
+# EXECUÇÃO DO BACKTEST CRUZADO
+# =========================================================
+if rodar_bt:
+    resumo_cruzado, detalhes_grupos = rodar_backtest_cruzado(
+        df_hist=df_pagina1,
+        mercado=mercado_sel,
+        liga=liga_sel,
+        min_entradas=min_entradas,
+        roi_min=roi_min,
+        dd_max_aceitavel=dd_max_aceitavel,
+        pf_min=pf_min,
+        variaveis_escolhidas=tuple(variaveis_escolhidas),
+        profundidade=int(profundidade),
+        modo_faixa=modo_faixa,
     )
+    st.session_state["resumo_cruzado"] = resumo_cruzado
+    st.session_state["detalhes_grupos"] = detalhes_grupos
 
-    ligas_ns_selecionadas = st.multiselect(
-    "Filtrar ligas (NS)",
-    options=liga_opcoes,
-    default=["Todas"],
-    key="ligas_ns_selecionadas",
-    placeholder="Selecione uma ou mais ligas"
-)
+resumo_cruzado = st.session_state.get("resumo_cruzado", pd.DataFrame())
+detalhes_grupos = st.session_state.get("detalhes_grupos", {})
 
-    busca_ns = st.text_input("Buscar equipe (NS)", key="busca_ns").strip().lower()
+# =========================================================
+# CARDS DO TOPO
+# =========================================================
+if not resumo_cruzado.empty:
+    melhor_roi = resumo_cruzado["ROI_%"].max()
+    melhor_pf = resumo_cruzado["Profit_Factor"].max()
+    melhor_dd = resumo_cruzado["DD_Max"].max()
+    melhor_score = resumo_cruzado["Score_Final"].max()
+    grupos = len(resumo_cruzado)
+else:
+    melhor_roi = 0.0
+    melhor_pf = 0.0
+    melhor_dd = 0.0
+    melhor_score = 0.0
+    grupos = 0
 
-    filtro_ativo_ns = bool(paises_ns_selecionados or ligas_ns_selecionadas or busca_ns)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+with c1:
+    card_metrica("Entradas analisadas", f"{back_geral['entradas']}")
+with c2:
+    card_metrica("Grupos encontrados", f"{grupos}")
+with c3:
+    card_metrica("Melhor ROI", f"{melhor_roi:.2f}%")
+with c4:
+    card_metrica("Melhor DD", f"{melhor_dd:.2f}")
+with c5:
+    card_metrica("Melhor PF", f"{melhor_pf:.2f}")
+with c6:
+    card_metrica("Melhor Score", f"{melhor_score:.2f}")
 
-    if not filtro_ativo_ns:
-        st.info("Selecione um país, uma liga ou digite uma equipe para mostrar os jogos NS.")
+# =========================================================
+# CORPO
+# =========================================================
+col_esq, col_dir = st.columns([1.7, 1.0])
+
+with col_esq:
+    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+    st.markdown("### Ranking dos grupos")
+
+    if resumo_cruzado.empty:
+        st.info("Clique em **Rodar backtest cruzado** na sidebar para gerar os grupos.")
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
-        df_ns = df[df[cols["status"]] == "NS"].copy()
+        colunas_rank = [
+            "Variáveis",
+            "Faixas",
+            "Qtd_Entradas",
+            "Acertos",
+            "Erros",
+            "Winrate_%",
+            "Odd_Media",
+            "Lucro_Total",
+            "ROI_%",
+            "DD_Max",
+            "Profit_Factor",
+            "Score_Final",
+        ]
+        st.dataframe(resumo_cruzado[colunas_rank], use_container_width=True, height=480)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        if paises_ns_selecionados and cols["country"]:
-            df_ns = df_ns[df_ns[cols["country"]].astype(str).isin(paises_ns_selecionados)]
+        opcoes_grupo = resumo_cruzado["Faixas"].tolist()
+        grupo_escolhido = st.selectbox("Grupo para inspecionar", opcoes_grupo)
+        grupo_df = detalhes_grupos.get(grupo_escolhido, pd.DataFrame()).copy()
 
-        if cols["league"] and ligas_ns_selecionadas and "Todas" not in ligas_ns_selecionadas:
-    df_ns = df_ns[df_ns[cols["league"]].astype(str).isin(ligas_ns_selecionadas)]
-        if busca_ns:
-            mask_home = df_ns[cols["home"]].astype(str).str.lower().str.contains(busca_ns, na=False) if cols["home"] else False
-            mask_away = df_ns[cols["away"]].astype(str).str.lower().str.contains(busca_ns, na=False) if cols["away"] else False
-            df_ns = df_ns[mask_home | mask_away]
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+        st.markdown("### Entradas do grupo selecionado")
 
-        df_ns = df_ns.sort_values(by="__hora_ordem__", ascending=True, na_position="last")
+        linha_grupo = resumo_cruzado.loc[resumo_cruzado["Faixas"] == grupo_escolhido].copy()
+        variaveis_grupo = ""
+        faixas_grupo = ""
 
-        st.metric("Qtd Jogos NS", len(df_ns))
+        if not linha_grupo.empty:
+            variaveis_grupo = str(linha_grupo.iloc[0]["Variáveis"])
+            faixas_grupo = str(linha_grupo.iloc[0]["Faixas"])
 
-        if df_ns.empty:
-            st.warning("Nenhum jogo NS encontrado com esse filtro.")
+        if grupo_df.empty:
+            st.info("Sem detalhes para o grupo selecionado.")
         else:
-            for i, (_, row) in enumerate(df_ns.iterrows()):
-                home = valor_col(row, cols["home"])
-                away = valor_col(row, cols["away"])
-                country = valor_col(row, cols["country"])
-                league = valor_col(row, cols["league"])
-                hour = row["__hora_exibicao__"]
-                fc = fmt(row["__score_casa__"])
-                fv = fmt(row["__score_visitante__"])
-                ge = fmt(row["__score_gols__"])
+            cols_show = []
+            for nome in [
+                "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
+                "A Mais Provavel", "Previsões", "Previsoes", "Odd Ofertada", "Previsão de chance",
+                "Valor esperado", "Saldo entre odd ofertada e esperada", "Profit_Odd_Ofertada", "Target_Real"
+            ]:
+                c = achar_coluna(grupo_df, [nome])
+                if c and c not in cols_show:
+                    cols_show.append(c)
 
-                game_id = f"ns_{i}_{montar_id_partida(row, cols)}"
-                state_key = f"mostrar_{game_id}"
+            for extra in ["Profit_Odd_Ofertada", "Target_Real"]:
+                if extra in grupo_df.columns and extra not in cols_show:
+                    cols_show.append(extra)
 
-                if state_key not in st.session_state:
-                    st.session_state[state_key] = False
+            st.dataframe(grupo_df[cols_show], use_container_width=True, height=340)
 
-                render_card("NS", country, hour, home, away, league, fc, fv, ge)
+            st.markdown("---")
+            st.markdown("### Filtros da metodologia selecionada")
+            st.caption("Essas faixas serão usadas para encontrar os jogos do dia que se encaixam na metodologia.")
 
-                texto_botao = "Ocultar confronto" if st.session_state[state_key] else "Ver confronto"
-                st.button(
-                    texto_botao,
-                    key=f"btn_{game_id}",
-                    use_container_width=True,
-                    on_click=alternar_confronto,
-                    args=(state_key,)
+            col_f1, col_f2 = st.columns(2)
+
+            with col_f1:
+                st.text_area(
+                    "Variáveis",
+                    value=variaveis_grupo,
+                    height=120,
+                    key="campo_variaveis_metodologia",
                 )
 
-                if st.session_state[state_key]:
-                    mostrar_detalhes_confronto(row, cols, "NS")
-
-with aba2:
-    st.markdown('<div class="section-title">Jogos FT</div>', unsafe_allow_html=True)
-
-    paises_ft_selecionados = st.multiselect(
-        "Filtrar países (FT)",
-        options=pais_opcoes,
-        default=[],
-        key="paises_ft_selecionados",
-        placeholder="Selecione um ou mais países"
-    )
-
-    ligas_ft_selecionadas = st.multiselect(
-        "Filtrar ligas (FT)",
-        options=liga_opcoes,
-        default=[],
-        key="ligas_ft_selecionadas",
-        placeholder="Selecione uma ou mais ligas"
-    )
-
-    busca_ft = st.text_input("Buscar equipe (FT)", key="busca_ft").strip().lower()
-
-    filtro_ativo_ft = bool(paises_ft_selecionados or ligas_ft_selecionadas or busca_ft)
-
-    if not filtro_ativo_ft:
-        st.info("Selecione um país, uma liga ou digite uma equipe para mostrar os jogos FT.")
-    else:
-        df_ft = df[df[cols["status"]] == "FT"].copy()
-
-        if paises_ft_selecionados and cols["country"]:
-            df_ft = df_ft[df_ft[cols["country"]].astype(str).isin(paises_ft_selecionados)]
-
-        if ligas_ft_selecionadas and cols["league"]:
-            df_ft = df_ft[df_ft[cols["league"]].astype(str).isin(ligas_ft_selecionadas)]
-
-        if busca_ft:
-            mask_home = df_ft[cols["home"]].astype(str).str.lower().str.contains(busca_ft, na=False) if cols["home"] else False
-            mask_away = df_ft[cols["away"]].astype(str).str.lower().str.contains(busca_ft, na=False) if cols["away"] else False
-            df_ft = df_ft[mask_home | mask_away]
-
-        df_ft = df_ft.sort_values(by="__hora_ordem__", ascending=True, na_position="last")
-
-        st.metric("Qtd Jogos FT", len(df_ft))
-
-        if df_ft.empty:
-            st.warning("Nenhum jogo FT encontrado com esse filtro.")
-        else:
-            for i, (_, row) in enumerate(df_ft.iterrows()):
-                home = valor_col(row, cols["home"])
-                away = valor_col(row, cols["away"])
-                country = valor_col(row, cols["country"])
-                league = valor_col(row, cols["league"])
-                hour = row["__hora_exibicao__"]
-                placar = row["__placar__"]
-                fc = fmt(row["__score_casa__"])
-                fv = fmt(row["__score_visitante__"])
-                ge = fmt(row["__score_gols__"])
-
-                game_id = f"ft_{i}_{montar_id_partida(row, cols)}"
-                state_key = f"mostrar_{game_id}"
-
-                if state_key not in st.session_state:
-                    st.session_state[state_key] = False
-
-                render_card("FT", country, hour, home, away, league, fc, fv, ge, placar=placar)
-
-                texto_botao = "Ocultar confronto" if st.session_state[state_key] else "Ver confronto"
-                st.button(
-                    texto_botao,
-                    key=f"btn_{game_id}",
-                    use_container_width=True,
-                    on_click=alternar_confronto,
-                    args=(state_key,)
+            with col_f2:
+                st.text_area(
+                    "Faixas",
+                    value=faixas_grupo,
+                    height=120,
+                    key="campo_faixas_metodologia",
                 )
 
-                if st.session_state[state_key]:
-                    mostrar_detalhes_confronto(row, cols, "FT")
+            st.markdown("---")
+            st.markdown("### Jogos do dia que se encaixam nessa metodologia")
+
+            # usa o mercado selecionado no backtest para bater com o mesmo mercado na Página2
+            df_jogos_metodologia = filtrar_jogos_do_dia_por_metodologia(
+                df_pagina2,
+                mercado_sel,
+                faixas_grupo
+            )
+
+            if df_jogos_metodologia.empty:
+                st.warning("Nenhum jogo do dia se encaixou nas faixas dessa metodologia.")
+            else:
+                cols_jogos_dia = []
+                for nome in [
+                    "League", "Liga", "Home Team", "Casa", "Visitor Team", "Visitante",
+                    "A Mais Provavel", "Previsões", "Previsoes",
+                    "Odd Ofertada", "Previsão de chance", "Valor esperado",
+                    "Saldo entre odd ofertada e esperada"
+                ]:
+                    c = achar_coluna(df_jogos_metodologia, [nome])
+                    if c and c not in cols_jogos_dia:
+                        cols_jogos_dia.append(c)
+
+                st.dataframe(
+                    df_jogos_metodologia[cols_jogos_dia],
+                    use_container_width=True,
+                    height=260
+                )
+                st.success(f"{len(df_jogos_metodologia)} jogo(s) do dia encontrados para essa metodologia.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+with col_dir:
+    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+    st.markdown("### Curva do grupo")
+
+    if resumo_cruzado.empty:
+        st.info("A curva do grupo aparece aqui depois do primeiro teste.")
+    else:
+        grupo_curva = st.selectbox(
+            "Curva de qual grupo?",
+            resumo_cruzado["Faixas"].tolist(),
+            key="grupo_curva_select",
+        )
+        grupo_df_curva = detalhes_grupos.get(grupo_curva, pd.DataFrame()).copy()
+
+        if not grupo_df_curva.empty and "Profit_Odd_Ofertada" in grupo_df_curva.columns:
+            curva = grupo_df_curva["Profit_Odd_Ofertada"].dropna().cumsum()
+            st.line_chart(curva, height=260)
+            met = calcular_metricas_grupo(grupo_df_curva)
+            st.markdown(f"- **Entradas:** {met['Qtd_Entradas']}")
+            st.markdown(f"- **ROI:** {met['ROI_%']}%")
+            st.markdown(f"- **DD:** {met['DD_Max']}")
+            st.markdown(f"- **PF:** {met['Profit_Factor']}")
+        else:
+            st.info("Sem profit suficiente para desenhar a curva.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='painel-bloco'>", unsafe_allow_html=True)
+    st.markdown("### Resumo rápido")
+    st.markdown("- O ranking usa **ROI + PF + Winrate + Qtd - DD** no Score Final.")
+    st.markdown("- ROI sozinho pode enganar; o filtro de **DD** e **amostra mínima** protege melhor.")
+    st.markdown("- O ideal é aplicar os grupos aprovados depois na aba de jogos do dia.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =========================================================
+# DEBUG LEVE
+# =========================================================
+with st.expander("Conferência das bases"):
+    st.write("Página1:", df_pagina1.shape)
+    st.write("Página2:", df_pagina2.shape)
+    if not df_pagina1.empty:
+        st.write("Colunas Página1:", list(df_pagina1.columns))
+    if not df_pagina2.empty:
+        st.write("Colunas Página2:", list(df_pagina2.columns))
