@@ -41,6 +41,32 @@ COLUNAS_EXCLUIDAS = {
     "Taxa de Acerto Fora cobrar 3 escanteios primeiro",
     "Taxa de Acerto Mais de 5 escanteios 1° tempo",
     "Taxa de Acerto Mais de 10.5 escanteios",
+    "Taxa de Acerto Menos de 7.5 escanteios",
+}
+
+MERCADOS_EXCLUIDOS = {
+    "Casa cobrar 5 escanteios primeiro",
+    "Casa marcar primeiro",
+    "Menos de 8.5 escanteios",
+    "Mais de 4 escanteios 1° tempo",
+    "Menos de 10.5 escanteios",
+    "Menos de 11.5 escanteios",
+    "Menos de 9.5 escanteios",
+    "Visitante marcar primeiro",
+    "Mais de 7.5 escanteios",
+    "Menos de 4 escanteios 1° tempo",
+    "Menos de 5 escanteios 1° tempo",
+    "Casa marcar mais escanteios (1x2)",
+    "Casa cobrar 7 escanteios primeiro",
+    "Mais de 8.5 escanteios",
+    "Menos de 6 escanteios 1° tempo",
+    "Fora cobrar 5 escanteios primeiro",
+    "Fora marcar mais escanteios (1x2)",
+    "Fora cobrar 7 escanteios primeiro",
+    "Fora cobrar 3 escanteios primeiro",
+    "Mais de 5 escanteios 1° tempo",
+    "Mais de 10.5 escanteios",
+    "Menos de 7.5 escanteios",
 }
 
 # =========================================================
@@ -133,6 +159,38 @@ def remover_colunas_excluidas(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def remover_mercados_excluidos(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    mercados_norm = {normalizar_nome_coluna(m) for m in MERCADOS_EXCLUIDOS}
+    colunas_mercado = [
+        c for c in df.columns
+        if normalizar_nome_coluna(c) in {
+            "a mais provavel",
+            "a mais provável",
+            "previsoes",
+            "previsões",
+            "mercado previsto",
+            "mercado",
+            "a melhor",
+        }
+    ]
+
+    if not colunas_mercado:
+        return df
+
+    mask_excluir = pd.Series(False, index=df.index)
+    for col in colunas_mercado:
+        valores_norm = df[col].astype(str).map(normalizar_nome_coluna)
+        mask_excluir = mask_excluir | valores_norm.isin(mercados_norm)
+
+    if mask_excluir.any():
+        df = df.loc[~mask_excluir].copy()
+
+    return df
+
+
 @st.cache_data(show_spinner=False)
 def carregar_csv(url: str) -> pd.DataFrame:
     if not url or "COLE_AQUI" in url:
@@ -140,6 +198,7 @@ def carregar_csv(url: str) -> pd.DataFrame:
     df = pd.read_csv(url)
     df.columns = [str(c).strip() for c in df.columns]
     df = remover_colunas_excluidas(df)
+    df = remover_mercados_excluidos(df)
     return df
 
 
@@ -186,6 +245,8 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for c in df.columns:
         if df[c].dtype == object:
             df[c] = df[c].astype(str).str.strip()
+
+    df = remover_mercados_excluidos(df)
 
     col_odd = achar_coluna(df, ["Odd Ofertada"])
     col_valor = achar_coluna(df, ["Valor esperado"])
