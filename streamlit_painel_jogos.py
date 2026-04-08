@@ -15,6 +15,34 @@ st.set_page_config(page_title="GolEmNúmeros", layout="wide")
 URL_PAGINA1 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVsf4nH4SJ7cBV174FLEkkmpFLCxiS4FKKyhrTlKnKoUpVX9giYZ6V5_AMGavD3-AEadpm_zynvBK6/pub?gid=0&single=true&output=csv"
 URL_PAGINA2 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVsf4nH4SJ7cBV174FLEkkmpFLCxiS4FKKyhrTlKnKoUpVX9giYZ6V5_AMGavD3-AEadpm_zynvBK6/pub?gid=272845724&single=true&output=csv"
 
+
+COLUNAS_EXCLUIDAS = {
+    "Taxa Acerto Casa cobrar 5 escanteios primeiro",
+    "Taxa de Acerto Casa cobrar 5 escanteios primeiro",
+    "Taxa Acerto Casa marcar primeiro",
+    "Taxa de Acerto Casa marcar primeiro",
+    "Taxa de Acerto Menos de 8.5 escanteios",
+    "Taxa de Acerto Mais de 4 escanteios 1° tempo",
+    "Taxa de Acerto Menos de 10.5 escanteios",
+    "Taxa de Acerto Menos de 11.5 escanteios",
+    "Taxa de Acerto Menos de 9.5 escanteios",
+    "Taxa de Acerto Visitante marcar primeiro",
+    "Taxa de Acerto Mais de 7.5 escanteios",
+    "Taxa de Acerto Menos de 4 escanteios 1° tempo",
+    "Taxa de Acerto Menos de 5 escanteios 1° tempo",
+    "Taxa de Acerto Casa marcar mais escanteios (1x2)",
+    "Taxa de Acerto Casa cobrar 7 escanteios primeiro",
+    "Taxa de Acerto Mais de 8.5 escanteios",
+    "Menos de 6 escanteios 1° tempo",
+    "Taxa de Acerto Menos de 6 escanteios 1° tempo",
+    "Taxa de Acerto Fora cobrar 5 escanteios primeiro",
+    "Taxa de Acerto Fora marcar mais escanteios (1x2)",
+    "Taxa de Acerto Fora cobrar 7 escanteios primeiro",
+    "Taxa de Acerto Fora cobrar 3 escanteios primeiro",
+    "Taxa de Acerto Mais de 5 escanteios 1° tempo",
+    "Taxa de Acerto Mais de 10.5 escanteios",
+}
+
 # =========================================================
 # ESTILO
 # =========================================================
@@ -88,12 +116,30 @@ st.markdown(
 # =========================================================
 # FUNÇÕES BÁSICAS
 # =========================================================
+def normalizar_nome_coluna(nome: str) -> str:
+    return re.sub(r"\s+", " ", str(nome).strip()).lower()
+
+
+def remover_colunas_excluidas(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    excluidas_norm = {normalizar_nome_coluna(c) for c in COLUNAS_EXCLUIDAS}
+    cols_remover = [c for c in df.columns if normalizar_nome_coluna(c) in excluidas_norm]
+
+    if cols_remover:
+        df = df.drop(columns=cols_remover, errors="ignore")
+
+    return df
+
+
 @st.cache_data(show_spinner=False)
 def carregar_csv(url: str) -> pd.DataFrame:
     if not url or "COLE_AQUI" in url:
         return pd.DataFrame()
     df = pd.read_csv(url)
     df.columns = [str(c).strip() for c in df.columns]
+    df = remover_colunas_excluidas(df)
     return df
 
 
