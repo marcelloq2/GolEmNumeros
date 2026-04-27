@@ -1943,6 +1943,108 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
       ctx.fillText('⚽', gx, gy);
     });
 
+    // ── Indicador de padrão no canvas ────────────────────────────────────
+    if (!data.finished) {
+      const analysis = await _getAnalysis();
+      if (analysis) {
+        const W = analysis.window || 8;
+        const T = analysis.threshold || 10;
+        const win = points.slice(-W);
+        if (win.length >= 3) {
+          const vals  = win.map(p => p.value || 0);
+          const tail  = vals.slice(-4).reduce((a,b)=>a+b,0) / Math.min(vals.length,4);
+          const trend = vals[vals.length-1] - vals[0];
+          const peak  = vals.reduce((a,b)=>Math.abs(b)>Math.abs(a)?b:a, 0);
+          const score = tail + 0.3*trend + 0.2*peak;
+
+          const winStart = points.length - win.length;
+          const xStart   = winStart * barW;
+          const xEnd     = W;
+          const lastMin  = points[points.length-1]?.minute || 0;
+          const isHT     = lastMin <= 45;
+
+          // Cor e label conforme sinal
+          let sigColor, sigLabel, sigEmoji;
+          if (score > T) {
+            sigColor = '#3b82f6'; sigLabel = isHT ? '⚽🚨 1T' : '⚽🚨 2T'; sigEmoji = 'home';
+          } else if (score < -T) {
+            sigColor = '#ef4444'; sigLabel = isHT ? '⚽🚨 1T' : '⚽🚨 2T'; sigEmoji = 'away';
+          } else if (Math.abs(score) > T * 0.6) {
+            sigColor = '#fbbf24'; sigLabel = '⚡'; sigEmoji = 'any';
+          } else {
+            sigColor = '#64748b'; sigLabel = '🧊'; sigEmoji = 'none';
+          }
+
+          // Fundo highlight sobre janela
+          ctx.save();
+          ctx.globalAlpha = 0.12;
+          ctx.fillStyle = sigColor;
+          ctx.fillRect(xStart, 0, barW * W, CHART);
+          ctx.globalAlpha = 1;
+
+          // Borda direita da janela (linha vertical colorida)
+          ctx.strokeStyle = sigColor;
+          ctx.lineWidth   = 2;
+          ctx.globalAlpha = 0.7;
+          ctx.setLineDash([3, 2]);
+          ctx.beginPath();
+          ctx.moveTo(xStart, 2);
+          ctx.lineTo(xStart, CHART - 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          ctx.restore();
+
+          // Raio SVG via Path2D no canvas
+          const iconSize = 14;
+          const iconX    = W > 0 ? xStart + barW * W - iconSize * 0.5 : W - iconSize;
+          const iconY    = sigEmoji === 'away' ? CHART - iconSize - 4 : 4;
+
+          if (sigEmoji !== 'none') {
+            ctx.save();
+            ctx.shadowColor = sigColor;
+            ctx.shadowBlur  = 10;
+            ctx.fillStyle   = sigColor;
+            // Lightning bolt path normalizado (0-24)
+            const s = iconSize / 24;
+            ctx.translate(iconX, iconY);
+            ctx.scale(s, s);
+            ctx.beginPath();
+            ctx.moveTo(13, 2);
+            ctx.lineTo(4.5, 13.5);
+            ctx.lineTo(11, 13.5);
+            ctx.lineTo(10, 22);
+            ctx.lineTo(20.5, 9.5);
+            ctx.lineTo(14, 9.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          } else {
+            // Sem sinal: ícone de gelo (círculo frio)
+            ctx.save();
+            ctx.fillStyle   = sigColor;
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            ctx.arc(xStart + barW * W - 8, CHART / 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
+
+          // Label texto acima/abaixo do raio
+          ctx.save();
+          ctx.font      = `bold 9px sans-serif`;
+          ctx.fillStyle = sigColor;
+          ctx.shadowColor = sigColor;
+          ctx.shadowBlur  = 6;
+          ctx.textAlign   = 'right';
+          ctx.textBaseline = sigEmoji === 'away' ? 'bottom' : 'top';
+          ctx.fillText(sigLabel, xStart + barW * W - 2, sigEmoji === 'away' ? CHART - 2 : 2);
+          ctx.restore();
+        }
+      }
+    }
+
     // Mostra o eixo HTML de minutos
     const axisEl = document.getElementById('momentumAxis');
     if (axisEl) axisEl.style.display = 'flex';
@@ -1958,7 +2060,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
       }
     }
 
-    // ── Indicador de padrão ──────────────────────────────────────────────
+    // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
     updateMomentumIndicator(points, data.finished);
 
   } catch(e) {
