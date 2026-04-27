@@ -1572,13 +1572,21 @@ function _injectUniDataToRows(matches) {
     if (!row) return;
     // Remove bloco anterior se existir
     row.querySelector('.uni-mini')?.remove();
-    const s = d.stats || {};
+    const s  = d.stats || {};
+    const st = d.statistics || {};
+    const gv = (key, fallH, fallA) => {
+      const it = st[key];
+      return it ? [it.homeValue ?? fallH, it.awayValue ?? fallA] : [fallH, fallA];
+    };
+    const [shotsH,   shotsA]   = gv('shots',         s.chutes_casa      ?? '?', s.chutes_fora      ?? '?');
+    const [cornH,    cornA]    = gv('corner_kicks',   s.escanteios_casa  ?? '?', s.escanteios_fora  ?? '?');
+    const [yellowH,  yellowA]  = gv('yellow_cards',   s.amarelos_casa    ?? '?', s.amarelos_fora    ?? '?');
     const mini = document.createElement('div');
     mini.className = 'uni-mini';
     mini.innerHTML = `
-      <span title="Escanteios">🔄 ${s.escanteios_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.escanteios_fora ?? '?'}</span>
-      <span title="Chutes no gol">🎯 ${s.chutes_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.chutes_fora ?? '?'}</span>
-      <span title="Amarelos">🟨 ${s.amarelos_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.amarelos_fora ?? '?'}</span>
+      <span title="Total de Chutes">🎯 ${shotsH}<span style="color:var(--text2)">-</span>${shotsA}</span>
+      <span title="Escanteios">🔄 ${cornH}<span style="color:var(--text2)">-</span>${cornA}</span>
+      <span title="Cartões Amarelos">🟨 ${yellowH}<span style="color:var(--text2)">-</span>${yellowA}</span>
     `;
     row.appendChild(mini);
   });
@@ -2319,24 +2327,65 @@ function _renderUniscore(d) {
       ${d.estadio ? `<span style="font-size:10px;color:var(--text2)">🏟️ ${d.estadio}</span>` : ''}
     </div>` : '';
 
-  // ── Stats grid ──
-  const statItem = (icon, label, vH, vA) => `
-    <div style="display:flex;flex-direction:column;align-items:center;min-width:52px">
-      <div style="font-size:10px;color:var(--text2);margin-bottom:2px">${icon} ${label}</div>
-      <div style="display:flex;gap:6px;font-size:12px;font-weight:700">
-        <span style="color:#3b82f6">${vH ?? 0}</span>
-        <span style="color:var(--text2)">–</span>
-        <span style="color:#ef4444">${vA ?? 0}</span>
-      </div>
-    </div>`;
+  // ── Estatísticas detalhadas (barras proporcionais) ──
+  const st = d.statistics || {};
+  const statRow = (label, key, fmt) => {
+    const item = st[key];
+    if (!item) return '';
+    const hv = item.homeValue ?? 0;
+    const av = item.awayValue ?? 0;
+    const total = hv + av;
+    const hPct = total > 0 ? Math.round(hv / total * 100) : 50;
+    const aPct = 100 - hPct;
+    const hDisp = fmt === 'pct' ? `${hv}%` : (item.home ?? hv);
+    const aDisp = fmt === 'pct' ? `${av}%` : (item.away ?? av);
+    return `
+      <div style="display:grid;grid-template-columns:28px 1fr auto 1fr 28px;
+                  align-items:center;gap:4px;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700;color:#60a5fa;text-align:right">${hDisp}</span>
+        <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex;justify-content:flex-end">
+          <div style="width:${hPct}%;height:100%;background:#3b82f6;border-radius:3px"></div>
+        </div>
+        <span style="font-size:9px;color:var(--text2);text-align:center;white-space:nowrap;padding:0 2px">${label}</span>
+        <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden">
+          <div style="width:${aPct}%;height:100%;background:#f59e0b;border-radius:3px"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:#f59e0b">${aDisp}</span>
+      </div>`;
+  };
 
-  const statsHtml = `
+  const statsRows = [
+    statRow('Total de Chutes',       'shots',            ''),
+    statRow('Chutes no Alvo',        'shots_on_target',  ''),
+    statRow('Chutes Dentro da Área', 'shots_inside_box', ''),
+    statRow('Chutes Fora da Área',   'shots_outside_box',''),
+    statRow('Posse de Bola',         'ball_possession',  'pct'),
+    statRow('Escanteios',            'corner_kicks',     ''),
+    statRow('Grandes Chances',       'big_chances',      ''),
+    statRow('Faltas',                'fouls',            ''),
+    statRow('Passes',                'passes',           ''),
+    statRow('Cartões Amarelos',      'yellow_cards',     ''),
+  ].filter(Boolean).join('');
+
+  const statsHtml = statsRows ? `
+    <div style="padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">📊 ESTATÍSTICAS</div>
+      ${statsRows}
+    </div>` : `
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-around;
                 padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
-      ${statItem('⚽','Escanteios', s.escanteios_casa, s.escanteios_fora)}
-      ${statItem('🎯','Chutes',     s.chutes_casa,     s.chutes_fora)}
-      ${statItem('🟨','Amarelos',   s.amarelos_casa,   s.amarelos_fora)}
-      ${statItem('🟥','Vermelhos',  s.vermelhos_casa,  s.vermelhos_fora)}
+      ${[['⚽','Escanteios',s.escanteios_casa,s.escanteios_fora],
+         ['🎯','Chutes',s.chutes_casa,s.chutes_fora],
+         ['🟨','Amarelos',s.amarelos_casa,s.amarelos_fora],
+         ['🟥','Vermelhos',s.vermelhos_casa,s.vermelhos_fora]].map(([ic,lb,h,a]) =>
+        `<div style="display:flex;flex-direction:column;align-items:center;min-width:52px">
+           <div style="font-size:10px;color:var(--text2);margin-bottom:2px">${ic} ${lb}</div>
+           <div style="display:flex;gap:6px;font-size:12px;font-weight:700">
+             <span style="color:#3b82f6">${h??0}</span>
+             <span style="color:var(--text2)">–</span>
+             <span style="color:#f59e0b">${a??0}</span>
+           </div>
+         </div>`).join('')}
     </div>`;
 
   // ── Incidentes ──

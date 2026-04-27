@@ -1259,9 +1259,13 @@ def _uni_enrich_one(casa, fora):
         return {"found": False, "casa": casa, "fora": fora}
 
     eid = ev.get("id")
+    home_tid = ev.get("homeTeam", {}).get("id", "")
+    away_tid = ev.get("awayTeam", {}).get("id", "")
     result = {
-        "found":  True,
-        "id":     eid,
+        "found":    True,
+        "id":       eid,
+        "home_tid": home_tid,
+        "away_tid": away_tid,
         "casa":   ev.get("homeTeam", {}).get("name"),
         "fora":   ev.get("awayTeam", {}).get("name"),
         "status": ev.get("status", {}).get("description"),
@@ -1355,6 +1359,26 @@ def _uni_enrich_one(casa, fora):
     except Exception:
         result["top_casa"] = None
         result["top_fora"] = None
+
+    # Estatísticas detalhadas (chutes, posse, passes, duelos...)
+    try:
+        url_stats = f"{UNISCORE_BASE}/football/event/{eid}/home/{home_tid}/away/{away_tid}/statistics"
+        r = http_req.get(url_stats, headers=UNISCORE_HEADERS, timeout=6)
+        periods = r.json().get("data", {}).get("statistics", [])
+        # Usa período ALL; se não existir, pega o primeiro disponível
+        period_data = next((p for p in periods if p.get("period") == "ALL"), periods[0] if periods else None)
+        if period_data:
+            # Constrói dict {name: {home, away, homeValue, awayValue}} para fácil acesso
+            stat_map = {}
+            for grp in period_data.get("groups", []):
+                for item in grp.get("statisticsItems", []):
+                    if isinstance(item, dict):
+                        stat_map[item.get("fields") or item.get("name")] = item
+            result["statistics"] = stat_map
+        else:
+            result["statistics"] = {}
+    except Exception:
+        result["statistics"] = {}
 
     return result
 
