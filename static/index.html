@@ -4060,6 +4060,18 @@ function traduzBetName(name) {
   return BET_NAME_PT[name.toLowerCase()] || BET_NAME_PT[name] || name;
 }
 
+// ── Identifica índices home/away nos stats ────
+function _resolveTeamOrder(teams, casa, fora) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const cn = norm(casa); const fn = norm(fora);
+  const t0 = norm(teams[0]); const t1 = norm(teams[1]);
+  // Verifica se teams[1] é mais parecido com casa do que teams[0]
+  const t0MatchCasa = t0.slice(0,5) && cn.includes(t0.slice(0,5)) || t0.includes(cn.slice(0,5));
+  const t1MatchCasa = t1.slice(0,5) && cn.includes(t1.slice(0,5)) || t1.includes(cn.slice(0,5));
+  if (!t0MatchCasa && t1MatchCasa) return [1, 0]; // teams[1]=casa, teams[0]=fora
+  return [0, 1]; // padrão: teams[0]=casa
+}
+
 // ── POISSON — PLACARES PROVÁVEIS ─────────────
 function calcularPlacares(m) {
   const d = m.detalhes || {};
@@ -4067,8 +4079,9 @@ function calcularPlacares(m) {
   const teams = Object.keys(stats);
   if (teams.length < 2) return null;
 
-  const s0 = stats[teams[0]] || {};
-  const s1 = stats[teams[1]] || {};
+  const [iH, iA] = _resolveTeamOrder(teams, m.casa, m.fora);
+  const s0 = stats[teams[iH]] || {};
+  const s1 = stats[teams[iA]] || {};
   const avgS0 = parseFloat(s0['Average scored goals per match']) || 1.2;
   const avgC0 = parseFloat(s0['Average conceded goals per match']) || 1.2;
   const avgS1 = parseFloat(s1['Average scored goals per match']) || 1.2;
@@ -4109,8 +4122,8 @@ function calcularPlacares(m) {
   return {
     top5: scores.slice(0, 5),
     bottom5,
-    homeTeam: teams[0],
-    awayTeam: teams[1],
+    homeTeam: teams[iH],
+    awayTeam: teams[iA],
   };
 }
 
@@ -4121,8 +4134,9 @@ function calcularPlacaresHT(m) {
   const teams = Object.keys(stats);
   if (teams.length < 2) return null;
 
-  const s0 = stats[teams[0]] || {};
-  const s1 = stats[teams[1]] || {};
+  const [iH, iA] = _resolveTeamOrder(teams, m.casa, m.fora);
+  const s0 = stats[teams[iH]] || {};
+  const s1 = stats[teams[iA]] || {};
   const avgS0 = parseFloat(s0['Average scored goals per match']) || 1.2;
   const avgC0 = parseFloat(s0['Average conceded goals per match']) || 1.2;
   const avgS1 = parseFloat(s1['Average scored goals per match']) || 1.2;
@@ -4159,8 +4173,8 @@ function calcularPlacaresHT(m) {
   return {
     top5: scores.slice(0, 5),
     bottom5,
-    homeTeam: teams[0],
-    awayTeam: teams[1],
+    homeTeam: teams[iH],
+    awayTeam: teams[iA],
   };
 }
 
