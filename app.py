@@ -1175,6 +1175,162 @@ def api_momentum_similar():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Uniscore / unik8s ────────────────────────────────────────────────────────
+
+UNISCORE_HEADERS = {
+    "Origin":       "https://uniscore.com",
+    "Referer":      "https://uniscore.com/pt-BR/",
+    "User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept":       "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+    "Content-Type": "application/json",
+}
+UNISCORE_BASE = "https://api.unik8s.com/api/v2"
+
+# Cache da lista de partidas do dia (30s TTL)
+_uni_events_cache = {"ts": 0, "data": []}
+
+def _uni_events_today():
+    """Retorna lista de eventos de futebol do dia (cache 30s)."""
+    global _uni_events_cache
+    if time.time() - _uni_events_cache["ts"] < 30 and _uni_events_cache["data"]:
+        return _uni_events_cache["data"]
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        r = http_req.post(
+            f"{UNISCORE_BASE}/sport/football/scheduled-events-pagination-v2/{today}/locale/BR/type/all?language=pt-BR",
+            json={}, headers=UNISCORE_HEADERS, timeout=8
+        )
+        events = r.json().get("data", {}).get("events", [])
+        _uni_events_cache = {"ts": time.time(), "data": events}
+        return events
+    except Exception:
+        return []
+
+def _uni_find(casa, fora):
+    """Encontra evento Uniscore pelo nome dos times (fuzzy)."""
+    def norm(s): return s.lower().replace("-", " ")
+    cn = norm(casa)[:6]; fn = norm(fora)[:6]
+    best = None; best_score = 0
+    for ev in _uni_events_today():
+        hn = norm(ev.get("homeTeam", {}).get("name", ""))
+        an = norm(ev.get("awayTeam", {}).get("name", ""))
+        sc = (cn in hn or hn[:6] in cn) + (fn in an or an[:6] in fn)
+        if sc > best_score:
+            best_score = sc; best = ev
+    return best if best_score >= 1 else None
+
+@app.route("/api/uniscore/enrich")
+def api_uniscore_enrich():
+    """Retorna dados enriquecidos do Uniscore para uma partida ao vivo."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    if not casa or not fora:
+        return jsonify({"error": "casa e fora obrigatórios"}), 400
+
+    ev = _uni_find(casa, fora)
+    if not ev:
+        return jsonify({"found": False}), 200
+
+    eid = ev.get("id")
+    result = {
+        "found": True,
+        "id":    eid,
+        "casa":  ev.get("homeTeam", {}).get("name"),
+        "fora":  ev.get("awayTeam", {}).get("name"),
+        "status": ev.get("status", {}).get("description"),
+        "minuto": ev.get("time", {}).get("current"),
+        "placar": {
+            "casa": ev.get("homeScore", {}).get("current"),
+            "fora": ev.get("awayScore", {}).get("current"),
+        },
+        "stats": {
+            "escanteios_casa":  ev.get("homeCornerKicks", 0),
+            "escanteios_fora":  ev.get("awayCornerKicks", 0),
+            "chutes_casa":      ev.get("homeShotOnTarget", 0),
+            "chutes_fora":      ev.get("awayShotOnTarget", 0),
+            "amarelos_casa":    ev.get("homeYellowCards", 0),
+            "amarelos_fora":    ev.get("awayYellowCards", 0),
+            "vermelhos_casa":   ev.get("homeRedCards", 0),
+            "vermelhos_fora":   ev.get("awayRedCards", 0),
+        },
+    }
+
+    # Detalhes: clima, árbitro
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", {}).get("event", {})
+        result["clima"]   = d.get("environment")
+        result["arbitro"] = d.get("referee", {}).get("name") if isinstance(d.get("referee"), dict) else d.get("referee")
+        result["estadio"] = d.get("venue", {}).get("name") if isinstance(d.get("venue"), dict) else None
+    except Exception:
+        pass
+
+    # Incidentes: gols, cartões, substituições
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/incidents?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        incs = r.json().get("data", {}).get("incidents", [])
+        result["incidents"] = [
+            {
+                "type":    i.get("incidentType"),
+                "class":   i.get("incidentClass"),
+                "minute":  i.get("time"),
+                "player":  i.get("player", {}).get("name"),
+                "assist":  i.get("assist1", {}).get("name") if i.get("assist1") else None,
+                "isHome":  i.get("isHome"),
+                "score_h": i.get("homeScore"),
+                "score_a": i.get("awayScore"),
+            }
+            for i in (incs or [])
+        ]
+    except Exception:
+        result["incidents"] = []
+
+    # Forma recente
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/recent-form?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", {})
+        def parse_form(matches):
+            out = []
+            for m in (matches or []):
+                hs = m.get("homeScore", {})
+                as_ = m.get("awayScore", {})
+                out.append({
+                    "home": m.get("homeTeam", {}).get("name"),
+                    "away": m.get("awayTeam", {}).get("name"),
+                    "score": f"{hs.get('current',0)}-{as_.get('current',0)}",
+                    "status": m.get("status", {}).get("type"),
+                })
+            return out
+        result["forma_casa"] = parse_form(d.get("home", {}).get("latest_matches", []))
+        result["forma_fora"] = parse_form(d.get("away", {}).get("latest_matches", []))
+    except Exception:
+        result["forma_casa"] = []; result["forma_fora"] = []
+
+    # Jogador destaque
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/sport/football/events/{eid}/top-players?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", {})
+        def parse_player(p):
+            if not p: return None
+            return {
+                "name":   p.get("name"),
+                "pos":    p.get("position"),
+                "rating": p.get("rating"),
+                "attrs":  p.get("attributes", {}),
+            }
+        result["top_casa"] = parse_player(d.get("home_player"))
+        result["top_fora"] = parse_player(d.get("away_player"))
+    except Exception:
+        result["top_casa"] = None; result["top_fora"] = None
+
+    return jsonify(result)
+
+
 @app.route("/api/fotmob/live")
 def api_fotmob_live():
     """Busca jogos ao vivo diretamente via FotMob /api/data/matches (sem bloqueio)."""

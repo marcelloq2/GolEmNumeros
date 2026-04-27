@@ -1696,6 +1696,7 @@ function renderLiveDetail(m) {
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
+        <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -1791,6 +1792,8 @@ function renderLiveDetail(m) {
 
   // Carrega e desenha momentum assincronamente
   loadMomentumChart(m.id, m.casa, m.fora, m.liga || '');
+  // Carrega dados enriquecidos do Uniscore
+  loadUniscorePanel(m.casa, m.fora);
 }
 
 // ── Correlação de Pearson entre dois arrays (usa os últimos N elementos) ──
@@ -2258,6 +2261,153 @@ function _renderSimilarMatches(el, data) {
         ${outcomeBar}
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">${rows}</div>
+    </div>`;
+}
+
+// ── UNISCORE PANEL ───────────────────────────────────────────────────────────
+async function loadUniscorePanel(casa, fora) {
+  const el = document.getElementById('uniscorePanel');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<div style="font-size:9px;color:var(--text2);padding:4px 0">🌐 Carregando dados Uniscore...</div>`;
+  try {
+    const r = await fetch(`/api/uniscore/enrich?casa=${encodeURIComponent(casa)}&fora=${encodeURIComponent(fora)}`);
+    const d = await r.json();
+    if (!d.found) { el.style.display = 'none'; return; }
+    el.innerHTML = _renderUniscore(d);
+  } catch(e) { el.style.display = 'none'; }
+}
+
+function _renderUniscore(d) {
+  const s = d.stats || {};
+  const clima = d.clima || {};
+
+  // ── Clima ──
+  const climaHtml = clima.temperature ? `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+      <span title="Temperatura" style="font-size:11px">🌡️ ${clima.temperature}</span>
+      <span title="Vento"       style="font-size:11px">💨 ${clima.wind || '—'}</span>
+      <span title="Humidade"    style="font-size:11px">💧 ${clima.humidity || '—'}</span>
+      <span title="Pressão"     style="font-size:11px">⬇️ ${clima.pressure || '—'}</span>
+      ${d.arbitro ? `<span style="font-size:10px;color:var(--text2)">🟡 ${d.arbitro}</span>` : ''}
+      ${d.estadio ? `<span style="font-size:10px;color:var(--text2)">🏟️ ${d.estadio}</span>` : ''}
+    </div>` : '';
+
+  // ── Stats grid ──
+  const statItem = (icon, label, vH, vA) => `
+    <div style="display:flex;flex-direction:column;align-items:center;min-width:52px">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:2px">${icon} ${label}</div>
+      <div style="display:flex;gap:6px;font-size:12px;font-weight:700">
+        <span style="color:#3b82f6">${vH ?? 0}</span>
+        <span style="color:var(--text2)">–</span>
+        <span style="color:#ef4444">${vA ?? 0}</span>
+      </div>
+    </div>`;
+
+  const statsHtml = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-around;
+                padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
+      ${statItem('⚽','Escanteios', s.escanteios_casa, s.escanteios_fora)}
+      ${statItem('🎯','Chutes',     s.chutes_casa,     s.chutes_fora)}
+      ${statItem('🟨','Amarelos',   s.amarelos_casa,   s.amarelos_fora)}
+      ${statItem('🟥','Vermelhos',  s.vermelhos_casa,  s.vermelhos_fora)}
+    </div>`;
+
+  // ── Incidentes ──
+  const typeIcon = (type, cls) => {
+    if (type === 'goal')         return cls === 'ownGoal' ? '⚽🔴' : '⚽';
+    if (type === 'card')         return cls === 'yellow' ? '🟨' : cls === 'red' ? '🟥' : '🟧';
+    if (type === 'substitution') return '🔄';
+    if (type === 'varDecision')  return '📺';
+    return '•';
+  };
+  const incs = (d.incidents || []).filter(i => ['goal','card','substitution'].includes(i.type));
+  const incHtml = incs.length ? `
+    <div style="margin-bottom:6px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:3px;letter-spacing:.4px">📋 INCIDENTES</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${incs.map(i => `
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;
+                      color:${i.isHome ? '#93c5fd' : '#fca5a5'}">
+            <span style="font-size:11px;min-width:16px">${typeIcon(i.type, i.class)}</span>
+            <span style="font-weight:700;min-width:26px">${i.minute}'</span>
+            <span style="flex:1">${i.player || '—'}${i.assist ? ` <span style="color:var(--text2)">(${i.assist})</span>` : ''}</span>
+            ${i.type==='goal' ? `<span style="font-weight:700">${i.score_h}–${i.score_a}</span>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // ── Forma recente ──
+  const formBall = (m, isCasa) => {
+    if (!m.status || m.status !== 'finished') return '';
+    const [h, a] = (m.score || '0-0').split('-').map(Number);
+    const win = isCasa ? (h > a) : (a > h);
+    const draw = h === a;
+    const c = win ? '#22c55e' : draw ? '#f59e0b' : '#ef4444';
+    const l = win ? 'V' : draw ? 'E' : 'D';
+    return `<span title="${m.home} ${m.score} ${m.away}"
+      style="display:inline-flex;align-items:center;justify-content:center;
+             width:18px;height:18px;border-radius:50%;background:${c};
+             font-size:9px;font-weight:800;color:#fff;cursor:default">${l}</span>`;
+  };
+  const formRow = (label, form, isCasa) => `
+    <div style="display:flex;align-items:center;gap:4px">
+      <span style="font-size:9px;color:var(--text2);min-width:30px">${label}</span>
+      <div style="display:flex;gap:3px">${(form||[]).map(m => formBall(m, isCasa)).join('')}</div>
+    </div>`;
+
+  const formHtml = (d.forma_casa?.length || d.forma_fora?.length) ? `
+    <div style="margin-bottom:6px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:4px;letter-spacing:.4px">📊 ÚLTIMOS 5 JOGOS</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${formRow('Casa', d.forma_casa, true)}
+        ${formRow('Fora', d.forma_fora, false)}
+      </div>
+    </div>` : '';
+
+  // ── Jogador destaque ──
+  const playerCard = (p, side) => {
+    if (!p) return '';
+    const color = side === 'casa' ? '#3b82f6' : '#ef4444';
+    const attrs = p.attrs || {};
+    const bars = [
+      ['Atk', attrs.attacking], ['Cri', attrs.creativity],
+      ['Def', attrs.defending], ['Tec', attrs.technical]
+    ].filter(([,v]) => v).map(([l, v]) => `
+      <div style="display:flex;align-items:center;gap:3px;font-size:8px">
+        <span style="color:var(--text2);min-width:20px">${l}</span>
+        <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px">
+          <div style="width:${v}%;height:100%;background:${color};border-radius:2px"></div>
+        </div>
+        <span style="color:var(--text2);min-width:20px;text-align:right">${v}</span>
+      </div>`).join('');
+    return `
+      <div style="flex:1;padding:5px 7px;background:var(--bg);border-radius:6px;border:1px solid ${color}33">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:10px;font-weight:700;color:${color}">${p.name}</span>
+          <span style="font-size:11px;font-weight:800;color:#f59e0b">⭐ ${p.rating?.toFixed(2) || '—'}</span>
+        </div>
+        ${bars}
+      </div>`;
+  };
+
+  const playersHtml = (d.top_casa || d.top_fora) ? `
+    <div>
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:4px;letter-spacing:.4px">⭐ DESTAQUE DA PARTIDA</div>
+      <div style="display:flex;gap:6px">${playerCard(d.top_casa,'casa')}${playerCard(d.top_fora,'fora')}</div>
+    </div>` : '';
+
+  return `
+    <div style="padding:7px 10px;background:var(--bg3);border:1px solid var(--border);
+                border-radius:8px;border-left:3px solid #6366f1">
+      <div style="font-size:9px;font-weight:700;color:#6366f1;letter-spacing:.5px;margin-bottom:6px">
+        🌐 UNISCORE — ${d.casa} × ${d.fora}
+      </div>
+      ${climaHtml}
+      ${statsHtml}
+      ${incHtml}
+      ${formHtml}
+      ${playersHtml}
     </div>`;
 }
 
