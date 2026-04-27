@@ -1220,24 +1220,18 @@ def _uni_find(casa, fora):
             best_score = sc; best = ev
     return best if best_score >= 1 else None
 
-@app.route("/api/uniscore/enrich")
-def api_uniscore_enrich():
-    """Retorna dados enriquecidos do Uniscore para uma partida ao vivo."""
-    casa = request.args.get("casa", "")
-    fora = request.args.get("fora", "")
-    if not casa or not fora:
-        return jsonify({"error": "casa e fora obrigatórios"}), 400
-
+def _uni_enrich_one(casa, fora):
+    """Busca e retorna dados Uniscore para um par casa/fora. Retorna dict."""
     ev = _uni_find(casa, fora)
     if not ev:
-        return jsonify({"found": False}), 200
+        return {"found": False, "casa": casa, "fora": fora}
 
     eid = ev.get("id")
     result = {
-        "found": True,
-        "id":    eid,
-        "casa":  ev.get("homeTeam", {}).get("name"),
-        "fora":  ev.get("awayTeam", {}).get("name"),
+        "found":  True,
+        "id":     eid,
+        "casa":   ev.get("homeTeam", {}).get("name"),
+        "fora":   ev.get("awayTeam", {}).get("name"),
         "status": ev.get("status", {}).get("description"),
         "minuto": ev.get("time", {}).get("current"),
         "placar": {
@@ -1245,18 +1239,18 @@ def api_uniscore_enrich():
             "fora": ev.get("awayScore", {}).get("current"),
         },
         "stats": {
-            "escanteios_casa":  ev.get("homeCornerKicks", 0),
-            "escanteios_fora":  ev.get("awayCornerKicks", 0),
-            "chutes_casa":      ev.get("homeShotOnTarget", 0),
-            "chutes_fora":      ev.get("awayShotOnTarget", 0),
-            "amarelos_casa":    ev.get("homeYellowCards", 0),
-            "amarelos_fora":    ev.get("awayYellowCards", 0),
-            "vermelhos_casa":   ev.get("homeRedCards", 0),
-            "vermelhos_fora":   ev.get("awayRedCards", 0),
+            "escanteios_casa": ev.get("homeCornerKicks", 0),
+            "escanteios_fora": ev.get("awayCornerKicks", 0),
+            "chutes_casa":     ev.get("homeShotOnTarget", 0),
+            "chutes_fora":     ev.get("awayShotOnTarget", 0),
+            "amarelos_casa":   ev.get("homeYellowCards", 0),
+            "amarelos_fora":   ev.get("awayYellowCards", 0),
+            "vermelhos_casa":  ev.get("homeRedCards", 0),
+            "vermelhos_fora":  ev.get("awayRedCards", 0),
         },
     }
 
-    # Detalhes: clima, árbitro
+    # Detalhes: clima, árbitro, estádio
     try:
         r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}?language=pt-BR",
                          headers=UNISCORE_HEADERS, timeout=6)
@@ -1267,7 +1261,7 @@ def api_uniscore_enrich():
     except Exception:
         pass
 
-    # Incidentes: gols, cartões, substituições
+    # Incidentes
     try:
         r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/incidents?language=pt-BR",
                          headers=UNISCORE_HEADERS, timeout=6)
@@ -1299,16 +1293,17 @@ def api_uniscore_enrich():
                 hs = m.get("homeScore", {})
                 as_ = m.get("awayScore", {})
                 out.append({
-                    "home": m.get("homeTeam", {}).get("name"),
-                    "away": m.get("awayTeam", {}).get("name"),
-                    "score": f"{hs.get('current',0)}-{as_.get('current',0)}",
+                    "home":   m.get("homeTeam", {}).get("name"),
+                    "away":   m.get("awayTeam", {}).get("name"),
+                    "score":  f"{hs.get('current',0)}-{as_.get('current',0)}",
                     "status": m.get("status", {}).get("type"),
                 })
             return out
         result["forma_casa"] = parse_form(d.get("home", {}).get("latest_matches", []))
         result["forma_fora"] = parse_form(d.get("away", {}).get("latest_matches", []))
     except Exception:
-        result["forma_casa"] = []; result["forma_fora"] = []
+        result["forma_casa"] = []
+        result["forma_fora"] = []
 
     # Jogador destaque
     try:
@@ -1326,9 +1321,50 @@ def api_uniscore_enrich():
         result["top_casa"] = parse_player(d.get("home_player"))
         result["top_fora"] = parse_player(d.get("away_player"))
     except Exception:
-        result["top_casa"] = None; result["top_fora"] = None
+        result["top_casa"] = None
+        result["top_fora"] = None
 
-    return jsonify(result)
+    return result
+
+
+@app.route("/api/uniscore/enrich")
+def api_uniscore_enrich():
+    """Retorna dados enriquecidos do Uniscore para uma partida ao vivo."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    if not casa or not fora:
+        return jsonify({"error": "casa e fora obrigatórios"}), 400
+    return jsonify(_uni_enrich_one(casa, fora))
+
+
+@app.route("/api/uniscore/live-all", methods=["POST"])
+def api_uniscore_live_all():
+    """Recebe lista [{casa, fora}] e retorna enriquecimento paralelo de todas."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    body = request.get_json(force=True, silent=True) or {}
+    partidas = body.get("partidas", [])
+    if not partidas:
+        return jsonify([])
+
+    # Pré-aquece cache de eventos (1 chamada para todas)
+    _uni_events_today()
+
+    results = [None] * len(partidas)
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        fut_map = {
+            ex.submit(_uni_enrich_one, p.get("casa", ""), p.get("fora", "")): i
+            for i, p in enumerate(partidas)
+        }
+        for fut in as_completed(fut_map):
+            idx = fut_map[fut]
+            try:
+                results[idx] = fut.result()
+            except Exception:
+                results[idx] = {"found": False,
+                                "casa": partidas[idx].get("casa", ""),
+                                "fora": partidas[idx].get("fora", "")}
+
+    return jsonify(results)
 
 
 @app.route("/api/fotmob/live")

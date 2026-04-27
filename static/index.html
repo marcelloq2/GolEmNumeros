@@ -751,6 +751,12 @@
     font-size: 10px; font-weight: 700; color: #ef4444; background: #2d0a0a;
     border-radius: 4px; padding: 1px 6px;
   }
+  .uni-mini {
+    display: flex; gap: 7px; font-size: 10px; color: var(--text2);
+    padding: 3px 8px 4px; border-top: 1px solid var(--border);
+    width: 100%; box-sizing: border-box;
+  }
+  .uni-mini span { display: flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
   .live-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 100%; color: var(--text2); gap: 12px; padding: 40px 20px;
@@ -1376,6 +1382,9 @@ let _tempoInterval        = null;   // relógio local do minuto ao vivo (detalhe
 let _sidebarTempoInterval = null;   // relógio da sidebar (todos os jogos)
 let _sidebarTempos        = {};     // { id: { baseSec, startedAt } }
 
+// ── Cache Uniscore { "casa|fora": enrichData } ──
+let _uniCache = {};
+
 // Converte "MM'" ou "MM'SS" para total de segundos
 function parseTempo(str) {
   if (!str) return null;
@@ -1472,6 +1481,9 @@ async function loadLiveMatches() {
     }
     list.innerHTML = html;
 
+    // ── Enriquecimento automático com Uniscore (assíncrono, não bloqueia render) ──
+    _enrichAllWithUniscore(matches);
+
     // ── Relógio da sidebar: incrementa cada minuto por segundo ──
     clearInterval(_sidebarTempoInterval);
     _sidebarTempos = {};
@@ -1513,6 +1525,63 @@ async function loadLiveMatches() {
         <button class="live-refresh-btn" onclick="loadLiveMatches()">Tentar novamente</button>
       </div>`;
   }
+}
+
+// ── Busca dados Uniscore em paralelo para todas as partidas ao vivo ──
+async function _enrichAllWithUniscore(matches) {
+  if (!matches || !matches.length) return;
+  try {
+    const partidas = matches.map(m => ({ casa: m.casa, fora: m.fora }));
+    const res  = await fetch('/api/uniscore/live-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partidas })
+    });
+    const results = await res.json();
+    // Armazena no cache e injeta nos cards
+    results.forEach(d => {
+      const key = `${d.casa}|${d.fora}`;
+      _uniCache[key] = d;
+      // também indexa pela chave original do painel (pode ter nomes ligeiramente diferentes)
+      const m = matches.find(x => x.casa === d.casa || x.fora === d.fora || (d.found && _uniKeyFor(x) === key));
+      if (m) _uniCache[`${m.casa}|${m.fora}`] = d;
+    });
+    _injectUniDataToRows(matches);
+    // Se há detalhe aberto, re-renderiza painel Uniscore com dados frescos
+    if (activeLiveId !== null) {
+      const m = matches.find(x => x.id === activeLiveId);
+      if (m) {
+        const d = _uniCache[`${m.casa}|${m.fora}`];
+        if (d && d.found) {
+          const el = document.getElementById('uniscorePanel');
+          if (el) _renderUniscore(d);
+        }
+      }
+    }
+  } catch(e) { /* silencioso */ }
+}
+
+function _uniKeyFor(m) { return `${m.casa}|${m.fora}`; }
+
+// Injeta mini-estatísticas Uniscore em cada card da sidebar
+function _injectUniDataToRows(matches) {
+  matches.forEach(m => {
+    const d = _uniCache[`${m.casa}|${m.fora}`];
+    if (!d || !d.found) return;
+    const row = document.getElementById(`liveRow_${m.id}`);
+    if (!row) return;
+    // Remove bloco anterior se existir
+    row.querySelector('.uni-mini')?.remove();
+    const s = d.stats || {};
+    const mini = document.createElement('div');
+    mini.className = 'uni-mini';
+    mini.innerHTML = `
+      <span title="Escanteios">🔄 ${s.escanteios_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.escanteios_fora ?? '?'}</span>
+      <span title="Chutes no gol">🎯 ${s.chutes_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.chutes_fora ?? '?'}</span>
+      <span title="Amarelos">🟨 ${s.amarelos_casa ?? '?'}<span style="color:var(--text2)">-</span>${s.amarelos_fora ?? '?'}</span>
+    `;
+    row.appendChild(mini);
+  });
 }
 
 // Verifica se algum time ao vivo é favorito (match fuzzy por nome)
@@ -1712,61 +1781,6 @@ function renderLiveDetail(m) {
     </div>`;
   };
 
-  html += `
-    <div class="live-section">
-      <div class="live-section-title">💰 Odds 1 X 2</div>
-      <div class="live-section-body">
-        <div class="live-odds-grid">
-          ${oddRow('1 Casa', m.odd1, m.clOdd1)}
-          ${oddRow('X Empate', m.oddX, m.clOddX)}
-          ${oddRow('2 Fora', m.odd2, m.clOdd2)}
-        </div>
-      </div>
-    </div>`;
-
-  // ── Over/Under ──
-  html += `
-    <div class="live-section">
-      <div class="live-section-title">⚽ Gols — Over / Under</div>
-      <div class="live-section-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Under 1.5 FT</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clUnder15)?'color:'+radarOddColor(m.clUnder15):''}">${m.under15 || '—'}</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Over 1.5 FT</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clOver15)?'color:'+radarOddColor(m.clOver15):''}">${m.over15 || '—'}</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Under 2.5 FT</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clUnder25)?'color:'+radarOddColor(m.clUnder25):''}">${m.under25 || '—'}</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Over 2.5 FT</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clOver25)?'color:'+radarOddColor(m.clOver25):''}">${m.over25 || '—'}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  // ── BTTS ──
-  html += `
-    <div class="live-section">
-      <div class="live-section-title">🎯 BTTS — Ambas Marcam</div>
-      <div class="live-section-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Sim</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clBttsSim)?'color:'+radarOddColor(m.clBttsSim):''}">${m.bttsSim || '—'}</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:6px;padding:5px;text-align:center">
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px">Não</div>
-            <div style="font-size:13px;font-weight:800;${radarOddColor(m.clBttsNao)?'color:'+radarOddColor(m.clBttsNao):''}">${m.bttsNao || '—'}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
 
   html += `<div style="height:20px"></div>`;
 
@@ -2268,11 +2282,23 @@ function _renderSimilarMatches(el, data) {
 async function loadUniscorePanel(casa, fora) {
   const el = document.getElementById('uniscorePanel');
   if (!el) return;
+
+  // Usa cache se já tiver dados frescos
+  const cacheKey = `${casa}|${fora}`;
+  const cached = _uniCache[cacheKey];
+  if (cached) {
+    if (!cached.found) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = _renderUniscore(cached);
+    return;
+  }
+
   el.style.display = 'block';
   el.innerHTML = `<div style="font-size:9px;color:var(--text2);padding:4px 0">🌐 Carregando dados Uniscore...</div>`;
   try {
     const r = await fetch(`/api/uniscore/enrich?casa=${encodeURIComponent(casa)}&fora=${encodeURIComponent(fora)}`);
     const d = await r.json();
+    _uniCache[cacheKey] = d;
     if (!d.found) { el.style.display = 'none'; return; }
     el.innerHTML = _renderUniscore(d);
   } catch(e) { el.style.display = 'none'; }
