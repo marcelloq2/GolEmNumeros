@@ -1694,6 +1694,7 @@ function renderLiveDetail(m) {
         </div>
         <div id="momentumAxis" style="display:none"></div>
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
+        <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -2061,7 +2062,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
     }
 
     // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
-    updateMomentumIndicator(points, data.finished);
+    updateMomentumIndicator(points, data.finished, eventId);
 
   } catch(e) {
     const loading = document.getElementById('momentumLoading');
@@ -2070,7 +2071,11 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
 }
 
 // Cache local da análise (evita fetch a cada atualização)
-let _analysisCache = null;
+let _analysisCache  = null;
+// Histórico de sinais por partida { eventId: [{minute, type, score, color, shortLabel}] }
+let _signalHistory  = {};
+// Último tipo de sinal por partida (evita duplicatas consecutivas)
+let _lastSignalType = {};
 async function _getAnalysis() {
   if (_analysisCache) return _analysisCache;
   try {
@@ -2089,17 +2094,18 @@ function _lightningIcon(color, size = 22) {
   </svg>`;
 }
 
-async function updateMomentumIndicator(points, finished) {
-  const el = document.getElementById('momentumIndicator');
-  if (!el || !points || points.length < 4) { if(el) el.style.display='none'; return; }
+async function updateMomentumIndicator(points, finished, eventId) {
+  const el   = document.getElementById('momentumIndicator');
+  const hEl  = document.getElementById('signalHistory');
+  if (!el || !points || points.length < 4) { if(el) el.style.display='none'; if(hEl) hEl.style.display='none'; return; }
 
   const analysis = await _getAnalysis();
-  if (!analysis) { el.style.display='none'; return; }
+  if (!analysis) { el.style.display='none'; if(hEl) hEl.style.display='none'; return; }
 
   const W   = analysis.window || 8;
   const T   = analysis.threshold || 10;
   const win = points.slice(-W);
-  if (win.length < 3) { el.style.display='none'; return; }
+  if (win.length < 3) { el.style.display='none'; if(hEl) hEl.style.display='none'; return; }
 
   const vals  = win.map(p => p.value || 0);
   const tail  = vals.slice(-4).reduce((a,b)=>a+b,0) / Math.min(vals.length, 4);
@@ -2111,40 +2117,60 @@ async function updateMomentumIndicator(points, finished) {
   const isHT    = lastMin <= 45;
 
   // Determina sinal
-  let icon, label, bg, border;
+  let icon, label, bg, border, sigType, sigColor, sigShort;
 
   if (finished) {
-    el.style.display = 'none'; return;
+    el.style.display = 'none';
+    _renderSignalHistory(hEl, eventId, true);
+    return;
   } else if (score > T) {
-    // Gol Casa
-    icon   = _lightningIcon('#3b82f6', 28);
-    label  = `<span style="color:#3b82f6;font-weight:800;font-size:13px">Gol Casa</span>`;
-    bg     = 'rgba(59,130,246,.1)';
-    border = '#3b82f6';
+    sigType  = 'home'; sigColor = '#3b82f6'; sigShort = '⚡Casa';
+    icon     = _lightningIcon('#3b82f6', 28);
+    label    = `<span style="color:#3b82f6;font-weight:800;font-size:13px">Gol Casa</span>`;
+    bg       = 'rgba(59,130,246,.1)';
+    border   = '#3b82f6';
     if (isHT) label += ` <span style="font-size:11px;color:#a78bfa">⚽🚨 1º Tempo</span>`;
     else      label += ` <span style="font-size:11px;color:#34d399">⚽🚨 2º Tempo</span>`;
   } else if (score < -T) {
-    // Gol Visitante
-    icon   = _lightningIcon('#ef4444', 28);
-    label  = `<span style="color:#ef4444;font-weight:800;font-size:13px">Gol Visitante</span>`;
-    bg     = 'rgba(239,68,68,.1)';
-    border = '#ef4444';
+    sigType  = 'away'; sigColor = '#ef4444'; sigShort = '⚡Vis';
+    icon     = _lightningIcon('#ef4444', 28);
+    label    = `<span style="color:#ef4444;font-weight:800;font-size:13px">Gol Visitante</span>`;
+    bg       = 'rgba(239,68,68,.1)';
+    border   = '#ef4444';
     if (isHT) label += ` <span style="font-size:11px;color:#a78bfa">⚽🚨 1º Tempo</span>`;
     else      label += ` <span style="font-size:11px;color:#34d399">⚽🚨 2º Tempo</span>`;
   } else if (Math.abs(score) > T * 0.6) {
-    // Qualquer Gol (sinal moderado)
-    icon   = _lightningIcon('#fbbf24', 24);
-    label  = `<span style="color:#fbbf24;font-weight:800;font-size:13px">Possível Gol</span>`;
-    bg     = 'rgba(251,191,36,.08)';
-    border = '#fbbf24';
+    sigType  = 'any'; sigColor = '#fbbf24'; sigShort = '⚡Gol?';
+    icon     = _lightningIcon('#fbbf24', 24);
+    label    = `<span style="color:#fbbf24;font-weight:800;font-size:13px">Possível Gol</span>`;
+    bg       = 'rgba(251,191,36,.08)';
+    border   = '#fbbf24';
     if (isHT) label += ` <span style="font-size:11px;color:#a78bfa">⚽🚨 1º Tempo</span>`;
     else      label += ` <span style="font-size:11px;color:#34d399">⚽🚨 2º Tempo</span>`;
   } else {
-    // Sem Gol
-    icon   = `<span style="font-size:22px">🧊</span>`;
-    label  = `<span style="color:#94a3b8;font-weight:700;font-size:12px">Sem Padrão de Gol</span>`;
-    bg     = 'rgba(100,116,139,.07)';
-    border = '#374151';
+    sigType  = 'none'; sigColor = '#64748b'; sigShort = '🧊';
+    icon     = `<span style="font-size:22px">🧊</span>`;
+    label    = `<span style="color:#94a3b8;font-weight:700;font-size:12px">Sem Padrão de Gol</span>`;
+    bg       = 'rgba(100,116,139,.07)';
+    border   = '#374151';
+  }
+
+  // ── Rastreia histórico (só registra quando muda de tipo) ──
+  if (eventId) {
+    const key = String(eventId);
+    if (!_signalHistory[key]) _signalHistory[key] = [];
+    const last = _lastSignalType[key];
+    if (last !== sigType) {
+      _signalHistory[key].push({
+        minute: Math.floor(lastMin),
+        type:   sigType,
+        score:  score,
+        color:  sigColor,
+        short:  sigShort
+      });
+      _lastSignalType[key] = sigType;
+    }
+    _renderSignalHistory(hEl, key, false);
   }
 
   const scoreColor = score > T ? '#3b82f6' : score < -T ? '#ef4444' : Math.abs(score) > T*0.6 ? '#fbbf24' : '#6b7280';
@@ -2165,6 +2191,39 @@ async function updateMomentumIndicator(points, finished) {
           &nbsp;·&nbsp; min ${Math.floor(lastMin)}'
         </div>
       </div>
+    </div>`;
+}
+
+function _renderSignalHistory(el, key, finished) {
+  if (!el || !key) return;
+  const hist = _signalHistory[String(key)] || [];
+  if (hist.length < 2) { el.style.display = 'none'; return; }
+
+  const chips = hist.map((h, i) => {
+    const isCurrent = !finished && i === hist.length - 1;
+    const border    = isCurrent ? `2px solid ${h.color}` : `1px solid ${h.color}44`;
+    const bg        = isCurrent ? `${h.color}22` : `${h.color}0d`;
+    const weight    = isCurrent ? '700' : '500';
+    const opacity   = isCurrent ? '1' : '0.7';
+    const scoreStr  = (h.score >= 0 ? '+' : '') + h.score.toFixed(1);
+    return `<div title="score ${scoreStr}" style="
+      display:inline-flex;align-items:center;gap:3px;
+      padding:2px 7px;border-radius:20px;
+      background:${bg};border:${border};
+      font-size:10px;font-weight:${weight};color:${h.color};
+      opacity:${opacity};white-space:nowrap;cursor:default;
+      transition:opacity .2s">
+      ${h.short} <span style="font-size:9px;opacity:.8">${h.minute}'</span>
+    </div>`;
+  }).join(`<span style="color:#334155;font-size:10px;align-self:center">›</span>`);
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+                padding:5px 8px;background:var(--bg3);border:1px solid var(--border);
+                border-radius:7px">
+      <span style="font-size:9px;color:var(--text2);font-weight:600;white-space:nowrap;flex-shrink:0">📋 Sinais:</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${chips}</div>
     </div>`;
 }
 
