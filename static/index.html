@@ -1695,6 +1695,7 @@ function renderLiveDetail(m) {
         <div id="momentumAxis" style="display:none"></div>
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
+        <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -2175,22 +2176,6 @@ async function updateMomentumIndicator(points, finished, eventId) {
 
   const scoreColor = score > T ? '#3b82f6' : score < -T ? '#ef4444' : Math.abs(score) > T*0.6 ? '#fbbf24' : '#6b7280';
 
-  // Probabilidade histórica do sinal atual
-  const probMap = { home: analysis.prob_home, away: analysis.prob_away, any: analysis.prob_any, none: analysis.prob_none };
-  const pct     = probMap[sigType];
-  const look    = analysis.prob_lookahead || 10;
-  let probBadge = '';
-  if (pct != null) {
-    const pColor = pct >= 60 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#94a3b8';
-    const pBg    = pct >= 60 ? 'rgba(34,197,94,.15)' : pct >= 40 ? 'rgba(245,158,11,.12)' : 'rgba(100,116,139,.12)';
-    const pLabel = sigType === 'none' ? `${pct}% sem gol` : `${pct}% nos próx ${look}min`;
-    probBadge = `<span style="
-      font-size:11px;font-weight:800;color:${pColor};
-      background:${pBg};border:1px solid ${pColor}55;
-      padding:1px 8px;border-radius:20px;white-space:nowrap"
-      title="Baseado em ${analysis.total_matches} partidas salvas">${pLabel}</span>`;
-  }
-
   el.style.display = 'block';
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
@@ -2199,7 +2184,6 @@ async function updateMomentumIndicator(points, finished, eventId) {
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${label}
-          ${probBadge}
         </div>
         <div style="font-size:9px;color:var(--text2);margin-top:2px">
           score <span style="color:${scoreColor};font-weight:700">${score>=0?'+':''}${score.toFixed(1)}</span>
@@ -2208,6 +2192,72 @@ async function updateMomentumIndicator(points, finished, eventId) {
           &nbsp;·&nbsp; min ${Math.floor(lastMin)}'
         </div>
       </div>
+    </div>`;
+
+  // Atualiza painel de partidas similares (sem bloquear o UI)
+  _updateSimilarMatches(points, W);
+}
+
+async function _updateSimilarMatches(points, W) {
+  const el = document.getElementById('similarMatches');
+  if (!el) return;
+  try {
+    const res  = await fetch('/api/momentum/similar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points, window: W })
+    });
+    const data = await res.json();
+    _renderSimilarMatches(el, data);
+  } catch(e) { el.style.display = 'none'; }
+}
+
+function _renderSimilarMatches(el, data) {
+  const list = data.similar || [];
+  if (!list.length) { el.style.display = 'none'; return; }
+
+  const total = data.total || list.length;
+  const gh    = data.goal_home || 0;
+  const ga    = data.goal_away || 0;
+  const gn    = data.goal_none || 0;
+  const N     = list.length;
+
+  // Barra de resultado resumida
+  const outcomeBar = `
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      ${gh ? `<span style="color:#3b82f6;font-weight:700;font-size:11px">⚡Casa ${gh}/${N}</span>` : ''}
+      ${ga ? `<span style="color:#ef4444;font-weight:700;font-size:11px">⚡Vis ${ga}/${N}</span>` : ''}
+      ${gn ? `<span style="color:#64748b;font-weight:700;font-size:11px">🧊 Sem Gol ${gn}/${N}</span>` : ''}
+    </div>`;
+
+  const outcomeIcon = o => o === 'home' ? '⚡<span style="color:#3b82f6">Casa</span>'
+                         : o === 'away' ? '⚡<span style="color:#ef4444">Vis</span>'
+                         : o === 'any'  ? '⚡<span style="color:#fbbf24">Gol</span>'
+                         : '🧊';
+  const outcomeColor = o => o === 'home' ? '#1e3a5f' : o === 'away' ? '#3f1515' : o === 'any' ? '#3b2c0a' : '#1a1d27';
+
+  const rows = list.map(s => {
+    const home = s.casa || '—'; const away = s.fora || '—';
+    const teams = (home + ' × ' + away).length > 30
+      ? (home.length > 14 ? home.slice(0,13)+'…' : home) + ' × ' + (away.length > 14 ? away.slice(0,13)+'…' : away)
+      : home + ' × ' + away;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;
+              padding:4px 8px;border-radius:5px;background:${outcomeColor(s.outcome)};
+              border:1px solid #2e3249;gap:6px">
+      <span style="font-size:10px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${teams}</span>
+      <span style="font-size:9px;color:var(--text2);white-space:nowrap">${s.date ? s.date.slice(5) : ''} min ${s.minute}'</span>
+      <span style="font-size:10px;white-space:nowrap">${outcomeIcon(s.outcome)}</span>
+    </div>`;
+  }).join('');
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-size:9px;font-weight:700;color:var(--text2)">🔍 PARTIDAS SIMILARES (${N} de ${total})</span>
+        ${outcomeBar}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">${rows}</div>
     </div>`;
 }
 

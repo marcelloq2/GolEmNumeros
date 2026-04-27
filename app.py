@@ -1,7 +1,7 @@
 """
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
-from flask import Flask, jsonify, send_from_directory, abort
+from flask import Flask, jsonify, send_from_directory, abort, request
 import json, os, glob, re, threading, time
 import requests as http_req
 from datetime import datetime
@@ -1090,6 +1090,89 @@ def api_momentum_analysis():
     except Exception:
         pass
     return jsonify(result)
+
+
+@app.route("/api/momentum/similar", methods=["POST"])
+def api_momentum_similar():
+    """Busca partidas salvas com padrão de momentum similar ao atual."""
+    try:
+        body    = request.get_json(force=True) or {}
+        pts_raw = body.get("points", [])
+        W       = int(body.get("window", 8))
+        LOOKAHEAD = 10
+
+        if len(pts_raw) < W:
+            return jsonify({"similar": [], "total": 0, "goal_home": 0, "goal_away": 0, "goal_none": 0})
+
+        cur_vals = [float(p.get("value", 0)) for p in pts_raw[-W:]]
+
+        def normalize(vals):
+            mx = max(abs(v) for v in vals) or 1.0
+            return [v / mx for v in vals]
+
+        cur_norm = normalize(cur_vals)
+
+        similar = []
+        for fpath in sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json"))):
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    d = json.load(f)
+                pt_list = sorted([(float(p["minute"]), float(p["value"]))
+                                  for p in d.get("graphPoints", [])
+                                  if "minute" in p and "value" in p],
+                                 key=lambda x: x[0])
+                goals = d.get("goals", [])
+                if len(pt_list) < W + 2:
+                    continue
+
+                best_dist = float("inf")
+                best_outcome = "none"
+                best_min = 0
+
+                for i in range(W, len(pt_list)):
+                    win = [pt_list[j][1] for j in range(i - W, i)]
+                    win_norm = normalize(win)
+                    dist = sum((a - b) ** 2 for a, b in zip(cur_norm, win_norm)) ** 0.5
+                    if dist < best_dist:
+                        best_dist = dist
+                        m_now = pt_list[i][0]
+                        ahead = [(float(g.get("minute", 0)), g.get("team", ""))
+                                 for g in goals
+                                 if float(g.get("minute", 0)) > m_now
+                                 and float(g.get("minute", 0)) <= m_now + LOOKAHEAD]
+                        if any(t == "home" for _, t in ahead):
+                            best_outcome = "home"
+                        elif any(t == "away" for _, t in ahead):
+                            best_outcome = "away"
+                        elif ahead:
+                            best_outcome = "any"
+                        else:
+                            best_outcome = "none"
+                        best_min = int(m_now)
+
+                similar.append({
+                    "casa":     d.get("casa", "—"),
+                    "fora":     d.get("fora", "—"),
+                    "liga":     d.get("liga", ""),
+                    "date":     d.get("date", ""),
+                    "outcome":  best_outcome,
+                    "distance": round(best_dist, 3),
+                    "minute":   best_min,
+                })
+            except Exception:
+                continue
+
+        similar.sort(key=lambda x: x["distance"])
+        top = similar[:5]
+        return jsonify({
+            "similar":   top,
+            "total":     len(similar),
+            "goal_home": sum(1 for s in top if s["outcome"] == "home"),
+            "goal_away": sum(1 for s in top if s["outcome"] == "away"),
+            "goal_none": sum(1 for s in top if s["outcome"] == "none"),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/fotmob/live")
