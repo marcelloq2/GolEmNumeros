@@ -995,6 +995,42 @@ def _compute_analysis():
         pred  = "home" if score > best_T_overall else ("away" if score < -best_T_overall else "none")
         cnt[lbl][1] += 1; cnt[lbl][0] += int(pred == lbl)
 
+    # ── Probabilidade: P(gol nos próx. LOOKAHEAD min | sinal X) ──────────
+    LOOKAHEAD = 10
+    prob = {"home": [0,0], "away": [0,0], "any": [0,0], "none": [0,0]}
+    for d in all_data:
+        pt_list   = d["pt_list"]
+        goal_list = d["goal_list"]
+        if len(pt_list) < W + 2:
+            continue
+        for i in range(W, len(pt_list)):
+            m_now = pt_list[i][0]
+            win   = [pt_list[j][1] for j in range(i - W, i)]
+            score = feats(win)
+            if score > best_T_overall:
+                sig = "home"
+            elif score < -best_T_overall:
+                sig = "away"
+            elif abs(score) > best_T_overall * 0.6:
+                sig = "any"
+            else:
+                sig = "none"
+            goals_ahead = [(gm, gt) for gm, gt in goal_list
+                           if gm > m_now and gm <= m_now + LOOKAHEAD]
+            prob[sig][1] += 1
+            if sig == "home":
+                if any(gt == "home" for _, gt in goals_ahead):
+                    prob[sig][0] += 1
+            elif sig == "away":
+                if any(gt == "away" for _, gt in goals_ahead):
+                    prob[sig][0] += 1
+            elif sig == "any":
+                if goals_ahead:
+                    prob[sig][0] += 1
+            else:  # none
+                if not goals_ahead:
+                    prob[sig][0] += 1
+
     def sp(a, b): return round(a/b*100, 1) if b else None
 
     return {
@@ -1011,6 +1047,11 @@ def _compute_analysis():
         "acc_home":      sp(*cnt.get("home", (0,1))),
         "acc_away":      sp(*cnt.get("away", (0,1))),
         "acc_none":      sp(*cnt.get("none", (0,1))),
+        "prob_home":     sp(*prob["home"]),
+        "prob_away":     sp(*prob["away"]),
+        "prob_any":      sp(*prob["any"]),
+        "prob_none":     sp(*prob["none"]),
+        "prob_lookahead": LOOKAHEAD,
         "total_matches": total_matches,
         "total_goals":   total_goals,
         "window":        W,
