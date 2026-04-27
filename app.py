@@ -1208,17 +1208,49 @@ def _uni_events_today():
         return []
 
 def _uni_find(casa, fora):
-    """Encontra evento Uniscore pelo nome dos times (fuzzy)."""
-    def norm(s): return s.lower().replace("-", " ")
-    cn = norm(casa)[:6]; fn = norm(fora)[:6]
-    best = None; best_score = 0
+    """Encontra evento Uniscore pelo nome dos times (fuzzy com remoção de acentos)."""
+    import unicodedata
+
+    def norm(s):
+        """Normaliza: minúsculo, sem acentos, sem pontuação."""
+        s = s.lower()
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")  # remove diacritics
+        s = re.sub(r"[^a-z0-9 ]", " ", s)
+        return re.sub(r"\s+", " ", s).strip()
+
+    def words(s):
+        """Conjunto de palavras significativas (>= 3 letras)."""
+        return {w for w in norm(s).split() if len(w) >= 3}
+
+    def score_team(query, candidate):
+        """Pontuação de similaridade entre dois nomes de time."""
+        qn = norm(query)
+        cn = norm(candidate)
+        # Prefixo dos primeiros 5 chars
+        prefix_match = qn[:5] == cn[:5] and len(qn) >= 4
+        # Interseção de palavras
+        qw = words(query)
+        cw = words(candidate)
+        common = qw & cw
+        word_score = len(common) / max(len(qw), 1)
+        # Substring bidirecional
+        substr = (qn[:8] in cn) or (cn[:8] in qn)
+        return (3 if prefix_match else 0) + (word_score * 2) + (1 if substr else 0)
+
+    best = None
+    best_score = 0.0
     for ev in _uni_events_today():
-        hn = norm(ev.get("homeTeam", {}).get("name", ""))
-        an = norm(ev.get("awayTeam", {}).get("name", ""))
-        sc = (cn in hn or hn[:6] in cn) + (fn in an or an[:6] in fn)
+        hn = ev.get("homeTeam", {}).get("name", "")
+        an = ev.get("awayTeam", {}).get("name", "")
+        sc = score_team(casa, hn) + score_team(fora, an)
         if sc > best_score:
-            best_score = sc; best = ev
-    return best if best_score >= 1 else None
+            best_score = sc
+            best = ev
+    # Threshold mínimo: pelo menos um nome com score >= 2
+    if best_score < 2.0:
+        return None
+    return best
 
 def _uni_enrich_one(casa, fora):
     """Busca e retorna dados Uniscore para um par casa/fora. Retorna dict."""
