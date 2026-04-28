@@ -966,6 +966,9 @@
       <div class="filter-bar2">
         <button class="view-mode-btn active" id="viewByLeague" onclick="setViewMode('liga', this)">🏆 Por Liga</button>
         <button class="view-mode-btn" id="viewByTime" onclick="setViewMode('hora', this)">🕐 Por Horário</button>
+        <button class="view-mode-btn" id="btnFixTime" onclick="fixMatchTimes()"
+                style="margin-left:auto;color:#f59e0b;border-color:#f59e0b44"
+                title="Adiciona +3h em todos os horários do arquivo de hoje">⏰ +3h</button>
       </div>
       <div id="matchList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -1064,7 +1067,7 @@
   <!-- BACKTEST -->
   <div class="backtest-panel" id="backtestPanel">
     <!-- Col 1: datas -->
-    <div class="bt-sidebar">
+    <div class="bt-sidebar" style="display:none">
       <div class="bt-sidebar-title">📆 Histórico</div>
       <div class="bt-date-filter-bar">
         <button class="bt-df-btn active" onclick="setBtDateFilter('all', this)">Geral</button>
@@ -3661,6 +3664,40 @@ function setViewMode(mode, btn) {
   document.querySelectorAll('#todayView .view-mode-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filterMatches();
+}
+
+async function fixMatchTimes() {
+  const btn = document.getElementById('btnFixTime');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Ajustando...';
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/api/fix-times', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta: 3 }) });
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = `✅ ${data.updated} horários`;
+      btn.style.color = '#22c55e';
+      btn.style.borderColor = '#22c55e44';
+      // Recarrega a lista de partidas
+      await loadMatches();
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.color = '#f59e0b';
+        btn.style.borderColor = '#f59e0b44';
+        btn.disabled = false;
+      }, 3000);
+    } else {
+      btn.textContent = '❌ Erro';
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }
+  } catch(e) {
+    btn.textContent = '❌ Erro';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }
 }
 
 function setFavViewMode(mode, btn) {

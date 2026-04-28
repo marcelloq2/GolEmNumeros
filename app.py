@@ -30,6 +30,44 @@ def ajustar_hora(hora_str):
         return hora_str
 
 
+def _shift_hora(hora_str, delta_hours):
+    """Soma delta_hours ao horário HH:MM. Retorna novo HH:MM ou original."""
+    from datetime import datetime, timedelta
+    if not hora_str:
+        return hora_str
+    try:
+        t = datetime.strptime(hora_str.strip(), "%H:%M") + timedelta(hours=delta_hours)
+        return t.strftime("%H:%M")
+    except Exception:
+        return hora_str
+
+
+@app.route("/api/fix-times", methods=["POST"])
+def api_fix_times():
+    """Adiciona ou subtrai horas em todos os horários do predictions JSON."""
+    body = request.get_json(force=True, silent=True) or {}
+    delta = int(body.get("delta", 3))   # padrão: +3h
+
+    matches, source = load_predictions()
+    if not matches:
+        return jsonify({"ok": False, "error": "Nenhum arquivo de partidas encontrado"}), 404
+
+    # Determina qual arquivo usar
+    fname = source or "predictions_full.json"
+    path  = os.path.join(DATA_DIR, fname)
+
+    updated = 0
+    for m in matches:
+        if m.get("hora"):
+            m["hora"] = _shift_hora(m["hora"], delta)
+            updated += 1
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(matches, f, ensure_ascii=False, indent=2)
+
+    return jsonify({"ok": True, "updated": updated, "delta": delta, "file": fname})
+
+
 def load_predictions():
     # Prefere o arquivo full (com detalhes), senão usa o simples
     for fname in ["predictions_full.json", "predictions.json"]:
