@@ -1498,6 +1498,69 @@ def _uni_enrich_one(casa, fora):
     except Exception:
         result["statistics"] = {}
 
+    # Escalação
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/lineups?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        ld = r.json().get("data", {})
+        def parse_side(side):
+            sd = ld.get(side, {})
+            def pp(p):
+                pl = p.get("player", {})
+                return {
+                    "name":    pl.get("fullName") or pl.get("name"),
+                    "number":  p.get("shirtNumber"),
+                    "pos":     p.get("position"),
+                    "captain": p.get("captain", False),
+                    "rating":  p.get("rating"),
+                }
+            players = sd.get("players", [])
+            return {
+                "formation":  sd.get("formation", ""),
+                "confirmed":  ld.get("confirmed", False),
+                "titulares":  [pp(p) for p in players if not p.get("substitute", False)],
+                "reservas":   [pp(p) for p in players if p.get("substitute", False)],
+            }
+        result["lineup_casa"] = parse_side("home")
+        result["lineup_fora"] = parse_side("away")
+    except Exception:
+        result["lineup_casa"] = None
+        result["lineup_fora"] = None
+
+    # Gráfico de pressão (minuto a minuto)
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/graph",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        pts = r.json().get("data", {}).get("graphPoints", [])
+        result["graph"] = [{"m": p.get("minute"), "v": p.get("value")} for p in pts]
+    except Exception:
+        result["graph"] = []
+
+    # Odds ao vivo (movimentação de mercado)
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/sport/football/odd-live-change/8",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        raw = r.json().get("data", {}).get("odds", "")
+        for entry in raw.split("!"):
+            parts = entry.split("^")
+            if len(parts) < 4 or parts[0] != eid:
+                continue
+            def _p(seg):
+                v = seg.split(":"); return v if len(v) >= 3 else ["","",""]
+            fx2 = _p(parts[3])
+            def hk2(v):
+                try: f=float(v); return str(round(f+1,2)) if f<1.0 else v
+                except: return v
+            ou = _p(parts[4]) if len(parts) > 4 else ["","",""]
+            result["live_odds"] = {
+                "h": fx2[0], "x": fx2[1], "a": fx2[2],
+                "ou_line": ou[0], "ou_over": hk2(ou[1]), "ou_under": hk2(ou[2]),
+                "changed": parts[1] == "1",
+            }
+            break
+    except Exception:
+        pass
+
     return result
 
 
