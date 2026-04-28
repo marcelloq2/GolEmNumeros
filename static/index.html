@@ -2361,6 +2361,39 @@ function _renderUniscore(d) {
       </div>`;
   };
 
+  // ── Odds 1X2 + Over/Under ──
+  const od = d.odds || {};
+  const oddsHtml = od.h ? (() => {
+    const vals = [
+      { lbl: '1 Casa',   v: od.h },
+      { lbl: 'Empate',   v: od.x },
+      { lbl: '2 Fora',   v: od.a },
+    ];
+    if (od.ou_line && od.ou_over) {
+      vals.push(
+        { lbl: `Over ${od.ou_line}`, v: od.ou_over  },
+        { lbl: `Under ${od.ou_line}`, v: od.ou_under }
+      );
+    }
+    const minV = Math.min(...vals.map(v => parseFloat(v.v) || 99));
+    return `
+      <div style="background:var(--bg3);border:1px solid #f59e0b33;border-radius:7px;
+                  padding:6px 10px;margin-bottom:6px">
+        <div style="font-size:9px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:5px">💰 ODDS</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${vals.map(({lbl, v}) => {
+            const isMin = parseFloat(v) === minV;
+            return `<div style="flex:1;min-width:52px;text-align:center;
+                        background:var(--bg);border-radius:5px;padding:4px 6px;
+                        border:1px solid ${isMin ? '#f59e0b66' : 'var(--border)'}">
+              <div style="font-size:9px;color:var(--text2);margin-bottom:2px">${lbl}</div>
+              <div style="font-size:13px;font-weight:800;color:${isMin ? '#f59e0b' : 'var(--text)'}">${v || '—'}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  })() : '';
+
   // ── xG simplificado ──
   const _xg = (side) => {
     const g  = (key) => (st[key]?.[side + 'Value'] ?? 0);
@@ -2513,6 +2546,7 @@ function _renderUniscore(d) {
   return `
     <div style="padding:7px 10px;background:var(--bg3);border:1px solid var(--border);
                 border-radius:8px;border-left:3px solid #6366f1">
+      ${oddsHtml}
       ${xgHtml}
       ${statsHtml}
     </div>`;

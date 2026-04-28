@@ -1258,6 +1258,44 @@ UNISCORE_BASE = "https://api.unik8s.com/api/v2"
 # Cache da lista de partidas do dia (30s TTL)
 _uni_events_cache = {"ts": 0, "data": []}
 
+# Cache de odds do dia (60s TTL)
+_uni_odds_cache = {"ts": 0, "data": {}}
+
+def _uni_odds_today():
+    """Retorna dict {eventId: {h, x, a, ah_line, ah_h, ah_a, ou_line, ou_over, ou_under}} (cache 60s)."""
+    global _uni_odds_cache
+    if time.time() - _uni_odds_cache["ts"] < 60 and _uni_odds_cache["data"]:
+        return _uni_odds_cache["data"]
+    try:
+        date = datetime.now().strftime("%Y-%m-%d")
+        r = http_req.get(
+            f"{UNISCORE_BASE}/sport/football/odds/8/{date}/offset/180",
+            headers=UNISCORE_HEADERS, timeout=8
+        )
+        raw = r.json().get("data", {}).get("odds", "")
+        odds_map = {}
+        for entry in raw.split("!"):
+            parts = entry.split("^")
+            if len(parts) < 5:
+                continue
+            eid = parts[0]
+            def _parse(seg):
+                v = seg.split(":")
+                return v if len(v) >= 3 else ["", "", ""]
+            ah  = _parse(parts[2])   # Asian Handicap: line, home, away
+            fx2 = _parse(parts[3])   # 1X2: home, draw, away
+            ou  = _parse(parts[4])   # Over/Under: line, over, under
+            if fx2[0]:
+                odds_map[eid] = {
+                    "h": fx2[0], "x": fx2[1], "a": fx2[2],
+                    "ah_line": ah[0], "ah_h": ah[1], "ah_a": ah[2],
+                    "ou_line": ou[0], "ou_over": ou[1], "ou_under": ou[2],
+                }
+        _uni_odds_cache = {"ts": time.time(), "data": odds_map}
+        return odds_map
+    except Exception:
+        return {}
+
 def _uni_events_today():
     """Retorna lista de eventos de futebol do dia (cache 30s)."""
     global _uni_events_cache
@@ -1329,6 +1367,10 @@ def _uni_enrich_one(casa, fora):
     eid = ev.get("id")
     home_tid = ev.get("homeTeam", {}).get("id", "")
     away_tid = ev.get("awayTeam", {}).get("id", "")
+
+    # Odds do dia (cache 60s)
+    odds = _uni_odds_today().get(eid, {})
+
     result = {
         "found":    True,
         "id":       eid,
@@ -1352,6 +1394,7 @@ def _uni_enrich_one(casa, fora):
             "vermelhos_casa":  ev.get("homeRedCards", 0),
             "vermelhos_fora":  ev.get("awayRedCards", 0),
         },
+        "odds": odds,  # {h, x, a, ah_line, ah_h, ah_a, ou_line, ou_over, ou_under}
     }
 
     # Detalhes: clima, árbitro, estádio
