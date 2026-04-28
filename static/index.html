@@ -689,6 +689,13 @@
   ::-webkit-scrollbar-track { background: var(--bg2); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  /* Scrollbar visível no painel de detalhe ao vivo */
+  .live-detail { scrollbar-width: thin; scrollbar-color: #4f6ef7 #1a1d27; }
+  .live-detail::-webkit-scrollbar { width: 6px; }
+  .live-detail::-webkit-scrollbar-track { background: #1a1d27; border-radius: 3px; }
+  .live-detail::-webkit-scrollbar-thumb { background: #4f6ef7; border-radius: 3px; }
+  .live-detail::-webkit-scrollbar-thumb:hover { background: #6c8fff; }
+
   /* ── AO VIVO ── */
   .live-panel { display: none; flex: 1; overflow: hidden; position: relative; }
   .live-panel.active { display: flex; }
@@ -765,7 +772,7 @@
 
   /* Painel de detalhes ao vivo */
   .live-detail {
-    flex: 1; overflow-y: auto; background: var(--bg);
+    flex: 1; min-height: 0; overflow-y: scroll; background: var(--bg);
     display: flex; flex-direction: column;
   }
   .live-detail-placeholder {
@@ -2394,41 +2401,65 @@ function _renderUniscore(d) {
       </div>`;
   })() : '';
 
-  // ── Gráfico de Pressão (SVG sparkline) ──
+  // ── Pressão em blocos numéricos por período ──
   const graphHtml = (() => {
     const pts = d.graph || [];
     if (pts.length < 2) return '';
-    const W = 500, H = 48, mid = H / 2;
+
     const maxM = pts[pts.length - 1].m || pts.length;
-    const toX = m => Math.round((m / maxM) * W);
-    const toY = v => Math.round(mid - (v / 100) * mid);
-    // Área home (positivo = azul)
-    let homeArea = `M0,${mid}`;
-    let awayArea = `M0,${mid}`;
-    pts.forEach(p => {
-      const x = toX(p.m), y = toY(p.v);
-      homeArea += ` L${x},${p.v >= 0 ? y : mid}`;
-      awayArea += ` L${x},${p.v <= 0 ? y : mid}`;
-    });
-    homeArea += ` L${toX(maxM)},${mid} Z`;
-    awayArea += ` L${toX(maxM)},${mid} Z`;
-    // Linha central
-    const line = pts.map((p,i) => `${i===0?'M':'L'}${toX(p.m)},${toY(p.v)}`).join(' ');
+
+    // Resumo total (barra geral)
+    const avgAll = pts.reduce((s, p) => s + p.v, 0) / pts.length;
+    const homePct = Math.round(50 + avgAll / 2);
+    const awayPct = 100 - homePct;
+
+    // Últimos 5 minutos individuais
+    const last5 = pts.slice(-5);
+    const avgRecent = last5.reduce((s, p) => s + p.v, 0) / last5.length;
+    const domLabel = avgRecent > 10 ? `<span style="color:#60a5fa;font-weight:700">🔵 Casa domina agora</span>`
+                   : avgRecent < -10 ? `<span style="color:#f87171;font-weight:700">🔴 Fora domina agora</span>`
+                   : `<span style="color:#9ca3af">⚪ Equilibrado agora</span>`;
+
+    // Blocos dos últimos 5 minutos (do mais antigo → mais recente)
+    const last5Html = last5.map((p, i) => {
+      const isHome = p.v >= 0;
+      const intensity = Math.abs(p.v);
+      const alpha = Math.min(0.92, 0.20 + (intensity / 100) * 0.72);
+      const bg = isHome ? `rgba(59,130,246,${alpha})` : `rgba(239,68,68,${alpha})`;
+      const border = isHome ? '#3b82f6' : '#ef4444';
+      const val = Math.round(intensity);
+      const isLast = i === last5.length - 1;
+      const ringStyle = isLast ? `box-shadow:0 0 0 2px ${border};` : '';
+      return `
+        <div style="flex:1;min-width:0;background:${bg};border:1px solid ${border}55;
+                    border-radius:6px;padding:5px 4px;text-align:center;${ringStyle}"
+             title="min ${p.m}': ${isHome ? 'Casa' : 'Fora'} ${val}">
+          <div style="font-size:7px;color:#cbd5e1;margin-bottom:2px;opacity:.8">${p.m}'</div>
+          <div style="font-size:14px;font-weight:900;color:#fff;line-height:1">${val}</div>
+          <div style="font-size:9px;margin-top:2px">${isHome ? '🔵' : '🔴'}</div>
+        </div>`;
+    }).join('');
+
     return `
-      <div style="margin-bottom:6px">
-        <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:3px;letter-spacing:.4px">📈 PRESSÃO — minuto a minuto</div>
-        <div style="position:relative">
-          <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:40px;display:block;border-radius:4px;background:var(--bg)">
-            <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="#374151" stroke-width="1"/>
-            <path d="${homeArea}" fill="#3b82f6" fill-opacity="0.25"/>
-            <path d="${awayArea}" fill="#ef4444" fill-opacity="0.25"/>
-            <path d="${line}" fill="none" stroke="#6366f1" stroke-width="1.5"/>
-          </svg>
-          <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text2);margin-top:1px">
-            <span style="color:#3b82f6">▲ Casa</span>
-            <span style="color:var(--text2)">min ${pts[pts.length-1].m}'</span>
-            <span style="color:#ef4444">Fora ▲</span>
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">📊 Pressão</span>
+          <span style="font-size:9px;color:var(--text2)">${domLabel} · <span style="color:#6b7280">min ${pts[pts.length-1].m}'</span></span>
+        </div>
+        <!-- Barra de pressão total -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-size:9px;color:#60a5fa;font-weight:700;width:28px;text-align:right">${homePct}%</span>
+          <div style="flex:1;height:7px;border-radius:4px;overflow:hidden;background:#1f2937;display:flex">
+            <div style="width:${homePct}%;background:linear-gradient(90deg,#1d4ed8,#3b82f6);border-radius:4px 0 0 4px"></div>
+            <div style="width:${awayPct}%;background:linear-gradient(90deg,#ef4444,#991b1b);border-radius:0 4px 4px 0"></div>
           </div>
+          <span style="font-size:9px;color:#f87171;font-weight:700;width:28px">${awayPct}%</span>
+        </div>
+        <!-- Últimos 5 minutos -->
+        <div style="font-size:8px;color:var(--text2);margin-bottom:4px;letter-spacing:.4px">ÚLTIMOS 5 MINUTOS</div>
+        <div style="display:flex;gap:4px;align-items:stretch">
+          ${last5Html}
+        </div>
         </div>
       </div>`;
   })();

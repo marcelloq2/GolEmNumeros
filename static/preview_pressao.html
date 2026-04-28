@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg: #0f1117; --bg2: #1a1d27; --bg3: #222636;
+    --border: #2e3249; --text: #e2e8f0; --text2: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; padding: 24px; }
+</style>
+</head>
+<body>
+<div style="max-width:600px;margin:auto">
+  <div id="out"></div>
+</div>
+<script>
+// Dados simulados — partida ao vivo min 72'
+const pts = [
+  {m:1,v:18},{m:2,v:-12},{m:3,v:25},{m:4,v:-8},{m:5,v:30},
+  {m:6,v:-20},{m:7,v:15},{m:8,v:-5},{m:9,v:22},{m:10,v:-18},
+  {m:11,v:35},{m:12,v:-25},{m:13,v:10},{m:14,v:-30},{m:15,v:5},
+  {m:16,v:40},{m:17,v:-15},{m:18,v:28},{m:19,v:-22},{m:20,v:12},
+  {m:21,v:-35},{m:22,v:20},{m:23,v:-10},{m:24,v:45},{m:25,v:-28},
+  {m:26,v:8},{m:27,v:-42},{m:28,v:18},{m:29,v:-15},{m:30,v:32},
+  {m:31,v:-20},{m:32,v:25},{m:33,v:-8},{m:34,v:38},{m:35,v:-30},
+  {m:36,v:15},{m:37,v:-25},{m:38,v:50},{m:39,v:-18},{m:40,v:22},
+  {m:41,v:-35},{m:42,v:10},{m:43,v:-20},{m:44,v:28},{m:45,v:-12},
+  {m:46,v:35},{m:47,v:-45},{m:48,v:20},{m:49,v:-10},{m:50,v:42},
+  {m:51,v:-28},{m:52,v:15},{m:53,v:-38},{m:54,v:25},{m:55,v:-18},
+  {m:56,v:55},{m:57,v:-22},{m:58,v:30},{m:59,v:-15},{m:60,v:18},
+  {m:61,v:-40},{m:62,v:22},{m:63,v:-12},{m:64,v:48},{m:65,v:-30},
+  {m:66,v:10},{m:67,v:-50},{m:68,v:35},{m:69,v:-20},{m:70,v:60},
+  // Últimos 5: fora está dominando
+  {m:71,v:-45},{m:72,v:-60}
+];
+
+function renderGraph(pts) {
+  const maxM = pts[pts.length - 1].m || pts.length;
+  const avgAll = pts.reduce((s, p) => s + p.v, 0) / pts.length;
+  const homePct = Math.round(50 + avgAll / 2);
+  const awayPct = 100 - homePct;
+  const last5 = pts.slice(-5);
+  const avgRecent = last5.reduce((s, p) => s + p.v, 0) / last5.length;
+  const domLabel = avgRecent > 10 ? `<span style="color:#60a5fa;font-weight:700">🔵 Casa domina agora</span>`
+                 : avgRecent < -10 ? `<span style="color:#f87171;font-weight:700">🔴 Fora domina agora</span>`
+                 : `<span style="color:#9ca3af">⚪ Equilibrado agora</span>`;
+
+  const last5Html = last5.map((p, i) => {
+    const isHome = p.v >= 0;
+    const intensity = Math.abs(p.v);
+    const alpha = Math.min(0.92, 0.20 + (intensity / 100) * 0.72);
+    const bg = isHome ? `rgba(59,130,246,${alpha})` : `rgba(239,68,68,${alpha})`;
+    const border = isHome ? '#3b82f6' : '#ef4444';
+    const val = Math.round(intensity);
+    const isLast = i === last5.length - 1;
+    const ringStyle = isLast ? `box-shadow:0 0 0 2px ${border};` : '';
+    return `
+      <div style="flex:1;min-width:0;background:${bg};border:1px solid ${border}55;
+                  border-radius:6px;padding:5px 4px;text-align:center;${ringStyle}"
+           title="min ${p.m}': ${isHome ? 'Casa' : 'Fora'} ${val}">
+        <div style="font-size:7px;color:#cbd5e1;margin-bottom:2px;opacity:.8">${p.m}'</div>
+        <div style="font-size:14px;font-weight:900;color:#fff;line-height:1">${val}</div>
+        <div style="font-size:9px;margin-top:2px">${isHome ? '🔵' : '🔴'}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="padding:7px 10px;background:#1a1d27;border:1px solid #2e3249;border-radius:8px;border-left:3px solid #6366f1">
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:.6px;text-transform:uppercase">📊 Pressão</span>
+          <span style="font-size:9px;color:#94a3b8">${domLabel} · <span style="color:#6b7280">min ${pts[pts.length-1].m}'</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-size:9px;color:#60a5fa;font-weight:700;width:28px;text-align:right">${homePct}%</span>
+          <div style="flex:1;height:7px;border-radius:4px;overflow:hidden;background:#1f2937;display:flex">
+            <div style="width:${homePct}%;background:linear-gradient(90deg,#1d4ed8,#3b82f6);border-radius:4px 0 0 4px"></div>
+            <div style="width:${awayPct}%;background:linear-gradient(90deg,#ef4444,#991b1b);border-radius:0 4px 4px 0"></div>
+          </div>
+          <span style="font-size:9px;color:#f87171;font-weight:700;width:28px">${awayPct}%</span>
+        </div>
+        <div style="font-size:8px;color:#94a3b8;margin-bottom:4px;letter-spacing:.4px">ÚLTIMOS 5 MINUTOS</div>
+        <div style="display:flex;gap:4px;align-items:stretch">
+          ${last5Html}
+        </div>
+      </div>
+    </div>`;
+}
+
+// Renderiza dois cenários lado a lado
+document.getElementById('out').innerHTML = `
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600">CENÁRIO 1 — Fora dominando nos últimos minutos</div>
+    ${renderGraph(pts)}
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600">CENÁRIO 2 — Casa dominando nos últimos minutos</div>
+    ${renderGraph([...pts.slice(0,-5),{m:68,v:55},{m:69,v:48},{m:70,v:62},{m:71,v:70},{m:72,v:80}])}
+  </div>
+  <div>
+    <div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600">CENÁRIO 3 — Equilibrado nos últimos minutos</div>
+    ${renderGraph([...pts.slice(0,-5),{m:68,v:-8},{m:69,v:5},{m:70,v:-3},{m:71,v:7},{m:72,v:-4}])}
+  </div>
+`;
+</script>
+</body>
+</html>
