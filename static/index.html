@@ -3635,6 +3635,8 @@ async function loadMatches() {
   `;
   updateFavCount();
   renderMatchList(allMatches);
+  // Verifica se o ajuste de horário já foi feito hoje
+  checkFixTimesStatus();
 }
 
 function filterMatches() {
@@ -3666,37 +3668,48 @@ function setViewMode(mode, btn) {
   filterMatches();
 }
 
+function _setFixBtnDone() {
+  const btn = document.getElementById('btnFixTime');
+  if (!btn) return;
+  btn.textContent = '✅ Já ajustado';
+  btn.disabled = true;
+  btn.style.color = '#22c55e';
+  btn.style.borderColor = '#22c55e44';
+  btn.style.cursor = 'not-allowed';
+  btn.title = 'Horários já corrigidos hoje. Amanhã o botão libera automaticamente.';
+}
+
+async function checkFixTimesStatus() {
+  try {
+    const res  = await fetch('/api/fix-times/status');
+    const data = await res.json();
+    if (data.done) _setFixBtnDone();
+  } catch(e) {}
+}
+
 async function fixMatchTimes() {
   const btn = document.getElementById('btnFixTime');
-  const orig = btn.textContent;
   btn.textContent = '⏳ Ajustando...';
   btn.disabled = true;
   try {
-    const res  = await fetch('/api/fix-times', { method: 'POST',
+    const res  = await fetch('/api/fix-times', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ delta: 3 }) });
+      body: JSON.stringify({ delta: 3 })
+    });
     const data = await res.json();
     if (data.ok) {
-      btn.textContent = `✅ ${data.updated} horários`;
-      btn.style.color = '#22c55e';
-      btn.style.borderColor = '#22c55e44';
-      // Recarrega a lista de partidas
       await loadMatches();
-      setTimeout(() => {
-        btn.textContent = orig;
-        btn.style.color = '#f59e0b';
-        btn.style.borderColor = '#f59e0b44';
-        btn.disabled = false;
-      }, 3000);
+      _setFixBtnDone();
+    } else if (data.already_done) {
+      _setFixBtnDone();
     } else {
-      btn.textContent = '❌ Erro';
+      btn.textContent = '⏰ +3h';
       btn.disabled = false;
-      setTimeout(() => { btn.textContent = orig; }, 2000);
     }
   } catch(e) {
-    btn.textContent = '❌ Erro';
+    btn.textContent = '⏰ +3h';
     btn.disabled = false;
-    setTimeout(() => { btn.textContent = orig; }, 2000);
   }
 }
 

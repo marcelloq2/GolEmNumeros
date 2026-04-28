@@ -42,17 +42,43 @@ def _shift_hora(hora_str, delta_hours):
         return hora_str
 
 
+FLAG_FILE = os.path.join(DATA_DIR, ".times_adjusted")
+
+
+def _flag_today():
+    """Retorna a data gravada no flag, ou '' se não existir."""
+    try:
+        with open(FLAG_FILE, "r") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
+@app.route("/api/fix-times/status")
+def api_fix_times_status():
+    """Verifica se o ajuste já foi aplicado hoje."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    done  = _flag_today() == today
+    return jsonify({"done": done, "date": today})
+
+
 @app.route("/api/fix-times", methods=["POST"])
 def api_fix_times():
-    """Adiciona ou subtrai horas em todos os horários do predictions JSON."""
-    body = request.get_json(force=True, silent=True) or {}
-    delta = int(body.get("delta", 3))   # padrão: +3h
+    """Adiciona +3h nos horários do predictions JSON — só uma vez por dia."""
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Bloqueia segunda execução no mesmo dia
+    if _flag_today() == today:
+        return jsonify({"ok": False, "already_done": True,
+                        "msg": "Horários já foram ajustados hoje."})
+
+    body  = request.get_json(force=True, silent=True) or {}
+    delta = int(body.get("delta", 3))
 
     matches, source = load_predictions()
     if not matches:
         return jsonify({"ok": False, "error": "Nenhum arquivo de partidas encontrado"}), 404
 
-    # Determina qual arquivo usar
     fname = source or "predictions_full.json"
     path  = os.path.join(DATA_DIR, fname)
 
@@ -65,7 +91,11 @@ def api_fix_times():
     with open(path, "w", encoding="utf-8") as f:
         json.dump(matches, f, ensure_ascii=False, indent=2)
 
-    return jsonify({"ok": True, "updated": updated, "delta": delta, "file": fname})
+    # Grava flag com a data de hoje
+    with open(FLAG_FILE, "w") as f:
+        f.write(today)
+
+    return jsonify({"ok": True, "updated": updated, "delta": delta})
 
 
 def load_predictions():
