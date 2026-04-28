@@ -1284,12 +1284,17 @@ def _uni_odds_today():
                 return v if len(v) >= 3 else ["", "", ""]
             ah  = _parse(parts[2])   # Asian Handicap: line, home, away
             fx2 = _parse(parts[3])   # 1X2: home, draw, away
-            ou  = _parse(parts[4])   # Over/Under: line, over, under
+            ou  = _parse(parts[4])   # Over/Under em HK odds → converte para decimal (+1)
+            def hk2dec(v):
+                try: return str(round(float(v) + 1, 2))
+                except: return v
             if fx2[0]:
                 odds_map[eid] = {
                     "h": fx2[0], "x": fx2[1], "a": fx2[2],
                     "ah_line": ah[0], "ah_h": ah[1], "ah_a": ah[2],
-                    "ou_line": ou[0], "ou_over": ou[1], "ou_under": ou[2],
+                    "ou_line":  ou[0],
+                    "ou_over":  hk2dec(ou[1]),
+                    "ou_under": hk2dec(ou[2]),
                 }
         _uni_odds_cache = {"ts": time.time(), "data": odds_map}
         return odds_map
