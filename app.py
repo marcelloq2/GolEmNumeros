@@ -1286,7 +1286,9 @@ def _uni_odds_today():
             fx2 = _parse(parts[3])   # 1X2: home, draw, away
             ou  = _parse(parts[4])   # Over/Under em HK odds → converte para decimal (+1)
             def hk2dec(v):
-                try: return str(round(float(v) + 1, 2))
+                try:
+                    f = float(v)
+                    return str(round(f + 1, 2)) if f < 1.0 else v
                 except: return v
             if fx2[0]:
                 odds_map[eid] = {
