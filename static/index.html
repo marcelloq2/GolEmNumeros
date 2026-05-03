@@ -1659,7 +1659,7 @@ async function loadLiveMatches() {
         const isFav    = isLiveMatchFavorite(m.casa, m.fora);
         html += `
           <div class="live-match-row ${isActive ? 'active' : ''}" id="liveRow_${m.id}"
-               onclick="openLiveDetail(${m.id}, this)">
+               onclick="openLiveDetail('${m.id}', this)">
             <div class="live-match-teams">
               <div class="live-match-team">${isFav ? '<span style="color:#f59e0b;font-size:11px">⭐</span> ' : ''}${m.casa} ${redCasa}</div>
               <div class="live-match-team" style="color:var(--text2)">${m.fora} ${redFora}</div>

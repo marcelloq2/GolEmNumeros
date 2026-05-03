@@ -1130,7 +1130,7 @@ threading.Thread(
 ).start()
 
 
-@app.route("/api/radar/momentum/<int:event_id>")
+@app.route("/api/radar/momentum/<event_id>")
 def api_radar_momentum(event_id):
     """Busca dados de Attack Momentum do SofaScore via Playwright.
     Query params opcionais: casa, fora, liga — usados ao salvar histórico.
@@ -1230,7 +1230,7 @@ def api_momentum_history():
     return jsonify({"matches": matches, "total": len(matches)})
 
 
-@app.route("/api/momentum/history/<int:event_id>")
+@app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
     files = glob.glob(os.path.join(MOMENTUM_DIR, f"*_{event_id}.json"))
@@ -2928,7 +2928,7 @@ def code_viewer(filepath=None):
 </html>"""
 
 
-@app.route("/api/test-sofa/<int:event_id>")
+@app.route("/api/test-sofa/<event_id>")
 def api_test_sofa(event_id):
     """Endpoint de diagnóstico — testa conexão com SofaScore."""
     import sys
