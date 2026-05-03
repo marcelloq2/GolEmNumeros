@@ -2348,6 +2348,34 @@ def code_viewer(filepath=None):
 </html>"""
 
 
+@app.route("/api/test-sofa/<int:event_id>")
+def api_test_sofa(event_id):
+    """Endpoint de diagnóstico — testa conexão com SofaScore."""
+    import sys
+    result = {"event_id": event_id, "method": None, "error": None, "data_preview": None}
+    try:
+        graph, incidents, statistics = _fetch_sofa_direct(event_id)
+        pts = graph.get("graphPoints", [])
+        result["method"]       = "requests_direto"
+        result["graph_points"] = len(pts)
+        result["incidents_ok"] = bool(incidents.get("incidents"))
+        result["stats_ok"]     = bool(statistics.get("statistics"))
+        print(f"[test-sofa] OK via requests: {event_id}, {len(pts)} pts", file=sys.stderr)
+    except Exception as e:
+        result["error_requests"] = str(e)
+        print(f"[test-sofa] requests falhou: {e}", file=sys.stderr)
+        try:
+            graph, incidents, statistics = _fetch_sofa_playwright(event_id)
+            pts = graph.get("graphPoints", [])
+            result["method"]       = "playwright"
+            result["graph_points"] = len(pts)
+            print(f"[test-sofa] OK via playwright: {event_id}", file=sys.stderr)
+        except Exception as e2:
+            result["error_playwright"] = str(e2)
+            print(f"[test-sofa] playwright falhou: {e2}", file=sys.stderr)
+    return jsonify(result)
+
+
 @app.route("/api/list-backup")
 def api_list_backup():
     """Lista arquivos de momentum_history disponíveis no servidor."""
