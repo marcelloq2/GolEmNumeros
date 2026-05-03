@@ -1970,6 +1970,7 @@ function renderLiveDetail(m) {
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
+        <div id="shotmapPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -2012,6 +2013,8 @@ function renderLiveDetail(m) {
   loadMomentumChart(m.id, m.casa, m.fora, m.liga || '');
   // Carrega dados enriquecidos do Uniscore
   loadUniscorePanel(m.casa, m.fora);
+  // Carrega mapa de chutes
+  loadShotmap(m.id, m.casa, m.fora);
 }
 
 // ── Correlação de Pearson entre dois arrays (usa os últimos N elementos) ──
@@ -2506,6 +2509,113 @@ function _getOpenOdds(key, currentOdds) {
     }
     return stored;
   } catch(e) { return null; }
+}
+
+// ── MAPA DE CHUTES ────────────────────────────────────────────────────────────
+async function loadShotmap(eventId, casa, fora) {
+  const el = document.getElementById('shotmapPanel');
+  if (!el) return;
+  el.innerHTML = `<div style="font-size:10px;color:var(--text2);text-align:center;padding:6px 0">⏳ Carregando mapa de chutes...</div>`;
+  try {
+    const params = new URLSearchParams({ casa: casa||'', fora: fora||'' });
+    const r = await fetch(`/api/radar/shotmap/${eventId}?${params}`);
+    const d = await r.json();
+    const shots = d.shots || [];
+    if (!shots.length) { el.innerHTML = ''; return; }
+    el.innerHTML = buildShotMapHtml(shots, casa, fora);
+  } catch(e) {
+    el.innerHTML = '';
+  }
+}
+
+function buildShotMapHtml(shots, homeName, awayName) {
+  const homeShots = shots.filter(s => s.isHome);
+  const awayShots = shots.filter(s => !s.isHome);
+  const homeGoals = homeShots.filter(s => s.shotType === 'goal').length;
+  const awayGoals = awayShots.filter(s => s.shotType === 'goal').length;
+
+  // Gera SVG do campo com os chutes
+  const W = 420, H = 272;
+  // Dimensões do campo em coordenadas normalizadas (0-100)
+  // x = esquerda→direita, y = cima→baixo
+  // Home ataca para direita (x > 50), Away ataca para esquerda (x < 50)
+
+  const shotIcon = (s, flip) => {
+    // Coordenada: home usa draw.start como está (x ≈ 60-100 = área deles)
+    // Away: espelhamos x para mostrar na metade deles (x < 50)
+    let sx = s.x, sy = s.y;
+    if (flip) sx = 100 - sx;  // espelha away para metade esquerda
+    const px = sx / 100 * W;
+    const py = sy / 100 * H;
+    const color = flip ? '#f97316' : '#3b82f6';   // away=laranja, home=azul
+    const r = s.shotType === 'goal' ? 7 : s.shotType === 'save' ? 5.5 : 4.5;
+    const fill   = s.shotType === 'goal'  ? color :
+                   s.shotType === 'save'  ? 'none' : 'none';
+    const stroke = color;
+    const sw     = s.shotType === 'goal' ? 0 : 1.5;
+    const opacity = s.shotType === 'miss' || s.shotType === 'block' ? 0.7 : 1;
+    const title = `${s.player} ${s.minute}' (${s.shotType})`;
+    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r}"
+      fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${opacity}">
+      <title>${title}</title></circle>`;
+  };
+
+  const fieldSvg = `
+  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;border-radius:8px;display:block">
+    <defs>
+      <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1a3a1a"/>
+        <stop offset="100%" stop-color="#1e4520"/>
+      </linearGradient>
+    </defs>
+    <!-- Campo -->
+    <rect width="${W}" height="${H}" fill="url(#grassGrad)" rx="6"/>
+    <!-- Linha central -->
+    <line x1="${W/2}" y1="4" x2="${W/2}" y2="${H-4}" stroke="#ffffff22" stroke-width="1"/>
+    <!-- Círculo central -->
+    <circle cx="${W/2}" cy="${H/2}" r="${H*0.18}" fill="none" stroke="#ffffff22" stroke-width="1"/>
+    <!-- Área grande esquerda (away defende) -->
+    <rect x="4" y="${H*0.18}" width="${W*0.165}" height="${H*0.64}" fill="none" stroke="#ffffff33" stroke-width="1"/>
+    <!-- Área pequena esquerda -->
+    <rect x="4" y="${H*0.35}" width="${W*0.055}" height="${H*0.3}" fill="none" stroke="#ffffff22" stroke-width="1"/>
+    <!-- Área grande direita (home defende) -->
+    <rect x="${W - W*0.165 - 4}" y="${H*0.18}" width="${W*0.165}" height="${H*0.64}" fill="none" stroke="#ffffff33" stroke-width="1"/>
+    <!-- Área pequena direita -->
+    <rect x="${W - W*0.055 - 4}" y="${H*0.35}" width="${W*0.055}" height="${H*0.3}" fill="none" stroke="#ffffff22" stroke-width="1"/>
+    <!-- Gol esquerdo -->
+    <rect x="0" y="${H*0.4}" width="4" height="${H*0.2}" fill="#ffffff44"/>
+    <!-- Gol direito -->
+    <rect x="${W-4}" y="${H*0.4}" width="4" height="${H*0.2}" fill="#ffffff44"/>
+    <!-- Bordas do campo -->
+    <rect x="2" y="2" width="${W-4}" height="${H-4}" fill="none" stroke="#ffffff33" stroke-width="1" rx="4"/>
+
+    <!-- Chutes HOME (azul) — ataca para direita, não espelha -->
+    ${homeShots.map(s => shotIcon(s, false)).join('\n    ')}
+    <!-- Chutes AWAY (laranja) — ataca para esquerda, espelha x -->
+    ${awayShots.map(s => shotIcon(s, true)).join('\n    ')}
+  </svg>`;
+
+  // Legenda contagens
+  const statBar = (label, total, goals, color) =>
+    `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
+      <span style="color:var(--text2)">${label}</span>
+      <span style="font-weight:700;color:var(--text1)">${total} chutes</span>
+      <span style="color:#22c55e;font-weight:700">${goals} ⚽</span>
+    </div>`;
+
+  return `
+  <div style="margin-top:4px">
+    <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:4px">
+      ⚽ MAPA DE CHUTES
+    </div>
+    ${fieldSvg}
+    <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
+      ${statBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
+      ${statBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+    </div>
+  </div>`;
 }
 
 // ── UNISCORE PANEL ───────────────────────────────────────────────────────────

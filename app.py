@@ -613,6 +613,33 @@ def _fetch_uniscore_graph(uni_match):
         except Exception as es:
             print(f"[uniscore] Stats falhou: {es}")
 
+    # Shotmap
+    shotmap = []
+    try:
+        rsm = http_req.get(
+            f"{_UNISCORE_API}/football/event/{uniscore_id}/shotmap",
+            headers=_UNISCORE_HEADERS, timeout=12,
+        )
+        if rsm.status_code == 200:
+            raw_shots = rsm.json().get("data", {}).get("shotmap", [])
+            shotmap = [
+                {
+                    "id":        s.get("id"),
+                    "minute":    s.get("time", 0),
+                    "isHome":    s.get("isHome", True),
+                    "shotType":  s.get("shotType", "miss"),
+                    "bodyPart":  s.get("bodyPart", ""),
+                    "situation": s.get("situation", ""),
+                    "player":    s.get("player", {}).get("shortName", ""),
+                    "x":         (s.get("draw") or {}).get("start", {}).get("x", 0),
+                    "y":         (s.get("draw") or {}).get("start", {}).get("y", 0),
+                }
+                for s in raw_shots
+            ]
+            print(f"[uniscore] Shotmap: {len(shotmap)} chutes")
+    except Exception as es:
+        print(f"[uniscore] Shotmap falhou: {es}")
+
     # Status (FT?)
     finished = False
     try:
@@ -633,6 +660,7 @@ def _fetch_uniscore_graph(uni_match):
         "finished":           finished,
         "statistics":         statistics_periods.get("ALL", {}),
         "statistics_periods": statistics_periods,
+        "shotmap":            shotmap,
         "source":             "uniscore",
     }
 
@@ -830,7 +858,7 @@ def _extract_score(goals: list) -> dict:
 def _build_save_payload(
     event_id, casa, fora, liga,
     graph_points, goals, stats_flat, stats_periods,
-    opening_odds, source
+    opening_odds, source, shotmap=None
 ) -> dict:
     """Monta o payload completo para salvar no momentum_history."""
     today = datetime.now().strftime("%Y-%m-%d")
@@ -847,9 +875,11 @@ def _build_save_payload(
         "graphPoints":        graph_points,
         "goals":              goals,
         "score":              _extract_score(goals),
+        # Mapa de chutes
+        "shotmap":            shotmap or [],
         # Estatísticas
         "statistics":         stats_flat,
-        "statistics_periods": stats_periods,   # {"ALL":{...},"1ST":{...},"2ND":{...}}
+        "statistics_periods": stats_periods,
         # Indicadores derivados
         "pressure_summary":   _pressure_summary(graph_points),
         "xg":                 _calc_xg(stats_flat),
@@ -984,6 +1014,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                                 stats_periods=uni_stats_periods,
                                 opening_odds=uni_opening_odds,
                                 source="uniscore",
+                                shotmap=udata.get("shotmap", []),
                             )
                             with open(save_file, "w", encoding="utf-8") as f:
                                 json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -1202,6 +1233,62 @@ def api_radar_momentum(event_id):
     if data is None:
         return jsonify({"error": "Sem dados do SofaScore"}), 503
     return jsonify(data)
+
+
+@app.route("/api/radar/shotmap/<event_id>")
+def api_shotmap(event_id):
+    """Retorna mapa de chutes via UniScore para uma partida.
+    Query params: casa, fora (usados para encontrar o ID no UniScore).
+    Tenta primeiro no arquivo salvo, depois busca ao vivo."""
+    from flask import request as flask_req
+    casa = flask_req.args.get("casa", "")
+    fora = flask_req.args.get("fora", "")
+
+    # 1. Tenta arquivo já salvo no momentum_history
+    today = datetime.now().strftime("%Y-%m-%d")
+    save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
+    if os.path.exists(save_file):
+        try:
+            with open(save_file, encoding="utf-8") as f:
+                saved = json.load(f)
+            shots = saved.get("shotmap", [])
+            if shots:
+                return jsonify({"ok": True, "shots": shots, "source": "saved"})
+        except Exception:
+            pass
+
+    # 2. Busca ao vivo via UniScore (match por nome)
+    uni_match = _find_uniscore_id(casa, fora)
+    if not uni_match:
+        # Tenta usando o event_id diretamente (IDs são compatíveis)
+        uni_match = {"id": event_id, "homeId": "", "awayId": ""}
+
+    try:
+        rsm = http_req.get(
+            f"{_UNISCORE_API}/football/event/{uni_match['id']}/shotmap",
+            headers=_UNISCORE_HEADERS, timeout=12,
+        )
+        if rsm.status_code == 200:
+            raw = rsm.json().get("data", {}).get("shotmap", [])
+            shots = [
+                {
+                    "id":        s.get("id"),
+                    "minute":    s.get("time", 0),
+                    "isHome":    s.get("isHome", True),
+                    "shotType":  s.get("shotType", "miss"),
+                    "bodyPart":  s.get("bodyPart", ""),
+                    "situation": s.get("situation", ""),
+                    "player":    s.get("player", {}).get("shortName", ""),
+                    "x":         (s.get("draw") or {}).get("start", {}).get("x", 0),
+                    "y":         (s.get("draw") or {}).get("start", {}).get("y", 0),
+                }
+                for s in raw
+            ]
+            return jsonify({"ok": True, "shots": shots, "source": "live"})
+    except Exception as e:
+        print(f"[shotmap] Erro: {e}")
+
+    return jsonify({"ok": False, "shots": [], "source": "none"}), 200
 
 
 @app.route("/api/momentum/history")
