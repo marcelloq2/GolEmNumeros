@@ -362,57 +362,70 @@ def api_patterns():
     })
 
 
+_uniscore_full_cache = {"ts": 0, "live": []}
+
 @app.route("/api/radar/live")
 def api_radar_live():
-    """Lista jogos ao vivo via UniScore com placar, tempo e liga."""
-    with _uniscore_lock:
-        if time.time() - _uniscore_cache["ts"] < 120:
-            cached = _uniscore_cache.get("full", [])
-            if cached:
-                return jsonify({"live": cached, "total": len(cached)})
-    try:
-        for endpoint in [
-            f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
-            f"{_UNISCORE_API}/sport/football/events/live-v2",
-        ]:
-            r = http_req.post(
-                endpoint,
-                headers=_UNISCORE_HEADERS,
-                json={},
-                params={"language": "pt-BR"},
-                timeout=12,
-            )
-            if r.status_code not in (200, 201):
-                continue
-            events = r.json().get("data", {}).get("events", [])
-            if not events:
-                continue
-            live = []
-            for e in events:
-                if e.get("status", {}).get("type") != "inprogress":
-                    continue
-                hs = e.get("homeScore", {})
-                aws = e.get("awayScore", {})
-                live.append({
-                    "id":        e["id"],
-                    "casa":      e.get("homeTeam", {}).get("name", ""),
-                    "fora":      e.get("awayTeam", {}).get("name", ""),
-                    "liga":      e.get("tournament", {}).get("name", ""),
-                    "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
-                    "tempo":     e.get("status", {}).get("description", ""),
-                    "golCasaFt": hs.get("current", 0),
-                    "golForaFt": aws.get("current", 0),
-                    "golCasaHt": hs.get("period1", 0),
-                    "golForaHt": aws.get("period1", 0),
-                    "cartaoCasa": 0,
-                    "cartaoFora": 0,
-                })
-            with _uniscore_lock:
-                _uniscore_cache["full"] = live
-            return jsonify({"live": live, "total": len(live)})
-    except Exception as e:
-        print(f"[live] Erro: {e}")
-    return jsonify({"live": [], "total": 0})
+    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
+    # Cache de 90s para o endpoint público (mais curto que o cache interno)
+    if time.time() - _uniscore_full_cache["ts"] < 90 and _uniscore_full_cache["live"]:
+        live = _uniscore_full_cache["live"]
+        return jsonify({"live": live, "total": len(live)})
+
+    live = []
+    all_by_id = {}
+    for locale in _UNISCORE_LOCALES:
+        page = 1
+        while True:
+            try:
+                r = http_req.post(
+                    f"{_UNISCORE_API}/sport/football/events/live-v2/locale/{locale}",
+                    headers=_UNISCORE_HEADERS,
+                    json={"page": page},
+                    params={"language": "pt-BR"},
+                    timeout=12,
+                )
+                if r.status_code not in (200, 201):
+                    break
+                data   = r.json().get("data", {})
+                events = data.get("events", [])
+                pag    = data.get("pagination", {})
+                for e in events:
+                    if e.get("status", {}).get("type") != "inprogress":
+                        continue
+                    eid = e["id"]
+                    if eid in all_by_id:
+                        continue
+                    hs  = e.get("homeScore", {}) or {}
+                    aws = e.get("awayScore", {}) or {}
+                    all_by_id[eid] = {
+                        "id":        eid,
+                        "casa":      e.get("homeTeam", {}).get("name", ""),
+                        "fora":      e.get("awayTeam", {}).get("name", ""),
+                        "liga":      e.get("tournament", {}).get("name", ""),
+                        "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
+                        "tempo":     e.get("status", {}).get("description", ""),
+                        "golCasaFt": hs.get("current", 0),
+                        "golForaFt": aws.get("current", 0),
+                        "golCasaHt": hs.get("period1", 0),
+                        "golForaHt": aws.get("period1", 0),
+                        "cartaoCasa": 0,
+                        "cartaoFora": 0,
+                    }
+                if not pag.get("hasNextPage"):
+                    break
+                page += 1
+                if page > 5:
+                    break
+            except Exception as e:
+                print(f"[live] Erro locale={locale}: {e}")
+                break
+
+    live = list(all_by_id.values())
+    print(f"[live] {len(live)} jogos ao vivo retornados")
+    _uniscore_full_cache["ts"]   = time.time()
+    _uniscore_full_cache["live"] = live
+    return jsonify({"live": live, "total": len(live)})
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -517,50 +530,58 @@ _uniscore_cache   = {"ts": 0, "matches": []}
 _uniscore_lock    = threading.Lock()
 
 
+_UNISCORE_LOCALES = ["BR", "EU", "AS", "AF", "NA", "SA", "OC"]
+
 def _get_uniscore_live_matches():
-    """Busca TODAS as partidas ao vivo do UniScore (não filtra por liga). Cache 2min."""
+    """Busca TODAS as partidas ao vivo do UniScore (todos os locales + paginação).
+    Cache de 2 minutos. Retorna lista de {id, homeId, awayId, home, away}."""
     with _uniscore_lock:
         if time.time() - _uniscore_cache["ts"] < 120:
             return _uniscore_cache["matches"]
 
-    all_matches = []
-    # Tenta endpoint global primeiro, depois BR como fallback
-    for endpoint in [
-        f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
-        f"{_UNISCORE_API}/sport/football/events/live-v2",
-    ]:
-        try:
-            r = http_req.post(
-                endpoint,
-                headers=_UNISCORE_HEADERS,
-                json={},
-                params={"language": "pt-BR"},
-                timeout=12,
-            )
-            if r.status_code in (200, 201):
-                events = r.json().get("data", {}).get("events", [])
-                matches = [
-                    {
-                        "id":     e["id"],
-                        "homeId": e.get("homeTeam", {}).get("id", ""),
-                        "awayId": e.get("awayTeam", {}).get("id", ""),
-                        "home":   e.get("homeTeam", {}).get("name", ""),
-                        "away":   e.get("awayTeam", {}).get("name", ""),
-                    }
-                    for e in events
-                    if e.get("status", {}).get("type") == "inprogress"
-                ]
-                if matches:
-                    all_matches = matches
-                    print(f"[uniscore] {len(matches)} partidas via {endpoint.split('/')[-1]}")
+    all_by_id = {}
+    for locale in _UNISCORE_LOCALES:
+        page = 1
+        while True:
+            try:
+                r = http_req.post(
+                    f"{_UNISCORE_API}/sport/football/events/live-v2/locale/{locale}",
+                    headers=_UNISCORE_HEADERS,
+                    json={"page": page},
+                    params={"language": "pt-BR"},
+                    timeout=12,
+                )
+                if r.status_code not in (200, 201):
                     break
-        except Exception as e:
-            print(f"[uniscore] Erro live ({endpoint}): {e}")
+                data      = r.json().get("data", {})
+                events    = data.get("events", [])
+                pag       = data.get("pagination", {})
+                for e in events:
+                    if e.get("status", {}).get("type") == "inprogress":
+                        eid = e["id"]
+                        if eid not in all_by_id:
+                            all_by_id[eid] = {
+                                "id":     eid,
+                                "homeId": e.get("homeTeam", {}).get("id", ""),
+                                "awayId": e.get("awayTeam", {}).get("id", ""),
+                                "home":   e.get("homeTeam", {}).get("name", ""),
+                                "away":   e.get("awayTeam", {}).get("name", ""),
+                            }
+                if not pag.get("hasNextPage"):
+                    break
+                page += 1
+                if page > 5:   # safety cap
+                    break
+            except Exception as e:
+                print(f"[uniscore] Erro live locale={locale} page={page}: {e}")
+                break
 
+    matches = list(all_by_id.values())
+    print(f"[uniscore] {len(matches)} partidas ao vivo (todos os locales)")
     with _uniscore_lock:
         _uniscore_cache["ts"]      = time.time()
-        _uniscore_cache["matches"] = all_matches
-    return all_matches
+        _uniscore_cache["matches"] = matches
+    return matches
 
 
 def _find_uniscore_id(casa, fora):
