@@ -2058,9 +2058,8 @@ def api_fotmob_match_detail(match_id):
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
-                channel="chrome",
-                headless=False,
-                args=["--window-position=-32000,-32000", "--window-size=1,1"]
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"]
             )
             ctx  = browser.new_context(locale="pt-BR")
             page = ctx.new_page()
