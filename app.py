@@ -757,6 +757,107 @@ def _fetch_fotmob_momentum(fotmob_id):
     }
 
 
+def _pressure_summary(graph_points: list) -> dict:
+    """Calcula métricas de pressão/dominância a partir dos graphPoints.
+    Valor > 0 = home dominant, < 0 = away dominant.
+    """
+    if not graph_points:
+        return {}
+    vals = [p.get("value", 0) for p in graph_points]
+    minutes = [p.get("minute", 0) for p in graph_points]
+    max_min = max(minutes) if minutes else 90
+    half = max_min / 2
+
+    h1 = [v for p, v in zip(graph_points, vals) if p.get("minute", 0) <= half]
+    h2 = [v for p, v in zip(graph_points, vals) if p.get("minute", 0) > half]
+
+    def avg(lst): return round(sum(lst) / len(lst), 3) if lst else 0.0
+
+    home_dom = sum(1 for v in vals if v > 0)
+    swings = sum(1 for i in range(1, len(vals)) if (vals[i] > 0) != (vals[i-1] > 0))
+
+    return {
+        "overall_avg":        avg(vals),
+        "h1_avg":             avg(h1),
+        "h2_avg":             avg(h2),
+        "home_dominance_pct": round(home_dom / len(vals) * 100, 1) if vals else 0.0,
+        "max_home":           round(max((v for v in vals if v > 0), default=0.0), 3),
+        "max_away":           round(abs(min((v for v in vals if v < 0), default=0.0)), 3),
+        "momentum_swings":    swings,
+        "total_points":       len(vals),
+    }
+
+
+def _calc_xg(stats_flat: dict) -> dict:
+    """Estima xG simples a partir das estatísticas disponíveis.
+    stats_flat = {"Shots on target": {"homeValue": N, "awayValue": N}, ...}
+    """
+    def _get(key):
+        item = stats_flat.get(key, {})
+        return float(item.get("homeValue", 0) or 0), float(item.get("awayValue", 0) or 0)
+
+    # Tenta campos mais ricos primeiro
+    for key in ("Expected Goals", "xG", "expected_goals"):
+        item = stats_flat.get(key)
+        if item:
+            return {
+                "home":   round(float(item.get("homeValue", 0) or 0), 2),
+                "away":   round(float(item.get("awayValue", 0) or 0), 2),
+                "source": "direct",
+            }
+
+    # Fórmula aproximada: xG ≈ 0.35 * chutes_alvo + 0.1 * chutes_area + 0.08 * grandes_chances
+    inside_h, inside_a   = _get("shots_inside_box")
+    outside_h, outside_a = _get("shots_outside_box")
+    ontar_h, ontar_a     = _get("shots_on_target")
+    big_h, big_a         = _get("big_chances")
+
+    xg_h = round(0.35 * ontar_h + 0.10 * inside_h + 0.03 * outside_h + 0.12 * big_h, 2)
+    xg_a = round(0.35 * ontar_a + 0.10 * inside_a + 0.03 * outside_a + 0.12 * big_a, 2)
+
+    if xg_h == 0.0 and xg_a == 0.0:
+        return {}
+    return {"home": xg_h, "away": xg_a, "source": "estimated"}
+
+
+def _extract_score(goals: list) -> dict:
+    """Conta gols da lista de incidents para obter o placar final."""
+    home = sum(1 for g in goals if g.get("team") == "home")
+    away = sum(1 for g in goals if g.get("team") == "away")
+    return {"home": home, "away": away}
+
+
+def _build_save_payload(
+    event_id, casa, fora, liga,
+    graph_points, goals, stats_flat, stats_periods,
+    opening_odds, source
+) -> dict:
+    """Monta o payload completo para salvar no momentum_history."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    return {
+        # Identificação
+        "event_id":  event_id,
+        "date":      today,
+        "saved_at":  datetime.now().isoformat(),
+        "source":    source,
+        "casa":      casa,
+        "fora":      fora,
+        "liga":      liga,
+        # Dados brutos
+        "graphPoints":        graph_points,
+        "goals":              goals,
+        "score":              _extract_score(goals),
+        # Estatísticas
+        "statistics":         stats_flat,
+        "statistics_periods": stats_periods,   # {"ALL":{...},"1ST":{...},"2ND":{...}}
+        # Indicadores derivados
+        "pressure_summary":   _pressure_summary(graph_points),
+        "xg":                 _calc_xg(stats_flat),
+        # Odds
+        "opening_odds":       opening_odds,
+    }
+
+
 def _fetch_sofa_direct(event_id):
     """Busca dados do SofaScore via requests direto (sem Playwright).
     Tenta api.sofascore.com (sem Cloudflare) primeiro, fallback para www.
@@ -857,16 +958,33 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                         today     = datetime.now().strftime("%Y-%m-%d")
                         save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
                         if not os.path.exists(save_file):
-                            payload = {
-                                "event_id": event_id, "date": today,
-                                "saved_at": datetime.now().isoformat(),
-                                "casa": casa, "fora": fora, "liga": liga,
-                                "graphPoints": pts,
-                                "goals": udata.get("goals", []),
-                                "statistics":         udata.get("statistics", {}),
-                                "statistics_periods": udata.get("statistics_periods", {}),
-                                "opening_odds": {},
-                            }
+                            uni_stats_periods = udata.get("statistics_periods", {})
+                            uni_stats_flat    = udata.get("statistics", {})
+                            # Tenta buscar odds do UniScore para essa partida
+                            uni_opening_odds = {}
+                            try:
+                                uni_odds_map = _uni_odds_today().get(uni_match["id"], {})
+                                if uni_odds_map:
+                                    uni_opening_odds = {
+                                        "h":        uni_odds_map.get("h"),
+                                        "x":        uni_odds_map.get("x"),
+                                        "a":        uni_odds_map.get("a"),
+                                        "ou_line":  uni_odds_map.get("ou_line"),
+                                        "ou_over":  uni_odds_map.get("ou_over"),
+                                        "ou_under": uni_odds_map.get("ou_under"),
+                                    }
+                            except Exception:
+                                pass
+                            payload = _build_save_payload(
+                                event_id=event_id,
+                                casa=casa, fora=fora, liga=liga,
+                                graph_points=pts,
+                                goals=udata.get("goals", []),
+                                stats_flat=uni_stats_flat,
+                                stats_periods=uni_stats_periods,
+                                opening_odds=uni_opening_odds,
+                                source="uniscore",
+                            )
                             with open(save_file, "w", encoding="utf-8") as f:
                                 json.dump(payload, f, ensure_ascii=False, indent=2)
                             data["saved"] = True
@@ -895,15 +1013,24 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                         today     = datetime.now().strftime("%Y-%m-%d")
                         save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
                         if not os.path.exists(save_file):
-                            payload = {
-                                "event_id": event_id, "date": today,
-                                "saved_at": datetime.now().isoformat(),
-                                "casa": casa, "fora": fora, "liga": liga,
-                                "graphPoints": pts,
-                                "goals": fdata.get("goals", []),
-                                "statistics": fdata.get("statistics", []),
-                                "opening_odds": {},
-                            }
+                            fm_stats = fdata.get("statistics", {})
+                            # FotMob pode retornar dict flat ou lista — normaliza
+                            if isinstance(fm_stats, list):
+                                fm_stats_flat    = _uniscore_stats_to_flat(fm_stats).get("ALL", {})
+                                fm_stats_periods = _uniscore_stats_to_flat(fm_stats)
+                            else:
+                                fm_stats_flat    = fm_stats
+                                fm_stats_periods = {"ALL": fm_stats}
+                            payload = _build_save_payload(
+                                event_id=event_id,
+                                casa=casa, fora=fora, liga=liga,
+                                graph_points=pts,
+                                goals=fdata.get("goals", []),
+                                stats_flat=fm_stats_flat,
+                                stats_periods=fm_stats_periods,
+                                opening_odds={},
+                                source="fotmob",
+                            )
                             with open(save_file, "w", encoding="utf-8") as f:
                                 json.dump(payload, f, ensure_ascii=False, indent=2)
                             data["saved"] = True
@@ -975,18 +1102,21 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 except Exception:
                     pass
 
-                payload = {
-                    "event_id":     event_id,
-                    "date":         today,
-                    "saved_at":     datetime.now().isoformat(),
-                    "casa":         casa,
-                    "fora":         fora,
-                    "liga":         liga,
-                    "graphPoints":  graph.get("graphPoints", []),
-                    "goals":        goals_uniq,
-                    "statistics":   statistics.get("statistics", []),
-                    "opening_odds": opening_odds,
-                }
+                # Converte estatísticas SofaScore → flat dict por período
+                sofa_stats_list = statistics.get("statistics", [])
+                stats_periods   = _uniscore_stats_to_flat(sofa_stats_list)
+                stats_flat      = stats_periods.get("ALL", {})
+
+                payload = _build_save_payload(
+                    event_id=event_id,
+                    casa=casa, fora=fora, liga=liga,
+                    graph_points=graph.get("graphPoints", []),
+                    goals=goals_uniq,
+                    stats_flat=stats_flat,
+                    stats_periods=stats_periods,
+                    opening_odds=opening_odds,
+                    source="sofascore",
+                )
                 with open(save_file, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 saved = True
