@@ -486,22 +486,28 @@ def _get_fotmob_live_matches():
         if time.time() - _fotmob_live_cache["ts"] < 120:
             return _fotmob_live_cache["matches"]
     try:
+        today_str = datetime.now().strftime("%Y%m%d")
         r = http_req.get(
-            "https://www.fotmob.com/api/data/matches",
+            "https://www.fotmob.com/api/matches",
             headers=FOTMOB_HEADERS,
-            params={"timezone": "America/Sao_Paulo", "ccode3": "BRA"},
+            params={"date": today_str},
             timeout=12
         )
+        r.raise_for_status()
+        data = r.json()
         matches = []
-        for league in r.json().get("leagues", []):
+        for league in data.get("leagues", []):
             for m in league.get("matches", []):
                 st = m.get("status", {})
                 if st.get("started") and not st.get("finished"):
+                    home_name = m.get("home", {}).get("name", "").lower()
+                    away_name = m.get("away", {}).get("name", "").lower()
                     matches.append({
                         "id":   str(m.get("id", "")),
-                        "home": m.get("home", {}).get("name", "").lower(),
-                        "away": m.get("away", {}).get("name", "").lower(),
+                        "home": home_name,
+                        "away": away_name,
                     })
+        print(f"[fotmob] {len(matches)} partidas ao vivo encontradas")
         with _fotmob_live_lock:
             _fotmob_live_cache["ts"]      = time.time()
             _fotmob_live_cache["matches"] = matches
@@ -518,10 +524,18 @@ def _find_fotmob_id(casa, fora):
     matches = _get_fotmob_live_matches()
     casa_l  = casa.lower()
     fora_l  = fora.lower()
+    # Tenta match exato primeiro, depois substring
     for m in matches:
         if (casa_l in m["home"] or m["home"] in casa_l) and \
            (fora_l in m["away"] or m["away"] in fora_l):
+            print(f"[fotmob] Match encontrado: {m['home']} vs {m['away']} (id={m['id']})")
             return m["id"]
+    # Log para depuração quando não encontra
+    if matches:
+        sample = [(m["home"], m["away"]) for m in matches[:5]]
+        print(f"[fotmob] Nenhum match para '{casa_l}' vs '{fora_l}'. Amostra: {sample}")
+    else:
+        print(f"[fotmob] Lista de partidas vazia ao buscar '{casa_l}' vs '{fora_l}'")
     return None
 
 
@@ -2220,12 +2234,13 @@ def api_uniscore_live_all():
 
 @app.route("/api/fotmob/live")
 def api_fotmob_live():
-    """Busca jogos ao vivo diretamente via FotMob /api/data/matches (sem bloqueio)."""
+    """Busca jogos ao vivo diretamente via FotMob /api/matches (sem bloqueio)."""
     try:
+        today_str = datetime.now().strftime("%Y%m%d")
         r = http_req.get(
-            "https://www.fotmob.com/api/data/matches",
+            "https://www.fotmob.com/api/matches",
             headers=FOTMOB_HEADERS,
-            params={"timezone": "America/Sao_Paulo", "ccode3": "BRA"},
+            params={"date": today_str},
             timeout=12
         )
         r.raise_for_status()
