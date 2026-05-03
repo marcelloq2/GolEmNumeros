@@ -5,6 +5,7 @@ from flask import Flask, jsonify, send_from_directory, abort, request
 import json, os, glob, re, threading, time
 import requests as http_req
 from datetime import datetime
+import github_storage
 
 FOTMOB_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -577,6 +578,8 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 saved = True
                 print(f"[momentum] Salvo: {save_file}")
+                # Persiste no GitHub para sobreviver a reinicializações
+                github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
                 # Invalida caches que dependem do histórico
                 global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
                 _pattern_tips_cache  = {"ts": 0, "data": None}
@@ -632,6 +635,14 @@ def _background_monitor():
 
 # Inicia a thread de monitoramento (daemon = morre junto com o Flask)
 threading.Thread(target=_background_monitor, daemon=True, name="MomentumMonitor").start()
+
+# Restaura dados do GitHub ao iniciar (backtest + momentum_history + predictions)
+threading.Thread(
+    target=github_storage.sync_on_startup,
+    args=(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR),
+    daemon=True,
+    name="GitHubSync"
+).start()
 
 
 @app.route("/api/radar/momentum/<int:event_id>")
@@ -2289,6 +2300,52 @@ def code_viewer(filepath=None):
 <div class="grid">{cards}</div>
 </body>
 </html>"""
+
+
+@app.route("/api/upload-backup", methods=["POST"])
+def api_upload_backup():
+    """Recebe arquivos de backtest/momentum/predictions enviados do ambiente local.
+    Requer ?token=UPLOAD_TOKEN no Railway Variables.
+    """
+    token    = request.args.get("token", "")
+    expected = os.environ.get("UPLOAD_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"ok": False, "error": "Token inválido"}), 403
+
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "Nenhum arquivo enviado"}), 400
+
+    f     = request.files["file"]
+    fname = f.filename or ""
+
+    # Determina destino pelo nome do arquivo
+    if re.match(r'^\d{4}-\d{2}-\d{2}\.json$', fname):
+        dest_dir      = BACKTEST_DIR
+        remote_prefix = "backtest"
+    elif re.match(r'^\d{4}-\d{2}-\d{2}_\d+\.json$', fname):
+        dest_dir      = MOMENTUM_DIR
+        remote_prefix = "momentum_history"
+    elif fname in ("predictions_full.json", "predictions.json"):
+        dest_dir      = DATA_DIR
+        remote_prefix = ""
+    else:
+        return jsonify({"ok": False, "error": f"Nome de arquivo não reconhecido: {fname}"}), 400
+
+    os.makedirs(dest_dir, exist_ok=True)
+    local_path = os.path.join(dest_dir, fname)
+    f.save(local_path)
+
+    remote_path = f"{remote_prefix}/{fname}" if remote_prefix else fname
+    github_storage.push_file_bg(local_path, remote_path)
+
+    # Invalida caches se for predictions
+    if fname.startswith("predictions"):
+        global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
+        _pattern_tips_cache  = {"ts": 0, "data": None}
+        _odds_patterns_cache = {"ts": 0, "data": None}
+        _stats_patterns_cache = {"ts": 0, "data": None}
+
+    return jsonify({"ok": True, "saved": fname, "path": local_path})
 
 
 if __name__ == "__main__":
