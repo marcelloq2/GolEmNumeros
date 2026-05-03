@@ -2152,6 +2152,236 @@ def api_odds_patterns():
     return jsonify(result)
 
 
+# ── Indicadores ao vivo ──────────────────────────────────────────────────────
+
+def _profile_similarity(current: dict, profile: dict) -> float | None:
+    """Calcula similaridade 0-100 entre stats atuais e perfil histórico de um resultado.
+    current = {key: (home_val, away_val)}
+    profile = {key_h: avg, key_a: avg}  (formato de outcomes_result)
+    """
+    diffs = []
+    for key, vals in current.items():
+        hv, av = vals if isinstance(vals, tuple) else (vals, None)
+        h_hist = profile.get(key + "_h")
+        a_hist = profile.get(key + "_a")
+        if h_hist is not None and hv is not None and h_hist > 0:
+            diffs.append(abs(float(hv) - float(h_hist)) / float(h_hist))
+        if a_hist is not None and av is not None and a_hist > 0:
+            diffs.append(abs(float(av) - float(a_hist)) / float(a_hist))
+    if not diffs:
+        return None
+    avg_diff = sum(diffs) / len(diffs)
+    return round(1 / (1 + avg_diff) * 100, 1)
+
+
+def _momentum_contrib(outcome: str, ps: dict) -> float:
+    """Contribuição do momentum para um resultado (0-100)."""
+    dom = ps.get("home_dominance_pct", 50.0)
+    if outcome == "casaV":
+        return round(min(dom, 100), 1)
+    if outcome == "visV":
+        return round(min(100 - dom, 100), 1)
+    if outcome == "emp":
+        return round(max(0, 100 - abs(dom - 50) * 2), 1)
+    if outcome == "o25":
+        swings = ps.get("momentum_swings", 0)
+        return round(min(50 + swings * 2, 100), 1)
+    if outcome == "u25":
+        swings = ps.get("momentum_swings", 0)
+        return round(max(0, 50 - swings * 2), 1)
+    if outcome == "btts":
+        return round(min(50 + abs(ps.get("overall_avg", 0)) * 30, 100), 1)
+    return 50.0
+
+
+def _xg_contrib(outcome: str, xg: dict) -> float | None:
+    """Contribuição do xG para um resultado (0-100)."""
+    if not xg or xg.get("home") is None:
+        return None
+    h, a = float(xg.get("home", 0) or 0), float(xg.get("away", 0) or 0)
+    diff = h - a
+    # sigmoid suavizada: 0 diff → 50, +2 diff → ~85, -2 diff → ~15
+    import math
+    sig = lambda x: 1 / (1 + math.exp(-x * 0.8))
+    if outcome == "casaV":
+        return round(sig(diff) * 100, 1)
+    if outcome == "visV":
+        return round(sig(-diff) * 100, 1)
+    if outcome == "emp":
+        return round((1 - abs(diff) / max(h + a + 0.01, 1)) * 100, 1)
+    if outcome == "o25":
+        total = h + a
+        return round(min(total / 3 * 100, 100), 1)
+    if outcome == "u25":
+        total = h + a
+        return round(max(0, (1 - total / 3) * 100), 1)
+    if outcome == "btts":
+        return round(min(h, 1) * min(a, 1) * 100, 1)
+    return 50.0
+
+
+@app.route("/api/momentum/indicators/<event_id>")
+def api_indicators(event_id):
+    """Indicadores dinâmicos ao vivo: perfil histórico + momentum + xG + value de odds."""
+    from flask import request as flask_req
+    casa = flask_req.args.get("casa", "")
+    fora = flask_req.args.get("fora", "")
+
+    # ── Dados atuais da partida ───────────────────────────────────────────
+    with _momentum_lock:
+        cached = _momentum_cache.get(event_id)
+    mdata = (cached or {}).get("data") or {}
+
+    if not mdata:
+        # Tenta buscar se não estiver em cache
+        mdata = _process_momentum(event_id, casa, fora) or {}
+
+    stats_raw   = mdata.get("statistics", {})
+    current     = _extract_stats(stats_raw) if stats_raw else {}
+    ps          = mdata.get("pressure_summary", {})
+    xg          = mdata.get("xg", {})
+    open_odds   = mdata.get("opening_odds", {})
+    goals       = mdata.get("goals", [])
+    score_h     = sum(1 for g in goals if g.get("team") == "home")
+    score_a     = sum(1 for g in goals if g.get("team") == "away")
+
+    # Adiciona momentum e xG como pseudo-stats para o perfil
+    if ps.get("home_dominance_pct") is not None:
+        current["pressure_home_dom_pct"] = (ps["home_dominance_pct"], 100 - ps["home_dominance_pct"])
+    if xg.get("home") is not None:
+        current["xg"] = (float(xg["home"]), float(xg["away"]))
+
+    # ── Padrões históricos ────────────────────────────────────────────────
+    global _stats_patterns_cache, _odds_patterns_cache
+    if _stats_patterns_cache["data"] is None:
+        with app.test_request_context():
+            api_stats_patterns()
+    hist_data     = _stats_patterns_cache.get("data") or {}
+    outcomes_hist = hist_data.get("outcomes", {})
+    total_hist    = hist_data.get("total", 0)
+
+    if _odds_patterns_cache["data"] is None:
+        with app.test_request_context():
+            api_odds_patterns()
+    odds_data    = _odds_patterns_cache.get("data") or {}
+    odds_buckets = odds_data.get("buckets", [])
+
+    # ── Value Score (edge de odds) ────────────────────────────────────────
+    value = {}
+    if open_odds and open_odds.get("h"):
+        try:
+            h_odd = float(open_odds["h"])
+            for b in odds_buckets:
+                lbl = b["label"]
+                # converte label "1.20-1.40" para faixa numérica
+                parts = lbl.replace(">","").split("-")
+                lo = float(parts[0])
+                hi = float(parts[1]) if len(parts) > 1 else 99.0
+                if lo <= h_odd <= hi:
+                    value = {
+                        "label":    lbl,
+                        "n":        b["n"],
+                        "edge_h":   b.get("edge_h", 0),
+                        "edge_x":   b.get("edge_x", 0),
+                        "edge_a":   b.get("edge_a", 0),
+                        "casaV_pct": b.get("casaV_pct", 0),
+                        "emp_pct":   b.get("emp_pct", 0),
+                        "visV_pct":  b.get("visV_pct", 0),
+                        "o25_pct":   b.get("o25_pct", 0),
+                    }
+                    break
+        except Exception:
+            pass
+
+    # ── Peso dinâmico por volume de dados ────────────────────────────────
+    # Com poucos dados, momentum/xG pesam mais; com muitos, perfil pesa mais
+    w_profile  = min(0.6, max(0.15, total_hist / 200))   # 0.15 → 0.60
+    w_momentum = 0.25
+    w_xg       = max(0.15, 0.40 - w_profile * 0.4)
+    w_value    = 1 - w_profile - w_momentum - w_xg
+    w_value    = max(0, min(w_value, 0.20))
+
+    # ── Calcula indicador composto por resultado ──────────────────────────
+    OUTCOMES = {
+        "casaV": "Casa Vence",
+        "emp":   "Empate",
+        "visV":  "Visitante",
+        "o25":   "Over 2.5",
+        "u25":   "Under 2.5",
+        "btts":  "Ambos Marcam",
+        "nbtts": "Não BTTS",
+    }
+
+    indicators = {}
+    for oc, label in OUTCOMES.items():
+        oc_hist = outcomes_hist.get(oc, {})
+        n       = oc_hist.get("n", 0)
+
+        # 1. Perfil
+        profile_sim = _profile_similarity(current, oc_hist) if (n >= 3 and current) else None
+
+        # 2. Momentum
+        mom_score = _momentum_contrib(oc, ps) if ps else None
+
+        # 3. xG
+        xg_score = _xg_contrib(oc, xg) if xg else None
+
+        # 4. Value edge normalizado 0-100 (edge de -20% a +20%)
+        val_score = None
+        if value:
+            edge = value.get(f"edge_{oc[:4]}", value.get("edge_h" if oc == "casaV" else
+                             "edge_x" if oc == "emp" else
+                             "edge_a" if oc == "visV" else None))
+            if edge is not None:
+                val_score = round(min(100, max(0, 50 + edge * 2.5)), 1)
+
+        # Composição ponderada com os componentes disponíveis
+        components = []
+        weights_used = []
+        if profile_sim is not None:
+            components.append(profile_sim * w_profile)
+            weights_used.append(w_profile)
+        if mom_score is not None:
+            components.append(mom_score * w_momentum)
+            weights_used.append(w_momentum)
+        if xg_score is not None:
+            components.append(xg_score * w_xg)
+            weights_used.append(w_xg)
+        if val_score is not None and value.get("n", 0) >= 5:
+            components.append(val_score * w_value)
+            weights_used.append(w_value)
+
+        if components:
+            w_sum   = sum(weights_used)
+            composite = round(sum(components) / w_sum, 1)
+        else:
+            composite = None
+
+        indicators[oc] = {
+            "label":       label,
+            "composite":   composite,
+            "profile":     profile_sim,
+            "momentum":    mom_score,
+            "xg":          xg_score,
+            "value_edge":  value.get("edge_h" if oc=="casaV" else "edge_x" if oc=="emp" else "edge_a", None) if value else None,
+            "n_hist":      n,
+        }
+
+    return jsonify({
+        "ok":            True,
+        "event_id":      event_id,
+        "total_hist":    total_hist,
+        "weights":       {"profile": round(w_profile,2), "momentum": round(w_momentum,2),
+                          "xg": round(w_xg,2), "value": round(w_value,2)},
+        "score":         {"home": score_h, "away": score_a},
+        "indicators":    indicators,
+        "pressure":      ps,
+        "xg":            xg,
+        "value":         value,
+        "has_live_data": bool(current),
+    })
+
+
 # ── Pattern Tips — TIPs dinâmicos por sequência de sinais ───────────────────
 
 _pattern_tips_cache = {"ts": 0, "data": None, "n_files": 0}
