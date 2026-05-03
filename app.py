@@ -372,8 +372,8 @@ def api_radar_live():
                 return jsonify({"live": cached, "total": len(cached)})
     try:
         for endpoint in [
-            f"{_UNISCORE_API}/sport/football/events/live-v2",
             f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
+            f"{_UNISCORE_API}/sport/football/events/live-v2",
         ]:
             r = http_req.post(
                 endpoint,
@@ -382,7 +382,7 @@ def api_radar_live():
                 params={"language": "pt-BR"},
                 timeout=12,
             )
-            if r.status_code != 200:
+            if r.status_code not in (200, 201):
                 continue
             events = r.json().get("data", {}).get("events", [])
             if not events:
@@ -526,8 +526,8 @@ def _get_uniscore_live_matches():
     all_matches = []
     # Tenta endpoint global primeiro, depois BR como fallback
     for endpoint in [
-        f"{_UNISCORE_API}/sport/football/events/live-v2",
         f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
+        f"{_UNISCORE_API}/sport/football/events/live-v2",
     ]:
         try:
             r = http_req.post(
@@ -537,7 +537,7 @@ def _get_uniscore_live_matches():
                 params={"language": "pt-BR"},
                 timeout=12,
             )
-            if r.status_code == 200:
+            if r.status_code in (200, 201):
                 events = r.json().get("data", {}).get("events", [])
                 matches = [
                     {
