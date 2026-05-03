@@ -508,9 +508,11 @@ def _get_uniscore_live_matches():
         events = r.json().get("data", {}).get("events", [])
         matches = [
             {
-                "id":   e["id"],
-                "home": e.get("homeTeam", {}).get("name", "").lower(),
-                "away": e.get("awayTeam", {}).get("name", "").lower(),
+                "id":     e["id"],
+                "homeId": e.get("homeTeam", {}).get("id", ""),
+                "awayId": e.get("awayTeam", {}).get("id", ""),
+                "home":   e.get("homeTeam", {}).get("name", "").lower(),
+                "away":   e.get("awayTeam", {}).get("name", "").lower(),
             }
             for e in events
             if e.get("status", {}).get("type") == "inprogress"
@@ -526,7 +528,8 @@ def _get_uniscore_live_matches():
 
 
 def _find_uniscore_id(casa, fora):
-    """Encontra ID UniScore pelo nome dos times (busca fuzzy)."""
+    """Encontra ID UniScore pelo nome dos times (busca fuzzy).
+    Retorna dict {id, homeId, awayId} ou None."""
     if not casa or not fora:
         return None
     matches = _get_uniscore_live_matches()
@@ -535,56 +538,102 @@ def _find_uniscore_id(casa, fora):
         if (casa_l in m["home"] or m["home"] in casa_l) and \
            (fora_l in m["away"] or m["away"] in fora_l):
             print(f"[uniscore] Match: {m['home']} vs {m['away']} id={m['id']}")
-            return m["id"]
+            return {"id": m["id"], "homeId": m["homeId"], "awayId": m["awayId"]}
     if matches:
         sample = [(m["home"], m["away"]) for m in matches[:4]]
         print(f"[uniscore] Sem match p/ '{casa_l}' vs '{fora_l}'. Amostra: {sample}")
     return None
 
 
-def _fetch_uniscore_graph(uniscore_id):
-    """Busca graphPoints do UniScore e converte para formato padrão."""
+def _uniscore_stats_to_flat(stats_list):
+    """Converte lista de períodos UniScore para dict plano por período.
+    Retorna {"ALL": {stat: {home,away,homeValue,awayValue}}, "1ST": {...}, "2ND": {...}}"""
+    result = {}
+    for period_data in (stats_list or []):
+        period = period_data.get("period", "ALL")
+        flat   = {}
+        for group in period_data.get("groups", []):
+            for item in group.get("statisticsItems", []):
+                name = item.get("name")
+                if name and name not in flat:
+                    flat[name] = {
+                        "home":      item.get("home", "0"),
+                        "away":      item.get("away", "0"),
+                        "homeValue": item.get("homeValue", 0),
+                        "awayValue": item.get("awayValue", 0),
+                    }
+        result[period] = flat
+    return result
+
+
+def _fetch_uniscore_graph(uni_match):
+    """Busca graphPoints + estatísticas por período do UniScore.
+    uni_match = {id, homeId, awayId}"""
+    uniscore_id = uni_match["id"]
+    home_id     = uni_match.get("homeId", "")
+    away_id     = uni_match.get("awayId", "")
+
+    # Graph (momentum)
     r = http_req.get(
         f"{_UNISCORE_API}/football/event/{uniscore_id}/graph",
-        headers=_UNISCORE_HEADERS,
-        timeout=12,
+        headers=_UNISCORE_HEADERS, timeout=12,
     )
     r.raise_for_status()
-    data = r.json().get("data", {})
-    pts  = data.get("graphPoints", [])
+    pts = r.json().get("data", {}).get("graphPoints", [])
 
-    # Busca gols nos incidents
-    ri = http_req.get(
-        f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
-        headers=_UNISCORE_HEADERS,
-        timeout=12,
-    )
+    # Incidents (gols)
     goals = []
-    if ri.status_code == 200:
-        for inc in ri.json().get("data", {}).get("incidents", []):
-            if inc.get("incidentType") == "goal":
-                goals.append({
-                    "minute": inc.get("time", 0),
-                    "team":   "home" if inc.get("isHome") else "away",
-                })
+    try:
+        ri = http_req.get(
+            f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
+            headers=_UNISCORE_HEADERS, timeout=12,
+        )
+        if ri.status_code == 200:
+            for inc in ri.json().get("data", {}).get("incidents", []):
+                if inc.get("incidentType") == "goal":
+                    goals.append({
+                        "minute": inc.get("time", 0),
+                        "team":   "home" if inc.get("isHome") else "away",
+                    })
+    except Exception:
+        pass
 
-    # Detecta FT via status
-    re = http_req.get(
-        f"{_UNISCORE_API}/football/event/{uniscore_id}",
-        headers=_UNISCORE_HEADERS,
-        params={"language": "pt-BR"},
-        timeout=10,
-    )
+    # Estatísticas por período (Todos / 1º / 2º)
+    statistics_periods = {}
+    if home_id and away_id:
+        try:
+            rs = http_req.get(
+                f"{_UNISCORE_API}/football/event/{uniscore_id}/home/{home_id}/away/{away_id}/statistics",
+                headers=_UNISCORE_HEADERS, timeout=12,
+            )
+            if rs.status_code == 200:
+                stats_list = rs.json().get("data", {}).get("statistics", [])
+                statistics_periods = _uniscore_stats_to_flat(stats_list)
+                print(f"[uniscore] Estatísticas: {list(statistics_periods.keys())}")
+        except Exception as es:
+            print(f"[uniscore] Stats falhou: {es}")
+
+    # Status (FT?)
     finished = False
-    if re.status_code == 200:
-        status = re.json().get("data", {}).get("event", {}).get("status", {})
-        finished = status.get("type") == "finished"
+    try:
+        re = http_req.get(
+            f"{_UNISCORE_API}/football/event/{uniscore_id}",
+            headers=_UNISCORE_HEADERS,
+            params={"language": "pt-BR"}, timeout=10,
+        )
+        if re.status_code == 200:
+            status   = re.json().get("data", {}).get("event", {}).get("status", {})
+            finished = status.get("type") == "finished"
+    except Exception:
+        pass
 
     return {
-        "graphPoints": pts,
-        "goals":       goals,
-        "finished":    finished,
-        "source":      "uniscore",
+        "graphPoints":        pts,
+        "goals":              goals,
+        "finished":           finished,
+        "statistics":         statistics_periods.get("ALL", {}),
+        "statistics_periods": statistics_periods,
+        "source":             "uniscore",
     }
 
 
@@ -796,10 +845,10 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
 
     # ── Fallback 1: UniScore / unik8s.com (busca por nome de time) ──────────
     if not graph or not (graph or {}).get("graphPoints"):
-        uni_id = _find_uniscore_id(casa, fora)
-        if uni_id:
+        uni_match = _find_uniscore_id(casa, fora)
+        if uni_match:
             try:
-                udata = _fetch_uniscore_graph(uni_id)
+                udata = _fetch_uniscore_graph(uni_match)
                 pts   = udata.get("graphPoints", [])
                 print(f"[momentum] UniScore fallback OK: {len(pts)} graphPoints")
                 if pts:
@@ -814,7 +863,8 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                                 "casa": casa, "fora": fora, "liga": liga,
                                 "graphPoints": pts,
                                 "goals": udata.get("goals", []),
-                                "statistics": [],
+                                "statistics":         udata.get("statistics", {}),
+                                "statistics_periods": udata.get("statistics_periods", {}),
                                 "opening_odds": {},
                             }
                             with open(save_file, "w", encoding="utf-8") as f:

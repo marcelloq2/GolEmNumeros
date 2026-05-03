@@ -2550,9 +2550,16 @@ function _renderUniscore(d) {
     </div>` : '';
 
   // ── Estatísticas detalhadas (barras proporcionais) ──
-  const st = d.statistics || {};
-  const statRow = (label, key, fmt) => {
-    const item = st[key];
+  // Suporte a períodos: ALL (Todos), 1ST (1º), 2ND (2º)
+  const _statPeriods = d.statistics_periods || {};
+  const _hasPeriods  = Object.keys(_statPeriods).length > 1;
+  const _statsById   = (period) => _statPeriods[period] || d.statistics || {};
+  const _statsPanelId = `statsPeriod_${d.id || Date.now()}`;
+  // Inicia sempre em ALL
+  const st = _statsById('ALL');
+  const statRow = (label, key, fmt, stObj) => {
+    const _st = stObj || st;
+    const item = _st[key];
     if (!item) return '';
     const hv = item.homeValue ?? 0;
     const av = item.awayValue ?? 0;
@@ -2751,23 +2758,66 @@ function _renderUniscore(d) {
       </div>
     </div>` : '';
 
-  const statsRows = [
-    statRow('Total de Chutes',       'shots',            ''),
-    statRow('Chutes no Alvo',        'shots_on_target',  ''),
-    statRow('Chutes Dentro da Área', 'shots_inside_box', ''),
-    statRow('Chutes Fora da Área',   'shots_outside_box',''),
-    statRow('Posse de Bola',         'ball_possession',  'pct'),
-    statRow('Escanteios',            'corner_kicks',     ''),
-    statRow('Grandes Chances',       'big_chances',      ''),
-    statRow('Faltas',                'fouls',            ''),
-    statRow('Passes',                'passes',           ''),
-    statRow('Cartões Amarelos',      'yellow_cards',     ''),
+  // Função que gera as linhas de stats para um objeto de período específico
+  const buildStatsRows = (stObj) => [
+    statRow('Total de Chutes',       'shots',            '', stObj),
+    statRow('Chutes no Alvo',        'shots_on_target',  '', stObj),
+    statRow('Chutes Dentro da Área', 'shots_inside_box', '', stObj),
+    statRow('Chutes Fora da Área',   'shots_outside_box','', stObj),
+    statRow('Posse de Bola',         'ball_possession',  'pct', stObj),
+    statRow('Escanteios',            'corner_kicks',     '', stObj),
+    statRow('Grandes Chances',       'big_chances',      '', stObj),
+    statRow('Faltas',                'fouls',            '', stObj),
+    statRow('Passes',                'passes',           '', stObj),
+    statRow('Cartões Amarelos',      'yellow_cards',     '', stObj),
   ].filter(Boolean).join('');
 
-  const statsHtml = statsRows ? `
+  const statsRows = buildStatsRows(st);
+
+  // Tabs de período (só mostra se tiver dados por período)
+  const periodTabsHtml = _hasPeriods ? (() => {
+    const tabs = [
+      {key:'ALL',  label:'Todos'},
+      {key:'1ST',  label:'1º'},
+      {key:'2ND',  label:'2º'},
+    ].filter(t => _statPeriods[t.key]);
+    return `
+    <div style="display:flex;gap:4px;margin-bottom:6px" id="${_statsPanelId}_tabs">
+      ${tabs.map(t => `
+        <button onclick="(function(){
+          const panels = document.querySelectorAll('[data-period-panel=\\'${_statsPanelId}\\']');
+          panels.forEach(p => p.style.display='none');
+          document.getElementById('${_statsPanelId}_${t.key}').style.display='block';
+          document.querySelectorAll('#${_statsPanelId}_tabs button').forEach(b=>b.style.background='var(--bg3)');
+          this.style.background='#1d4ed8';
+        }).call(this)"
+          style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;border:none;
+                 cursor:pointer;background:${t.key==='ALL'?'#1d4ed8':'var(--bg3)'};color:#fff">
+          ${t.label}
+        </button>`).join('')}
+    </div>`;
+  })() : '';
+
+  // Painel para cada período
+  const periodPanelsHtml = _hasPeriods ? (() => {
+    const tabs = [
+      {key:'ALL', label:'Todos'},
+      {key:'1ST', label:'1º'},
+      {key:'2ND', label:'2º'},
+    ].filter(t => _statPeriods[t.key]);
+    return tabs.map(t => `
+      <div id="${_statsPanelId}_${t.key}"
+           data-period-panel="${_statsPanelId}"
+           style="display:${t.key==='ALL'?'block':'none'}">
+        ${buildStatsRows(_statPeriods[t.key]) || '<div style="font-size:10px;color:var(--text2);text-align:center;padding:8px">Sem dados para este período</div>'}
+      </div>`).join('');
+  })() : '';
+
+  const statsHtml = statsRows || _hasPeriods ? `
     <div style="padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
       <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">📊 ESTATÍSTICAS</div>
-      ${statsRows}
+      ${periodTabsHtml}
+      ${_hasPeriods ? periodPanelsHtml : statsRows}
     </div>` : `
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-around;
                 padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
