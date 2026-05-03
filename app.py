@@ -646,6 +646,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
     Tenta requests direto primeiro; fallback para Playwright se falhar.
     Usa cache de 90s para evitar chamadas repetidas.
     """
+    global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
     # Verifica cache primeiro
     with _momentum_lock:
         cached = _momentum_cache.get(event_id)
@@ -683,7 +684,6 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                         data["saved"] = True
                         print(f"[momentum] Salvo: {save_file}")
                         github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
-                        global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
                         _pattern_tips_cache  = {"ts": 0, "data": None}
                         _odds_patterns_cache = {"ts": 0, "data": None}
                         _stats_patterns_cache = {"ts": 0, "data": None}
@@ -778,7 +778,6 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 # Persiste no GitHub para sobreviver a reinicializações
                 github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
                 # Invalida caches que dependem do histórico
-                global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
                 _pattern_tips_cache  = {"ts": 0, "data": None}
                 _odds_patterns_cache = {"ts": 0, "data": None}
                 _stats_patterns_cache = {"ts": 0, "data": None}
