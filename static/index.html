@@ -561,8 +561,8 @@
 
   /* Coluna 2 — lista de partidas */
   .bt-matches {
-    width: 400px; min-width: 340px; background: var(--bg2);
-    border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0;
+    flex: 1; min-width: 0; background: var(--bg2);
+    overflow-y: auto;
     display: flex; flex-direction: column;
   }
   .bt-matches-header {
@@ -579,7 +579,7 @@
   .bt-stat-chip b { color: var(--text); }
   .bt-match-list { flex: 1; overflow-y: auto; }
   .bt-match-row {
-    padding: 10px 14px; border-bottom: 1px solid #1e2235;
+    padding: 10px 14px; border-bottom: 1px solid #1e2235; border-right: 1px solid #1e2235;
     cursor: pointer; transition: background .15s;
     display: grid; grid-template-columns: 38px 1fr auto; gap: 8px; align-items: center;
   }
@@ -600,7 +600,7 @@
   .bt-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text2); gap: 10px; }
 
   /* Coluna 3 — detalhe (reusa detail-panel) */
-  .bt-detail { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg); }
+  .bt-detail { width: 400px; min-width: 340px; flex-shrink: 0; overflow-y: auto; padding: 24px; background: var(--bg); border-left: 1px solid var(--border); }
   .bt-detail-placeholder {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 100%; color: var(--text2); gap: 10px;
@@ -676,6 +676,40 @@
   .match-row.favoritado::after {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
     background: var(--yellow); border-radius: 0 2px 2px 0;
+  }
+
+  /* ── MODAL MERCADO FAVORITO ── */
+  #favMarketOverlay {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center;
+  }
+  #favMarketOverlay.open { display: flex; }
+  #favMarketModal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; width: 360px; max-width: 95vw;
+    max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .fav-mkt-btn {
+    display: block; width: 100%; text-align: left;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 12px; margin-bottom: 4px;
+    color: var(--text); font-size: 12px; cursor: pointer;
+    transition: all .12s;
+  }
+  .fav-mkt-btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .fav-mkt-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .fav-score-btn {
+    width: 44px; height: 28px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text2); font-size: 10px; font-weight: 600;
+    cursor: pointer; transition: all .1s;
+  }
+  .fav-score-btn.selected { background: #4f6ef7; border-color: #4f6ef7; color: #fff; }
+  .fav-market-badge {
+    font-size: 9px; font-weight: 700; padding: 1px 5px;
+    border-radius: 4px; background: #4f6ef744; color: #6c8fff;
+    border: 1px solid #4f6ef744; white-space: nowrap;
   }
   .match-row { position: relative; }
   .fav-count-badge {
@@ -772,8 +806,7 @@
 
   /* Painel de detalhes ao vivo */
   .live-detail {
-    flex: 1; min-height: 0; overflow-y: scroll; background: var(--bg);
-    display: flex; flex-direction: column;
+    flex: 1; min-height: 0; overflow-y: auto; background: var(--bg);
   }
   .live-detail-placeholder {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -845,10 +878,6 @@
   .live-stat-bar-away { height: 5px; background: #b5906c; border-radius: 0 3px 3px 0; transition: width .4s; }
 
   /* Escalações */
-  .live-lineup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .live-lineup-team { }
-  .live-lineup-team-name { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .4px; }
-  .live-lineup-list { display: flex; flex-direction: column; gap: 2px; }
   .live-player-row {
     display: flex; align-items: center; gap: 8px;
     padding: 4px 6px; border-radius: 5px; transition: background .1s;
@@ -897,6 +926,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchView('today', this)">📅 Hoje</button>
     <button class="nav-tab" id="navFavTab" onclick="switchView('favs', this)">⭐ Favoritos <span id="navFavCount"></span></button>
+    <button class="nav-tab" id="navEdgeTab" onclick="switchView('edge', this)">🎯 Edge <span id="navEdgeCount" style="display:none;background:#22c55e;color:#000;border-radius:9px;padding:0 5px;font-size:10px;font-weight:700;margin-left:2px"></span></button>
     <button class="nav-tab" onclick="switchView('live', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
   </div>
@@ -1031,6 +1061,16 @@
     </div>
   </div>
 
+  <!-- EDGE PANEL -->
+  <div id="edgePanel" style="display:none;flex-direction:column;height:100%;overflow:hidden;background:var(--bg)">
+    <!-- Criteria bar -->
+    <div id="edgeCriteriaBar" style="padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0"></div>
+    <!-- Fav toolbar -->
+    <div id="edgeFavBar" style="padding:6px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px"></div>
+    <!-- Match list -->
+    <div id="edgeMatchList" style="flex:1;overflow-y:auto;padding:10px 14px"></div>
+  </div>
+
   <!-- AO VIVO -->
   <div class="live-panel" id="livePanel">
     <div class="live-sidebar" id="liveSidebar">
@@ -1105,6 +1145,8 @@
       </div>
       <div id="btMarketsPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btGoalPatternPanel" style="border-bottom:1px solid var(--border)"></div>
+      <div id="btStatsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
+      <div id="btOddsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div class="bt-match-list" id="btMatchList" style="display:none">
         <div class="bt-empty">
           <div style="font-size:32px">📅</div>
@@ -1131,31 +1173,154 @@
 <script>
 let allMatches = [];
 let activeFilter = 'all';
+// Critérios positivos do backtest (range + mercado com profit >= 0)
+let _btEdgeCriteria = [];
+let _edgeFavs = new Set();
+let _edgeShowFavsOnly = false;
 let viewMode    = 'liga'; // 'liga' | 'hora'
 let favViewMode = 'liga'; // 'liga' | 'hora'
 let activeMatchId = null;
 let currentView = 'today';
-let favorites = new Set(JSON.parse(localStorage.getItem('statarea_favorites') || '[]'));
+// ── FAVORITOS com mercado ─────────────────────────────────────────────────
+// favoritesData = { url: { market: 'over25ft', scores: ['1-0','2-1'] } }
+let favoritesData = JSON.parse(localStorage.getItem('statarea_favdata') || '{}');
+// Migra formato antigo (Set simples) se existir
+(JSON.parse(localStorage.getItem('statarea_favorites') || '[]')).forEach(url => {
+  if (!favoritesData[url]) favoritesData[url] = { market: null, scores: [] };
+});
+let favorites = new Set(Object.keys(favoritesData));
+
+const FAV_MARKETS = [
+  { key: 'over05ht',  label: 'Over 0.5 HT' },
+  { key: 'over15ft',  label: 'Over 1.5 FT' },
+  { key: 'over25ft',  label: 'Over 2.5 FT' },
+  { key: 'under35ft', label: 'Under 3.5 FT' },
+  { key: 'under25ft', label: 'Under 2.5 FT' },
+  { key: 'under15ft', label: 'Under 1.5 FT' },
+  { key: 'btts_yes',  label: 'Ambas Marcam — Sim' },
+  { key: 'btts_no',   label: 'Ambas Marcam — Não' },
+  { key: 'back_home', label: 'Back Casa' },
+  { key: 'back_away', label: 'Back Visitante' },
+  { key: 'lay_home',  label: 'Lay Casa' },
+  { key: 'lay_away',  label: 'Lay Visitante' },
+  { key: 'back_cs',   label: 'Back Placar Correto', hasScores: true },
+  { key: 'lay_cs',    label: 'Lay Placar Correto',  hasScores: true },
+];
+const FAV_SCORES = ['0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3',
+                    '2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3'];
+
+const FAV_MKT_COLORS = {
+  over05ht:'#22c55e', over15ft:'#22c55e', over25ft:'#22c55e',
+  under35ft:'#ef4444', under25ft:'#ef4444', under15ft:'#ef4444',
+  btts_yes:'#a78bfa', btts_no:'#6b7280',
+  back_home:'#3b82f6', back_away:'#f97316',
+  lay_home:'#06b6d4',  lay_away:'#f59e0b',
+  back_cs:'#4f6ef7',   lay_cs:'#ec4899',
+};
+
+let _favModalUrl = null;
+let _favModalBtn = null;
+let _favSelectedMkt = null;
+let _favSelectedScores = new Set();
 
 function saveFavorites() {
+  localStorage.setItem('statarea_favdata', JSON.stringify(favoritesData));
   localStorage.setItem('statarea_favorites', JSON.stringify([...favorites]));
 }
 
 function toggleFavorite(url, btn, event) {
-  event.stopPropagation(); // não abre o detalhe
+  event.stopPropagation();
   if (favorites.has(url)) {
+    // Remove direto
     favorites.delete(url);
+    delete favoritesData[url];
+    saveFavorites();
+    updateFavBtn(btn, url);
+    updateFavCount();
+    const row = btn.closest('.match-row');
+    if (row) row.classList.remove('favoritado');
+    if (activeFilter === 'favs') filterMatches();
   } else {
-    favorites.add(url);
+    // Abre modal para escolher mercado
+    openFavMarketModal(url, btn);
   }
+}
+
+function openFavMarketModal(url, btn) {
+  _favModalUrl = url;
+  _favModalBtn = btn;
+  const existing = favoritesData[url] || {};
+  _favSelectedMkt = existing.market || null;
+  _favSelectedScores = new Set(existing.scores || []);
+
+  // Nome da partida
+  const m = allMatches.find(x => x.url_detalhes === url);
+  document.getElementById('favModalMatchName').textContent =
+    m ? `${m.casa} × ${m.fora}` : '';
+
+  // Renderiza lista de mercados
+  document.getElementById('favMktList').innerHTML =
+    FAV_MARKETS.map(mk => `
+      <button class="fav-mkt-btn ${_favSelectedMkt === mk.key ? 'selected' : ''}"
+              onclick="selectFavMkt('${mk.key}', ${!!mk.hasScores})"
+              id="favMktBtn_${mk.key}">
+        ${mk.label}
+      </button>`).join('');
+
+  // Renderiza grid de placares
+  document.getElementById('favScoreGrid').innerHTML =
+    FAV_SCORES.map(sc => `
+      <button class="fav-score-btn ${_favSelectedScores.has(sc) ? 'selected' : ''}"
+              onclick="toggleFavScore('${sc}')" id="favSc_${sc.replace('-','_')}">${sc}</button>`
+    ).join('');
+
+  // Mostra seção de placares se mercado atual é CS
+  const mktInfo = FAV_MARKETS.find(m => m.key === _favSelectedMkt);
+  document.getElementById('favScoreSection').style.display =
+    (mktInfo && mktInfo.hasScores) ? 'block' : 'none';
+
+  document.getElementById('favMarketOverlay').classList.add('open');
+}
+
+function selectFavMkt(key, hasScores) {
+  _favSelectedMkt = key;
+  document.querySelectorAll('.fav-mkt-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('favMktBtn_' + key).classList.add('selected');
+  document.getElementById('favScoreSection').style.display = hasScores ? 'block' : 'none';
+  if (!hasScores) _favSelectedScores.clear();
+}
+
+function toggleFavScore(sc) {
+  const id = 'favSc_' + sc.replace('-','_');
+  if (_favSelectedScores.has(sc)) {
+    _favSelectedScores.delete(sc);
+    document.getElementById(id).classList.remove('selected');
+  } else {
+    _favSelectedScores.add(sc);
+    document.getElementById(id).classList.add('selected');
+  }
+}
+
+function saveFavMarket() {
+  if (!_favModalUrl) return;
+  favorites.add(_favModalUrl);
+  favoritesData[_favModalUrl] = {
+    market: _favSelectedMkt,
+    scores: [..._favSelectedScores],
+  };
   saveFavorites();
-  updateFavBtn(btn, url);
+  updateFavBtn(_favModalBtn, _favModalUrl);
   updateFavCount();
-  // Atualiza classe da linha
-  const row = btn.closest('.match-row');
-  if (row) row.classList.toggle('favoritado', favorites.has(url));
-  // Se filtro ativo for "favs", re-renderiza
+  const row = _favModalBtn ? _favModalBtn.closest('.match-row') : null;
+  if (row) row.classList.add('favoritado');
   if (activeFilter === 'favs') filterMatches();
+  closeFavMarketModal();
+}
+
+function closeFavMarketModal(e) {
+  if (e && e.target !== document.getElementById('favMarketOverlay')) return;
+  document.getElementById('favMarketOverlay').classList.remove('open');
+  _favModalUrl = null; _favModalBtn = null;
 }
 
 function updateFavBtn(btn, url) {
@@ -1253,6 +1418,20 @@ function favMatchRowHtml(m) {
   const isActive = activeFavMatchId === m.url_detalhes;
   const sCasa = calcBtTeamScore(m, true);
   const sFora = calcBtTeamScore(m, false);
+  // Badge de mercado
+  const fd = favoritesData[m.url_detalhes] || {};
+  const mktInfo = FAV_MARKETS.find(x => x.key === fd.market);
+  const mktColor = fd.market ? (FAV_MKT_COLORS[fd.market] || '#6b7280') : null;
+  const mktBadge = mktInfo ? `
+    <div style="margin-top:3px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+      <span class="fav-market-badge" style="background:${mktColor}22;color:${mktColor};border-color:${mktColor}44">
+        ${mktInfo.label}
+      </span>
+      ${fd.scores && fd.scores.length ? fd.scores.map(sc =>
+        `<span style="font-size:9px;font-weight:700;background:#4f6ef722;color:#6c8fff;
+                      border:1px solid #4f6ef744;border-radius:3px;padding:0 4px">${sc}</span>`
+      ).join('') : ''}
+    </div>` : '';
   return `
     <div class="fav-match-row ${isActive ? 'active' : ''}"
          onclick="openFavDetail('${escapeJs(m.url_detalhes)}', this)"
@@ -1268,6 +1447,7 @@ function favMatchRowHtml(m) {
           ${btScoreBadge(sFora, 'Score Visitante')}
         </div>
         <div style="margin-top:2px">${btGoalScoreBadge(m)}</div>
+        ${mktBadge}
       </div>
       <div class="match-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -1306,6 +1486,7 @@ async function openFavDetail(url, rowEl) {
 function removeFav(url, event) {
   event.stopPropagation();
   favorites.delete(url);
+  delete favoritesData[url];
   saveFavorites();
   updateFavCount();
   // Atualiza o ⭐ na aba Hoje se visível
@@ -1359,12 +1540,14 @@ function switchView(view, btn) {
 
   const todayWrapper = document.getElementById('todayWrapper');
   const favsPanel    = document.getElementById('favsPanel');
+  const edgePanel    = document.getElementById('edgePanel');
   const livePanel    = document.getElementById('livePanel');
   const btPanel      = document.getElementById('backtestPanel');
 
   // Oculta tudo
   todayWrapper.style.display = 'none';
   favsPanel.classList.remove('active');
+  edgePanel.style.display = 'none';
   livePanel.classList.remove('active');
   btPanel.classList.remove('active');
   clearInterval(_tempoInterval);
@@ -1375,6 +1558,9 @@ function switchView(view, btn) {
   } else if (view === 'favs') {
     favsPanel.classList.add('active');
     renderFavPage();
+  } else if (view === 'edge') {
+    edgePanel.style.display = 'flex';
+    renderEdgePanel();
   } else if (view === 'live') {
     livePanel.classList.add('active');
     loadLiveMatches();
@@ -2131,12 +2317,20 @@ function _lightningIcon(color, size = 22) {
 }
 
 async function updateMomentumIndicator(points, finished, eventId) {
-  const el   = document.getElementById('momentumIndicator');
-  const hEl  = document.getElementById('signalHistory');
-  if (!el || !points || points.length < 4) { if(el) el.style.display='none'; if(hEl) hEl.style.display='none'; return; }
+  const el    = document.getElementById('momentumIndicator');
+  const hEl   = document.getElementById('signalHistory');
+  if (!el || !points || points.length < 4) {
+    if (el) el.style.display = 'none';
+    if (hEl) hEl.style.display = 'none';
+    return;
+  }
 
   const analysis = await _getAnalysis();
-  if (!analysis) { el.style.display='none'; if(hEl) hEl.style.display='none'; return; }
+  if (!analysis) {
+    el.style.display = 'none';
+    if (hEl) hEl.style.display = 'none';
+    return;
+  }
 
   const W   = analysis.window || 8;
   const T   = analysis.threshold || 10;
@@ -2295,6 +2489,25 @@ function _renderSimilarMatches(el, data) {
     </div>`;
 }
 
+// ── ODDS ABERTURA: salva na primeira vez que as odds aparecem (por partida/dia) ──
+function _getOpenOdds(key, currentOdds) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const lsKey = `oOpen_${today}_${key}`;
+    const stored = JSON.parse(localStorage.getItem(lsKey) || 'null');
+    if (!stored) {
+      if (currentOdds && currentOdds.h) {
+        localStorage.setItem(lsKey, JSON.stringify({
+          h: currentOdds.h, x: currentOdds.x, a: currentOdds.a,
+          ou_line: currentOdds.ou_line, ou_over: currentOdds.ou_over, ou_under: currentOdds.ou_under
+        }));
+      }
+      return null; // primeira vez — sem comparação ainda
+    }
+    return stored;
+  } catch(e) { return null; }
+}
+
 // ── UNISCORE PANEL ───────────────────────────────────────────────────────────
 async function loadUniscorePanel(casa, fora) {
   const el = document.getElementById('uniscorePanel');
@@ -2368,33 +2581,63 @@ function _renderUniscore(d) {
       </div>`;
   };
 
-  // ── Odds 1X2 + Over/Under ──
+  // ── Odds 1X2 + Over/Under (abertura vs. atual) ──
   const od = d.odds || {};
+  const _odKey = (d.casa || '') + '|' + (d.fora || '');
+  const openOd = _getOpenOdds(_odKey, od);
   const oddsHtml = od.h ? (() => {
     const vals = [
-      { lbl: '1 Casa',   v: od.h },
-      { lbl: 'Empate',   v: od.x },
-      { lbl: '2 Fora',   v: od.a },
+      { lbl: '1 Casa',   v: od.h, op: openOd ? openOd.h : null },
+      { lbl: 'Empate',   v: od.x, op: openOd ? openOd.x : null },
+      { lbl: '2 Fora',   v: od.a, op: openOd ? openOd.a : null },
     ];
-    if (od.ou_line && od.ou_over) {
-      vals.push(
-        { lbl: `Over ${od.ou_line}`, v: od.ou_over  },
-        { lbl: `Under ${od.ou_line}`, v: od.ou_under }
-      );
-    }
     const minV = Math.min(...vals.map(v => parseFloat(v.v) || 99));
+    const hasMovement = vals.some(({v, op}) => {
+      const c = parseFloat(v), p = parseFloat(op);
+      return op && !isNaN(p) && !isNaN(c) && Math.abs(c - p) >= 0.01;
+    });
     return `
       <div style="background:var(--bg3);border:1px solid #f59e0b33;border-radius:7px;
                   padding:6px 10px;margin-bottom:6px">
-        <div style="font-size:9px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:5px">💰 ODDS</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <span style="font-size:9px;font-weight:700;color:#f59e0b;letter-spacing:.5px">💰 ODDS</span>
+          ${hasMovement
+            ? `<span style="font-size:8px;color:#9ca3af">abertura → atual</span>`
+            : openOd
+              ? `<span style="font-size:8px;color:#6b7280">sem variação</span>`
+              : `<span style="font-size:8px;color:#6b7280">abertura registrada</span>`
+          }
+        </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
-          ${vals.map(({lbl, v}) => {
-            const isMin = parseFloat(v) === minV;
+          ${vals.map(({lbl, v, op}) => {
+            const isMin   = parseFloat(v) === minV;
+            const curr    = parseFloat(v);
+            const prev    = parseFloat(op);
+            const changed = op && !isNaN(prev) && !isNaN(curr) && Math.abs(curr - prev) >= 0.01;
+            const dropped = changed && curr < prev;  // odds caiu = steamed
+            const drifted = changed && curr > prev;  // odds subiu = drifted
+            const arrow   = dropped ? '↓' : drifted ? '↑' : '';
+            const arrowColor = dropped ? '#ef4444' : '#22c55e';
+            const cardBorder = isMin
+              ? '#f59e0b88'
+              : changed
+                ? (dropped ? '#ef444444' : '#22c55e44')
+                : 'var(--border)';
+            const valColor = isMin ? '#f59e0b' : changed ? (dropped ? '#ef4444' : '#22c55e') : 'var(--text)';
             return `<div style="flex:1;min-width:52px;text-align:center;
                         background:var(--bg);border-radius:5px;padding:4px 6px;
-                        border:1px solid ${isMin ? '#f59e0b66' : 'var(--border)'}">
-              <div style="font-size:9px;color:var(--text2);margin-bottom:2px">${lbl}</div>
-              <div style="font-size:13px;font-weight:800;color:${isMin ? '#f59e0b' : 'var(--text)'}">${v || '—'}</div>
+                        border:1px solid ${cardBorder}">
+              <div style="font-size:9px;color:var(--text2);margin-bottom:1px">${lbl}</div>
+              ${changed
+                ? `<div style="font-size:8px;color:#6b7280;line-height:1.1;margin-bottom:1px">${op}</div>`
+                : op
+                  ? `<div style="font-size:8px;color:#374151;line-height:1.1;margin-bottom:1px">${op}</div>`
+                  : ''
+              }
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px">
+                <div style="font-size:13px;font-weight:800;color:${valColor};line-height:1">${v || '—'}</div>
+                ${arrow ? `<span style="font-size:11px;font-weight:900;color:${arrowColor};line-height:1">${arrow}</span>` : ''}
+              </div>
             </div>`;
           }).join('')}
         </div>
@@ -2476,59 +2719,6 @@ function _renderUniscore(d) {
       ${lo.ou_line ? `<span style="font-size:10px;color:var(--text2);margin-left:4px">OU ${lo.ou_line}: ${lo.ou_over} / ${lo.ou_under}</span>` : ''}
     </div>` : '';
 
-  // ── Escalação ──
-  const lineupHtml = (() => {
-    const lc = d.lineup_casa, lf = d.lineup_fora;
-    if (!lc && !lf) return '';
-    const posOrder = {'G':0,'GK':0,'D':1,'DEF':1,'M':2,'MID':2,'F':3,'FWD':3,'A':3};
-    const posLabel = {'G':'GR','GK':'GR','D':'DEF','DEF':'DEF','M':'MEI','MID':'MEI','F':'ATA','FWD':'ATA','A':'ATA'};
-    const posColor = {'G':'#f59e0b','GK':'#f59e0b','D':'#3b82f6','DEF':'#3b82f6','M':'#22c55e','MID':'#22c55e','F':'#ef4444','FWD':'#ef4444','A':'#ef4444'};
-
-    const playerRow = (p, alignRight) => {
-      const pc = posColor[p.pos] || '#6b7280';
-      const pl = posLabel[p.pos] || p.pos || '';
-      const rat = p.rating && parseFloat(p.rating) > 0
-        ? `<span style="font-size:9px;color:#f59e0b;font-weight:700">${parseFloat(p.rating).toFixed(1)}</span>` : '';
-      const cap = p.captain ? '©' : '';
-      const num = `<span style="font-size:9px;color:var(--text2);min-width:14px;text-align:center">${p.number||''}</span>`;
-      const pos = `<span style="font-size:7px;font-weight:700;color:${pc};min-width:22px;text-align:center">${pl}</span>`;
-      const name = `<span style="font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||''}${cap?` <span style="color:#f59e0b">${cap}</span>`:''}</span>`;
-      if (alignRight) {
-        return `<div style="display:flex;align-items:center;gap:3px;justify-content:flex-end">${rat}${name}${pos}${num}</div>`;
-      }
-      return `<div style="display:flex;align-items:center;gap:3px">${num}${pos}${name}${rat}</div>`;
-    };
-
-    const sideHtml = (lu, isHome) => {
-      if (!lu) return '<div></div>';
-      const color = isHome ? '#3b82f6' : '#ef4444';
-      const sorted = [...(lu.titulares||[])].sort((a,b) => (posOrder[a.pos]||5)-(posOrder[b.pos]||5));
-      const rows = sorted.map(p => playerRow(p, !isHome)).join('');
-      const bench = (lu.reservas||[]).slice(0,6).map(p => {
-        const pc = posColor[p.pos] || '#6b7280';
-        return `<span style="font-size:9px;color:var(--text2)" title="${p.name}">${p.number||'?'}</span>`;
-      }).join(' ');
-      return `
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:800;color:${color};margin-bottom:4px;text-align:${isHome?'left':'right'}">
-            ${isHome?lu.formation:''}${lu.confirmed?'':' ⚠️'}
-            ${!isHome?lu.formation:''}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:2px">${rows}</div>
-          ${bench ? `<div style="margin-top:4px;font-size:9px;color:var(--text2);text-align:${isHome?'left':'right'}">Banco: ${bench}</div>` : ''}
-        </div>`;
-    };
-
-    return `
-      <div style="margin-bottom:6px">
-        <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">🧑‍💼 ESCALAÇÃO</div>
-        <div style="display:flex;gap:8px;background:var(--bg);border-radius:6px;padding:7px 8px">
-          ${sideHtml(lc, true)}
-          <div style="width:1px;background:var(--border);flex-shrink:0"></div>
-          ${sideHtml(lf, false)}
-        </div>
-      </div>`;
-  })();
 
   // ── xG simplificado ──
   const _xg = (side) => {
@@ -2687,7 +2877,6 @@ function _renderUniscore(d) {
       ${graphHtml}
       ${xgHtml}
       ${statsHtml}
-      ${lineupHtml}
     </div>`;
 }
 
@@ -2722,6 +2911,7 @@ function _renderSignalHistory(el, key, finished) {
       <span style="font-size:9px;color:var(--text2);font-weight:600;white-space:nowrap;flex-shrink:0">📋 Sinais:</span>
       <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${chips}</div>
     </div>`;
+
 }
 
 // ── BACKTEST — DATAS ─────────────────────────
@@ -2741,6 +2931,8 @@ async function loadBacktestDates() {
     loadAllMatchesCombined(); // Geral: carrega todos os jogos por padrão
     updateExportLiveInfo();
     loadGoalPatterns();
+    loadStatsPatterns();
+    loadOddsPatterns();
   } catch(e) {
     list.innerHTML = '<div class="loading" style="padding:16px;font-size:12px">Erro ao carregar.</div>';
   }
@@ -2797,11 +2989,13 @@ function miniBarSVG(avg, stdArr, w, h) {
   </svg>`;
 }
 
-function goalPatternCard(label, icon, pat, accentColor, bgColor, modelHit) {
-  const svg = miniBarSVG(pat.avg, pat.std, 148, 64);
-  const tm  = pat.tail_mean;
-  const tmC = tm > 8 ? '#22c55e' : tm < -8 ? '#ef4444' : tm > 3 ? '#86efac' : tm < -3 ? '#fca5a5' : '#94a3b8';
-  const hitC = modelHit >= 65 ? '#22c55e' : modelHit >= 50 ? '#f59e0b' : '#94a3b8';
+function goalPatternCard(label, icon, pat, accentColor, bgColor, catInfo) {
+  const svg  = miniBarSVG(pat.avg, pat.std, 148, 64);
+  const tm   = pat.tail_mean;
+  const tmC  = tm > 8 ? '#22c55e' : tm < -8 ? '#ef4444' : tm > 3 ? '#86efac' : tm < -3 ? '#fca5a5' : '#94a3b8';
+  const acc  = catInfo ? catInfo.accuracy : null;
+  const win  = catInfo ? catInfo.window   : null;
+  const accC = acc >= 65 ? '#22c55e' : acc >= 50 ? '#f59e0b' : '#94a3b8';
   return `
   <div style="background:${bgColor};border:1px solid var(--border);border-radius:8px;
               padding:8px 10px;flex:1;min-width:0">
@@ -2814,8 +3008,11 @@ function goalPatternCard(label, icon, pat, accentColor, bgColor, modelHit) {
       <span style="font-size:9px;color:var(--text2)">média final</span>
       <span style="font-size:11px;font-weight:700;color:${tmC}">${tm >= 0 ? '+' : ''}${tm}</span>
     </div>
-    ${modelHit != null ? `<div style="margin-top:3px;text-align:center">
-      <span style="font-size:9px;font-weight:700;color:${hitC}">acerto: ${modelHit}%</span>
+    ${win != null ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;
+                padding-top:4px;border-top:1px solid var(--border)">
+      <span style="font-size:9px;color:var(--text2)">janela: <b style="color:${accentColor}">${win}min</b></span>
+      ${acc != null ? `<span style="font-size:9px;font-weight:700;color:${accC}">${acc}% acerto</span>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -2840,13 +3037,9 @@ function renderGoalPatternPanel(d) {
   const p   = d.patterns;
   const acc = d.accuracy;
   const T   = d.threshold;
+  const pc  = d.per_category || {};
   const display = btGoalPatternOpen ? 'block' : 'none';
   const icon    = btGoalPatternOpen ? '▲' : '▼';
-
-  // Acerto individual estimado por categoria
-  const accH = d.acc_home;
-  const accA = d.acc_away;
-  const accN = d.acc_none;
 
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;
@@ -2860,18 +3053,14 @@ function renderGoalPatternPanel(d) {
     </div>
     <div id="btGPContent" style="display:${display};padding:10px 12px;background:var(--bg2)">
 
-      <!-- 4 cards principais -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        ${goalPatternCard('Gol Casa',      '🏠', p.home, '#4f6ef7', 'rgba(79,110,247,.07)', accH)}
-        ${goalPatternCard('Gol Visitante', '✈️', p.away, '#f97316', 'rgba(249,115,22,.07)', accA)}
-        ${goalPatternCard('Qualquer Gol',  '⚽', p.any,  '#22c55e', 'rgba(34,197,94,.07)',  null)}
-        ${goalPatternCard('Sem Gol',       '🔇', p.none, '#94a3b8', 'rgba(100,116,139,.07)', accN)}
-      </div>
-      <!-- 2 cards por período -->
-      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Por período</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-        ${goalPatternCard('Gol 1º Tempo',  '⏱️', p.ht,   '#a78bfa', 'rgba(167,139,250,.07)', null)}
-        ${goalPatternCard('Gol 2º Tempo',  '⌛', p.st,   '#34d399', 'rgba(52,211,153,.07)',  null)}
+      <!-- 4 cards principais + 2 período em grid responsivo -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-bottom:10px">
+        ${goalPatternCard('Gol Casa',      '🏠', p.home, '#4f6ef7', 'rgba(79,110,247,.07)', pc.home)}
+        ${goalPatternCard('Gol Visitante', '✈️', p.away, '#f97316', 'rgba(249,115,22,.07)', pc.away)}
+        ${goalPatternCard('Qualquer Gol',  '⚽', p.any,  '#22c55e', 'rgba(34,197,94,.07)',  pc.any)}
+        ${goalPatternCard('Sem Gol',       '🔇', p.none, '#94a3b8', 'rgba(100,116,139,.07)', pc.none)}
+        ${goalPatternCard('Gol 1º Tempo',  '⏱️', p.ht,   '#a78bfa', 'rgba(167,139,250,.07)', pc.ht)}
+        ${goalPatternCard('Gol 2º Tempo',  '⌛', p.st,   '#34d399', 'rgba(52,211,153,.07)',  pc.st)}
       </div>
 
       <!-- Modelo -->
@@ -2902,6 +3091,561 @@ function renderGoalPatternPanel(d) {
           Azul = domínio casa · Laranja = visitante · Sombra = desvio padrão
         </div>
       </div>
+    </div>`;
+}
+
+// ── Padrões de Estatísticas ──────────────────────────────────────────────────
+
+let btStatsPatternOpen = true;
+
+function toggleStatsPattern() {
+  btStatsPatternOpen = !btStatsPatternOpen;
+  const c = document.getElementById('btSPContent');
+  const i = document.getElementById('btSPToggleIcon');
+  if (c) c.style.display = btStatsPatternOpen ? 'block' : 'none';
+  if (i) i.textContent  = btStatsPatternOpen ? '▲' : '▼';
+}
+
+async function loadStatsPatterns() {
+  const panel = document.getElementById('btStatsPatternPanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="padding:10px 12px;font-size:11px;color:var(--text2)">Carregando padrões de estatísticas...</div>`;
+  try {
+    const r = await fetch('/api/momentum/stats-patterns');
+    if (!r.ok) throw new Error('no data');
+    renderStatsPatternPanel(await r.json());
+  } catch(e) {
+    panel.innerHTML = '';
+  }
+}
+
+function renderStatsPatternPanel(d) {
+  const panel = document.getElementById('btStatsPatternPanel');
+  if (!panel) return;
+
+  const display = btStatsPatternOpen ? 'block' : 'none';
+  const icon    = btStatsPatternOpen ? '▲' : '▼';
+  const total   = d.total || 0;
+  const oc      = d.outcomes || {};
+  const labels  = d.stat_labels || {};
+
+  // Sem dados ainda
+  if (total === 0) {
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                  cursor:pointer;user-select:none;background:var(--bg2)"
+           onclick="toggleStatsPattern()">
+        <span style="font-size:11px;font-weight:700;color:#34d399">📊 Padrões de Estatísticas</span>
+        <span style="font-size:10px;color:var(--text2)">Aguardando partidas com estatísticas salvas ▼</span>
+      </div>`;
+    return;
+  }
+
+  // Descobre quais chaves existem e são úteis (home + away)
+  const allKeys = new Set();
+  Object.values(oc).forEach(e => Object.keys(e).forEach(k => { if (k !== 'n') allKeys.add(k); }));
+
+  // Agrupa por stat base (sem _h/_a)
+  const statBases = [...new Set([...allKeys].map(k => k.replace(/_[ha]$/, '')))];
+
+  // Resultado → label + cor
+  const OC_META = {
+    casaV: { label: '🏠 Casa V.',   color: '#3b82f6' },
+    emp:   { label: '🤝 Empate',    color: '#94a3b8' },
+    visV:  { label: '✈️ Vis. V.',   color: '#ef4444' },
+    o25:   { label: '⬆️ Over 2.5',  color: '#22c55e' },
+    u25:   { label: '⬇️ Under 2.5', color: '#f59e0b' },
+    btts:  { label: '✅ BTS+',      color: '#a78bfa' },
+    nbtts: { label: '❌ BTS-',      color: '#6b7280' },
+  };
+
+  // Gera card por stat base
+  function statCard(base) {
+    const labelBase = labels[base] || base;
+    const hasHome = allKeys.has(base + '_h');
+    const hasAway = allKeys.has(base + '_a');
+
+    // Para posse: só home faz sentido (já é %)
+    const sides = base === 'ballPossession'
+      ? [{ key: base + '_h', label: 'Casa %' }]
+      : [
+          hasHome ? { key: base + '_h', label: 'Casa' } : null,
+          hasAway ? { key: base + '_a', label: 'Fora' } : null,
+        ].filter(Boolean);
+
+    if (!sides.length) return '';
+
+    const rows = ['casaV', 'emp', 'visV', 'o25', 'u25'].map(ocKey => {
+      const meta = OC_META[ocKey];
+      const n    = oc[ocKey]?.n || 0;
+      if (!n) return '';
+
+      const vals = sides.map(s => {
+        const v = oc[ocKey]?.[s.key];
+        return v != null ? { label: s.label, v } : null;
+      }).filter(Boolean);
+
+      if (!vals.length) return '';
+
+      // Max para normalizar barra
+      const maxV = Math.max(...['casaV','emp','visV','o25','u25']
+        .flatMap(ok => sides.map(s => oc[ok]?.[s.key] || 0)));
+
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span style="font-size:9px;color:${meta.color};min-width:68px;font-weight:600">${meta.label}</span>
+        ${vals.map(({ label, v }) => {
+          const pct = maxV > 0 ? Math.round(v / maxV * 100) : 0;
+          return `<div style="flex:1;display:flex;align-items:center;gap:4px">
+            ${sides.length > 1 ? `<span style="font-size:8px;color:var(--text2);min-width:22px">${label}</span>` : ''}
+            <div style="flex:1;height:5px;background:var(--bg);border-radius:3px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${meta.color};border-radius:3px;opacity:.85"></div>
+            </div>
+            <span style="font-size:10px;font-weight:700;color:${meta.color};min-width:30px;text-align:right">${v}</span>
+          </div>`;
+        }).join('')}
+        <span style="font-size:8px;color:#374151;min-width:26px;text-align:right">n=${n}</span>
+      </div>`;
+    }).join('');
+
+    if (!rows.replace(/\s/g,'')) return '';
+
+    return `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;
+                  padding:8px 10px;break-inside:avoid">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:6px">
+          ${labelBase}
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  const cards = statBases.map(statCard).filter(Boolean).join('');
+  const noCards = !cards.trim();
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                cursor:pointer;user-select:none;background:var(--bg2)"
+         onclick="toggleStatsPattern()">
+      <span style="font-size:11px;font-weight:700;color:#34d399">📊 Padrões de Estatísticas</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:var(--text2)">${total} partidas</span>
+        <span id="btSPToggleIcon" style="font-size:10px;color:var(--text2)">${icon}</span>
+      </span>
+    </div>
+    <div id="btSPContent" style="display:${display};padding:10px 12px;background:var(--bg2)">
+      ${noCards
+        ? `<div style="font-size:11px;color:var(--text2);padding:8px 0">
+             Dados insuficientes — aguardando partidas com estatísticas completas.
+           </div>`
+        : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">
+             ${cards}
+           </div>
+           <div style="font-size:9px;color:var(--text2);margin-top:8px">
+             Médias por resultado final · Barra normalizada pelo maior valor · Casa V./Emp./Vis. V./O 2.5/U 2.5
+           </div>`}
+    </div>`;
+}
+
+// ── CORRELAÇÃO DE ODDS DE ABERTURA ──────────────────────────────────────────
+let btOddsPatternOpen = true;
+
+async function loadOddsPatterns() {
+  const panel = document.getElementById('btOddsPatternPanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="padding:10px 12px;font-size:11px;color:var(--text2)">Carregando correlação de odds...</div>`;
+  try {
+    const r = await fetch('/api/momentum/odds-patterns');
+    if (!r.ok) throw new Error('no data');
+    renderOddsPatternPanel(await r.json());
+  } catch(e) {
+    panel.innerHTML = '';
+  }
+}
+
+function toggleOddsPattern() {
+  btOddsPatternOpen = !btOddsPatternOpen;
+  const c = document.getElementById('btOPContent');
+  const i = document.getElementById('btOPToggleIcon');
+  if (c) c.style.display = btOddsPatternOpen ? 'block' : 'none';
+  if (i) i.textContent = btOddsPatternOpen ? '▲' : '▼';
+}
+
+function renderOddsPatternPanel(d) {
+  const panel = document.getElementById('btOddsPatternPanel');
+  if (!panel) return;
+
+  const total   = d.total || 0;
+  const buckets = d.buckets || [];
+  const display = btOddsPatternOpen ? 'block' : 'none';
+  const icon    = btOddsPatternOpen ? '▲' : '▼';
+
+  if (total === 0 || !buckets.length) {
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                  cursor:pointer;user-select:none;background:var(--bg2)"
+           onclick="toggleOddsPattern()">
+        <span style="font-size:11px;font-weight:700;color:#f59e0b">📈 Correlação de Odds de Abertura</span>
+        <span style="font-size:10px;color:var(--text2)">Aguardando partidas com odds salvas ▼</span>
+      </div>`;
+    return;
+  }
+
+  // ── Tabela de correlação ──
+  const edgeColor = e => e > 0 ? '#22c55e' : e < 0 ? '#ef4444' : '#6b7280';
+  const edgeSign  = e => e > 0 ? `+${e}%` : `${e}%`;
+
+  // Barra de distribuição de resultados
+  function resultBar(cPct, ePct, vPct) {
+    return `<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:100%;gap:1px">
+      <div style="width:${cPct}%;background:#3b82f6;border-radius:3px 0 0 3px" title="Casa ${cPct}%"></div>
+      <div style="width:${ePct}%;background:#6b7280" title="Emp ${ePct}%"></div>
+      <div style="width:${vPct}%;background:#ef4444;border-radius:0 3px 3px 0" title="Vis ${vPct}%"></div>
+    </div>`;
+  }
+
+  const rows = buckets.map(b => {
+    const ehPos = b.edge_h > 0, ehNeg = b.edge_h < 0;
+    const exPos = b.edge_x > 0, exNeg = b.edge_x < 0;
+    const eaPos = b.edge_a > 0, eaNeg = b.edge_a < 0;
+    return `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 8px;font-size:11px;font-weight:700;color:#f59e0b;white-space:nowrap">${b.label}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:center;color:var(--text2)">${b.n}</td>
+
+        <!-- CASA -->
+        <td style="padding:6px 8px;text-align:center">
+          <div style="font-size:12px;font-weight:800;color:#3b82f6">${b.casaV_pct}%</div>
+          <div style="font-size:9px;color:#475569">(${b.imp_h}%)</div>
+        </td>
+        <td style="padding:6px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:2px 5px;border-radius:4px;
+                       background:${ehPos ? '#14532d' : ehNeg ? '#450a0a' : '#1f2937'};
+                       color:${edgeColor(b.edge_h)}">${edgeSign(b.edge_h)}</span>
+        </td>
+
+        <!-- EMPATE -->
+        <td style="padding:6px 8px;text-align:center">
+          <div style="font-size:12px;font-weight:800;color:#94a3b8">${b.emp_pct}%</div>
+          <div style="font-size:9px;color:#475569">(${b.imp_x}%)</div>
+        </td>
+        <td style="padding:6px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:2px 5px;border-radius:4px;
+                       background:${exPos ? '#14532d' : exNeg ? '#450a0a' : '#1f2937'};
+                       color:${edgeColor(b.edge_x)}">${edgeSign(b.edge_x)}</span>
+        </td>
+
+        <!-- VISITANTE -->
+        <td style="padding:6px 8px;text-align:center">
+          <div style="font-size:12px;font-weight:800;color:#ef4444">${b.visV_pct}%</div>
+          <div style="font-size:9px;color:#475569">(${b.imp_a}%)</div>
+        </td>
+        <td style="padding:6px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:2px 5px;border-radius:4px;
+                       background:${eaPos ? '#14532d' : eaNeg ? '#450a0a' : '#1f2937'};
+                       color:${edgeColor(b.edge_a)}">${edgeSign(b.edge_a)}</span>
+        </td>
+
+        <!-- O/U + barra -->
+        <td style="padding:6px 8px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#22c55e">${b.o25_pct}%</div>
+          <div style="font-size:9px;color:#f59e0b">${b.u25_pct}%</div>
+        </td>
+        <td style="padding:6px 12px;min-width:80px">
+          ${resultBar(b.casaV_pct, b.emp_pct, b.visV_pct)}
+          <div style="display:flex;justify-content:space-between;margin-top:2px">
+            <span style="font-size:8px;color:#3b82f6">${b.casaV}</span>
+            <span style="font-size:8px;color:#6b7280">${b.emp}</span>
+            <span style="font-size:8px;color:#ef4444">${b.visV}</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                cursor:pointer;user-select:none;background:var(--bg2)"
+         onclick="toggleOddsPattern()">
+      <span style="font-size:11px;font-weight:700;color:#f59e0b">📈 Correlação de Odds de Abertura</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:var(--text2)">${total} partidas com odds</span>
+        <span id="btOPToggleIcon" style="font-size:10px;color:var(--text2)">${icon}</span>
+      </span>
+    </div>
+    <div id="btOPContent" style="display:${display};padding:10px 12px;background:var(--bg2);overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:var(--bg3)">
+            <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--text2);font-weight:600;white-space:nowrap">Odd Casa</th>
+            <th style="padding:6px 8px;text-align:center;font-size:10px;color:var(--text2);font-weight:600">N</th>
+            <th colspan="2" style="padding:6px 8px;text-align:center;font-size:10px;color:#3b82f6;font-weight:700">🏠 Casa</th>
+            <th colspan="2" style="padding:6px 8px;text-align:center;font-size:10px;color:#94a3b8;font-weight:700">🤝 Empate</th>
+            <th colspan="2" style="padding:6px 8px;text-align:center;font-size:10px;color:#ef4444;font-weight:700">✈️ Vis.</th>
+            <th style="padding:6px 8px;text-align:center;font-size:10px;color:#22c55e;font-weight:700">O2.5 / U2.5</th>
+            <th style="padding:6px 8px;text-align:center;font-size:10px;color:var(--text2);font-weight:600">Dist.</th>
+          </tr>
+          <tr style="background:var(--bg3);border-bottom:1px solid var(--border)">
+            <th></th><th></th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Real</th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Edge</th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Real</th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Edge</th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Real</th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Edge</th>
+            <th></th><th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="font-size:9px;color:#475569;margin-top:8px;line-height:1.5">
+        <strong style="color:var(--text2)">Como ler:</strong>
+        Real% = resultado real · (Imp%) = probabilidade implícita da odd ·
+        <span style="color:#22c55e">Edge positivo</span> = mercado subestimou o resultado ·
+        <span style="color:#ef4444">Edge negativo</span> = mercado superestimou ·
+        Odd Casa = favorito (1.01) → azarão (>5.00)
+      </div>
+    </div>`;
+}
+
+// ── EDGE PANEL ───────────────────────────────────────────────────────────────
+
+function _updateEdgeTabBadge() {
+  const badge = document.getElementById('navEdgeCount');
+  if (!badge) return;
+  const count = allMatches.filter(m => _btEdgeCriteria.some(c => matchFitsCriteria(m, c))).length;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ── Edge Favoritos helpers ──
+function _edgeFavKey(m) { return `${m.casa}|${m.fora}`; }
+
+function _loadEdgeFavs() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = JSON.parse(localStorage.getItem(`edgeFavs_${today}`) || '[]');
+    _edgeFavs = new Set(raw);
+  } catch(e) { _edgeFavs = new Set(); }
+}
+
+function _saveEdgeFavs() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(`edgeFavs_${today}`, JSON.stringify([..._edgeFavs]));
+  } catch(e) {}
+}
+
+function _toggleEdgeFav(key) {
+  if (_edgeFavs.has(key)) _edgeFavs.delete(key);
+  else _edgeFavs.add(key);
+  _saveEdgeFavs();
+  renderEdgePanel();
+}
+
+function _toggleEdgeFavFilter() {
+  _edgeShowFavsOnly = !_edgeShowFavsOnly;
+  renderEdgePanel();
+}
+
+function matchFitsCriteria(m, c) {
+  const range = BT_RANGES[c.rangeIdx];
+  if (!range) return false;
+  let score;
+  if      (c.tab === 'casa') score = calcBtTeamScore(m, true);
+  else if (c.tab === 'fora') score = calcBtTeamScore(m, false);
+  else                       score = calcGoalScore(m);
+  return score != null && score >= range.min && score <= range.max;
+}
+
+function renderEdgePanel() {
+  const bar     = document.getElementById('edgeCriteriaBar');
+  const favBar  = document.getElementById('edgeFavBar');
+  const list    = document.getElementById('edgeMatchList');
+  if (!bar || !list) return;
+
+  // Carrega favoritos do localStorage
+  _loadEdgeFavs();
+
+  // ── Sem critérios carregados ──
+  if (!_btEdgeCriteria.length) {
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:700;color:#f59e0b">🎯 Edge</span>
+        <span style="font-size:10px;color:#4b5563">Abra o Backtest primeiro para calcular as metodologias positivas</span>
+      </div>`;
+    if (favBar) favBar.innerHTML = '';
+    list.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                  height:200px;gap:10px;color:var(--text2)">
+        <div style="font-size:32px">🔬</div>
+        <div style="font-size:13px;font-weight:600">Nenhuma metodologia carregada</div>
+        <div style="font-size:11px;text-align:center">
+          Vá em <strong>Backtest</strong>, selecione um período e aguarde as<br>
+          simulações calcularem. Volte aqui para ver os filtros.
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ── Criteria summary bar ──
+  const criteriaChips = _btEdgeCriteria.map(c => {
+    const profColor = c.profit >= 0 ? '#22c55e' : '#ef4444';
+    const profSign  = c.profit >= 0 ? '+' : '';
+    const scoreTypeLbl = c.scoreType === 'provavel'   ? ' (Provável)'
+                       : c.scoreType === 'improvavel' ? ' (Improvável)' : '';
+    const shortLbl  = c.scoreKey
+      ? `Placar ${c.scoreKey}${scoreTypeLbl}`
+      : c.marketKey === 'casaVence'      ? 'Casa Vence'
+      : c.marketKey === 'visitanteVence' ? 'Vis. Vence'
+      : c.marketKey === 'empate'         ? 'Empate'
+      : c.marketKey === 'over25'         ? 'Over 2.5'
+      : c.marketKey === 'under25'        ? 'Under 2.5'
+      : c.marketKey === 'bttsS'          ? 'BTS Sim'
+      : c.marketKey === 'bttsN'          ? 'BTS Não'
+      : c.marketKey || '?';
+    const rangeLabel = (BT_RANGES[c.rangeIdx] || {}).label || '?';
+    return `<div style="display:flex;align-items:center;gap:5px;background:var(--bg3);
+                border:1px solid #22c55e33;border-radius:6px;padding:4px 8px;flex-shrink:0">
+      <span style="font-size:9px;font-weight:700;color:#22c55e">✅</span>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text)">${shortLbl}</div>
+        <div style="font-size:8px;color:var(--text2)">Range ${rangeLabel} · <span style="color:${profColor}">${profSign}${c.profit.toFixed(1)}u</span> · @${c.simOdd.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas:</span>
+      ${criteriaChips}
+    </div>`;
+
+  // ── Filtra partidas de hoje ──
+  const allMatching = allMatches
+    .map(m => {
+      const fits = _btEdgeCriteria.filter(c => matchFitsCriteria(m, c));
+      return fits.length ? { m, fits } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.m.hora || '99:99').localeCompare(b.m.hora || '99:99'));
+
+  // ── Toolbar de favoritos ──
+  const favCount = allMatching.filter(({ m }) => _edgeFavs.has(_edgeFavKey(m))).length;
+  const favBtnActive = _edgeShowFavsOnly;
+  if (favBar) {
+    favBar.innerHTML = `
+      <button onclick="_toggleEdgeFavFilter()"
+        style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+               border:1px solid ${favBtnActive ? '#f59e0b' : 'var(--border)'};
+               background:${favBtnActive ? '#2d1f00' : 'var(--bg3)'};
+               color:${favBtnActive ? '#f59e0b' : 'var(--text2)'};cursor:pointer;font-size:11px;font-weight:600">
+        <span>${favBtnActive ? '⭐' : '☆'}</span>
+        <span>Só favoritos</span>
+        ${favCount > 0 ? `<span style="background:#f59e0b;color:#000;border-radius:8px;padding:0 5px;font-size:10px;font-weight:700">${favCount}</span>` : ''}
+      </button>
+      <span style="font-size:10px;color:#4b5563">${allMatching.length} partida${allMatching.length !== 1 ? 's' : ''} no Edge${favBtnActive ? ` · exibindo ${favCount} favorita${favCount !== 1 ? 's' : ''}` : ''}</span>`;
+  }
+
+  // Aplica filtro de favoritos se ativo
+  const matching = _edgeShowFavsOnly
+    ? allMatching.filter(({ m }) => _edgeFavs.has(_edgeFavKey(m)))
+    : allMatching;
+
+  if (!matching.length) {
+    list.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                  height:200px;gap:10px;color:var(--text2)">
+        <div style="font-size:32px">${_edgeShowFavsOnly ? '⭐' : '🔍'}</div>
+        <div style="font-size:13px;font-weight:600">${_edgeShowFavsOnly ? 'Nenhuma partida favoritada' : 'Nenhuma partida encontrada'}</div>
+        <div style="font-size:11px;text-align:center;color:#4b5563">
+          ${_edgeShowFavsOnly
+            ? 'Clique no ⭐ de uma partida para adicioná-la aos favoritos Edge'
+            : 'Nenhuma partida de hoje se encaixa nos critérios ativos'}
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Atualiza badge
+  const badge = document.getElementById('navEdgeCount');
+  if (badge) { badge.textContent = allMatching.length; badge.style.display = 'inline'; }
+
+  list.innerHTML = matching.map(({ m, fits }) => _renderEdgeCard(m, fits)).join('');
+}
+
+function _renderEdgeCard(m, fits) {
+  const hora   = m.hora || '—';
+  const scoreCasa = calcBtTeamScore(m, true);
+  const scoreFora = calcBtTeamScore(m, false);
+  const scoreGols = calcGoalScore(m);
+  const favKey    = _edgeFavKey(m);
+  const isFav     = _edgeFavs.has(favKey);
+
+  // Badges de metodologia que batem
+  const methodBadges = fits.map(c => {
+    const stIcon = c.scoreType === 'provavel'   ? '🟢'
+                 : c.scoreType === 'improvavel' ? '🟡' : '';
+    const stLbl  = c.scoreType === 'provavel'   ? ' Provável'
+                 : c.scoreType === 'improvavel' ? ' Improvável' : '';
+    const shortMkt = c.scoreKey
+      ? `${stIcon} Placar ${c.scoreKey}${stLbl}`
+      : c.marketKey === 'casaVence'      ? '🏠 Casa Vence'
+      : c.marketKey === 'visitanteVence' ? '✈️ Vis. Vence'
+      : c.marketKey === 'empate'         ? '🤝 Empate'
+      : c.marketKey === 'over25'         ? '⬆️ Over 2.5'
+      : c.marketKey === 'under25'        ? '⬇️ Under 2.5'
+      : c.marketKey === 'bttsS'          ? '✅ BTS+'
+      : c.marketKey === 'bttsN'          ? '❌ BTS-'
+      : c.marketKey || '?';
+    const rangeLabel = (BT_RANGES[c.rangeIdx] || {}).label || '?';
+    const profSign   = c.profit >= 0 ? '+' : '';
+    const roiSign    = c.roi >= 0 ? '+' : '';
+    return `<div style="display:inline-flex;align-items:center;gap:4px;
+                background:#0d2d0d;border:1px solid #22c55e55;border-radius:5px;
+                padding:3px 7px;margin:2px">
+      <span style="font-size:10px;font-weight:700;color:#22c55e">${shortMkt}</span>
+      <span style="font-size:8px;color:#4b5563">·</span>
+      <span style="font-size:9px;color:#475569">range ${rangeLabel}</span>
+      <span style="font-size:8px;color:#4b5563">·</span>
+      <span style="font-size:9px;font-weight:700;color:#22c55e">${profSign}${c.profit.toFixed(1)}u</span>
+      <span style="font-size:9px;color:#475569">ROI ${roiSign}${c.roi.toFixed(0)}%</span>
+      <span style="font-size:9px;color:#f59e0b">@${c.simOdd.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+
+  // Scores
+  const scoreBar = [
+    scoreCasa != null ? `<span style="font-size:9px;color:#60a5fa">Casa <b>${scoreCasa}</b></span>` : '',
+    scoreFora != null ? `<span style="font-size:9px;color:#f87171">Vis <b>${scoreFora}</b></span>`  : '',
+    scoreGols != null ? `<span style="font-size:9px;color:#a3e635">Gols <b>${scoreGols}</b></span>` : '',
+  ].filter(Boolean).join('<span style="color:#374151;margin:0 4px">·</span>');
+
+  return `
+    <div style="background:var(--bg2);border:1px solid ${isFav ? '#f59e0b55' : '#22c55e33'};border-radius:8px;
+                padding:10px 12px;margin-bottom:8px;border-left:3px solid ${isFav ? '#f59e0b' : '#22c55e'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${m.casa}</span>
+          <span style="font-size:10px;color:var(--text2)">×</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${m.fora}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:9px;color:var(--text2)">${hora}</span>
+          <button onclick="_toggleEdgeFav('${favKey.replace(/'/g, "\\'")}');event.stopPropagation()"
+            title="${isFav ? 'Remover dos favoritos Edge' : 'Adicionar aos favoritos Edge'}"
+            style="background:${isFav ? '#2d1f00' : 'transparent'};border:1px solid ${isFav ? '#f59e0b' : 'var(--border)'};
+                   border-radius:5px;padding:2px 6px;cursor:pointer;font-size:13px;
+                   color:${isFav ? '#f59e0b' : '#4b5563'};line-height:1;transition:all .15s">
+            ${isFav ? '⭐' : '☆'}
+          </button>
+        </div>
+      </div>
+      <div style="font-size:9px;color:#4b5563;margin-bottom:4px">${m.liga || '—'}</div>
+      <div style="margin-bottom:5px">${methodBadges}</div>
+      <div style="display:flex;gap:8px">${scoreBar}</div>
     </div>`;
 }
 
@@ -3056,7 +3800,9 @@ function renderAllCombined(allByDate, header, matchList) {
           <span style="color:var(--text2)">📅 ${formatDate(date)}</span>
           ${acuracia != null ? `<span style="color:${aCor};font-size:11px">${acuracia}% acurácia · ${matches.length}j</span>` : `<span style="color:var(--text2)">${matches.length} jogos</span>`}
         </div>
-        ${matches.map(m => renderBtMatchRow(m)).join('')}`;
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+          ${matches.map(m => renderBtMatchRow(m)).join('')}
+        </div>`;
     }).join('');
   renderBtMarketsPanel(allByDate.flatMap(d => d.matches));
   showBtMatchListToggle();
@@ -3134,7 +3880,7 @@ function applyMomentoFilter() {
     renderBtMarketsPanel([]);
     return;
   }
-  matchList.innerHTML = filtered.map(m => renderBtMatchRow(m)).join('');
+  matchList.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">${filtered.map(m => renderBtMatchRow(m)).join('')}</div>`;
   renderBtMarketsPanel(filtered);
   showBtMatchListToggle();
 }
@@ -3173,7 +3919,7 @@ function renderBacktestMatches(data, header, matchList) {
     renderBtMarketsPanel([]);
     return;
   }
-  matchList.innerHTML = matches.map(m => renderBtMatchRow(m)).join('');
+  matchList.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">${matches.map(m => renderBtMatchRow(m)).join('')}</div>`;
   renderBtMarketsPanel(matches);
   showBtMatchListToggle();
 }
@@ -3186,6 +3932,18 @@ function toggleBtMarkets() {
   const icon    = document.getElementById('btMarketsToggleIcon');
   if (content) content.style.display = btMarketsOpen ? 'block' : 'none';
   if (icon)    icon.textContent = btMarketsOpen ? '▲' : '▼';
+  // Re-desenha gráficos ao abrir (canvas pode ter largura 0 quando oculto)
+  if (btMarketsOpen) {
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('btMarketsPanel');
+      if (panel && panel._lastSimMkt)
+        _drawBankChart('bankChartMkt',    panel._lastSimMkt.bankHistory,   panel._lastSimMkt.fairOdd);
+      if (panel && panel._lastSimCS)
+        _drawBankChart('bankChartCS',     panel._lastSimCS.bankHistory,    panel._lastSimCS.fairOdd);
+      if (panel && panel._lastSimCSImp)
+        _drawBankChart('bankChartCSImp',  panel._lastSimCSImp.bankHistory, panel._lastSimCSImp.fairOdd);
+    });
+  }
 }
 
 function setBtMarketsTab(tab) {
@@ -3195,6 +3953,258 @@ function setBtMarketsTab(tab) {
 }
 
 const BT_SCORE_LIST = ['0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3','2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3'];
+
+// ── Simulação de Banca ────────────────────────────────────────────────────
+
+function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertScore = false) {
+  const BANK = 100, STAKE = 1;
+  const getDim = tab === 'casa' ? m => calcBtTeamScore(m, true)
+               : tab === 'fora' ? m => calcBtTeamScore(m, false)
+               : m => calcGoalScore(m);
+  const range = BT_RANGES[rangeIdx];
+  const wr = matches.filter(m => m.resultado && m.resultado.includes(':'));
+  const filtered = wr.filter(m => { const v = getDim(m); return v != null && v >= range.min && v <= range.max; });
+  if (filtered.length < 5) return null;
+
+  // Determina taxa e função de resultado
+  let rate, outcomeCheck;
+  if (scoreKey) {
+    const cnt = filtered.filter(m => {
+      const [gc,gf] = m.resultado.split(':').map(v => parseInt(v)||0);
+      return `${gc}-${gf}` === scoreKey;
+    }).length;
+    const baseRate = cnt / filtered.length * 100;
+    // Invertido: aposta que o placar NÃO vai acontecer (complemento)
+    rate = invertScore ? (100 - baseRate) : baseRate;
+    outcomeCheck = m => {
+      const [gc,gf] = m.resultado.split(':').map(v=>parseInt(v)||0);
+      const hit = `${gc}-${gf}` === scoreKey;
+      return invertScore ? !hit : hit;
+    };
+  } else {
+    const stats = _mktStats(filtered);
+    rate = stats.mkt[marketKey] || 0;
+    outcomeCheck = m => {
+      const [gc,gf] = m.resultado.split(':').map(v=>parseInt(v)||0);
+      const [hc,hf] = (m.ht_score||'').split(':').map(v=>parseInt(v)||0);
+      if (marketKey === 'casaVence')      return gc > gf;
+      if (marketKey === 'visitanteVence') return gf > gc;
+      if (marketKey === 'empate')         return gc === gf;
+      if (marketKey === 'over25')         return gc+gf >= 3;
+      if (marketKey === 'under25')        return gc+gf < 3;
+      if (marketKey === 'bttsS')          return gc > 0 && gf > 0;
+      if (marketKey === 'bttsN')          return !(gc > 0 && gf > 0);
+      if (marketKey === 'over05HT')       { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf > 0; }
+      if (marketKey === 'under05HT')      { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf === 0; }
+      return false;
+    };
+  }
+  if (rate <= 0) return null;
+
+  const fairOdd = 100 / rate;
+  const simOdd  = Math.round((fairOdd + 0.10) * 100) / 100;  // +10 ticks acima da justa
+
+  // Simula a banca usando simOdd como payout
+  let bank = BANK;
+  let wins = 0, losses = 0, skipped = 0;
+  let peak = BANK, maxDD = 0;
+  const bankHistory = [BANK];
+
+  for (const m of filtered) {
+    const won = outcomeCheck(m);
+    if (won === null) { skipped++; continue; }
+    if (won) { bank += STAKE * (simOdd - 1); wins++; }
+    else      { bank -= STAKE; losses++; }
+    if (bank > peak) peak = bank;
+    const dd = peak > 0 ? (peak - bank) / peak * 100 : 0;
+    if (dd > maxDD) maxDD = dd;
+    bankHistory.push(Math.round(bank * 100) / 100);
+    if (bank <= 0) break;
+  }
+
+  const total   = wins + losses;
+  const winrate = total > 0 ? wins / total * 100 : 0;
+  const profit  = bank - BANK;
+  const roi     = total > 0 ? profit / (total * STAKE) * 100 : 0;
+
+  // Kelly criterion usando simOdd
+  const p = winrate / 100, q = 1 - p, b = simOdd - 1;
+  const kellyFrac = b > 0 ? Math.max(0, (p * b - q) / b) : 0;
+  const kellStake = kellyFrac * BANK;
+
+  // Risco de ruína — Monte Carlo usando simOdd
+  const rorPct = _calcRoR(p, simOdd, BANK / STAKE);
+
+  // Desvio Padrão por aposta: σ = √(p·q) · simOdd
+  // Para aposta binária com ganho (simOdd-1) e perda -1:
+  //   Var = p·q·simOdd²  →  σ = √(p·q)·simOdd
+  const stdDev = Math.sqrt(p * q) * simOdd;
+
+  // Lucro médio esperado por aposta (= roi / 100)
+  const meanBet = p * (simOdd - 1) - q;
+
+  // Coeficiente de Variação = σ / |μ|  (ratio, não percentual — evita valores absurdos)
+  const cvRatio = meanBet > 0 ? stdDev / meanBet : null;
+
+  return { total, wins, losses, winrate, profit, roi, maxDD,
+           fairOdd, simOdd, rate, bank, kellyFrac, kellStake, rorPct,
+           stdDev, cvRatio,
+           bankHistory, rangeLabel: range.label, marketKey, scoreKey };
+}
+
+function _calcRoR(p, fairOdd, bankUnits) {
+  const ev = p * (fairOdd - 1) - (1 - p);
+  if (ev <= 0) return 100;
+  const SIMS = 600, BETS = 1000;
+  let ruined = 0;
+  const netW = fairOdd - 1;
+  for (let s = 0; s < SIMS; s++) {
+    let b = bankUnits;
+    for (let i = 0; i < BETS && b > 0; i++) {
+      b += Math.random() < p ? netW : -1;
+    }
+    if (b <= 0) ruined++;
+  }
+  return Math.round(ruined / SIMS * 100);
+}
+
+function _drawBankChart(canvasId, bankHistory, fairOdd) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !bankHistory || bankHistory.length < 2) return;
+  const W = canvas.offsetWidth || 300, H = canvas.height || 80;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const PAD = { t: 6, b: 16, l: 36, r: 8 };
+  const iW = W - PAD.l - PAD.r, iH = H - PAD.t - PAD.b;
+  const n  = bankHistory.length;
+  const mn = Math.min(...bankHistory), mx = Math.max(...bankHistory);
+  const range = mx - mn || 1;
+  const toX = i => PAD.l + (i / (n - 1)) * iW;
+  const toY = v => PAD.t + (1 - (v - mn) / range) * iH;
+
+  // Zona verde/vermelha vs break-even
+  const base = 100;
+  const baseY = toY(Math.max(mn, Math.min(mx, base)));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(bankHistory[0]));
+  bankHistory.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(n - 1), H - PAD.b);
+  ctx.lineTo(toX(0), H - PAD.b);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  const lastProfit = bankHistory[bankHistory.length - 1] >= base;
+  grad.addColorStop(0,   lastProfit ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)');
+  grad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  // Linha break-even
+  ctx.save();
+  ctx.strokeStyle = '#374151';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(PAD.l, baseY);
+  ctx.lineTo(W - PAD.r, baseY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Linha da banca
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(bankHistory[0]));
+  bankHistory.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = lastProfit ? '#22c55e' : '#ef4444';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // Ponto final
+  const lastX = toX(n - 1), lastY = toY(bankHistory[n - 1]);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = lastProfit ? '#22c55e' : '#ef4444';
+  ctx.fill();
+  ctx.restore();
+
+  // Labels eixo Y
+  ctx.save();
+  ctx.font = '8px system-ui';
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'right';
+  [mn, base, mx].forEach(v => {
+    const y = toY(v);
+    if (y >= PAD.t && y <= H - PAD.b - 4)
+      ctx.fillText(v.toFixed(0), PAD.l - 3, y + 3);
+  });
+  ctx.restore();
+}
+
+function renderBankSimSection(sim, label, simId) {
+  if (!sim) return `<div style="font-size:10px;color:#4b5563;padding:8px 0">Dados insuficientes (min. 5 partidas)</div>`;
+  const p = s => sim[s] > 0 ? '+' + sim[s].toFixed(2) : sim[s].toFixed(2);
+  const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
+  const proC = sim.profit >= 0 ? '#22c55e' : '#ef4444';
+  const ddC  = sim.maxDD > 30 ? '#ef4444' : sim.maxDD > 15 ? '#f59e0b' : '#22c55e';
+  const rorC = sim.rorPct > 30 ? '#ef4444' : sim.rorPct > 10 ? '#f59e0b' : '#22c55e';
+
+  // Desvio padrão — quanto maior a odd, maior a volatilidade
+  const sdC  = sim.stdDev < 0.5 ? '#22c55e' : sim.stdDev < 2.0 ? '#f59e0b' : '#ef4444';
+
+  // CV (σ/μ): mede consistência relativa — menor = mais consistente
+  // < 5x = baixa variância (verde), 5-20x = média (âmbar), > 20x = alta (vermelho)
+  const cvC  = !sim.cvRatio      ? '#6b7280'
+             : sim.cvRatio < 5   ? '#22c55e'
+             : sim.cvRatio < 20  ? '#f59e0b' : '#ef4444';
+  const cvLbl = !sim.cvRatio      ? '—'
+              : sim.cvRatio < 5   ? sim.cvRatio.toFixed(1) + 'x · Baixa'
+              : sim.cvRatio < 20  ? sim.cvRatio.toFixed(1) + 'x · Média'
+              : sim.cvRatio.toFixed(1) + 'x · Alta';
+
+  const cards = [
+    { l: 'Winrate',       v: sim.winrate.toFixed(1) + '%',                                       c: sim.winrate >= 50 ? '#22c55e' : '#ef4444' },
+    { l: 'Apostas',       v: sim.total + ' (' + sim.wins + 'G/' + sim.losses + 'P)',             c: '#94a3b8' },
+    { l: 'Profit (u)',    v: pn(sim.profit, 2),                                                   c: proC },
+    { l: 'ROI',           v: pn(sim.roi, 1) + '%',                                               c: proC },
+    { l: 'Max Drawdown',  v: sim.maxDD.toFixed(1) + '%',                                         c: ddC },
+    { l: 'Risco Ruína',   v: sim.rorPct === 0 ? '<1%' : sim.rorPct + '%',                        c: rorC },
+    { l: 'Odd Justa',     v: '@' + sim.fairOdd.toFixed(2),                                       c: '#f59e0b' },
+    { l: 'Odd Simulada',  v: '@' + sim.simOdd.toFixed(2) + ' (+0.10)',                           c: '#34d399' },
+    { l: 'Kelly Stake',   v: 'R$' + sim.kellStake.toFixed(2) + ' (' + (sim.kellyFrac*100).toFixed(1) + '%)', c: '#a78bfa' },
+    { l: 'Desvio Padrão', v: sim.stdDev.toFixed(2) + 'u/aposta',                                c: sdC,  title: 'Volatilidade por aposta — quanto a banca oscila em cada entrada' },
+    { l: 'Coef. Variação',v: cvLbl,                                                               c: cvC,  title: 'σ / lucro médio — mede consistência: menor = método mais estável' },
+  ];
+
+  const cardsH = cards.map(c => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 6px;text-align:center"
+         ${c.title ? `title="${c.title}"` : ''}>
+      <div style="font-size:8px;color:var(--text2);margin-bottom:1px">${c.l}</div>
+      <div style="font-size:11px;font-weight:700;color:${c.c}">${c.v}</div>
+    </div>`).join('');
+
+  const noteC = sim.profit >= 0
+    ? `<span style="color:#22c55e">✅ Edge positivo</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`
+    : `<span style="color:#ef4444">❌ Sem edge</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`;
+
+  return `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--text)">${label}</div>
+        <div style="font-size:8px;color:#4b5563">${sim.rangeLabel} · ${sim.total} apostas · banca R$100 · stake R$1</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:8px">${cardsH}</div>
+      <canvas id="${simId}" height="80"
+              style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:6px"></canvas>
+      <div style="font-size:9px;color:var(--text2)">${noteC}</div>
+    </div>`;
+}
 
 const BT_RANGES = [
   { label: '< 40',   min: 0,  max: 39  },
@@ -3220,7 +4230,6 @@ function _mktStats(subset) {
   if (!n) return { n: 0, htN: 0, mkt: {}, scores: {} };
   let cv=0, vv=0, emp=0, o25=0, u25=0, bs=0, bn=0, o05=0, u05=0, htN=0;
   const scores = {};
-  BT_SCORE_LIST.forEach(s => scores[s] = 0);
   for (const m of subset) {
     const [gc, gf] = m.resultado.split(':').map(v => parseInt(v)||0);
     if (gc > gf) cv++; else if (gf > gc) vv++; else emp++;
@@ -3232,7 +4241,7 @@ function _mktStats(subset) {
       htN++;
     }
     const ek = `${gc}-${gf}`;
-    if (Object.prototype.hasOwnProperty.call(scores, ek)) scores[ek]++;
+    scores[ek] = (scores[ek] || 0) + 1;
   }
   function p(v,t){ return t > 0 ? Math.round(v/t*100) : null; }
   return {
@@ -3349,9 +4358,10 @@ function renderBtMarketsPanel(matches) {
   ).join('');
 
   // maior valor geral em toda a tabela → 1 coroa só nessa célula
+  // (ignora ranges com < 5 partidas para garantir que a simulação de banca possa rodar)
   let globalMax = -1, globalMaxRi = -1, globalMaxMk = null;
   data.forEach((r, ri) => {
-    if (!r.n) return;
+    if (!r.n || r.n < 5) return;
     BT_MKTS.forEach(mk => {
       const v = r.mkt[mk.key];
       if (v != null && v > globalMax) { globalMax = v; globalMaxRi = ri; globalMaxMk = mk.key; }
@@ -3365,9 +4375,11 @@ function renderBtMarketsPanel(matches) {
     const col   = abs < 4 ? 'var(--text)' : delta > 0 ? '#22c55e' : '#ef4444';
     const arrow = abs < 4 ? '' : delta > 0 ? '↑' : '↓';
     const diffStr = delta === 0 ? '0' : (delta > 0 ? '+' : '') + delta;
+    const fairOdd = isCrown && val > 0 ? (100 / val).toFixed(2) : null;
     return `<td style="text-align:center;padding:4px 3px;border-left:1px solid var(--border)">
       <span style="font-size:11px;font-weight:700;color:${col}">${val}%${arrow}${isCrown ? ' 👑' : ''}</span><br>
       <span style="font-size:9px;color:${col};opacity:.85">${diffStr}pp</span>
+      ${fairOdd ? `<br><span style="font-size:9px;font-weight:700;color:#f59e0b;background:#f59e0b18;border-radius:3px;padding:0 3px">@${fairOdd}</span>` : ''}
     </td>`;
   }
 
@@ -3411,23 +4423,158 @@ function renderBtMarketsPanel(matches) {
       ↑↓ diferença vs. base geral &nbsp;·&nbsp; verde &gt;+4pp &nbsp;·&nbsp; vermelho &gt;−4pp
     </div>`;
 
-  // ── placares por range ──
-  function scoreGrid(rd) {
-    return BT_SCORE_LIST.map(sk => {
-      const cnt  = rd.scores[sk] || 0;
-      const p    = rd.n > 0 ? Math.round(cnt/rd.n*100) : 0;
-      const bp   = base.n > 0 ? Math.round((base.scores[sk]||0)/base.n*100) : 0;
-      const d    = p - bp;
-      const col  = Math.abs(d) <= 1 ? 'var(--text2)' : d > 0 ? '#22c55e' : '#ef4444';
-      const bg   = p >= 10 ? '#0d2d0d' : p >= 5 ? '#2a1f00' : 'var(--bg3)';
-      return `<div style="background:${bg};border:1px solid var(--border);border-radius:4px;
-                          padding:4px 2px;text-align:center"
-                   title="${cnt}j — ${sk.replace('-',':')}${d!==0?` (${d>0?'+':''}${d}pp vs base)`:''}">
-        <div style="font-size:10px;font-weight:700;color:${col}">${sk}</div>
-        <div style="font-size:10px;color:${col}">${p>0?p+'%':'—'}</div>
-        <div style="font-size:9px;color:var(--text2)">${cnt}j</div>
-      </div>`;
+  // ── tabela de placar correto por range — split prováveis / improváveis ──
+
+  // Classifica cada score pela frequência base
+  const _csBaseFreq = sk => base.n > 0 ? Math.round((base.scores[sk]||0)/base.n*100) : 0;
+  const csProvaveis   = BT_SCORE_LIST.filter(sk => _csBaseFreq(sk) >= 4);
+  const csImprovaveis = BT_SCORE_LIST.filter(sk => { const f=_csBaseFreq(sk); return f > 0 && f < 4; });
+
+  // Coroa independente para cada grupo
+  // (ignora ranges com < 5 partidas para garantir que a simulação de banca possa rodar)
+  function _csFindMax(list) {
+    const mx = { val: -1, ri: -1, sk: null };
+    data.forEach((r, ri) => {
+      if (!r.n || r.n < 5) return;
+      list.forEach(sk => {
+        const v = r.n > 0 ? Math.round((r.scores[sk]||0)/r.n*100) : 0;
+        if (v > mx.val) { mx.val = v; mx.ri = ri; mx.sk = sk; }
+      });
+    });
+    return mx;
+  }
+  const csGlobalMax    = _csFindMax(csProvaveis);
+  const csGlobalMaxImp = _csFindMax(csImprovaveis);
+
+  // Constrói uma sub-tabela para qualquer lista de scores + coroa
+  function _buildCsTable(list, crown) {
+    if (!list.length) return '';
+
+    const thCols = list.map(sk =>
+      `<th style="font-size:9px;padding:3px 2px;color:var(--text2);white-space:nowrap;text-align:center;
+                  border-left:1px solid var(--border)">${sk}</th>`
+    ).join('');
+
+    const dataRows = data.map((r, i) => {
+      const bg = i%2===0 ? 'var(--bg3)' : 'var(--bg2)';
+      const cells = list.map(sk => {
+        const cnt  = r.scores[sk] || 0;
+        const val  = r.n > 0 ? Math.round(cnt/r.n*100) : null;
+        const bVal = _csBaseFreq(sk);
+        if (val == null || (val === 0 && cnt === 0))
+          return `<td style="text-align:center;border-left:1px solid var(--border)">
+            <span style="font-size:9px;color:#374151">—</span></td>`;
+        const delta   = val - bVal;
+        const col     = Math.abs(delta) < 2 ? 'var(--text)' : delta > 0 ? '#22c55e' : '#ef4444';
+        const arrow   = Math.abs(delta) < 2 ? '' : delta > 0 ? '↑' : '↓';
+        const diff    = delta === 0 ? '' : (delta > 0 ? '+' : '') + delta + 'pp';
+        const isCrown = i === crown.ri && sk === crown.sk;
+        const fairOdd = isCrown && val > 0 ? (100/val).toFixed(2) : null;
+        const simOdd  = fairOdd ? (Math.round((parseFloat(fairOdd) + 0.10) * 100) / 100).toFixed(2) : null;
+        return `<td style="text-align:center;padding:3px 2px;border-left:1px solid var(--border)${isCrown ? ';background:#1a1400' : ''}">
+          <span style="font-size:10px;font-weight:700;color:${col}">${val>0?val+'%':'—'}${arrow}${isCrown?' 👑':''}</span>
+          ${diff ? `<br><span style="font-size:8px;color:${col};opacity:.8">${diff}</span>` : ''}
+          ${fairOdd ? `<br><span style="font-size:8px;font-weight:700;color:#f59e0b;background:#f59e0b18;border-radius:3px;padding:0 2px">justa @${fairOdd}</span>` : ''}
+          ${simOdd  ? `<br><span style="font-size:8px;font-weight:700;color:#22c55e;background:#22c55e18;border-radius:3px;padding:0 2px">sim @${simOdd}</span>` : ''}
+        </td>`;
+      }).join('');
+      return `<tr style="background:${bg}">
+        <td style="padding:4px 7px;white-space:nowrap;min-width:52px">
+          <div style="font-size:11px;font-weight:700;color:var(--text)">${r.label}</div>
+          <div style="font-size:9px;color:var(--text2)">${r.n}j</div>
+        </td>${cells}
+      </tr>`;
     }).join('');
+
+    const baseCells = list.map(sk => {
+      const v = _csBaseFreq(sk);
+      return `<td style="text-align:center;padding:3px 2px;border-left:1px solid var(--border)">
+        <span style="font-size:9px;color:var(--text2)">${v>0?v+'%':'—'}</span></td>`;
+    }).join('');
+
+    return `
+      <div style="overflow-x:auto;margin-bottom:6px">
+        <table style="border-collapse:collapse;font-size:11px;border:1px solid var(--border);min-width:max-content">
+          <thead>
+            <tr style="background:var(--bg)">
+              <th style="padding:4px 7px;font-size:9px;color:var(--text2);text-align:left">Range</th>
+              ${thCols}
+            </tr>
+          </thead>
+          <tbody>${dataRows}</tbody>
+          <tfoot>
+            <tr style="background:var(--bg);border-top:2px solid var(--border)">
+              <td style="padding:4px 7px;font-size:9px;color:var(--text2);font-style:italic">Base</td>
+              ${baseCells}
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+  }
+
+  const csTableHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;
+                letter-spacing:.4px;margin:0 0 6px">🎯 Placar Correto por Range</div>
+    ${_buildCsTable(csProvaveis, csGlobalMax)}
+    <div style="font-size:9px;color:var(--text2);margin-top:4px">
+      ↑↓ diferença vs. base geral &nbsp;·&nbsp; verde &gt;+2pp &nbsp;·&nbsp; vermelho &gt;−2pp
+    </div>`;
+
+  const csTableImpHTML = csImprovaveis.length ? `
+    <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;
+                letter-spacing:.4px;margin:0 0 6px">⚠️ Improváveis por Range
+      <span style="font-size:9px;font-weight:400;text-transform:none">(base &lt; 4% · back no placar)</span>
+    </div>
+    ${_buildCsTable(csImprovaveis, csGlobalMaxImp)}
+    <div style="font-size:9px;color:var(--text2);margin-top:4px">
+      ↑↓ diferença vs. base geral &nbsp;·&nbsp; verde &gt;+2pp &nbsp;·&nbsp; vermelho &gt;−2pp
+    </div>` : '';
+
+  // ── placares por range ──
+  function scoreCell(sk, cnt, n, baseScores, baseN, dimmed) {
+    const p   = n > 0 ? Math.round(cnt/n*100) : 0;
+    const bp  = baseN > 0 ? Math.round((baseScores[sk]||0)/baseN*100) : 0;
+    const d   = p - bp;
+    const col = dimmed ? '#4b5563'
+              : Math.abs(d) <= 1 ? 'var(--text2)' : d > 0 ? '#22c55e' : '#ef4444';
+    const bg  = dimmed ? 'var(--bg)'
+              : p >= 10 ? '#0d2d0d' : p >= 5 ? '#2a1f00' : 'var(--bg3)';
+    return `<div style="background:${bg};border:1px solid ${dimmed?'#1f2937':'var(--border)'};
+                        border-radius:4px;padding:4px 2px;text-align:center"
+                 title="${cnt}j — ${sk}${d!==0&&!dimmed?` (${d>0?'+':''}${d}pp vs base)`:''}">
+      <div style="font-size:10px;font-weight:700;color:${col}">${sk}</div>
+      <div style="font-size:10px;color:${col}">${p>0?p+'%':'—'}</div>
+      <div style="font-size:9px;color:${dimmed?'#374151':'var(--text2)'}">${cnt}j</div>
+    </div>`;
+  }
+
+  function scoreGrid(rd) {
+    // Grid padrão 4×4 (0-0 até 3-3)
+    const mainGrid = BT_SCORE_LIST.map(sk =>
+      scoreCell(sk, rd.scores[sk]||0, rd.n, base.scores, base.n, false)
+    ).join('');
+
+    // Improváveis: scores do BT_SCORE_LIST com baixa frequência (< 4%)
+    const extras = BT_SCORE_LIST
+      .map(sk => [sk, rd.scores[sk] || 0])
+      .filter(([sk, cnt]) => {
+        const p = rd.n > 0 ? cnt / rd.n * 100 : 0;
+        return p > 0 && p < 4;
+      })
+      .sort((a, b) => b[1] - a[1]);
+
+    const impHtml = extras.length ? `
+      <div style="grid-column:1/-1;margin-top:6px;padding-top:6px;border-top:1px solid #1f2937">
+        <div style="font-size:8px;font-weight:700;color:#4b5563;letter-spacing:.5px;
+                    text-transform:uppercase;margin-bottom:4px">Improváveis</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">
+          ${extras.map(([sk, cnt]) =>
+            scoreCell(sk, cnt, rd.n, base.scores, base.n, false)
+          ).join('')}
+        </div>
+      </div>` : '';
+
+    return mainGrid + impHtml;
   }
 
   const placaresHTML = data.map(r => {
@@ -3443,6 +4590,51 @@ function renderBtMarketsPanel(matches) {
     </div>`;
   }).join('');
 
+  // ── Simulações de Banca ──────────────────────────────────────────────
+  const mktLabel    = (BT_MKTS.find(m => m.key === globalMaxMk) || {}).label || globalMaxMk;
+  const simMkt      = btBankSimulation(matches, btMarketsTab, globalMaxRi, globalMaxMk, null);
+  const simCS       = csGlobalMax.sk
+    ? btBankSimulation(matches, btMarketsTab, csGlobalMax.ri, null, csGlobalMax.sk) : null;
+  const simCSImp    = csGlobalMaxImp.sk
+    ? btBankSimulation(matches, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk) : null;
+  panel._lastSimMkt    = simMkt;
+  panel._lastSimCS     = simCS;
+  panel._lastSimCSImp  = simCSImp;
+
+  const simMktLbl = `👑 Mercado — ${mktLabel} (range ${data[globalMaxRi]?.label || '?'}) · ${globalMax}%`;
+  const simCSLbl  = csGlobalMax.sk
+    ? `👑 Placar — ${csGlobalMax.sk} (range ${data[csGlobalMax.ri]?.label || '?'}) · ${csGlobalMax.val}%` : '';
+  const simCSImpLbl = csGlobalMaxImp.sk
+    ? `⚠️ Placar Improvável — ${csGlobalMaxImp.sk} (range ${data[csGlobalMaxImp.ri]?.label || '?'}) · ${csGlobalMaxImp.val.toFixed(1)}%` : '';
+
+  // ── Atualiza critérios globais de edge (positivos) ──
+  _btEdgeCriteria = [];
+  const _addEdge = (sim, tab, ri, mk, sk, lbl, scoreType, invert) => {
+    if (sim && sim.profit >= 0) {
+      _btEdgeCriteria.push({ label: lbl, tab, rangeIdx: ri, marketKey: mk, scoreKey: sk,
+                             scoreType: scoreType || null, invert: !!invert,
+                             profit: sim.profit, roi: sim.roi, winrate: sim.winrate,
+                             fairOdd: sim.fairOdd, simOdd: sim.simOdd });
+    }
+  };
+  _addEdge(simMkt,   btMarketsTab, globalMaxRi,       globalMaxMk,     null,              simMktLbl,    null);
+  _addEdge(simCS,    btMarketsTab, csGlobalMax.ri,     null,            csGlobalMax.sk,    simCSLbl,     'provavel');
+  _addEdge(simCSImp, btMarketsTab, csGlobalMaxImp.ri,  null,            csGlobalMaxImp.sk, simCSImpLbl,  'improvavel');
+  _updateEdgeTabBadge();
+
+  const simHTML = `
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca</span>
+        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;align-items:start">
+        ${renderBankSimSection(simMkt,   simMktLbl,   'bankChartMkt')}
+        ${simCS    ? renderBankSimSection(simCS,    simCSLbl,    'bankChartCS')    : ''}
+        ${simCSImp ? renderBankSimSection(simCSImp, simCSImpLbl, 'bankChartCSImp') : ''}
+      </div>
+    </div>`;
+
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
                 cursor:pointer;user-select:none;background:var(--bg2)"
@@ -3455,12 +4647,31 @@ function renderBtMarketsPanel(matches) {
     </div>
     <div id="btMarketsContent" style="display:${display};padding:10px 12px;background:var(--bg2)">
       <div style="display:flex;gap:6px;margin-bottom:10px">${tabsHTML}</div>
-      ${tableHTML}
-      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;
-                  letter-spacing:.4px;margin-bottom:8px">Placares por Range</div>
-      ${placaresHTML}
+      <!-- Layout 3 colunas iguais: mercados · prováveis · improváveis -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start">
+        <div>${tableHTML}</div>
+        <div>${csTableHTML}</div>
+        <div>${csTableImpHTML}</div>
+      </div>
+      <!-- Placares por Range abaixo, em grid multi-coluna -->
+      <div style="margin-top:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;
+                    letter-spacing:.4px;margin-bottom:8px">Placares por Range</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+          ${placaresHTML}
+        </div>
+      </div>
+      ${simHTML}
     </div>`;
 
+  // Desenha gráficos após o DOM ser atualizado
+  if (btMarketsOpen) {
+    requestAnimationFrame(() => {
+      if (simMkt)   _drawBankChart('bankChartMkt',   simMkt.bankHistory,   simMkt.fairOdd);
+      if (simCS)    _drawBankChart('bankChartCS',     simCS.bankHistory,    simCS.fairOdd);
+      if (simCSImp) _drawBankChart('bankChartCSImp',  simCSImp.bankHistory, simCSImp.fairOdd);
+    });
+  }
 }
 
 // Score simplificado para backtest (sem detalhes completos)
@@ -3801,6 +5012,7 @@ async function loadMatches() {
   const res = await fetch('/api/matches');
   const data = await res.json();
   allMatches = data.matches;
+  _updateEdgeTabBadge();
 
   document.getElementById('headerStats').innerHTML = `
     <span><div class="status-dot"></div><b>${data.total}</b> partidas</span>
@@ -5342,5 +6554,37 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>.hidden { display: none !important; }</style>
+
+<!-- ── MODAL MERCADO FAVORITO ── -->
+<div id="favMarketOverlay" onclick="closeFavMarketModal(event)">
+  <div id="favMarketModal">
+    <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">⭐ Mercado de trabalho</div>
+        <div id="favModalMatchName" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
+      </div>
+      <button onclick="closeFavMarketModal()" style="background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <div style="padding:12px 16px">
+      <!-- Mercados -->
+      <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Selecione o mercado</div>
+      <div id="favMktList"></div>
+      <!-- Placares (aparece só para back/lay CS) -->
+      <div id="favScoreSection" style="display:none;margin-top:10px">
+        <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Selecione os placares</div>
+        <div id="favScoreGrid" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      </div>
+      <!-- Botões -->
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="saveFavMarket()"
+          style="flex:1;background:var(--accent);border:none;border-radius:7px;padding:9px;
+                 color:#fff;font-size:12px;font-weight:700;cursor:pointer">✓ Salvar</button>
+        <button onclick="closeFavMarketModal()"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 14px;
+                 color:var(--text2);font-size:12px;cursor:pointer">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

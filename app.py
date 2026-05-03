@@ -489,13 +489,15 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
             page.wait_for_timeout(1500)
             result = page.evaluate(f"""async () => {{
                 try {{
-                    const [rGraph, rInc] = await Promise.all([
+                    const [rGraph, rInc, rStats] = await Promise.all([
                         fetch('/api/v1/event/{event_id}/graph'),
-                        fetch('/api/v1/event/{event_id}/incidents')
+                        fetch('/api/v1/event/{event_id}/incidents'),
+                        fetch('/api/v1/event/{event_id}/statistics')
                     ]);
-                    const graph = rGraph.ok ? await rGraph.json() : {{}};
-                    const inc   = rInc.ok  ? await rInc.json()  : {{}};
-                    return {{status: 200, graph, incidents: inc}};
+                    const graph = rGraph.ok  ? await rGraph.json()  : {{}};
+                    const inc   = rInc.ok    ? await rInc.json()    : {{}};
+                    const stats = rStats.ok  ? await rStats.json()  : {{}};
+                    return {{status: 200, graph, incidents: inc, statistics: stats}};
                 }} catch(e) {{
                     return {{error: e.message}};
                 }}
@@ -505,8 +507,9 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         if result.get("status") != 200:
             return None
 
-        graph     = result.get("graph", {})
-        incidents = result.get("incidents", {})
+        graph      = result.get("graph", {})
+        incidents  = result.get("incidents", {})
+        statistics = result.get("statistics", {})
         inc_list  = incidents.get("incidents", [])
 
         # Extrai gols — APENAS incidentType == "goal"
@@ -539,20 +542,46 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
             today     = datetime.now().strftime("%Y-%m-%d")
             save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
             if not os.path.exists(save_file):
+                # ── Odds de abertura (snapshot pré-jogo do Uniscore) ──
+                opening_odds = {}
+                try:
+                    uni_ev = _uni_find(casa, fora)
+                    if uni_ev:
+                        uni_eid  = uni_ev.get("id")
+                        uni_odds = _uni_odds_today().get(uni_eid, {})
+                        if uni_odds:
+                            opening_odds = {
+                                "h":        uni_odds.get("h"),
+                                "x":        uni_odds.get("x"),
+                                "a":        uni_odds.get("a"),
+                                "ou_line":  uni_odds.get("ou_line"),
+                                "ou_over":  uni_odds.get("ou_over"),
+                                "ou_under": uni_odds.get("ou_under"),
+                            }
+                except Exception:
+                    pass
+
                 payload = {
-                    "event_id":    event_id,
-                    "date":        today,
-                    "saved_at":    datetime.now().isoformat(),
-                    "casa":        casa,
-                    "fora":        fora,
-                    "liga":        liga,
-                    "graphPoints": graph.get("graphPoints", []),
-                    "goals":       goals_uniq,
+                    "event_id":     event_id,
+                    "date":         today,
+                    "saved_at":     datetime.now().isoformat(),
+                    "casa":         casa,
+                    "fora":         fora,
+                    "liga":         liga,
+                    "graphPoints":  graph.get("graphPoints", []),
+                    "goals":        goals_uniq,
+                    "statistics":   statistics.get("statistics", []),
+                    "opening_odds": opening_odds,
                 }
                 with open(save_file, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 saved = True
                 print(f"[momentum] Salvo: {save_file}")
+                # Invalida caches que dependem do histórico
+                global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
+                _pattern_tips_cache  = {"ts": 0, "data": None}
+                _odds_patterns_cache = {"ts": 0, "data": None}
+                _stats_patterns_cache = {"ts": 0, "data": None}
                 # Atualiza cache de análise em background
                 threading.Thread(target=_rebuild_analysis_cache, daemon=True).start()
             else:
@@ -935,13 +964,12 @@ ANALYSIS_CACHE_FILE = os.path.join(DATA_DIR, "momentum_analysis.json")
 
 
 def _compute_analysis():
-    """Computa padrões de gol. Testa janelas de 3-15 min automaticamente
-    e usa a que produz maior acurácia balanceada."""
+    """Computa padrões de gol com janela ótima INDIVIDUAL por categoria (3-15 min)."""
     import math, random as _rand
 
     NONE_GAP  = 12
     NONE_STEP = 3
-    CANDIDATES = list(range(3, 16))   # testa 3 a 15 minutos
+    CANDIDATES = list(range(3, 16))
 
     # Pré-carrega todos os arquivos uma única vez
     files_list = sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json")))
@@ -970,8 +998,10 @@ def _compute_analysis():
         peak  = max(w, key=abs)
         return tail + 0.3 * trend + 0.2 * peak
 
-    def extract_windows(W):
-        hw, aw, nw = [], [], []
+    # ── Pré-extrai todas as janelas para todos os W candidatos ────────────
+    wins_cache = {}
+    for W in CANDIDATES:
+        hw, aw, nw, ht_w, st_w = [], [], [], [], []
         for d in all_data:
             pt_list   = d["pt_list"]
             goal_list = d["goal_list"]
@@ -984,24 +1014,72 @@ def _compute_analysis():
                     continue
                 win = [v for _, v in before[-W:]]
                 (hw if team == "home" else aw).append(win)
+                (ht_w if gmin <= 45 else st_w).append(win)
             for i in range(W, len(pt_list) - 1, NONE_STEP):
                 m_now = pt_list[i][0]
                 if any(abs(gm - m_now) <= NONE_GAP for gm in goal_mins):
                     continue
                 nw.append([pt_list[j][1] for j in range(i - W, i)])
-        return hw, aw, nw
+        wins_cache[W] = (hw, aw, nw, ht_w, st_w)
 
-    def best_threshold(hw, aw, nw):
-        goal_n   = len(hw) + len(aw)
+    # ── Busca janela+threshold ótimos para uma categoria específica ───────
+    def find_best_for(pos_fn, neg_fn, direction="pos"):
+        """
+        direction: "pos"  → score > T prediz positivo (gol casa)
+                   "neg"  → score < -T prediz positivo (gol visitante)
+                   "any"  → |score| > T prediz positivo (qualquer gol / 1T / 2T)
+                   "none" → |score| < T prediz positivo (sem gol)
+        """
+        best_W = CANDIDATES[0]; best_acc = 0.0; best_T = 8
+        for W in CANDIDATES:
+            pos = pos_fn(W)
+            neg = neg_fn(W)
+            if len(pos) < 4:
+                continue
+            neg_bal = _rand.sample(neg, min(len(neg), max(len(pos), 1)))
+            labeled = [(w, True) for w in pos] + [(w, False) for w in neg_bal]
+            for T in range(1, 60):
+                if direction == "pos":
+                    correct = sum(1 for w, lbl in labeled if (feats(w) > T) == lbl)
+                elif direction == "neg":
+                    correct = sum(1 for w, lbl in labeled if (feats(w) < -T) == lbl)
+                elif direction == "any":
+                    correct = sum(1 for w, lbl in labeled if (abs(feats(w)) > T) == lbl)
+                else:  # none
+                    correct = sum(1 for w, lbl in labeled if (abs(feats(w)) <= T) == lbl)
+                bal = correct / max(len(labeled), 1)
+                if bal > best_acc:
+                    best_acc = bal; best_T = T; best_W = W
+        return best_W, best_T, round(best_acc * 100, 1)
+
+    # Janela ótima individual por categoria
+    home_W, home_T, home_acc = find_best_for(
+        lambda W: wins_cache[W][0], lambda W: wins_cache[W][2], "pos")
+    away_W, away_T, away_acc = find_best_for(
+        lambda W: wins_cache[W][1], lambda W: wins_cache[W][2], "neg")
+    any_W,  any_T,  any_acc  = find_best_for(
+        lambda W: wins_cache[W][0] + wins_cache[W][1], lambda W: wins_cache[W][2], "any")
+    none_W, none_T, none_acc = find_best_for(
+        lambda W: wins_cache[W][2], lambda W: wins_cache[W][0] + wins_cache[W][1], "none")
+    ht_W,   ht_T,   ht_acc   = find_best_for(
+        lambda W: wins_cache[W][3], lambda W: wins_cache[W][2], "any")
+    st_W,   st_T,   st_acc   = find_best_for(
+        lambda W: wins_cache[W][4], lambda W: wins_cache[W][2], "any")
+
+    # Janela global (para o modelo geral e prob)
+    window_scores = {}
+    best_window = 8; best_acc_overall = 0.0; best_T_overall = 8
+    for W in CANDIDATES:
+        hw, aw, nw, _, _ = wins_cache[W]
+        goal_n = len(hw) + len(aw)
         if goal_n < 4:
-            return 0.0, 8
+            window_scores[W] = 0.0; continue
         none_bal = _rand.sample(nw, min(len(nw), max(goal_n, 1)))
-        labeled  = ([(w, "home") for w in hw] +
-                    [(w, "away") for w in aw] +
-                    [(w, "none") for w in none_bal])
-        best_bal = 0.0; best_T = 8
+        labeled  = ([(w,"home") for w in hw] + [(w,"away") for w in aw] +
+                    [(w,"none") for w in none_bal])
+        best_bal = 0.0; T_found = 8
         for T in range(1, 60):
-            cnt = {"home": [0,0], "away": [0,0], "none": [0,0]}
+            cnt = {"home":[0,0],"away":[0,0],"none":[0,0]}
             for w, lbl in labeled:
                 score = feats(w)
                 pred  = "home" if score > T else ("away" if score < -T else "none")
@@ -1009,62 +1087,33 @@ def _compute_analysis():
             recalls = [cnt[k][0]/cnt[k][1] for k in cnt if cnt[k][1]]
             bal = sum(recalls)/len(recalls) if recalls else 0
             if bal > best_bal:
-                best_bal = bal; best_T = T
-        return best_bal, best_T
+                best_bal = bal; T_found = T
+        window_scores[W] = round(best_bal * 100, 1)
+        if best_bal > best_acc_overall:
+            best_acc_overall = best_bal; best_window = W; best_T_overall = T_found
 
-    # ── Busca a melhor janela ─────────────────────────────────────────────
-    window_scores = {}
-    best_window = 8; best_acc_overall = 0.0; best_T_overall = 8
-
-    for W in CANDIDATES:
-        hw, aw, nw = extract_windows(W)
-        acc, T     = best_threshold(hw, aw, nw)
-        window_scores[W] = round(acc * 100, 1)
-        if acc > best_acc_overall:
-            best_acc_overall = acc
-            best_window      = W
-            best_T_overall   = T
-
-    # ── Janelas finais com a melhor janela ────────────────────────────────
-    W = best_window
-    home_wins, away_wins, none_wins = extract_windows(W)
-    ht_wins, st_wins = [], []
-    for d in all_data:
-        pt_list   = d["pt_list"]
-        goal_list = d["goal_list"]
-        goal_mins = [gm for gm, _ in goal_list]
-        for gmin, team in goal_list:
-            before = [(m, v) for m, v in pt_list if m < gmin]
-            if len(before) < W:
-                continue
-            win = [v for _, v in before[-W:]]
-            (ht_wins if gmin <= 45 else st_wins).append(win)
-
-    def win_stats(wins):
+    # ── win_stats com W dinâmico por categoria ────────────────────────────
+    def win_stats(wins, W):
         n = len(wins)
         if not n:
             return {"avg": [0.0]*W, "std": [0.0]*W, "n": 0, "tail_mean": 0.0}
         avg = [sum(w[i] for w in wins) / n for i in range(W)]
-        std = [math.sqrt(sum((w[i]-avg[i])**2 for w in wins) / max(n-1,1)) for i in range(W)]
+        std = [math.sqrt(sum((w[i]-avg[i])**2 for w in wins)/max(n-1,1)) for i in range(W)]
         tail_mean = sum(sum(w[-4:])/max(len(w),1) for w in wins) / n
         return {"avg": [round(v,1) for v in avg],
                 "std": [round(v,1) for v in std],
                 "n": n, "tail_mean": round(tail_mean, 1)}
 
-    # Acerto por categoria com melhor threshold
-    goal_n   = len(home_wins) + len(away_wins)
-    none_bal = _rand.sample(none_wins, min(len(none_wins), max(goal_n, 1)))
-    labeled  = ([(w,"home") for w in home_wins] +
-                [(w,"away") for w in away_wins] +
-                [(w,"none") for w in none_bal])
-    cnt = {"home":[0,0], "away":[0,0], "none":[0,0]}
-    for w, lbl in labeled:
-        score = feats(w)
-        pred  = "home" if score > best_T_overall else ("away" if score < -best_T_overall else "none")
-        cnt[lbl][1] += 1; cnt[lbl][0] += int(pred == lbl)
+    home_wins = wins_cache[home_W][0]
+    away_wins = wins_cache[away_W][1]
+    any_wins  = wins_cache[any_W][0]  + wins_cache[any_W][1]
+    none_wins = wins_cache[none_W][2]
+    ht_wins   = wins_cache[ht_W][3]
+    st_wins   = wins_cache[st_W][4]
 
     # ── Probabilidade: P(gol nos próx. LOOKAHEAD min | sinal X) ──────────
     LOOKAHEAD = 10
+    W = best_window
     prob = {"home": [0,0], "away": [0,0], "any": [0,0], "none": [0,0]}
     for d in all_data:
         pt_list   = d["pt_list"]
@@ -1075,46 +1124,44 @@ def _compute_analysis():
             m_now = pt_list[i][0]
             win   = [pt_list[j][1] for j in range(i - W, i)]
             score = feats(win)
-            if score > best_T_overall:
-                sig = "home"
-            elif score < -best_T_overall:
-                sig = "away"
-            elif abs(score) > best_T_overall * 0.6:
-                sig = "any"
-            else:
-                sig = "none"
+            if score > best_T_overall:               sig = "home"
+            elif score < -best_T_overall:            sig = "away"
+            elif abs(score) > best_T_overall * 0.6: sig = "any"
+            else:                                    sig = "none"
             goals_ahead = [(gm, gt) for gm, gt in goal_list
                            if gm > m_now and gm <= m_now + LOOKAHEAD]
             prob[sig][1] += 1
-            if sig == "home":
-                if any(gt == "home" for _, gt in goals_ahead):
-                    prob[sig][0] += 1
-            elif sig == "away":
-                if any(gt == "away" for _, gt in goals_ahead):
-                    prob[sig][0] += 1
-            elif sig == "any":
-                if goals_ahead:
-                    prob[sig][0] += 1
-            else:  # none
-                if not goals_ahead:
-                    prob[sig][0] += 1
+            if sig == "home"  and any(gt=="home"  for _,gt in goals_ahead): prob[sig][0] += 1
+            elif sig == "away" and any(gt=="away" for _,gt in goals_ahead): prob[sig][0] += 1
+            elif sig == "any"  and goals_ahead:                             prob[sig][0] += 1
+            elif sig == "none" and not goals_ahead:                         prob[sig][0] += 1
 
     def sp(a, b): return round(a/b*100, 1) if b else None
 
+    per_cat = {
+        "home": {"window": home_W, "threshold": home_T, "accuracy": home_acc},
+        "away": {"window": away_W, "threshold": away_T, "accuracy": away_acc},
+        "any":  {"window": any_W,  "threshold": any_T,  "accuracy": any_acc},
+        "none": {"window": none_W, "threshold": none_T, "accuracy": none_acc},
+        "ht":   {"window": ht_W,   "threshold": ht_T,   "accuracy": ht_acc},
+        "st":   {"window": st_W,   "threshold": st_T,   "accuracy": st_acc},
+    }
+
     return {
         "patterns": {
-            "home": win_stats(home_wins),
-            "away": win_stats(away_wins),
-            "any":  win_stats(home_wins + away_wins),
-            "none": win_stats(none_wins),
-            "ht":   win_stats(ht_wins),
-            "st":   win_stats(st_wins),
+            "home": win_stats(home_wins, home_W),
+            "away": win_stats(away_wins, away_W),
+            "any":  win_stats(any_wins,  any_W),
+            "none": win_stats(none_wins, none_W),
+            "ht":   win_stats(ht_wins,   ht_W),
+            "st":   win_stats(st_wins,   st_W),
         },
+        "per_category":  per_cat,
         "threshold":     best_T_overall,
         "accuracy":      round(best_acc_overall * 100, 1),
-        "acc_home":      sp(*cnt.get("home", (0,1))),
-        "acc_away":      sp(*cnt.get("away", (0,1))),
-        "acc_none":      sp(*cnt.get("none", (0,1))),
+        "acc_home":      home_acc,
+        "acc_away":      away_acc,
+        "acc_none":      none_acc,
         "prob_home":     sp(*prob["home"]),
         "prob_away":     sp(*prob["away"]),
         "prob_any":      sp(*prob["any"]),
@@ -1122,7 +1169,7 @@ def _compute_analysis():
         "prob_lookahead": LOOKAHEAD,
         "total_matches": total_matches,
         "total_goals":   total_goals,
-        "window":        W,
+        "window":        best_window,
         "window_scores": window_scores,
         "computed_at":   datetime.now().isoformat(),
     }
@@ -1241,6 +1288,366 @@ def api_momentum_similar():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── Padrões de Estatísticas ──────────────────────────────────────────────────
+
+# Estatísticas que queremos rastrear (key SofaScore → label PT-BR)
+_STAT_LABELS = {
+    "ballPossession":     "Posse de Bola (Casa %)",
+    "shotsOnTarget":      "Chutes no Alvo",
+    "totalShots":         "Total de Chutes",
+    "cornerKicks":        "Escanteios",
+    "yellowCards":        "Cartões Amarelos",
+    "saves":              "Defesas (GK)",
+    "bigChancesCreated":  "Grandes Chances",
+    "foulsCommitted":     "Faltas Cometidas",
+    "totalPasses":        "Passes Totais",
+    "tacklesWon":         "Desarmes",
+}
+
+_stats_patterns_cache = {"ts": 0, "data": None}
+
+
+def _parse_stat_val(raw):
+    """Converte string (ex: '57%', '3') ou número para float. None se inválido."""
+    if raw is None:
+        return None
+    try:
+        return float(str(raw).replace("%", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _extract_stats(statistics_list):
+    """Extrai {key: (home_val, away_val)} do período 'ALL'."""
+    result = {}
+    for period_data in statistics_list:
+        if period_data.get("period") != "ALL":
+            continue
+        for group in period_data.get("groups", []):
+            for item in group.get("statisticsItems", []):
+                key = item.get("key", "")
+                if not key:
+                    continue
+                hv = _parse_stat_val(item.get("homeValue") or item.get("home"))
+                av = _parse_stat_val(item.get("awayValue") or item.get("away"))
+                if hv is not None or av is not None:
+                    result[key] = (hv, av)
+        break  # só período ALL
+    return result
+
+
+@app.route("/api/momentum/stats-patterns")
+def api_stats_patterns():
+    """Analisa padrões das estatísticas finais das partidas salvas,
+    agrupando por resultado (Casa V., Empate, Vis. V., Over/Under 2.5, BTS)."""
+    global _stats_patterns_cache
+    if (time.time() - _stats_patterns_cache["ts"] < 1800
+            and _stats_patterns_cache["data"] is not None):
+        return jsonify(_stats_patterns_cache["data"])
+
+    OUTCOME_KEYS = ["casaV", "emp", "visV", "o25", "u25", "btts", "nbtts"]
+    # {outcome: {stat_key_h|_a: [values]}}
+    buckets = {oc: {} for oc in OUTCOME_KEYS}
+    total = 0
+
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            stats_raw = d.get("statistics", [])
+            if not stats_raw:
+                continue
+            stat_vals = _extract_stats(stats_raw)
+            if not stat_vals:
+                continue
+
+            goals = d.get("goals", [])
+            gh  = sum(1 for g in goals if g.get("team") == "home")
+            ga  = sum(1 for g in goals if g.get("team") == "away")
+            tot = gh + ga
+
+            active = set()
+            if gh > ga:            active.add("casaV")
+            elif ga > gh:          active.add("visV")
+            else:                  active.add("emp")
+            active.add("o25" if tot > 2 else "u25")
+            active.add("btts" if gh >= 1 and ga >= 1 else "nbtts")
+
+            for oc in active:
+                for key, (hv, av) in stat_vals.items():
+                    if hv is not None:
+                        buckets[oc].setdefault(key + "_h", []).append(hv)
+                    if av is not None:
+                        buckets[oc].setdefault(key + "_a", []).append(av)
+            total += 1
+        except Exception:
+            continue
+
+    # Calcula médias e contagens
+    outcomes_result = {}
+    for oc, stats in buckets.items():
+        if not stats:
+            outcomes_result[oc] = {"n": 0}
+            continue
+        entry = {"n": 0}
+        for k, vals in stats.items():
+            if vals:
+                entry[k] = round(sum(vals) / len(vals), 1)
+                entry["n"] = max(entry["n"], len(vals))
+        outcomes_result[oc] = entry
+
+    # Detecta quais chaves de stats existem em pelo menos 1 outcome
+    all_keys = set()
+    for oc_data in outcomes_result.values():
+        all_keys.update(k for k in oc_data if k not in ("n",))
+    stat_keys_found = sorted(all_keys)
+
+    result = {
+        "total":        total,
+        "outcomes":     outcomes_result,
+        "stat_keys":    stat_keys_found,
+        "stat_labels":  _STAT_LABELS,
+        "computed_at":  datetime.now().isoformat(),
+    }
+    _stats_patterns_cache = {"ts": time.time(), "data": result}
+    return jsonify(result)
+
+
+# ── Correlação de Odds de Abertura ──────────────────────────────────────────
+
+_ODDS_BUCKETS_H = [
+    ("1.01–1.30", 1.01, 1.30),
+    ("1.31–1.60", 1.31, 1.60),
+    ("1.61–2.00", 1.61, 2.00),
+    ("2.01–3.00", 2.01, 3.00),
+    ("3.01–5.00", 3.01, 5.00),
+    (">5.00",     5.01, 99.0),
+]
+
+_odds_patterns_cache = {"ts": 0, "data": None}
+
+@app.route("/api/momentum/odds-patterns")
+def api_odds_patterns():
+    """Correlaciona faixas de odd de abertura (Casa 1X2) com resultados reais.
+    Retorna edge vs. probabilidade implícita por faixa."""
+    global _odds_patterns_cache
+    if (time.time() - _odds_patterns_cache["ts"] < 1800
+            and _odds_patterns_cache["data"] is not None):
+        return jsonify(_odds_patterns_cache["data"])
+
+    # {label: {n, casaV, emp, visV, o25, u25, sum_imp_h, sum_imp_x, sum_imp_a}}
+    bkts = {
+        lbl: {"n": 0, "casaV": 0, "emp": 0, "visV": 0,
+              "o25": 0, "u25": 0,
+              "sum_imp_h": 0.0, "sum_imp_x": 0.0, "sum_imp_a": 0.0}
+        for lbl, _, _ in _ODDS_BUCKETS_H
+    }
+    total = 0
+
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            oo = d.get("opening_odds", {})
+            if not oo or not oo.get("h"):
+                continue
+            try:
+                h_odd = float(oo["h"])
+                x_odd = float(oo.get("x") or 0)
+                a_odd = float(oo.get("a") or 0)
+            except (ValueError, TypeError):
+                continue
+            if h_odd <= 0:
+                continue
+
+            goals = d.get("goals", [])
+            gc = sum(1 for g in goals if g.get("team") == "home")
+            gf = sum(1 for g in goals if g.get("team") == "away")
+            outcome = "casaV" if gc > gf else "visV" if gf > gc else "emp"
+            is_o25  = 1 if gc + gf > 2 else 0
+
+            for lbl, lo, hi in _ODDS_BUCKETS_H:
+                if lo <= h_odd <= hi:
+                    b = bkts[lbl]
+                    b["n"]       += 1
+                    b[outcome]   += 1
+                    b["o25"]     += is_o25
+                    b["u25"]     += 1 - is_o25
+                    b["sum_imp_h"] += (1 / h_odd * 100) if h_odd > 0 else 0
+                    b["sum_imp_x"] += (1 / x_odd * 100) if x_odd > 0 else 0
+                    b["sum_imp_a"] += (1 / a_odd * 100) if a_odd > 0 else 0
+                    break
+            total += 1
+        except Exception:
+            continue
+
+    buckets_out = []
+    for lbl, _, _ in _ODDS_BUCKETS_H:
+        b = bkts[lbl]
+        n = b["n"]
+        if n == 0:
+            continue
+        imp_h = round(b["sum_imp_h"] / n, 1)
+        imp_x = round(b["sum_imp_x"] / n, 1)
+        imp_a = round(b["sum_imp_a"] / n, 1)
+        buckets_out.append({
+            "label":     lbl,
+            "n":         n,
+            "casaV":     b["casaV"],
+            "emp":       b["emp"],
+            "visV":      b["visV"],
+            "casaV_pct": round(b["casaV"] / n * 100),
+            "emp_pct":   round(b["emp"]   / n * 100),
+            "visV_pct":  round(b["visV"]  / n * 100),
+            "o25_pct":   round(b["o25"]   / n * 100),
+            "u25_pct":   round(b["u25"]   / n * 100),
+            "imp_h":     imp_h,
+            "imp_x":     imp_x,
+            "imp_a":     imp_a,
+            "edge_h":    round(b["casaV"] / n * 100 - imp_h, 1),
+            "edge_x":    round(b["emp"]   / n * 100 - imp_x, 1),
+            "edge_a":    round(b["visV"]  / n * 100 - imp_a, 1),
+        })
+
+    result = {"total": total, "buckets": buckets_out, "computed_at": datetime.now().isoformat()}
+    _odds_patterns_cache = {"ts": time.time(), "data": result}
+    return jsonify(result)
+
+
+# ── Pattern Tips — TIPs dinâmicos por sequência de sinais ───────────────────
+
+_pattern_tips_cache = {"ts": 0, "data": None, "n_files": 0}
+_PTIPS_TTL = 3600   # 1 hora (mas invalida se chegar novo arquivo)
+
+@app.route("/api/momentum/pattern-tips")
+def api_momentum_pattern_tips():
+    """Analisa sequências de sinais históricos (C/V/G/N) e correlaciona com
+    resultados finais de todos os mercados definidos.
+    Re-aprende automaticamente sempre que um novo arquivo é salvo."""
+    global _pattern_tips_cache
+    current_n = len(glob.glob(os.path.join(MOMENTUM_DIR, "*.json")))
+    cache_valid = (
+        _pattern_tips_cache["data"] is not None
+        and time.time() - _pattern_tips_cache["ts"] < _PTIPS_TTL
+        and _pattern_tips_cache["n_files"] == current_n   # re-aprende se novo arquivo
+    )
+    if cache_valid:
+        return jsonify(_pattern_tips_cache["data"])
+
+    T = 8    # threshold fixo (equivalente ao global padrão)
+    W = 8    # janela de pontos
+
+    def _feats(w):
+        if not w:
+            return 0.0
+        tail  = sum(w[-4:]) / max(len(w), 1)
+        trend = (w[-1] - w[0]) if len(w) > 1 else 0.0
+        peak  = max(w, key=abs)
+        return tail + 0.3 * trend + 0.2 * peak
+
+    def _sig(score):
+        if score > T:              return 'C'   # Casa domina
+        if score < -T:             return 'V'   # Visitante domina
+        if abs(score) > T * 0.6:   return 'G'   # Possível gol
+        return 'N'                              # Sem padrão
+
+    # patterns_data[pat][mkt] = [total, count]
+    patterns_data = {}
+    files         = glob.glob(os.path.join(MOMENTUM_DIR, "*.json"))
+    total_files   = 0
+
+    for fpath in files:
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            pts   = sorted(d.get("graphPoints", []),
+                           key=lambda p: float(p.get("minute", 0)))
+            goals = d.get("goals", [])
+            if len(pts) < W + 2:
+                continue
+
+            # ── Extrai sequência de sinais (transições) ───────────────────
+            sig_seq = []
+            last_sig = None
+            for i in range(W, len(pts)):
+                win   = [float(pts[j].get("value", 0)) for j in range(i - W, i)]
+                score = _feats(win)
+                sig   = _sig(score)
+                if sig != last_sig:
+                    sig_seq.append(sig)
+                    last_sig = sig
+
+            if len(sig_seq) < 2:
+                continue
+
+            # ── Calcula resultados do jogo ────────────────────────────────
+            gh  = sum(1 for g in goals if g.get("team") == "home")
+            ga  = sum(1 for g in goals if g.get("team") == "away")
+            gh_ht = sum(1 for g in goals
+                        if g.get("team") == "home"
+                        and float(g.get("minute", 0)) <= 45)
+            ga_ht = sum(1 for g in goals
+                        if g.get("team") == "away"
+                        and float(g.get("minute", 0)) <= 45)
+            tot    = gh + ga
+            tot_ht = gh_ht + ga_ht
+
+            outcomes = {
+                "casaV":  int(gh > ga),
+                "visV":   int(ga > gh),
+                "emp":    int(gh == ga),
+                "o25":    int(tot > 2),
+                "u25":    int(tot <= 2),
+                "o15":    int(tot > 1),
+                "u15":    int(tot <= 1),
+                "btts":   int(gh >= 1 and ga >= 1),
+                "nbtts":  int(not (gh >= 1 and ga >= 1)),
+                "o05ht":  int(tot_ht >= 1),
+                "u05ht":  int(tot_ht == 0),
+                "u15ht":  int(tot_ht <= 1),
+                "1x":     int(gh >= ga),
+                "x2":     int(ga >= gh),
+            }
+            # Placares corretos (capped at 3)
+            for h in range(4):
+                for a in range(4):
+                    outcomes[f"cs_{h}-{a}"] = int(gh == h and ga == a)
+
+            # ── Gera sub-padrões de comprimento 2, 3, 4 ──────────────────
+            for length in (2, 3, 4):
+                for i in range(len(sig_seq) - length + 1):
+                    pat = "".join(sig_seq[i : i + length])
+                    pd  = patterns_data.setdefault(pat, {})
+                    for mkt, val in outcomes.items():
+                        rec = pd.setdefault(mkt, [0, 0])
+                        rec[0] += 1
+                        rec[1] += val
+
+            total_files += 1
+        except Exception:
+            continue
+
+    # ── Filtra padrões com n ≥ 15 amostras ───────────────────────────────
+    MIN_N = 15
+    result_patterns = {}
+    for pat, mkts in patterns_data.items():
+        pat_res = {}
+        for mkt, (total, count) in mkts.items():
+            if total >= MIN_N:
+                pat_res[mkt] = {"rate": round(count / total * 100, 1), "n": total}
+        if pat_res:
+            result_patterns[pat] = pat_res
+
+    result = {
+        "patterns":     result_patterns,
+        "total_files":  total_files,
+        "n_files":      current_n,
+        "computed_at":  datetime.now().isoformat(),
+    }
+    _pattern_tips_cache = {"ts": time.time(), "data": result, "n_files": current_n}
+    return jsonify(result)
 
 
 # ── Uniscore / unik8s ────────────────────────────────────────────────────────
@@ -1886,5 +2293,6 @@ def code_viewer(filepath=None):
 
 
 if __name__ == "__main__":
-    print("Servidor rodando em http://localhost:5000")
-    app.run(debug=False, port=5000, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Servidor rodando em http://localhost:{port}")
+    app.run(debug=False, host="0.0.0.0", port=port, use_reloader=False)

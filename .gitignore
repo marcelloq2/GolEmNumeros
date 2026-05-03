@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Dados locais (serão gerados no servidor)
+predictions.json
+predictions_full.json
+momentum_analysis.json
+*.log
+.times_adjusted
+
+# Windows
+*.bat
+Thumbs.db
+Desktop.ini
+
+# Debug
+debug*.html
+detail_test.json
