@@ -2302,6 +2302,34 @@ def code_viewer(filepath=None):
 </html>"""
 
 
+@app.route("/api/list-backup")
+def api_list_backup():
+    """Lista arquivos de momentum_history disponíveis no servidor."""
+    token    = request.args.get("token", "")
+    expected = os.environ.get("UPLOAD_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"ok": False, "error": "Token inválido"}), 403
+
+    files = sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json")))
+    names = [os.path.basename(f) for f in files]
+    return jsonify({"ok": True, "files": names})
+
+
+@app.route("/api/download-backup/<path:filename>")
+def api_download_backup(filename):
+    """Baixa um arquivo de momentum_history pelo nome."""
+    token    = request.args.get("token", "")
+    expected = os.environ.get("UPLOAD_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"ok": False, "error": "Token inválido"}), 403
+
+    # Segurança: só permite nomes de arquivo simples
+    if "/" in filename or "\\" in filename or not filename.endswith(".json"):
+        return jsonify({"ok": False, "error": "Arquivo inválido"}), 400
+
+    return send_from_directory(MOMENTUM_DIR, filename)
+
+
 @app.route("/api/upload-backup", methods=["POST"])
 def api_upload_backup():
     """Recebe arquivos de backtest/momentum/predictions enviados do ambiente local.
