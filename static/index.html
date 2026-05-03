@@ -2557,26 +2557,34 @@ function _renderUniscore(d) {
   const _statsPanelId = `statsPeriod_${d.id || Date.now()}`;
   // Inicia sempre em ALL
   const st = _statsById('ALL');
-  const statRow = (label, key, fmt, stObj) => {
+  // statRow: suporta campo único ou par (key + keyAcc para X/Y)
+  const statRow = (label, key, fmt, stObj, keyAcc) => {
     const _st = stObj || st;
     const item = _st[key];
     if (!item) return '';
+    // Valores numéricos para barra
     const hv = item.homeValue ?? 0;
     const av = item.awayValue ?? 0;
     const total = hv + av;
     const hPct = total > 0 ? Math.round(hv / total * 100) : 50;
     const aPct = 100 - hPct;
-    const hDisp = fmt === 'pct' ? `${hv}%` : (item.home ?? hv);
-    const aDisp = fmt === 'pct' ? `${av}%` : (item.away ?? av);
-    // Número maior → destaque; menor → apagado
-    const hColor   = hv > av ? '#3b82f6' : '#6b7280';
-    const aColor   = av > hv ? '#ef4444' : '#6b7280';
-    const hBarCol  = hv >= av ? '#3b82f6' : '#374151';
-    const aBarCol  = av >= hv ? '#ef4444' : '#374151';
+    // Display: se fmt='pct' mostra %, se tem item.home usa direto (pode ser "38/70")
+    const hDisp = fmt === 'pct' ? `${item.home ?? hv}` : (item.home ?? hv);
+    const aDisp = fmt === 'pct' ? `${item.away ?? av}` : (item.away ?? av);
+    // Precisão (campo adicional tipo "38/70")
+    const accItem = keyAcc ? _st[keyAcc] : null;
+    const accH = accItem ? `<span style="font-size:8px;color:#6b7280;display:block;line-height:1">${accItem.home}</span>` : '';
+    const accA = accItem ? `<span style="font-size:8px;color:#6b7280;display:block;line-height:1">${accItem.away}</span>` : '';
+    const hColor  = hv > av ? '#3b82f6' : '#6b7280';
+    const aColor  = av > hv ? '#ef4444' : '#6b7280';
+    const hBarCol = hv >= av ? '#3b82f6' : '#374151';
+    const aBarCol = av >= hv ? '#ef4444' : '#374151';
     return `
-      <div style="display:grid;grid-template-columns:36px 1fr auto 1fr 36px;
+      <div style="display:grid;grid-template-columns:44px 1fr auto 1fr 44px;
                   align-items:center;gap:4px;margin-bottom:4px">
-        <span style="font-size:11px;font-weight:700;color:${hColor};text-align:right">${hDisp}</span>
+        <div style="text-align:right">
+          <span style="font-size:11px;font-weight:700;color:${hColor}">${hDisp}</span>${accH}
+        </div>
         <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex;justify-content:flex-end">
           <div style="width:${hPct}%;height:100%;background:${hBarCol};border-radius:3px"></div>
         </div>
@@ -2584,7 +2592,9 @@ function _renderUniscore(d) {
         <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden">
           <div style="width:${aPct}%;height:100%;background:${aBarCol};border-radius:3px"></div>
         </div>
-        <span style="font-size:11px;font-weight:700;color:${aColor}">${aDisp}</span>
+        <div>
+          <span style="font-size:11px;font-weight:700;color:${aColor}">${aDisp}</span>${accA}
+        </div>
       </div>`;
   };
 
@@ -2758,18 +2768,63 @@ function _renderUniscore(d) {
       </div>
     </div>` : '';
 
+  // Cabeçalho de seção
+  const statSection = (label) =>
+    `<div style="font-size:8px;font-weight:800;color:var(--text2);letter-spacing:.8px;
+                 text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid var(--border);
+                 padding-bottom:2px">${label}</div>`;
+
   // Função que gera as linhas de stats para um objeto de período específico
   const buildStatsRows = (stObj) => [
-    statRow('Total de Chutes',       'shots',            '', stObj),
-    statRow('Chutes no Alvo',        'shots_on_target',  '', stObj),
-    statRow('Chutes Dentro da Área', 'shots_inside_box', '', stObj),
-    statRow('Chutes Fora da Área',   'shots_outside_box','', stObj),
-    statRow('Posse de Bola',         'ball_possession',  'pct', stObj),
-    statRow('Escanteios',            'corner_kicks',     '', stObj),
-    statRow('Grandes Chances',       'big_chances',      '', stObj),
-    statRow('Faltas',                'fouls',            '', stObj),
-    statRow('Passes',                'passes',           '', stObj),
-    statRow('Cartões Amarelos',      'yellow_cards',     '', stObj),
+    // ── Posse ──────────────────────────────────────────────────────────
+    statSection('⚽ Posse & Ataque'),
+    statRow('Posse de Bola',           'ball_possession',      'pct', stObj),
+    statRow('Total de Chutes',         'shots',                '',    stObj),
+    statRow('Chutes no Alvo',          'shots_on_target',      '',    stObj),
+    statRow('Chutes Bloqueados',       'blocked_shots',        '',    stObj),
+    statRow('Chutes Dentro da Área',   'shots_inside_box',     '',    stObj),
+    statRow('Chutes Fora da Área',     'shots_outside_box',    '',    stObj),
+    statRow('Toques na Área',          'touches_in_box',       '',    stObj),
+    statRow('Grandes Chances',         'big_chances',          '',    stObj),
+    statRow('Gds Chances Convertidas', 'big_chances_scored',   '',    stObj),
+    statRow('Gds Chances Perdidas',    'big_chances_missed',   '',    stObj),
+    statRow('Escanteios',              'corner_kicks',         '',    stObj),
+    statRow('Cobranças de Falta',      'freekicks',            '',    stObj),
+    statRow('Impedimentos',            'offsides',             '',    stObj),
+    // ── Passes ─────────────────────────────────────────────────────────
+    statSection('🎯 Passes'),
+    statRow('Total de Passes',         'passes',               '',    stObj, 'passes_accuracy'),
+    statRow('Arremesso Lateral',        'throw_in',            '',    stObj),
+    statRow('Entradas no Últ. Terço',  'final_third_entries',  '',    stObj),
+    statRow('Passes no Terço Final',   'pass_in_final_third',  '',    stObj, 'pass_in_final_third_accuracy'),
+    statRow('Lançamentos Longos',      'long_balls',           '',    stObj, 'long_balls_accuracy'),
+    statRow('Cruzamentos',             'crosses_accuracy',     '',    stObj),
+    // ── Duelos & Dribles ───────────────────────────────────────────────
+    statSection('💪 Duelos & Dribles'),
+    statRow('Duelos',                  'duels',                '',    stObj, 'duels_accuracy'),
+    statRow('Duelos no Chão',          'ground_duels',         '',    stObj, 'ground_duels_accuracy'),
+    statRow('Duelos Aéreos',           'aerial_duels',         '',    stObj, 'aerial_duels_accuracy'),
+    statRow('Dribles',                 'dribble',              '',    stObj, 'dribble_succ'),
+    statRow('Perda de Posse',          'dispossessed',         '',    stObj),
+    // ── Defesa ─────────────────────────────────────────────────────────
+    statSection('🛡️ Defesa'),
+    statRow('Desarmes',                'tackles',              '',    stObj, 'tackles_won'),
+    statRow('Intercepções',            'interceptions',        '',    stObj),
+    statRow('Recuperações',            'recoveries',           '',    stObj),
+    statRow('Rebotes',                 'clearances',           '',    stObj),
+    // ── Goleiro ────────────────────────────────────────────────────────
+    statSection('🧤 Goleiro'),
+    statRow('Defesas',                 'saves',                '',    stObj),
+    statRow('Tiro de Meta',            'goal_kicks',           '',    stObj),
+    statRow('Socos',                   'punches',              '',    stObj),
+    // ── Disciplina ─────────────────────────────────────────────────────
+    statSection('🟨 Disciplina'),
+    statRow('Faltas Cometidas',        'fouls',                '',    stObj),
+    statRow('Sofreu Falta',            'was_fouled',           '',    stObj),
+    statRow('Cartões Amarelos',        'yellow_cards',         '',    stObj),
+    // ── Posse Perdida ──────────────────────────────────────────────────
+    statSection('🔄 Perda de Posse'),
+    statRow('Perda de Posse Total',    'poss_losts',           '',    stObj),
   ].filter(Boolean).join('');
 
   const statsRows = buildStatsRows(st);
