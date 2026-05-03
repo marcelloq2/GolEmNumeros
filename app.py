@@ -476,8 +476,116 @@ _SOFA_HEADERS = {
 }
 
 
-_fotmob_live_cache = {"ts": 0, "matches": []}
-_fotmob_live_lock  = threading.Lock()
+_fotmob_live_cache    = {"ts": 0, "matches": []}
+_fotmob_live_lock     = threading.Lock()
+
+_UNISCORE_HEADERS = {
+    "User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Origin":       "https://uniscore.com",
+    "Referer":      "https://uniscore.com/pt-BR/football",
+    "Accept":       "application/json, text/plain, */*",
+    "Content-Type": "application/json",
+}
+_UNISCORE_API     = "https://api.unik8s.com/api/v2"
+_uniscore_cache   = {"ts": 0, "matches": []}
+_uniscore_lock    = threading.Lock()
+
+
+def _get_uniscore_live_matches():
+    """Busca partidas ao vivo do UniScore. Cache de 2 minutos."""
+    with _uniscore_lock:
+        if time.time() - _uniscore_cache["ts"] < 120:
+            return _uniscore_cache["matches"]
+    try:
+        r = http_req.post(
+            f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
+            headers=_UNISCORE_HEADERS,
+            json={},
+            params={"language": "pt-BR"},
+            timeout=12,
+        )
+        r.raise_for_status()
+        events = r.json().get("data", {}).get("events", [])
+        matches = [
+            {
+                "id":   e["id"],
+                "home": e.get("homeTeam", {}).get("name", "").lower(),
+                "away": e.get("awayTeam", {}).get("name", "").lower(),
+            }
+            for e in events
+            if e.get("status", {}).get("type") == "inprogress"
+        ]
+        print(f"[uniscore] {len(matches)} partidas ao vivo")
+        with _uniscore_lock:
+            _uniscore_cache["ts"]      = time.time()
+            _uniscore_cache["matches"] = matches
+        return matches
+    except Exception as e:
+        print(f"[uniscore] Erro live: {e}")
+        return []
+
+
+def _find_uniscore_id(casa, fora):
+    """Encontra ID UniScore pelo nome dos times (busca fuzzy)."""
+    if not casa or not fora:
+        return None
+    matches = _get_uniscore_live_matches()
+    casa_l, fora_l = casa.lower(), fora.lower()
+    for m in matches:
+        if (casa_l in m["home"] or m["home"] in casa_l) and \
+           (fora_l in m["away"] or m["away"] in fora_l):
+            print(f"[uniscore] Match: {m['home']} vs {m['away']} id={m['id']}")
+            return m["id"]
+    if matches:
+        sample = [(m["home"], m["away"]) for m in matches[:4]]
+        print(f"[uniscore] Sem match p/ '{casa_l}' vs '{fora_l}'. Amostra: {sample}")
+    return None
+
+
+def _fetch_uniscore_graph(uniscore_id):
+    """Busca graphPoints do UniScore e converte para formato padrão."""
+    r = http_req.get(
+        f"{_UNISCORE_API}/football/event/{uniscore_id}/graph",
+        headers=_UNISCORE_HEADERS,
+        timeout=12,
+    )
+    r.raise_for_status()
+    data = r.json().get("data", {})
+    pts  = data.get("graphPoints", [])
+
+    # Busca gols nos incidents
+    ri = http_req.get(
+        f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
+        headers=_UNISCORE_HEADERS,
+        timeout=12,
+    )
+    goals = []
+    if ri.status_code == 200:
+        for inc in ri.json().get("data", {}).get("incidents", []):
+            if inc.get("incidentType") == "goal":
+                goals.append({
+                    "minute": inc.get("time", 0),
+                    "team":   "home" if inc.get("isHome") else "away",
+                })
+
+    # Detecta FT via status
+    re = http_req.get(
+        f"{_UNISCORE_API}/football/event/{uniscore_id}",
+        headers=_UNISCORE_HEADERS,
+        params={"language": "pt-BR"},
+        timeout=10,
+    )
+    finished = False
+    if re.status_code == 200:
+        status = re.json().get("data", {}).get("event", {}).get("status", {})
+        finished = status.get("type") == "finished"
+
+    return {
+        "graphPoints": pts,
+        "goals":       goals,
+        "finished":    finished,
+        "source":      "uniscore",
+    }
 
 
 def _get_fotmob_live_matches():
@@ -686,7 +794,44 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
     except Exception as e1:
         print(f"[momentum] SofaScore falhou: {e1}")
 
-    # ── Fallback: FotMob (busca por nome de time) ─────────────────────────
+    # ── Fallback 1: UniScore / unik8s.com (busca por nome de time) ──────────
+    if not graph or not (graph or {}).get("graphPoints"):
+        uni_id = _find_uniscore_id(casa, fora)
+        if uni_id:
+            try:
+                udata = _fetch_uniscore_graph(uni_id)
+                pts   = udata.get("graphPoints", [])
+                print(f"[momentum] UniScore fallback OK: {len(pts)} graphPoints")
+                if pts:
+                    data = {**udata, "saved": False}
+                    if udata.get("finished"):
+                        today     = datetime.now().strftime("%Y-%m-%d")
+                        save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
+                        if not os.path.exists(save_file):
+                            payload = {
+                                "event_id": event_id, "date": today,
+                                "saved_at": datetime.now().isoformat(),
+                                "casa": casa, "fora": fora, "liga": liga,
+                                "graphPoints": pts,
+                                "goals": udata.get("goals", []),
+                                "statistics": [],
+                                "opening_odds": {},
+                            }
+                            with open(save_file, "w", encoding="utf-8") as f:
+                                json.dump(payload, f, ensure_ascii=False, indent=2)
+                            data["saved"] = True
+                            print(f"[momentum] Salvo (UniScore): {save_file}")
+                            github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
+                            _pattern_tips_cache  = {"ts": 0, "data": None}
+                            _odds_patterns_cache = {"ts": 0, "data": None}
+                            _stats_patterns_cache = {"ts": 0, "data": None}
+                    with _momentum_lock:
+                        _momentum_cache[event_id] = {"ts": time.time(), "data": data}
+                    return data
+            except Exception as eu:
+                print(f"[momentum] UniScore falhou: {eu}")
+
+    # ── Fallback 2: FotMob (busca por nome de time) ───────────────────────
     if not graph or not (graph or {}).get("graphPoints"):
         fotmob_id = _find_fotmob_id(casa, fora)
         if fotmob_id:
