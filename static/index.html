@@ -1570,7 +1570,7 @@ function switchView(view, btn) {
   }
 }
 
-// ── AO VIVO (RadarFutebol) ────────────────────
+// ── AO VIVO (UniScore) ────────────────────────
 let liveAutoRefresh  = null;
 let activeLiveId     = null;
 let liveMatchesCache = [];
@@ -1603,11 +1603,11 @@ function formatTempo(totalSec) {
   return `${min}'`;
 }
 
-// Mapeia as classes Tailwind do RadarFutebol para cores CSS
+// Cor de odd por valor
 function radarOddColor(cls) {
   if (!cls) return '';
-  if (cls.includes('green'))  return '#22c55e';
-  if (cls.includes('red'))    return '#ef4444';
+  if (cls.includes('green'))    return '#22c55e';
+  if (cls.includes('red'))      return '#ef4444';
   if (cls.includes('yellow-4')) return '#facc15';
   if (cls.includes('yellow'))   return '#eab308';
   return '';
@@ -1647,12 +1647,9 @@ async function loadLiveMatches() {
 
     let html = '';
     for (const grp of Object.values(byLeague)) {
-      const flagImg = grp.flag
-        ? `<img src="https://www.radarfutebol.com/images/paises/${grp.flag}.png" style="width:14px;height:10px;object-fit:cover;border-radius:2px;margin-right:4px" onerror="this.style.display='none'">`
-        : '';
       html += `<div class="live-league-group">
         <div class="live-league-header">
-          ${flagImg}<span>${grp.pais ? grp.pais + ' · ' : ''}${grp.name}</span>
+          <span>${grp.pais ? grp.pais + ' · ' : ''}${grp.name}</span>
         </div>`;
       grp.matches.forEach(m => {
         const scoreFt  = `${m.golCasaFt} - ${m.golForaFt}`;
@@ -1925,9 +1922,7 @@ function renderLiveDetail(m) {
   const redC = m.cartaoCasa > 0 ? `<span style="color:#ef4444;font-size:13px"> 🟥×${m.cartaoCasa}</span>` : '';
   const redF = m.cartaoFora > 0 ? `<span style="color:#ef4444;font-size:13px"> 🟥×${m.cartaoFora}</span>` : '';
 
-  const flagImg = m.flag
-    ? `<img src="https://www.radarfutebol.com/images/paises/${m.flag}.png" style="width:18px;height:12px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'">`
-    : '';
+  const flagImg = '';
 
   let html = `
     <div class="live-match-header">

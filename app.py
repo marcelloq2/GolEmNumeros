@@ -364,65 +364,55 @@ def api_patterns():
 
 @app.route("/api/radar/live")
 def api_radar_live():
-    """Busca jogos ao vivo do radarfutebol.com (dados embutidos no HTML como JSON)."""
-    import html as h_lib
-    RADAR_HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Referer": "https://www.radarfutebol.com/",
-    }
+    """Lista jogos ao vivo via UniScore com placar, tempo e liga."""
+    with _uniscore_lock:
+        if time.time() - _uniscore_cache["ts"] < 120:
+            cached = _uniscore_cache.get("full", [])
+            if cached:
+                return jsonify({"live": cached, "total": len(cached)})
     try:
-        r = http_req.get("https://www.radarfutebol.com/", headers=RADAR_HEADERS, timeout=12)
-        r.raise_for_status()
-        m = re.search(r'id="app" data-page="([^"]+)"', r.text)
-        if not m:
-            return jsonify({"error": "Não foi possível parsear a página"}), 503
-        data = json.loads(h_lib.unescape(m.group(1)))
-        camps = data.get("props", {}).get("campeonatosIniciais", [])
-        live = []
-        for camp in camps:
-            for ev_id, ev in camp.get("eventos", {}).items():
-                if ev.get("status") != "inprogress":
+        for endpoint in [
+            f"{_UNISCORE_API}/sport/football/events/live-v2",
+            f"{_UNISCORE_API}/sport/football/events/live-v2/locale/BR",
+        ]:
+            r = http_req.post(
+                endpoint,
+                headers=_UNISCORE_HEADERS,
+                json={},
+                params={"language": "pt-BR"},
+                timeout=12,
+            )
+            if r.status_code != 200:
+                continue
+            events = r.json().get("data", {}).get("events", [])
+            if not events:
+                continue
+            live = []
+            for e in events:
+                if e.get("status", {}).get("type") != "inprogress":
                     continue
+                hs = e.get("homeScore", {})
+                aws = e.get("awayScore", {})
                 live.append({
-                    "id":           ev["idEvento"],
-                    "casa":         ev.get("timeCasa", ""),
-                    "fora":         ev.get("timeFora", ""),
-                    "liga":         ev.get("nomeCampeonato", ""),
-                    "pais":         ev.get("nomeCategoria", ""),
-                    "flag":         ev.get("flag", ""),
-                    "tempo":        ev.get("tempoTexto", ""),
-                    "golCasaFt":    ev.get("golTimeCasaFt", 0),
-                    "golForaFt":    ev.get("golTimeForaFt", 0),
-                    "golCasaHt":    ev.get("golTimeCasaHt", 0),
-                    "golForaHt":    ev.get("golTimeForaHt", 0),
-                    "cartaoCasa":   ev.get("cartaoVermelhoTimeCasa", 0),
-                    "cartaoFora":   ev.get("cartaoVermelhoTimeFora", 0),
-                    "odd1":         ev.get("oddTimeCasa"),
-                    "oddX":         ev.get("oddEmpate"),
-                    "odd2":         ev.get("oddTimeFora"),
-                    "under15":      ev.get("oddUnder15FT"),
-                    "over15":       ev.get("oddOver15FT"),
-                    "under25":      ev.get("oddUnder25FT"),
-                    "over25":       ev.get("oddOver25FT"),
-                    "bttsSim":      ev.get("oddBttsSim"),
-                    "bttsNao":      ev.get("oddBttsNao"),
-                    "clOdd1":       ev.get("classOddTimeCasa", ""),
-                    "clOddX":       ev.get("classOddEmpate", ""),
-                    "clOdd2":       ev.get("classOddTimeFora", ""),
-                    "clUnder15":    ev.get("classOddUnder15FT", ""),
-                    "clOver15":     ev.get("classOddOver15FT", ""),
-                    "clUnder25":    ev.get("classOddUnder25FT", ""),
-                    "clOver25":     ev.get("classOddOver25FT", ""),
-                    "clBttsSim":    ev.get("classOddBttsSim", ""),
-                    "clBttsNao":    ev.get("classOddBttsNao", ""),
-                    "slugCategoria": ev.get("slugCategoria", ""),
-                    "idWilliamhill": ev.get("idWilliamhill", ""),
-                    "linkBetfairBr": ev.get("linkBetfairBr", ""),
+                    "id":        e["id"],
+                    "casa":      e.get("homeTeam", {}).get("name", ""),
+                    "fora":      e.get("awayTeam", {}).get("name", ""),
+                    "liga":      e.get("tournament", {}).get("name", ""),
+                    "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
+                    "tempo":     e.get("status", {}).get("description", ""),
+                    "golCasaFt": hs.get("current", 0),
+                    "golForaFt": aws.get("current", 0),
+                    "golCasaHt": hs.get("period1", 0),
+                    "golForaHt": aws.get("period1", 0),
+                    "cartaoCasa": 0,
+                    "cartaoFora": 0,
                 })
-        return jsonify({"live": live, "total": len(live)})
+            with _uniscore_lock:
+                _uniscore_cache["full"] = live
+            return jsonify({"live": live, "total": len(live)})
     except Exception as e:
-        return jsonify({"error": str(e), "live": [], "total": 0}), 503
+        print(f"[live] Erro: {e}")
+    return jsonify({"live": [], "total": 0})
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -430,37 +420,13 @@ _momentum_cache = {}
 _momentum_lock  = threading.Lock()   # proteção para acesso concorrente
 
 
-def _fetch_radar_live_data():
-    """Busca lista de jogos ao vivo do radarfutebol.com. Retorna lista ou []."""
-    import html as h_lib
-    RADAR_HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept":     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Referer":    "https://www.radarfutebol.com/",
-    }
-    try:
-        r = http_req.get("https://www.radarfutebol.com/", headers=RADAR_HEADERS, timeout=12)
-        r.raise_for_status()
-        m = re.search(r'id="app" data-page="([^"]+)"', r.text)
-        if not m:
-            return []
-        data  = json.loads(h_lib.unescape(m.group(1)))
-        camps = data.get("props", {}).get("campeonatosIniciais", [])
-        live  = []
-        for camp in camps:
-            for ev_id, ev in camp.get("eventos", {}).items():
-                if ev.get("status") != "inprogress":
-                    continue
-                live.append({
-                    "id":   ev["idEvento"],
-                    "casa": ev.get("timeCasa", ""),
-                    "fora": ev.get("timeFora", ""),
-                    "liga": ev.get("nomeCampeonato", ""),
-                })
-        return live
-    except Exception as e:
-        print(f"[monitor] Erro ao buscar radar live: {e}")
-        return []
+def _fetch_live_matches_for_monitor():
+    """Busca lista de jogos ao vivo via UniScore para o monitor de fundo."""
+    matches = _get_uniscore_live_matches()
+    return [
+        {"id": m["id"], "casa": m["home"], "fora": m["away"], "liga": ""}
+        for m in matches
+    ]
 
 
 _sofa_live_cache = {"ts": 0, "events": []}
@@ -1104,14 +1070,13 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
 
 # ── Monitor de fundo: verifica jogos ao vivo a cada 5 min e salva os encerrados ──
 def _background_monitor():
-    """Thread daemon que varre os jogos ao vivo e salva momentum quando FT."""
+    """Thread daemon que varre os jogos ao vivo (UniScore) e salva quando FT."""
     print("[monitor] Thread de monitoramento iniciada.")
-    # Aguarda 60s na primeira vez (Flask precisa subir antes)
-    time.sleep(60)
+    time.sleep(60)  # Aguarda Flask subir
     while True:
         try:
             today     = datetime.now().strftime("%Y-%m-%d")
-            live_list = _fetch_radar_live_data()
+            live_list = _fetch_live_matches_for_monitor()
             pendentes = [
                 m for m in live_list
                 if not os.path.exists(
@@ -1124,13 +1089,11 @@ def _background_monitor():
                     data = _process_momentum(m["id"], m["casa"], m["fora"], m["liga"])
                     if data and data.get("finished"):
                         print(f"[monitor] ✓ Encerrado e salvo: {m['casa']} x {m['fora']}")
-                    # Pequena pausa entre chamadas Playwright para não sobrecarregar
-                    time.sleep(3)
+                    time.sleep(2)
             else:
                 print(f"[monitor] {len(live_list)} ao vivo, todos já salvos ou sem jogos.")
         except Exception as e:
             print(f"[monitor] Erro geral: {e}")
-        # Aguarda 5 minutos antes da próxima rodada
         time.sleep(300)
 
 
