@@ -463,6 +463,9 @@ def _fetch_radar_live_data():
         return []
 
 
+_sofa_live_cache = {"ts": 0, "events": []}
+_sofa_live_lock  = threading.Lock()
+
 _SOFA_HEADERS = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer":         "https://www.sofascore.com/",
@@ -471,6 +474,41 @@ _SOFA_HEADERS = {
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
     "Cache-Control":   "no-cache",
 }
+
+
+def _get_sofa_live_events():
+    """Busca eventos ao vivo do SofaScore. Cache de 2 minutos."""
+    with _sofa_live_lock:
+        if time.time() - _sofa_live_cache["ts"] < 120:
+            return _sofa_live_cache["events"]
+    try:
+        r = http_req.get(
+            "https://www.sofascore.com/api/v1/sport/football/events/live",
+            headers=_SOFA_HEADERS, timeout=10
+        )
+        events = r.json().get("events", [])
+        with _sofa_live_lock:
+            _sofa_live_cache["ts"] = time.time()
+            _sofa_live_cache["events"] = events
+        return events
+    except Exception as e:
+        print(f"[sofa] Erro ao buscar live events: {e}")
+        return []
+
+
+def _find_sofa_id(casa, fora):
+    """Encontra o ID do SofaScore pelo nome dos times (busca fuzzy)."""
+    if not casa or not fora:
+        return None
+    events  = _get_sofa_live_events()
+    casa_l  = casa.lower()
+    fora_l  = fora.lower()
+    for ev in events:
+        home = ev.get("homeTeam", {}).get("name", "").lower()
+        away = ev.get("awayTeam", {}).get("name", "").lower()
+        if (casa_l in home or home in casa_l) and (fora_l in away or away in fora_l):
+            return ev["id"]
+    return None
 
 
 def _fetch_sofa_direct(event_id):
@@ -539,18 +577,22 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         if cached and time.time() - cached["ts"] < 90:
             return cached["data"]
 
+    # Busca o ID correto do SofaScore (o event_id pode ser do radarfutebol)
+    sofa_id = _find_sofa_id(casa, fora) or event_id
+    print(f"[momentum] event_id={event_id} → sofa_id={sofa_id} ({casa} vs {fora})")
+
     graph = incidents = statistics = None
     try:
-        print(f"[momentum] Tentando requests direto para event {event_id}...")
-        graph, incidents, statistics = _fetch_sofa_direct(event_id)
-        print(f"[momentum] requests OK para event {event_id}")
+        print(f"[momentum] Tentando requests direto para sofa_id {sofa_id}...")
+        graph, incidents, statistics = _fetch_sofa_direct(sofa_id)
+        print(f"[momentum] requests OK para sofa_id {sofa_id}")
     except Exception as e1:
         print(f"[momentum] requests falhou ({e1}), tentando Playwright...")
         try:
-            graph, incidents, statistics = _fetch_sofa_playwright(event_id)
-            print(f"[momentum] Playwright OK para event {event_id}")
+            graph, incidents, statistics = _fetch_sofa_playwright(sofa_id)
+            print(f"[momentum] Playwright OK para sofa_id {sofa_id}")
         except Exception as e2:
-            print(f"[momentum] Erro event {event_id}: requests={e1} | playwright={e2}")
+            print(f"[momentum] Erro sofa_id {sofa_id}: requests={e1} | playwright={e2}")
             return None
 
     try:
