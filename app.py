@@ -602,19 +602,29 @@ def _fetch_fotmob_momentum(fotmob_id):
 
 def _fetch_sofa_direct(event_id):
     """Busca dados do SofaScore via requests direto (sem Playwright).
+    Tenta api.sofascore.com (sem Cloudflare) primeiro, fallback para www.
     Retorna (graph, incidents, statistics) ou levanta exceção."""
-    base = f"https://www.sofascore.com/api/v1/event/{event_id}"
-    s = http_req.Session()
-    s.headers.update(_SOFA_HEADERS)
-    # Visita a home primeiro para obter cookies (evita bloqueio Cloudflare)
-    try:
-        s.get("https://www.sofascore.com/", timeout=10)
-    except Exception:
-        pass
-    graph      = s.get(f"{base}/graph",      timeout=12).json()
-    incidents  = s.get(f"{base}/incidents",  timeout=12).json()
-    statistics = s.get(f"{base}/statistics", timeout=12).json()
-    return graph, incidents, statistics
+    # api.sofascore.com não tem Cloudflare — funciona de IPs de datacenter
+    for base_url in [
+        f"https://api.sofascore.com/api/v1/event/{event_id}",
+        f"https://www.sofascore.com/api/v1/event/{event_id}",
+    ]:
+        try:
+            s = http_req.Session()
+            s.headers.update(_SOFA_HEADERS)
+            graph      = s.get(f"{base_url}/graph",      timeout=12)
+            incidents  = s.get(f"{base_url}/incidents",  timeout=12)
+            statistics = s.get(f"{base_url}/statistics", timeout=12)
+            # Verifica se retornou dados válidos (não bloqueio Cloudflare)
+            g = graph.json()
+            pts = g.get("graphPoints", [])
+            print(f"[sofa] {base_url.split('/')[2]}: {len(pts)} graphPoints")
+            if pts:
+                return g, incidents.json(), statistics.json()
+        except Exception as e:
+            print(f"[sofa] Falhou {base_url.split('/')[2]}: {e}")
+            continue
+    raise RuntimeError(f"SofaScore: nenhuma fonte retornou graphPoints para event {event_id}")
 
 
 def _fetch_sofa_playwright(event_id):
@@ -656,8 +666,7 @@ def _fetch_sofa_playwright(event_id):
 
 
 def _process_momentum(event_id, casa="", fora="", liga=""):
-    """Busca momentum do SofaScore, detecta FT e salva se encerrado.
-    Tenta requests direto primeiro; fallback para Playwright se falhar.
+    """Busca momentum via api.sofascore.com (sem Cloudflare) → FotMob fallback.
     Usa cache de 90s para evitar chamadas repetidas.
     """
     global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
@@ -667,55 +676,53 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         if cached and time.time() - cached["ts"] < 90:
             return cached["data"]
 
-    # ── Tenta FotMob primeiro (funciona sem Cloudflare) ──────────────────
-    fotmob_id = _find_fotmob_id(casa, fora)
-    print(f"[momentum] event_id={event_id} fotmob_id={fotmob_id} ({casa} vs {fora})")
-
-    if fotmob_id:
-        try:
-            fdata = _fetch_fotmob_momentum(fotmob_id)
-            pts   = fdata.get("graphPoints", [])
-            print(f"[momentum] FotMob OK: {len(pts)} graphPoints")
-            if pts:
-                data = fdata
-                data["saved"] = False
-                # Auto-save se FT
-                if fdata.get("finished"):
-                    today     = datetime.now().strftime("%Y-%m-%d")
-                    save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
-                    if not os.path.exists(save_file):
-                        payload = {
-                            "event_id": event_id, "date": today,
-                            "saved_at": datetime.now().isoformat(),
-                            "casa": casa, "fora": fora, "liga": liga,
-                            "graphPoints": pts,
-                            "goals": fdata.get("goals", []),
-                            "statistics": fdata.get("statistics", []),
-                            "opening_odds": {},
-                        }
-                        with open(save_file, "w", encoding="utf-8") as f:
-                            json.dump(payload, f, ensure_ascii=False, indent=2)
-                        data["saved"] = True
-                        print(f"[momentum] Salvo: {save_file}")
-                        github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
-                        _pattern_tips_cache  = {"ts": 0, "data": None}
-                        _odds_patterns_cache = {"ts": 0, "data": None}
-                        _stats_patterns_cache = {"ts": 0, "data": None}
-                with _momentum_lock:
-                    _momentum_cache[event_id] = {"ts": time.time(), "data": data}
-                return data
-        except Exception as e:
-            print(f"[momentum] FotMob falhou: {e}")
-
-    # ── Fallback: SofaScore via requests direto ───────────────────────────
+    # ── Primário: SofaScore via api.sofascore.com (sem Cloudflare) ───────
     graph = incidents = statistics = None
     try:
-        print(f"[momentum] Tentando SofaScore direto para event {event_id}...")
+        print(f"[momentum] Buscando event {event_id} ({casa} vs {fora})...")
         graph, incidents, statistics = _fetch_sofa_direct(event_id)
         pts_debug = (graph or {}).get("graphPoints", [])
         print(f"[momentum] SofaScore OK: {len(pts_debug)} graphPoints")
     except Exception as e1:
         print(f"[momentum] SofaScore falhou: {e1}")
+
+    # ── Fallback: FotMob (busca por nome de time) ─────────────────────────
+    if not graph or not (graph or {}).get("graphPoints"):
+        fotmob_id = _find_fotmob_id(casa, fora)
+        if fotmob_id:
+            try:
+                fdata = _fetch_fotmob_momentum(fotmob_id)
+                pts   = fdata.get("graphPoints", [])
+                print(f"[momentum] FotMob fallback OK: {len(pts)} graphPoints")
+                if pts:
+                    data = {**fdata, "saved": False}
+                    if fdata.get("finished"):
+                        today     = datetime.now().strftime("%Y-%m-%d")
+                        save_file = os.path.join(MOMENTUM_DIR, f"{today}_{event_id}.json")
+                        if not os.path.exists(save_file):
+                            payload = {
+                                "event_id": event_id, "date": today,
+                                "saved_at": datetime.now().isoformat(),
+                                "casa": casa, "fora": fora, "liga": liga,
+                                "graphPoints": pts,
+                                "goals": fdata.get("goals", []),
+                                "statistics": fdata.get("statistics", []),
+                                "opening_odds": {},
+                            }
+                            with open(save_file, "w", encoding="utf-8") as f:
+                                json.dump(payload, f, ensure_ascii=False, indent=2)
+                            data["saved"] = True
+                            print(f"[momentum] Salvo: {save_file}")
+                            github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
+                            _pattern_tips_cache  = {"ts": 0, "data": None}
+                            _odds_patterns_cache = {"ts": 0, "data": None}
+                            _stats_patterns_cache = {"ts": 0, "data": None}
+                    with _momentum_lock:
+                        _momentum_cache[event_id] = {"ts": time.time(), "data": data}
+                    return data
+            except Exception as e2:
+                print(f"[momentum] FotMob falhou: {e2}")
+        print(f"[momentum] Sem dados para event {event_id}")
         return None
 
     try:
