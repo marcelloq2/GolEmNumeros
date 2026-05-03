@@ -463,66 +463,100 @@ def _fetch_radar_live_data():
         return []
 
 
+_SOFA_HEADERS = {
+    "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer":         "https://www.sofascore.com/",
+    "Origin":          "https://www.sofascore.com",
+    "Accept":          "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "Cache-Control":   "no-cache",
+}
+
+
+def _fetch_sofa_direct(event_id):
+    """Busca dados do SofaScore via requests direto (sem Playwright).
+    Retorna (graph, incidents, statistics) ou levanta exceção."""
+    base = f"https://www.sofascore.com/api/v1/event/{event_id}"
+    s = http_req.Session()
+    s.headers.update(_SOFA_HEADERS)
+    # Visita a home primeiro para obter cookies (evita bloqueio Cloudflare)
+    try:
+        s.get("https://www.sofascore.com/", timeout=10)
+    except Exception:
+        pass
+    graph      = s.get(f"{base}/graph",      timeout=12).json()
+    incidents  = s.get(f"{base}/incidents",  timeout=12).json()
+    statistics = s.get(f"{base}/statistics", timeout=12).json()
+    return graph, incidents, statistics
+
+
+def _fetch_sofa_playwright(event_id):
+    """Fallback: busca dados via Playwright (headless Chromium)."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage",
+                  "--disable-blink-features=AutomationControlled"]
+        )
+        ctx  = browser.new_context(
+            user_agent=_SOFA_HEADERS["User-Agent"],
+            locale="pt-BR", timezone_id="America/Sao_Paulo",
+        )
+        page = ctx.new_page()
+        page.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+        page.goto("https://www.sofascore.com/", timeout=30000, wait_until="domcontentloaded")
+        page.wait_for_timeout(2000)
+        result = page.evaluate(f"""async () => {{
+            try {{
+                const [rG, rI, rS] = await Promise.all([
+                    fetch('/api/v1/event/{event_id}/graph'),
+                    fetch('/api/v1/event/{event_id}/incidents'),
+                    fetch('/api/v1/event/{event_id}/statistics')
+                ]);
+                return {{
+                    status: 200,
+                    graph:      rG.ok ? await rG.json() : {{}},
+                    incidents:  rI.ok ? await rI.json() : {{}},
+                    statistics: rS.ok ? await rS.json() : {{}}
+                }};
+            }} catch(e) {{ return {{error: e.message}}; }}
+        }}""")
+        browser.close()
+    if result.get("status") != 200:
+        raise RuntimeError(f"Playwright sem dados: {result.get('error')}")
+    return result["graph"], result["incidents"], result["statistics"]
+
+
 def _process_momentum(event_id, casa="", fora="", liga=""):
-    """Busca momentum do SofaScore via Playwright, detecta FT e salva se encerrado.
-    Retorna dict com os dados ou None em caso de erro.
+    """Busca momentum do SofaScore, detecta FT e salva se encerrado.
+    Tenta requests direto primeiro; fallback para Playwright se falhar.
     Usa cache de 90s para evitar chamadas repetidas.
     """
-    from playwright.sync_api import sync_playwright
-
     # Verifica cache primeiro
     with _momentum_lock:
         cached = _momentum_cache.get(event_id)
         if cached and time.time() - cached["ts"] < 90:
             return cached["data"]
 
+    graph = incidents = statistics = None
     try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                    "--window-size=1280,720",
-                ]
-            )
-            ctx = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                viewport={"width": 1280, "height": 720},
-                locale="pt-BR",
-                timezone_id="America/Sao_Paulo",
-                java_script_enabled=True,
-            )
-            page = ctx.new_page()
-            # Esconde sinais de automação
-            page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            page.goto("https://www.sofascore.com/", timeout=25000, wait_until="domcontentloaded")
-            page.wait_for_timeout(2500)
-            result = page.evaluate(f"""async () => {{
-                try {{
-                    const [rGraph, rInc, rStats] = await Promise.all([
-                        fetch('/api/v1/event/{event_id}/graph'),
-                        fetch('/api/v1/event/{event_id}/incidents'),
-                        fetch('/api/v1/event/{event_id}/statistics')
-                    ]);
-                    const graph = rGraph.ok  ? await rGraph.json()  : {{}};
-                    const inc   = rInc.ok    ? await rInc.json()    : {{}};
-                    const stats = rStats.ok  ? await rStats.json()  : {{}};
-                    return {{status: 200, graph, incidents: inc, statistics: stats}};
-                }} catch(e) {{
-                    return {{error: e.message}};
-                }}
-            }}""")
-            browser.close()
-
-        if result.get("status") != 200:
+        print(f"[momentum] Tentando requests direto para event {event_id}...")
+        graph, incidents, statistics = _fetch_sofa_direct(event_id)
+        print(f"[momentum] requests OK para event {event_id}")
+    except Exception as e1:
+        print(f"[momentum] requests falhou ({e1}), tentando Playwright...")
+        try:
+            graph, incidents, statistics = _fetch_sofa_playwright(event_id)
+            print(f"[momentum] Playwright OK para event {event_id}")
+        except Exception as e2:
+            print(f"[momentum] Erro event {event_id}: requests={e1} | playwright={e2}")
             return None
 
-        graph      = result.get("graph", {})
-        incidents  = result.get("incidents", {})
-        statistics = result.get("statistics", {})
+    try:
+        graph      = graph      or {}
+        incidents  = incidents  or {}
+        statistics = statistics or {}
         inc_list  = incidents.get("incidents", [])
 
         # Extrai gols — APENAS incidentType == "goal"
