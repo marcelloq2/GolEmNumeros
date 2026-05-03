@@ -1845,18 +1845,60 @@ def api_momentum_similar():
 
 # ── Padrões de Estatísticas ──────────────────────────────────────────────────
 
-# Estatísticas que queremos rastrear (key SofaScore → label PT-BR)
+# Estatísticas que queremos rastrear — suporta keys SofaScore (camelCase) e UniScore (snake_case)
 _STAT_LABELS = {
-    "ballPossession":     "Posse de Bola (Casa %)",
-    "shotsOnTarget":      "Chutes no Alvo",
-    "totalShots":         "Total de Chutes",
-    "cornerKicks":        "Escanteios",
-    "yellowCards":        "Cartões Amarelos",
-    "saves":              "Defesas (GK)",
-    "bigChancesCreated":  "Grandes Chances",
-    "foulsCommitted":     "Faltas Cometidas",
-    "totalPasses":        "Passes Totais",
-    "tacklesWon":         "Desarmes",
+    # ── Posse & Ataque ──────────────────────────────────────────────────────
+    "ball_possession":        "Posse de Bola (%)",
+    "ballPossession":         "Posse de Bola (%)",
+    "shots":                  "Total de Chutes",
+    "totalShots":             "Total de Chutes",
+    "shots_on_target":        "Chutes no Alvo",
+    "shotsOnTarget":          "Chutes no Alvo",
+    "blocked_shots":          "Chutes Bloqueados",
+    "shots_inside_box":       "Chutes Dentro da Área",
+    "shots_outside_box":      "Chutes Fora da Área",
+    "touches_in_box":         "Toques na Área Adversária",
+    "big_chances":            "Grandes Chances",
+    "bigChancesCreated":      "Grandes Chances",
+    "corner_kicks":           "Escanteios",
+    "cornerKicks":            "Escanteios",
+    "freekicks":              "Cobranças de Falta",
+    # ── Passes ──────────────────────────────────────────────────────────────
+    "passes":                 "Total de Passes",
+    "totalPasses":            "Total de Passes",
+    "pass_in_final_third":    "Passes no Terço Final",
+    "final_third_entries":    "Entradas no Último Terço",
+    "long_balls":             "Lançamentos Longos",
+    "crosses_accuracy":       "Cruzamentos",
+    "throw_in":               "Arremessos Laterais",
+    # ── Duelos & Dribles ────────────────────────────────────────────────────
+    "duels":                  "Duelos Totais",
+    "ground_duels":           "Duelos no Chão",
+    "aerial_duels":           "Duelos Aéreos",
+    "dribble":                "Dribles",
+    "dispossessed":           "Perda de Posse (Dribble)",
+    # ── Defesa ──────────────────────────────────────────────────────────────
+    "tackles":                "Desarmes",
+    "tacklesWon":             "Desarmes",
+    "interceptions":          "Intercepções",
+    "recoveries":             "Recuperações",
+    "clearances":             "Rebotes/Afastamentos",
+    # ── Goleiro ─────────────────────────────────────────────────────────────
+    "saves":                  "Defesas (GK)",
+    "goal_kicks":             "Tiros de Meta",
+    # ── Disciplina ──────────────────────────────────────────────────────────
+    "fouls":                  "Faltas Cometidas",
+    "foulsCommitted":         "Faltas Cometidas",
+    "was_fouled":             "Sofreu Falta",
+    "yellow_cards":           "Cartões Amarelos",
+    "yellowCards":            "Cartões Amarelos",
+    # ── Perda de Posse ──────────────────────────────────────────────────────
+    "poss_losts":             "Perda de Posse Total",
+    # ── Indicadores derivados (calculados no save) ───────────────────────
+    "xg":                     "xG (Gols Esperados)",
+    "pressure_home_dom_pct":  "Dominância de Pressão (%)",
+    "pressure_overall_avg":   "Pressão Média (saldo)",
+    "pressure_momentum_swings": "Trocas de Dominância",
 }
 
 _stats_patterns_cache = {"ts": 0, "data": None}
@@ -1872,22 +1914,41 @@ def _parse_stat_val(raw):
         return None
 
 
-def _extract_stats(statistics_list):
-    """Extrai {key: (home_val, away_val)} do período 'ALL'."""
+def _extract_stats(statistics_raw):
+    """Extrai {key: (home_val, away_val)} do período ALL.
+    Aceita dois formatos:
+      - Novo (flat dict): {"ball_possession": {"homeValue": 55, "awayValue": 45, ...}, ...}
+      - Antigo (lista SofaScore): [{"period":"ALL","groups":[{"statisticsItems":[...]}]}]
+    """
     result = {}
-    for period_data in statistics_list:
-        if period_data.get("period") != "ALL":
-            continue
-        for group in period_data.get("groups", []):
-            for item in group.get("statisticsItems", []):
-                key = item.get("key", "")
-                if not key:
-                    continue
-                hv = _parse_stat_val(item.get("homeValue") or item.get("home"))
-                av = _parse_stat_val(item.get("awayValue") or item.get("away"))
-                if hv is not None or av is not None:
-                    result[key] = (hv, av)
-        break  # só período ALL
+
+    # ── Formato novo: dict flat ────────────────────────────────────────────
+    if isinstance(statistics_raw, dict):
+        for key, item in statistics_raw.items():
+            if not isinstance(item, dict):
+                continue
+            hv = _parse_stat_val(item.get("homeValue") or item.get("home"))
+            av = _parse_stat_val(item.get("awayValue") or item.get("away"))
+            if hv is not None or av is not None:
+                result[key] = (hv, av)
+        return result
+
+    # ── Formato antigo: lista com period/groups/statisticsItems ───────────
+    if isinstance(statistics_raw, list):
+        for period_data in statistics_raw:
+            if period_data.get("period") != "ALL":
+                continue
+            for group in period_data.get("groups", []):
+                for item in group.get("statisticsItems", []):
+                    key = item.get("key", "")
+                    if not key:
+                        continue
+                    hv = _parse_stat_val(item.get("homeValue") or item.get("home"))
+                    av = _parse_stat_val(item.get("awayValue") or item.get("away"))
+                    if hv is not None or av is not None:
+                        result[key] = (hv, av)
+            break  # só período ALL
+
     return result
 
 
@@ -1909,22 +1970,45 @@ def api_stats_patterns():
         try:
             with open(fpath, encoding="utf-8") as f:
                 d = json.load(f)
+
+            # ── Determina placar ──────────────────────────────────────────
+            # Prefere score salvo, fallback para contar goals
+            score = d.get("score", {})
+            if score and "home" in score and "away" in score:
+                gh = int(score["home"])
+                ga = int(score["away"])
+            else:
+                goals = d.get("goals", [])
+                gh = sum(1 for g in goals if g.get("team") == "home")
+                ga = sum(1 for g in goals if g.get("team") == "away")
+            tot = gh + ga
+
+            # ── Estatísticas base ─────────────────────────────────────────
             stats_raw = d.get("statistics", [])
-            if not stats_raw:
-                continue
-            stat_vals = _extract_stats(stats_raw)
+            stat_vals = _extract_stats(stats_raw) if stats_raw else {}
+
+            # ── xG como métricas extras ───────────────────────────────────
+            xg = d.get("xg", {})
+            if xg and xg.get("home") is not None:
+                stat_vals["xg"] = (float(xg["home"]), float(xg["away"]))
+
+            # ── Pressure summary como métricas extras ─────────────────────
+            ps = d.get("pressure_summary", {})
+            if ps:
+                if ps.get("home_dominance_pct") is not None:
+                    stat_vals["pressure_home_dom_pct"] = (float(ps["home_dominance_pct"]), 100.0 - float(ps["home_dominance_pct"]))
+                if ps.get("overall_avg") is not None:
+                    stat_vals["pressure_overall_avg"] = (float(ps["overall_avg"]), None)
+                if ps.get("momentum_swings") is not None:
+                    stat_vals["pressure_momentum_swings"] = (float(ps["momentum_swings"]), None)
+
             if not stat_vals:
                 continue
 
-            goals = d.get("goals", [])
-            gh  = sum(1 for g in goals if g.get("team") == "home")
-            ga  = sum(1 for g in goals if g.get("team") == "away")
-            tot = gh + ga
-
             active = set()
-            if gh > ga:            active.add("casaV")
-            elif ga > gh:          active.add("visV")
-            else:                  active.add("emp")
+            if gh > ga:   active.add("casaV")
+            elif ga > gh: active.add("visV")
+            else:         active.add("emp")
             active.add("o25" if tot > 2 else "u25")
             active.add("btts" if gh >= 1 and ga >= 1 else "nbtts")
 
