@@ -872,35 +872,122 @@ def _pressure_summary(graph_points: list) -> dict:
 
 
 def _calc_xg(stats_flat: dict) -> dict:
-    """Estima xG simples a partir das estatísticas disponíveis.
-    stats_flat = {"Shots on target": {"homeValue": N, "awayValue": N}, ...}
-    """
-    def _get(key):
-        item = stats_flat.get(key, {})
-        return float(item.get("homeValue", 0) or 0), float(item.get("awayValue", 0) or 0)
+    """Estima xG usando TODOS os campos de estatísticas disponíveis.
 
-    # Tenta campos mais ricos primeiro
+    Prioridade:
+      1. Campo xG direto do UniScore/SofaScore
+      2. Fórmula enriquecida com todos os stats do painel ESTATÍSTICAS
+
+    Pesos baseados em probabilidades de conversão da literatura de analytics:
+      shots_on_target  ≈ 0.33  (1 em 3 chutes no alvo vira gol)
+      big_chances      ≈ 0.38  (grandes chances têm alta conversão)
+      shots_inside_box ≈ 0.09  (chutes dentro da área não no alvo)
+      shots_outside    ≈ 0.025 (chutes de fora da área)
+      corners          ≈ 0.026 (escanteios geram perigo de área)
+      touches_in_box   ≈ 0.008 (toques na área → proximidade de gol)
+      final_third      ≈ 0.004 (passes/entradas no terço final → pressão)
+      freekicks        ≈ 0.012 (cobranças de falta em posição perigosa)
+      saves (oponente) → proxy de chutes no alvo quando shots_on_target = 0
+    """
+    def _get(key, fallback=0.0):
+        item = stats_flat.get(key) or {}
+        if isinstance(item, dict):
+            hv = item.get("homeValue") or item.get("home") or 0
+            av = item.get("awayValue") or item.get("away") or 0
+        else:
+            return fallback, fallback
+        try:
+            return float(str(hv).replace("%","") or 0), float(str(av).replace("%","") or 0)
+        except Exception:
+            return fallback, fallback
+
+    # ── 1. xG direto ─────────────────────────────────────────────────────────
     for key in ("Expected Goals", "xG", "expected_goals"):
         item = stats_flat.get(key)
         if item:
-            return {
-                "home":   round(float(item.get("homeValue", 0) or 0), 2),
-                "away":   round(float(item.get("awayValue", 0) or 0), 2),
-                "source": "direct",
-            }
+            hv = (item.get("homeValue") or item.get("home") or 0)
+            av = (item.get("awayValue") or item.get("away") or 0)
+            try:
+                return {"home": round(float(hv), 2), "away": round(float(av), 2), "source": "direct"}
+            except Exception:
+                pass
 
-    # Fórmula aproximada: xG ≈ 0.35 * chutes_alvo + 0.1 * chutes_area + 0.08 * grandes_chances
-    inside_h, inside_a   = _get("shots_inside_box")
+    # ── 2. Fórmula enriquecida com todos os stats ─────────────────────────────
+    ontar_h,   ontar_a   = _get("shots_on_target")
+    inside_h,  inside_a  = _get("shots_inside_box")
     outside_h, outside_a = _get("shots_outside_box")
-    ontar_h, ontar_a     = _get("shots_on_target")
-    big_h, big_a         = _get("big_chances")
+    big_h,     big_a     = _get("big_chances")
+    corners_h, corners_a = _get("corner_kicks")
+    touches_h, touches_a = _get("touches_in_box")
+    fp3_h,     fp3_a     = _get("pass_in_final_third")
+    fte_h,     fte_a     = _get("final_third_entries")
+    saves_h,   saves_a   = _get("saves")      # saves do GK de cada time
+    free_h,    free_a    = _get("freekicks")
+    # shots totais como fallback se não tiver inside/outside
+    total_h,   total_a   = _get("shots")
 
-    xg_h = round(0.35 * ontar_h + 0.10 * inside_h + 0.03 * outside_h + 0.12 * big_h, 2)
-    xg_a = round(0.35 * ontar_a + 0.10 * inside_a + 0.03 * outside_a + 0.12 * big_a, 2)
+    # Se shots_on_target = 0 mas saves do adversário está disponível,
+    # usa saves como proxy (saves_adversario ≈ shots_on_target_proprio)
+    eff_ontar_h = ontar_h if ontar_h > 0 else saves_a
+    eff_ontar_a = ontar_a if ontar_a > 0 else saves_h
+
+    # Se shots_inside_box = 0 mas total de chutes disponível, estima 60% dentro
+    if inside_h == 0 and total_h > 0:
+        inside_h = total_h * 0.60
+    if inside_a == 0 and total_a > 0:
+        inside_a = total_a * 0.60
+    if outside_h == 0 and total_h > 0:
+        outside_h = total_h * 0.40
+    if outside_a == 0 and total_a > 0:
+        outside_a = total_a * 0.40
+
+    # Contribuição de pressão posicional (final third + passes finais)
+    press_h = fp3_h + fte_h
+    press_a = fp3_a + fte_a
+
+    xg_h = round(
+        0.33  * eff_ontar_h    # chutes no alvo (maior peso)
+      + 0.38  * big_h          # grandes chances
+      + 0.09  * inside_h       # chutes dentro da área (não no alvo)
+      + 0.025 * outside_h      # chutes fora da área
+      + 0.026 * corners_h      # escanteios → perigo de área
+      + 0.008 * touches_h      # toques na área adversária
+      + 0.004 * press_h        # pressão no terço final
+      + 0.012 * free_h,        # cobranças de falta perigosas
+    2)
+
+    xg_a = round(
+        0.33  * eff_ontar_a
+      + 0.38  * big_a
+      + 0.09  * inside_a
+      + 0.025 * outside_a
+      + 0.026 * corners_a
+      + 0.008 * touches_a
+      + 0.004 * press_a
+      + 0.012 * free_a,
+    2)
+
+    # Quais campos contribuíram
+    fields_used = []
+    if eff_ontar_h > 0 or eff_ontar_a > 0:   fields_used.append("shots_on_target")
+    if big_h > 0 or big_a > 0:                fields_used.append("big_chances")
+    if inside_h > 0 or inside_a > 0:          fields_used.append("shots_inside_box")
+    if outside_h > 0 or outside_a > 0:        fields_used.append("shots_outside_box")
+    if corners_h > 0 or corners_a > 0:        fields_used.append("corners")
+    if touches_h > 0 or touches_a > 0:        fields_used.append("touches_in_box")
+    if press_h > 0 or press_a > 0:            fields_used.append("final_third")
+    if free_h > 0 or free_a > 0:              fields_used.append("freekicks")
 
     if xg_h == 0.0 and xg_a == 0.0:
         return {}
-    return {"home": xg_h, "away": xg_a, "source": "estimated"}
+
+    return {
+        "home":         xg_h,
+        "away":         xg_a,
+        "source":       "estimated",
+        "fields_used":  fields_used,
+        "n_fields":     len(fields_used),
+    }
 
 
 def _extract_score(goals: list) -> dict:

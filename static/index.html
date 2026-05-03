@@ -2737,6 +2737,34 @@ function buildIndicatorsHtml(d, homeName, awayName) {
     ${indRow('u25')}
     ${indRow('btts')}
 
+    <!-- xG detalhe -->
+    ${(() => {
+      const xg = d.xg || {};
+      if (!xg.home && xg.home !== 0) return '';
+      const src = xg.source === 'direct' ? '✅ direto' : `estimado`;
+      const nf  = xg.n_fields ? ` · ${xg.n_fields} stats` : '';
+      const fields = (xg.fields_used || []).map(f => {
+        const lbl = {shots_on_target:'Chutes Alvo', big_chances:'Gdes Chances',
+          shots_inside_box:'Área', shots_outside_box:'Fora Área',
+          corners:'Escanteios', touches_in_box:'Toques Área',
+          final_third:'Terço Final', freekicks:'Faltas'}[f] || f;
+        return `<span style="font-size:8px;background:#0f1117;border:1px solid #2e3249;border-radius:3px;padding:1px 4px;color:#64748b">${lbl}</span>`;
+      }).join('');
+      const diffColor = xg.home > xg.away ? '#3b82f6' : xg.away > xg.home ? '#f97316' : '#94a3b8';
+      return `
+      <div style="margin-top:8px;padding-top:6px;border-top:1px solid #2e3249">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:9px;font-weight:700;color:#64748b;letter-spacing:.08em">xG — GOLS ESPERADOS</span>
+          <span style="font-size:9px;color:#64748b">${src}${nf}</span>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700;color:#3b82f6">${homeName || 'Casa'} <b>${xg.home.toFixed(2)}</b></span>
+          <span style="font-size:12px;font-weight:700;color:#f97316">${awayName || 'Fora'} <b>${xg.away.toFixed(2)}</b></span>
+        </div>
+        ${fields ? `<div style="display:flex;gap:3px;flex-wrap:wrap">${fields}</div>` : ''}
+      </div>`;
+    })()}
+
     <!-- Pesos -->
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:6px;border-top:1px solid #2e3249">
       ${weightChips}
