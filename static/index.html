@@ -1966,6 +1966,7 @@ function renderLiveDetail(m) {
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
+        <div id="indicatorsPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -2010,6 +2011,8 @@ function renderLiveDetail(m) {
   loadUniscorePanel(m.casa, m.fora);
   // Carrega mapa de chutes
   loadShotmap(m.id, m.casa, m.fora);
+  // Carrega indicadores dinâmicos
+  loadIndicators(m.id, m.casa, m.fora);
 }
 
 // ── Correlação de Pearson entre dois arrays (usa os últimos N elementos) ──
@@ -2634,6 +2637,110 @@ function buildShotMapHtml(shots, homeName, awayName) {
     <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
       ${statBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
       ${statBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+    </div>
+  </div>`;
+}
+
+// ── INDICADORES DINÂMICOS ────────────────────────────────────────────────────
+async function loadIndicators(eventId, casa, fora) {
+  const el = document.getElementById('indicatorsPanel');
+  if (!el) return;
+  el.innerHTML = `<div style="font-size:10px;color:var(--text2);padding:4px 0">⏳ Calculando indicadores...</div>`;
+  try {
+    const r = await fetch(`/api/momentum/indicators/${eventId}?casa=${encodeURIComponent(casa)}&fora=${encodeURIComponent(fora)}`);
+    const d = await r.json();
+    if (!d.ok || !d.has_live_data) { el.innerHTML = ''; return; }
+    el.innerHTML = buildIndicatorsHtml(d, casa, fora);
+  } catch(e) {
+    el.innerHTML = '';
+  }
+}
+
+function buildIndicatorsHtml(d, homeName, awayName) {
+  const ind = d.indicators || {};
+  const totalHist = d.total_hist || 0;
+  const w = d.weights || {};
+
+  // Cor por valor composto
+  const signalColor = (v) => {
+    if (v === null || v === undefined) return 'var(--text2)';
+    if (v >= 65) return '#22c55e';
+    if (v >= 50) return '#f59e0b';
+    if (v >= 35) return '#94a3b8';
+    return '#ef4444';
+  };
+  const barColor = (v) => {
+    if (v === null || v === undefined) return '#2e3249';
+    if (v >= 65) return '#22c55e';
+    if (v >= 50) return '#f59e0b';
+    if (v >= 35) return '#4f6ef7';
+    return '#ef4444';
+  };
+  const fmtVal = (v) => v === null || v === undefined ? '—' : `${Math.round(v)}`;
+
+  // Renderiza uma linha de indicador com barra
+  const indRow = (oc, widthLabel) => {
+    const it = ind[oc];
+    if (!it) return '';
+    const cv = it.composite;
+    const barW = cv !== null ? `${Math.round(Math.min(cv, 100))}%` : '0%';
+    const col = barColor(cv);
+    const textCol = signalColor(cv);
+    const subParts = [];
+    if (it.profile !== null && it.profile !== undefined) subParts.push(`Perfil ${fmtVal(it.profile)}`);
+    if (it.momentum !== null && it.momentum !== undefined) subParts.push(`Mom ${fmtVal(it.momentum)}`);
+    if (it.xg !== null && it.xg !== undefined) subParts.push(`xG ${fmtVal(it.xg)}`);
+    const sub = subParts.join(' · ');
+    return `
+    <div style="margin-bottom:5px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <span style="font-size:11px;color:var(--text2)">${it.label}</span>
+        <span style="font-size:13px;font-weight:700;color:${textCol}">${fmtVal(cv)}</span>
+      </div>
+      <div style="height:5px;background:#2e3249;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${barW};background:${col};border-radius:3px;transition:width .4s"></div>
+      </div>
+      ${sub ? `<div style="font-size:9px;color:#64748b;margin-top:1px">${sub}</div>` : ''}
+    </div>`;
+  };
+
+  // Bloco de pesos
+  const weightChips = Object.entries(w).map(([k,v]) => {
+    const lbl = {profile:'Perfil', momentum:'Momentum', xg:'xG', value:'Value'}[k] || k;
+    return `<span style="font-size:9px;background:#1a1d27;border:1px solid #2e3249;border-radius:4px;padding:1px 5px;color:#64748b">${lbl} ${Math.round(v*100)}%</span>`;
+  }).join('');
+
+  // sinal geral: melhor indicador 1X2
+  const best1x2 = ['casaV','emp','visV'].map(k => ({k, v: (ind[k]||{}).composite}))
+    .filter(x => x.v !== null && x.v !== undefined)
+    .sort((a,b) => b.v - a.v)[0];
+  const bestGoals = ['o25','u25','btts'].map(k => ({k, v: (ind[k]||{}).composite}))
+    .filter(x => x.v !== null && x.v !== undefined)
+    .sort((a,b) => b.v - a.v)[0];
+
+  return `
+  <div style="border:1px solid #2e3249;border-radius:8px;padding:10px 12px;background:#1a1d27;margin-top:2px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">📊 INDICADORES</span>
+      <span style="font-size:9px;color:#64748b">${totalHist} partidas histórico</span>
+    </div>
+
+    <!-- 1X2 -->
+    <div style="font-size:9px;font-weight:700;color:#64748b;letter-spacing:.08em;margin-bottom:4px">RESULTADO</div>
+    ${indRow('casaV')}
+    ${indRow('emp')}
+    ${indRow('visV')}
+
+    <!-- GOLS -->
+    <div style="font-size:9px;font-weight:700;color:#64748b;letter-spacing:.08em;margin:8px 0 4px">GOLS</div>
+    ${indRow('o25')}
+    ${indRow('u25')}
+    ${indRow('btts')}
+
+    <!-- Pesos -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:6px;border-top:1px solid #2e3249">
+      ${weightChips}
+      ${totalHist < 20 ? `<span style="font-size:9px;color:#f59e0b;margin-left:auto">⚠ Dados insuficientes — sinal preliminar</span>` : ''}
     </div>
   </div>`;
 }
