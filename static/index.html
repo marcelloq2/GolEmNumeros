@@ -2529,66 +2529,91 @@ function buildShotMapHtml(shots, homeName, awayName) {
   const homeGoals = homeShots.filter(s => s.shotType === 'goal').length;
   const awayGoals = awayShots.filter(s => s.shotType === 'goal').length;
 
-  // Gera SVG do campo com os chutes
+  // Sistema de coordenadas UniScore:
+  // playerCoordinates.x = distância até o gol atacado (0=boca do gol, 100=longe)
+  // playerCoordinates.y = posição transversal (0=touchline cima, 100=touchline baixo)
+  // HOME ataca o gol ESQUERDO: px = x/100*W  (x pequeno → esquerda)
+  // AWAY ataca o gol DIREITO:  px = (100-x)/100*W  (x pequeno → direita)
   const W = 420, H = 272;
-  // Dimensões do campo em coordenadas normalizadas (0-100)
-  // x = esquerda→direita, y = cima→baixo
-  // Home ataca para direita (x > 50), Away ataca para esquerda (x < 50)
 
-  const shotIcon = (s, flip) => {
-    // Coordenada: home usa draw.start como está (x ≈ 60-100 = área deles)
-    // Away: espelhamos x para mostrar na metade deles (x < 50)
-    let sx = s.x, sy = s.y;
-    if (flip) sx = 100 - sx;  // espelha away para metade esquerda
-    const px = sx / 100 * W;
-    const py = sy / 100 * H;
-    const color = flip ? '#f97316' : '#3b82f6';   // away=laranja, home=azul
-    const r = s.shotType === 'goal' ? 7 : s.shotType === 'save' ? 5.5 : 4.5;
-    const fill   = s.shotType === 'goal'  ? color :
-                   s.shotType === 'save'  ? 'none' : 'none';
-    const stroke = color;
-    const sw     = s.shotType === 'goal' ? 0 : 1.5;
-    const opacity = s.shotType === 'miss' || s.shotType === 'block' ? 0.7 : 1;
-    const title = `${s.player} ${s.minute}' (${s.shotType})`;
-    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r}"
-      fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${opacity}">
+  const shotIcon = (s) => {
+    const isHome = s.isHome;
+    const px = isHome
+      ? (s.x / 100) * W
+      : (1 - s.x / 100) * W;
+    const py = (s.y / 100) * H;
+
+    const color  = isHome ? '#3b82f6' : '#f97316';
+    const radius = s.shotType === 'goal' ? 7 : 5;
+    const fill   = s.shotType === 'goal' ? color : 'none';
+    const sw     = s.shotType === 'goal' ? 0 : 1.8;
+    const op     = s.shotType === 'miss' ? 0.65 : 1;
+    const title  = `${s.player || ''} ${s.minute ? s.minute+"'" : ''} (${s.shotType})`;
+    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${radius}"
+      fill="${fill}" stroke="${color}" stroke-width="${sw}" opacity="${op}">
       <title>${title}</title></circle>`;
+  };
+
+  // Medidas do campo reais em %:
+  // Área grande: 16.5m de 105m = 15.7% da largura, altura = 40.3m de 68m = 59.3%
+  // Área pequena: 5.5m / 105m = 5.2%, altura = 18.3m / 68m = 26.9%
+  // Gol: largura = 7.32m / 68m = 10.8% da altura do campo
+  const p = { // presets em frações do W/H
+    areaG: { w: W*0.157, h: H*0.593, y: H*0.203 },
+    areaP: { w: W*0.052, h: H*0.269, y: H*0.365 },
+    goalH: H * 0.108,
+    goalY: H * 0.446,
   };
 
   const fieldSvg = `
   <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
        style="width:100%;border-radius:8px;display:block">
     <defs>
-      <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#1a3a1a"/>
-        <stop offset="100%" stop-color="#1e4520"/>
+      <linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1b3a1b"/>
+        <stop offset="50%" stop-color="#1e4220"/>
+        <stop offset="100%" stop-color="#1b3a1b"/>
       </linearGradient>
     </defs>
-    <!-- Campo -->
-    <rect width="${W}" height="${H}" fill="url(#grassGrad)" rx="6"/>
+    <rect width="${W}" height="${H}" fill="url(#sg2)" rx="6"/>
+    <!-- Borda do campo -->
+    <rect x="2" y="2" width="${W-4}" height="${H-4}" fill="none" stroke="#ffffff30" stroke-width="1.5" rx="4"/>
     <!-- Linha central -->
-    <line x1="${W/2}" y1="4" x2="${W/2}" y2="${H-4}" stroke="#ffffff22" stroke-width="1"/>
+    <line x1="${W/2}" y1="4" x2="${W/2}" y2="${H-4}" stroke="#ffffff25" stroke-width="1"/>
     <!-- Círculo central -->
-    <circle cx="${W/2}" cy="${H/2}" r="${H*0.18}" fill="none" stroke="#ffffff22" stroke-width="1"/>
-    <!-- Área grande esquerda (away defende) -->
-    <rect x="4" y="${H*0.18}" width="${W*0.165}" height="${H*0.64}" fill="none" stroke="#ffffff33" stroke-width="1"/>
-    <!-- Área pequena esquerda -->
-    <rect x="4" y="${H*0.35}" width="${W*0.055}" height="${H*0.3}" fill="none" stroke="#ffffff22" stroke-width="1"/>
-    <!-- Área grande direita (home defende) -->
-    <rect x="${W - W*0.165 - 4}" y="${H*0.18}" width="${W*0.165}" height="${H*0.64}" fill="none" stroke="#ffffff33" stroke-width="1"/>
-    <!-- Área pequena direita -->
-    <rect x="${W - W*0.055 - 4}" y="${H*0.35}" width="${W*0.055}" height="${H*0.3}" fill="none" stroke="#ffffff22" stroke-width="1"/>
-    <!-- Gol esquerdo -->
-    <rect x="0" y="${H*0.4}" width="4" height="${H*0.2}" fill="#ffffff44"/>
-    <!-- Gol direito -->
-    <rect x="${W-4}" y="${H*0.4}" width="4" height="${H*0.2}" fill="#ffffff44"/>
-    <!-- Bordas do campo -->
-    <rect x="2" y="2" width="${W-4}" height="${H-4}" fill="none" stroke="#ffffff33" stroke-width="1" rx="4"/>
+    <circle cx="${W/2}" cy="${H/2}" r="${H*0.165}" fill="none" stroke="#ffffff25" stroke-width="1"/>
+    <!-- Ponto central -->
+    <circle cx="${W/2}" cy="${H/2}" r="2" fill="#ffffff30"/>
 
-    <!-- Chutes HOME (azul) — ataca para direita, não espelha -->
-    ${homeShots.map(s => shotIcon(s, false)).join('\n    ')}
-    <!-- Chutes AWAY (laranja) — ataca para esquerda, espelha x -->
-    ${awayShots.map(s => shotIcon(s, true)).join('\n    ')}
+    <!-- Área grande ESQUERDA (home ataca aqui) -->
+    <rect x="2" y="${p.areaG.y.toFixed(1)}" width="${p.areaG.w.toFixed(1)}" height="${p.areaG.h.toFixed(1)}"
+          fill="none" stroke="#ffffff30" stroke-width="1"/>
+    <!-- Área pequena ESQUERDA -->
+    <rect x="2" y="${p.areaP.y.toFixed(1)}" width="${p.areaP.w.toFixed(1)}" height="${p.areaP.h.toFixed(1)}"
+          fill="none" stroke="#ffffff20" stroke-width="1"/>
+    <!-- Gol ESQUERDO -->
+    <rect x="0" y="${p.goalY.toFixed(1)}" width="5" height="${p.goalH.toFixed(1)}" fill="#ffffff50" rx="1"/>
+
+    <!-- Área grande DIREITA (away ataca aqui) -->
+    <rect x="${(W - p.areaG.w - 2).toFixed(1)}" y="${p.areaG.y.toFixed(1)}"
+          width="${p.areaG.w.toFixed(1)}" height="${p.areaG.h.toFixed(1)}"
+          fill="none" stroke="#ffffff30" stroke-width="1"/>
+    <!-- Área pequena DIREITA -->
+    <rect x="${(W - p.areaP.w - 2).toFixed(1)}" y="${p.areaP.y.toFixed(1)}"
+          width="${p.areaP.w.toFixed(1)}" height="${p.areaP.h.toFixed(1)}"
+          fill="none" stroke="#ffffff20" stroke-width="1"/>
+    <!-- Gol DIREITO -->
+    <rect x="${(W-5).toFixed(1)}" y="${p.goalY.toFixed(1)}" width="5" height="${p.goalH.toFixed(1)}" fill="#ffffff50" rx="1"/>
+
+    <!-- Ponto pênalti esquerdo (11m / 105m = 10.5% do W) -->
+    <circle cx="${(W*0.105).toFixed(1)}" cy="${(H/2).toFixed(1)}" r="2" fill="#ffffff30"/>
+    <!-- Ponto pênalti direito -->
+    <circle cx="${(W*0.895).toFixed(1)}" cy="${(H/2).toFixed(1)}" r="2" fill="#ffffff30"/>
+
+    <!-- Chutes HOME (azul) — ataca gol ESQUERDO -->
+    ${homeShots.map(s => shotIcon(s)).join('\n    ')}
+    <!-- Chutes AWAY (laranja) — ataca gol DIREITO -->
+    ${awayShots.map(s => shotIcon(s)).join('\n    ')}
   </svg>`;
 
   // Legenda contagens

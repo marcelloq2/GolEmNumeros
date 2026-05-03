@@ -686,8 +686,8 @@ def _fetch_uniscore_graph(uni_match):
                     "bodyPart":  s.get("bodyPart", ""),
                     "situation": s.get("situation", ""),
                     "player":    s.get("player", {}).get("shortName", ""),
-                    "x":         (s.get("draw") or {}).get("start", {}).get("x", 0),
-                    "y":         (s.get("draw") or {}).get("start", {}).get("y", 0),
+                    "x":         s.get("playerCoordinates", {}).get("x", 0),
+                    "y":         s.get("playerCoordinates", {}).get("y", 0),
                 }
                 for s in raw_shots
             ]
@@ -1191,8 +1191,8 @@ def api_shotmap(event_id):
                     "bodyPart":  s.get("bodyPart", ""),
                     "situation": s.get("situation", ""),
                     "player":    s.get("player", {}).get("shortName", ""),
-                    "x":         (s.get("draw") or {}).get("start", {}).get("x", 0),
-                    "y":         (s.get("draw") or {}).get("start", {}).get("y", 0),
+                    "x":         s.get("playerCoordinates", {}).get("x", 0),
+                    "y":         s.get("playerCoordinates", {}).get("y", 0),
                 }
                 for s in raw
             ]
