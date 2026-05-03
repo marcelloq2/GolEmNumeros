@@ -480,14 +480,26 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"]
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--window-size=1280,720",
+                ]
             )
             ctx = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                viewport={"width": 1280, "height": 720},
+                locale="pt-BR",
+                timezone_id="America/Sao_Paulo",
+                java_script_enabled=True,
             )
             page = ctx.new_page()
-            page.goto("https://www.sofascore.com/", timeout=15000, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)
+            # Esconde sinais de automação
+            page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            page.goto("https://www.sofascore.com/", timeout=25000, wait_until="domcontentloaded")
+            page.wait_for_timeout(2500)
             result = page.evaluate(f"""async () => {{
                 try {{
                     const [rGraph, rInc, rStats] = await Promise.all([
