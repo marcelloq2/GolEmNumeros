@@ -599,6 +599,8 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         graph      = graph      or {}
         incidents  = incidents  or {}
         statistics = statistics or {}
+        pts_debug  = graph.get("graphPoints", [])
+        print(f"[momentum] sofa_id={sofa_id}: {len(pts_debug)} graphPoints, inc={len(incidents.get('incidents',[]))}")
         inc_list  = incidents.get("incidents", [])
 
         # Extrai gols — APENAS incidentType == "goal"
