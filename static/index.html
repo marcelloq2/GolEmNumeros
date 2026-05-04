@@ -1206,8 +1206,8 @@ let activeFilter = 'all';
 let _btEdgeCriteria = [];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
-let _edgeScoreTabFilter = null; // null | 'casa' | 'fora' | 'gols'
-let _edgeMethodFilter = null;   // null | index na lista filtrada de critérios
+let _edgeScoreTabFilter = null;      // null | 'casa' | 'fora' | 'gols'
+let _edgeMethodFilters = new Set();  // Set de índices selecionados (multi-select)
 let viewMode    = 'liga'; // 'liga' | 'hora'
 let favViewMode = 'liga'; // 'liga' | 'hora'
 let activeMatchId = null;
@@ -3894,12 +3894,18 @@ function _toggleEdgeFavFilter() {
 
 function _toggleEdgeScoreFilter(tab) {
   _edgeScoreTabFilter = _edgeScoreTabFilter === tab ? null : tab;
-  _edgeMethodFilter = null;
+  _edgeMethodFilters = new Set();
   renderEdgePanel();
 }
 
 function _setEdgeMethodFilter(idx) {
-  _edgeMethodFilter = _edgeMethodFilter === idx ? null : idx;
+  if (_edgeMethodFilters.has(idx)) _edgeMethodFilters.delete(idx);
+  else _edgeMethodFilters.add(idx);
+  renderEdgePanel();
+}
+
+function _clearEdgeMethodFilters() {
+  _edgeMethodFilters = new Set();
   renderEdgePanel();
 }
 
@@ -3911,6 +3917,70 @@ function matchFitsCriteria(m, c) {
   else if (c.tab === 'fora') score = calcBtTeamScore(m, false);
   else                       score = calcGoalScore(m);
   return score != null && score >= range.min && score <= range.max;
+}
+
+// Gera critérios de edge para as 3 abas de uma vez (casa, fora, gols)
+function _buildAllEdgeCriteria(matches) {
+  const corr = calcScoreCorrelation(matches);
+  const base = corr.base;
+  const result = [];
+
+  const csBaseFreq = sk => base.n > 0 ? Math.round((base.scores[sk]||0)/base.n*100) : 0;
+  const csProvaveis   = BT_SCORE_LIST.filter(sk => csBaseFreq(sk) >= 4);
+  const csImprovaveis = BT_SCORE_LIST.filter(sk => { const f=csBaseFreq(sk); return f>0&&f<4; });
+
+  ['casa','fora','gols'].forEach(tabKey => {
+    const data = corr[tabKey];
+
+    // Mercados
+    BT_MKTS.forEach(mk => {
+      let bestVal=-1, bestRi=-1;
+      data.forEach((r,ri) => {
+        if (r.n < 5) return;
+        const v = r.mkt[mk.key];
+        if (v != null && v > bestVal) { bestVal=v; bestRi=ri; }
+      });
+      if (bestRi < 0) return;
+      const sim = btBankSimulation(matches, tabKey, bestRi, mk.key, null);
+      if (!sim || sim.profit < 0) return;
+      result.push({
+        label: `${mk.label} · ${(BT_RANGES[bestRi]||{}).label||'?'} · ${bestVal}%`,
+        tab: tabKey, rangeIdx: bestRi, marketKey: mk.key, scoreKey: null,
+        scoreType: null, invert: false,
+        profit: sim.profit, roi: sim.roi, winrate: sim.winrate,
+        fairOdd: sim.fairOdd, simOdd: sim.simOdd, kellyFrac: sim.kellyFrac||0
+      });
+    });
+
+    // Placares prováveis e improváveis
+    const findBest = (list) => {
+      let mx={val:-1,ri:-1,sk:null};
+      data.forEach((r,ri) => {
+        if (!r.n||r.n<5) return;
+        list.forEach(sk => {
+          const v = r.n>0 ? Math.round((r.scores[sk]||0)/r.n*100) : 0;
+          if (v>mx.val) { mx={val:v,ri,sk}; }
+        });
+      });
+      return mx;
+    };
+    [['provavel',csProvaveis],['improvavel',csImprovaveis]].forEach(([type,list]) => {
+      const mx = findBest(list);
+      if (!mx.sk) return;
+      const sim = btBankSimulation(matches, tabKey, mx.ri, null, mx.sk);
+      if (!sim || sim.profit < 0) return;
+      const typeLbl = type==='provavel' ? 'Provável' : 'Improvável';
+      result.push({
+        label: `Placar ${mx.sk} (${typeLbl}) · ${(BT_RANGES[mx.ri]||{}).label||'?'} · ${mx.val}%`,
+        tab: tabKey, rangeIdx: mx.ri, marketKey: null, scoreKey: mx.sk,
+        scoreType: type, invert: false,
+        profit: sim.profit, roi: sim.roi, winrate: sim.winrate,
+        fairOdd: sim.fairOdd, simOdd: sim.simOdd, kellyFrac: sim.kellyFrac||0
+      });
+    });
+  });
+
+  return result;
 }
 
 function renderEdgePanel() {
@@ -3948,9 +4018,10 @@ function renderEdgePanel() {
     ? _btEdgeCriteria.filter(c => c.tab === _edgeScoreTabFilter)
     : _btEdgeCriteria;
 
-  // garante que _edgeMethodFilter não aponte para índice fora dos limites
-  if (_edgeMethodFilter !== null && _edgeMethodFilter >= activeCriteria.length)
-    _edgeMethodFilter = null;
+  // Remove índices fora dos limites do Set
+  for (const idx of [..._edgeMethodFilters]) {
+    if (idx >= activeCriteria.length) _edgeMethodFilters.delete(idx);
+  }
 
   const scoreTabBtns = [
     { id: 'casa', lbl: 'Score Casa' },
@@ -3968,7 +4039,7 @@ function renderEdgePanel() {
   }).join('');
 
   const criteriaChips = activeCriteria.map((c, i) => {
-    const on        = _edgeMethodFilter === i;
+    const on        = _edgeMethodFilters.has(i);
     const profColor = c.profit >= 0 ? '#22c55e' : '#ef4444';
     const profSign  = c.profit >= 0 ? '+' : '';
     const scoreTypeLbl = c.scoreType === 'provavel'   ? ' (Provável)'
@@ -4005,24 +4076,21 @@ function renderEdgePanel() {
     </div>`;
   }).join('');
 
-  const selectedCriteria = _edgeMethodFilter !== null ? activeCriteria[_edgeMethodFilter] : null;
-  const selVal = selectedCriteria ? _validateSim({
-    total: 999, wins: 0, losses: 0, profit: selectedCriteria.profit, roi: selectedCriteria.roi,
-    winrate: selectedCriteria.winrate, fairOdd: selectedCriteria.fairOdd, simOdd: selectedCriteria.simOdd,
-    kellyFrac: selectedCriteria.kellyFrac || 0, maxDD: 0,
-  }) : null;
-
-  const selInfoHTML = selectedCriteria ? `
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;
+  const selectedList = [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean);
+  const selInfoHTML = selectedList.length ? `
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;
                 background:#0d1f10;border:1px solid #22c55e44;border-radius:6px;flex-wrap:wrap">
-      <span style="font-size:10px;font-weight:700;color:#22c55e">▶ Metodologia selecionada:</span>
-      <span style="font-size:10px;color:var(--text)">${selectedCriteria.label}</span>
-      <span style="font-size:9px;color:#4b5563">Range: ${(BT_RANGES[selectedCriteria.rangeIdx]||{}).label||'?'}</span>
-      <span style="font-size:9px;color:#22c55e">ROI: +${selectedCriteria.roi.toFixed(1)}%</span>
-      <span style="font-size:9px;color:#f59e0b">Odd: @${selectedCriteria.simOdd.toFixed(2)}</span>
-      <span onclick="_setEdgeMethodFilter(${_edgeMethodFilter})"
+      <span style="font-size:10px;font-weight:700;color:#22c55e;flex-shrink:0">▶ Selecionadas (${selectedList.length}):</span>
+      ${selectedList.map(c => `
+        <span style="font-size:9px;padding:2px 7px;background:#162a1a;border:1px solid #22c55e55;
+                     border-radius:4px;color:#4ade80">
+          ${c.scoreKey ? `Placar ${c.scoreKey}` : (c.marketKey||'?')} · ${(BT_RANGES[c.rangeIdx]||{}).label||'?'}
+          <span style="color:#22c55e"> +${c.roi.toFixed(1)}%</span>
+          <span style="color:#f59e0b"> @${c.simOdd.toFixed(2)}</span>
+        </span>`).join('')}
+      <span onclick="_clearEdgeMethodFilters()"
             style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
-                   border-radius:4px;background:var(--bg3)">✕ Limpar</span>
+                   border-radius:4px;background:var(--bg3);flex-shrink:0">✕ Limpar tudo</span>
     </div>` : '';
 
   bar.innerHTML = `
@@ -4050,8 +4118,8 @@ function renderEdgePanel() {
     </div>`;
 
   // ── Filtra partidas de hoje ──
-  const criteriaToUse = _edgeMethodFilter !== null
-    ? [activeCriteria[_edgeMethodFilter]].filter(Boolean)
+  const criteriaToUse = _edgeMethodFilters.size > 0
+    ? [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean)
     : activeCriteria;
 
   const allMatching = allMatches
@@ -5243,19 +5311,9 @@ function renderBtMarketsPanel(matches) {
   const simCSImpLbl = csGlobalMaxImp.sk
     ? `⚠️ Improvável — ${csGlobalMaxImp.sk} · ${data[csGlobalMaxImp.ri]?.label || '?'} · ${csGlobalMaxImp.val.toFixed(1)}%` : '';
 
-  // ── Atualiza critérios globais de edge (positivos) ──
-  _btEdgeCriteria = [];
-  const _addEdge = (sim, tab, ri, mk, sk, lbl, scoreType, invert) => {
-    if (sim && sim.profit >= 0) {
-      _btEdgeCriteria.push({ label: lbl, tab, rangeIdx: ri, marketKey: mk, scoreKey: sk,
-                             scoreType: scoreType || null, invert: !!invert,
-                             profit: sim.profit, roi: sim.roi, winrate: sim.winrate,
-                             fairOdd: sim.fairOdd, simOdd: sim.simOdd });
-    }
-  };
-  colSims.forEach(cs => _addEdge(cs.sim, btMarketsTab, cs.ri, cs.mk.key, null, cs.lbl, null));
-  _addEdge(simCS,    btMarketsTab, csGlobalMax.ri,    null, csGlobalMax.sk,    simCSLbl,    'provavel');
-  _addEdge(simCSImp, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk, simCSImpLbl, 'improvavel');
+  // ── Atualiza critérios para as 3 abas de uma vez ──
+  _btEdgeCriteria = _buildAllEdgeCriteria(matches);
+  _edgeMethodFilters = new Set();   // limpa seleção ao recalcular
   _updateEdgeTabBadge();
 
   // Separa positivos (lucro) e negativos (prejuízo); ordena: validados → parciais → outros
