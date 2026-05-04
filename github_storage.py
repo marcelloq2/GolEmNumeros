@@ -156,9 +156,14 @@ def pull_directory(remote_dir: str, local_dir: str) -> int:
     return count
 
 
-def pull_file(remote_path: str, local_path: str) -> bool:
-    """Baixa um único arquivo da branch data para local_path."""
-    if not is_configured() or os.path.exists(local_path):
+def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
+    """Baixa um único arquivo da branch data para local_path.
+
+    force=True → sobrescreve mesmo se o arquivo já existir localmente.
+    """
+    if not is_configured():
+        return False
+    if not force and os.path.exists(local_path):
         return False
 
     repo = _repo()
@@ -175,9 +180,11 @@ def pull_file(remote_path: str, local_path: str) -> bool:
 
     fr = http_req.get(download_url, timeout=15)
     if fr.status_code == 200:
+        os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
         with open(local_path, "wb") as fp:
             fp.write(fr.content)
-        print(f"[github] Pull: {remote_path}")
+        action = "Pull (force)" if force else "Pull"
+        print(f"[github] {action}: {remote_path}")
         return True
     return False
 
@@ -193,9 +200,10 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str):
         _ensure_data_branch()
         pull_directory("momentum_history", momentum_dir)
         pull_directory("backtest", backtest_dir)
-        # Restaura predictions se não existir localmente
+        # Predictions: SEMPRE baixa a versão mais recente do GitHub
+        # (force=True garante que o Railway nunca fique com dados velhos após redeploy)
         for fname in ("predictions_full.json", "predictions.json"):
-            pull_file(fname, os.path.join(data_dir, fname))
+            pull_file(fname, os.path.join(data_dir, fname), force=True)
         print("[github] Restauração concluída.")
     except Exception as e:
         print(f"[github] Erro na restauração: {e}")
