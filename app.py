@@ -893,24 +893,47 @@ def _calc_xg(stats_flat: dict) -> dict:
       freekicks        ≈ 0.012 (cobranças de falta em posição perigosa)
       saves (oponente) → proxy de chutes no alvo quando shots_on_target = 0
     """
-    def _get(key, fallback=0.0):
-        item = stats_flat.get(key) or {}
-        if isinstance(item, dict):
-            hv = item.get("homeValue") or item.get("home") or 0
-            av = item.get("awayValue") or item.get("away") or 0
-        else:
-            return fallback, fallback
-        try:
-            return float(str(hv).replace("%","") or 0), float(str(av).replace("%","") or 0)
-        except Exception:
-            return fallback, fallback
+    # Nomes alternativos: UniScore usa Title Case com espaços,
+    # código interno usa snake_case — tentamos ambos
+    _ALIASES = {
+        "shots_on_target":     ["Shots on Target", "shotsOnTarget", "Shots On Target"],
+        "shots_inside_box":    ["Shots Inside Box", "shots_inside_box"],
+        "shots_outside_box":   ["Shots Outside Box", "shots_outside_box"],
+        "big_chances":         ["Big Chances", "bigChancesCreated", "Big Chances Created"],
+        "corner_kicks":        ["Corner Kicks", "cornerKicks", "Corners"],
+        "touches_in_box":      ["Touches in Box", "Touches In Box", "touches_in_box"],
+        "pass_in_final_third": ["Passes in Final Third", "Pass in Final Third", "pass_in_final_third"],
+        "final_third_entries": ["Final Third Entries", "final_third_entries"],
+        "saves":               ["Saves", "Goalkeeper Saves", "saves"],
+        "freekicks":           ["Free Kicks", "Freekicks", "freekicks"],
+        "shots":               ["Total Shots", "Shots", "totalShots", "shots"],
+    }
+
+    def _get(canonical, fallback=0.0):
+        """Busca stat tentando snake_case + aliases UniScore."""
+        keys_to_try = [canonical] + _ALIASES.get(canonical, [])
+        for k in keys_to_try:
+            item = stats_flat.get(k)
+            if item and isinstance(item, dict):
+                hv = item.get("homeValue")
+                av = item.get("awayValue")
+                # homeValue pode ser 0 legítimo — só pula se for None
+                if hv is None: hv = item.get("home", 0)
+                if av is None: av = item.get("away", 0)
+                try:
+                    h = float(str(hv).replace("%", "").strip() or 0)
+                    a = float(str(av).replace("%", "").strip() or 0)
+                    return h, a
+                except Exception:
+                    pass
+        return fallback, fallback
 
     # ── 1. xG direto ─────────────────────────────────────────────────────────
-    for key in ("Expected Goals", "xG", "expected_goals"):
+    for key in ("Expected Goals", "xG", "expected_goals", "Expected goals"):
         item = stats_flat.get(key)
-        if item:
-            hv = (item.get("homeValue") or item.get("home") or 0)
-            av = (item.get("awayValue") or item.get("away") or 0)
+        if item and isinstance(item, dict):
+            hv = item.get("homeValue") if item.get("homeValue") is not None else item.get("home", 0)
+            av = item.get("awayValue") if item.get("awayValue") is not None else item.get("away", 0)
             try:
                 return {"home": round(float(hv), 2), "away": round(float(av), 2), "source": "direct"}
             except Exception:
@@ -925,9 +948,8 @@ def _calc_xg(stats_flat: dict) -> dict:
     touches_h, touches_a = _get("touches_in_box")
     fp3_h,     fp3_a     = _get("pass_in_final_third")
     fte_h,     fte_a     = _get("final_third_entries")
-    saves_h,   saves_a   = _get("saves")      # saves do GK de cada time
+    saves_h,   saves_a   = _get("saves")
     free_h,    free_a    = _get("freekicks")
-    # shots totais como fallback se não tiver inside/outside
     total_h,   total_a   = _get("shots")
 
     # Se shots_on_target = 0 mas saves do adversário está disponível,
@@ -1125,7 +1147,14 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         pts   = udata.get("graphPoints", [])
         print(f"[momentum] UniScore OK: {len(pts)} graphPoints, finished={udata.get('finished')}")
 
-        data = {**udata, "saved": False}
+        # ── Calcula xG e pressure_summary para o dado ao vivo ────────────
+        # (normalmente só calculados no save; precisamos aqui para os indicadores)
+        stats_live = udata.get("statistics", {})
+        xg_live    = _calc_xg(stats_live) if stats_live else {}
+        ps_live    = _pressure_summary(pts) if pts else {}
+
+        data = {**udata, "saved": False,
+                "xg": xg_live, "pressure_summary": ps_live}
 
         # ── Acumula shotmap ao vivo no cache separado ─────────────────────
         # O endpoint de shotmap só funciona durante o jogo; ao FT fica vazio.
