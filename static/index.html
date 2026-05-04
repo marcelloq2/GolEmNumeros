@@ -4598,25 +4598,37 @@ const BT_MKTS = [
   { key: 'empate',         label: 'Emp.' },
   { key: 'over25',         label: 'O 2.5' },
   { key: 'under25',        label: 'U 2.5' },
+  { key: 'under35',        label: 'U 3.5' },
+  { key: 'over15',         label: 'O 1.5' },
+  { key: 'over05',         label: 'O 0.5' },
   { key: 'bttsS',          label: 'BTS+' },
   { key: 'bttsN',          label: 'BTS-' },
   { key: 'over05HT',       label: 'O 0.5HT' },
   { key: 'under05HT',      label: 'U 0.5HT' },
+  { key: 'under15HT',      label: 'U 1.5HT' },
+  { key: 'over15HT',       label: 'O 1.5HT' },
 ];
 
 function _mktStats(subset) {
   const n = subset.length;
   if (!n) return { n: 0, htN: 0, mkt: {}, scores: {} };
-  let cv=0, vv=0, emp=0, o25=0, u25=0, bs=0, bn=0, o05=0, u05=0, htN=0;
+  let cv=0, vv=0, emp=0, o25=0, u25=0, u35=0, o15=0, o05=0, bs=0, bn=0;
+  let ht_o05=0, ht_u05=0, ht_u15=0, ht_o15=0, htN=0;
   const scores = {};
   for (const m of subset) {
     const [gc, gf] = m.resultado.split(':').map(v => parseInt(v)||0);
+    const total = gc + gf;
     if (gc > gf) cv++; else if (gf > gc) vv++; else emp++;
-    if (gc+gf >= 3) o25++; else u25++;
+    if (total >= 3) o25++; else u25++;
+    if (total <= 3) u35++;
+    if (total >= 2) o15++;
+    if (total >= 1) o05++;
     if (gc > 0 && gf > 0) bs++; else bn++;
     if (m.ht_score && m.ht_score.includes(':')) {
       const [hc,hf] = m.ht_score.split(':').map(v => parseInt(v)||0);
-      if (hc+hf > 0) o05++; else u05++;
+      const htTotal = hc + hf;
+      if (htTotal > 0) ht_o05++; else ht_u05++;
+      if (htTotal <= 1) ht_u15++; else ht_o15++;
       htN++;
     }
     const ek = `${gc}-${gf}`;
@@ -4627,8 +4639,11 @@ function _mktStats(subset) {
     n, htN, scores,
     mkt: {
       casaVence: p(cv,n), visitanteVence: p(vv,n), empate: p(emp,n),
-      over25: p(o25,n), under25: p(u25,n), bttsS: p(bs,n), bttsN: p(bn,n),
-      over05HT: p(o05,htN), under05HT: p(u05,htN),
+      over25: p(o25,n), under25: p(u25,n),
+      under35: p(u35,n), over15: p(o15,n), over05: p(o05,n),
+      bttsS: p(bs,n), bttsN: p(bn,n),
+      over05HT: p(ht_o05,htN), under05HT: p(ht_u05,htN),
+      under15HT: p(ht_u15,htN), over15HT: p(ht_o15,htN),
     },
   };
 }
