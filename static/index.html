@@ -826,6 +826,35 @@
     font-size: 42px; font-weight: 900; letter-spacing: 6px;
     color: var(--text); font-variant-numeric: tabular-nums;
     text-shadow: 0 0 20px rgba(239,68,68,.3);
+    position: relative;
+  }
+  @keyframes goalPulse {
+    0%   { transform: scale(1);    text-shadow: 0 0 20px rgba(239,68,68,.3); }
+    15%  { transform: scale(1.45); text-shadow: 0 0 40px #22c55e, 0 0 80px #22c55e88; color: #22c55e; }
+    40%  { transform: scale(1.3);  text-shadow: 0 0 30px #22c55e, 0 0 60px #22c55e55; color: #22c55e; }
+    70%  { transform: scale(1.1);  text-shadow: 0 0 20px #22c55e44; color: #86efac; }
+    100% { transform: scale(1);    text-shadow: 0 0 20px rgba(239,68,68,.3); color: var(--text); }
+  }
+  @keyframes goalBadgePop {
+    0%   { transform: scale(1);   background: var(--bg3); }
+    20%  { transform: scale(1.2); background: #14532d; color: #22c55e; }
+    60%  { transform: scale(1.1); background: #14532d; color: #22c55e; }
+    100% { transform: scale(1);   background: var(--bg3); }
+  }
+  .goal-flash { animation: goalPulse 1.4s ease-out forwards; }
+  .goal-badge-flash { animation: goalBadgePop 1.2s ease-out forwards; }
+  @keyframes goalBannerIn {
+    0%   { opacity: 0; transform: translateY(-12px) scale(.85); }
+    20%  { opacity: 1; transform: translateY(0)     scale(1.05); }
+    75%  { opacity: 1; transform: translateY(0)     scale(1); }
+    100% { opacity: 0; transform: translateY(6px)   scale(.95); }
+  }
+  .goal-banner {
+    position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
+    white-space: nowrap; font-size: 13px; font-weight: 800;
+    color: #22c55e; background: #052e16ee; border: 1px solid #22c55e88;
+    border-radius: 6px; padding: 3px 10px; pointer-events: none;
+    animation: goalBannerIn 2.2s ease forwards;
   }
   .live-minute-big {
     font-size: 12px; font-weight: 700; color: #ef4444;
@@ -1574,6 +1603,7 @@ function switchView(view, btn) {
 let liveAutoRefresh  = null;
 let activeLiveId     = null;
 let liveMatchesCache = [];
+let _prevLiveScore   = {};   // { [matchId]: { casa: N, fora: N } }
 let _tempoInterval        = null;   // relógio local do minuto ao vivo (detalhe)
 let _sidebarTempoInterval = null;   // relógio da sidebar (todos os jogos)
 let _sidebarTempos        = {};     // { id: { baseSec, startedAt } }
@@ -1665,7 +1695,7 @@ async function loadLiveMatches() {
               <div class="live-match-team" style="color:var(--text2)">${m.fora} ${redFora}</div>
             </div>
             <div class="live-match-right">
-              <div class="live-score-badge">${scoreFt}</div>
+              <div class="live-score-badge" id="sidebarScore_${m.id}">${scoreFt}</div>
               <div class="live-minute-badge" style="font-size:10px" id="sidebarTempo_${m.id}">${m.tempo || '⏱'}</div>
             </div>
           </div>`;
@@ -1930,7 +1960,7 @@ function renderLiveDetail(m) {
         <div class="live-team-name-big">${m.casa}${redC}</div>
       </div>
       <div class="live-score-block">
-        <div class="live-score-big">${ftScore}</div>
+        <div class="live-score-big" id="liveScoreBig">${ftScore}</div>
         <div class="live-minute-big" style="font-size:12px" id="liveTempoDisplay">⏱ ${m.tempo || '-'}</div>
         <div style="font-size:10px;color:var(--text2)">HT: ${htScore}</div>
         <div class="live-league-badge">${flagImg}${m.pais ? m.pais+' · ' : ''}${m.liga}</div>
@@ -1985,6 +2015,37 @@ function renderLiveDetail(m) {
   html += `<div style="height:20px"></div>`;
 
   detail.innerHTML = html;
+
+  // ── Efeito de gol ──────────────────────────────────────────────────
+  const _prevS = _prevLiveScore[m.id] || { casa: 0, fora: 0 };
+  const _curCasa = m.golCasaFt ?? 0, _curFora = m.golForaFt ?? 0;
+  const _goalScored = _curCasa > _prevS.casa || _curFora > _prevS.fora;
+  _prevLiveScore[m.id] = { casa: _curCasa, fora: _curFora };
+
+  if (_goalScored) {
+    const scoreEl = document.getElementById('liveScoreBig');
+    if (scoreEl) {
+      const who = (_curCasa > _prevS.casa && _curFora > _prevS.fora) ? '⚽ GOL!'
+                : (_curCasa > _prevS.casa) ? `⚽ GOL! ${m.casa}`
+                : `⚽ GOL! ${m.fora}`;
+      const banner = document.createElement('div');
+      banner.className = 'goal-banner';
+      banner.textContent = who;
+      scoreEl.appendChild(banner);
+      scoreEl.classList.remove('goal-flash');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('goal-flash');
+      setTimeout(() => { scoreEl.classList.remove('goal-flash'); banner.remove(); }, 2400);
+    }
+    // Efeito no badge da sidebar
+    const badgeEl = document.getElementById(`sidebarScore_${m.id}`);
+    if (badgeEl) {
+      badgeEl.classList.remove('goal-badge-flash');
+      void badgeEl.offsetWidth;
+      badgeEl.classList.add('goal-badge-flash');
+      setTimeout(() => badgeEl.classList.remove('goal-badge-flash'), 1400);
+    }
+  }
 
   // ── Relógio local: incrementa o minuto a cada segundo ──
   clearInterval(_tempoInterval);
