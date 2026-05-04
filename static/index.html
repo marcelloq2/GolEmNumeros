@@ -1027,6 +1027,10 @@
           <input class="sf-val" id="sfGolsV2" type="number" min="0" max="100"
                  oninput="filterMatches()" style="display:none">
         </div>
+        <button onclick="openHojeGuia()" title="Guia da aba Hoje"
+          style="margin-left:4px;background:transparent;border:1px solid #3b82f644;border-radius:6px;
+                 color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button class="live-sidebar-toggle" onclick="toggleTodaySidebar()" title="Ocultar barra">◀</button>
       </div>
       <div class="filter-bar2">
@@ -1137,6 +1141,29 @@
         </svg>
         <div style="font-size:13px;color:var(--text2)">Selecione um jogo ao vivo</div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL GUIA HOJE -->
+  <div id="hojeGuiaOverlay" onclick="if(event.target===this)closeHojeGuia()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:680px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">📖 Guia da Aba Hoje</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Tudo que você precisa saber para usar ao máximo</div>
+        </div>
+        <button onclick="closeHojeGuia()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <!-- Conteúdo -->
+      <div id="hojeGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
     </div>
   </div>
 
@@ -1563,6 +1590,143 @@ let btAllDates = [];          // todas as datas disponíveis
 let btAllMatchesCache = null; // cache de todos os jogos carregados
 let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
+
+// ── GUIA ABA HOJE ─────────────────────────────────────────────────────────────
+function openHojeGuia() {
+  const overlay = document.getElementById('hojeGuiaOverlay');
+  const content = document.getElementById('hojeGuiaContent');
+  if (!overlay || !content) return;
+
+  const sec = (icon, title, body) => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${title}</span>
+      </div>
+      <div style="padding:12px 14px;font-size:12px;color:var(--text);line-height:1.65">${body}</div>
+    </div>`;
+
+  const pill = (txt, color, bg) =>
+    `<span style="display:inline-block;padding:1px 7px;border-radius:20px;font-weight:700;
+                  font-size:11px;background:${bg};color:${color}">${txt}</span>`;
+
+  const row = (left, right) =>
+    `<div style="display:flex;gap:8px;margin-bottom:5px;align-items:baseline">
+       <span style="min-width:120px;color:var(--text2)">${left}</span>
+       <span style="flex:1">${right}</span>
+     </div>`;
+
+  content.innerHTML = [
+
+    sec('🔍','Busca e Filtros da Lista', `
+      <b>Barra de busca:</b> Digite qualquer parte do nome do time ou liga para filtrar as partidas.<br><br>
+      <b>Filtros de resultado (TIP):</b><br>
+      ${row('Todos','Mostra todas as partidas do dia')}
+      ${row('TIP 1','Partidas em que a previsão favorece o time da casa')}
+      ${row('TIP X','Partidas com previsão de empate')}
+      ${row('TIP 2','Partidas em que a previsão favorece o visitante')}
+      ${row('⭐','Apenas as partidas que você marcou como favoritas')}
+      <br>
+      <b>Filtros de Score (CASA / VIS. / GOLS):</b> Filtra pelo índice numérico calculado pelo sistema.<br>
+      Use os operadores: <b>&gt;</b> maior que &nbsp;·&nbsp; <b>≥</b> maior ou igual &nbsp;·&nbsp; <b>&lt;</b> menor que &nbsp;·&nbsp; <b>≤</b> menor ou igual &nbsp;·&nbsp; <b>↔</b> entre dois valores.<br>
+      <i>Exemplo: CASA ≥ 70 mostra apenas partidas onde o time da casa tem score alto.</i><br><br>
+      <b>Modos de visualização:</b><br>
+      ${row('🏆 Por Liga','Agrupa as partidas por campeonato')}
+      ${row('🕐 Por Horário','Ordena as partidas pelo horário de início')}
+      <br>
+      <b>⏰ +3h:</b> Corrige os horários das partidas adicionando 3 horas (útil para ajuste de fuso horário). Só funciona uma vez por dia.`),
+
+    sec('🏷️','Score Casa, Score Visitante e Score Gols', `
+      Cada partida exibe 3 índices calculados automaticamente — quanto maior, melhor a tendência.<br><br>
+      <b>Score Casa / Score Visitante (0 a 100):</b><br>
+      Representa a força e forma atual de cada time, calculado assim:<br>
+      ${row('Momento (0–50 pts)','Em Alta = 50 &nbsp;·&nbsp; Estável = 35 &nbsp;·&nbsp; Irregular = 20 &nbsp;·&nbsp; Em Baixa = 8')}
+      ${row('TIP favorece (0–30 pts)','Bônus proporcional à probabilidade quando o TIP aponta para esse time')}
+      ${row('Ataque (0–20 pts)','Bônus do Over 2.5% e Ambos Marcam% — times que atacam muito pontuam mais')}
+      <br>Interpretação:<br>
+      ${pill('70+','#fff','#166534')} Forte &nbsp;&nbsp;
+      ${pill('55–69','#000','#a3e635')} Bom &nbsp;&nbsp;
+      ${pill('40–54','#000','#d97706')} Moderado &nbsp;&nbsp;
+      ${pill('<40','#fff','#7f1d1d')} Fraco
+      <br><br>
+      <b>Score Gols ⚽ (badge colorido):</b><br>
+      Combina Over 1.5, Over 2.5, Over 3.5, Ambos Marcam e Só 1 Marca para estimar se o jogo será aberto ou fechado.<br>
+      ${pill('Jogo Aberto','#fff','#166534')} Alta tendência de gols &nbsp;
+      ${pill('Goleada','#fff','#7e22ce')} Mais de 3.5 gols provável &nbsp;
+      ${pill('Equilibrado','#000','#d97706')} Jogo com incerteza &nbsp;
+      ${pill('Jogo Fechado','#fff','#7f1d1d')} Poucos gols esperados`),
+
+    sec('🎯','TIP — A Previsão do Sistema', `
+      O TIP é a dica de resultado mais provável, calculada a partir das probabilidades da plataforma.<br><br>
+      ${row(pill('TIP 1','#fff','#166534'),'A previsão favorece a vitória do <b>time da casa</b>')}
+      ${row(pill('TIP X','#000','#854d0e'),'A previsão aponta <b>Empate</b> como resultado mais provável')}
+      ${row(pill('TIP 2','#fff','#7f1d1d'),'A previsão favorece a vitória do <b>visitante</b>')}
+      <br>
+      <b>Confiança do TIP:</b> A probabilidade % ao lado indica o nível de certeza.<br>
+      ${row('≥ 65%',pill('Alta','#fff','#166534') + ' — Previsão sólida')}
+      ${row('50–64%',pill('Moderada','#000','#854d0e') + ' — Previsão razoável')}
+      ${row('< 50%',pill('Baixa','#fff','#7f1d1d') + ' — Incerteza alta')}
+      <br>
+      <b>Importante:</b> O TIP é baseado em dados estatísticos históricos, não é garantia de resultado.`),
+
+    sec('⚡','Momento dos Times', `
+      O Momento indica a fase atual de cada time com base nas últimas partidas registradas.<br><br>
+      ${row('🔼 Em Alta','Time em boa sequência de resultados — principal candidato a vencer')}
+      ${row('➡️ Estável','Regularidade média — resultados equilibrados recentemente')}
+      ${row('↕️ Irregular','Inconsistência — alternância entre bons e maus resultados')}
+      ${row('🔽 Em Baixa','Sequência negativa — time em má fase')}
+      <br>
+      O Momento é um dos componentes do Score Casa/Visitante e pode indicar times em ascensão ou queda mesmo que as probabilidades ainda não reflitam isso completamente.`),
+
+    sec('📊','Probabilidades e Análise de Cenários', `
+      Ao clicar em qualquer partida, o painel de detalhes mostra:<br><br>
+      <b>Probabilidades (%):</b><br>
+      ${row('1 (Casa) / X / 2','% de chance para cada resultado final')}
+      ${row('1º Tempo 1 / X / 2','% para o resultado ao intervalo')}
+      ${row('Ambos Marcam','% de chance de ambos os times marcarem')}
+      ${row('Só 1 Marca','% de chance de apenas um time marcar')}
+      ${row('Over 1.5 / 2.5 / 3.5','% de chance de mais de X gols no jogo')}
+      <br>
+      Cores das probabilidades:
+      ${pill('≥60%','#fff','#166534')} Alta &nbsp;
+      ${pill('40–59%','#000','#854d0e')} Média &nbsp;
+      ${pill('<40%','#fff','#7f1d1d')} Baixa
+      <br><br>
+      <b>Análise de Cenários (texto automático):</b><br>
+      ${row('🎯 Cenário Principal','Resume o TIP com nível de confiança em barra visual')}
+      ${row('⚽ Cenário de Gols','Interpreta Over 2.5, BTS e Over 3.5 em linguagem natural')}
+      ${row('📈 Momento dos Times','Compara a forma recente das duas equipes com análise textual')}`),
+
+    sec('📅','Últimas Partidas e Estatísticas', `
+      <b>H2H (Histórico direto):</b> Barra colorida mostrando % de vitórias Casa / Empate / Visitante nos confrontos anteriores entre os dois times.<br><br>
+      <b>Forma recente (badges):</b> Últimas partidas de cada time exibidas como:<br>
+      ${pill('V','#fff','#166534')} Vitória &nbsp;
+      ${pill('E','#000','#854d0e')} Empate &nbsp;
+      ${pill('D','#fff','#7f1d1d')} Derrota
+      <br><br>
+      <b>Últimas Partidas (tabela):</b> Selecione o time para ver as últimas 10 partidas com adversário, resultado, placar e data.<br><br>
+      <b>Estatísticas — Últimas 10 Partidas:</b> Médias de indicadores como gols marcados/sofridos, gols no 1º/2º tempo, Over/Under, BTS por time.<br><br>
+      <b>Estatísticas de Apostas:</b> Gráficos de barra mostrando % histórico de resultados por categoria (casa, fora, ambos, etc.) — útil para identificar padrões de comportamento de cada time.`),
+
+    sec('🏆','Classificação e Favoritos', `
+      <b>Classificação:</b> Tabela da posição atual dos dois times no campeonato, com pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. O time atual aparece destacado.<br><br>
+      <b>⭐ Favoritos:</b><br>
+      Clique no ⭐ ao lado de qualquer partida para adicioná-la à aba <b>Favoritos</b>.<br>
+      Partidas favoritas ficam salvas no seu navegador e aparecem automaticamente na aba Favoritos. Use para monitorar os jogos mais importantes do dia.<br><br>
+      <b>Dica:</b> Use o filtro ⭐ na barra de filtros para ver rapidamente apenas as partidas que você marcou como favoritas na aba Hoje.`),
+
+  ].join('');
+
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeHojeGuia() {
+  const overlay = document.getElementById('hojeGuiaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
 
 // ── SWITCH VIEW (Hoje / Favoritos / Ao Vivo / Backtest) ──
 function switchView(view, btn) {
