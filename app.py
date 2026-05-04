@@ -432,6 +432,10 @@ def api_radar_live():
 _momentum_cache = {}
 _momentum_lock  = threading.Lock()   # proteção para acesso concorrente
 
+# ── Cache de shotmap ao vivo: acumula durante o jogo para não perder ao FT ──
+_shotmap_live_cache = {}   # {event_id: [shots...]}
+_shotmap_lock       = threading.Lock()
+
 
 def _fetch_live_matches_for_monitor():
     """Busca lista de jogos ao vivo via UniScore para o monitor de fundo."""
@@ -1123,6 +1127,14 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
 
         data = {**udata, "saved": False}
 
+        # ── Acumula shotmap ao vivo no cache separado ─────────────────────
+        # O endpoint de shotmap só funciona durante o jogo; ao FT fica vazio.
+        # Guardamos aqui para garantir que o save tenha os dados.
+        live_shots = udata.get("shotmap", [])
+        if live_shots:
+            with _shotmap_lock:
+                _shotmap_live_cache[event_id] = live_shots
+
         # ── Auto-save quando a partida termina ───────────────────────────
         if udata.get("finished"):
             today     = datetime.now().strftime("%Y-%m-%d")
@@ -1144,6 +1156,10 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 except Exception:
                     pass
 
+                # Usa shotmap acumulado durante o jogo (o endpoint de FT fica vazio)
+                with _shotmap_lock:
+                    best_shotmap = _shotmap_live_cache.get(event_id) or udata.get("shotmap", [])
+
                 payload = _build_save_payload(
                     event_id=event_id,
                     casa=casa, fora=fora, liga=liga,
@@ -1153,12 +1169,16 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                     stats_periods=udata.get("statistics_periods", {}),
                     opening_odds=opening_odds,
                     source="uniscore",
-                    shotmap=udata.get("shotmap", []),
+                    shotmap=best_shotmap,
                 )
                 with open(save_file, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 data["saved"] = True
-                print(f"[momentum] Salvo: {save_file}")
+                sm_count = len(best_shotmap)
+                print(f"[momentum] Salvo: {save_file} | shotmap={sm_count} chutes")
+                # Limpa cache de shotmap para liberar memória
+                with _shotmap_lock:
+                    _shotmap_live_cache.pop(event_id, None)
                 github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
                 _pattern_tips_cache  = {"ts": 0, "data": None}
                 _odds_patterns_cache = {"ts": 0, "data": None}
