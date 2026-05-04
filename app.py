@@ -3449,14 +3449,69 @@ def api_upload_backup():
     remote_path = f"{remote_prefix}/{fname}" if remote_prefix else fname
     github_storage.push_file_bg(local_path, remote_path)
 
-    # Invalida caches se for predictions
-    if fname.startswith("predictions"):
+    # Invalida caches de análise sempre que chegar arquivo de histórico ou predictions
+    if dest_dir in (MOMENTUM_DIR, BACKTEST_DIR) or fname.startswith("predictions"):
         global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
         _pattern_tips_cache  = {"ts": 0, "data": None}
         _odds_patterns_cache = {"ts": 0, "data": None}
         _stats_patterns_cache = {"ts": 0, "data": None}
+        # Reconstrói em background para a próxima requisição já ter os dados prontos
+        threading.Thread(target=_rebuild_analysis_cache, daemon=True).start()
 
     return jsonify({"ok": True, "saved": fname, "path": local_path})
+
+
+@app.route("/api/upload-backup-bulk", methods=["POST"])
+def api_upload_backup_bulk():
+    """Recebe múltiplos arquivos de momentum_history em uma só requisição.
+    Mais eficiente que chamar /api/upload-backup N vezes.
+    Requer ?token=UPLOAD_TOKEN.
+    """
+    token    = request.args.get("token", "")
+    expected = os.environ.get("UPLOAD_TOKEN", "")
+    if not expected or token != expected:
+        return jsonify({"ok": False, "error": "Token inválido"}), 403
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "error": "Nenhum arquivo enviado"}), 400
+
+    saved, skipped, errors = [], [], []
+    for f in files:
+        fname = f.filename or ""
+        if re.match(r'^\d{4}-\d{2}-\d{2}_[\w]+\.json$', fname):
+            dest_dir      = MOMENTUM_DIR
+            remote_prefix = "momentum_history"
+        elif re.match(r'^\d{4}-\d{2}-\d{2}\.json$', fname):
+            dest_dir      = BACKTEST_DIR
+            remote_prefix = "backtest"
+        else:
+            skipped.append(fname)
+            continue
+
+        os.makedirs(dest_dir, exist_ok=True)
+        local_path = os.path.join(dest_dir, fname)
+        try:
+            f.save(local_path)
+            github_storage.push_file_bg(local_path, f"{remote_prefix}/{fname}")
+            saved.append(fname)
+        except Exception as e:
+            errors.append({"file": fname, "error": str(e)})
+
+    if saved:
+        global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
+        _pattern_tips_cache  = {"ts": 0, "data": None}
+        _odds_patterns_cache = {"ts": 0, "data": None}
+        _stats_patterns_cache = {"ts": 0, "data": None}
+        threading.Thread(target=_rebuild_analysis_cache, daemon=True).start()
+
+    return jsonify({
+        "ok":      True,
+        "saved":   len(saved),
+        "skipped": len(skipped),
+        "errors":  errors,
+        "files":   saved,
+    })
 
 
 if __name__ == "__main__":
