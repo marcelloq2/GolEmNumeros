@@ -4373,8 +4373,13 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
       if (marketKey === 'under25')        return gc+gf < 3;
       if (marketKey === 'bttsS')          return gc > 0 && gf > 0;
       if (marketKey === 'bttsN')          return !(gc > 0 && gf > 0);
-      if (marketKey === 'over05HT')       { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf > 0; }
-      if (marketKey === 'under05HT')      { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf === 0; }
+      if (marketKey === 'under35')         return gc+gf <= 3;
+      if (marketKey === 'over15')          return gc+gf >= 2;
+      if (marketKey === 'over05')          return gc+gf >= 1;
+      if (marketKey === 'over05HT')        { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf > 0; }
+      if (marketKey === 'under05HT')       { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf === 0; }
+      if (marketKey === 'under15HT')       { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf <= 1; }
+      if (marketKey === 'over15HT')        { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf >= 2; }
       return false;
     };
   }
@@ -4984,22 +4989,31 @@ function renderBtMarketsPanel(matches) {
     </div>`;
   }).join('');
 
-  // ── Simulações de Banca ──────────────────────────────────────────────
-  const mktLabel    = (BT_MKTS.find(m => m.key === globalMaxMk) || {}).label || globalMaxMk;
-  const simMkt      = btBankSimulation(matches, btMarketsTab, globalMaxRi, globalMaxMk, null);
-  const simCS       = csGlobalMax.sk
-    ? btBankSimulation(matches, btMarketsTab, csGlobalMax.ri, null, csGlobalMax.sk) : null;
-  const simCSImp    = csGlobalMaxImp.sk
-    ? btBankSimulation(matches, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk) : null;
-  panel._lastSimMkt    = simMkt;
-  panel._lastSimCS     = simCS;
-  panel._lastSimCSImp  = simCSImp;
+  // ── Simulações de Banca — uma por coluna de BT_MKTS ─────────────────
+  // Para cada mercado, pega o range com maior % e roda a simulação
+  const colSims = BT_MKTS.map((mk, mki) => {
+    let bestVal = -1, bestRi = -1;
+    data.forEach((r, ri) => {
+      if (!r.n || r.n < 5) return;
+      const v = r.mkt[mk.key];
+      if (v != null && v > bestVal) { bestVal = v; bestRi = ri; }
+    });
+    if (bestRi < 0) return null;
+    const sim = btBankSimulation(matches, btMarketsTab, bestRi, mk.key, null);
+    if (!sim) return null;
+    const lbl = `${mk.label} · ${data[bestRi]?.label || '?'} · ${bestVal}%`;
+    return { mk, sim, lbl, ri: bestRi, val: bestVal, chartId: `bankChartCol_${mki}` };
+  }).filter(Boolean);
 
-  const simMktLbl = `👑 Mercado — ${mktLabel} (range ${data[globalMaxRi]?.label || '?'}) · ${globalMax}%`;
-  const simCSLbl  = csGlobalMax.sk
-    ? `👑 Placar — ${csGlobalMax.sk} (range ${data[csGlobalMax.ri]?.label || '?'}) · ${csGlobalMax.val}%` : '';
+  // Simulações de placar correto e improvável
+  const simCS    = csGlobalMax.sk
+    ? btBankSimulation(matches, btMarketsTab, csGlobalMax.ri, null, csGlobalMax.sk) : null;
+  const simCSImp = csGlobalMaxImp.sk
+    ? btBankSimulation(matches, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk) : null;
+  const simCSLbl = csGlobalMax.sk
+    ? `👑 Placar — ${csGlobalMax.sk} · ${data[csGlobalMax.ri]?.label || '?'} · ${csGlobalMax.val}%` : '';
   const simCSImpLbl = csGlobalMaxImp.sk
-    ? `⚠️ Placar Improvável — ${csGlobalMaxImp.sk} (range ${data[csGlobalMaxImp.ri]?.label || '?'}) · ${csGlobalMaxImp.val.toFixed(1)}%` : '';
+    ? `⚠️ Improvável — ${csGlobalMaxImp.sk} · ${data[csGlobalMaxImp.ri]?.label || '?'} · ${csGlobalMaxImp.val.toFixed(1)}%` : '';
 
   // ── Atualiza critérios globais de edge (positivos) ──
   _btEdgeCriteria = [];
@@ -5011,21 +5025,43 @@ function renderBtMarketsPanel(matches) {
                              fairOdd: sim.fairOdd, simOdd: sim.simOdd });
     }
   };
-  _addEdge(simMkt,   btMarketsTab, globalMaxRi,       globalMaxMk,     null,              simMktLbl,    null);
-  _addEdge(simCS,    btMarketsTab, csGlobalMax.ri,     null,            csGlobalMax.sk,    simCSLbl,     'provavel');
-  _addEdge(simCSImp, btMarketsTab, csGlobalMaxImp.ri,  null,            csGlobalMaxImp.sk, simCSImpLbl,  'improvavel');
+  colSims.forEach(cs => _addEdge(cs.sim, btMarketsTab, cs.ri, cs.mk.key, null, cs.lbl, null));
+  _addEdge(simCS,    btMarketsTab, csGlobalMax.ri,    null, csGlobalMax.sk,    simCSLbl,    'provavel');
+  _addEdge(simCSImp, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk, simCSImpLbl, 'improvavel');
   _updateEdgeTabBadge();
+
+  // Separa positivos (lucro) e negativos (prejuízo)
+  const posColSims = colSims.filter(cs => cs.sim.profit >= 0);
+  const negColSims = colSims.filter(cs => cs.sim.profit < 0);
+
+  const colSimsHTML = posColSims.map(cs =>
+    renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
+  ).join('');
+
+  const negSummaryHTML = negColSims.length ? `
+    <div style="grid-column:1/-1;margin-top:4px">
+      <div style="font-size:9px;color:#4b5563;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Sem edge (ROI negativo)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${negColSims.map(cs => `
+          <span style="font-size:9px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border);
+                       border-radius:4px;color:#6b7280">
+            ${cs.mk.label} · ${data[cs.ri]?.label || '?'}
+            <span style="color:#ef4444">${cs.sim.roi.toFixed(1)}% ROI</span>
+          </span>`).join('')}
+      </div>
+    </div>` : '';
 
   const simHTML = `
     <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca</span>
-        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10)</span>
+        <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca — todas as metodologias</span>
+        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10) · melhor range por mercado</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;align-items:start">
-        ${renderBankSimSection(simMkt,   simMktLbl,   'bankChartMkt')}
+        ${colSimsHTML}
         ${simCS    ? renderBankSimSection(simCS,    simCSLbl,    'bankChartCS')    : ''}
         ${simCSImp ? renderBankSimSection(simCSImp, simCSImpLbl, 'bankChartCSImp') : ''}
+        ${negSummaryHTML}
       </div>
     </div>`;
 
@@ -5061,9 +5097,9 @@ function renderBtMarketsPanel(matches) {
   // Desenha gráficos após o DOM ser atualizado
   if (btMarketsOpen) {
     requestAnimationFrame(() => {
-      if (simMkt)   _drawBankChart('bankChartMkt',   simMkt.bankHistory,   simMkt.fairOdd);
-      if (simCS)    _drawBankChart('bankChartCS',     simCS.bankHistory,    simCS.fairOdd);
-      if (simCSImp) _drawBankChart('bankChartCSImp',  simCSImp.bankHistory, simCSImp.fairOdd);
+      posColSims.forEach(cs => _drawBankChart(cs.chartId, cs.sim.bankHistory, cs.sim.fairOdd));
+      if (simCS)    _drawBankChart('bankChartCS',    simCS.bankHistory,    simCS.fairOdd);
+      if (simCSImp) _drawBankChart('bankChartCSImp', simCSImp.bankHistory, simCSImp.fairOdd);
     });
   }
 }
