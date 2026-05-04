@@ -4520,6 +4520,56 @@ function _calcRoR(p, fairOdd, bankUnits) {
   return Math.round(ruined / SIMS * 100);
 }
 
+// ── Validação estatística de metodologias ────────────────────────────────────
+
+function _normalCDF(z) {
+  // Abramowitz & Stegun approximation (erro < 7.5e-8)
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const poly = t * (0.319381530 + t * (-0.356563782
+             + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  const pdf = Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+  const cdf = 1 - pdf * poly;
+  return z >= 0 ? cdf : 1 - cdf;
+}
+
+function _validateSim(sim) {
+  const n   = sim.total;
+  const wr  = sim.winrate / 100;       // winrate observado
+  const p0  = 1 / sim.fairOdd;         // probabilidade justa (hipótese nula)
+  const wins = sim.wins;
+
+  // Z-test binomial unilateral (H₀: wr ≤ p0, H₁: wr > p0)
+  const z    = n >= 1 ? (wr - p0) / Math.sqrt(p0 * (1 - p0) / n) : 0;
+  const pval = 1 - _normalCDF(z);      // p-value unilateral
+
+  // IC 95% para o winrate
+  const margin = n >= 1 ? 1.96 * Math.sqrt(wr * (1 - wr) / n) : 0;
+  const ciLow  = Math.max(0, wr - margin);
+  const ciHigh = Math.min(1, wr + margin);
+  // Limite inferior do IC em % — se > p0, o edge é robusto mesmo no pior caso
+  const ciEdge = ciLow > p0;
+
+  // ── Critérios ──────────────────────────────────────────────────────────
+  const checks = [
+    { id: 'sample',  ok: n >= 30,           label: `Amostra ≥ 30`,          detail: `${n} apostas` },
+    { id: 'pval',    ok: pval < 0.05,        label: `Significância 95%`,     detail: `p=${(pval*100).toFixed(1)}%` },
+    { id: 'roi',     ok: sim.roi > 0,        label: `ROI positivo`,          detail: `${sim.roi.toFixed(1)}%` },
+    { id: 'kelly',   ok: sim.kellyFrac > 0,  label: `Kelly positivo`,        detail: `${(sim.kellyFrac*100).toFixed(1)}%` },
+    { id: 'dd',      ok: sim.maxDD < 35,     label: `Drawdown < 35%`,        detail: `${sim.maxDD.toFixed(1)}%` },
+    { id: 'ci',      ok: ciEdge,             label: `IC inferior > odd justa`, detail: `IC: ${(ciLow*100).toFixed(1)}–${(ciHigh*100).toFixed(1)}%` },
+  ];
+
+  const passed = checks.filter(c => c.ok).length;
+  const score  = passed;   // 0–6
+
+  // Validado = todos os critérios essenciais (os 5 primeiros) + amostra mínima
+  const essential = checks.filter(c => c.id !== 'ci');
+  const validated = essential.every(c => c.ok);  // 5/5 essenciais
+  const partial   = !validated && passed >= 3;
+
+  return { z, pval, ciLow, ciHigh, ciEdge, checks, passed, score, validated, partial };
+}
+
 function _drawBankChart(canvasId, bankHistory, fairOdd) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !bankHistory || bankHistory.length < 2) return;
@@ -4604,6 +4654,23 @@ function renderBankSimSection(sim, label, simId) {
   const p = s => sim[s] > 0 ? '+' + sim[s].toFixed(2) : sim[s].toFixed(2);
   const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
   const proC = sim.profit >= 0 ? '#22c55e' : '#ef4444';
+
+  // Validação estatística
+  const val = _validateSim(sim);
+  const valBadge = val.validated
+    ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#052e16;color:#22c55e;border:1px solid #22c55e55">✅ VALIDADO</span>`
+    : val.partial
+    ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1c1407;color:#f59e0b;border:1px solid #f59e0b55">⚠️ PARCIAL</span>`
+    : `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1f0808;color:#ef4444;border:1px solid #ef444455">❌ NÃO VALIDADO</span>`;
+
+  const checkList = val.checks.map(c => `
+    <span title="${c.label}: ${c.detail}"
+          style="font-size:8px;padding:1px 5px;border-radius:3px;white-space:nowrap;
+                 background:${c.ok ? '#052e16' : '#1f0808'};
+                 color:${c.ok ? '#4ade80' : '#f87171'};
+                 border:1px solid ${c.ok ? '#16a34a44' : '#dc262644'}">
+      ${c.ok ? '✓' : '✗'} ${c.label}
+    </span>`).join('');
   const ddC  = sim.maxDD > 30 ? '#ef4444' : sim.maxDD > 15 ? '#f59e0b' : '#22c55e';
   const rorC = sim.rorPct > 30 ? '#ef4444' : sim.rorPct > 10 ? '#f59e0b' : '#22c55e';
 
@@ -4645,15 +4712,18 @@ function renderBankSimSection(sim, label, simId) {
     ? `<span style="color:#22c55e">✅ Edge positivo</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`
     : `<span style="color:#ef4444">❌ Sem edge</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`;
 
+  const borderCol = val.validated ? '#16a34a55' : val.partial ? '#d9770655' : 'var(--border)';
   return `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="background:var(--bg);border:1px solid ${borderCol};border-radius:8px;padding:10px;margin-top:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:10px;font-weight:700;color:var(--text)">${label}</div>
-        <div style="font-size:8px;color:#4b5563">${sim.rangeLabel} · ${sim.total} apostas · banca R$100 · stake R$1</div>
+        ${valBadge}
       </div>
+      <div style="font-size:8px;color:#4b5563;margin-bottom:7px">${sim.rangeLabel} · ${sim.total} apostas · banca R$100 · stake R$1</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:8px">${cardsH}</div>
       <canvas id="${simId}" height="80"
               style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:6px"></canvas>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px">${checkList}</div>
       <div style="font-size:9px;color:var(--text2)">${noteC}</div>
     </div>`;
 }
@@ -5098,8 +5168,14 @@ function renderBtMarketsPanel(matches) {
   _addEdge(simCSImp, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk, simCSImpLbl, 'improvavel');
   _updateEdgeTabBadge();
 
-  // Separa positivos (lucro) e negativos (prejuízo)
-  const posColSims = colSims.filter(cs => cs.sim.profit >= 0);
+  // Separa positivos (lucro) e negativos (prejuízo); ordena: validados → parciais → outros
+  const posColSims = colSims
+    .filter(cs => cs.sim.profit >= 0)
+    .sort((a, b) => {
+      const va = _validateSim(a.sim), vb = _validateSim(b.sim);
+      const score = s => s.validated ? 2 : s.partial ? 1 : 0;
+      return score(vb) - score(va) || vb.passed - va.passed;
+    });
   const negColSims = colSims.filter(cs => cs.sim.profit < 0);
 
   // Armazena para redesenho ao abrir/fechar painel (toggleBtMarkets)
