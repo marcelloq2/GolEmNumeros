@@ -3433,7 +3433,7 @@ def api_upload_backup():
     if re.match(r'^\d{4}-\d{2}-\d{2}\.json$', fname):
         dest_dir      = BACKTEST_DIR
         remote_prefix = "backtest"
-    elif re.match(r'^\d{4}-\d{2}-\d{2}_\d+\.json$', fname):
+    elif re.match(r'^\d{4}-\d{2}-\d{2}_[\w]+\.json$', fname):
         dest_dir      = MOMENTUM_DIR
         remote_prefix = "momentum_history"
     elif fname in ("predictions_full.json", "predictions.json"):
