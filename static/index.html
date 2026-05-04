@@ -4093,31 +4093,7 @@ function renderEdgePanel() {
                    border-radius:4px;background:var(--bg3);flex-shrink:0">✕ Limpar tudo</span>
     </div>` : '';
 
-  bar.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:6px">
-
-      <!-- Linha 1: título + filtro de score -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas</span>
-        <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
-        <span style="font-size:9px;color:var(--text2);flex-shrink:0">Score:</span>
-        <div style="display:flex;gap:3px">${scoreTabBtns}</div>
-        ${_edgeScoreTabFilter ? `<span onclick="_toggleEdgeScoreFilter('${_edgeScoreTabFilter}')"
-          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
-                 border-radius:4px;background:var(--bg3)">✕</span>` : ''}
-      </div>
-
-      <!-- Linha 2: chips de metodologia -->
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:9px;color:var(--text2);flex-shrink:0;font-weight:600">Metodologia:</span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${criteriaChips}</div>
-      </div>
-
-      <!-- Linha 3: info da metodologia selecionada -->
-      ${selInfoHTML}
-    </div>`;
-
-  // ── Filtra partidas de hoje ──
+  // ── Filtra partidas de hoje (antes de montar a barra p/ mostrar contagem) ──
   const criteriaToUse = _edgeMethodFilters.size > 0
     ? [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean)
     : activeCriteria;
@@ -4129,6 +4105,48 @@ function renderEdgePanel() {
     })
     .filter(Boolean)
     .sort((a, b) => (a.m.hora || '99:99').localeCompare(b.m.hora || '99:99'));
+
+  const totalPartidas = allMatching.length;
+  const hasFilters    = _edgeMethodFilters.size > 0;
+  const countBadge    = `
+    <div style="display:flex;align-items:center;gap:5px;padding:3px 10px;
+                background:${hasFilters ? '#162a1a' : 'var(--bg3)'};
+                border:1px solid ${hasFilters ? '#22c55e55' : 'var(--border)'};
+                border-radius:6px;flex-shrink:0">
+      <span style="font-size:10px">⚽</span>
+      <span style="font-size:11px;font-weight:700;color:${hasFilters ? '#22c55e' : 'var(--text2)'}">
+        ${totalPartidas}
+      </span>
+      <span style="font-size:9px;color:var(--text2)">
+        partida${totalPartidas !== 1 ? 's' : ''}${hasFilters ? ' selecionadas' : ' no Edge'}
+      </span>
+    </div>`;
+
+  bar.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px">
+
+      <!-- Linha 1: título + filtro de score + contador -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas</span>
+        <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
+        <span style="font-size:9px;color:var(--text2);flex-shrink:0">Score:</span>
+        <div style="display:flex;gap:3px">${scoreTabBtns}</div>
+        ${_edgeScoreTabFilter ? `<span onclick="_toggleEdgeScoreFilter('${_edgeScoreTabFilter}')"
+          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
+                 border-radius:4px;background:var(--bg3)">✕</span>` : ''}
+        <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
+        ${countBadge}
+      </div>
+
+      <!-- Linha 2: chips de metodologia -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:9px;color:var(--text2);flex-shrink:0;font-weight:600">Metodologia:</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${criteriaChips}</div>
+      </div>
+
+      <!-- Linha 3: info das metodologias selecionadas -->
+      ${selInfoHTML}
+    </div>`;
 
   // ── Toolbar de favoritos ──
   const favCount = allMatching.filter(({ m }) => _edgeFavs.has(_edgeFavKey(m))).length;
