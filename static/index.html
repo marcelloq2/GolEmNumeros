@@ -1780,7 +1780,8 @@ async function _enrichAllWithUniscore(matches) {
         const d = _uniCache[`${m.casa}|${m.fora}`];
         if (d && d.found) {
           const el = document.getElementById('uniscorePanel');
-          if (el) _renderUniscore(d);
+          if (el) el.innerHTML = _renderUniscore(d);
+          _updateStatsPatternPanel(d.statistics || {});
         }
       }
     }
@@ -1997,6 +1998,7 @@ function renderLiveDetail(m) {
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
+        <div id="statsPatternPanel" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
@@ -2551,6 +2553,232 @@ function _renderSimilarMatches(el, data) {
     </div>`;
 }
 
+// ── PADRÕES DE ESTATÍSTICAS: Indicadores ao vivo ──────────────────────────────
+let _statsPatternCache    = null;
+let _statsPatternCacheTs  = 0;
+
+async function _fetchStatsPatterns() {
+  const now = Date.now();
+  if (_statsPatternCache && (now - _statsPatternCacheTs) < 300000) return _statsPatternCache;
+  try {
+    const r = await fetch('/api/momentum/stats-patterns');
+    if (!r.ok) return null;
+    _statsPatternCache   = await r.json();
+    _statsPatternCacheTs = now;
+    return _statsPatternCache;
+  } catch(e) { return null; }
+}
+
+async function _updateStatsPatternPanel(statistics) {
+  const el = document.getElementById('statsPatternPanel');
+  if (!el) return;
+
+  // Pega partida ativa para minuto e placar
+  const m = liveMatchesCache.find(x => x.id === activeLiveId);
+  const rawMin = m ? parseTempo(m.tempo) : null;
+  const min = rawMin ? Math.round(rawMin / 60) : 1;
+  const safeMin = Math.max(min, 1);
+  const gCasa = m ? (m.golCasaFt ?? 0) : 0;
+  const gFora = m ? (m.golForaFt ?? 0) : 0;
+
+  if (!statistics || Object.keys(statistics).length === 0) {
+    el.style.display = 'none'; return;
+  }
+
+  const patterns = await _fetchStatsPatterns();
+  if (!patterns || !patterns.outcomes) { el.style.display = 'none'; return; }
+
+  const outcomes = patterns.outcomes;
+
+  // Factor de projeção para 90 min (sem extrapolar mais que 2.5×)
+  const factor = safeMin >= 85 ? 1 : Math.min(2.5, 90 / safeMin);
+
+  // Helper: extrai valores home/away de d.statistics
+  const gv = (key) => {
+    const it = statistics[key];
+    if (!it) return [null, null];
+    return [it.homeValue ?? null, it.awayValue ?? null];
+  };
+
+  const [shotsH,  shotsA]  = gv('shots');
+  const [sotH,    sotA]    = gv('shots_on_target');
+  const [cornH,   cornA]   = gv('corner_kicks');
+  const [bigH,    bigA]    = gv('big_chances');
+  const [sibH,    sibA]    = gv('shots_inside_box');
+  const [posH,    posA]    = gv('ball_possession');
+  const [xgH,     xgA]    = gv('xg');
+
+  // Projeção para 90 min (posse não escala)
+  const proj = (v) => v !== null ? v * factor : null;
+
+  const lp = {
+    shots_h:            proj(shotsH),  shots_a:            proj(shotsA),
+    shots_on_target_h:  proj(sotH),    shots_on_target_a:  proj(sotA),
+    corner_kicks_h:     proj(cornH),   corner_kicks_a:      proj(cornA),
+    big_chances_h:      proj(bigH),    big_chances_a:       proj(bigA),
+    shots_inside_box_h: proj(sibH),    shots_inside_box_a:  proj(sibA),
+    ball_possession_h:  posH,          ball_possession_a:   posA,
+    xg_h:               proj(xgH),     xg_a:                proj(xgA),
+  };
+
+  // Pesos por stat (quanto mais relevante para resultado, maior)
+  const WEIGHTS = {
+    shots_on_target_h:  3, shots_on_target_a:  3,
+    big_chances_h:      3, big_chances_a:      3,
+    xg_h:               3, xg_a:               3,
+    shots_inside_box_h: 2, shots_inside_box_a: 2,
+    shots_h:            2, shots_a:            2,
+    ball_possession_h:  1, ball_possession_a:  1,
+    corner_kicks_h:     1, corner_kicks_a:     1,
+  };
+
+  // ── Similaridade Gaussiana para cada outcome ──────────────────────────────
+  const gaussian = (lv, pv) => {
+    if (lv === null || lv === undefined || pv === undefined || pv <= 0) return null;
+    const sigma = Math.max(pv * 0.55, 0.8);
+    return Math.exp(-Math.pow(lv - pv, 2) / (2 * sigma * sigma));
+  };
+
+  const simScores = {};
+  let hasData = false;
+
+  for (const oc of ['casaV', 'emp', 'visV']) {
+    const pat = outcomes[oc];
+    if (!pat || (pat.n || 0) < 5) { simScores[oc] = 0.33; continue; }
+    let totalW = 0, sumSim = 0;
+    for (const [sk, w] of Object.entries(WEIGHTS)) {
+      const lv = lp[sk];
+      const pv = pat[sk];
+      const sim = gaussian(lv, pv);
+      if (sim === null) continue;
+      sumSim += sim * w;
+      totalW += w;
+      hasData = true;
+    }
+    simScores[oc] = totalW > 0 ? sumSim / totalW : 0.33;
+  }
+
+  if (!hasData) { el.style.display = 'none'; return; }
+
+  // Normaliza para probabilidades
+  const tot = simScores.casaV + simScores.emp + simScores.visV || 1;
+  let probCasa = Math.round(simScores.casaV / tot * 100);
+  let probEmp  = Math.round(simScores.emp   / tot * 100);
+  let probVis  = 100 - probCasa - probEmp;
+  probVis = Math.max(0, probVis);
+
+  // ── Termômetro Over/Under 2.5 ─────────────────────────────────────────────
+  const patO = outcomes.o25 || {};
+  const patU = outcomes.u25 || {};
+
+  const ouKeys = ['shots_h','shots_a','shots_on_target_h','shots_on_target_a','big_chances_h','big_chances_a','xg_h','xg_a'];
+  const ouW    = [1,1,2,2,3,3,3,3];
+
+  let overSim = 0, underSim = 0, ouTot = 0;
+  for (let i = 0; i < ouKeys.length; i++) {
+    const sk = ouKeys[i];
+    const lv = lp[sk];
+    const so = gaussian(lv, patO[sk]);
+    const su = gaussian(lv, patU[sk]);
+    if (so !== null) { overSim  += so * ouW[i]; ouTot += ouW[i]; }
+    if (su !== null) { underSim += su * ouW[i]; }
+  }
+
+  // Incorpora ritmo de gols atual
+  const goalPace = (gCasa + gFora) / safeMin * 90;
+  const paceBonus = Math.max(-15, Math.min(15, (goalPace - 2.5) * 8));
+
+  let thermoPct = ouTot > 0
+    ? Math.round(overSim / (overSim + underSim + 0.001) * 100)
+    : 50;
+  thermoPct = Math.min(95, Math.max(5, thermoPct + paceBonus));
+
+  const thermoColor = thermoPct > 62 ? '#22c55e' : thermoPct < 38 ? '#3b82f6' : '#f59e0b';
+  const thermoLabel = thermoPct > 62 ? '↑ Over 2.5' : thermoPct < 38 ? '↓ Under 2.5' : '≈ Equilibrado';
+
+  // ── Alertas de Pressão ────────────────────────────────────────────────────
+  const alerts = [];
+  const patAct = outcomes.o25 || {};  // padrão ativo = jogos com mais gols
+
+  const sotTotal = (sotH ?? 0) + (sotA ?? 0);
+  const bigTotal = (bigH ?? 0) + (bigA ?? 0);
+  const avgSOT   = ((patAct.shots_on_target_h || 0) + (patAct.shots_on_target_a || 0));
+  const avgBig   = ((patAct.big_chances_h || 0)     + (patAct.big_chances_a || 0));
+
+  // Alerta quando ritmo projetado excede média histórica de O2.5
+  const projSOT = avgSOT > 0 && safeMin < 80 ? sotTotal / safeMin * 90 : sotTotal;
+  const projBig = avgBig > 0 && safeMin < 80 ? bigTotal / safeMin * 90 : bigTotal;
+
+  if (avgSOT > 0 && projSOT > avgSOT * 1.25 && sotTotal >= 2)
+    alerts.push(`🎯 Chutes no alvo: ${sotTotal} (projeção ${projSOT.toFixed(1)} | hist O2.5: ${avgSOT.toFixed(1)})`);
+  if (avgBig > 0 && projBig > avgBig * 1.15 && bigTotal >= 1)
+    alerts.push(`💥 Grandes chances: ${bigTotal} (projeção ${projBig.toFixed(1)} | hist: ${avgBig.toFixed(1)})`);
+
+  // Dominância de chutes
+  if (shotsH !== null && shotsA !== null) {
+    const ratio = shotsA > 0 ? shotsH / shotsA : (shotsH > 0 ? 9 : 1);
+    if (ratio > 2.5 && shotsH >= 5)
+      alerts.push(`📌 Casa domina chutes ${shotsH}×${shotsA}`);
+    else if (ratio < 0.4 && shotsA >= 5)
+      alerts.push(`📌 Visitante domina chutes ${shotsA}×${shotsH}`);
+  }
+
+  // xG alto
+  if (xgH !== null && xgA !== null && (xgH + xgA) > 2.0)
+    alerts.push(`📈 xG combinado alto: ${(xgH + xgA).toFixed(2)}`);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const probBar = (pct, color, label) => `
+    <div style="flex:1;min-width:0">
+      <div style="font-size:8px;color:var(--text2);margin-bottom:2px;text-align:center">${label}</div>
+      <div style="background:var(--bg);border-radius:4px;height:20px;overflow:hidden;position:relative">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .4s"></div>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                     font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px #0009">${pct}%</span>
+      </div>
+    </div>`;
+
+  const alertHtml = alerts.length ? `
+    <div style="margin-top:5px;padding:4px 8px;background:#ef44441a;border:1px solid #ef444433;
+                border-radius:6px;font-size:9px;color:#fca5a5;line-height:1.6">
+      ⚡ ${alerts.join('<br>⚡ ')}
+    </div>` : '';
+
+  const nSample = Math.min(outcomes.casaV?.n || 0, outcomes.o25?.n || 0, 9999);
+  const sampleLabel = nSample > 0 ? `· ${nSample} partidas históricas` : '';
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:6px;letter-spacing:.4px">
+        📊 INDICADORES ESTATÍSTICOS &nbsp;<span style="font-weight:400">min ${safeMin}' ${sampleLabel}</span>
+      </div>
+
+      <div style="font-size:8px;color:var(--text2);margin-bottom:3px">🎯 Probabilidade por Similaridade Estatística</div>
+      <div style="display:flex;gap:4px">
+        ${probBar(probCasa, '#3b82f6', 'Casa V.')}
+        ${probBar(probEmp,  '#64748b', 'Empate')}
+        ${probBar(probVis,  '#ef4444', 'Vis. V.')}
+      </div>
+
+      <div style="margin-top:7px;font-size:8px;color:var(--text2);margin-bottom:4px">🌡️ Termômetro Over/Under 2.5</div>
+      <div style="position:relative;height:8px;border-radius:4px;
+                  background:linear-gradient(to right,#3b82f6 0%,#f59e0b 50%,#22c55e 100%)">
+        <div style="position:absolute;top:50%;left:${thermoPct}%;transform:translate(-50%,-50%);
+                    width:14px;height:14px;border-radius:50%;background:#fff;
+                    border:2.5px solid ${thermoColor};box-shadow:0 0 7px ${thermoColor}88;
+                    transition:left .5s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;margin-top:3px">
+        <span style="color:#3b82f6">Under 2.5</span>
+        <span style="color:${thermoColor};font-weight:700">${thermoLabel}</span>
+        <span style="color:#22c55e">Over 2.5</span>
+      </div>
+
+      ${alertHtml}
+    </div>`;
+}
+
 // ── ODDS ABERTURA: salva na primeira vez que as odds aparecem (por partida/dia) ──
 function _getOpenOdds(key, currentOdds) {
   try {
@@ -2846,6 +3074,7 @@ async function loadUniscorePanel(casa, fora) {
     if (!cached.found) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     el.innerHTML = _renderUniscore(cached);
+    _updateStatsPatternPanel(cached.statistics || {});
     return;
   }
 
@@ -2857,6 +3086,7 @@ async function loadUniscorePanel(casa, fora) {
     _uniCache[cacheKey] = d;
     if (!d.found) { el.style.display = 'none'; return; }
     el.innerHTML = _renderUniscore(d);
+    _updateStatsPatternPanel(d.statistics || {});
   } catch(e) { el.style.display = 'none'; }
 }
 
