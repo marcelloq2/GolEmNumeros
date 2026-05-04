@@ -1,0 +1,88 @@
+{
+  "event_id": 14108332,
+  "date": "2026-05-03",
+  "saved_at": "2026-05-03T16:27:25.638784",
+  "casa": "FC Ingolstadt 04",
+  "fora": "Erzgebirge Aue",
+  "liga": "3. Liga",
+  "graphPoints": [],
+  "goals": [
+    {
+      "minute": 89,
+      "addedTime": 0,
+      "team": "away"
+    },
+    {
+      "minute": 69,
+      "addedTime": 0,
+      "team": "away"
+    },
+    {
+      "minute": 64,
+      "addedTime": 0,
+      "team": "away"
+    },
+    {
+      "minute": 53,
+      "addedTime": 0,
+      "team": "away"
+    },
+    {
+      "minute": 36,
+      "addedTime": 0,
+      "team": "home"
+    },
+    {
+      "minute": 18,
+      "addedTime": 0,
+      "team": "away"
+    },
+    {
+      "minute": 14,
+      "addedTime": 0,
+      "team": "home"
+    },
+    {
+      "minute": 7,
+      "addedTime": 0,
+      "team": "home"
+    }
+  ],
+  "statistics": [
+    {
+      "period": "ALL",
+      "groups": [
+        {
+          "groupName": "Match overview",
+          "statisticsItems": [
+            {
+              "name": "Yellow cards",
+              "home": "2",
+              "away": "2",
+              "compareCode": 3,
+              "statisticsType": "negative",
+              "valueType": "event",
+              "homeValue": 2,
+              "awayValue": 2,
+              "renderType": 1,
+              "key": "yellowCards"
+            },
+            {
+              "name": "Red cards",
+              "home": "0",
+              "away": "0",
+              "compareCode": 3,
+              "statisticsType": "negative",
+              "valueType": "event",
+              "homeValue": 0,
+              "awayValue": 0,
+              "renderType": 1,
+              "key": "redCards"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "opening_odds": {}
+}
