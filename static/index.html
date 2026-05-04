@@ -4372,18 +4372,25 @@ function toggleBtMarkets() {
   const icon    = document.getElementById('btMarketsToggleIcon');
   if (content) content.style.display = btMarketsOpen ? 'block' : 'none';
   if (icon)    icon.textContent = btMarketsOpen ? '▲' : '▼';
-  // Re-desenha gráficos ao abrir (canvas pode ter largura 0 quando oculto)
+  // Re-desenha gráficos ao abrir (canvas tem offsetWidth=0 quando oculto)
   if (btMarketsOpen) {
-    requestAnimationFrame(() => {
-      const panel = document.getElementById('btMarketsPanel');
-      if (panel && panel._lastSimMkt)
-        _drawBankChart('bankChartMkt',    panel._lastSimMkt.bankHistory,   panel._lastSimMkt.fairOdd);
-      if (panel && panel._lastSimCS)
-        _drawBankChart('bankChartCS',     panel._lastSimCS.bankHistory,    panel._lastSimCS.fairOdd);
-      if (panel && panel._lastSimCSImp)
-        _drawBankChart('bankChartCSImp',  panel._lastSimCSImp.bankHistory, panel._lastSimCSImp.fairOdd);
-    });
+    _redrawBtCharts();
   }
+}
+
+function _redrawBtCharts() {
+  // setTimeout garante que o browser calculou o layout antes de desenhar
+  setTimeout(() => {
+    const panel = document.getElementById('btMarketsPanel');
+    if (!panel) return;
+    (panel._colSims || []).forEach(cs =>
+      _drawBankChart(cs.chartId, cs.bankHistory, cs.fairOdd)
+    );
+    if (panel._lastSimCS)
+      _drawBankChart('bankChartCS',    panel._lastSimCS.bankHistory,    panel._lastSimCS.fairOdd);
+    if (panel._lastSimCSImp)
+      _drawBankChart('bankChartCSImp', panel._lastSimCSImp.bankHistory, panel._lastSimCSImp.fairOdd);
+  }, 50);
 }
 
 function setBtMarketsTab(tab) {
@@ -5095,6 +5102,11 @@ function renderBtMarketsPanel(matches) {
   const posColSims = colSims.filter(cs => cs.sim.profit >= 0);
   const negColSims = colSims.filter(cs => cs.sim.profit < 0);
 
+  // Armazena para redesenho ao abrir/fechar painel (toggleBtMarkets)
+  panel._colSims     = posColSims.map(cs => ({ chartId: cs.chartId, bankHistory: cs.sim.bankHistory, fairOdd: cs.sim.fairOdd }));
+  panel._lastSimCS    = simCS    || null;
+  panel._lastSimCSImp = simCSImp || null;
+
   const colSimsHTML = posColSims.map(cs =>
     renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
   ).join('');
@@ -5155,14 +5167,8 @@ function renderBtMarketsPanel(matches) {
       ${simHTML}
     </div>`;
 
-  // Desenha gráficos após o DOM ser atualizado
-  if (btMarketsOpen) {
-    requestAnimationFrame(() => {
-      posColSims.forEach(cs => _drawBankChart(cs.chartId, cs.sim.bankHistory, cs.sim.fairOdd));
-      if (simCS)    _drawBankChart('bankChartCS',    simCS.bankHistory,    simCS.fairOdd);
-      if (simCSImp) _drawBankChart('bankChartCSImp', simCSImp.bankHistory, simCSImp.fairOdd);
-    });
-  }
+  // Desenha gráficos após o DOM ser atualizado (50ms para garantir layout)
+  if (btMarketsOpen) _redrawBtCharts();
 }
 
 // Score simplificado para backtest (sem detalhes completos)
