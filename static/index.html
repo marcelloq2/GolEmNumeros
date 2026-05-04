@@ -1206,8 +1206,9 @@ let activeFilter = 'all';
 let _btEdgeCriteria = [];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
-let _edgeScoreTabFilter = null;      // null | 'casa' | 'fora' | 'gols'
-let _edgeMethodFilters = new Set();  // Set de índices selecionados (multi-select)
+let _edgeScoreTabFilter  = null;      // null | 'casa' | 'fora' | 'gols'
+let _edgeMethodFilters  = new Set();  // Set de índices selecionados (multi-select)
+let _edgeMethodPanelOpen = false;     // painel de seleção aberto/fechado
 let viewMode    = 'liga'; // 'liga' | 'hora'
 let favViewMode = 'liga'; // 'liga' | 'hora'
 let activeMatchId = null;
@@ -3892,6 +3893,11 @@ function _toggleEdgeFavFilter() {
   renderEdgePanel();
 }
 
+function _toggleEdgeMethodPanel() {
+  _edgeMethodPanelOpen = !_edgeMethodPanelOpen;
+  renderEdgePanel();
+}
+
 function _toggleEdgeScoreFilter(tab) {
   _edgeScoreTabFilter = _edgeScoreTabFilter === tab ? null : tab;
   _edgeMethodFilters = new Set();
@@ -4077,21 +4083,6 @@ function renderEdgePanel() {
   }).join('');
 
   const selectedList = [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean);
-  const selInfoHTML = selectedList.length ? `
-    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;
-                background:#0d1f10;border:1px solid #22c55e44;border-radius:6px;flex-wrap:wrap">
-      <span style="font-size:10px;font-weight:700;color:#22c55e;flex-shrink:0">▶ Selecionadas (${selectedList.length}):</span>
-      ${selectedList.map(c => `
-        <span style="font-size:9px;padding:2px 7px;background:#162a1a;border:1px solid #22c55e55;
-                     border-radius:4px;color:#4ade80">
-          ${c.scoreKey ? `Placar ${c.scoreKey}` : (c.marketKey||'?')} · ${(BT_RANGES[c.rangeIdx]||{}).label||'?'}
-          <span style="color:#22c55e"> +${c.roi.toFixed(1)}%</span>
-          <span style="color:#f59e0b"> @${c.simOdd.toFixed(2)}</span>
-        </span>`).join('')}
-      <span onclick="_clearEdgeMethodFilters()"
-            style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
-                   border-radius:4px;background:var(--bg3);flex-shrink:0">✕ Limpar tudo</span>
-    </div>` : '';
 
   // ── Filtra partidas de hoje (antes de montar a barra p/ mostrar contagem) ──
   const criteriaToUse = _edgeMethodFilters.size > 0
@@ -4122,30 +4113,78 @@ function renderEdgePanel() {
       </span>
     </div>`;
 
-  bar.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:6px">
+  // Tags compactas das metodologias já selecionadas
+  const selectedTagsHTML = selectedList.map((c, si) => {
+    const idx = [..._edgeMethodFilters][si];
+    const lbl = c.scoreKey ? `Placar ${c.scoreKey}` :
+      c.marketKey === 'casaVence' ? 'Casa V.' : c.marketKey === 'visitanteVence' ? 'Vis. V.' :
+      c.marketKey === 'empate' ? 'Empate' : c.marketKey === 'over25' ? 'O 2.5' :
+      c.marketKey === 'under25' ? 'U 2.5' : c.marketKey === 'under35' ? 'U 3.5' :
+      c.marketKey === 'over15' ? 'O 1.5' : c.marketKey === 'over05' ? 'O 0.5' :
+      c.marketKey === 'bttsS' ? 'BTS+' : c.marketKey === 'bttsN' ? 'BTS-' :
+      c.marketKey === 'over05HT' ? 'O 0.5HT' : c.marketKey === 'under05HT' ? 'U 0.5HT' :
+      c.marketKey === 'under15HT' ? 'U 1.5HT' : c.marketKey === 'over15HT' ? 'O 1.5HT' :
+      c.marketKey || '?';
+    return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;
+                         padding:2px 6px;border-radius:4px;background:#162a1a;
+                         border:1px solid #22c55e66;color:#4ade80">
+      ${lbl}
+      <span onclick="event.stopPropagation();_setEdgeMethodFilter(${idx})"
+            style="cursor:pointer;color:#6b7280;font-size:10px;line-height:1;padding-left:2px">×</span>
+    </span>`;
+  }).join('');
 
-      <!-- Linha 1: título + filtro de score + contador -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  // Painel dropdown de seleção
+  const dropdownHTML = _edgeMethodPanelOpen ? `
+    <div style="position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px;
+                background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+                padding:10px 12px;box-shadow:0 8px 24px #00000066">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:700;color:var(--text2)">Selecionar metodologias</span>
+        ${_edgeMethodFilters.size > 0 ? `<span onclick="_clearEdgeMethodFilters()"
+          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
+                 border-radius:4px">✕ Limpar tudo</span>` : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${criteriaChips}</div>
+    </div>` : '';
+
+  bar.innerHTML = `
+    <div style="position:relative">
+      <!-- Linha única: tudo compacto -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas</span>
         <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
+
+        <!-- Filtro Score -->
         <span style="font-size:9px;color:var(--text2);flex-shrink:0">Score:</span>
         <div style="display:flex;gap:3px">${scoreTabBtns}</div>
         ${_edgeScoreTabFilter ? `<span onclick="_toggleEdgeScoreFilter('${_edgeScoreTabFilter}')"
-          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
+          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 5px;border:1px solid var(--border);
                  border-radius:4px;background:var(--bg3)">✕</span>` : ''}
         <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
+
+        <!-- Botão abre/fecha painel de metodologias -->
+        <button onclick="_toggleEdgeMethodPanel()"
+          style="display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;
+                 font-size:9px;font-weight:700;cursor:pointer;
+                 border:1px solid ${_edgeMethodPanelOpen ? '#22c55e' : 'var(--border)'};
+                 background:${_edgeMethodPanelOpen ? '#162a1a' : 'var(--bg3)'};
+                 color:${_edgeMethodPanelOpen ? '#22c55e' : 'var(--text2)'}">
+          Metodologia
+          ${_edgeMethodFilters.size > 0 ? `<span style="background:#22c55e;color:#000;border-radius:8px;padding:0 5px;font-size:9px;font-weight:800">${_edgeMethodFilters.size}</span>` : ''}
+          <span style="font-size:8px">${_edgeMethodPanelOpen ? '▲' : '▼'}</span>
+        </button>
+
+        <!-- Tags das selecionadas -->
+        ${selectedTagsHTML}
+
+        <div style="flex:1"></div>
+        <!-- Contador -->
         ${countBadge}
       </div>
 
-      <!-- Linha 2: chips de metodologia -->
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:9px;color:var(--text2);flex-shrink:0;font-weight:600">Metodologia:</span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${criteriaChips}</div>
-      </div>
-
-      <!-- Linha 3: info das metodologias selecionadas -->
-      ${selInfoHTML}
+      <!-- Dropdown de seleção -->
+      ${dropdownHTML}
     </div>`;
 
   // ── Toolbar de favoritos ──
