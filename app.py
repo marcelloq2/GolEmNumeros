@@ -433,8 +433,30 @@ _momentum_cache = {}
 _momentum_lock  = threading.Lock()   # proteção para acesso concorrente
 
 # ── Cache de shotmap ao vivo: acumula durante o jogo para não perder ao FT ──
-_shotmap_live_cache = {}   # {event_id: [shots...]}
+_SHOTMAP_CACHE_FILE = os.path.join(DATA_DIR, ".shotmap_cache.json")
 _shotmap_lock       = threading.Lock()
+
+def _load_shotmap_cache() -> dict:
+    """Carrega cache de shotmap do disco (sobrevive a restarts)."""
+    try:
+        if os.path.exists(_SHOTMAP_CACHE_FILE):
+            with open(_SHOTMAP_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            print(f"[shotmap] Cache restaurado: {len(data)} jogo(s)")
+            return data
+    except Exception as e:
+        print(f"[shotmap] Erro ao carregar cache: {e}")
+    return {}
+
+def _save_shotmap_cache(cache: dict):
+    """Persiste cache de shotmap no disco."""
+    try:
+        with open(_SHOTMAP_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[shotmap] Erro ao salvar cache: {e}")
+
+_shotmap_live_cache = _load_shotmap_cache()
 
 
 def _fetch_live_matches_for_monitor():
@@ -1158,11 +1180,14 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
 
         # ── Acumula shotmap ao vivo no cache separado ─────────────────────
         # O endpoint de shotmap só funciona durante o jogo; ao FT fica vazio.
-        # Guardamos aqui para garantir que o save tenha os dados.
+        # Guardamos no disco para sobreviver a restarts/redeploys do Railway.
         live_shots = udata.get("shotmap", [])
         if live_shots:
             with _shotmap_lock:
-                _shotmap_live_cache[event_id] = live_shots
+                prev = _shotmap_live_cache.get(event_id, [])
+                if len(live_shots) != len(prev):   # só escreve se mudou
+                    _shotmap_live_cache[event_id] = live_shots
+                    _save_shotmap_cache(_shotmap_live_cache)
 
         # ── Auto-save quando a partida termina ───────────────────────────
         if udata.get("finished"):
@@ -1205,9 +1230,10 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 data["saved"] = True
                 sm_count = len(best_shotmap)
                 print(f"[momentum] Salvo: {save_file} | shotmap={sm_count} chutes")
-                # Limpa cache de shotmap para liberar memória
+                # Limpa cache de shotmap (memória + disco)
                 with _shotmap_lock:
                     _shotmap_live_cache.pop(event_id, None)
+                    _save_shotmap_cache(_shotmap_live_cache)
                 github_storage.push_file_bg(save_file, f"momentum_history/{today}_{event_id}.json")
                 _pattern_tips_cache  = {"ts": 0, "data": None}
                 _odds_patterns_cache = {"ts": 0, "data": None}
