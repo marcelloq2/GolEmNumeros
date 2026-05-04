@@ -1206,6 +1206,8 @@ let activeFilter = 'all';
 let _btEdgeCriteria = [];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
+let _edgeScoreTabFilter = null; // null | 'casa' | 'fora' | 'gols'
+let _edgeMethodFilter = null;   // null | index na lista filtrada de critérios
 let viewMode    = 'liga'; // 'liga' | 'hora'
 let favViewMode = 'liga'; // 'liga' | 'hora'
 let activeMatchId = null;
@@ -3890,6 +3892,17 @@ function _toggleEdgeFavFilter() {
   renderEdgePanel();
 }
 
+function _toggleEdgeScoreFilter(tab) {
+  _edgeScoreTabFilter = _edgeScoreTabFilter === tab ? null : tab;
+  _edgeMethodFilter = null;
+  renderEdgePanel();
+}
+
+function _setEdgeMethodFilter(idx) {
+  _edgeMethodFilter = _edgeMethodFilter === idx ? null : idx;
+  renderEdgePanel();
+}
+
 function matchFitsCriteria(m, c) {
   const range = BT_RANGES[c.rangeIdx];
   if (!range) return false;
@@ -3931,7 +3944,31 @@ function renderEdgePanel() {
   }
 
   // ── Criteria summary bar ──
-  const criteriaChips = _btEdgeCriteria.map(c => {
+  const activeCriteria = _edgeScoreTabFilter
+    ? _btEdgeCriteria.filter(c => c.tab === _edgeScoreTabFilter)
+    : _btEdgeCriteria;
+
+  // garante que _edgeMethodFilter não aponte para índice fora dos limites
+  if (_edgeMethodFilter !== null && _edgeMethodFilter >= activeCriteria.length)
+    _edgeMethodFilter = null;
+
+  const scoreTabBtns = [
+    { id: 'casa', lbl: 'Score Casa' },
+    { id: 'fora', lbl: 'Score Vis.' },
+    { id: 'gols', lbl: 'Score Gols' },
+  ].map(t => {
+    const on = _edgeScoreTabFilter === t.id;
+    return `<button onclick="_toggleEdgeScoreFilter('${t.id}')"
+      style="padding:3px 9px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;
+             border:1px solid ${on ? '#60a5fa' : 'var(--border)'};
+             background:${on ? '#1e3a5f' : 'var(--bg4)'};
+             color:${on ? '#60a5fa' : 'var(--text2)'}">
+      ${t.lbl}
+    </button>`;
+  }).join('');
+
+  const criteriaChips = activeCriteria.map((c, i) => {
+    const on        = _edgeMethodFilter === i;
     const profColor = c.profit >= 0 ? '#22c55e' : '#ef4444';
     const profSign  = c.profit >= 0 ? '+' : '';
     const scoreTypeLbl = c.scoreType === 'provavel'   ? ' (Provável)'
@@ -3943,13 +3980,24 @@ function renderEdgePanel() {
       : c.marketKey === 'empate'         ? 'Empate'
       : c.marketKey === 'over25'         ? 'Over 2.5'
       : c.marketKey === 'under25'        ? 'Under 2.5'
+      : c.marketKey === 'under35'        ? 'Under 3.5'
+      : c.marketKey === 'over15'         ? 'Over 1.5'
+      : c.marketKey === 'over05'         ? 'Over 0.5'
       : c.marketKey === 'bttsS'          ? 'BTS Sim'
       : c.marketKey === 'bttsN'          ? 'BTS Não'
+      : c.marketKey === 'over05HT'       ? 'Over 0.5HT'
+      : c.marketKey === 'under05HT'      ? 'Under 0.5HT'
+      : c.marketKey === 'under15HT'      ? 'Under 1.5HT'
+      : c.marketKey === 'over15HT'       ? 'Over 1.5HT'
       : c.marketKey || '?';
     const rangeLabel = (BT_RANGES[c.rangeIdx] || {}).label || '?';
-    return `<div style="display:flex;align-items:center;gap:5px;background:var(--bg3);
-                border:1px solid #22c55e33;border-radius:6px;padding:4px 8px;flex-shrink:0">
-      <span style="font-size:9px;font-weight:700;color:#22c55e">✅</span>
+    return `<div onclick="_setEdgeMethodFilter(${i})"
+      style="display:flex;align-items:center;gap:5px;cursor:pointer;
+             background:${on ? '#162a1a' : 'var(--bg3)'};
+             border:1px solid ${on ? '#22c55e' : '#22c55e33'};
+             border-radius:6px;padding:4px 8px;flex-shrink:0;
+             ${on ? 'box-shadow:0 0 0 1px #22c55e55' : ''}">
+      <span style="font-size:9px;font-weight:700;color:#22c55e">${on ? '▶' : '✅'}</span>
       <div>
         <div style="font-size:10px;font-weight:700;color:var(--text)">${shortLbl}</div>
         <div style="font-size:8px;color:var(--text2)">Range ${rangeLabel} · <span style="color:${profColor}">${profSign}${c.profit.toFixed(1)}u</span> · @${c.simOdd.toFixed(2)}</div>
@@ -3957,16 +4005,58 @@ function renderEdgePanel() {
     </div>`;
   }).join('');
 
+  const selectedCriteria = _edgeMethodFilter !== null ? activeCriteria[_edgeMethodFilter] : null;
+  const selVal = selectedCriteria ? _validateSim({
+    total: 999, wins: 0, losses: 0, profit: selectedCriteria.profit, roi: selectedCriteria.roi,
+    winrate: selectedCriteria.winrate, fairOdd: selectedCriteria.fairOdd, simOdd: selectedCriteria.simOdd,
+    kellyFrac: selectedCriteria.kellyFrac || 0, maxDD: 0,
+  }) : null;
+
+  const selInfoHTML = selectedCriteria ? `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;
+                background:#0d1f10;border:1px solid #22c55e44;border-radius:6px;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:700;color:#22c55e">▶ Metodologia selecionada:</span>
+      <span style="font-size:10px;color:var(--text)">${selectedCriteria.label}</span>
+      <span style="font-size:9px;color:#4b5563">Range: ${(BT_RANGES[selectedCriteria.rangeIdx]||{}).label||'?'}</span>
+      <span style="font-size:9px;color:#22c55e">ROI: +${selectedCriteria.roi.toFixed(1)}%</span>
+      <span style="font-size:9px;color:#f59e0b">Odd: @${selectedCriteria.simOdd.toFixed(2)}</span>
+      <span onclick="_setEdgeMethodFilter(${_edgeMethodFilter})"
+            style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
+                   border-radius:4px;background:var(--bg3)">✕ Limpar</span>
+    </div>` : '';
+
   bar.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas:</span>
-      ${criteriaChips}
+    <div style="display:flex;flex-direction:column;gap:6px">
+
+      <!-- Linha 1: título + filtro de score -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas</span>
+        <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
+        <span style="font-size:9px;color:var(--text2);flex-shrink:0">Score:</span>
+        <div style="display:flex;gap:3px">${scoreTabBtns}</div>
+        ${_edgeScoreTabFilter ? `<span onclick="_toggleEdgeScoreFilter('${_edgeScoreTabFilter}')"
+          style="font-size:9px;color:#6b7280;cursor:pointer;padding:1px 6px;border:1px solid var(--border);
+                 border-radius:4px;background:var(--bg3)">✕</span>` : ''}
+      </div>
+
+      <!-- Linha 2: chips de metodologia -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:9px;color:var(--text2);flex-shrink:0;font-weight:600">Metodologia:</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${criteriaChips}</div>
+      </div>
+
+      <!-- Linha 3: info da metodologia selecionada -->
+      ${selInfoHTML}
     </div>`;
 
   // ── Filtra partidas de hoje ──
+  const criteriaToUse = _edgeMethodFilter !== null
+    ? [activeCriteria[_edgeMethodFilter]].filter(Boolean)
+    : activeCriteria;
+
   const allMatching = allMatches
     .map(m => {
-      const fits = _btEdgeCriteria.filter(c => matchFitsCriteria(m, c));
+      const fits = criteriaToUse.filter(c => matchFitsCriteria(m, c));
       return fits.length ? { m, fits } : null;
     })
     .filter(Boolean)
