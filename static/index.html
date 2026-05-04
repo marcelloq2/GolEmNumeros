@@ -3003,11 +3003,23 @@ function _renderUniscore(d) {
 
 
   // ── xG simplificado ──
+  // Tenta snake_case (normalizado no backend) com fallback para nomes originais
+  const _gv = (key, side) => {
+    const aliases = {
+      big_chances:       ['big_chances','Big Chances','Big Chances Created'],
+      shots_inside_box:  ['shots_inside_box','Shots Inside Box'],
+      shots_outside_box: ['shots_outside_box','Shots Outside Box'],
+    };
+    for (const k of (aliases[key] || [key])) {
+      const v = st[k]?.[side + 'Value'];
+      if (v !== undefined && v !== null) return Number(v) || 0;
+    }
+    return 0;
+  };
   const _xg = (side) => {
-    const g  = (key) => (st[key]?.[side + 'Value'] ?? 0);
-    const bc = g('big_chances');
-    const insideReg = Math.max(0, g('shots_inside_box') - bc);
-    const outside   = g('shots_outside_box');
+    const bc        = _gv('big_chances', side);
+    const insideReg = Math.max(0, _gv('shots_inside_box', side) - bc);
+    const outside   = _gv('shots_outside_box', side);
     return Math.round((bc * 0.40 + insideReg * 0.12 + outside * 0.04) * 100) / 100;
   };
   const xgH = _xg('home');

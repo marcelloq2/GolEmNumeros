@@ -2888,24 +2888,87 @@ def _uni_enrich_one(casa, fora):
         result["top_fora"] = None
 
     # Estatísticas detalhadas (chutes, posse, passes, duelos...)
+    # Mapeamento: nome original UniScore → chave snake_case usada no frontend
+    _UNI_STAT_NORM = {
+        "Ball Possession":          "ball_possession",
+        "Total Shots":              "shots",
+        "Shots":                    "shots",
+        "Shots on Target":          "shots_on_target",
+        "Blocked Shots":            "blocked_shots",
+        "Shots Inside Box":         "shots_inside_box",
+        "Shots Outside Box":        "shots_outside_box",
+        "Touches In Box":           "touches_in_box",
+        "Touches in Box":           "touches_in_box",
+        "Big Chances":              "big_chances",
+        "Big Chances Created":      "big_chances",
+        "Corner Kicks":             "corner_kicks",
+        "Corners":                  "corner_kicks",
+        "Free Kicks":               "freekicks",
+        "Passes":                   "passes",
+        "Total Passes":             "passes",
+        "Accurate Passes":          "passes",
+        "Passes Accurate":          "passes",
+        "Passes in Final Third":    "pass_in_final_third",
+        "Pass in Final Third":      "pass_in_final_third",
+        "Final Third Entries":      "final_third_entries",
+        "Long Balls":               "long_balls",
+        "Crosses":                  "crosses_accuracy",
+        "Crosses Accurate":         "crosses_accuracy",
+        "Duels":                    "duels",
+        "Ground Duels":             "ground_duels",
+        "Aerial Duels":             "aerial_duels",
+        "Dribbles":                 "dribble",
+        "Successful Dribbles":      "dribble",
+        "Tackles":                  "tackles",
+        "Tackles Won":              "tackles",
+        "Interceptions":            "interceptions",
+        "Recoveries":               "recoveries",
+        "Clearances":               "clearances",
+        "Saves":                    "saves",
+        "Goalkeeper Saves":         "saves",
+        "Goal Kicks":               "goal_kicks",
+        "Yellow Cards":             "yellow_cards",
+        "Fouls":                    "fouls",
+        "Fouls Committed":          "fouls",
+        "Was Fouled":               "was_fouled",
+        "Possession Losses":        "poss_losts",
+        "Total Possession Losses":  "poss_losts",
+        "Expected Goals":           "expected_goals",
+    }
+
+    def _build_stat_map(period_data):
+        """Constrói dict com chave original + alias snake_case."""
+        stat_map = {}
+        for grp in (period_data or {}).get("groups", []):
+            for item in grp.get("statisticsItems", []):
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name") or item.get("fields") or ""
+                if not name:
+                    continue
+                stat_map[name] = item                        # chave original
+                snake = _UNI_STAT_NORM.get(name)
+                if snake and snake not in stat_map:
+                    stat_map[snake] = item                   # alias snake_case
+        return stat_map
+
     try:
         url_stats = f"{UNISCORE_BASE}/football/event/{eid}/home/{home_tid}/away/{away_tid}/statistics"
         r = http_req.get(url_stats, headers=UNISCORE_HEADERS, timeout=6)
         periods = r.json().get("data", {}).get("statistics", [])
-        # Usa período ALL; se não existir, pega o primeiro disponível
-        period_data = next((p for p in periods if p.get("period") == "ALL"), periods[0] if periods else None)
-        if period_data:
-            # Constrói dict {name: {home, away, homeValue, awayValue}} para fácil acesso
-            stat_map = {}
-            for grp in period_data.get("groups", []):
-                for item in grp.get("statisticsItems", []):
-                    if isinstance(item, dict):
-                        stat_map[item.get("fields") or item.get("name")] = item
-            result["statistics"] = stat_map
-        else:
-            result["statistics"] = {}
+
+        # Monta statistics (ALL) e statistics_periods (ALL + 1ST + 2ND)
+        stat_periods_out = {}
+        for pd in periods:
+            period_key = pd.get("period", "ALL")
+            stat_periods_out[period_key] = _build_stat_map(pd)
+
+        all_pd = next((p for p in periods if p.get("period") == "ALL"), periods[0] if periods else None)
+        result["statistics"]         = _build_stat_map(all_pd) if all_pd else {}
+        result["statistics_periods"] = stat_periods_out
     except Exception:
-        result["statistics"] = {}
+        result["statistics"]         = {}
+        result["statistics_periods"] = {}
 
     # Escalação
     try:
