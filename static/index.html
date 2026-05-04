@@ -1966,7 +1966,6 @@ function renderLiveDetail(m) {
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
-        <div id="indicatorsPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
           <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
         </div>
@@ -2011,8 +2010,6 @@ function renderLiveDetail(m) {
   loadUniscorePanel(m.casa, m.fora);
   // Carrega mapa de chutes
   loadShotmap(m.id, m.casa, m.fora);
-  // Carrega indicadores dinâmicos
-  loadIndicators(m.id, m.casa, m.fora);
 }
 
 // ── Correlação de Pearson entre dois arrays (usa os últimos N elementos) ──
