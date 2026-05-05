@@ -1167,6 +1167,27 @@
     </div>
   </div>
 
+  <!-- MODAL GUIA EDGE -->
+  <div id="edgeGuiaOverlay" onclick="if(event.target===this)closeEdgeGuia()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:680px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">📖 Guia da Aba Edge</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Como encontrar e usar as metodologias com edge positivo</div>
+        </div>
+        <button onclick="closeEdgeGuia()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <div id="edgeGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+  </div>
+
   <!-- BACKTEST -->
   <div class="backtest-panel" id="backtestPanel">
     <!-- Col 1: datas -->
@@ -1724,6 +1745,169 @@ function openHojeGuia() {
 
 function closeHojeGuia() {
   const overlay = document.getElementById('hojeGuiaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── GUIA ABA EDGE ──────────────────────────────────────────────────────────────
+function openEdgeGuia() {
+  const overlay = document.getElementById('edgeGuiaOverlay');
+  const content = document.getElementById('edgeGuiaContent');
+  if (!overlay || !content) return;
+
+  const sec = (icon, title, body) => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${title}</span>
+      </div>
+      <div style="padding:12px 14px;font-size:12px;color:var(--text);line-height:1.65">${body}</div>
+    </div>`;
+
+  const pill = (txt, color, bg) =>
+    `<span style="display:inline-block;padding:1px 7px;border-radius:20px;font-weight:700;
+                  font-size:11px;background:${bg};color:${color}">${txt}</span>`;
+
+  const row = (left, right) =>
+    `<div style="display:flex;gap:8px;margin-bottom:5px;align-items:baseline">
+       <span style="min-width:110px;color:var(--text2);flex-shrink:0">${left}</span>
+       <span style="flex:1">${right}</span>
+     </div>`;
+
+  const badge = (txt) =>
+    `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;
+                  border-radius:5px;background:#0d2d0d;border:1px solid #22c55e55;color:#22c55e">${txt}</span>`;
+
+  content.innerHTML = [
+
+    sec('🔬','O que é a Aba Edge?', `
+      Edge é uma palavra do mundo das apostas que significa <b>vantagem estatística</b>. Uma aposta tem edge quando as probabilidades reais de acontecer são maiores do que as odds do mercado sugerem.<br><br>
+      A aba Edge mostra as partidas de <b>hoje</b> que se encaixam em <b>metodologias com lucro histórico positivo</b>, calculadas pelo Backtest.<br><br>
+      <b>Fluxo básico:</b><br>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:16px">1️⃣</span>
+          <span>Vá em <b>Backtest</b> → selecione um período → aguarde as simulações calcularem</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:16px">2️⃣</span>
+          <span>O sistema testa automaticamente <b>todos os mercados × todas as faixas de score</b> no histórico</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:16px">3️⃣</span>
+          <span>As combinações <b>com lucro histórico</b> viram metodologias ativas</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:16px">4️⃣</span>
+          <span>Edge cruza essas metodologias com as partidas de hoje — <b>mostra só as que batem</b></span>
+        </div>
+      </div>`),
+
+    sec('📐','O que é uma Metodologia?', `
+      Uma metodologia é uma <b>regra de aposta</b> composta por 3 elementos:<br><br>
+      ${row('Mercado','O que você vai apostar (ex: Casa Vence, Over 2.5, BTS Sim...)')}
+      ${row('Score','Qual dos 3 scores do time se aplica (Casa, Visitante ou Gols)')}
+      ${row('Range','A faixa de valor do score onde a regra funcionou no histórico')}
+      <br>
+      <b>Exemplo de metodologia:</b><br>
+      <div style="margin:6px 0;padding:8px 12px;background:var(--bg);border:1px solid #22c55e33;border-radius:7px">
+        ${badge('⬆️ Over 2.5')} &nbsp;· range <b>≥ 70</b> · Score Gols · <span style="color:#22c55e;font-weight:700">+8.4u</span> ROI +42% @1.85
+      </div>
+      Isso significa: <i>"Quando o Score de Gols do jogo é <b>≥ 70</b>, apostar em Over 2.5 gerou <b>+8.4 unidades de lucro</b> com ROI de +42% no histórico, com odd média de 1.85."</i><br><br>
+      <b>Mercados disponíveis:</b><br>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px">
+        ${['🏠 Casa Vence','✈️ Vis. Vence','🤝 Empate','⬆️ Over 2.5','⬇️ Under 2.5','⬇️ Under 3.5',
+           '⬆️ Over 1.5','⬆️ Over 0.5','✅ BTS Sim (Ambos Marcam)','❌ BTS Não',
+           '⬆️ Over 0.5 HT (1ºT)','⬇️ Under 0.5 HT','⬇️ Under 1.5 HT','⬆️ Over 1.5 HT',
+           '🟢 Placar Correto Provável','🟡 Placar Correto Improvável']
+          .map(m => `<div style="font-size:10px;padding:2px 6px;background:var(--bg);border-radius:4px;
+                                  border:1px solid var(--border)">${m}</div>`).join('')}
+      </div>`),
+
+    sec('📊','Faixas de Score (Ranges)', `
+      Cada metodologia funciona dentro de uma <b>faixa específica de score</b>. O sistema testa os 4 ranges automaticamente:<br><br>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${[
+          ['< 40',  '#7f1d1d','#fca5a5', 'Score fraco — time em baixa forma ou jogo sem tendência clara'],
+          ['40–54', '#78350f','#fcd34d', 'Score moderado — equilíbrio entre os fatores'],
+          ['55–69', '#14532d','#86efac', 'Score bom — time com tendência positiva'],
+          ['≥ 70',  '#1e3a5f','#93c5fd', 'Score alto — time forte, TIP confiante, ataque produtivo'],
+        ].map(([lbl, bg, txt, desc]) => `
+          <div style="display:flex;align-items:baseline;gap:8px;padding:6px 10px;
+                      background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+            <span style="font-size:11px;font-weight:700;padding:1px 8px;border-radius:4px;
+                         background:${bg};color:${txt};min-width:42px;text-align:center">${lbl}</span>
+            <span style="font-size:11px">${desc}</span>
+          </div>`).join('')}
+      </div><br>
+      O Edge usa automaticamente o range certo para cada metodologia — você não precisa configurar nada.`),
+
+    sec('🔍','Filtros da Barra de Controle', `
+      <b>Filtro Score (Score Casa / Score Vis. / Score Gols):</b><br>
+      Mostra apenas metodologias que usam aquele tipo de score. Útil para focar em um ângulo específico.<br>
+      ${row('Score Casa','Metodologias baseadas no índice de força do time da casa')}
+      ${row('Score Vis.','Metodologias baseadas no índice de força do visitante')}
+      ${row('Score Gols','Metodologias baseadas no índice de tendência de gols do jogo')}
+      Clique no filtro ativo para removê-lo (botão ✕).<br><br>
+      <b>Botão Metodologia ▼ (dropdown):</b><br>
+      Abre um painel com todas as metodologias disponíveis. Clique em uma ou mais para filtrar — só as partidas que se encaixam <i>naquelas metodologias específicas</i> serão exibidas.<br><br>
+      <b>Multi-seleção:</b> Você pode selecionar <b>várias metodologias ao mesmo tempo</b>. A partida aparece se se encaixar em <i>qualquer uma</i> das selecionadas — é como uma pesquisa por OR (ou).<br><br>
+      <b>Tags compactas:</b> As metodologias selecionadas aparecem como pequenas tags na barra. Clique no <b>×</b> para remover uma delas individualmente.<br><br>
+      <b>Contador de partidas:</b> O badge verde no canto direito mostra quantas partidas de hoje se encaixam nos critérios ativos.`),
+
+    sec('🃏','Lendo um Card de Partida', `
+      Cada partida no Edge exibe:<br><br>
+      <div style="background:var(--bg);border:1px solid #22c55e33;border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">Flamengo × Botafogo</div>
+        <div style="font-size:9px;color:var(--text2);margin-bottom:6px">Brasileirão · 20:00</div>
+        <div style="display:inline-flex;align-items:center;gap:5px;background:#0d2d0d;border:1px solid #22c55e55;border-radius:5px;padding:4px 8px;font-size:10px">
+          <span style="color:#22c55e;font-weight:700">⬆️ Over 2.5</span>
+          <span style="color:#4b5563">· range ≥ 70 ·</span>
+          <span style="color:#22c55e;font-weight:700">+8.4u</span>
+          <span style="color:#475569">ROI +42%</span>
+          <span style="color:#f59e0b">@1.85</span>
+        </div>
+        <div style="margin-top:6px;font-size:9px">
+          <span style="color:#60a5fa">Casa <b>75</b></span>
+          <span style="color:#374151;margin:0 5px">·</span>
+          <span style="color:#f87171">Vis <b>58</b></span>
+          <span style="color:#374151;margin:0 5px">·</span>
+          <span style="color:#a3e635">Gols <b>72</b></span>
+        </div>
+      </div>
+      ${row('Mercado','O que apostar: Over 2.5')}
+      ${row('Range ≥ 70','O score do jogo está nessa faixa — critério cumprido')}
+      ${row('+8.4u','Lucro histórico em unidades de aposta (1u = 1 unidade de banca)')}
+      ${row('ROI +42%','Retorno sobre investimento no backtest histórico')}
+      ${row('@1.85','Odd média usada na simulação — referência para buscar no mercado')}
+      ${row('Casa / Vis / Gols','Scores atuais do jogo para contexto')}
+      <br>
+      Se a partida tiver <b>múltiplas metodologias</b> que batem, todos os badges aparecem — ótimo sinal de convergência.`),
+
+    sec('⭐','Favoritos do Edge', `
+      Cada card tem um botão <b>☆</b> no canto superior direito.<br><br>
+      ${row('☆ Clique para favoritar','O card fica com borda dourada e o ⭐ aparece')}
+      ${row('Botão "Só favoritos"','Na barra inferior, filtra para exibir apenas partidas favoritadas')}
+      ${row('Persistência','Favoritos ficam salvos no seu navegador entre sessões')}
+      <br>
+      Use favoritos para <b>marcar as apostas que você decidiu fazer</b> e acompanhar ao longo do dia.`),
+
+    sec('💡','Boas Práticas', `
+      <b>Quanto mais histórico, mais confiável:</b> Metodologias com 30+ amostras no backtest são mais sólidas do que as com 5–10.<br><br>
+      <b>Prefira ROI > 20%:</b> Metodologias com ROI muito baixo podem ser ruído estatístico.<br><br>
+      <b>Convergência de metodologias:</b> Se uma partida aparece em 3+ metodologias diferentes, o sinal é mais forte do que quando aparece em apenas 1.<br><br>
+      <b>Atenção à odd de referência (@):</b> A odd da simulação é uma média histórica. Verifique se a odd atual no mercado está próxima — se estiver muito mais baixa, o valor pode ter desaparecido.<br><br>
+      <b>Backtest ≠ garantia de futuro:</b> O sistema identifica padrões passados. Resultados históricos positivos aumentam a probabilidade de sucesso, mas não garantem lucro em cada aposta individual.`),
+
+  ].join('');
+
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEdgeGuia() {
+  const overlay = document.getElementById('edgeGuiaOverlay');
   if (overlay) overlay.style.display = 'none';
   document.body.style.overflow = '';
 }
@@ -4692,6 +4876,10 @@ function renderEdgePanel() {
       <!-- Linha única: tudo compacto -->
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;color:#f59e0b;flex-shrink:0">🎯 Metodologias ativas</span>
+        <button onclick="openEdgeGuia()" title="Guia da aba Edge"
+          style="background:transparent;border:1px solid #3b82f644;border-radius:5px;
+                 color:#3b82f6;font-size:10px;font-weight:700;padding:2px 7px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0;line-height:1.4">📖</button>
         <div style="width:1px;height:14px;background:var(--border);flex-shrink:0"></div>
 
         <!-- Filtro Score -->
