@@ -1,7 +1,7 @@
 {
   "event_id": "o6jamrl1dw41w7q",
   "date": "2026-05-04",
-  "saved_at": "2026-05-04T20:27:01.025981",
+  "saved_at": "2026-05-04T17:27:23.467475",
   "source": "uniscore",
   "casa": "Almería",
   "fora": "Mirandes",
@@ -394,6 +394,14 @@
     {
       "minute": 97,
       "value": -24
+    },
+    {
+      "minute": 98,
+      "value": -100
+    },
+    {
+      "minute": 99,
+      "value": -100
     }
   ],
   "goals": [
@@ -709,9 +717,9 @@
       "awayValue": 6
     },
     "freekicks": {
-      "home": "14",
+      "home": "15",
       "away": "11",
-      "homeValue": 14,
+      "homeValue": 15,
       "awayValue": 11
     },
     "saves": {
@@ -722,9 +730,9 @@
     },
     "fouls": {
       "home": "11",
-      "away": "14",
+      "away": "15",
       "homeValue": 11,
-      "awayValue": 14
+      "awayValue": 15
     },
     "offsides": {
       "home": "2",
@@ -733,10 +741,10 @@
       "awayValue": 2
     },
     "passes": {
-      "home": "462",
-      "away": "320",
-      "homeValue": 462,
-      "awayValue": 320
+      "home": "463",
+      "away": "321",
+      "homeValue": 463,
+      "awayValue": 321
     },
     "yellow_cards": {
       "home": "1",
@@ -781,46 +789,46 @@
       "awayValue": 2
     },
     "passes_accuracy": {
-      "home": "392/462",
-      "away": "231/320",
+      "home": "393/463",
+      "away": "232/321",
       "homeValue": 85,
       "awayValue": 72
     },
     "throw_in": {
       "home": "26",
-      "away": "18",
+      "away": "19",
       "homeValue": 26,
-      "awayValue": 18
+      "awayValue": 19
     },
     "final_third_entries": {
-      "home": "67",
-      "away": "43",
-      "homeValue": 67,
-      "awayValue": 43
+      "home": "68",
+      "away": "44",
+      "homeValue": 68,
+      "awayValue": 44
     },
     "pass_in_final_third": {
-      "home": "138",
-      "away": "82",
-      "homeValue": 138,
-      "awayValue": 82
+      "home": "139",
+      "away": "83",
+      "homeValue": 139,
+      "awayValue": 83
     },
     "pass_in_final_third_accuracy": {
-      "home": "97/138",
-      "away": "43/82",
-      "homeValue": 70,
-      "awayValue": 52
+      "home": "98/139",
+      "away": "44/83",
+      "homeValue": 71,
+      "awayValue": 53
     },
     "long_balls": {
-      "home": "47",
-      "away": "40",
-      "homeValue": 47,
-      "awayValue": 40
+      "home": "48",
+      "away": "41",
+      "homeValue": 48,
+      "awayValue": 41
     },
     "long_balls_accuracy": {
-      "home": "26/47",
-      "away": "11/40",
-      "homeValue": 55,
-      "awayValue": 28
+      "home": "27/48",
+      "away": "12/41",
+      "homeValue": 56,
+      "awayValue": 29
     },
     "crosses_accuracy": {
       "home": "4/25",
@@ -907,9 +915,9 @@
       "awayValue": 50
     },
     "clearances": {
-      "home": "23",
+      "home": "22",
       "away": "24",
-      "homeValue": 23,
+      "homeValue": 22,
       "awayValue": 24
     },
     "goal_kicks": {
@@ -938,9 +946,9 @@
     },
     "poss_losts": {
       "home": "136",
-      "away": "134",
+      "away": "135",
       "homeValue": 136,
-      "awayValue": 134
+      "awayValue": 135
     },
     "ball_possession": {
       "home": "59%",
@@ -982,9 +990,9 @@
         "awayValue": 6
       },
       "freekicks": {
-        "home": "14",
+        "home": "15",
         "away": "11",
-        "homeValue": 14,
+        "homeValue": 15,
         "awayValue": 11
       },
       "saves": {
@@ -995,9 +1003,9 @@
       },
       "fouls": {
         "home": "11",
-        "away": "14",
+        "away": "15",
         "homeValue": 11,
-        "awayValue": 14
+        "awayValue": 15
       },
       "offsides": {
         "home": "2",
@@ -1006,10 +1014,10 @@
         "awayValue": 2
       },
       "passes": {
-        "home": "462",
-        "away": "320",
-        "homeValue": 462,
-        "awayValue": 320
+        "home": "463",
+        "away": "321",
+        "homeValue": 463,
+        "awayValue": 321
       },
       "yellow_cards": {
         "home": "1",
@@ -1054,46 +1062,46 @@
         "awayValue": 2
       },
       "passes_accuracy": {
-        "home": "392/462",
-        "away": "231/320",
+        "home": "393/463",
+        "away": "232/321",
         "homeValue": 85,
         "awayValue": 72
       },
       "throw_in": {
         "home": "26",
-        "away": "18",
+        "away": "19",
         "homeValue": 26,
-        "awayValue": 18
+        "awayValue": 19
       },
       "final_third_entries": {
-        "home": "67",
-        "away": "43",
-        "homeValue": 67,
-        "awayValue": 43
+        "home": "68",
+        "away": "44",
+        "homeValue": 68,
+        "awayValue": 44
       },
       "pass_in_final_third": {
-        "home": "138",
-        "away": "82",
-        "homeValue": 138,
-        "awayValue": 82
+        "home": "139",
+        "away": "83",
+        "homeValue": 139,
+        "awayValue": 83
       },
       "pass_in_final_third_accuracy": {
-        "home": "97/138",
-        "away": "43/82",
-        "homeValue": 70,
-        "awayValue": 52
+        "home": "98/139",
+        "away": "44/83",
+        "homeValue": 71,
+        "awayValue": 53
       },
       "long_balls": {
-        "home": "47",
-        "away": "40",
-        "homeValue": 47,
-        "awayValue": 40
+        "home": "48",
+        "away": "41",
+        "homeValue": 48,
+        "awayValue": 41
       },
       "long_balls_accuracy": {
-        "home": "26/47",
-        "away": "11/40",
-        "homeValue": 55,
-        "awayValue": 28
+        "home": "27/48",
+        "away": "12/41",
+        "homeValue": 56,
+        "awayValue": 29
       },
       "crosses_accuracy": {
         "home": "4/25",
@@ -1180,9 +1188,9 @@
         "awayValue": 50
       },
       "clearances": {
-        "home": "23",
+        "home": "22",
         "away": "24",
-        "homeValue": 23,
+        "homeValue": 22,
         "awayValue": 24
       },
       "goal_kicks": {
@@ -1211,9 +1219,9 @@
       },
       "poss_losts": {
         "home": "136",
-        "away": "134",
+        "away": "135",
         "homeValue": 136,
-        "awayValue": 134
+        "awayValue": 135
       },
       "ball_possession": {
         "home": "59%",
@@ -1508,9 +1516,9 @@
         "awayValue": 4
       },
       "freekicks": {
-        "home": "7",
+        "home": "8",
         "away": "6",
-        "homeValue": 7,
+        "homeValue": 8,
         "awayValue": 6
       },
       "saves": {
@@ -1521,9 +1529,9 @@
       },
       "fouls": {
         "home": "6",
-        "away": "7",
+        "away": "8",
         "homeValue": 6,
-        "awayValue": 7
+        "awayValue": 8
       },
       "offsides": {
         "home": "1",
@@ -1532,10 +1540,10 @@
         "awayValue": 1
       },
       "passes": {
-        "home": "199",
-        "away": "164",
-        "homeValue": 199,
-        "awayValue": 164
+        "home": "200",
+        "away": "165",
+        "homeValue": 200,
+        "awayValue": 165
       },
       "yellow_cards": {
         "home": "1",
@@ -1574,46 +1582,46 @@
         "awayValue": 1
       },
       "passes_accuracy": {
-        "home": "163/199",
-        "away": "121/164",
+        "home": "164/200",
+        "away": "122/165",
         "homeValue": 82,
         "awayValue": 74
       },
       "throw_in": {
         "home": "13",
-        "away": "6",
+        "away": "7",
         "homeValue": 13,
-        "awayValue": 6
+        "awayValue": 7
       },
       "final_third_entries": {
-        "home": "29",
-        "away": "22",
-        "homeValue": 29,
-        "awayValue": 22
+        "home": "30",
+        "away": "23",
+        "homeValue": 30,
+        "awayValue": 23
       },
       "pass_in_final_third": {
-        "home": "60",
-        "away": "43",
-        "homeValue": 60,
-        "awayValue": 43
+        "home": "61",
+        "away": "44",
+        "homeValue": 61,
+        "awayValue": 44
       },
       "pass_in_final_third_accuracy": {
-        "home": "36/60",
-        "away": "23/43",
-        "homeValue": 60,
-        "awayValue": 53
+        "home": "37/61",
+        "away": "24/44",
+        "homeValue": 61,
+        "awayValue": 55
       },
       "long_balls": {
-        "home": "27",
-        "away": "20",
-        "homeValue": 27,
-        "awayValue": 20
+        "home": "28",
+        "away": "21",
+        "homeValue": 28,
+        "awayValue": 21
       },
       "long_balls_accuracy": {
-        "home": "14/27",
-        "away": "6/20",
-        "homeValue": 52,
-        "awayValue": 30
+        "home": "15/28",
+        "away": "7/21",
+        "homeValue": 54,
+        "awayValue": 33
       },
       "crosses_accuracy": {
         "home": "3/14",
@@ -1700,9 +1708,9 @@
         "awayValue": 23
       },
       "clearances": {
-        "home": "14",
+        "home": "13",
         "away": "14",
-        "homeValue": 14,
+        "homeValue": 13,
         "awayValue": 14
       },
       "goal_kicks": {
@@ -1725,9 +1733,9 @@
       },
       "poss_losts": {
         "home": "65",
-        "away": "68",
+        "away": "69",
         "homeValue": 65,
-        "awayValue": 68
+        "awayValue": 69
       },
       "ball_possession": {
         "home": "56%",
@@ -1738,18 +1746,18 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 9.175,
-    "h1_avg": 18.5,
-    "h2_avg": 0.041,
-    "home_dominance_pct": 50.5,
+    "overall_avg": 6.97,
+    "h1_avg": 18.449,
+    "h2_avg": -4.28,
+    "home_dominance_pct": 49.5,
     "max_home": 100,
     "max_away": 100,
     "momentum_swings": 55,
-    "total_points": 97
+    "total_points": 99
   },
   "xg": {
-    "home": 3.99,
-    "away": 3.72,
+    "home": 4.01,
+    "away": 3.73,
     "source": "estimated",
     "fields_used": [
       "shots_on_target",
