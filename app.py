@@ -14,9 +14,11 @@ FOTMOB_HEADERS = {
 }
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
-DATA_DIR    = os.path.dirname(__file__)
+DATA_DIR     = os.path.dirname(__file__)
 MOMENTUM_DIR = os.path.join(DATA_DIR, "momentum_history")
+SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
 os.makedirs(MOMENTUM_DIR, exist_ok=True)
+os.makedirs(SHOTMAP_DIR,  exist_ok=True)
 
 
 def ajustar_hora(hora_str):
@@ -1230,6 +1232,26 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 data["saved"] = True
                 sm_count = len(best_shotmap)
                 print(f"[momentum] Salvo: {save_file} | shotmap={sm_count} chutes")
+
+                # ── Salva shotmap separadamente em shotmap_history/ ───────────
+                if best_shotmap:
+                    score_raw = payload.get("score", {})
+                    sm_payload = {
+                        "event_id":  event_id,
+                        "date":      today,
+                        "casa":      casa,
+                        "fora":      fora,
+                        "liga":      liga,
+                        "score":     score_raw,
+                        "total_shots": sm_count,
+                        "shotmap":   best_shotmap,
+                    }
+                    sm_file = os.path.join(SHOTMAP_DIR, f"{today}_{event_id}.json")
+                    with open(sm_file, "w", encoding="utf-8") as f:
+                        json.dump(sm_payload, f, ensure_ascii=False, indent=2)
+                    print(f"[shotmap] Salvo separado: {sm_file}")
+                    github_storage.push_file_bg(sm_file, f"shotmap_history/{today}_{event_id}.json")
+
                 # Limpa cache de shotmap (memória + disco)
                 with _shotmap_lock:
                     _shotmap_live_cache.pop(event_id, None)
@@ -1459,6 +1481,43 @@ def api_momentum_patterns():
         except Exception:
             continue
     return jsonify({"patterns": patterns, "total": len(patterns), "window": WINDOW})
+
+
+@app.route("/api/shotmap/history")
+def api_shotmap_history():
+    """Lista todos os shotmaps salvos em shotmap_history/."""
+    files = sorted(glob.glob(os.path.join(SHOTMAP_DIR, "*.json")), reverse=True)
+    result = []
+    for fpath in files:
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            result.append({
+                "event_id":    d.get("event_id"),
+                "date":        d.get("date"),
+                "casa":        d.get("casa"),
+                "fora":        d.get("fora"),
+                "liga":        d.get("liga"),
+                "score":       d.get("score", {}),
+                "total_shots": d.get("total_shots", len(d.get("shotmap", []))),
+                "file":        os.path.basename(fpath),
+            })
+        except Exception:
+            continue
+    return jsonify({"total": len(result), "matches": result})
+
+
+@app.route("/api/shotmap/history/<event_id>")
+def api_shotmap_history_detail(event_id):
+    """Retorna shotmap completo de uma partida específica."""
+    files = glob.glob(os.path.join(SHOTMAP_DIR, f"*_{event_id}.json"))
+    if not files:
+        return jsonify({"error": "not found"}), 404
+    try:
+        with open(files[0], encoding="utf-8") as f:
+            return jsonify(json.load(f))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/momentum/export")
