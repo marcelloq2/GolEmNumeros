@@ -1520,6 +1520,194 @@ def api_shotmap_history_detail(event_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/shotmap/patterns")
+def api_shotmap_patterns():
+    """Agrega padrões de todos os shotmaps do momentum_history."""
+    # Coleta todos os chutes de todos os arquivos
+    all_shots = []
+    match_count = 0
+    seen_ids = set()
+
+    for fpath in sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json"))):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            shots = d.get("shotmap", [])
+            if not shots:
+                continue
+            event_id = d.get("event_id", "")
+            if event_id in seen_ids:
+                continue
+            seen_ids.add(event_id)
+            match_count += 1
+            score = d.get("score", {})
+            home_g = score.get("home", 0) or 0
+            away_g = score.get("away", 0) or 0
+            if home_g > away_g:
+                match_result = "casa"
+            elif away_g > home_g:
+                match_result = "vis"
+            else:
+                match_result = "emp"
+            for s in shots:
+                all_shots.append({**s, "match_result": match_result})
+        except Exception:
+            pass
+
+    # Também lê do shotmap_history (arquivos que podem não estar no momentum)
+    for fpath in sorted(glob.glob(os.path.join(SHOTMAP_DIR, "*.json"))):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            event_id = d.get("event_id", "")
+            if event_id in seen_ids:
+                continue
+            seen_ids.add(event_id)
+            shots = d.get("shotmap", [])
+            if not shots:
+                continue
+            match_count += 1
+            score = d.get("score", {})
+            home_g = score.get("home", 0) or 0
+            away_g = score.get("away", 0) or 0
+            if home_g > away_g:
+                match_result = "casa"
+            elif away_g > home_g:
+                match_result = "vis"
+            else:
+                match_result = "emp"
+            for s in shots:
+                all_shots.append({**s, "match_result": match_result})
+        except Exception:
+            pass
+
+    if not all_shots:
+        return jsonify({"total_shots": 0, "total_matches": 0})
+
+    total = len(all_shots)
+
+    # ── Por desfecho (shotType) ──────────────────────────────────────────
+    from collections import defaultdict
+    outcome_counts = defaultdict(int)
+    for s in all_shots:
+        outcome_counts[s.get("shotType", "unknown")] += 1
+
+    # ── Por parte do corpo ───────────────────────────────────────────────
+    body_counts = defaultdict(int)
+    body_goals  = defaultdict(int)
+    for s in all_shots:
+        bp = s.get("bodyPart", "unknown")
+        body_counts[bp] += 1
+        if s.get("shotType") == "goal":
+            body_goals[bp] += 1
+
+    # ── Por situação ─────────────────────────────────────────────────────
+    sit_counts = defaultdict(int)
+    sit_goals  = defaultdict(int)
+    for s in all_shots:
+        st = s.get("situation", "unknown")
+        sit_counts[st] += 1
+        if s.get("shotType") == "goal":
+            sit_goals[st] += 1
+
+    # ── Casa vs Visitante ────────────────────────────────────────────────
+    home_shots = [s for s in all_shots if s.get("isHome")]
+    away_shots = [s for s in all_shots if not s.get("isHome")]
+    home_goals = sum(1 for s in home_shots if s.get("shotType") == "goal")
+    away_goals = sum(1 for s in away_shots if s.get("shotType") == "goal")
+
+    # ── Por zona (x = distância do gol) ─────────────────────────────────
+    def classify_zone(x):
+        x = x or 0
+        if x < 12:
+            return "area_pequena"
+        elif x < 32:
+            return "area_grande"
+        elif x < 55:
+            return "meia_distancia"
+        else:
+            return "longa_distancia"
+
+    zone_shots = defaultdict(int)
+    zone_goals = defaultdict(int)
+    for s in all_shots:
+        z = classify_zone(s.get("x", 50))
+        zone_shots[z] += 1
+        if s.get("shotType") == "goal":
+            zone_goals[z] += 1
+
+    zone_labels = [
+        ("area_pequena",    "Área Pequena",   "x < 12m"),
+        ("area_grande",     "Área Grande",    "12-32m"),
+        ("meia_distancia",  "Meia Distância", "32-55m"),
+        ("longa_distancia", "Longa Distância","55m+"),
+    ]
+    by_zone = []
+    for key, label, desc in zone_labels:
+        n = zone_shots[key]
+        g = zone_goals[key]
+        by_zone.append({
+            "key": key, "label": label, "desc": desc,
+            "shots": n, "goals": g,
+            "goal_pct": round(g / n * 100, 1) if n else 0,
+        })
+
+    # ── Por período (minuto) ─────────────────────────────────────────────
+    buckets_def = [
+        ("1–15", 1, 15), ("16–30", 16, 30), ("31–45", 31, 45),
+        ("46–60", 46, 60), ("61–75", 61, 75), ("76–90+", 76, 200),
+    ]
+    by_minute = []
+    for label, lo, hi in buckets_def:
+        sl = [s for s in all_shots if lo <= (s.get("minute") or 0) <= hi]
+        gl = [s for s in sl if s.get("shotType") == "goal"]
+        by_minute.append({
+            "label": label, "shots": len(sl), "goals": len(gl),
+            "goal_pct": round(len(gl) / len(sl) * 100, 1) if sl else 0,
+        })
+
+    # ── Por resultado do jogo ────────────────────────────────────────────
+    result_shots = defaultdict(int)
+    result_goals = defaultdict(int)
+    for s in all_shots:
+        r = s.get("match_result", "emp")
+        result_shots[r] += 1
+        if s.get("shotType") == "goal":
+            result_goals[r] += 1
+
+    def _pct(a, b):
+        return round(a / b * 100, 1) if b else 0
+
+    return jsonify({
+        "total_shots":   total,
+        "total_matches": match_count,
+        "by_outcome": dict(outcome_counts),
+        "by_body_part": {
+            bp: {"shots": body_counts[bp], "goals": body_goals[bp],
+                 "goal_pct": _pct(body_goals[bp], body_counts[bp])}
+            for bp in body_counts
+        },
+        "by_situation": {
+            st: {"shots": sit_counts[st], "goals": sit_goals[st],
+                 "goal_pct": _pct(sit_goals[st], sit_counts[st])}
+            for st in sit_counts
+        },
+        "home_away": {
+            "home": {"total": len(home_shots), "goals": home_goals,
+                     "goal_pct": _pct(home_goals, len(home_shots))},
+            "away": {"total": len(away_shots), "goals": away_goals,
+                     "goal_pct": _pct(away_goals, len(away_shots))},
+        },
+        "by_zone":   by_zone,
+        "by_minute": by_minute,
+        "by_result": {
+            r: {"shots": result_shots[r], "goals": result_goals[r],
+                "goal_pct": _pct(result_goals[r], result_shots[r])}
+            for r in result_shots
+        },
+    })
+
+
 @app.route("/api/momentum/export")
 def api_momentum_export():
     """Gera planilha Excel com os dados das partidas ao vivo salvas."""

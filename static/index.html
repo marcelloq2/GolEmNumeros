@@ -1283,6 +1283,7 @@
       <div id="btGoalPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btStatsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btOddsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
+      <div id="btShotmapPanel" style="border-bottom:1px solid var(--border)"></div>
       <div class="bt-match-list" id="btMatchList" style="display:none">
         <div class="bt-empty">
           <div style="font-size:32px">📅</div>
@@ -2214,6 +2215,28 @@ function openBacktestGuia() {
       ${row('Odds supervalorizadas','Quando o resultado acontece menos que o esperado')}
       <br>
       Útil para entender em quais faixas de score o mercado tende a ser ineficiente.`),
+
+    sec('🗺️','Padrões de Mapa de Chutes', `
+      Estudo agregado de todos os chutes registrados nas partidas monitoradas ao vivo.<br><br>
+      <b>Desfecho:</b> Distribuição entre gols, chutes defendidos, bloqueados, fora e na trave.<br><br>
+      <b>Parte do Corpo:</b> Pé direito · Pé esquerdo · Cabeça — mostra a taxa de conversão (% de gols) de cada tipo.<br><br>
+      <b>Origem do Chute:</b><br>
+      ${row('🤝 Assistido','Chute após passe decisivo de outro jogador')}
+      ${row('⚡ Regular','Jogada regular sem passe claro de assistência')}
+      ${row('⚑ Escanteio','Chute vindo de cobrança de escanteio')}
+      ${row('🚶 Individual','Jogada individual sem assistência registrada')}
+      ${row('🎯 Bola Parada','Falta ou tiro livre indireto')}
+      ${row('🆓 Falta Direta','Chute direto de falta')}
+      ${row('😬 Gol Contra','Gol marcado pelo próprio time')}
+      <br>
+      <b>Casa vs Visitante:</b> Comparação de volume e eficiência ofensiva entre times da casa e visitantes.<br><br>
+      <b>Eficiência por Zona:</b><br>
+      ${row('Área Pequena (< 12m)','Próximo ao gol — conversão muito alta')}
+      ${row('Área Grande (12–32m)','Dentro da área — taxa média')}
+      ${row('Meia Distância (32–55m)','Fora da área — taxa baixa')}
+      ${row('Longa Distância (55m+)','Chute de muito longe — raramente converte')}
+      <br>
+      <b>Distribuição por Período:</b> Mostra em quais faixas de minuto há mais chutes e mais gols — útil para entender o ritmo da partida.`),
 
     sec('🃏','Painel de Detalhes (Col. 3)', `
       Ao clicar em qualquer partida da lista central, a coluna da direita mostra todos os detalhes daquela partida — igual ao painel do <b>Hoje</b>, mas com o resultado real já registrado.<br><br>
@@ -4430,6 +4453,7 @@ async function loadBacktestDates() {
     loadGoalPatterns();
     loadStatsPatterns();
     loadOddsPatterns();
+    loadShotmapPatterns();
   } catch(e) {
     list.innerHTML = '<div class="loading" style="padding:16px;font-size:12px">Erro ao carregar.</div>';
   }
@@ -4900,6 +4924,267 @@ function renderOddsPatternPanel(d) {
         <span style="color:#ef4444">Edge negativo</span> = mercado superestimou ·
         Odd Casa = favorito (1.01) → azarão (>5.00)
       </div>
+    </div>`;
+}
+
+// ── MAPA DE CHUTES — PADRÕES ─────────────────────────────────────────────────
+let btShotmapOpen = true;
+
+async function loadShotmapPatterns() {
+  const panel = document.getElementById('btShotmapPanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="padding:10px 12px;font-size:11px;color:var(--text2)">🗺️ Analisando padrões de chutes...</div>`;
+  try {
+    const r = await fetch('/api/shotmap/patterns');
+    if (!r.ok) throw new Error('no data');
+    renderShotmapPatterns(await r.json());
+  } catch(e) {
+    panel.innerHTML = '';
+  }
+}
+
+function toggleShotmapPanel() {
+  btShotmapOpen = !btShotmapOpen;
+  const c = document.getElementById('btSMContent');
+  const i = document.getElementById('btSMToggleIcon');
+  if (c) c.style.display = btShotmapOpen ? 'block' : 'none';
+  if (i) i.textContent = btShotmapOpen ? '▲' : '▼';
+}
+
+function renderShotmapPatterns(d) {
+  const panel = document.getElementById('btShotmapPanel');
+  if (!panel) return;
+
+  const total   = d.total_shots   || 0;
+  const matches = d.total_matches || 0;
+  const display = btShotmapOpen ? 'block' : 'none';
+  const icon    = btShotmapOpen ? '▲' : '▼';
+
+  if (total === 0) {
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                  cursor:pointer;user-select:none;background:var(--bg2)"
+           onclick="toggleShotmapPanel()">
+        <span style="font-size:11px;font-weight:700;color:#06b6d4">🗺️ Padrões de Mapa de Chutes</span>
+        <span style="font-size:10px;color:var(--text2)">Aguardando dados de chutes ▼</span>
+      </div>`;
+    return;
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const by_out  = d.by_outcome   || {};
+  const by_bp   = d.by_body_part || {};
+  const by_sit  = d.by_situation || {};
+  const ha      = d.home_away    || {};
+  const zones   = d.by_zone      || [];
+  const minutes = d.by_minute    || [];
+
+  const goals = by_out['goal'] || 0;
+  const convRate = total > 0 ? (goals / total * 100).toFixed(1) : '0.0';
+
+  // Barra de progresso simples
+  function pBar(val, max, color, height='6px') {
+    const w = max > 0 ? Math.round(val / max * 100) : 0;
+    return `<div style="background:var(--bg3);border-radius:3px;height:${height};width:100%;overflow:hidden">
+      <div style="width:${w}%;background:${color};height:100%;border-radius:3px;transition:width .3s"></div>
+    </div>`;
+  }
+
+  // ── Desfecho (shotType) ───────────────────────────────────────────────────
+  const outDef = [
+    ['goal',           '⚽ Gol',          '#22c55e'],
+    ['save',           '🧤 Defendido',    '#3b82f6'],
+    ['shot_on_target', '🎯 No Alvo',      '#6366f1'],
+    ['block',          '🛡️ Bloqueado',   '#f59e0b'],
+    ['miss',           '🚀 Fora/Trave',   '#ef4444'],
+    ['off_target',     '❌ Fora',         '#6b7280'],
+    ['post',           '🥅 Trave',        '#a855f7'],
+  ];
+  const outRows = outDef.map(([key, lbl, col]) => {
+    const n = by_out[key] || 0;
+    if (!n) return '';
+    const pct = (n / total * 100).toFixed(1);
+    return `<div style="display:grid;grid-template-columns:90px 1fr 36px;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="font-size:10px;color:var(--text2)">${lbl}</span>
+      ${pBar(n, total, col)}
+      <span style="font-size:10px;font-weight:700;color:${col};text-align:right">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  // ── Parte do corpo ────────────────────────────────────────────────────────
+  const bpDef = [
+    ['right_foot',       '🦵 Pé Direito',  '#3b82f6'],
+    ['left_foot',        '🦵 Pé Esq.',     '#6366f1'],
+    ['head',             '🗣️ Cabeça',      '#f59e0b'],
+    ['penalty',          '🔵 Pênalti',     '#22c55e'],
+    ['other_body_part',  '👁️ Outro',       '#6b7280'],
+  ];
+  const maxBp = Math.max(...Object.values(by_bp).map(v => v.shots || 0), 1);
+  const bpRows = bpDef.map(([key, lbl, col]) => {
+    const obj = by_bp[key] || {};
+    const n = obj.shots || 0;
+    if (!n) return '';
+    const gp = obj.goal_pct || 0;
+    return `<div style="display:grid;grid-template-columns:85px 1fr 56px;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="font-size:10px;color:var(--text2)">${lbl}</span>
+      ${pBar(n, maxBp, col)}
+      <span style="font-size:10px;color:var(--text2);text-align:right">${n} · <b style="color:${col}">${gp}%⚽</b></span>
+    </div>`;
+  }).join('');
+
+  // ── Situação ──────────────────────────────────────────────────────────────
+  const sitDef = [
+    ['assisted',    '🤝 Assistido',    '#22c55e'],
+    ['regular',     '⚡ Regular',       '#3b82f6'],
+    ['corner',      '⚑ Escanteio',    '#f59e0b'],
+    ['unassisted',  '🚶 Individual',   '#6366f1'],
+    ['set_piece',   '🎯 Bola Parada',  '#a855f7'],
+    ['free_kick',   '🆓 Falta Direta', '#06b6d4'],
+    ['own_goal',    '😬 Gol Contra',   '#ef4444'],
+    ['counter',     '🔄 Contra-ataque','#f43f5e'],
+    ['fast_break',  '💨 Avanço Rápido','#84cc16'],
+  ];
+  const maxSit = Math.max(...Object.values(by_sit).map(v => v.shots || 0), 1);
+  const sitRows = sitDef.map(([key, lbl, col]) => {
+    const obj = by_sit[key] || {};
+    const n = obj.shots || 0;
+    if (!n) return '';
+    const gp = obj.goal_pct || 0;
+    return `<div style="display:grid;grid-template-columns:110px 1fr 56px;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="font-size:10px;color:var(--text2)">${lbl}</span>
+      ${pBar(n, maxSit, col)}
+      <span style="font-size:10px;color:var(--text2);text-align:right">${n} · <b style="color:${col}">${gp}%⚽</b></span>
+    </div>`;
+  }).join('');
+
+  // ── Home vs Away ──────────────────────────────────────────────────────────
+  const hm = ha.home || {}; const aw = ha.away || {};
+  const hmConv = hm.goal_pct || 0; const awConv = aw.goal_pct || 0;
+  const haMax  = Math.max(hm.total || 0, aw.total || 0, 1);
+  const haSection = `
+    <div style="display:flex;gap:12px;margin-top:2px">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:#3b82f6;margin-bottom:4px">🏠 Casa</div>
+        ${pBar(hm.total||0, haMax, '#3b82f6')}
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:9px;color:var(--text2)">${hm.total||0} chutes</span>
+          <span style="font-size:9px;font-weight:700;color:#22c55e">${hm.goals||0}⚽ (${hmConv}%)</span>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:#ef4444;margin-bottom:4px">✈️ Visitante</div>
+        ${pBar(aw.total||0, haMax, '#ef4444')}
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:9px;color:var(--text2)">${aw.total||0} chutes</span>
+          <span style="font-size:9px;font-weight:700;color:#22c55e">${aw.goals||0}⚽ (${awConv}%)</span>
+        </div>
+      </div>
+    </div>`;
+
+  // ── Zonas ────────────────────────────────────────────────────────────────
+  const zoneColors = ['#22c55e','#3b82f6','#f59e0b','#ef4444'];
+  const maxZoneShots = Math.max(...zones.map(z => z.shots), 1);
+  const zoneRows = zones.map((z, i) => {
+    const col = zoneColors[i % zoneColors.length];
+    const eff = z.goal_pct;
+    return `
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 8px;font-size:11px;font-weight:700;color:${col}">${z.label}</td>
+        <td style="padding:5px 8px;font-size:10px;color:var(--text2);text-align:center">${z.desc}</td>
+        <td style="padding:5px 8px;text-align:center">
+          <span style="font-size:12px;font-weight:800;color:var(--text)">${z.shots}</span>
+        </td>
+        <td style="padding:5px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;color:#22c55e">${z.goals}</span>
+        </td>
+        <td style="padding:5px 8px;text-align:center">
+          <span style="font-size:12px;font-weight:800;color:${eff>=20?'#22c55e':eff>=8?'#f59e0b':'#ef4444'}">${eff}%</span>
+        </td>
+        <td style="padding:5px 8px;min-width:70px">
+          ${pBar(z.shots, maxZoneShots, col, '5px')}
+        </td>
+      </tr>`;
+  }).join('');
+
+  // ── Por minuto ────────────────────────────────────────────────────────────
+  const maxMin = Math.max(...minutes.map(m => m.shots), 1);
+  const minRows = minutes.map(m => {
+    const w = Math.round(m.shots / maxMin * 100);
+    const gw = m.shots > 0 ? Math.round(m.goals / m.shots * 100) : 0;
+    return `
+      <div style="display:grid;grid-template-columns:44px 1fr 46px;align-items:center;gap:6px;margin-bottom:5px">
+        <span style="font-size:10px;color:var(--text2);white-space:nowrap">${m.label}'</span>
+        <div style="position:relative;background:var(--bg3);border-radius:3px;height:12px;overflow:hidden">
+          <div style="width:${w}%;background:#475569;height:100%;position:absolute;left:0"></div>
+          <div style="width:${gw}%;background:#22c55e;height:100%;position:absolute;left:0;opacity:.8"></div>
+        </div>
+        <span style="font-size:9px;color:var(--text2);text-align:right">${m.shots}ch <span style="color:#22c55e">${m.goals}⚽</span></span>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                cursor:pointer;user-select:none;background:var(--bg2)"
+         onclick="toggleShotmapPanel()">
+      <span style="font-size:11px;font-weight:700;color:#06b6d4">🗺️ Padrões de Mapa de Chutes</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:var(--text2)">${total} chutes · ${matches} partidas · conv. ${convRate}%</span>
+        <span id="btSMToggleIcon" style="font-size:10px;color:var(--text2)">${icon}</span>
+      </span>
+    </div>
+    <div id="btSMContent" style="display:${display};background:var(--bg2)">
+
+      <!-- Grid 2 colunas: Desfecho + Parte do corpo -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border)">
+        <!-- Desfecho -->
+        <div style="padding:10px 12px;border-right:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:700;color:#06b6d4;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Desfecho</div>
+          ${outRows}
+        </div>
+        <!-- Parte do corpo -->
+        <div style="padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#06b6d4;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Parte do Corpo</div>
+          ${bpRows}
+          <!-- Home vs Away -->
+          <div style="font-size:10px;font-weight:700;color:#06b6d4;margin-top:10px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Casa vs Visitante</div>
+          ${haSection}
+        </div>
+      </div>
+
+      <!-- Situação de origem -->
+      <div style="padding:10px 12px;border-top:1px solid var(--border)">
+        <div style="font-size:10px;font-weight:700;color:#06b6d4;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Origem do Chute</div>
+        ${sitRows}
+      </div>
+
+      <!-- Eficiência por zona -->
+      <div style="padding:0 0 4px;border-top:1px solid var(--border);overflow-x:auto">
+        <div style="font-size:10px;font-weight:700;color:#06b6d4;padding:8px 12px 4px;text-transform:uppercase;letter-spacing:.5px">Eficiência por Zona</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:var(--bg3)">
+              <th style="padding:5px 8px;text-align:left;font-size:10px;color:var(--text2);font-weight:600">Zona</th>
+              <th style="padding:5px 8px;text-align:center;font-size:10px;color:var(--text2);font-weight:600">Distância</th>
+              <th style="padding:5px 8px;text-align:center;font-size:10px;color:var(--text2);font-weight:600">Chutes</th>
+              <th style="padding:5px 8px;text-align:center;font-size:10px;color:#22c55e;font-weight:700">Gols</th>
+              <th style="padding:5px 8px;text-align:center;font-size:10px;color:#22c55e;font-weight:700">Conv.%</th>
+              <th style="padding:5px 8px;min-width:70px;font-size:10px;color:var(--text2);font-weight:600">Volume</th>
+            </tr>
+          </thead>
+          <tbody>${zoneRows}</tbody>
+        </table>
+      </div>
+
+      <!-- Distribuição por minuto -->
+      <div style="padding:10px 12px;border-top:1px solid var(--border)">
+        <div style="font-size:10px;font-weight:700;color:#06b6d4;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Distribuição por Período</div>
+        <div style="font-size:9px;color:var(--text2);margin-bottom:6px">
+          <span style="display:inline-block;width:10px;height:8px;background:#475569;border-radius:2px;margin-right:3px"></span>Chutes
+          <span style="display:inline-block;width:10px;height:8px;background:#22c55e;border-radius:2px;margin-left:8px;margin-right:3px"></span>Gols
+        </div>
+        ${minRows}
+      </div>
+
     </div>`;
 }
 
