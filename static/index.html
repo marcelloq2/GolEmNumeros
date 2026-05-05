@@ -1119,6 +1119,10 @@
           <option value="30">30s</option>
           <option value="60">60s</option>
         </select>
+        <button onclick="openLiveGuia()" title="Guia do Ao Vivo"
+          style="background:transparent;border:1px solid #ef444444;border-radius:6px;
+                 color:#ef4444;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button class="live-sidebar-toggle" onclick="toggleLiveSidebar()" title="Ocultar barra">◀</button>
       </div>
       <div id="liveMatchList">
@@ -1167,6 +1171,48 @@
     </div>
   </div>
 
+  <!-- MODAL GUIA AO VIVO -->
+  <div id="liveGuiaOverlay" onclick="if(event.target===this)closeLiveGuia()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:680px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">📖 Guia — Ao Vivo</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Todos os painéis e indicadores explicados</div>
+        </div>
+        <button onclick="closeLiveGuia()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <div id="liveGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+  </div>
+
+  <!-- MODAL GUIA BACKTEST -->
+  <div id="backtestGuiaOverlay" onclick="if(event.target===this)closeBacktestGuia()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:680px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">📖 Guia — Backtest</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Como ler todas as análises e simulações</div>
+        </div>
+        <button onclick="closeBacktestGuia()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <div id="backtestGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+  </div>
+
   <!-- MODAL GUIA EDGE -->
   <div id="edgeGuiaOverlay" onclick="if(event.target===this)closeEdgeGuia()"
     style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
@@ -1192,7 +1238,13 @@
   <div class="backtest-panel" id="backtestPanel">
     <!-- Col 1: datas -->
     <div class="bt-sidebar" style="display:none">
-      <div class="bt-sidebar-title">📆 Histórico</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-right:4px">
+        <div class="bt-sidebar-title">📆 Histórico</div>
+        <button onclick="openBacktestGuia()" title="Guia do Backtest"
+          style="background:transparent;border:1px solid #a855f744;border-radius:6px;
+                 color:#a855f7;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;
+                 white-space:nowrap">📖 Guia</button>
+      </div>
       <div class="bt-date-filter-bar">
         <button class="bt-df-btn active" onclick="setBtDateFilter('all', this)">Geral</button>
         <button class="bt-df-btn" onclick="setBtDateFilter('month', this)">Mês</button>
@@ -1908,6 +1960,270 @@ function openEdgeGuia() {
 
 function closeEdgeGuia() {
   const overlay = document.getElementById('edgeGuiaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── GUIA AO VIVO ───────────────────────────────────────────────────────────────
+function openLiveGuia() {
+  const overlay = document.getElementById('liveGuiaOverlay');
+  const content = document.getElementById('liveGuiaContent');
+  if (!overlay || !content) return;
+
+  const sec = (icon, title, body) => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${title}</span>
+      </div>
+      <div style="padding:12px 14px;font-size:12px;color:var(--text);line-height:1.65">${body}</div>
+    </div>`;
+
+  const row = (left, right) =>
+    `<div style="display:flex;gap:8px;margin-bottom:5px;align-items:baseline">
+       <span style="min-width:130px;color:var(--text2);flex-shrink:0">${left}</span>
+       <span style="flex:1">${right}</span>
+     </div>`;
+
+  const pill = (txt, color, bg) =>
+    `<span style="display:inline-block;padding:1px 7px;border-radius:20px;font-weight:700;
+                  font-size:11px;background:${bg};color:${color}">${txt}</span>`;
+
+  content.innerHTML = [
+
+    sec('🔴','Sidebar — Lista de Jogos', `
+      A barra lateral mostra todos os jogos detectados ao vivo neste momento.<br><br>
+      ${row('🔴 Ponto vermelho','Indica que o monitoramento está ativo')}
+      ${row('Contador','Número de jogos ao vivo no momento')}
+      ${row('↻ Atualizar','Força uma atualização imediata da lista')}
+      ${row('15s / 30s / 60s','Intervalo de auto-atualização automática')}
+      <br>
+      <b>Cada card na lista mostra:</b><br>
+      ${row('Times e placar','Placar atual em tempo real')}
+      ${row('Tempo ⏱','Minuto atual com relógio local entre atualizações')}
+      ${row('🎯 Chutes','Chutes totais Casa–Visitante (dados Uniscore)')}
+      ${row('🔄 Escanteios','Escanteios Casa–Visitante')}
+      ${row('🟨 Amarelos','Cartões amarelos Casa–Visitante')}
+      ${row('⭐ Favorito','Se a partida está nos seus favoritos do Hoje')}
+      <br>
+      <b>Efeito de Gol:</b> Quando um gol é marcado, o placar pulsa com animação verde e um banner ⚽ aparece no card.`),
+
+    sec('📈','Attack Momentum — O Gráfico Central', `
+      O gráfico de momentum mostra a <b>pressão de ataque</b> de cada time minuto a minuto ao longo da partida.<br><br>
+      <b>Como ler o gráfico:</b><br>
+      ${row('Barras azuis (↑)','Pressão de ataque do time da CASA')}
+      ${row('Barras vermelhas (↓)','Pressão de ataque do VISITANTE')}
+      ${row('Altura da barra','Intensidade da pressão naquele minuto')}
+      ${row('Eixo horizontal','Linha do tempo da partida (minutos)')}
+      <br>
+      <b>Ícone de raio ⚡ no gráfico:</b> Marca o último minuto com sinal de gol detectado.<br><br>
+      <b>Dados:</b> Alimentado pela API SofaScore via nosso backend. Atualiza a cada ciclo de refresh.<br><br>
+      <b>Badge 💾 Salvo:</b> Aparece quando a partida encerra — os dados foram gravados no histórico para análise futura no Backtest.`),
+
+    sec('⚡','Indicador de Sinal de Gol', `
+      Abaixo do gráfico, o sistema analisa os últimos minutos de momentum e emite um sinal:<br><br>
+      ${row(pill('⚡ Gol Casa','#fff','#1e3a5f'),'Score de pressão positivo acima do threshold — casa atacando forte')}
+      ${row(pill('⚡ Gol Visitante','#fff','#3f1515'),'Score de pressão negativo abaixo do threshold — visitante atacando forte')}
+      ${row(pill('⚡ Possível Gol','#000','#3b2c0a'),'Score moderado — pressão crescente, gol pode vir de qualquer lado')}
+      ${row(pill('🧊 Sem Padrão','#fff','#1a1d27'),'Jogo equilibrado, sem pressão dominante no momento')}
+      <br>
+      <b>Score do sinal:</b> Calculado como média das últimas janelas de momentum + tendência + pico máximo.<br>
+      <b>Threshold:</b> Valor mínimo para disparar o sinal — exibido no rodapé do indicador.<br>
+      <b>Janela:</b> Quantidade de minutos analisados para calcular o score.<br><br>
+      <b>Histórico de Sinais:</b> Logo abaixo, uma linha do tempo mostra todos os sinais emitidos nesta partida com o minuto de cada mudança.`),
+
+    sec('🔍','Partidas Similares', `
+      O sistema busca no histórico salvo partidas que tiveram um <b>padrão de momentum parecido</b> com o jogo atual.<br><br>
+      ${row('N de X','Mostra as N partidas mais similares encontradas (de X no total)')}
+      ${row('⚡Casa / ⚡Vis','Quantas dessas partidas terminaram com gol da casa ou visitante')}
+      ${row('🧊 Sem Gol','Quantas não tiveram gol após o padrão similar')}
+      <br>
+      A lista detalha cada partida similar: time casa, time fora, data, minuto em que estava o sinal e resultado (gol ou não).<br><br>
+      <b>Utilidade:</b> Se 8 de 10 partidas com padrão similar terminaram com gol do time da casa, isso reforça o sinal atual.`),
+
+    sec('📊','Indicadores Estatísticos ao Vivo', `
+      Painel com 3 indicadores calculados a partir dos dados de estatísticas do jogo atual comparados com o <b>histórico de padrões</b> de partidas encerradas.<br><br>
+      <b>🎯 Probabilidade por Similaridade Estatística:</b><br>
+      Compara as estatísticas atuais (chutes, grandes chances, xG, escanteios, posse) com as médias históricas de partidas que terminaram em Casa V. / Empate / Vis. V.
+      As stats são projetadas para 90 minutos com base no minuto atual. O resultado é normalizado em porcentagem.<br><br>
+      <b>🌡️ Termômetro Over/Under 2.5:</b><br>
+      A agulha branca se move na barra de gradiente (azul=Under · laranja=neutro · verde=Over) com base na similaridade estatística do ritmo atual vs histórico de O2.5 e U2.5. Também incorpora o ritmo de gols.<br><br>
+      <b>⚡ Alertas de Pressão:</b><br>
+      Aparecem quando o ritmo projetado de chutes no alvo ou grandes chances supera 25% a mais que a média histórica de partidas Over 2.5. Também detecta dominância de chutes e xG alto.`),
+
+    sec('📉','Análise de Mercado', `
+      Compara as <b>odds de abertura</b> (salvas automaticamente na primeira vez que você abre o jogo) com as odds atuais.<br><br>
+      <b>💧 Movimento desde Abertura (Steam/Drift):</b><br>
+      ${row('↓ 5–8% (Steam leve)','Algum dinheiro entrando nesse lado')}
+      ${row('↓ 8–15% ⚠️ STEAM','Dinheiro significativo entrando — sinal de aposta informada')}
+      ${row('↓ >15% 🔥 STEAM FORTE','Movimento sharp — apostadores profissionais movendo a linha')}
+      ${row('↑ sobe (DRIFT)','Dinheiro saindo desse lado — mercado divergindo')}
+      <br>
+      <b>📊 Probabilidade Implícita (sem margem):</b><br>
+      Remove a vig (margem da casa) das odds e exibe a probabilidade real que o mercado atribui a cada resultado. A margem da casa é exibida em % no título.<br><br>
+      <b>🎯 Consenso: Mercado vs Estatísticas:</b><br>
+      Cruza a probabilidade implícita das odds com a probabilidade calculada pelos Indicadores Estatísticos. Divergência ≥ 8pp gera alerta: ${pill('🎯 EDGE STAT','#fff','#166534')} quando as stats favorecem mais que o mercado.`),
+
+    sec('📡','Dados Uniscore', `
+      Dados enriquecidos buscados de uma fonte secundária (Uniscore/SofaScore) para o jogo selecionado.<br><br>
+      <b>🌡️ Clima:</b> Temperatura, vento, humidade e pressão no estádio.<br>
+      <b>🟡 Árbitro e 🏟️ Estádio:</b> Informações do jogo.<br>
+      <b>💰 Odds ao vivo:</b> Cotações 1X2 atuais com seta de movimento (↑↓) desde a abertura.<br>
+      <b>Barras de estatísticas:</b> Comparação visual home vs away para todos os indicadores disponíveis:<br>
+      ${row('Posse de bola %','Domínio territorial')}
+      ${row('Chutes / no alvo','Criatividade ofensiva')}
+      ${row('Grandes chances','Oportunidades claras de gol')}
+      ${row('Escanteios','Pressão nas laterais')}
+      ${row('xG','Gols esperados pela qualidade das chances')}
+      ${row('Faltas / Cartões','Indicadores disciplinares')}
+      <br>
+      As barras são separadas por períodos se disponíveis: <b>ALL</b> (jogo todo) · <b>1ST</b> (1º tempo) · <b>2ND</b> (2º tempo).`),
+
+    sec('🗺️','Mapa de Chutes', `
+      Visualização de todos os chutes registrados na partida sobre o mapa do campo.<br><br>
+      ${row('🟢 Verde','Chute que resultou em gol')}
+      ${row('🔵 Azul','Chute no alvo (defendido)')}
+      ${row('⚫ Cinza','Chute fora do alvo ou bloqueado')}
+      <br>
+      Os lados do campo são separados — chutes da casa à esquerda, visitante à direita (ou vice-versa conforme posição no campo).<br><br>
+      <b>Persistência:</b> Os dados do mapa são salvos em cache no servidor mesmo entre reinicializações, para que o histórico não se perca.`),
+
+  ].join('');
+
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLiveGuia() {
+  const overlay = document.getElementById('liveGuiaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── GUIA BACKTEST ──────────────────────────────────────────────────────────────
+function openBacktestGuia() {
+  const overlay = document.getElementById('backtestGuiaOverlay');
+  const content = document.getElementById('backtestGuiaContent');
+  if (!overlay || !content) return;
+
+  const sec = (icon, title, body) => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${title}</span>
+      </div>
+      <div style="padding:12px 14px;font-size:12px;color:var(--text);line-height:1.65">${body}</div>
+    </div>`;
+
+  const row = (left, right) =>
+    `<div style="display:flex;gap:8px;margin-bottom:5px;align-items:baseline">
+       <span style="min-width:130px;color:var(--text2);flex-shrink:0">${left}</span>
+       <span style="flex:1">${right}</span>
+     </div>`;
+
+  const pill = (txt, color, bg) =>
+    `<span style="display:inline-block;padding:1px 7px;border-radius:20px;font-weight:700;
+                  font-size:11px;background:${bg};color:${color}">${txt}</span>`;
+
+  content.innerHTML = [
+
+    sec('📆','Histórico — Navegação por Datas', `
+      A coluna da esquerda lista todas as datas disponíveis no backtest.<br><br>
+      <b>Filtros de período:</b><br>
+      ${row('Geral','Todos os dados disponíveis combinados em uma única análise')}
+      ${row('Mês','Agrupa por mês — selecione o mês para ver os resultados')}
+      ${row('Dias','Lista dia a dia — clique em uma data para analisar aquele dia')}
+      <br>
+      <b>Cada linha de data mostra:</b> acurácia do dia (% de TIPs acertados) e total de jogos.<br><br>
+      <b>Cores da acurácia:</b><br>
+      ${pill('≥ 60%','#fff','#166534')} Boa precisão &nbsp;
+      ${pill('45–59%','#000','#854d0e')} Aceitável &nbsp;
+      ${pill('< 45%','#fff','#7f1d1d')} Abaixo da média
+      <br><br>
+      <b>📊 Baixar Excel:</b> Exporta os dados de todas as partidas ao vivo salvas para uma planilha. Útil para análise externa.`),
+
+    sec('📊','Correlação de Score — A Tabela Principal', `
+      A seção mais importante do Backtest. Mostra como cada faixa de score se correlaciona com cada mercado no histórico.<br><br>
+      <b>3 abas:</b> Score Casa · Score Vis. · Score Gols<br>
+      Cada aba analisa os resultados sob o ângulo daquele score específico.<br><br>
+      <b>Estrutura da tabela:</b><br>
+      ${row('Linhas (ranges)','< 40 · 40–54 · 55–69 · ≥ 70')}
+      ${row('Colunas (mercados)','Casa V. · Vis. V. · Emp. · O2.5 · U2.5 · U3.5 · O1.5 · O0.5 · BTS+ · BTS- · OHT · UHT · U1.5HT · O1.5HT')}
+      ${row('Valor em %','Taxa de acerto histórica daquele mercado naquela faixa de score')}
+      <br>
+      <b>Interpretando as células:</b><br>
+      ${row('Verde ↑','Muito acima da média base — forte correlação positiva')}
+      ${row('Vermelho ↓','Abaixo da média — correlação negativa')}
+      ${row('+Xpp / -Xpp','Diferença em pontos percentuais vs média geral da base')}
+      ${row('👑 + @odd','A melhor célula da tabela — fair odd calculada automaticamente')}
+      <br>
+      <b>Fair Odd (@):</b> Calculada como <code>100 / %</code>. É a odd justa com base no histórico — se o mercado oferece mais, há valor.`),
+
+    sec('📈','Simulação de Banca', `
+      Para cada metodologia com lucro positivo no histórico, o sistema simula uma banca de R$100 apostando R$1 por jogo.<br><br>
+      <b>Cada card de simulação mostra:</b><br>
+      ${row('Apostas','Total de apostas feitas no período')}
+      ${row('Acertos','Quantas apostas foram ganhas')}
+      ${row('Win Rate %','Porcentagem de acerto')}
+      ${row('P&L','Lucro ou prejuízo em unidades (u)')}
+      ${row('ROI %','Retorno sobre investimento')}
+      ${row('Gráfico de banca','Evolução da banca ao longo das apostas')}
+      <br>
+      <b>Badge de Validação Estatística:</b><br>
+      ${pill('✅ VALIDADO','#22c55e','#052e16')} Metodologia com suporte estatístico sólido<br>
+      ${pill('⚠️ PARCIAL','#f59e0b','#1c1407')} Resultados positivos mas com algumas ressalvas<br>
+      ${pill('❌ NÃO VALIDADO','#ef4444','#1f0808')} Resultados insuficientes para conclusão confiável
+      <br><br>
+      <b>Critérios de validação (checklist):</b> O sistema verifica 6 critérios — tamanho da amostra, taxa de acerto vs esperado, ROI positivo, P&L positivo, z-test estatístico, e intervalo de confiança.`),
+
+    sec('🧠','Padrões de Gol', `
+      Analisa como os gols se distribuem dentro de cada faixa de score.<br><br>
+      Para cada range (< 40 / 40–54 / 55–69 / ≥ 70) mostra:<br>
+      ${row('Over 0.5 / 1.5 / 2.5 / 3.5','% de jogos com aquele total de gols')}
+      ${row('BTS Sim / Não','% onde ambos os times marcaram')}
+      ${row('Gol 1ºT / 2ºT','Distribuição de quando os gols acontecem')}
+      <br>
+      Útil para entender se um range específico de score tende a gerar jogos mais abertos ou fechados.`),
+
+    sec('📊','Padrões de Estatísticas', `
+      Médias das estatísticas finais das partidas agrupadas por tipo de resultado.<br><br>
+      <b>Grupos de outcome:</b> Casa V. · Empate · Vis. V. · Over 2.5 · Under 2.5 · BTS Sim · BTS Não<br><br>
+      Para cada grupo exibe médias de:<br>
+      ${row('Chutes totais / no alvo','Intensidade ofensiva típica')}
+      ${row('Grandes chances','Oportunidades claras médias')}
+      ${row('Escanteios','Pressão lateral típica')}
+      ${row('Posse de bola %','Domínio territorial médio')}
+      ${row('xG (gols esperados)','Qualidade das chances típica')}
+      ${row('Pressão de dominância','% de tempo dominando o momentum')}
+      <br>
+      <b>Como usar:</b> Se ao vivo a Casa tem 8 chutes no alvo e a média histórica de Casa V. é 5, isso reforça o sinal de vitória da casa. Os Indicadores Estatísticos do Ao Vivo usam exatamente esses dados.`),
+
+    sec('💰','Padrões de Odds', `
+      Analisa como as odds se comportam historicamente por faixa de score.<br><br>
+      Compara as <b>odds de abertura</b> com o resultado final para identificar onde o mercado sistematicamente erra:<br>
+      ${row('Odds subvalorizadas','Quando o resultado acontece mais que a odd sugeria')}
+      ${row('Odds supervalorizadas','Quando o resultado acontece menos que o esperado')}
+      <br>
+      Útil para entender em quais faixas de score o mercado tende a ser ineficiente.`),
+
+    sec('🃏','Painel de Detalhes (Col. 3)', `
+      Ao clicar em qualquer partida da lista central, a coluna da direita mostra todos os detalhes daquela partida — igual ao painel do <b>Hoje</b>, mas com o resultado real já registrado.<br><br>
+      ${row('✅ Verde','Partida que o TIP acertou')}
+      ${row('❌ Vermelho','Partida que o TIP errou')}
+      ${row('Placar','Resultado final + HT se disponível')}
+      <br>
+      Todos os dados de análise (probabilidades, cenários, H2H, últimas partidas, estatísticas, classificação) estão disponíveis para contexto histórico.`),
+
+  ].join('');
+
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBacktestGuia() {
+  const overlay = document.getElementById('backtestGuiaOverlay');
   if (overlay) overlay.style.display = 'none';
   document.body.style.overflow = '';
 }
