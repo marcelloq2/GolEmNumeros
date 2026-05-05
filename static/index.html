@@ -3182,18 +3182,24 @@ function _renderSimilarMatches(el, data) {
   const list = data.similar || [];
   if (!list.length) { el.style.display = 'none'; return; }
 
-  const total = data.total || list.length;
-  const gh    = data.goal_home || 0;
-  const ga    = data.goal_away || 0;
-  const gn    = data.goal_none || 0;
-  const N     = list.length;
+  const total  = data.total  || list.length;
+  const statN  = data.stat_n || list.length;  // amostra usada para estatística
+  const gh     = data.goal_home || 0;
+  const ga     = data.goal_away || 0;
+  const gn     = data.goal_none || 0;
+  const N      = list.length;  // top 5 para exibição
 
-  // Barra de resultado resumida
+  // Percentuais com base na amostra estatística (statN)
+  const pctH = statN > 0 ? Math.round(gh / statN * 100) : 0;
+  const pctA = statN > 0 ? Math.round(ga / statN * 100) : 0;
+  const pctN = statN > 0 ? Math.round(gn / statN * 100) : 0;
+
+  // Barra de resultado resumida — agora com % e amostra real
   const outcomeBar = `
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      ${gh ? `<span style="color:#3b82f6;font-weight:700;font-size:11px">⚡Casa ${gh}/${N}</span>` : ''}
-      ${ga ? `<span style="color:#ef4444;font-weight:700;font-size:11px">⚡Vis ${ga}/${N}</span>` : ''}
-      ${gn ? `<span style="color:#64748b;font-weight:700;font-size:11px">🧊 Sem Gol ${gn}/${N}</span>` : ''}
+      ${gh ? `<span style="color:#3b82f6;font-weight:700;font-size:11px">⚡Casa ${gh}/${statN} (${pctH}%)</span>` : ''}
+      ${ga ? `<span style="color:#ef4444;font-weight:700;font-size:11px">⚡Vis ${ga}/${statN} (${pctA}%)</span>` : ''}
+      ${gn ? `<span style="color:#64748b;font-weight:700;font-size:11px">🧊 Sem Gol ${gn}/${statN} (${pctN}%)</span>` : ''}
     </div>`;
 
   const outcomeIcon = o => o === 'home' ? '⚡<span style="color:#3b82f6">Casa</span>'
@@ -3220,7 +3226,9 @@ function _renderSimilarMatches(el, data) {
   el.innerHTML = `
     <div style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:9px;font-weight:700;color:var(--text2)">🔍 PARTIDAS SIMILARES (${N} de ${total})</span>
+        <span style="font-size:9px;font-weight:700;color:var(--text2)">🔍 PARTIDAS SIMILARES
+          <span style="font-weight:400">(top ${N} de ${total} · stats em ${statN})</span>
+        </span>
         ${outcomeBar}
       </div>
     </div>`;

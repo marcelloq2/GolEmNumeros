@@ -1992,13 +1992,23 @@ def api_momentum_similar():
                 continue
 
         similar.sort(key=lambda x: x["distance"])
-        top = similar[:5]
+        total = len(similar)
+
+        # Top 5 para exibição na lista
+        top_display = similar[:5]
+
+        # Estatísticas nos 30 mais similares (ou todos se < 30)
+        # — quanto mais base, mais representativo o sinal
+        STAT_N = min(30, total)
+        top_stat = similar[:STAT_N]
+
         return jsonify({
-            "similar":   top,
-            "total":     len(similar),
-            "goal_home": sum(1 for s in top if s["outcome"] == "home"),
-            "goal_away": sum(1 for s in top if s["outcome"] == "away"),
-            "goal_none": sum(1 for s in top if s["outcome"] == "none"),
+            "similar":    top_display,
+            "total":      total,
+            "stat_n":     STAT_N,
+            "goal_home":  sum(1 for s in top_stat if s["outcome"] == "home"),
+            "goal_away":  sum(1 for s in top_stat if s["outcome"] == "away"),
+            "goal_none":  sum(1 for s in top_stat if s["outcome"] == "none"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
