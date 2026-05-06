@@ -189,7 +189,7 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
     return False
 
 
-def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str):
+def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap_dir: str = None):
     """Restaura todos os dados do GitHub ao iniciar o servidor."""
     if not is_configured():
         print("[github] GITHUB_TOKEN não configurado — persistência desabilitada.")
@@ -200,6 +200,12 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str):
         _ensure_data_branch()
         pull_directory("momentum_history", momentum_dir)
         pull_directory("backtest", backtest_dir)
+        # Shotmap history: restaura partidas salvas separadamente
+        if shotmap_dir:
+            pull_directory("shotmap_history", shotmap_dir)
+        # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
+        pull_file(".shotmap_cache.json",
+                  os.path.join(data_dir, ".shotmap_cache.json"), force=True)
         # Predictions: SEMPRE baixa a versão mais recente do GitHub
         # (force=True garante que o Railway nunca fique com dados velhos após redeploy)
         for fname in ("predictions_full.json", "predictions.json"):

@@ -1187,9 +1187,15 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         if live_shots:
             with _shotmap_lock:
                 prev = _shotmap_live_cache.get(event_id, [])
+                is_new_event = event_id not in _shotmap_live_cache
                 if len(live_shots) != len(prev):   # só escreve se mudou
                     _shotmap_live_cache[event_id] = live_shots
                     _save_shotmap_cache(_shotmap_live_cache)
+                    # Push pro GitHub quando é novo evento (sobrevive a restart mid-game)
+                    if is_new_event:
+                        github_storage.push_file_bg(
+                            _SHOTMAP_CACHE_FILE, ".shotmap_cache.json"
+                        )
 
         # ── Auto-save quando a partida termina ───────────────────────────
         if udata.get("finished"):
@@ -1305,10 +1311,10 @@ def _background_monitor():
 # Inicia a thread de monitoramento (daemon = morre junto com o Flask)
 threading.Thread(target=_background_monitor, daemon=True, name="MomentumMonitor").start()
 
-# Restaura dados do GitHub ao iniciar (backtest + momentum_history + predictions)
+# Restaura dados do GitHub ao iniciar (backtest + momentum_history + shotmap_history + cache)
 threading.Thread(
     target=github_storage.sync_on_startup,
-    args=(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR),
+    args=(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR),
     daemon=True,
     name="GitHubSync"
 ).start()
