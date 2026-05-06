@@ -2066,19 +2066,6 @@ function openLiveGuia() {
       ${pill('🔥 MUITO ALTO','#fff','#14532d')} 75–100%<br><br>
       <b>Auto-aprendizado:</b> O índice melhora automaticamente conforme mais partidas são monitoradas. As taxas históricas de cada fonte são recalculadas a cada novo jogo salvo, sem intervenção manual.`),
 
-    sec('📉','Análise de Mercado', `
-      Compara as <b>odds de abertura</b> (salvas automaticamente na primeira vez que você abre o jogo) com as odds atuais.<br><br>
-      <b>💧 Movimento desde Abertura (Steam/Drift):</b><br>
-      ${row('↓ 5–8% (Steam leve)','Algum dinheiro entrando nesse lado')}
-      ${row('↓ 8–15% ⚠️ STEAM','Dinheiro significativo entrando — sinal de aposta informada')}
-      ${row('↓ >15% 🔥 STEAM FORTE','Movimento sharp — apostadores profissionais movendo a linha')}
-      ${row('↑ sobe (DRIFT)','Dinheiro saindo desse lado — mercado divergindo')}
-      <br>
-      <b>📊 Probabilidade Implícita (sem margem):</b><br>
-      Remove a vig (margem da casa) das odds e exibe a probabilidade real que o mercado atribui a cada resultado. A margem da casa é exibida em % no título.<br><br>
-      <b>🎯 Consenso: Mercado vs Estatísticas:</b><br>
-      Cruza a probabilidade implícita das odds com a probabilidade de vitória de cada lado calculada pela similaridade Gaussiana das estatísticas ao vivo (mesma base do Índice de Gol). Divergência ≥ 8pp gera alerta: ${pill('🎯 EDGE STAT','#fff','#166534')} quando as stats favorecem mais que o mercado.`),
-
     sec('📡','Dados Uniscore', `
       Dados enriquecidos buscados de uma fonte secundária (Uniscore/SofaScore) para o jogo selecionado.<br><br>
       <b>🌡️ Clima:</b> Temperatura, vento, humidade e pressão no estádio.<br>
@@ -2482,7 +2469,6 @@ async function _enrichAllWithUniscore(matches) {
           const el = document.getElementById('uniscorePanel');
           if (el) el.innerHTML = _renderUniscore(d);
           _updateStatsPatternPanel(d);
-          _updateMarketAnalysisPanel(d);
         }
       }
     }
@@ -2700,7 +2686,6 @@ function renderLiveDetail(m) {
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div id="statsPatternPanel" style="display:none;margin-top:5px"></div>
-        <div id="marketAnalysisPanel" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
@@ -3519,144 +3504,6 @@ async function _updateStatsPatternPanel(d) {
     </div>`;
 }
 
-// ── ANÁLISE DE MERCADO: Steam, Prob Implícita, Consenso ───────────────────────
-function _updateMarketAnalysisPanel(d) {
-  const el = document.getElementById('marketAnalysisPanel');
-  if (!el) return;
-
-  const od = d.odds || {};
-  if (!od.h) { el.style.display = 'none'; return; }
-
-  const odKey  = (d.casa || '') + '|' + (d.fora || '');
-  const openOd = _getOpenOdds(odKey, od);
-
-  const toF = v => parseFloat(v) || 0;
-
-  // ── 1. Steam / Drift ──────────────────────────────────────────────────────
-  const steamItems = [];
-  if (openOd) {
-    const check = (label, curr, open) => {
-      const c = toF(curr), o = toF(open);
-      if (!c || !o || o === c) return;
-      const pct = (c - o) / o * 100;
-      if (Math.abs(pct) < 5) return;
-      steamItems.push({ label, curr: c, open: o, pct });
-    };
-    check('Casa',   od.h,       openOd.h);
-    check('Empate', od.x,       openOd.x);
-    check('Fora',   od.a,       openOd.a);
-    check(`Over`,   od.ou_over, openOd.ou_over);
-    check(`Under`,  od.ou_under,openOd.ou_under);
-  }
-
-  // ── 2. Probabilidade Implícita Limpa (devig) ──────────────────────────────
-  const ch = toF(od.h), cx = toF(od.x), ca = toF(od.a);
-  const rH = ch > 0 ? 1/ch : 0, rX = cx > 0 ? 1/cx : 0, rA = ca > 0 ? 1/ca : 0;
-  const vig = rH + rX + rA || 1;
-  const implH = Math.round(rH / vig * 100);
-  const implX = Math.round(rX / vig * 100);
-  const implA = 100 - implH - implX;
-  const vigPct = Math.round((vig - 1) * 100 * 10) / 10;  // margem da casa em %
-
-  const cOver = toF(od.ou_over), cUnder = toF(od.ou_under);
-  const ouLine = od.ou_line || '2.5';
-  let implOver = 50, implUnder = 50;
-  if (cOver > 0 && cUnder > 0) {
-    const rO = 1/cOver, rU = 1/cUnder, ouVig = rO + rU;
-    implOver  = Math.round(rO / ouVig * 100);
-    implUnder = 100 - implOver;
-  }
-
-  // ── 3. Consenso Mercado vs Estatísticas ───────────────────────────────────
-  const sp = _lastStatProbs;
-  const divergences = [
-    { label: 'Casa V.', mkt: implH, stat: sp.casa },
-    { label: 'Empate',  mkt: implX, stat: sp.emp  },
-    { label: 'Vis. V.', mkt: implA, stat: sp.vis  },
-  ].filter(dv => dv.mkt > 0 && dv.stat > 0 && Math.abs(dv.stat - dv.mkt) >= 8)
-   .map(dv => ({ ...dv, diff: dv.stat - dv.mkt }));
-
-  // ── Render ────────────────────────────────────────────────────────────────
-  // Steam rows
-  const steamHtml = steamItems.length
-    ? steamItems.map(s => {
-        const drop   = s.pct < 0;
-        const strong = Math.abs(s.pct) >= 15;
-        const mid    = Math.abs(s.pct) >= 8;
-        const badge  = drop
-          ? (strong ? '🔥 STEAM FORTE' : mid ? '⚠️ STEAM' : '↓ leve')
-          : (strong ? '📤 DRIFT FORTE' : mid ? '📤 DRIFT'  : '↑ leve');
-        const col    = drop ? '#ef4444' : '#22c55e';
-        return `<div style="display:flex;align-items:center;gap:6px;padding:3px 7px;
-                            border-radius:5px;background:${col}18;border:1px solid ${col}33;margin-bottom:3px">
-          <span style="font-size:9px;font-weight:700;color:var(--text);min-width:38px">${s.label}</span>
-          <span style="font-size:9px;color:var(--text2)">${s.open.toFixed(2)}</span>
-          <span style="font-size:10px;color:${col}">→</span>
-          <span style="font-size:9px;font-weight:700;color:${col}">${s.curr.toFixed(2)}</span>
-          <span style="font-size:8px;color:${col};margin-left:auto">${drop?'↓':'↑'}${Math.abs(s.pct).toFixed(1)}%</span>
-          <span style="font-size:8px;font-weight:700;color:${col}">${badge}</span>
-        </div>`;
-      }).join('')
-    : `<div style="font-size:9px;color:var(--text2);padding:1px 0">Odds estáveis — sem movimento significativo</div>`;
-
-  // Implied bars
-  const iBar = (pct, color, label) => `
-    <div style="flex:1;text-align:center">
-      <div style="font-size:8px;color:var(--text2);margin-bottom:2px">${label}</div>
-      <div style="background:var(--bg);border-radius:3px;height:18px;position:relative;overflow:hidden">
-        <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;opacity:.8"></div>
-        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-                     font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000a">${pct}%</span>
-      </div>
-    </div>`;
-
-  // Divergence rows
-  const divHtml = divergences.length
-    ? divergences.map(dv => {
-        const edge  = dv.diff > 0;   // stats > mercado = potencial undervalued pelo mercado
-        const col   = edge ? '#22c55e' : '#f59e0b';
-        const badge = edge ? '🎯 EDGE STAT' : '📉 Mkt favorece mais';
-        return `<div style="display:flex;align-items:center;gap:6px;padding:3px 7px;
-                            border-radius:5px;background:${col}18;border:1px solid ${col}33;margin-bottom:3px">
-          <span style="font-size:9px;font-weight:700;color:var(--text);min-width:42px">${dv.label}</span>
-          <span style="font-size:9px;color:var(--text2)">Mkt <b style="color:var(--text)">${dv.mkt}%</b></span>
-          <span style="font-size:9px;color:#4b5563">·</span>
-          <span style="font-size:9px;color:var(--text2)">Stats <b style="color:var(--text)">${dv.stat}%</b></span>
-          <span style="font-size:9px;font-weight:700;color:${col};margin-left:auto">${dv.diff>0?'+':''}${dv.diff}pp ${badge}</span>
-        </div>`;
-      }).join('')
-    : `<div style="font-size:9px;color:var(--text2);padding:1px 0">Mercado e estatísticas alinhados</div>`;
-
-  const ouBar = cOver > 0 ? `
-    <div style="display:flex;gap:4px;margin-top:4px">
-      ${iBar(implOver,  '#22c55e', `Over ${ouLine}`)}
-      ${iBar(implUnder, '#6366f1', `Under ${ouLine}`)}
-    </div>` : '';
-
-  el.style.display = 'block';
-  el.innerHTML = `
-    <div style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
-      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:6px;letter-spacing:.4px">
-        📉 ANÁLISE DE MERCADO
-        <span style="font-weight:400;color:#6b7280"> &nbsp;margem casa: ${vigPct}%</span>
-      </div>
-
-      <div style="font-size:8px;color:var(--text2);margin-bottom:4px">💧 Movimento desde Abertura</div>
-      ${steamHtml}
-
-      <div style="font-size:8px;color:var(--text2);margin-top:7px;margin-bottom:3px">📊 Probabilidade Implícita (sem margem)</div>
-      <div style="display:flex;gap:4px">
-        ${iBar(implH, '#3b82f6', 'Casa V.')}
-        ${iBar(implX, '#64748b', 'Empate')}
-        ${iBar(implA, '#ef4444', 'Vis. V.')}
-      </div>
-      ${ouBar}
-
-      <div style="font-size:8px;color:var(--text2);margin-top:7px;margin-bottom:4px">🎯 Consenso: Mercado vs Estatísticas</div>
-      ${divHtml}
-    </div>`;
-}
-
 // ── ODDS ABERTURA: salva na primeira vez que as odds aparecem (por partida/dia) ──
 function _getOpenOdds(key, currentOdds) {
   try {
@@ -3953,7 +3800,6 @@ async function loadUniscorePanel(casa, fora) {
     el.style.display = 'block';
     el.innerHTML = _renderUniscore(cached);
     _updateStatsPatternPanel(cached);
-    _updateMarketAnalysisPanel(cached);
     return;
   }
 
@@ -3966,7 +3812,6 @@ async function loadUniscorePanel(casa, fora) {
     if (!d.found) { el.style.display = 'none'; return; }
     el.innerHTML = _renderUniscore(d);
     _updateStatsPatternPanel(d);
-    _updateMarketAnalysisPanel(d);
   } catch(e) { el.style.display = 'none'; }
 }
 
