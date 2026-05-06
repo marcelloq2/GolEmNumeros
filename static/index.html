@@ -2475,7 +2475,7 @@ async function _enrichAllWithUniscore(matches) {
         if (d && d.found) {
           const el = document.getElementById('uniscorePanel');
           if (el) el.innerHTML = _renderUniscore(d);
-          _updateStatsPatternPanel(d.statistics || {});
+          _updateStatsPatternPanel(d);
           _updateMarketAnalysisPanel(d);
         }
       }
@@ -3257,10 +3257,14 @@ function _renderSimilarMatches(el, data) {
     </div>`;
 }
 
-// ── PADRÕES DE ESTATÍSTICAS: Indicadores ao vivo ──────────────────────────────
+// ── ÍNDICE DE GOL: composição de 4 fontes de dados (25% cada) ────────────────
 let _statsPatternCache    = null;
 let _statsPatternCacheTs  = 0;
-let _lastStatProbs        = { casa: 33, emp: 34, vis: 33 };  // compartilhado com análise de mercado
+let _lastStatProbs        = { casa: 33, emp: 34, vis: 33 };
+let _smPatCacheLive       = null;
+let _smPatCacheLiveTs     = 0;
+let _odPatCacheLive       = null;
+let _odPatCacheLiveTs     = 0;
 
 async function _fetchStatsPatterns() {
   const now = Date.now();
@@ -3274,17 +3278,43 @@ async function _fetchStatsPatterns() {
   } catch(e) { return null; }
 }
 
-async function _updateStatsPatternPanel(statistics) {
+async function _fetchSmPatLive() {
+  const now = Date.now();
+  if (_smPatCacheLive && (now - _smPatCacheLiveTs) < 600000) return _smPatCacheLive;
+  try {
+    const r = await fetch('/api/shotmap/patterns');
+    if (!r.ok) return null;
+    _smPatCacheLive   = await r.json();
+    _smPatCacheLiveTs = now;
+    return _smPatCacheLive;
+  } catch(e) { return null; }
+}
+
+async function _fetchOdPatLive() {
+  const now = Date.now();
+  if (_odPatCacheLive && (now - _odPatCacheLiveTs) < 600000) return _odPatCacheLive;
+  try {
+    const r = await fetch('/api/momentum/odds-patterns');
+    if (!r.ok) return null;
+    _odPatCacheLive   = await r.json();
+    _odPatCacheLiveTs = now;
+    return _odPatCacheLive;
+  } catch(e) { return null; }
+}
+
+async function _updateStatsPatternPanel(d) {
   const el = document.getElementById('statsPatternPanel');
   if (!el) return;
 
-  // Pega partida ativa para minuto e placar
+  // Suporte a chamadas antigas que passavam só statistics
+  const statistics = (d && d.statistics) ? d.statistics : (d || {});
+
   const m = liveMatchesCache.find(x => x.id === activeLiveId);
-  const rawMin = m ? parseTempo(m.tempo) : null;
-  const min = rawMin ? Math.round(rawMin / 60) : 1;
+  const rawMin  = m ? parseTempo(m.tempo) : null;
+  const min     = rawMin ? Math.round(rawMin / 60) : 1;
   const safeMin = Math.max(min, 1);
-  const gCasa = m ? (m.golCasaFt ?? 0) : 0;
-  const gFora = m ? (m.golForaFt ?? 0) : 0;
+  const gCasa   = m ? (m.golCasaFt ?? 0) : 0;
+  const gFora   = m ? (m.golForaFt ?? 0) : 0;
 
   if (!statistics || Object.keys(statistics).length === 0) {
     el.style.display = 'none'; return;
@@ -3337,152 +3367,149 @@ async function _updateStatsPatternPanel(statistics) {
     corner_kicks_h:     1, corner_kicks_a:     1,
   };
 
-  // ── Similaridade Gaussiana para cada outcome ──────────────────────────────
   const gaussian = (lv, pv) => {
     if (lv === null || lv === undefined || pv === undefined || pv <= 0) return null;
     const sigma = Math.max(pv * 0.55, 0.8);
     return Math.exp(-Math.pow(lv - pv, 2) / (2 * sigma * sigma));
   };
 
+  // ── Gaussian para _lastStatProbs (usado pela análise de mercado) ──────────
   const simScores = {};
   let hasData = false;
-
   for (const oc of ['casaV', 'emp', 'visV']) {
     const pat = outcomes[oc];
     if (!pat || (pat.n || 0) < 5) { simScores[oc] = 0.33; continue; }
     let totalW = 0, sumSim = 0;
     for (const [sk, w] of Object.entries(WEIGHTS)) {
-      const lv = lp[sk];
-      const pv = pat[sk];
-      const sim = gaussian(lv, pv);
+      const sim = gaussian(lp[sk], pat[sk]);
       if (sim === null) continue;
-      sumSim += sim * w;
-      totalW += w;
-      hasData = true;
+      sumSim += sim * w; totalW += w; hasData = true;
     }
     simScores[oc] = totalW > 0 ? sumSim / totalW : 0.33;
   }
-
   if (!hasData) { el.style.display = 'none'; return; }
-
-  // Normaliza para probabilidades
   const tot = simScores.casaV + simScores.emp + simScores.visV || 1;
   let probCasa = Math.round(simScores.casaV / tot * 100);
   let probEmp  = Math.round(simScores.emp   / tot * 100);
-  let probVis  = 100 - probCasa - probEmp;
-  probVis = Math.max(0, probVis);
-  // Compartilha com análise de mercado
+  let probVis  = Math.max(0, 100 - probCasa - probEmp);
   _lastStatProbs = { casa: probCasa, emp: probEmp, vis: probVis };
 
-  // ── Termômetro Over/Under 2.5 ─────────────────────────────────────────────
-  const patO = outcomes.o25 || {};
-  const patU = outcomes.u25 || {};
+  // ── SUB-INDICADOR 1 — xG combinado ───────────────────────────────────────
+  let idx1;
+  const xgTotal = (xgH ?? 0) + (xgA ?? 0);
+  if (xgH !== null && xgA !== null && xgTotal > 0) {
+    idx1 = Math.min(100, Math.round(xgTotal / 2.5 * 100));
+  } else {
+    idx1 = Math.min(100, Math.round((gCasa + gFora) / safeMin * 90 / 3.5 * 100));
+  }
 
-  const ouKeys = ['shots_h','shots_a','shots_on_target_h','shots_on_target_a','big_chances_h','big_chances_a','xg_h','xg_a'];
+  // ── SUB-INDICADOR 2 — Similaridade Estatística Over 2.5 ──────────────────
+  const patO  = outcomes.o25 || {};
+  const patU  = outcomes.u25 || {};
+  const ouKeys = ['shots_h','shots_a','shots_on_target_h','shots_on_target_a',
+                  'big_chances_h','big_chances_a','xg_h','xg_a'];
   const ouW    = [1,1,2,2,3,3,3,3];
-
   let overSim = 0, underSim = 0, ouTot = 0;
   for (let i = 0; i < ouKeys.length; i++) {
-    const sk = ouKeys[i];
-    const lv = lp[sk];
-    const so = gaussian(lv, patO[sk]);
-    const su = gaussian(lv, patU[sk]);
-    if (so !== null) { overSim  += so * ouW[i]; ouTot += ouW[i]; }
+    const so = gaussian(lp[ouKeys[i]], patO[ouKeys[i]]);
+    const su = gaussian(lp[ouKeys[i]], patU[ouKeys[i]]);
+    if (so !== null) { overSim += so * ouW[i]; ouTot += ouW[i]; }
     if (su !== null) { underSim += su * ouW[i]; }
   }
-
-  // Incorpora ritmo de gols atual
   const goalPace = (gCasa + gFora) / safeMin * 90;
-  const paceBonus = Math.max(-15, Math.min(15, (goalPace - 2.5) * 8));
+  const paceBon  = Math.max(-15, Math.min(15, (goalPace - 2.5) * 8));
+  let thermoPct  = ouTot > 0 ? Math.round(overSim / (overSim + underSim + 0.001) * 100) : 50;
+  thermoPct = Math.min(95, Math.max(5, thermoPct + paceBon));
+  const idx2 = thermoPct;
 
-  let thermoPct = ouTot > 0
-    ? Math.round(overSim / (overSim + underSim + 0.001) * 100)
-    : 50;
-  thermoPct = Math.min(95, Math.max(5, thermoPct + paceBonus));
-
-  const thermoColor = thermoPct > 62 ? '#22c55e' : thermoPct < 38 ? '#3b82f6' : '#f59e0b';
-  const thermoLabel = thermoPct > 62 ? '↑ Over 2.5' : thermoPct < 38 ? '↓ Under 2.5' : '≈ Equilibrado';
-
-  // ── Alertas de Pressão ────────────────────────────────────────────────────
-  const alerts = [];
-  const patAct = outcomes.o25 || {};  // padrão ativo = jogos com mais gols
-
-  const sotTotal = (sotH ?? 0) + (sotA ?? 0);
-  const bigTotal = (bigH ?? 0) + (bigA ?? 0);
-  const avgSOT   = ((patAct.shots_on_target_h || 0) + (patAct.shots_on_target_a || 0));
-  const avgBig   = ((patAct.big_chances_h || 0)     + (patAct.big_chances_a || 0));
-
-  // Alerta quando ritmo projetado excede média histórica de O2.5
-  const projSOT = avgSOT > 0 && safeMin < 80 ? sotTotal / safeMin * 90 : sotTotal;
-  const projBig = avgBig > 0 && safeMin < 80 ? bigTotal / safeMin * 90 : bigTotal;
-
-  if (avgSOT > 0 && projSOT > avgSOT * 1.25 && sotTotal >= 2)
-    alerts.push(`🎯 Chutes no alvo: ${sotTotal} (projeção ${projSOT.toFixed(1)} | hist O2.5: ${avgSOT.toFixed(1)})`);
-  if (avgBig > 0 && projBig > avgBig * 1.15 && bigTotal >= 1)
-    alerts.push(`💥 Grandes chances: ${bigTotal} (projeção ${projBig.toFixed(1)} | hist: ${avgBig.toFixed(1)})`);
-
-  // Dominância de chutes
-  if (shotsH !== null && shotsA !== null) {
-    const ratio = shotsA > 0 ? shotsH / shotsA : (shotsH > 0 ? 9 : 1);
-    if (ratio > 2.5 && shotsH >= 5)
-      alerts.push(`📌 Casa domina chutes ${shotsH}×${shotsA}`);
-    else if (ratio < 0.4 && shotsA >= 5)
-      alerts.push(`📌 Visitante domina chutes ${shotsA}×${shotsH}`);
+  // ── SUB-INDICADOR 3 — Mapa de Chutes (xGZ por zona) ──────────────────────
+  let idx3 = idx2;
+  const smPat       = await _fetchSmPatLive();
+  const liveShotmap = (d && Array.isArray(d.shotmap)) ? d.shotmap : [];
+  if (smPat && smPat.by_zone && liveShotmap.length > 0) {
+    const convMap = {};
+    (smPat.by_zone || []).forEach(z => convMap[z.key] = (z.goal_pct || 0) / 100);
+    const classZ = x => {
+      const xv = x ?? 50;
+      if (xv < 12) return 'area_pequena';
+      if (xv < 32) return 'area_grande';
+      if (xv < 55) return 'meia_distancia';
+      return 'longa_distancia';
+    };
+    let xGZ = 0;
+    liveShotmap.forEach(s => { xGZ += convMap[classZ(s.x)] || 0; });
+    idx3 = Math.min(100, Math.round(xGZ / 1.5 * 100));
   }
 
-  // xG alto
-  if (xgH !== null && xgA !== null && (xgH + xgA) > 2.0)
-    alerts.push(`📈 xG combinado alto: ${(xgH + xgA).toFixed(2)}`);
+  // ── SUB-INDICADOR 4 — Odds Abertura (O2.5% pelo bucket) ──────────────────
+  let idx4 = 50;
+  const odPat = await _fetchOdPatLive();
+  if (odPat && d && d.odds) {
+    const odKey  = (d.casa || '') + '|' + (d.fora || '');
+    const openOd = _getOpenOdds(odKey, d.odds);
+    const hOpen  = parseFloat((openOd && openOd.h) || d.odds.h || 0);
+    if (hOpen > 0) {
+      const bkt = (odPat.buckets || []).find(b => {
+        const lbl = b.label || '';
+        if (lbl.startsWith('>')) return hOpen >= parseFloat(lbl.slice(1));
+        const pts = lbl.split(/[–\-]/);
+        return pts.length === 2 && hOpen >= parseFloat(pts[0]) && hOpen <= parseFloat(pts[1]);
+      });
+      if (bkt) idx4 = bkt.o25_pct;
+    }
+  }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  const probBar = (pct, color, label) => `
-    <div style="flex:1;min-width:0">
-      <div style="font-size:8px;color:var(--text2);margin-bottom:2px;text-align:center">${label}</div>
-      <div style="background:var(--bg);border-radius:4px;height:20px;overflow:hidden;position:relative">
-        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .4s"></div>
-        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-                     font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px #0009">${pct}%</span>
+  // ── ÍNDICE FINAL (25% cada) ───────────────────────────────────────────────
+  const goalIndex = Math.round((idx1 + idx2 + idx3 + idx4) / 4);
+
+  const getGrade = v => {
+    if (v >= 75) return { text: '🔥 MUITO ALTO', color: '#22c55e' };
+    if (v >= 60) return { text: '🟠 ALTO',       color: '#f97316' };
+    if (v >= 40) return { text: '🟡 MÉDIO',      color: '#f59e0b' };
+    if (v >= 25) return { text: '🔵 BAIXO',      color: '#6b7280' };
+    return               { text: '❄️ MUITO BAIXO', color: '#3b82f6' };
+  };
+  const grade = getGrade(goalIndex);
+
+  const miniSub = (v, icon, tip) => {
+    const c = v >= 65 ? '#22c55e' : v >= 45 ? '#f59e0b' : '#6b7280';
+    return `<div style="text-align:center" title="${tip}">
+      <div style="font-size:9px;color:var(--text2);margin-bottom:3px">${icon}</div>
+      <div style="background:var(--bg);border-radius:3px;height:4px;overflow:hidden;margin-bottom:3px">
+        <div style="width:${v}%;background:${c};height:100%;border-radius:3px"></div>
       </div>
+      <div style="font-size:10px;font-weight:700;color:${c}">${v}%</div>
     </div>`;
+  };
 
-  const alertHtml = alerts.length ? `
-    <div style="margin-top:5px;padding:4px 8px;background:#ef44441a;border:1px solid #ef444433;
-                border-radius:6px;font-size:9px;color:#fca5a5;line-height:1.6">
-      ⚡ ${alerts.join('<br>⚡ ')}
-    </div>` : '';
-
-  const nSample = Math.min(outcomes.casaV?.n || 0, outcomes.o25?.n || 0, 9999);
-  const sampleLabel = nSample > 0 ? `· ${nSample} partidas históricas` : '';
+  const nSample = outcomes.o25?.n || 0;
+  const sLabel  = nSample > 0 ? ` · ${nSample} partidas` : '';
 
   el.style.display = 'block';
   el.innerHTML = `
-    <div style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
-      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:6px;letter-spacing:.4px">
-        📊 INDICADORES ESTATÍSTICOS &nbsp;<span style="font-weight:400">min ${safeMin}' ${sampleLabel}</span>
+    <div style="padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.5px">
+          ⚽ ÍNDICE DE GOL
+          <span style="font-weight:400;margin-left:4px">min ${safeMin}'${sLabel}</span>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:${grade.color}">${grade.text}</div>
       </div>
-
-      <div style="font-size:8px;color:var(--text2);margin-bottom:3px">🎯 Probabilidade por Similaridade Estatística</div>
-      <div style="display:flex;gap:4px">
-        ${probBar(probCasa, '#3b82f6', 'Casa V.')}
-        ${probBar(probEmp,  '#64748b', 'Empate')}
-        ${probBar(probVis,  '#ef4444', 'Vis. V.')}
+      <div style="background:var(--bg);border-radius:6px;height:24px;overflow:hidden;position:relative;margin-bottom:8px">
+        <div style="height:100%;width:${goalIndex}%;
+                    background:linear-gradient(to right,${grade.color}88,${grade.color});
+                    border-radius:6px;transition:width .6s ease"></div>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                     font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 5px #0008">
+          ${goalIndex}%
+        </span>
       </div>
-
-      <div style="margin-top:7px;font-size:8px;color:var(--text2);margin-bottom:4px">🌡️ Termômetro Over/Under 2.5</div>
-      <div style="position:relative;height:8px;border-radius:4px;
-                  background:linear-gradient(to right,#3b82f6 0%,#f59e0b 50%,#22c55e 100%)">
-        <div style="position:absolute;top:50%;left:${thermoPct}%;transform:translate(-50%,-50%);
-                    width:14px;height:14px;border-radius:50%;background:#fff;
-                    border:2.5px solid ${thermoColor};box-shadow:0 0 7px ${thermoColor}88;
-                    transition:left .5s"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+        ${miniSub(idx1, '🧠 xG',    'xG combinado projetado a 90min vs média Over 2.5')}
+        ${miniSub(idx2, '📊 Stats', 'Similaridade das estatísticas ao perfil histórico Over 2.5')}
+        ${miniSub(idx3, '🗺️ Zonas','xG esperado pelos chutes em zonas perigosas')}
+        ${miniSub(idx4, '📈 Odds',  'Taxa histórica Over 2.5 para esta faixa de odd de abertura')}
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:8px;margin-top:3px">
-        <span style="color:#3b82f6">Under 2.5</span>
-        <span style="color:${thermoColor};font-weight:700">${thermoLabel}</span>
-        <span style="color:#22c55e">Over 2.5</span>
-      </div>
-
-      ${alertHtml}
     </div>`;
 }
 
@@ -3919,7 +3946,7 @@ async function loadUniscorePanel(casa, fora) {
     if (!cached.found) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     el.innerHTML = _renderUniscore(cached);
-    _updateStatsPatternPanel(cached.statistics || {});
+    _updateStatsPatternPanel(cached);
     _updateMarketAnalysisPanel(cached);
     return;
   }
@@ -3932,7 +3959,7 @@ async function loadUniscorePanel(casa, fora) {
     _uniCache[cacheKey] = d;
     if (!d.found) { el.style.display = 'none'; return; }
     el.innerHTML = _renderUniscore(d);
-    _updateStatsPatternPanel(d.statistics || {});
+    _updateStatsPatternPanel(d);
     _updateMarketAnalysisPanel(d);
   } catch(e) { el.style.display = 'none'; }
 }
