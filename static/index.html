@@ -2050,15 +2050,21 @@ function openLiveGuia() {
       A lista detalha cada partida similar: time casa, time fora, data, minuto em que estava o sinal e resultado (gol ou não).<br><br>
       <b>Utilidade:</b> Se 8 de 10 partidas com padrão similar terminaram com gol do time da casa, isso reforça o sinal atual.`),
 
-    sec('📊','Indicadores Estatísticos ao Vivo', `
-      Painel com 3 indicadores calculados a partir dos dados de estatísticas do jogo atual comparados com o <b>histórico de padrões</b> de partidas encerradas.<br><br>
-      <b>🎯 Probabilidade por Similaridade Estatística:</b><br>
-      Compara as estatísticas atuais (chutes, grandes chances, xG, escanteios, posse) com as médias históricas de partidas que terminaram em Casa V. / Empate / Vis. V.
-      As stats são projetadas para 90 minutos com base no minuto atual. O resultado é normalizado em porcentagem.<br><br>
-      <b>🌡️ Termômetro Over/Under 2.5:</b><br>
-      A agulha branca se move na barra de gradiente (azul=Under · laranja=neutro · verde=Over) com base na similaridade estatística do ritmo atual vs histórico de O2.5 e U2.5. Também incorpora o ritmo de gols.<br><br>
-      <b>⚡ Alertas de Pressão:</b><br>
-      Aparecem quando o ritmo projetado de chutes no alvo ou grandes chances supera 25% a mais que a média histórica de partidas Over 2.5. Também detecta dominância de chutes e xG alto.`),
+    sec('⚽','Índice de Gol', `
+      Barra única de <b>0% a 100%</b> que combina 4 fontes de dados históricas para estimar a probabilidade de mais gols na partida atual. Quanto maior, maior o sinal de jogo aberto.<br><br>
+      <b>Cada fonte contribui com 25% do índice:</b><br><br>
+      ${row('🧠 xG','xG (gols esperados) combinado dos dois times projetado para 90 minutos. 100% = xG ≥ 2.5, que é a média típica de jogos Over 2.5. Se xG não estiver disponível, usa o ritmo de gols atual.')}
+      ${row('📊 Stats','Similaridade Gaussiana entre as estatísticas ao vivo (chutes, grandes chances, posse, escanteios) e o perfil histórico médio de partidas Over 2.5. As stats são projetadas para 90 min antes da comparação.')}
+      ${row('🗺️ Zonas','Conta os chutes ao vivo em zonas perigosas (Área Pequena e Grande) e multiplica pela taxa de conversão histórica de cada zona. Gera um xG por zona. 1.5 xGZ = 100%.')}
+      ${row('📈 Odds','Busca a faixa de odd de abertura da casa (ex: 1.31–1.60) e aplica a taxa histórica de Over 2.5 registrada nessa faixa nas partidas do banco de dados.')}
+      <br>
+      <b>Escala de leitura:</b><br>
+      ${pill('❄️ MUITO BAIXO','#fff','#1e3a8a')} 0–24% &nbsp;
+      ${pill('🔵 BAIXO','#fff','#374151')} 25–39% &nbsp;
+      ${pill('🟡 MÉDIO','#000','#854d0e')} 40–59%<br>
+      ${pill('🟠 ALTO','#fff','#7c2d12')} 60–74% &nbsp;
+      ${pill('🔥 MUITO ALTO','#fff','#14532d')} 75–100%<br><br>
+      <b>Auto-aprendizado:</b> O índice melhora automaticamente conforme mais partidas são monitoradas. As taxas históricas de cada fonte são recalculadas a cada novo jogo salvo, sem intervenção manual.`),
 
     sec('📉','Análise de Mercado', `
       Compara as <b>odds de abertura</b> (salvas automaticamente na primeira vez que você abre o jogo) com as odds atuais.<br><br>
@@ -2071,7 +2077,7 @@ function openLiveGuia() {
       <b>📊 Probabilidade Implícita (sem margem):</b><br>
       Remove a vig (margem da casa) das odds e exibe a probabilidade real que o mercado atribui a cada resultado. A margem da casa é exibida em % no título.<br><br>
       <b>🎯 Consenso: Mercado vs Estatísticas:</b><br>
-      Cruza a probabilidade implícita das odds com a probabilidade calculada pelos Indicadores Estatísticos. Divergência ≥ 8pp gera alerta: ${pill('🎯 EDGE STAT','#fff','#166534')} quando as stats favorecem mais que o mercado.`),
+      Cruza a probabilidade implícita das odds com a probabilidade de vitória de cada lado calculada pela similaridade Gaussiana das estatísticas ao vivo (mesma base do Índice de Gol). Divergência ≥ 8pp gera alerta: ${pill('🎯 EDGE STAT','#fff','#166534')} quando as stats favorecem mais que o mercado.`),
 
     sec('📡','Dados Uniscore', `
       Dados enriquecidos buscados de uma fonte secundária (Uniscore/SofaScore) para o jogo selecionado.<br><br>
