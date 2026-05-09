@@ -5934,9 +5934,66 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
   // Coeficiente de Variação = σ / |μ|  (ratio, não percentual — evita valores absurdos)
   const cvRatio = meanBet > 0 ? stdDev / meanBet : null;
 
+  // ── OOS: Teste fora da amostra (70 / 30 split temporal) ─────────────────
+  let oos = null;
+  const splitN = Math.floor(filtered.length * 0.7);
+  if (filtered.length >= 20 && splitN >= 10) {
+    const trainSet = filtered.slice(0, splitN);
+    const testSet  = filtered.slice(splitN);
+
+    // Calcula taxa SOMENTE no conjunto de treino (evita look-ahead)
+    let trainRate;
+    if (scoreKey) {
+      const cnt = trainSet.filter(m => {
+        const [gc,gf] = m.resultado.split(':').map(v=>parseInt(v)||0);
+        return `${gc}-${gf}` === scoreKey;
+      }).length;
+      const base = cnt / trainSet.length * 100;
+      trainRate = invertScore ? (100 - base) : base;
+    } else {
+      trainRate = _mktStats(trainSet).mkt[marketKey] || 0;
+    }
+
+    if (trainRate > 0) {
+      const tFairOdd = 100 / trainRate;
+      const tSimOdd  = Math.round((tFairOdd + 0.10) * 100) / 100;
+
+      // ROI no treino (parâmetros ajustados ao treino, avaliados no treino)
+      let trBank = BANK, trW = 0, trL = 0;
+      for (const m of trainSet) {
+        const won = outcomeCheck(m);
+        if (won === null) continue;
+        if (won) { trBank += STAKE * (tSimOdd - 1); trW++; }
+        else      { trBank -= STAKE; trL++; }
+      }
+      const trTotal = trW + trL;
+      const trRoi = trTotal > 0 ? (trBank - BANK) / (trTotal * STAKE) * 100 : 0;
+
+      // ROI no teste — parâmetros do treino aplicados a dados nunca vistos
+      let tsBank = BANK, tsW = 0, tsL = 0, tsPeak = BANK, tsDD = 0;
+      for (const m of testSet) {
+        const won = outcomeCheck(m);
+        if (won === null) continue;
+        if (won) { tsBank += STAKE * (tSimOdd - 1); tsW++; }
+        else      { tsBank -= STAKE; tsL++; }
+        if (tsBank > tsPeak) tsPeak = tsBank;
+        const dd = tsPeak > 0 ? (tsPeak - tsBank) / tsPeak * 100 : 0;
+        if (dd > tsDD) tsDD = dd;
+      }
+      const tsTotal = tsW + tsL;
+      if (tsTotal > 0) {
+        oos = {
+          trainN: splitN, testN: testSet.length,
+          trainRoi: trRoi, testRoi: (tsBank - BANK) / (tsTotal * STAKE) * 100,
+          testTotal: tsTotal, testWins: tsW, testMaxDD: tsDD,
+        };
+      }
+    }
+  }
+
   return { total, wins, losses, winrate, profit, roi, maxDD,
            fairOdd, simOdd, rate, bank, kellyFrac, kellStake, rorPct,
-           stdDev, cvRatio,
+           stdDev, cvRatio, oos,
            bankHistory, rangeLabel: range.label, marketKey, scoreKey };
 }
 
@@ -5995,12 +6052,18 @@ function _validateSim(sim) {
     { id: 'ci',      ok: ciEdge,             label: `IC inferior > odd justa`, detail: `IC: ${(ciLow*100).toFixed(1)}–${(ciHigh*100).toFixed(1)}%` },
   ];
 
-  const passed = checks.filter(c => c.ok).length;
-  const score  = passed;   // 0–6
+  // OOS: check extra quando há dados suficientes para o split
+  if (sim.oos && sim.oos.testTotal >= 5) {
+    checks.push({ id: 'oos', ok: sim.oos.testRoi > 0, label: `OOS positivo`,
+                  detail: `ROI teste: ${sim.oos.testRoi.toFixed(1)}%` });
+  }
 
-  // Validado = todos os critérios essenciais (os 5 primeiros) + amostra mínima
-  const essential = checks.filter(c => c.id !== 'ci');
-  const validated = essential.every(c => c.ok);  // 5/5 essenciais
+  const passed = checks.filter(c => c.ok).length;
+  const score  = passed;
+
+  // Validado = todos os critérios essenciais (OOS e CI são complementares, não bloqueiam)
+  const essential = checks.filter(c => c.id !== 'ci' && c.id !== 'oos');
+  const validated = essential.every(c => c.ok);
   const partial   = !validated && passed >= 3;
 
   return { z, pval, ciLow, ciHigh, ciEdge, checks, passed, score, validated, partial };
@@ -6148,6 +6211,63 @@ function renderBankSimSection(sim, label, simId) {
     ? `<span style="color:#22c55e">✅ Edge positivo</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`
     : `<span style="color:#ef4444">❌ Sem edge</span> — odd justa @${sim.fairOdd.toFixed(2)} · simulado com @${sim.simOdd.toFixed(2)} (+10 ticks)`;
 
+  // ── Painel OOS ─────────────────────────────────────────────────────────
+  let oosHtml = '';
+  if (sim.oos && sim.oos.testTotal >= 5) {
+    const o = sim.oos;
+    const trC = o.trainRoi >= 0 ? '#22c55e' : '#ef4444';
+    const tsC = o.testRoi  >= 0 ? '#22c55e' : '#ef4444';
+    // Queda relativa do treino para o teste (só faz sentido se treino > 0)
+    const dropPct = o.trainRoi > 0
+      ? Math.max(0, (o.trainRoi - o.testRoi) / o.trainRoi * 100)
+      : null;
+    const dropC = dropPct === null ? '#6b7280'
+                : dropPct < 30    ? '#22c55e'
+                : dropPct < 60    ? '#f59e0b' : '#ef4444';
+
+    const verdict = o.testRoi <= 0
+      ? `<span style="color:#ef4444;font-weight:700">❌ ROI negativo no teste — possível overfitting</span>`
+      : dropPct !== null && dropPct >= 60
+      ? `<span style="color:#f59e0b;font-weight:700">⚠️ Queda forte (${dropPct.toFixed(0)}%) — validar com mais dados</span>`
+      : dropPct !== null && dropPct >= 30
+      ? `<span style="color:#f59e0b;font-weight:700">⚠️ Queda moderada (${dropPct.toFixed(0)}%) — edge reduzido no teste</span>`
+      : `<span style="color:#22c55e;font-weight:700">✅ Robusto — ROI mantido fora da amostra</span>`;
+
+    const dropCol = dropPct !== null ? `
+      <div style="flex:1;background:var(--bg);border-radius:5px;padding:4px 6px;text-align:center;border:1px solid ${dropC}33">
+        <div style="font-size:8px;color:var(--text2)">Queda relativa</div>
+        <div style="font-size:13px;font-weight:800;color:${dropC}">${dropPct > 0 ? '-' : ''}${dropPct.toFixed(0)}%</div>
+      </div>` : '';
+
+    oosHtml = `
+      <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+        <div style="font-size:8px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">
+          🔬 TESTE FORA DA AMOSTRA (OOS)
+          <span style="font-weight:400;color:#6b7280"> · treino ${o.trainN} · teste ${o.testN} partidas</span>
+        </div>
+        <div style="display:flex;gap:5px;margin-bottom:5px;align-items:stretch">
+          <div style="flex:1;background:var(--bg);border-radius:5px;padding:4px 6px;text-align:center;border:1px solid ${trC}33">
+            <div style="font-size:8px;color:var(--text2)">ROI Treino 70%</div>
+            <div style="font-size:13px;font-weight:800;color:${trC}">${o.trainRoi > 0 ? '+' : ''}${o.trainRoi.toFixed(1)}%</div>
+          </div>
+          <div style="display:flex;align-items:center;color:var(--text2);font-size:13px;padding:0 2px">→</div>
+          <div style="flex:1;background:var(--bg);border-radius:5px;padding:4px 6px;text-align:center;border:1px solid ${tsC}33">
+            <div style="font-size:8px;color:var(--text2)">ROI Teste 30%</div>
+            <div style="font-size:13px;font-weight:800;color:${tsC}">${o.testRoi > 0 ? '+' : ''}${o.testRoi.toFixed(1)}%</div>
+          </div>
+          ${dropCol}
+        </div>
+        <div style="font-size:8px">${verdict}</div>
+      </div>`;
+  } else if (sim.total < 20) {
+    oosHtml = `
+      <div style="margin-top:8px;padding:5px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+        <div style="font-size:8px;color:#6b7280">
+          🔬 OOS indisponível — mínimo 20 partidas para split 70/30 (atual: ${sim.total})
+        </div>
+      </div>`;
+  }
+
   const borderCol = val.validated ? '#16a34a55' : val.partial ? '#d9770655' : 'var(--border)';
   return `
     <div style="background:var(--bg);border:1px solid ${borderCol};border-radius:8px;padding:10px;margin-top:8px">
@@ -6160,7 +6280,8 @@ function renderBankSimSection(sim, label, simId) {
       <canvas id="${simId}" height="80"
               style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:6px"></canvas>
       <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px">${checkList}</div>
-      <div style="font-size:9px;color:var(--text2)">${noteC}</div>
+      <div style="font-size:9px;color:var(--text2);margin-bottom:4px">${noteC}</div>
+      ${oosHtml}
     </div>`;
 }
 
