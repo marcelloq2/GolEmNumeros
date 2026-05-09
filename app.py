@@ -723,8 +723,10 @@ def _fetch_uniscore_graph(uni_match):
     except Exception as es:
         print(f"[uniscore] Shotmap falhou: {es}")
 
-    # Status (FT?)
+    # Status (FT?) + placar oficial do UniScore
     finished = False
+    score_h  = None
+    score_a  = None
     try:
         re = http_req.get(
             f"{_UNISCORE_API}/football/event/{uniscore_id}",
@@ -732,8 +734,13 @@ def _fetch_uniscore_graph(uni_match):
             params={"language": "pt-BR"}, timeout=10,
         )
         if re.status_code == 200:
-            status   = re.json().get("data", {}).get("event", {}).get("status", {})
+            ev_data  = re.json().get("data", {}).get("event", {})
+            status   = ev_data.get("status", {})
             finished = status.get("type") == "finished"
+            hs = ev_data.get("homeScore", {}) or {}
+            as_ = ev_data.get("awayScore", {}) or {}
+            score_h = hs.get("current")
+            score_a = as_.get("current")
     except Exception:
         pass
 
@@ -741,6 +748,8 @@ def _fetch_uniscore_graph(uni_match):
         "graphPoints":        pts,
         "goals":              goals,
         "finished":           finished,
+        "score_h":            score_h,
+        "score_a":            score_a,
         "statistics":         statistics_periods.get("ALL", {}),
         "statistics_periods": statistics_periods,
         "shotmap":            shotmap,

@@ -3036,6 +3036,17 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
       }
     }
 
+    // ── Atualiza placar com fonte UniScore (mais confiável que RadarFutebol) ──
+    if (data.score_h !== undefined && data.score_h !== null &&
+        data.score_a !== undefined && data.score_a !== null) {
+      const scoreEl = document.getElementById('liveScoreBig');
+      if (scoreEl) {
+        const newScore = `${data.score_h}-${data.score_a}`;
+        scoreEl.textContent = newScore;
+        scoreEl.title = 'Placar via UniScore';
+      }
+    }
+
     // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
     updateMomentumIndicator(points, data.finished, eventId);
 
