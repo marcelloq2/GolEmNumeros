@@ -3128,12 +3128,10 @@ function _renderIndicatorsPanel(points) {
 
   const indicators = [];
 
-  // ── Indicador 1: Controle de Momentum (quem está melhor agora) ──
-  const WIN = 8; // últimos 8 pontos
-  const recent = points.slice(-WIN);
-  const vals = recent.map(p => p.value || 0);
+  // ── Indicador 1: Controle de Momentum (partida inteira, pesos crescentes) ──
+  const vals = points.map(p => p.value || 0);
 
-  // Média ponderada (pontos mais recentes têm mais peso)
+  // Média ponderada por toda a partida (pontos mais recentes têm mais peso)
   let weightedSum = 0, totalWeight = 0;
   vals.forEach((v, i) => {
     const w = i + 1;
@@ -3142,14 +3140,7 @@ function _renderIndicatorsPanel(points) {
   });
   const avg = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
-  // Percentual de pontos positivos vs negativos
-  const homePoints = vals.filter(v => v > 0).length;
-  const awayPoints = vals.filter(v => v < 0).length;
-  const neutPoints = vals.length - homePoints - awayPoints;
-  const total = vals.length || 1;
-
-  // Força relativa (0–100, 50=equilibrado)
-  const allAbs = vals.map(Math.abs);
+  // Força relativa (soma positivos vs soma negativos)
   const homeSum = vals.filter(v=>v>0).reduce((a,b)=>a+b,0);
   const awaySum = Math.abs(vals.filter(v=>v<0).reduce((a,b)=>a+b,0));
   const totalAbs = homeSum + awaySum || 1;
@@ -3181,7 +3172,7 @@ function _renderIndicatorsPanel(points) {
   indicators.push(`
     <div style="background:${controlBg};border:1px solid ${controlColor}44;border-radius:7px;padding:7px 10px">
       <div style="font-size:8px;font-weight:700;color:var(--text2);letter-spacing:.4px;margin-bottom:5px">
-        ⚡ CONTROLE DE MOMENTUM <span style="font-weight:400;color:#4b5563">· últimos ${WIN} pontos</span>
+        ⚡ CONTROLE DE MOMENTUM <span style="font-weight:400;color:#4b5563">· partida inteira · min ${points[points.length-1]?.minute || 0}'</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="font-size:10px;font-weight:700;color:${controlColor};white-space:nowrap">${controlIcon} ${controlLabel}</div>
