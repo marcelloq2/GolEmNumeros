@@ -2173,11 +2173,13 @@ function openBacktestGuia() {
       ${row('Gráfico de banca','Evolução da banca ao longo das apostas')}
       <br>
       <b>Badge de Validação Estatística:</b><br>
-      ${pill('✅ VALIDADO','#22c55e','#052e16')} Metodologia com suporte estatístico sólido<br>
-      ${pill('⚠️ PARCIAL','#f59e0b','#1c1407')} Resultados positivos mas com algumas ressalvas<br>
-      ${pill('❌ NÃO VALIDADO','#ef4444','#1f0808')} Resultados insuficientes para conclusão confiável
+      ${pill('✅ VALIDADO','#22c55e','#052e16')} Todos os 8 critérios atendidos simultaneamente<br>
+      ${pill('⚠️ PARCIAL','#f59e0b','#1c1407')} 5 ou mais critérios atendidos<br>
+      ${pill('❌ NÃO VALIDADO','#ef4444','#1f0808')} Menos de 5 critérios atendidos
       <br><br>
-      <b>Critérios de validação (checklist):</b> O sistema verifica 6 critérios — tamanho da amostra, taxa de acerto vs esperado, ROI positivo, P&L positivo, z-test estatístico, e intervalo de confiança.`),
+      <b>8 critérios obrigatórios:</b> Amostra ≥ 500 · ROI positivo · OOS positivo · Significância 95% · Drawdown &lt; 30% · Risco Ruína &lt; 1% · Profit Factor &gt; 1.2 · Retenção OOS ≥ 60%
+      <br><br>
+      <b>Novas métricas por metodologia:</b> Profit Factor · Avg Win/Loss · Sharpe Ratio · Sortino Ratio · Walk-Forward (múltiplas janelas) · Drawdown Duration · Underwater Chart · Heatmap de Sensibilidade`),
 
     sec('🧠','Padrões de Gol', `
       Analisa como os gols se distribuem dentro de cada faixa de score.<br><br>
@@ -5149,8 +5151,14 @@ function _buildAllEdgeCriteria(matches) {
   const result = [];
 
   const csBaseFreq = sk => base.n > 0 ? Math.round((base.scores[sk]||0)/base.n*100) : 0;
-  const csProvaveis   = BT_SCORE_LIST.filter(sk => csBaseFreq(sk) >= 4);
-  const csImprovaveis = BT_SCORE_LIST.filter(sk => { const f=csBaseFreq(sk); return f>0&&f<4; });
+  const _edgeAllScoreSet = new Set(Object.keys(base.scores || {}));
+  ['casa','fora','gols'].forEach(t => (corr[t]||[]).forEach(r => Object.keys(r.scores||{}).forEach(sk => _edgeAllScoreSet.add(sk))));
+  const _edgeScoresSorted = [..._edgeAllScoreSet].sort((a,b) => {
+    const [ag,af]=a.split('-').map(Number),[bg,bf]=b.split('-').map(Number);
+    const ta=ag+af,tb=bg+bf; return ta!==tb?ta-tb:ag!==bg?ag-bg:af-bf;
+  });
+  const csProvaveis   = _edgeScoresSorted.filter(sk => csBaseFreq(sk) >= 4);
+  const csImprovaveis = _edgeScoresSorted.filter(sk => csBaseFreq(sk) < 4);
 
   ['casa','fora','gols'].forEach(tabKey => {
     const data = corr[tabKey];
@@ -5814,18 +5822,67 @@ function toggleBtMarkets() {
   }
 }
 
+function _drawUnderwaterChart(canvasId, uwHistory) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !uwHistory || uwHistory.length < 2) return;
+  const W = canvas.offsetWidth || 300, H = canvas.height || 36;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  const n  = uwHistory.length;
+  const mx = Math.max(...uwHistory) || 1;
+  const toX = i => (i / (n - 1)) * W;
+  const toY = v => H - (v / mx) * (H - 4) - 2;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(toX(0), H);
+  uwHistory.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(n - 1), H);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(239,68,68,.55)');
+  grad.addColorStop(1, 'rgba(239,68,68,.05)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(uwHistory[0]));
+  uwHistory.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  if (mx > 0) {
+    ctx.save();
+    ctx.font = '8px system-ui';
+    ctx.fillStyle = '#ef4444';
+    ctx.textAlign = 'right';
+    ctx.fillText(mx.toFixed(1)+'%', W - 3, 10);
+    ctx.restore();
+  }
+}
+
 function _redrawBtCharts() {
   // setTimeout garante que o browser calculou o layout antes de desenhar
   setTimeout(() => {
     const panel = document.getElementById('btMarketsPanel');
     if (!panel) return;
-    (panel._colSims || []).forEach(cs =>
-      _drawBankChart(cs.chartId, cs.bankHistory, cs.fairOdd)
-    );
-    if (panel._lastSimCS)
-      _drawBankChart('bankChartCS',    panel._lastSimCS.bankHistory,    panel._lastSimCS.fairOdd);
-    if (panel._lastSimCSImp)
+    (panel._colSims || []).forEach(cs => {
+      _drawBankChart(cs.chartId, cs.bankHistory, cs.fairOdd);
+      _drawUnderwaterChart(cs.chartId + '_uw', cs.underwaterHistory);
+    });
+    if (panel._lastSimCS) {
+      _drawBankChart('bankChartCS', panel._lastSimCS.bankHistory, panel._lastSimCS.fairOdd);
+      _drawUnderwaterChart('bankChartCS_uw', panel._lastSimCS.underwaterHistory);
+    }
+    if (panel._lastSimCSImp) {
       _drawBankChart('bankChartCSImp', panel._lastSimCSImp.bankHistory, panel._lastSimCSImp.fairOdd);
+      _drawUnderwaterChart('bankChartCSImp_uw', panel._lastSimCSImp.underwaterHistory);
+    }
   }, 50);
 }
 
@@ -5897,23 +5954,58 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
   let wins = 0, losses = 0, skipped = 0;
   let peak = BANK, maxDD = 0;
   const bankHistory = [BANK];
+  const underwaterHistory = [0];
+  const betReturns = [];
+  let totalWon = 0, totalLost = 0;
+  let inDD = false, ddStart = 0;
+  const ddDurations = [];
 
   for (const m of filtered) {
     const won = outcomeCheck(m);
     if (won === null) { skipped++; continue; }
-    if (won) { bank += STAKE * (simOdd - 1); wins++; }
-    else      { bank -= STAKE; losses++; }
+    const ret = won ? STAKE * (simOdd - 1) : -STAKE;
+    betReturns.push(ret);
+    if (won) { bank += STAKE * (simOdd - 1); wins++; totalWon += STAKE * (simOdd - 1); }
+    else      { bank -= STAKE; losses++; totalLost += STAKE; }
     if (bank > peak) peak = bank;
     const dd = peak > 0 ? (peak - bank) / peak * 100 : 0;
     if (dd > maxDD) maxDD = dd;
     bankHistory.push(Math.round(bank * 100) / 100);
+    underwaterHistory.push(Math.round(dd * 10) / 10);
+    if (dd > 0.01) {
+      if (!inDD) { inDD = true; ddStart = bankHistory.length - 1; }
+    } else if (inDD) {
+      const dur = bankHistory.length - 1 - ddStart;
+      if (dur > 0) ddDurations.push(dur);
+      inDD = false;
+    }
     if (bank <= 0) break;
+  }
+  if (inDD) {
+    const dur = bankHistory.length - 1 - ddStart;
+    if (dur > 0) ddDurations.push(dur);
   }
 
   const total   = wins + losses;
   const winrate = total > 0 ? wins / total * 100 : 0;
   const profit  = bank - BANK;
   const roi     = total > 0 ? profit / (total * STAKE) * 100 : 0;
+
+  // Profit Factor, Avg Win/Loss
+  const profitFactor  = totalLost > 0 ? Math.round(totalWon / totalLost * 100) / 100 : null;
+  const avgWin        = wins   > 0 ? Math.round(totalWon  / wins   * 100) / 100 : null;
+  const avgLoss       = losses > 0 ? Math.round(totalLost / losses * 100) / 100 : null;
+  const avgDDDuration = ddDurations.length > 0 ? Math.round(ddDurations.reduce((a,b)=>a+b,0)/ddDurations.length) : 0;
+  const maxDDDuration = ddDurations.length > 0 ? Math.max(...ddDurations) : 0;
+
+  // Sharpe & Sortino (por aposta)
+  const meanRet   = betReturns.length > 0 ? betReturns.reduce((a,b)=>a+b,0)/betReturns.length : 0;
+  const variance  = betReturns.length > 1 ? betReturns.reduce((a,r)=>a+(r-meanRet)**2,0)/betReturns.length : 0;
+  const stdDevRet = Math.sqrt(variance);
+  const sharpe    = stdDevRet > 0 ? Math.round(meanRet / stdDevRet * 100) / 100 : null;
+  const downside  = betReturns.filter(r => r < 0);
+  const downsideVar = downside.length > 0 ? downside.reduce((a,r)=>a+r**2,0)/betReturns.length : 0;
+  const sortino   = Math.sqrt(downsideVar) > 0 ? Math.round(meanRet / Math.sqrt(downsideVar) * 100) / 100 : null;
 
   // Kelly criterion usando simOdd
   const p = winrate / 100, q = 1 - p, b = simOdd - 1;
@@ -5923,15 +6015,9 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
   // Risco de ruína — Monte Carlo usando simOdd
   const rorPct = _calcRoR(p, simOdd, BANK / STAKE);
 
-  // Desvio Padrão por aposta: σ = √(p·q) · simOdd
-  // Para aposta binária com ganho (simOdd-1) e perda -1:
-  //   Var = p·q·simOdd²  →  σ = √(p·q)·simOdd
-  const stdDev = Math.sqrt(p * q) * simOdd;
-
-  // Lucro médio esperado por aposta (= roi / 100)
+  // Desvio Padrão (legado — mantido para compatibilidade)
+  const stdDev  = Math.sqrt(p * q) * simOdd;
   const meanBet = p * (simOdd - 1) - q;
-
-  // Coeficiente de Variação = σ / |μ|  (ratio, não percentual — evita valores absurdos)
   const cvRatio = meanBet > 0 ? stdDev / meanBet : null;
 
   // ── OOS: Teste fora da amostra (70 / 30 split temporal) ─────────────────
@@ -5940,8 +6026,6 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
   if (filtered.length >= 20 && splitN >= 10) {
     const trainSet = filtered.slice(0, splitN);
     const testSet  = filtered.slice(splitN);
-
-    // Calcula taxa SOMENTE no conjunto de treino (evita look-ahead)
     let trainRate;
     if (scoreKey) {
       const cnt = trainSet.filter(m => {
@@ -5953,12 +6037,9 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
     } else {
       trainRate = _mktStats(trainSet).mkt[marketKey] || 0;
     }
-
     if (trainRate > 0) {
       const tFairOdd = 100 / trainRate;
       const tSimOdd  = Math.round((tFairOdd + 0.10) * 100) / 100;
-
-      // ROI no treino (parâmetros ajustados ao treino, avaliados no treino)
       let trBank = BANK, trW = 0, trL = 0;
       for (const m of trainSet) {
         const won = outcomeCheck(m);
@@ -5967,9 +6048,7 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
         else      { trBank -= STAKE; trL++; }
       }
       const trTotal = trW + trL;
-      const trRoi = trTotal > 0 ? (trBank - BANK) / (trTotal * STAKE) * 100 : 0;
-
-      // ROI no teste — parâmetros do treino aplicados a dados nunca vistos
+      const trRoi   = trTotal > 0 ? (trBank - BANK) / (trTotal * STAKE) * 100 : 0;
       let tsBank = BANK, tsW = 0, tsL = 0, tsPeak = BANK, tsDD = 0;
       for (const m of testSet) {
         const won = outcomeCheck(m);
@@ -5991,10 +6070,71 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
     }
   }
 
+  // ── Walk-Forward multi-janela ─────────────────────────────────────────────
+  const walkForwardWindows = [];
+  if (filtered.length >= 30) {
+    const thirds = Math.floor(filtered.length / 3);
+    const wfSplits = [
+      { trainEnd: thirds,   testStart: thirds,   testEnd: Math.min(2*thirds, filtered.length) },
+      { trainEnd: 2*thirds, testStart: 2*thirds, testEnd: filtered.length },
+    ];
+    for (const sp of wfSplits) {
+      if (sp.testEnd <= sp.testStart) continue;
+      const trSet = filtered.slice(0, sp.trainEnd);
+      const tsSet = filtered.slice(sp.testStart, sp.testEnd);
+      if (trSet.length < 5 || tsSet.length < 5) continue;
+      let wfRate;
+      if (scoreKey) {
+        const cnt = trSet.filter(m => {
+          const [gc,gf] = m.resultado.split(':').map(v=>parseInt(v)||0);
+          return `${gc}-${gf}` === scoreKey;
+        }).length;
+        const base = cnt / trSet.length * 100;
+        wfRate = invertScore ? (100 - base) : base;
+      } else {
+        wfRate = _mktStats(trSet).mkt[marketKey] || 0;
+      }
+      if (wfRate <= 0) continue;
+      const wfSimOdd = Math.round((100/wfRate + 0.10) * 100) / 100;
+      let tBank = BANK, tW = 0, tL = 0;
+      for (const m of tsSet) {
+        const won = outcomeCheck(m);
+        if (won === null) continue;
+        if (won) { tBank += STAKE * (wfSimOdd - 1); tW++; }
+        else { tBank -= STAKE; tL++; }
+      }
+      const tTotal = tW + tL;
+      if (tTotal > 0) {
+        walkForwardWindows.push({
+          trainN: sp.trainEnd, testStart: sp.testStart,
+          testN: tTotal, testRoi: (tBank - BANK) / (tTotal * STAKE) * 100,
+        });
+      }
+    }
+  }
+
+  // ── Heatmap de Sensibilidade: ROI vs spread acima da odd justa ───────────
+  const sensSpreads = [-0.10, 0.00, 0.10, 0.20, 0.50];
+  const sensitivityData = sensSpreads.map(spread => {
+    const testOdd = Math.max(1.01, Math.round((fairOdd + spread) * 100) / 100);
+    let sBank = BANK, sW = 0, sL = 0;
+    for (const m of filtered) {
+      const won = outcomeCheck(m);
+      if (won === null) continue;
+      if (won) { sBank += STAKE * (testOdd - 1); sW++; }
+      else { sBank -= STAKE; sL++; }
+      if (sBank <= 0) break;
+    }
+    const sTotal = sW + sL;
+    return { spread, odd: testOdd, roi: sTotal > 0 ? Math.round((sBank-BANK)/(sTotal*STAKE)*1000)/10 : null };
+  });
+
   return { total, wins, losses, winrate, profit, roi, maxDD,
            fairOdd, simOdd, rate, bank, kellyFrac, kellStake, rorPct,
            stdDev, cvRatio, oos,
-           bankHistory, rangeLabel: range.label, marketKey, scoreKey };
+           bankHistory, underwaterHistory, rangeLabel: range.label, marketKey, scoreKey,
+           profitFactor, avgWin, avgLoss, sharpe, sortino,
+           avgDDDuration, maxDDDuration, walkForwardWindows, sensitivityData };
 }
 
 function _calcRoR(p, fairOdd, bankUnits) {
@@ -6027,46 +6167,50 @@ function _normalCDF(z) {
 
 function _validateSim(sim) {
   const n   = sim.total;
-  const wr  = sim.winrate / 100;       // winrate observado
-  const p0  = 1 / sim.fairOdd;         // probabilidade justa (hipótese nula)
-  const wins = sim.wins;
+  const wr  = sim.winrate / 100;
+  const p0  = 1 / sim.fairOdd;
 
-  // Z-test binomial unilateral (H₀: wr ≤ p0, H₁: wr > p0)
+  // Z-test binomial unilateral
   const z    = n >= 1 ? (wr - p0) / Math.sqrt(p0 * (1 - p0) / n) : 0;
-  const pval = 1 - _normalCDF(z);      // p-value unilateral
+  const pval = 1 - _normalCDF(z);
 
-  // IC 95% para o winrate
+  // IC 95%
   const margin = n >= 1 ? 1.96 * Math.sqrt(wr * (1 - wr) / n) : 0;
   const ciLow  = Math.max(0, wr - margin);
   const ciHigh = Math.min(1, wr + margin);
-  // Limite inferior do IC em % — se > p0, o edge é robusto mesmo no pior caso
   const ciEdge = ciLow > p0;
 
-  // ── Critérios ──────────────────────────────────────────────────────────
+  // Retenção OOS: ROI_OOS / ROI_Treino
+  const oosPositive  = sim.oos && sim.oos.testTotal >= 5 ? sim.oos.testRoi > 0 : null;
+  const oosRetention = sim.oos && sim.oos.testTotal >= 5 && sim.oos.trainRoi > 0
+    ? sim.oos.testRoi / sim.oos.trainRoi : null;
+  const pfOk = sim.profitFactor != null ? sim.profitFactor > 1.2 : false;
+
+  // ── 8 critérios obrigatórios ────────────────────────────────────────────
   const checks = [
-    { id: 'sample',  ok: n >= 30,           label: `Amostra ≥ 30`,          detail: `${n} apostas` },
-    { id: 'pval',    ok: pval < 0.05,        label: `Significância 95%`,     detail: `p=${(pval*100).toFixed(1)}%` },
-    { id: 'roi',     ok: sim.roi > 0,        label: `ROI positivo`,          detail: `${sim.roi.toFixed(1)}%` },
-    { id: 'kelly',   ok: sim.kellyFrac > 0,  label: `Kelly positivo`,        detail: `${(sim.kellyFrac*100).toFixed(1)}%` },
-    { id: 'dd',      ok: sim.maxDD < 35,     label: `Drawdown < 35%`,        detail: `${sim.maxDD.toFixed(1)}%` },
-    { id: 'ci',      ok: ciEdge,             label: `IC inferior > odd justa`, detail: `IC: ${(ciLow*100).toFixed(1)}–${(ciHigh*100).toFixed(1)}%` },
+    { id: 'sample',  ok: n >= 500,
+      label: 'Amostra ≥ 500',      detail: `${n} apostas` },
+    { id: 'roi',     ok: sim.roi > 0,
+      label: 'ROI positivo',        detail: `${sim.roi.toFixed(1)}%` },
+    { id: 'oos',     ok: oosPositive === true,
+      label: 'OOS positivo',        detail: oosPositive === null ? 'insuf.' : `${sim.oos.testRoi.toFixed(1)}%` },
+    { id: 'pval',    ok: pval < 0.05,
+      label: 'Significância 95%',   detail: `p=${(pval*100).toFixed(1)}%` },
+    { id: 'dd',      ok: sim.maxDD < 30,
+      label: 'Drawdown < 30%',      detail: `${sim.maxDD.toFixed(1)}%` },
+    { id: 'ror',     ok: sim.rorPct <= 1,
+      label: 'Risco Ruína < 1%',    detail: sim.rorPct === 0 ? '<1%' : `${sim.rorPct}%` },
+    { id: 'pf',      ok: pfOk,
+      label: 'Profit Factor > 1.2', detail: sim.profitFactor != null ? sim.profitFactor.toFixed(2) : '—' },
+    { id: 'oos_ret', ok: oosRetention != null ? oosRetention >= 0.6 : false,
+      label: 'Retenção OOS ≥ 60%',  detail: oosRetention != null ? `${(oosRetention*100).toFixed(0)}%` : 'insuf.' },
   ];
 
-  // OOS: check extra quando há dados suficientes para o split
-  if (sim.oos && sim.oos.testTotal >= 5) {
-    checks.push({ id: 'oos', ok: sim.oos.testRoi > 0, label: `OOS positivo`,
-                  detail: `ROI teste: ${sim.oos.testRoi.toFixed(1)}%` });
-  }
+  const passed    = checks.filter(c => c.ok).length;
+  const validated = checks.every(c => c.ok);
+  const partial   = !validated && passed >= 5;
 
-  const passed = checks.filter(c => c.ok).length;
-  const score  = passed;
-
-  // Validado = todos os critérios essenciais (OOS e CI são complementares, não bloqueiam)
-  const essential = checks.filter(c => c.id !== 'ci' && c.id !== 'oos');
-  const validated = essential.every(c => c.ok);
-  const partial   = !validated && passed >= 3;
-
-  return { z, pval, ciLow, ciHigh, ciEdge, checks, passed, score, validated, partial };
+  return { z, pval, ciLow, ciHigh, ciEdge, checks, passed, score: passed, validated, partial };
 }
 
 function _drawBankChart(canvasId, bankHistory, fairOdd) {
@@ -6150,17 +6294,16 @@ function _drawBankChart(canvasId, bankHistory, fairOdd) {
 
 function renderBankSimSection(sim, label, simId) {
   if (!sim) return `<div style="font-size:10px;color:#4b5563;padding:8px 0">Dados insuficientes (min. 5 partidas)</div>`;
-  const p = s => sim[s] > 0 ? '+' + sim[s].toFixed(2) : sim[s].toFixed(2);
   const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
   const proC = sim.profit >= 0 ? '#22c55e' : '#ef4444';
 
-  // Validação estatística
   const val = _validateSim(sim);
+  const failedLabels = val.checks.filter(c => !c.ok).map(c => c.label).join(', ');
   const valBadge = val.validated
     ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#052e16;color:#22c55e;border:1px solid #22c55e55">✅ VALIDADO</span>`
     : val.partial
-    ? `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1c1407;color:#f59e0b;border:1px solid #f59e0b55">⚠️ PARCIAL</span>`
-    : `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1f0808;color:#ef4444;border:1px solid #ef444455">❌ NÃO VALIDADO</span>`;
+    ? `<span title="Falhou: ${failedLabels}" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1c1407;color:#f59e0b;border:1px solid #f59e0b55">⚠️ PARCIAL</span>`
+    : `<span title="Falhou: ${failedLabels}" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:#1f0808;color:#ef4444;border:1px solid #ef444455">❌ NÃO VALIDADO</span>`;
 
   const checkList = val.checks.map(c => `
     <span title="${c.label}: ${c.detail}"
@@ -6170,34 +6313,40 @@ function renderBankSimSection(sim, label, simId) {
                  border:1px solid ${c.ok ? '#16a34a44' : '#dc262644'}">
       ${c.ok ? '✓' : '✗'} ${c.label}
     </span>`).join('');
+
   const ddC  = sim.maxDD > 30 ? '#ef4444' : sim.maxDD > 15 ? '#f59e0b' : '#22c55e';
-  const rorC = sim.rorPct > 30 ? '#ef4444' : sim.rorPct > 10 ? '#f59e0b' : '#22c55e';
-
-  // Desvio padrão — quanto maior a odd, maior a volatilidade
+  const rorC = sim.rorPct > 5  ? '#ef4444' : sim.rorPct > 1  ? '#f59e0b' : '#22c55e';
   const sdC  = sim.stdDev < 0.5 ? '#22c55e' : sim.stdDev < 2.0 ? '#f59e0b' : '#ef4444';
-
-  // CV (σ/μ): mede consistência relativa — menor = mais consistente
-  // < 5x = baixa variância (verde), 5-20x = média (âmbar), > 20x = alta (vermelho)
-  const cvC  = !sim.cvRatio      ? '#6b7280'
-             : sim.cvRatio < 5   ? '#22c55e'
-             : sim.cvRatio < 20  ? '#f59e0b' : '#ef4444';
-  const cvLbl = !sim.cvRatio      ? '—'
-              : sim.cvRatio < 5   ? sim.cvRatio.toFixed(1) + 'x · Baixa'
-              : sim.cvRatio < 20  ? sim.cvRatio.toFixed(1) + 'x · Média'
-              : sim.cvRatio.toFixed(1) + 'x · Alta';
+  const cvC  = !sim.cvRatio    ? '#6b7280' : sim.cvRatio < 5  ? '#22c55e' : sim.cvRatio < 20 ? '#f59e0b' : '#ef4444';
+  const cvLbl= !sim.cvRatio    ? '—' : sim.cvRatio < 5 ? sim.cvRatio.toFixed(1)+'x · Baixa'
+             : sim.cvRatio < 20 ? sim.cvRatio.toFixed(1)+'x · Média' : sim.cvRatio.toFixed(1)+'x · Alta';
+  const pfC  = sim.profitFactor == null ? '#6b7280'
+             : sim.profitFactor > 1.5 ? '#22c55e' : sim.profitFactor > 1.2 ? '#a3e635'
+             : sim.profitFactor > 1.0 ? '#f59e0b' : '#ef4444';
+  const shrC = sim.sharpe == null ? '#6b7280'
+             : sim.sharpe > 0.5 ? '#22c55e' : sim.sharpe > 0.2 ? '#f59e0b' : '#ef4444';
+  const sorC = sim.sortino == null ? '#6b7280'
+             : sim.sortino > 0.5 ? '#22c55e' : sim.sortino > 0.2 ? '#f59e0b' : '#ef4444';
+  const ddDurC = v => v <= 10 ? '#22c55e' : v <= 30 ? '#f59e0b' : '#ef4444';
 
   const cards = [
-    { l: 'Winrate',       v: sim.winrate.toFixed(1) + '%',                                       c: sim.winrate >= 50 ? '#22c55e' : '#ef4444' },
-    { l: 'Apostas',       v: sim.total + ' (' + sim.wins + 'G/' + sim.losses + 'P)',             c: '#94a3b8' },
-    { l: 'Profit (u)',    v: pn(sim.profit, 2),                                                   c: proC },
-    { l: 'ROI',           v: pn(sim.roi, 1) + '%',                                               c: proC },
-    { l: 'Max Drawdown',  v: sim.maxDD.toFixed(1) + '%',                                         c: ddC },
-    { l: 'Risco Ruína',   v: sim.rorPct === 0 ? '<1%' : sim.rorPct + '%',                        c: rorC },
-    { l: 'Odd Justa',     v: '@' + sim.fairOdd.toFixed(2),                                       c: '#f59e0b' },
-    { l: 'Odd Simulada',  v: '@' + sim.simOdd.toFixed(2) + ' (+0.10)',                           c: '#34d399' },
-    { l: 'Kelly Stake',   v: 'R$' + sim.kellStake.toFixed(2) + ' (' + (sim.kellyFrac*100).toFixed(1) + '%)', c: '#a78bfa' },
-    { l: 'Desvio Padrão', v: sim.stdDev.toFixed(2) + 'u/aposta',                                c: sdC,  title: 'Volatilidade por aposta — quanto a banca oscila em cada entrada' },
-    { l: 'Coef. Variação',v: cvLbl,                                                               c: cvC,  title: 'σ / lucro médio — mede consistência: menor = método mais estável' },
+    { l: 'Winrate',        v: sim.winrate.toFixed(1)+'%',                                              c: sim.winrate >= 50 ? '#22c55e' : '#ef4444' },
+    { l: 'Apostas',        v: sim.total+' ('+sim.wins+'G/'+sim.losses+'P)',                            c: '#94a3b8' },
+    { l: 'Profit (u)',     v: pn(sim.profit, 2),                                                       c: proC },
+    { l: 'ROI',            v: pn(sim.roi, 1)+'%',                                                      c: proC },
+    { l: 'Max Drawdown',   v: sim.maxDD.toFixed(1)+'%',                                                c: ddC },
+    { l: 'Risco Ruína',    v: sim.rorPct === 0 ? '<1%' : sim.rorPct+'%',                               c: rorC },
+    { l: 'Odd Justa',      v: '@'+sim.fairOdd.toFixed(2),                                              c: '#f59e0b' },
+    { l: 'Odd Simulada',   v: '@'+sim.simOdd.toFixed(2)+' (+0.10)',                                    c: '#34d399' },
+    { l: 'Kelly Stake',    v: 'R$'+sim.kellStake.toFixed(2)+' ('+(sim.kellyFrac*100).toFixed(1)+'%)',  c: '#a78bfa' },
+    { l: 'Profit Factor',  v: sim.profitFactor != null ? sim.profitFactor.toFixed(2) : '—',            c: pfC,  title: 'Total ganho / Total perdido — > 1.2 = consistente' },
+    { l: 'Avg Win',        v: sim.avgWin  != null ? '+'+sim.avgWin.toFixed(2)+'u'  : '—',              c: '#22c55e', title: 'Lucro médio por aposta ganha' },
+    { l: 'Avg Loss',       v: sim.avgLoss != null ? '-'+sim.avgLoss.toFixed(2)+'u' : '—',              c: '#ef4444', title: 'Perda média por aposta perdida' },
+    { l: 'Sharpe Ratio',   v: sim.sharpe  != null ? sim.sharpe.toFixed(2)  : '—',                     c: shrC, title: 'Retorno médio / desvio padrão por aposta — > 0.5 = bom' },
+    { l: 'Sortino Ratio',  v: sim.sortino != null ? sim.sortino.toFixed(2) : '—',                     c: sorC, title: 'Retorno médio / risco downside — penaliza apenas perdas' },
+    { l: 'DD Dur. Média',  v: sim.avgDDDuration > 0 ? sim.avgDDDuration+'ap' : '—',                   c: ddDurC(sim.avgDDDuration), title: 'Tempo médio em drawdown (apostas)' },
+    { l: 'DD Dur. Máxima', v: sim.maxDDDuration > 0 ? sim.maxDDDuration+'ap' : '—',                   c: ddDurC(sim.maxDDDuration), title: 'Pior sequência em drawdown (apostas)' },
+    { l: 'Coef. Variação', v: cvLbl,                                                                   c: cvC,  title: 'σ / lucro médio — menor = mais consistente' },
   ];
 
   const cardsH = cards.map(c => `
@@ -6217,14 +6366,10 @@ function renderBankSimSection(sim, label, simId) {
     const o = sim.oos;
     const trC = o.trainRoi >= 0 ? '#22c55e' : '#ef4444';
     const tsC = o.testRoi  >= 0 ? '#22c55e' : '#ef4444';
-    // Queda relativa do treino para o teste (só faz sentido se treino > 0)
     const dropPct = o.trainRoi > 0
-      ? Math.max(0, (o.trainRoi - o.testRoi) / o.trainRoi * 100)
-      : null;
+      ? Math.max(0, (o.trainRoi - o.testRoi) / o.trainRoi * 100) : null;
     const dropC = dropPct === null ? '#6b7280'
-                : dropPct < 30    ? '#22c55e'
-                : dropPct < 60    ? '#f59e0b' : '#ef4444';
-
+                : dropPct < 30 ? '#22c55e' : dropPct < 60 ? '#f59e0b' : '#ef4444';
     const verdict = o.testRoi <= 0
       ? `<span style="color:#ef4444;font-weight:700">❌ ROI negativo no teste — possível overfitting</span>`
       : dropPct !== null && dropPct >= 60
@@ -6232,13 +6377,11 @@ function renderBankSimSection(sim, label, simId) {
       : dropPct !== null && dropPct >= 30
       ? `<span style="color:#f59e0b;font-weight:700">⚠️ Queda moderada (${dropPct.toFixed(0)}%) — edge reduzido no teste</span>`
       : `<span style="color:#22c55e;font-weight:700">✅ Robusto — ROI mantido fora da amostra</span>`;
-
     const dropCol = dropPct !== null ? `
       <div style="flex:1;background:var(--bg);border-radius:5px;padding:4px 6px;text-align:center;border:1px solid ${dropC}33">
         <div style="font-size:8px;color:var(--text2)">Queda relativa</div>
         <div style="font-size:13px;font-weight:800;color:${dropC}">${dropPct > 0 ? '-' : ''}${dropPct.toFixed(0)}%</div>
       </div>` : '';
-
     oosHtml = `
       <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
         <div style="font-size:8px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">
@@ -6268,6 +6411,67 @@ function renderBankSimSection(sim, label, simId) {
       </div>`;
   }
 
+  // ── Walk-Forward ────────────────────────────────────────────────────────
+  let wfHtml = '';
+  if (sim.walkForwardWindows && sim.walkForwardWindows.length > 0) {
+    const wfRows = sim.walkForwardWindows.map((w, i) => {
+      const rC = w.testRoi >= 0 ? '#22c55e' : '#ef4444';
+      return `<tr>
+        <td style="padding:3px 6px;font-size:9px;color:var(--text2)">Janela ${i+1}</td>
+        <td style="padding:3px 6px;font-size:9px;color:var(--text2)">${w.trainN} treino → pos.${w.testStart}</td>
+        <td style="padding:3px 6px;font-size:9px;text-align:right;color:var(--text2)">${w.testN}j</td>
+        <td style="padding:3px 6px;font-size:9px;font-weight:700;text-align:right;color:${rC}">${w.testRoi > 0 ? '+' : ''}${w.testRoi.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    const allPos = sim.walkForwardWindows.every(w => w.testRoi > 0);
+    const wfVerdict = allPos
+      ? `<span style="color:#22c55e">✅ Consistente em todas as janelas</span>`
+      : sim.walkForwardWindows.some(w => w.testRoi > 0)
+      ? `<span style="color:#f59e0b">⚠️ Inconsistente — depende do período</span>`
+      : `<span style="color:#ef4444">❌ Negativo em todas as janelas</span>`;
+    wfHtml = `
+      <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+        <div style="font-size:8px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">📊 WALK-FORWARD</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:3px 6px;font-size:8px;color:var(--text2);text-align:left">Janela</th>
+            <th style="padding:3px 6px;font-size:8px;color:var(--text2);text-align:left">Split</th>
+            <th style="padding:3px 6px;font-size:8px;color:var(--text2);text-align:right">n</th>
+            <th style="padding:3px 6px;font-size:8px;color:var(--text2);text-align:right">ROI OOS</th>
+          </tr></thead>
+          <tbody>${wfRows}</tbody>
+        </table>
+        <div style="font-size:8px;margin-top:5px">${wfVerdict}</div>
+      </div>`;
+  }
+
+  // ── Heatmap de Sensibilidade ────────────────────────────────────────────
+  let heatHtml = '';
+  if (sim.sensitivityData && sim.sensitivityData.length > 0) {
+    const cells = sim.sensitivityData.map(d => {
+      const rC = d.roi == null ? '#4b5563'
+               : d.roi > 5  ? '#22c55e' : d.roi > 0   ? '#a3e635'
+               : d.roi > -5 ? '#f59e0b' : '#ef4444';
+      const bg = d.roi == null ? 'var(--bg)'
+               : d.roi > 5  ? '#0d2d0d' : d.roi > 0 ? '#1a2a0a'
+               : d.roi > -5 ? '#2a1f00' : '#2d0a0a';
+      const isBase = Math.abs(d.spread - 0.10) < 0.001;
+      return `<div style="flex:1;background:${bg};border:1px solid ${isBase?'var(--accent)':'var(--border)'};border-radius:5px;padding:4px 3px;text-align:center">
+        <div style="font-size:8px;color:var(--text2)">${d.spread > 0 ? '+' : ''}${(d.spread*100).toFixed(0)}t</div>
+        <div style="font-size:8px;color:#6b7280">@${d.odd.toFixed(2)}</div>
+        <div style="font-size:10px;font-weight:700;color:${rC}">${d.roi != null ? (d.roi > 0 ? '+' : '')+d.roi.toFixed(1)+'%' : '—'}</div>
+      </div>`;
+    }).join('');
+    heatHtml = `
+      <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+        <div style="font-size:8px;font-weight:700;color:var(--text2);margin-bottom:6px;letter-spacing:.4px">
+          🌡️ HEATMAP DE SENSIBILIDADE
+          <span style="font-weight:400;color:#6b7280"> · ROI vs spread acima da odd justa · borda = base (+10t)</span>
+        </div>
+        <div style="display:flex;gap:4px">${cells}</div>
+      </div>`;
+  }
+
   const borderCol = val.validated ? '#16a34a55' : val.partial ? '#d9770655' : 'var(--border)';
   return `
     <div style="background:var(--bg);border:1px solid ${borderCol};border-radius:8px;padding:10px;margin-top:8px">
@@ -6278,10 +6482,16 @@ function renderBankSimSection(sim, label, simId) {
       <div style="font-size:8px;color:#4b5563;margin-bottom:7px">${sim.rangeLabel} · ${sim.total} apostas · banca R$100 · stake R$1</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:8px">${cardsH}</div>
       <canvas id="${simId}" height="80"
-              style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:6px"></canvas>
+              style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:2px"></canvas>
+      <canvas id="${simId}_uw" height="36"
+              style="width:100%;display:block;border-radius:6px;background:var(--bg3);margin-bottom:4px"
+              title="Underwater Chart — profundidade do drawdown ao longo do tempo"></canvas>
+      <div style="font-size:8px;color:#4b5563;text-align:center;margin-bottom:6px">▲ Evolução da banca &nbsp;·&nbsp; ▼ Underwater (profundidade do drawdown)</div>
       <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px">${checkList}</div>
       <div style="font-size:9px;color:var(--text2);margin-bottom:4px">${noteC}</div>
       ${oosHtml}
+      ${wfHtml}
+      ${heatHtml}
     </div>`;
 }
 
@@ -6517,12 +6727,22 @@ function renderBtMarketsPanel(matches) {
       ↑↓ diferença vs. base geral &nbsp;·&nbsp; verde &gt;+4pp &nbsp;·&nbsp; vermelho &gt;−4pp
     </div>`;
 
-  // ── tabela de placar correto por range — split prováveis / improváveis ──
+  // ── tabela de placar correto por range — split DINÂMICO ──────────────────
 
-  // Classifica cada score pela frequência base
   const _csBaseFreq = sk => base.n > 0 ? Math.round((base.scores[sk]||0)/base.n*100) : 0;
-  const csProvaveis   = BT_SCORE_LIST.filter(sk => _csBaseFreq(sk) >= 4);
-  const csImprovaveis = BT_SCORE_LIST.filter(sk => { const f=_csBaseFreq(sk); return f > 0 && f < 4; });
+
+  // Coleta TODOS os placares presentes nos dados (base + qualquer range)
+  const _allScoreSet = new Set(Object.keys(base.scores || {}));
+  data.forEach(r => Object.keys(r.scores || {}).forEach(sk => _allScoreSet.add(sk)));
+  const _allScoresSorted = [..._allScoreSet].sort((a, b) => {
+    const [ag, af] = a.split('-').map(Number), [bg, bf] = b.split('-').map(Number);
+    const ta = ag + af, tb = bg + bf;
+    return ta !== tb ? ta - tb : ag !== bg ? ag - bg : af - bf;
+  });
+
+  // Separação dinâmica: base ≥ 4% → prováveis; base < 4% → improváveis
+  const csProvaveis   = _allScoresSorted.filter(sk => _csBaseFreq(sk) >= 4);
+  const csImprovaveis = _allScoresSorted.filter(sk => _csBaseFreq(sk) < 4);
 
   // Coroa independente para cada grupo
   // (ignora ranges com < 5 partidas para garantir que a simulação de banca possa rodar)
@@ -6624,66 +6844,6 @@ function renderBtMarketsPanel(matches) {
       ↑↓ diferença vs. base geral &nbsp;·&nbsp; verde &gt;+2pp &nbsp;·&nbsp; vermelho &gt;−2pp
     </div>` : '';
 
-  // ── placares por range ──
-  function scoreCell(sk, cnt, n, baseScores, baseN, dimmed) {
-    const p   = n > 0 ? Math.round(cnt/n*100) : 0;
-    const bp  = baseN > 0 ? Math.round((baseScores[sk]||0)/baseN*100) : 0;
-    const d   = p - bp;
-    const col = dimmed ? '#4b5563'
-              : Math.abs(d) <= 1 ? 'var(--text2)' : d > 0 ? '#22c55e' : '#ef4444';
-    const bg  = dimmed ? 'var(--bg)'
-              : p >= 10 ? '#0d2d0d' : p >= 5 ? '#2a1f00' : 'var(--bg3)';
-    return `<div style="background:${bg};border:1px solid ${dimmed?'#1f2937':'var(--border)'};
-                        border-radius:4px;padding:4px 2px;text-align:center"
-                 title="${cnt}j — ${sk}${d!==0&&!dimmed?` (${d>0?'+':''}${d}pp vs base)`:''}">
-      <div style="font-size:10px;font-weight:700;color:${col}">${sk}</div>
-      <div style="font-size:10px;color:${col}">${p>0?p+'%':'—'}</div>
-      <div style="font-size:9px;color:${dimmed?'#374151':'var(--text2)'}">${cnt}j</div>
-    </div>`;
-  }
-
-  function scoreGrid(rd) {
-    // Grid padrão 4×4 (0-0 até 3-3)
-    const mainGrid = BT_SCORE_LIST.map(sk =>
-      scoreCell(sk, rd.scores[sk]||0, rd.n, base.scores, base.n, false)
-    ).join('');
-
-    // Improváveis: scores do BT_SCORE_LIST com baixa frequência (< 4%)
-    const extras = BT_SCORE_LIST
-      .map(sk => [sk, rd.scores[sk] || 0])
-      .filter(([sk, cnt]) => {
-        const p = rd.n > 0 ? cnt / rd.n * 100 : 0;
-        return p > 0 && p < 4;
-      })
-      .sort((a, b) => b[1] - a[1]);
-
-    const impHtml = extras.length ? `
-      <div style="grid-column:1/-1;margin-top:6px;padding-top:6px;border-top:1px solid #1f2937">
-        <div style="font-size:8px;font-weight:700;color:#4b5563;letter-spacing:.5px;
-                    text-transform:uppercase;margin-bottom:4px">Improváveis</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">
-          ${extras.map(([sk, cnt]) =>
-            scoreCell(sk, cnt, rd.n, base.scores, base.n, false)
-          ).join('')}
-        </div>
-      </div>` : '';
-
-    return mainGrid + impHtml;
-  }
-
-  const placaresHTML = data.map(r => {
-    if (!r.n) return '';
-    return `<div>
-      <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px">
-        <span style="color:var(--accent)">${r.label}</span>
-        <span style="font-weight:400"> · ${r.n}j</span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:10px">
-        ${scoreGrid(r)}
-      </div>
-    </div>`;
-  }).join('');
-
   // ── Simulações de Banca — uma por coluna de BT_MKTS ─────────────────
   // Para cada mercado, pega o range com maior % e roda a simulação
   const colSims = BT_MKTS.map((mk, mki) => {
@@ -6726,9 +6886,14 @@ function renderBtMarketsPanel(matches) {
   const negColSims = colSims.filter(cs => cs.sim.profit < 0);
 
   // Armazena para redesenho ao abrir/fechar painel (toggleBtMarkets)
-  panel._colSims     = posColSims.map(cs => ({ chartId: cs.chartId, bankHistory: cs.sim.bankHistory, fairOdd: cs.sim.fairOdd }));
-  panel._lastSimCS    = simCS    || null;
-  panel._lastSimCSImp = simCSImp || null;
+  panel._colSims = posColSims.map(cs => ({
+    chartId: cs.chartId,
+    bankHistory: cs.sim.bankHistory,
+    fairOdd: cs.sim.fairOdd,
+    underwaterHistory: cs.sim.underwaterHistory,
+  }));
+  panel._lastSimCS    = simCS    ? { bankHistory: simCS.bankHistory,    fairOdd: simCS.fairOdd,    underwaterHistory: simCS.underwaterHistory    } : null;
+  panel._lastSimCSImp = simCSImp ? { bankHistory: simCSImp.bankHistory, fairOdd: simCSImp.fairOdd, underwaterHistory: simCSImp.underwaterHistory } : null;
 
   const colSimsHTML = posColSims.map(cs =>
     renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
@@ -6778,14 +6943,6 @@ function renderBtMarketsPanel(matches) {
         <div>${tableHTML}</div>
         <div>${csTableHTML}</div>
         <div>${csTableImpHTML}</div>
-      </div>
-      <!-- Placares por Range abaixo, em grid multi-coluna -->
-      <div style="margin-top:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;
-                    letter-spacing:.4px;margin-bottom:8px">Placares por Range</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
-          ${placaresHTML}
-        </div>
       </div>
       ${simHTML}
     </div>`;
