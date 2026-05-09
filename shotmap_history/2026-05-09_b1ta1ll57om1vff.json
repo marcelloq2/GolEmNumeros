@@ -1,0 +1,267 @@
+{
+  "event_id": "b1ta1ll57om1vff",
+  "date": "2026-05-09",
+  "casa": "Grazer AK",
+  "fora": "Rheindorf Altach",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 23,
+  "shotmap": [
+    {
+      "id": 2935305559,
+      "minute": 98,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "M. Şatin",
+      "x": 14.5,
+      "y": 48.4
+    },
+    {
+      "id": 2935303289,
+      "minute": 96,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D. Maderner",
+      "x": 12.1,
+      "y": 52.8
+    },
+    {
+      "id": 2935301495,
+      "minute": 94,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "A. Hofleitner",
+      "x": 12.5,
+      "y": 49.4
+    },
+    {
+      "id": 2935293157,
+      "minute": 87,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D. Maderner",
+      "x": 13,
+      "y": 45.4
+    },
+    {
+      "id": 2935292541,
+      "minute": 86,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T. Koch",
+      "x": 18.8,
+      "y": 46
+    },
+    {
+      "id": 2935291639,
+      "minute": 85,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "unassisted",
+      "player": "M. Şatin",
+      "x": 9.2,
+      "y": 62.4
+    },
+    {
+      "id": 2935291519,
+      "minute": 85,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D. Maderner",
+      "x": 9.7,
+      "y": 54.6
+    },
+    {
+      "id": 2935290385,
+      "minute": 84,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y. Massombo Litawumba",
+      "x": 15,
+      "y": 44
+    },
+    {
+      "id": 2935286871,
+      "minute": 78,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Y. Massombo Litawumba",
+      "x": 13.2,
+      "y": 82.3
+    },
+    {
+      "id": 2935283019,
+      "minute": 72,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D. Pines",
+      "x": 7.6,
+      "y": 46.6
+    },
+    {
+      "id": 2935272993,
+      "minute": 61,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T. Koch",
+      "x": 18.2,
+      "y": 47.9
+    },
+    {
+      "id": 2935271037,
+      "minute": 59,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "V. Demaku",
+      "x": 25.7,
+      "y": 56.3
+    },
+    {
+      "id": 2935270925,
+      "minute": 59,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "unassisted",
+      "player": "V. Demaku",
+      "x": 14.5,
+      "y": 64.2
+    },
+    {
+      "id": 2935268765,
+      "minute": 56,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "M. Große",
+      "x": 12.6,
+      "y": 37.4
+    },
+    {
+      "id": 2935233835,
+      "minute": 44,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J. Italiano",
+      "x": 25,
+      "y": 44.2
+    },
+    {
+      "id": 2935239369,
+      "minute": 43,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M. Kreuzriegler",
+      "x": 1.4,
+      "y": 58.2
+    },
+    {
+      "id": 2935227043,
+      "minute": 37,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "P. Greil",
+      "x": 24.9,
+      "y": 6.7
+    },
+    {
+      "id": 2935218317,
+      "minute": 27,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "M. Große",
+      "x": 24.4,
+      "y": 69.3
+    },
+    {
+      "id": 2935215157,
+      "minute": 24,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "B. Zech",
+      "x": 15,
+      "y": 49.5
+    },
+    {
+      "id": 2935215107,
+      "minute": 23,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M. Ouédraogo",
+      "x": 7.4,
+      "y": 53
+    },
+    {
+      "id": 2935214671,
+      "minute": 23,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y. Massombo Litawumba",
+      "x": 25.1,
+      "y": 38.7
+    },
+    {
+      "id": 2935211909,
+      "minute": 20,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "R. Harakaté",
+      "x": 25.3,
+      "y": 39.4
+    },
+    {
+      "id": 2935205595,
+      "minute": 14,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "P. Greil",
+      "x": 10.8,
+      "y": 48.2
+    }
+  ]
+}
