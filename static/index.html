@@ -6063,6 +6063,7 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
   const bankHistory = [BANK];
   const underwaterHistory = [0];
   const betReturns = [];
+  const betOutcomes = [];
   let totalWon = 0, totalLost = 0;
   let inDD = false, ddStart = 0;
   const ddDurations = [];
@@ -6072,6 +6073,7 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
     if (won === null) { skipped++; continue; }
     const ret = won ? STAKE * (simOdd - 1) : -STAKE;
     betReturns.push(ret);
+    betOutcomes.push(won);
     if (won) { bank += STAKE * (simOdd - 1); wins++; totalWon += STAKE * (simOdd - 1); }
     else      { bank -= STAKE; losses++; totalLost += STAKE; }
     if (bank > peak) peak = bank;
@@ -6236,12 +6238,33 @@ function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertSco
     return { spread, odd: testOdd, roi: sTotal > 0 ? Math.round((sBank-BANK)/(sTotal*STAKE)*1000)/10 : null };
   });
 
+  // ── Winrate por blocos ──────────────────────────────────────────────────
+  const BLOCK_SIZE = total >= 400 ? 100 : total >= 200 ? 50 : total >= 80 ? 25 : 20;
+  const blockStats = [];
+  for (let i = 0; i < betOutcomes.length; i += BLOCK_SIZE) {
+    const slice = betOutcomes.slice(i, i + BLOCK_SIZE);
+    if (slice.length < Math.floor(BLOCK_SIZE / 2)) break; // descarta bloco muito pequeno
+    const bW = slice.filter(Boolean).length;
+    const bT = slice.length;
+    const bWr = bW / bT * 100;
+    let bBank = BANK;
+    let bPeak = BANK, bMaxDD = 0;
+    for (const w of slice) {
+      if (w) bBank += STAKE * (simOdd - 1); else bBank -= STAKE;
+      if (bBank > bPeak) bPeak = bBank;
+      const bDd = (bPeak - bBank) / bPeak * 100;
+      if (bDd > bMaxDD) bMaxDD = bDd;
+    }
+    blockStats.push({ from: i + 1, to: i + slice.length, wins: bW, total: bT, winrate: bWr,
+                      roi: (bBank - BANK) / (bT * STAKE) * 100, maxDD: bMaxDD });
+  }
+
   return { total, wins, losses, winrate, profit, roi, maxDD,
            fairOdd, simOdd, rate, bank, kellyFrac, kellStake, rorPct,
            stdDev, cvRatio, oos,
            bankHistory, underwaterHistory, rangeLabel: range.label, marketKey, scoreKey,
            profitFactor, avgWin, avgLoss, sharpe, sortino,
-           avgDDDuration, maxDDDuration, walkForwardWindows, sensitivityData };
+           avgDDDuration, maxDDDuration, walkForwardWindows, sensitivityData, blockStats };
 }
 
 function _calcRoR(p, fairOdd, bankUnits) {
@@ -6477,6 +6500,53 @@ function _drawBankChart(canvasId, bankHistory, fairOdd) {
   ctx.restore();
 }
 
+function _renderBlockWinrate(sim) {
+  if (!sim.blockStats || sim.blockStats.length < 2) return '';
+  const bs = sim.blockStats;
+  const wrs = bs.map(b => b.winrate);
+  const avgWr = wrs.reduce((a, b) => a + b, 0) / wrs.length;
+  const minWr = Math.min(...wrs), maxWr = Math.max(...wrs);
+  const spread = maxWr - minWr;
+  const verdict = spread < 5
+    ? `<span style="color:#22c55e">✅ Muito consistente (variação ${spread.toFixed(1)}pp)</span>`
+    : spread < 12
+    ? `<span style="color:#a3e635">✅ Consistente (variação ${spread.toFixed(1)}pp)</span>`
+    : spread < 20
+    ? `<span style="color:#f59e0b">⚠️ Moderada (variação ${spread.toFixed(1)}pp)</span>`
+    : `<span style="color:#ef4444">❌ Alta variação (${spread.toFixed(1)}pp) — resultado sensível ao período</span>`;
+
+  const barMaxH = 48;
+  const wrMin = Math.max(0, Math.floor((minWr - 5) / 5) * 5);
+  const wrMax = Math.min(100, Math.ceil((maxWr + 5) / 5) * 5);
+  const bars = bs.map((b, i) => {
+    const pct = (b.winrate - wrMin) / (wrMax - wrMin);
+    const h = Math.max(4, Math.round(pct * barMaxH));
+    const isHigh = b.winrate === maxWr, isLow = b.winrate === minWr;
+    const col = isHigh ? '#22c55e' : isLow ? '#ef4444'
+              : b.roi >= 0 ? '#60a5fa' : '#f87171';
+    const label = bs.length <= 12 ? `${b.from}-${b.to}` : `B${i+1}`;
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:1px"
+           title="Bloco ${b.from}–${b.to}: ${b.winrate.toFixed(1)}% WR · ${b.wins}/${b.total} · ROI ${b.roi > 0 ? '+' : ''}${b.roi.toFixed(1)}%">
+        <div style="font-size:7px;font-weight:700;color:${col}">${b.winrate.toFixed(0)}%</div>
+        <div style="width:100%;background:var(--bg);border-radius:2px;overflow:hidden;height:${barMaxH}px;display:flex;align-items:flex-end">
+          <div style="width:100%;height:${h}px;background:${col};border-radius:2px 2px 0 0"></div>
+        </div>
+        <div style="font-size:6px;color:var(--text2);white-space:nowrap">${label}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
+        <div style="font-size:8px;font-weight:700;color:var(--text2);letter-spacing:.4px">📦 WINRATE POR BLOCOS</div>
+        <div style="font-size:7px;color:#6b7280">· ${bs[0].total} apostas/bloco · média ${avgWr.toFixed(1)}% · min ${minWr.toFixed(1)}% · max ${maxWr.toFixed(1)}%</div>
+      </div>
+      <div style="display:flex;gap:2px;align-items:flex-end;height:${barMaxH + 24}px">${bars}</div>
+      <div style="font-size:8px;margin-top:6px">${verdict}</div>
+    </div>`;
+}
+
 function renderBankSimSection(sim, label, simId) {
   if (!sim) return `<div style="font-size:10px;color:#4b5563;padding:8px 0">Dados insuficientes (min. 5 partidas)</div>`;
   const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
@@ -6710,6 +6780,7 @@ function renderBankSimSection(sim, label, simId) {
       ${oosHtml}
       ${wfHtml}
       ${heatHtml}
+      ${_renderBlockWinrate(sim)}
     </div>`;
 }
 
