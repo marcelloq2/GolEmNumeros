@@ -3036,14 +3036,26 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
       }
     }
 
-    // ── Atualiza placar com fonte UniScore (mais confiável que RadarFutebol) ──
+    // ── Atualiza placar FT + HT com fonte UniScore (mais confiável que RadarFutebol) ──
     if (data.score_h !== undefined && data.score_h !== null &&
         data.score_a !== undefined && data.score_a !== null) {
       const scoreEl = document.getElementById('liveScoreBig');
       if (scoreEl) {
-        const newScore = `${data.score_h}-${data.score_a}`;
-        scoreEl.textContent = newScore;
+        scoreEl.textContent = `${data.score_h}-${data.score_a}`;
         scoreEl.title = 'Placar via UniScore';
+      }
+    }
+    if (data.score_ht_h !== undefined && data.score_ht_h !== null &&
+        data.score_ht_a !== undefined && data.score_ht_a !== null) {
+      // Atualiza o texto "HT: X-X" — procura o elemento que contém "HT:"
+      const header = document.querySelector('.live-match-header');
+      if (header) {
+        const htEls = header.querySelectorAll('div');
+        htEls.forEach(el => {
+          if (el.textContent.startsWith('HT:')) {
+            el.textContent = `HT: ${data.score_ht_h}-${data.score_ht_a}`;
+          }
+        });
       }
     }
 

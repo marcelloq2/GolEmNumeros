@@ -739,8 +739,10 @@ def _fetch_uniscore_graph(uni_match):
             finished = status.get("type") == "finished"
             hs = ev_data.get("homeScore", {}) or {}
             as_ = ev_data.get("awayScore", {}) or {}
-            score_h = hs.get("current")
-            score_a = as_.get("current")
+            score_h    = hs.get("current")
+            score_a    = as_.get("current")
+            score_ht_h = hs.get("period1")
+            score_ht_a = as_.get("period1")
     except Exception:
         pass
 
@@ -750,6 +752,8 @@ def _fetch_uniscore_graph(uni_match):
         "finished":           finished,
         "score_h":            score_h,
         "score_a":            score_a,
+        "score_ht_h":         score_ht_h,
+        "score_ht_a":         score_ht_a,
         "statistics":         statistics_periods.get("ALL", {}),
         "statistics_periods": statistics_periods,
         "shotmap":            shotmap,
