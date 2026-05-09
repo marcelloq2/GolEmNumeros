@@ -5698,8 +5698,9 @@ async function loadBacktestDay(date, rowEl) {
   const matchList = document.getElementById('btMatchList');
   const header    = document.getElementById('btMatchesHeader');
   const detail    = document.getElementById('btDetail');
+  _btDetailHasMatch = false;
   matchList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  detail.innerHTML = '<div class="bt-detail-placeholder"><div style="font-size:13px;color:var(--text2)">Clique numa partida para ver os detalhes</div></div>';
+  detail.innerHTML = '<div class="bt-detail-placeholder"><div style="font-size:13px;color:var(--text2)">Calculando simulações...</div></div>';
   try {
     const res  = await fetch(`/api/backtest/${date}`);
     if (!res.ok) throw new Error('not found');
@@ -6912,18 +6913,16 @@ function renderBtMarketsPanel(matches) {
       </div>
     </div>` : '';
 
-  const simHTML = `
-    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+  const simBodyHTML = `
+    <div style="padding:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca — todas as metodologias</span>
-        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10) · melhor range por mercado</span>
+        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10)</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;align-items:start">
-        ${colSimsHTML}
-        ${simCS    ? renderBankSimSection(simCS,    simCSLbl,    'bankChartCS')    : ''}
-        ${simCSImp ? renderBankSimSection(simCSImp, simCSImpLbl, 'bankChartCSImp') : ''}
-        ${negSummaryHTML}
-      </div>
+      ${colSimsHTML}
+      ${simCS    ? renderBankSimSection(simCS,    simCSLbl,    'bankChartCS')    : ''}
+      ${simCSImp ? renderBankSimSection(simCSImp, simCSImpLbl, 'bankChartCSImp') : ''}
+      ${negSummaryHTML}
     </div>`;
 
   panel.innerHTML = `
@@ -6944,11 +6943,19 @@ function renderBtMarketsPanel(matches) {
         <div>${csTableHTML}</div>
         <div>${csTableImpHTML}</div>
       </div>
-      ${simHTML}
     </div>`;
 
+  // Popula btDetail com simulações quando nenhuma partida está selecionada
+  if (!_btDetailHasMatch) {
+    const detailEl = document.getElementById('btDetail');
+    if (detailEl) {
+      detailEl.innerHTML = simBodyHTML;
+      detailEl.dataset.showingSim = 'true';
+    }
+  }
+
   // Desenha gráficos após o DOM ser atualizado (50ms para garantir layout)
-  if (btMarketsOpen) _redrawBtCharts();
+  setTimeout(() => _redrawBtCharts(), 50);
 }
 
 // Score simplificado para backtest (sem detalhes completos)
@@ -7033,6 +7040,7 @@ function renderBtMatchRow(m) {
 async function openBacktestDetail(url, rowEl) {
   document.querySelectorAll('.bt-match-row').forEach(r => r.classList.remove('active'));
   rowEl.classList.add('active');
+  _btDetailHasMatch = true;
   const detail = document.getElementById('btDetail');
   detail.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Buscando detalhes...</div>';
 
@@ -7074,6 +7082,7 @@ async function openBacktestDetail(url, rowEl) {
 
 let dynCurrentMatches = []; // compatibilidade com openBacktestDetail
 let btMarketsOpen = false;
+let _btDetailHasMatch = false; // true quando btDetail exibe detalhe de partida
 let btMatchListVisible = false;
 
 function toggleBtMatchList() {
