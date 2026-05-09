@@ -3629,6 +3629,58 @@ function buildShotMapHtml(shots, homeName, awayName) {
     <!-- Ponto pênalti direito -->
     <circle cx="${(W*0.895).toFixed(1)}" cy="${(H/2).toFixed(1)}" r="2" fill="#ffffff30"/>
 
+    <!-- ── Faixas de zona de chute ─────────────────────────────────────── -->
+    <!-- HOME · Área Pequena (0–12%) verde -->
+    <rect x="2" y="4" width="${(W*0.12-2).toFixed(1)}" height="${H-8}"
+          fill="#22c55e" opacity="0.09" rx="3"/>
+    <!-- HOME · Área Grande (12–32%) azul -->
+    <rect x="${(W*0.12).toFixed(1)}" y="4" width="${(W*0.20).toFixed(1)}" height="${H-8}"
+          fill="#3b82f6" opacity="0.07"/>
+    <!-- HOME · Meia Distância (32–45%) âmbar -->
+    <rect x="${(W*0.32).toFixed(1)}" y="4" width="${(W*0.13).toFixed(1)}" height="${H-8}"
+          fill="#f59e0b" opacity="0.06"/>
+    <!-- Centro · Longa Distância (45–55%) vermelho -->
+    <rect x="${(W*0.45).toFixed(1)}" y="4" width="${(W*0.10).toFixed(1)}" height="${H-8}"
+          fill="#ef4444" opacity="0.05"/>
+    <!-- AWAY · Meia Distância (55–68%) âmbar -->
+    <rect x="${(W*0.55).toFixed(1)}" y="4" width="${(W*0.13).toFixed(1)}" height="${H-8}"
+          fill="#f59e0b" opacity="0.06"/>
+    <!-- AWAY · Área Grande (68–88%) azul -->
+    <rect x="${(W*0.68).toFixed(1)}" y="4" width="${(W*0.20).toFixed(1)}" height="${H-8}"
+          fill="#3b82f6" opacity="0.07"/>
+    <!-- AWAY · Área Pequena (88–100%) verde -->
+    <rect x="${(W*0.88).toFixed(1)}" y="4" width="${(W*0.12-2).toFixed(1)}" height="${H-8}"
+          fill="#22c55e" opacity="0.09" rx="3"/>
+
+    <!-- ── Linhas divisórias de zona ───────────────────────────────────── -->
+    <!-- Verde — AP/AG -->
+    <line x1="${(W*0.12).toFixed(1)}" y1="4"  x2="${(W*0.12).toFixed(1)}" y2="${H-4}"
+          stroke="#22c55e" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <line x1="${(W*0.88).toFixed(1)}" y1="4"  x2="${(W*0.88).toFixed(1)}" y2="${H-4}"
+          stroke="#22c55e" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <!-- Azul — AG/MD -->
+    <line x1="${(W*0.32).toFixed(1)}" y1="4"  x2="${(W*0.32).toFixed(1)}" y2="${H-4}"
+          stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <line x1="${(W*0.68).toFixed(1)}" y1="4"  x2="${(W*0.68).toFixed(1)}" y2="${H-4}"
+          stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <!-- Âmbar — MD/LD -->
+    <line x1="${(W*0.45).toFixed(1)}" y1="4"  x2="${(W*0.45).toFixed(1)}" y2="${H-4}"
+          stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <line x1="${(W*0.55).toFixed(1)}" y1="4"  x2="${(W*0.55).toFixed(1)}" y2="${H-4}"
+          stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+
+    <!-- ── Labels de zona (fundo para legibilidade) ────────────────────── -->
+    <!-- HOME labels -->
+    <text x="${(W*0.06).toFixed(1)}"  y="${H-5}" font-size="7" fill="#22c55e" opacity="0.85" text-anchor="middle">AP</text>
+    <text x="${(W*0.22).toFixed(1)}"  y="${H-5}" font-size="7" fill="#3b82f6" opacity="0.85" text-anchor="middle">AG</text>
+    <text x="${(W*0.385).toFixed(1)}" y="${H-5}" font-size="7" fill="#f59e0b" opacity="0.85" text-anchor="middle">MD</text>
+    <!-- Centro -->
+    <text x="${(W*0.50).toFixed(1)}"  y="${H-5}" font-size="7" fill="#ef4444" opacity="0.85" text-anchor="middle">LD</text>
+    <!-- AWAY labels -->
+    <text x="${(W*0.615).toFixed(1)}" y="${H-5}" font-size="7" fill="#f59e0b" opacity="0.85" text-anchor="middle">MD</text>
+    <text x="${(W*0.78).toFixed(1)}"  y="${H-5}" font-size="7" fill="#3b82f6" opacity="0.85" text-anchor="middle">AG</text>
+    <text x="${(W*0.94).toFixed(1)}"  y="${H-5}" font-size="7" fill="#22c55e" opacity="0.85" text-anchor="middle">AP</text>
+
     <!-- Chutes HOME (azul) — ataca gol ESQUERDO -->
     ${homeShots.map(s => shotIcon(s)).join('\n    ')}
     <!-- Chutes AWAY (laranja) — ataca gol DIREITO -->
