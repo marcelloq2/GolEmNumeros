@@ -674,9 +674,14 @@ def _fetch_uniscore_graph(uni_match):
         if ri.status_code == 200:
             for inc in ri.json().get("data", {}).get("incidents", []):
                 if inc.get("incidentType") == "goal":
+                    player     = inc.get("player") or inc.get("scorer") or {}
+                    added_time = inc.get("addedTime") or 0
                     goals.append({
-                        "minute": inc.get("time", 0),
-                        "team":   "home" if inc.get("isHome") else "away",
+                        "minute":     inc.get("time", 0),
+                        "addedTime":  added_time,
+                        "team":       "home" if inc.get("isHome") else "away",
+                        "player":     player.get("shortName") or player.get("name") or "",
+                        "ownGoal":    inc.get("incidentClass") == "ownGoal",
                     })
     except Exception:
         pass

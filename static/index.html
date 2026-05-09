@@ -3047,7 +3047,6 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
     }
     if (data.score_ht_h !== undefined && data.score_ht_h !== null &&
         data.score_ht_a !== undefined && data.score_ht_a !== null) {
-      // Atualiza o texto "HT: X-X" — procura o elemento que contém "HT:"
       const header = document.querySelector('.live-match-header');
       if (header) {
         const htEls = header.querySelectorAll('div');
@@ -3056,6 +3055,39 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
             el.textContent = `HT: ${data.score_ht_h}-${data.score_ht_a}`;
           }
         });
+      }
+    }
+
+    // ── Artilheiros ──
+    const goals = data.goals || [];
+    if (goals.length) {
+      const scoreBlock = document.getElementById('liveScoreBig')?.closest('.live-score-block');
+      if (scoreBlock) {
+        // Remove linha anterior se existir
+        const old = scoreBlock.querySelector('.live-scorers-row');
+        if (old) old.remove();
+
+        const homeGoals = goals.filter(g => !g.ownGoal && g.team === 'home');
+        const awayGoals = goals.filter(g => !g.ownGoal && g.team === 'away');
+        const homeOG    = goals.filter(g => g.ownGoal  && g.team !== 'home'); // gol contra = marcou no próprio gol = beneficia o adversário
+        const awayOG    = goals.filter(g => g.ownGoal  && g.team !== 'away');
+
+        const fmtGoal = g => {
+          const min = g.addedTime ? `${g.minute}+${g.addedTime}'` : `${g.minute}'`;
+          return `${g.player ? g.player + ' ' : ''}${min}`;
+        };
+
+        const homeLines = [...homeGoals, ...homeOG].map(fmtGoal);
+        const awayLines = [...awayGoals, ...awayOG].map(fmtGoal);
+
+        const row = document.createElement('div');
+        row.className = 'live-scorers-row';
+        row.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;gap:4px;width:100%;margin-top:4px;font-size:10px;line-height:1.4';
+        row.innerHTML = `
+          <div style="text-align:right;color:rgba(147,197,253,0.9)">${homeLines.join('<br>')}</div>
+          <div style="color:#ef444480;font-size:9px;padding-top:2px">⚽</div>
+          <div style="text-align:left;color:rgba(253,186,116,0.9)">${awayLines.join('<br>')}</div>`;
+        scoreBlock.appendChild(row);
       }
     }
 
