@@ -2686,6 +2686,7 @@ function renderLiveDetail(m) {
         <div id="momentumAxis" style="display:none"></div>
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
+        <div id="indicatorsPanel" style="display:none;margin-top:6px"></div>
         <div id="similarMatches" style="display:none;margin-top:5px"></div>
         <div id="statsPatternPanel" style="display:none;margin-top:5px"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
@@ -3092,6 +3093,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
 
     // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
     updateMomentumIndicator(points, data.finished, eventId);
+    _renderIndicatorsPanel(points);
 
   } catch(e) {
     const loading = document.getElementById('momentumLoading');
@@ -3114,6 +3116,89 @@ async function _getAnalysis() {
     setTimeout(() => { _analysisCache = null; }, 5 * 60 * 1000);
   } catch(e) {}
   return _analysisCache;
+}
+
+// ── Painel de Indicadores ──────────────────────────────────────────────────
+function _renderIndicatorsPanel(points) {
+  const el = document.getElementById('indicatorsPanel');
+  if (!el || !points || points.length < 4) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+
+  const indicators = [];
+
+  // ── Indicador 1: Controle de Momentum (quem está melhor agora) ──
+  const WIN = 8; // últimos 8 pontos
+  const recent = points.slice(-WIN);
+  const vals = recent.map(p => p.value || 0);
+
+  // Média ponderada (pontos mais recentes têm mais peso)
+  let weightedSum = 0, totalWeight = 0;
+  vals.forEach((v, i) => {
+    const w = i + 1;
+    weightedSum += v * w;
+    totalWeight += w;
+  });
+  const avg = totalWeight > 0 ? weightedSum / totalWeight : 0;
+
+  // Percentual de pontos positivos vs negativos
+  const homePoints = vals.filter(v => v > 0).length;
+  const awayPoints = vals.filter(v => v < 0).length;
+  const neutPoints = vals.length - homePoints - awayPoints;
+  const total = vals.length || 1;
+
+  // Força relativa (0–100, 50=equilibrado)
+  const allAbs = vals.map(Math.abs);
+  const homeSum = vals.filter(v=>v>0).reduce((a,b)=>a+b,0);
+  const awaySum = Math.abs(vals.filter(v=>v<0).reduce((a,b)=>a+b,0));
+  const totalAbs = homeSum + awaySum || 1;
+  const homePct = Math.round(homeSum / totalAbs * 100);
+  const awayPct = 100 - homePct;
+
+  let controlLabel, controlColor, controlBg, controlIcon;
+  const BIAS = 0.8; // threshold de desequilíbrio (em unidades de avg)
+  if (avg > BIAS) {
+    controlLabel = 'Casa dominando'; controlColor = '#60a5fa';
+    controlBg = 'rgba(59,130,246,.08)'; controlIcon = '🟦';
+  } else if (avg < -BIAS) {
+    controlLabel = 'Visitante dominando'; controlColor = '#f87171';
+    controlBg = 'rgba(239,68,68,.08)'; controlIcon = '🟥';
+  } else if (Math.abs(avg) > 0.3) {
+    const side = avg > 0 ? 'Casa levemente melhor' : 'Visitante levemente melhor';
+    controlLabel = side;
+    controlColor = avg > 0 ? '#93c5fd' : '#fca5a5';
+    controlBg = 'rgba(100,116,139,.06)'; controlIcon = avg > 0 ? '⬜🟦' : '⬜🟥';
+  } else {
+    controlLabel = 'Equilibrado'; controlColor = '#94a3b8';
+    controlBg = 'rgba(100,116,139,.06)'; controlIcon = '⚖️';
+  }
+
+  // Barra tug-of-war
+  const barHome = `<div style="height:100%;width:${homePct}%;background:#3b82f6;border-radius:3px 0 0 3px;transition:width .4s"></div>`;
+  const barAway = `<div style="height:100%;width:${awayPct}%;background:#ef4444;border-radius:0 3px 3px 0;transition:width .4s;margin-left:auto"></div>`;
+
+  indicators.push(`
+    <div style="background:${controlBg};border:1px solid ${controlColor}44;border-radius:7px;padding:7px 10px">
+      <div style="font-size:8px;font-weight:700;color:var(--text2);letter-spacing:.4px;margin-bottom:5px">
+        ⚡ CONTROLE DE MOMENTUM <span style="font-weight:400;color:#4b5563">· últimos ${WIN} pontos</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:10px;font-weight:700;color:${controlColor};white-space:nowrap">${controlIcon} ${controlLabel}</div>
+        <div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex">
+          <div style="height:100%;width:${homePct}%;background:#3b82f6;border-radius:3px 0 0 3px;transition:width .4s"></div>
+          <div style="height:100%;width:${awayPct}%;background:#ef4444;border-radius:0 3px 3px 0;transition:width .4s"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px">
+        <span style="font-size:8px;color:#60a5fa">🏠 Casa ${homePct}%</span>
+        <span style="font-size:8px;color:#94a3b8">avg ${avg>=0?'+':''}${avg.toFixed(1)}</span>
+        <span style="font-size:8px;color:#f87171">Vis ${awayPct}% ✈️</span>
+      </div>
+    </div>`);
+
+  el.style.display = 'block';
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:5px">${indicators.join('')}</div>`;
 }
 
 function _lightningIcon(color, size = 22) {
