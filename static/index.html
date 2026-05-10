@@ -4006,15 +4006,20 @@ function buildShotMapHtml(shots, homeName, awayName) {
       <span style="color:#22c55e;font-weight:700">${goals} ⚽</span>
     </div>`;
 
+  const shotHidden = localStorage.getItem('liveShotmapHidden') === '1';
   return `
   <div style="margin-top:4px">
-    <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:4px">
-      ⚽ MAPA DE CHUTES
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">⚽ MAPA DE CHUTES</div>
+      <button class="shotmap-toggle-btn" onclick="(function(){var b=document.getElementById('shotmapBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';localStorage.setItem('liveShotmapHidden','0');}else{b.style.display='none';btn.textContent='Mostrar';localStorage.setItem('liveShotmapHidden','1');}}).call(this)"
+              style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">${shotHidden ? 'Mostrar' : 'Ocultar'}</button>
     </div>
-    ${fieldSvg}
-    <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
-      ${statBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
-      ${statBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+    <div id="shotmapBody" style="${shotHidden ? 'display:none' : ''}">
+      ${fieldSvg}
+      <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
+        ${statBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
+        ${statBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+      </div>
     </div>
   </div>`;
 }
