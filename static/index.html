@@ -2427,12 +2427,25 @@ async function loadLiveMatches(silent = false) {
       });
       html += `</div>`;
     }
-    list.innerHTML = html;
+    // ── Sidebar: no refresh silencioso atualiza só o que mudou ──
+    const existingIds = new Set([...list.querySelectorAll('.live-match-row')].map(el => el.id.replace('liveRow_','')));
+    const newIds      = new Set(matches.map(m => String(m.id)));
+    const sameSet     = silent && existingIds.size === newIds.size && [...newIds].every(id => existingIds.has(id));
+
+    if (sameSet) {
+      // Atualiza apenas placar na sidebar (sem tocar no DOM)
+      matches.forEach(m => {
+        const sc = document.getElementById(`sidebarScore_${m.id}`);
+        if (sc) sc.textContent = `${m.golCasaFt} - ${m.golForaFt}`;
+      });
+    } else {
+      list.innerHTML = html;
+    }
 
     // ── Enriquecimento automático com Uniscore (assíncrono, não bloqueia render) ──
-    _enrichAllWithUniscore(matches);
+    if (!sameSet) _enrichAllWithUniscore(matches);
 
-    // ── Relógio da sidebar: incrementa cada minuto por segundo ──
+    // ── Relógio da sidebar: reseta tempos base com dados novos ──
     clearInterval(_sidebarTempoInterval);
     _sidebarTempos = {};
     const now = Date.now();
@@ -2451,20 +2464,23 @@ async function loadLiveMatches(silent = false) {
       }
     }, 1000);
 
-    // Re-abre detalhe do jogo ativo se ainda existir (sem piscar)
+    // ── Detalhe: no refresh silencioso atualiza só placar ──
     if (activeLiveId !== null) {
       const m = matches.find(x => x.id === activeLiveId);
       if (m) {
-        // Salva estado do Ocultar antes de re-renderizar
-        const statsBodyBefore = document.getElementById('uniStatsBody');
-        const wasHidden = statsBodyBefore ? statsBodyBefore.style.display === 'none' : (localStorage.getItem('liveStatsHidden') === '1');
-        renderLiveDetail(m);
-        // Restaura estado do Ocultar após renderizar
-        const statsBody = document.getElementById('uniStatsBody');
-        const statsBtn  = document.querySelector('#liveDetailPanel .stats-toggle-btn');
-        if (statsBody && wasHidden) {
-          statsBody.style.display = 'none';
-          if (statsBtn) statsBtn.textContent = 'Mostrar';
+        if (silent) {
+          // Só atualiza placar e cartões no header — sem re-renderizar nada
+          const sc = document.getElementById('liveScoreBig');
+          if (sc) sc.textContent = `${m.golCasaFt}-${m.golForaFt}`;
+        } else {
+          // Primeira abertura: render completo + restaura Ocultar
+          renderLiveDetail(m);
+          if (localStorage.getItem('liveStatsHidden') === '1') {
+            const sb = document.getElementById('uniStatsBody');
+            const btn = document.querySelector('.stats-toggle-btn');
+            if (sb) sb.style.display = 'none';
+            if (btn) btn.textContent = 'Mostrar';
+          }
         }
       }
     }
