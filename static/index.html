@@ -2302,6 +2302,7 @@ let _sidebarTempos        = {};     // { id: { baseSec, startedAt } }
 
 // ── Cache Uniscore { "casa|fora": enrichData } ──
 let _uniCache = {};
+let _liveShotsCache = {}; // eventId → shots[]
 
 // Converte "MM'" ou "MM'SS" para total de segundos
 function parseTempo(str) {
@@ -3093,7 +3094,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
 
     // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
     updateMomentumIndicator(points, data.finished, eventId);
-    _renderIndicatorsPanel(points, homeName, awayName);
+    _renderIndicatorsPanel(points, homeName, awayName, eventId);
 
   } catch(e) {
     const loading = document.getElementById('momentumLoading');
@@ -3119,7 +3120,7 @@ async function _getAnalysis() {
 }
 
 // ── Painel de Indicadores ──────────────────────────────────────────────────
-function _renderIndicatorsPanel(points, homeName, awayName) {
+function _renderIndicatorsPanel(points, homeName, awayName, eventId) {
   const el = document.getElementById('indicatorsPanel');
   if (!el || !points || points.length < 4) {
     if (el) el.style.display = 'none';
@@ -3127,7 +3128,7 @@ function _renderIndicatorsPanel(points, homeName, awayName) {
   }
 
   const indicators = [];
-  // Guarda times para o badge assíncrono
+  // Guarda contexto para o badge assíncrono
   el._homeName = homeName;
   el._awayName = awayName;
 
@@ -3166,7 +3167,7 @@ function _renderIndicatorsPanel(points, homeName, awayName) {
 
   // Calcula badges de forma assíncrona (não bloqueia o render)
   _updatePatternBadge(points, homeName, awayName);
-  _updateShotmapBadge(homeName, awayName);
+  _updateShotmapBadge(eventId);
 }
 
 async function _updatePatternBadge(points, homeName, awayName) {
@@ -3262,14 +3263,12 @@ async function _updatePatternBadge(points, homeName, awayName) {
   badge.textContent = `📊 ${label}`;
 }
 
-async function _updateShotmapBadge(homeName, awayName) {
+async function _updateShotmapBadge(eventId) {
   const badge = document.getElementById('shotmapBadge');
   if (!badge) return;
 
-  // Dados ao vivo do shotmap (Uniscore cache)
-  const cacheKey = `${homeName}|${awayName}`;
-  const uni      = _uniCache[cacheKey];
-  const shots    = uni?.shotmap;
+  // Dados do mapa de chutes ao vivo (cache do loadShotmap)
+  const shots = _liveShotsCache[eventId];
   if (!shots || shots.length === 0) { badge.style.display = 'none'; return; }
 
   // Padrões históricos por zona
@@ -3793,7 +3792,9 @@ async function loadShotmap(eventId, casa, fora) {
     const d = await r.json();
     const shots = d.shots || [];
     if (!shots.length) { el.innerHTML = ''; return; }
+    _liveShotsCache[eventId] = shots;
     el.innerHTML = buildShotMapHtml(shots, casa, fora);
+    _updateShotmapBadge(eventId); // atualiza badge com dados frescos
   } catch(e) {
     el.innerHTML = '';
   }
