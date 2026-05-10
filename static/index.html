@@ -3093,7 +3093,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
 
     // ── Indicador HTML abaixo do gráfico ─────────────────────────────────
     updateMomentumIndicator(points, data.finished, eventId);
-    _renderIndicatorsPanel(points);
+    _renderIndicatorsPanel(points, homeName, awayName);
 
   } catch(e) {
     const loading = document.getElementById('momentumLoading');
@@ -3119,7 +3119,7 @@ async function _getAnalysis() {
 }
 
 // ── Painel de Indicadores ──────────────────────────────────────────────────
-function _renderIndicatorsPanel(points) {
+function _renderIndicatorsPanel(points, homeName, awayName) {
   const el = document.getElementById('indicatorsPanel');
   if (!el || !points || points.length < 4) {
     if (el) el.style.display = 'none';
@@ -3127,6 +3127,9 @@ function _renderIndicatorsPanel(points) {
   }
 
   const indicators = [];
+  // Guarda times para o badge assíncrono
+  el._homeName = homeName;
+  el._awayName = awayName;
 
   // ── Indicador 1: Controle de Momentum (partida inteira, pesos crescentes) ──
   const vals = points.map(p => p.value || 0);
@@ -3178,7 +3181,83 @@ function _renderIndicatorsPanel(points) {
     </span>`);
 
   el.style.display = 'block';
-  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px">${indicators.join('')}</div>`;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px">${indicators.join('')}<span id="patternBadge" style="display:none"></span></div>`;
+
+  // Calcula badge de padrões de forma assíncrona (não bloqueia o render)
+  _updatePatternBadge(points, homeName, awayName);
+}
+
+async function _updatePatternBadge(points, homeName, awayName) {
+  const badge = document.getElementById('patternBadge');
+  if (!badge) return;
+
+  // ── 1. Stats ao vivo do Uniscore (se disponíveis) ──
+  const cacheKey = `${homeName}|${awayName}`;
+  const uni = _uniCache[cacheKey];
+  const stats = uni?.statistics || {};
+
+  const gv = (k) => {
+    const it = stats[k];
+    if (!it) return [null, null];
+    return [it.homeValue ?? null, it.awayValue ?? null];
+  };
+
+  const [sotH, sotA] = gv('shots_on_target');
+  const [bigH, bigA] = gv('big_chances');
+  const [xgH,  xgA]  = gv('xg');
+  const [sibH, sibA] = gv('shots_inside_box');
+  const [shH,  shA]  = gv('shots');
+
+  // Scores ofensivos por time (quanto mais dados, melhor)
+  let homeOff = 0, awayOff = 0, hasStats = false;
+
+  if (xgH !== null)  { homeOff += xgH  * 4; awayOff += xgA  * 4; hasStats = true; }
+  if (bigH !== null) { homeOff += bigH  * 3; awayOff += bigA  * 3; hasStats = true; }
+  if (sotH !== null) { homeOff += sotH  * 2; awayOff += sotA  * 2; hasStats = true; }
+  if (sibH !== null) { homeOff += sibH  * 1.5; awayOff += sibA * 1.5; hasStats = true; }
+  if (shH  !== null) { homeOff += shH   * 1; awayOff += shA   * 1; hasStats = true; }
+
+  // ── 2. Momentum recente (últimos 15 pontos) como tiebreak ──
+  const recent = points.slice(-15);
+  const momH = recent.filter(p => (p.value||0) > 0).reduce((s,p) => s + (p.value||0), 0);
+  const momA = recent.filter(p => (p.value||0) < 0).reduce((s,p) => s + Math.abs(p.value||0), 0);
+
+  // Se não tem stats do Uniscore, usa só momentum
+  if (!hasStats) {
+    homeOff = momH;
+    awayOff = momA;
+  } else {
+    // Combina stats (70%) + momentum (30%)
+    const total = momH + momA || 1;
+    homeOff = homeOff * 0.7 + (momH / total * 100) * 0.3;
+    awayOff = awayOff * 0.7 + (momA / total * 100) * 0.3;
+  }
+
+  const totalOff = homeOff + awayOff || 1;
+  const homePct  = Math.round(homeOff / totalOff * 100);
+  const awayPct  = 100 - homePct;
+  const diff     = homePct - awayPct; // positivo = casa melhor
+
+  let label, color, bg, icon;
+  if (diff > 15) {
+    label = 'Casa + perto do gol'; color = '#60a5fa'; bg = 'rgba(59,130,246,.08)'; icon = '🎯';
+  } else if (diff < -15) {
+    label = 'Visitante + perto do gol'; color = '#f87171'; bg = 'rgba(239,68,68,.08)'; icon = '🎯';
+  } else if (diff > 5) {
+    label = 'Casa levemente perigosa'; color = '#93c5fd'; bg = 'rgba(59,130,246,.05)'; icon = '🎯';
+  } else if (diff < -5) {
+    label = 'Vis levemente perigosa'; color = '#fca5a5'; bg = 'rgba(239,68,68,.05)'; icon = '🎯';
+  } else {
+    label = 'Perigo equilibrado'; color = '#94a3b8'; bg = 'rgba(100,116,139,.06)'; icon = '🎯';
+  }
+
+  const src = hasStats ? `stats+momentum · ${homePct}% vs ${awayPct}%` : `só momentum · ${homePct}% vs ${awayPct}%`;
+
+  badge.style.display = 'inline-flex';
+  badge.title = `Padrões de Estatísticas · ${src}`;
+  badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+    color:${color};background:${bg};border:1px solid ${color}44;border-radius:5px;padding:2px 7px;cursor:default`;
+  badge.textContent = `${icon} ${label}`;
 }
 
 function _lightningIcon(color, size = 22) {
