@@ -3131,53 +3131,34 @@ function _renderIndicatorsPanel(points, homeName, awayName) {
   el._homeName = homeName;
   el._awayName = awayName;
 
-  // ── Indicador 1: Controle de Momentum (partida inteira, pesos crescentes) ──
-  const vals = points.map(p => p.value || 0);
+  // ── Indicador 1: Controle de Momentum (janela atual — últimos 5 minutos) ──
+  const curMin  = points[points.length - 1]?.minute || 0;
+  // Pega pontos dos últimos 5 minutos reais
+  const WIN_MIN = 5;
+  const recent  = points.filter(p => (p.minute || 0) >= curMin - WIN_MIN);
+  const vals    = (recent.length >= 2 ? recent : points.slice(-3)).map(p => p.value || 0);
+  const avg     = vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
 
-  // Média ponderada por toda a partida (pontos mais recentes têm mais peso)
-  let weightedSum = 0, totalWeight = 0;
-  vals.forEach((v, i) => {
-    const w = i + 1;
-    weightedSum += v * w;
-    totalWeight += w;
-  });
-  const avg = totalWeight > 0 ? weightedSum / totalWeight : 0;
-
-  // Força relativa (soma positivos vs soma negativos)
-  const homeSum = vals.filter(v=>v>0).reduce((a,b)=>a+b,0);
-  const awaySum = Math.abs(vals.filter(v=>v<0).reduce((a,b)=>a+b,0));
-  const totalAbs = homeSum + awaySum || 1;
-  const homePct = Math.round(homeSum / totalAbs * 100);
-  const awayPct = 100 - homePct;
-
-  let controlLabel, controlColor, controlBg, controlIcon;
-  const BIAS = 0.8; // threshold de desequilíbrio (em unidades de avg)
+  let controlLabel, controlColor, controlBg;
+  const BIAS = 1.5;
   if (avg > BIAS) {
-    controlLabel = 'Casa dominando'; controlColor = '#60a5fa';
-    controlBg = 'rgba(59,130,246,.08)'; controlIcon = '🟦';
+    controlLabel = 'Casa dominando';        controlColor = '#60a5fa'; controlBg = 'rgba(59,130,246,.08)';
   } else if (avg < -BIAS) {
-    controlLabel = 'Visitante dominando'; controlColor = '#f87171';
-    controlBg = 'rgba(239,68,68,.08)'; controlIcon = '🟥';
-  } else if (Math.abs(avg) > 0.3) {
-    const side = avg > 0 ? 'Casa levemente melhor' : 'Visitante levemente melhor';
-    controlLabel = side;
-    controlColor = avg > 0 ? '#93c5fd' : '#fca5a5';
-    controlBg = 'rgba(100,116,139,.06)'; controlIcon = avg > 0 ? '⬜🟦' : '⬜🟥';
+    controlLabel = 'Visitante dominando';   controlColor = '#f87171'; controlBg = 'rgba(239,68,68,.08)';
+  } else if (avg > 0.4) {
+    controlLabel = 'Casa leve vantagem';    controlColor = '#93c5fd'; controlBg = 'rgba(59,130,246,.05)';
+  } else if (avg < -0.4) {
+    controlLabel = 'Vis leve vantagem';     controlColor = '#fca5a5'; controlBg = 'rgba(239,68,68,.05)';
   } else {
-    controlLabel = 'Equilibrado'; controlColor = '#94a3b8';
-    controlBg = 'rgba(100,116,139,.06)'; controlIcon = '⚖️';
+    controlLabel = 'Equilibrado';           controlColor = '#94a3b8'; controlBg = 'rgba(100,116,139,.06)';
   }
 
-  // Barra tug-of-war
-  const barHome = `<div style="height:100%;width:${homePct}%;background:#3b82f6;border-radius:3px 0 0 3px;transition:width .4s"></div>`;
-  const barAway = `<div style="height:100%;width:${awayPct}%;background:#ef4444;border-radius:0 3px 3px 0;transition:width .4s;margin-left:auto"></div>`;
-
   indicators.push(`
-    <span title="Controle de Momentum · partida inteira · avg ${avg>=0?'+':''}${avg.toFixed(1)} · min ${points[points.length-1]?.minute || 0}'"
+    <span title="Controle de Momentum · últimos ${WIN_MIN}min · avg ${avg>=0?'+':''}${avg.toFixed(1)} · min ${curMin}'"
           style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
                  color:${controlColor};background:${controlBg};border:1px solid ${controlColor}44;
                  border-radius:5px;padding:2px 7px;cursor:default">
-      ${controlIcon} ${controlLabel}
+      ${controlLabel}
     </span>`);
 
   el.style.display = 'block';
