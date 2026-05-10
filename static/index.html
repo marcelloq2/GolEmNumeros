@@ -3191,73 +3191,93 @@ async function _updatePatternBadge(points, homeName, awayName) {
   const badge = document.getElementById('patternBadge');
   if (!badge) return;
 
-  // ── 1. Stats ao vivo do Uniscore (se disponíveis) ──
+  // ── Padrões de Estatísticas: compara stats atuais vs padrões históricos ──
   const cacheKey = `${homeName}|${awayName}`;
-  const uni = _uniCache[cacheKey];
-  const stats = uni?.statistics || {};
+  const uni      = _uniCache[cacheKey];
+  const stats    = uni?.statistics || {};
+  const safeMin  = Math.max(1, points[points.length-1]?.minute || 1);
 
-  const gv = (k) => {
+  const gv = k => {
     const it = stats[k];
     if (!it) return [null, null];
     return [it.homeValue ?? null, it.awayValue ?? null];
   };
 
-  const [sotH, sotA] = gv('shots_on_target');
-  const [bigH, bigA] = gv('big_chances');
-  const [xgH,  xgA]  = gv('xg');
-  const [sibH, sibA] = gv('shots_inside_box');
-  const [shH,  shA]  = gv('shots');
+  const [shotsH, shotsA] = gv('shots');
+  const [sotH,   sotA]   = gv('shots_on_target');
+  const [cornH,  cornA]  = gv('corner_kicks');
+  const [bigH,   bigA]   = gv('big_chances');
+  const [sibH,   sibA]   = gv('shots_inside_box');
+  const [posH,   posA]   = gv('ball_possession');
+  const [xgH,    xgA]   = gv('xg');
 
-  // Scores ofensivos por time (quanto mais dados, melhor)
-  let homeOff = 0, awayOff = 0, hasStats = false;
+  // Verifica se tem dados suficientes
+  const hasStats = [sotH, bigH, xgH, sibH].some(v => v !== null);
+  if (!hasStats) { badge.style.display = 'none'; return; }
 
-  if (xgH !== null)  { homeOff += xgH  * 4; awayOff += xgA  * 4; hasStats = true; }
-  if (bigH !== null) { homeOff += bigH  * 3; awayOff += bigA  * 3; hasStats = true; }
-  if (sotH !== null) { homeOff += sotH  * 2; awayOff += sotA  * 2; hasStats = true; }
-  if (sibH !== null) { homeOff += sibH  * 1.5; awayOff += sibA * 1.5; hasStats = true; }
-  if (shH  !== null) { homeOff += shH   * 1; awayOff += shA   * 1; hasStats = true; }
+  // Busca padrões históricos
+  const patterns = await _fetchStatsPatterns();
+  if (!patterns?.outcomes) { badge.style.display = 'none'; return; }
 
-  // ── 2. Momentum recente (últimos 15 pontos) como tiebreak ──
-  const recent = points.slice(-15);
-  const momH = recent.filter(p => (p.value||0) > 0).reduce((s,p) => s + (p.value||0), 0);
-  const momA = recent.filter(p => (p.value||0) < 0).reduce((s,p) => s + Math.abs(p.value||0), 0);
+  const factor = safeMin >= 85 ? 1 : Math.min(2.5, 90 / safeMin);
+  const proj   = v => v !== null ? v * factor : null;
 
-  // Se não tem stats do Uniscore, usa só momentum
-  if (!hasStats) {
-    homeOff = momH;
-    awayOff = momA;
-  } else {
-    // Combina stats (70%) + momentum (30%)
-    const total = momH + momA || 1;
-    homeOff = homeOff * 0.7 + (momH / total * 100) * 0.3;
-    awayOff = awayOff * 0.7 + (momA / total * 100) * 0.3;
+  const lp = {
+    shots_h:            proj(shotsH), shots_a:            proj(shotsA),
+    shots_on_target_h:  proj(sotH),   shots_on_target_a:  proj(sotA),
+    corner_kicks_h:     proj(cornH),  corner_kicks_a:     proj(cornA),
+    big_chances_h:      proj(bigH),   big_chances_a:      proj(bigA),
+    shots_inside_box_h: proj(sibH),   shots_inside_box_a: proj(sibA),
+    ball_possession_h:  posH,         ball_possession_a:  posA,
+    xg_h:              proj(xgH),     xg_a:              proj(xgA),
+  };
+
+  const WEIGHTS = {
+    shots_on_target_h: 3, shots_on_target_a: 3,
+    big_chances_h:     3, big_chances_a:     3,
+    xg_h:             3, xg_a:             3,
+    shots_inside_box_h:2, shots_inside_box_a:2,
+    shots_h:           2, shots_a:           2,
+    ball_possession_h: 1, ball_possession_a: 1,
+    corner_kicks_h:    1, corner_kicks_a:    1,
+  };
+
+  const gaussian = (lv, pv) => {
+    if (lv == null || pv == null || pv <= 0) return null;
+    const sigma = Math.max(pv * 0.55, 0.8);
+    return Math.exp(-Math.pow(lv - pv, 2) / (2 * sigma * sigma));
+  };
+
+  // Similaridade vs padrões históricos de vitória casa/visitante
+  const outcomes = patterns.outcomes;
+  const sim = {};
+  for (const oc of ['casaV', 'emp', 'visV']) {
+    const pat = outcomes[oc];
+    if (!pat || (pat.n || 0) < 5) { sim[oc] = 0.33; continue; }
+    let sumW = 0, sumS = 0;
+    for (const [sk, w] of Object.entries(WEIGHTS)) {
+      const s = gaussian(lp[sk], pat[sk]);
+      if (s !== null) { sumS += s * w; sumW += w; }
+    }
+    sim[oc] = sumW > 0 ? sumS / sumW : 0.33;
   }
 
-  const totalOff = homeOff + awayOff || 1;
-  const homePct  = Math.round(homeOff / totalOff * 100);
-  const awayPct  = 100 - homePct;
-  const diff     = homePct - awayPct; // positivo = casa melhor
+  const tot    = sim.casaV + sim.emp + sim.visV || 1;
+  const pCasa  = Math.round(sim.casaV / tot * 100);
+  const pVis   = Math.max(0, 100 - pCasa - Math.round(sim.emp / tot * 100));
+  const diff   = pCasa - pVis;
 
-  let label, color, bg, icon;
-  if (diff > 15) {
-    label = 'Casa + perto do gol'; color = '#60a5fa'; bg = 'rgba(59,130,246,.08)'; icon = '🎯';
-  } else if (diff < -15) {
-    label = 'Visitante + perto do gol'; color = '#f87171'; bg = 'rgba(239,68,68,.08)'; icon = '🎯';
-  } else if (diff > 5) {
-    label = 'Casa levemente perigosa'; color = '#93c5fd'; bg = 'rgba(59,130,246,.05)'; icon = '🎯';
-  } else if (diff < -5) {
-    label = 'Vis levemente perigosa'; color = '#fca5a5'; bg = 'rgba(239,68,68,.05)'; icon = '🎯';
-  } else {
-    label = 'Perigo equilibrado'; color = '#94a3b8'; bg = 'rgba(100,116,139,.06)'; icon = '🎯';
-  }
+  let label, color, bg;
+  if (diff > 15)       { label = 'Casa + perto do gol';      color = '#60a5fa'; bg = 'rgba(59,130,246,.08)'; }
+  else if (diff < -15) { label = 'Visitante + perto do gol'; color = '#f87171'; bg = 'rgba(239,68,68,.08)';  }
+  else if (diff > 5)   { label = 'Casa perigosa';            color = '#93c5fd'; bg = 'rgba(59,130,246,.05)'; }
+  else if (diff < -5)  { label = 'Vis perigosa';             color = '#fca5a5'; bg = 'rgba(239,68,68,.05)';  }
+  else                 { label = 'Ataque equilibrado';       color = '#94a3b8'; bg = 'rgba(100,116,139,.06)';}
 
-  const src = hasStats ? `stats+momentum · ${homePct}% vs ${awayPct}%` : `só momentum · ${homePct}% vs ${awayPct}%`;
-
-  badge.style.display = 'inline-flex';
-  badge.title = `Padrões de Estatísticas · ${src}`;
+  badge.title = `Padrões de Estatísticas · Casa ${pCasa}% vs Vis ${pVis}%`;
   badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
     color:${color};background:${bg};border:1px solid ${color}44;border-radius:5px;padding:2px 7px;cursor:default`;
-  badge.textContent = `${icon} ${label}`;
+  badge.textContent = `📊 ${label}`;
 }
 
 function _lightningIcon(color, size = 22) {
