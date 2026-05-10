@@ -4630,6 +4630,8 @@ function _renderUniscore(d) {
 }
 
 function _renderSignalHistory(el, key, finished) {
+  if (el) el.style.display = 'none';
+  return;
   if (!el || !key) return;
   const hist = _signalHistory[String(key)] || [];
   if (hist.length < 1) { el.style.display = 'none'; return; }
