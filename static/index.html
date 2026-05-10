@@ -2427,23 +2427,10 @@ async function loadLiveMatches(silent = false) {
       });
       html += `</div>`;
     }
-    // ── Sidebar: no refresh silencioso atualiza só o que mudou ──
-    const existingIds = new Set([...list.querySelectorAll('.live-match-row')].map(el => el.id.replace('liveRow_','')));
-    const newIds      = new Set(matches.map(m => String(m.id)));
-    const sameSet     = silent && existingIds.size === newIds.size && [...newIds].every(id => existingIds.has(id));
-
-    if (sameSet) {
-      // Atualiza apenas placar na sidebar (sem tocar no DOM)
-      matches.forEach(m => {
-        const sc = document.getElementById(`sidebarScore_${m.id}`);
-        if (sc) sc.textContent = `${m.golCasaFt} - ${m.golForaFt}`;
-      });
-    } else {
-      list.innerHTML = html;
-    }
+    list.innerHTML = html;
 
     // ── Enriquecimento automático com Uniscore (assíncrono, não bloqueia render) ──
-    if (!sameSet) _enrichAllWithUniscore(matches);
+    _enrichAllWithUniscore(matches);
 
     // ── Relógio da sidebar: reseta tempos base com dados novos ──
     clearInterval(_sidebarTempoInterval);
@@ -2464,23 +2451,16 @@ async function loadLiveMatches(silent = false) {
       }
     }, 1000);
 
-    // ── Detalhe: no refresh silencioso atualiza só placar ──
+    // Re-abre detalhe do jogo ativo + restaura Ocultar
     if (activeLiveId !== null) {
       const m = matches.find(x => x.id === activeLiveId);
       if (m) {
-        if (silent) {
-          // Só atualiza placar e cartões no header — sem re-renderizar nada
-          const sc = document.getElementById('liveScoreBig');
-          if (sc) sc.textContent = `${m.golCasaFt}-${m.golForaFt}`;
-        } else {
-          // Primeira abertura: render completo + restaura Ocultar
-          renderLiveDetail(m);
-          if (localStorage.getItem('liveStatsHidden') === '1') {
-            const sb = document.getElementById('uniStatsBody');
-            const btn = document.querySelector('.stats-toggle-btn');
-            if (sb) sb.style.display = 'none';
-            if (btn) btn.textContent = 'Mostrar';
-          }
+        renderLiveDetail(m);
+        if (localStorage.getItem('liveStatsHidden') === '1') {
+          const sb = document.getElementById('uniStatsBody');
+          const btn = document.querySelector('.stats-toggle-btn');
+          if (sb) sb.style.display = 'none';
+          if (btn) btn.textContent = 'Mostrar';
         }
       }
     }
