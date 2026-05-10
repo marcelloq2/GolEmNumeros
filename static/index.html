@@ -2380,12 +2380,44 @@ async function loadLiveMatches() {
         const redFora  = m.cartaoFora > 0 ? `<span style="color:#ef4444;font-size:10px">🟥×${m.cartaoFora}</span>` : '';
         const isActive = activeLiveId === m.id;
         const isFav    = isLiveMatchFavorite(m.casa, m.fora);
+
+        // Tenta cruzar com allMatches para pegar scores do StatArea
+        const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+        const ref  = (allMatches||[]).find(x =>
+          norm(x.casa).includes(norm(m.casa).slice(0,6)) ||
+          norm(m.casa).includes(norm(x.casa).slice(0,6))
+        );
+        const sCasa  = ref ? calcBtTeamScore(ref, true)  : null;
+        const sVis   = ref ? calcBtTeamScore(ref, false) : null;
+        const sGols  = ref ? calcGoalScore(ref)          : null;
+
+        const scoreBadge = (v, title) => {
+          if (v === null) return '';
+          const cor = v >= 70 ? '#22c55e' : v >= 55 ? '#a3e635' : v >= 40 ? '#f59e0b' : '#ef4444';
+          const bg  = v >= 70 ? '#0d2d0d' : v >= 55 ? '#1a2a0a' : v >= 40 ? '#2a1f00' : '#2d0a0a';
+          return `<span title="${title}" style="font-size:9px;font-weight:700;color:${cor};background:${bg};
+            border-radius:3px;padding:0 4px;margin-left:4px;flex-shrink:0">${v}</span>`;
+        };
+        const goalBadge = (v) => {
+          if (v === null) return '';
+          const info = goalScoreInfo(v);
+          return `<span title="⚽ ${info.label}" style="font-size:9px;font-weight:700;color:${info.color};
+            background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px;margin-left:4px;flex-shrink:0">⚽${v}</span>`;
+        };
+
         html += `
           <div class="live-match-row ${isActive ? 'active' : ''}" id="liveRow_${m.id}"
                onclick="openLiveDetail('${m.id}', this)">
             <div class="live-match-teams">
-              <div class="live-match-team">${isFav ? '<span style="color:#f59e0b;font-size:11px">⭐</span> ' : ''}${m.casa} ${redCasa}</div>
-              <div class="live-match-team" style="color:var(--text2)">${m.fora} ${redFora}</div>
+              <div class="live-match-team" style="display:flex;align-items:center">
+                ${isFav ? '<span style="color:#f59e0b;font-size:11px">⭐</span> ' : ''}${m.casa} ${redCasa}${scoreBadge(sCasa,'Score Casa')}
+              </div>
+              <div class="live-match-team" style="display:flex;align-items:center;color:var(--text2)">
+                <span style="flex:1;color:var(--text2);font-size:9px">${grp.pais ? grp.pais+' · ' : ''}${grp.name}</span>${goalBadge(sGols)}
+              </div>
+              <div class="live-match-team" style="display:flex;align-items:center">
+                ${m.fora} ${redFora}${scoreBadge(sVis,'Score Visitante')}
+              </div>
             </div>
             <div class="live-match-right">
               <div class="live-score-badge" id="sidebarScore_${m.id}">${scoreFt}</div>
