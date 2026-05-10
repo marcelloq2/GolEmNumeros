@@ -4476,9 +4476,15 @@ function _renderUniscore(d) {
 
   const statsHtml = statsRows || _hasPeriods ? `
     <div style="padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.4px">📊 ESTATÍSTICAS</div>
-      ${periodTabsHtml}
-      ${_hasPeriods ? periodPanelsHtml : statsRows}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.4px">📊 ESTATÍSTICAS</div>
+        <button onclick="(function(){var b=document.getElementById('uniStatsBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';}else{b.style.display='none';btn.textContent='Mostrar';}}).call(this)"
+                style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">Ocultar</button>
+      </div>
+      <div id="uniStatsBody">
+        ${periodTabsHtml}
+        ${_hasPeriods ? periodPanelsHtml : statsRows}
+      </div>
     </div>` : `
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-around;
                 padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
