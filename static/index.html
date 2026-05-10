@@ -3170,26 +3170,15 @@ function _renderIndicatorsPanel(points) {
   const barAway = `<div style="height:100%;width:${awayPct}%;background:#ef4444;border-radius:0 3px 3px 0;transition:width .4s;margin-left:auto"></div>`;
 
   indicators.push(`
-    <div style="background:${controlBg};border:1px solid ${controlColor}44;border-radius:7px;padding:7px 10px">
-      <div style="font-size:8px;font-weight:700;color:var(--text2);letter-spacing:.4px;margin-bottom:5px">
-        ⚡ CONTROLE DE MOMENTUM <span style="font-weight:400;color:#4b5563">· partida inteira · min ${points[points.length-1]?.minute || 0}'</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="font-size:10px;font-weight:700;color:${controlColor};white-space:nowrap">${controlIcon} ${controlLabel}</div>
-        <div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex">
-          <div style="height:100%;width:${homePct}%;background:#3b82f6;border-radius:3px 0 0 3px;transition:width .4s"></div>
-          <div style="height:100%;width:${awayPct}%;background:#ef4444;border-radius:0 3px 3px 0;transition:width .4s"></div>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:3px">
-        <span style="font-size:8px;color:#60a5fa">🏠 Casa ${homePct}%</span>
-        <span style="font-size:8px;color:#94a3b8">avg ${avg>=0?'+':''}${avg.toFixed(1)}</span>
-        <span style="font-size:8px;color:#f87171">Vis ${awayPct}% ✈️</span>
-      </div>
-    </div>`);
+    <span title="Controle de Momentum · partida inteira · avg ${avg>=0?'+':''}${avg.toFixed(1)} · min ${points[points.length-1]?.minute || 0}'"
+          style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+                 color:${controlColor};background:${controlBg};border:1px solid ${controlColor}44;
+                 border-radius:5px;padding:2px 7px;cursor:default">
+      ${controlIcon} ${controlLabel}
+    </span>`);
 
   el.style.display = 'block';
-  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:5px">${indicators.join('')}</div>`;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px">${indicators.join('')}</div>`;
 }
 
 function _lightningIcon(color, size = 22) {
