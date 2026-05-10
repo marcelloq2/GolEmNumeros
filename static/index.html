@@ -2470,7 +2470,7 @@ async function _enrichAllWithUniscore(matches) {
         if (d && d.found) {
           const el = document.getElementById('uniscorePanel');
           if (el) el.innerHTML = _renderUniscore(d);
-          _updateStatsPatternPanel(d);
+          // _updateStatsPatternPanel(d);
         }
       }
     }
@@ -2687,8 +2687,8 @@ function renderLiveDetail(m) {
         <div id="momentumIndicator" style="display:none;margin-top:8px"></div>
         <div id="signalHistory" style="display:none;margin-top:5px"></div>
         <div id="indicatorsPanel" style="display:none;margin-top:6px"></div>
-        <div id="similarMatches" style="display:none;margin-top:5px"></div>
-        <div id="statsPatternPanel" style="display:none;margin-top:5px"></div>
+        <div id="similarMatches" style="display:none"></div>
+        <div id="statsPatternPanel" style="display:none"></div>
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
@@ -3306,8 +3306,8 @@ async function updateMomentumIndicator(points, finished, eventId) {
       </div>
     </div>`;
 
-  // Atualiza painel de partidas similares (sem bloquear o UI)
-  _updateSimilarMatches(points, W);
+  // Partidas similares desativado
+  // _updateSimilarMatches(points, W);
 }
 
 async function _updateSimilarMatches(points, W) {
@@ -3983,7 +3983,7 @@ async function loadUniscorePanel(casa, fora) {
     if (!cached.found) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     el.innerHTML = _renderUniscore(cached);
-    _updateStatsPatternPanel(cached);
+    // _updateStatsPatternPanel(cached);
     return;
   }
 
@@ -3995,7 +3995,7 @@ async function loadUniscorePanel(casa, fora) {
     _uniCache[cacheKey] = d;
     if (!d.found) { el.style.display = 'none'; return; }
     el.innerHTML = _renderUniscore(d);
-    _updateStatsPatternPanel(d);
+    // _updateStatsPatternPanel(d);
   } catch(e) { el.style.display = 'none'; }
 }
 
