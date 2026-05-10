@@ -2336,9 +2336,9 @@ function radarOddColor(cls) {
   return '';
 }
 
-async function loadLiveMatches() {
+async function loadLiveMatches(silent = false) {
   const list = document.getElementById('liveMatchList');
-  list.innerHTML = `<div class="live-loading"><div class="spinner"></div><span>Buscando jogos ao vivo...</span></div>`;
+  if (!silent) list.innerHTML = `<div class="live-loading"><div class="spinner"></div><span>Buscando jogos ao vivo...</span></div>`;
 
   try {
     const res  = await fetch('/api/radar/live');
@@ -2451,17 +2451,29 @@ async function loadLiveMatches() {
       }
     }, 1000);
 
-    // Re-abre detalhe do jogo ativo se ainda existir
+    // Re-abre detalhe do jogo ativo se ainda existir (sem piscar)
     if (activeLiveId !== null) {
       const m = matches.find(x => x.id === activeLiveId);
-      if (m) renderLiveDetail(m);
+      if (m) {
+        // Salva estado do Ocultar antes de re-renderizar
+        const statsBodyBefore = document.getElementById('uniStatsBody');
+        const wasHidden = statsBodyBefore ? statsBodyBefore.style.display === 'none' : (localStorage.getItem('liveStatsHidden') === '1');
+        renderLiveDetail(m);
+        // Restaura estado do Ocultar após renderizar
+        const statsBody = document.getElementById('uniStatsBody');
+        const statsBtn  = document.querySelector('#liveDetailPanel .stats-toggle-btn');
+        if (statsBody && wasHidden) {
+          statsBody.style.display = 'none';
+          if (statsBtn) statsBtn.textContent = 'Mostrar';
+        }
+      }
     }
 
     // Auto-refresh com intervalo configurável
     const intervalSec = +(document.getElementById('liveRefreshSelect')?.value || 15);
     clearInterval(liveAutoRefresh);
     liveAutoRefresh = setInterval(() => {
-      if (currentView === 'live') loadLiveMatches();
+      if (currentView === 'live') loadLiveMatches(true); // silent = sem spinner
     }, intervalSec * 1000);
 
   } catch (e) {
@@ -2799,6 +2811,14 @@ function renderLiveDetail(m) {
   loadUniscorePanel(m.casa, m.fora);
   // Carrega mapa de chutes
   loadShotmap(m.id, m.casa, m.fora);
+
+  // Restaura estado Ocultar/Mostrar de ESTATÍSTICAS
+  if (localStorage.getItem('liveStatsHidden') === '1') {
+    const sb = document.getElementById('uniStatsBody');
+    const btn = document.querySelector('.stats-toggle-btn');
+    if (sb)  { sb.style.display = 'none'; }
+    if (btn) { btn.textContent = 'Mostrar'; }
+  }
 }
 
 // ── Correlação de Pearson entre dois arrays (usa os últimos N elementos) ──
@@ -4510,7 +4530,7 @@ function _renderUniscore(d) {
     <div style="padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.4px">📊 ESTATÍSTICAS</div>
-        <button onclick="(function(){var b=document.getElementById('uniStatsBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';}else{b.style.display='none';btn.textContent='Mostrar';}}).call(this)"
+        <button class="stats-toggle-btn" onclick="(function(){var b=document.getElementById('uniStatsBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';localStorage.setItem('liveStatsHidden','0');}else{b.style.display='none';btn.textContent='Mostrar';localStorage.setItem('liveStatsHidden','1');}}).call(this)"
                 style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">Ocultar</button>
       </div>
       <div id="uniStatsBody">
