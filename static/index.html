@@ -4115,8 +4115,9 @@ function _renderUniscore(d) {
       </div>`;
   })() : '';
 
-  // ── Pressão em blocos numéricos por período ──
+  // ── Pressão em blocos numéricos por período — removido ──
   const graphHtml = (() => {
+    return '';
     const pts = d.graph || [];
     if (pts.length < 2) return '';
 
