@@ -3181,10 +3181,11 @@ function _renderIndicatorsPanel(points, homeName, awayName) {
     </span>`);
 
   el.style.display = 'block';
-  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px">${indicators.join('')}<span id="patternBadge" style="display:none"></span></div>`;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px">${indicators.join('')}<span id="patternBadge" style="display:none"></span><span id="shotmapBadge" style="display:none"></span></div>`;
 
-  // Calcula badge de padrões de forma assíncrona (não bloqueia o render)
+  // Calcula badges de forma assíncrona (não bloqueia o render)
   _updatePatternBadge(points, homeName, awayName);
+  _updateShotmapBadge(homeName, awayName);
 }
 
 async function _updatePatternBadge(points, homeName, awayName) {
@@ -3278,6 +3279,63 @@ async function _updatePatternBadge(points, homeName, awayName) {
   badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
     color:${color};background:${bg};border:1px solid ${color}44;border-radius:5px;padding:2px 7px;cursor:default`;
   badge.textContent = `📊 ${label}`;
+}
+
+async function _updateShotmapBadge(homeName, awayName) {
+  const badge = document.getElementById('shotmapBadge');
+  if (!badge) return;
+
+  // Dados ao vivo do shotmap (Uniscore cache)
+  const cacheKey = `${homeName}|${awayName}`;
+  const uni      = _uniCache[cacheKey];
+  const shots    = uni?.shotmap;
+  if (!shots || shots.length === 0) { badge.style.display = 'none'; return; }
+
+  // Padrões históricos por zona
+  const smPat = await _fetchSmPatLive();
+  if (!smPat?.by_zone) { badge.style.display = 'none'; return; }
+
+  // Mapa de conversão por zona (taxa histórica de gol)
+  const convMap = {};
+  smPat.by_zone.forEach(z => convMap[z.key] = (z.goal_pct || 0) / 100);
+
+  const classZ = x => {
+    const xv = x ?? 50;
+    if (xv < 12) return 'area_pequena';
+    if (xv < 32) return 'area_grande';
+    if (xv < 55) return 'meia_distancia';
+    return 'longa_distancia';
+  };
+
+  // xGZ por time (exclui gols — só chutes)
+  let xgzHome = 0, xgzAway = 0;
+  let shotsHome = 0, shotsAway = 0;
+
+  shots.forEach(s => {
+    if (s.shotType === 'goal') return; // gols já contam
+    const xgz = convMap[classZ(s.x)] || 0;
+    if (s.isHome) { xgzHome += xgz; shotsHome++; }
+    else          { xgzAway += xgz; shotsAway++; }
+  });
+
+  if (shotsHome + shotsAway === 0) { badge.style.display = 'none'; return; }
+
+  const totalXgz = xgzHome + xgzAway || 0.001;
+  const homePct  = Math.round(xgzHome / totalXgz * 100);
+  const awayPct  = 100 - homePct;
+  const diff     = homePct - awayPct;
+
+  let label, color, bg;
+  if (diff > 20)       { label = 'Casa + perigosa (mapa)';  color = '#60a5fa'; bg = 'rgba(59,130,246,.08)'; }
+  else if (diff < -20) { label = 'Vis + perigosa (mapa)';   color = '#f87171'; bg = 'rgba(239,68,68,.08)';  }
+  else if (diff > 8)   { label = 'Casa melhor (mapa)';      color = '#93c5fd'; bg = 'rgba(59,130,246,.05)'; }
+  else if (diff < -8)  { label = 'Vis melhor (mapa)';       color = '#fca5a5'; bg = 'rgba(239,68,68,.05)';  }
+  else                 { label = 'Mapa equilibrado';         color = '#94a3b8'; bg = 'rgba(100,116,139,.06)';}
+
+  badge.title = `Mapa de Chutes · xGZ Casa ${xgzHome.toFixed(2)} (${shotsHome} chutes) · Vis ${xgzAway.toFixed(2)} (${shotsAway} chutes)`;
+  badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+    color:${color};background:${bg};border:1px solid ${color}44;border-radius:5px;padding:2px 7px;cursor:default`;
+  badge.textContent = `🗺️ ${label}`;
 }
 
 function _lightningIcon(color, size = 22) {
