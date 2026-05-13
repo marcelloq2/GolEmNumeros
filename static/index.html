@@ -7293,9 +7293,12 @@ function renderBtMarketsPanel(matches) {
     return ta !== tb ? ta - tb : ag !== bg ? ag - bg : af - bf;
   });
 
+  // Placares permitidos (0-0 a 3-3)
+  const _allowedScores = new Set(['0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3','2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3']);
+
   // Separação dinâmica: base ≥ 4% → prováveis; base < 4% → improváveis
-  const csProvaveis   = _allScoresSorted.filter(sk => _csBaseFreq(sk) >= 4);
-  const csImprovaveis = _allScoresSorted.filter(sk => _csBaseFreq(sk) < 4);
+  const csProvaveis   = _allScoresSorted.filter(sk => _allowedScores.has(sk) && _csBaseFreq(sk) >= 4);
+  const csImprovaveis = _allScoresSorted.filter(sk => _allowedScores.has(sk) && _csBaseFreq(sk) < 4);
 
   // Coroa independente para cada grupo
   // (ignora ranges com < 5 partidas para garantir que a simulação de banca possa rodar)
