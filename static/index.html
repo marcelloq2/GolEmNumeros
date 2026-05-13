@@ -5078,6 +5078,29 @@ function renderOddsPatternPanel(d) {
     const ehPos = b.edge_h > 0, ehNeg = b.edge_h < 0;
     const exPos = b.edge_x > 0, exNeg = b.edge_x < 0;
     const eaPos = b.edge_a > 0, eaNeg = b.edge_a < 0;
+
+    // ── Assimetria: EV = (real / implícita − 1) × 100 ──
+    const evH = b.imp_h > 0 ? Math.round((b.casaV_pct / b.imp_h - 1) * 100) : null;
+    const evX = b.imp_x > 0 ? Math.round((b.emp_pct   / b.imp_x - 1) * 100) : null;
+    const evA = b.imp_a > 0 ? Math.round((b.visV_pct  / b.imp_a - 1) * 100) : null;
+    const oddH = b.imp_h > 0 ? (100 / b.imp_h).toFixed(2) : null;
+    const oddX = b.imp_x > 0 ? (100 / b.imp_x).toFixed(2) : null;
+    const oddA = b.imp_a > 0 ? (100 / b.imp_a).toFixed(2) : null;
+    const candidates = [
+      { lbl: '🏠 Casa', ev: evH, odd: oddH, color: '#60a5fa' },
+      { lbl: '🤝 Emp',  ev: evX, odd: oddX, color: '#94a3b8' },
+      { lbl: '✈️ Vis',  ev: evA, odd: oddA, color: '#f87171' },
+    ].filter(c => c.ev !== null && c.ev > 0).sort((a, z) => z.ev - a.ev);
+    const best = candidates[0];
+    const evColor = best ? (best.ev >= 15 ? '#22c55e' : best.ev >= 7 ? '#86efac' : '#6b7280') : null;
+    const asymHtml = best
+      ? `<div style="text-align:center">
+           <div style="font-size:9px;font-weight:700;color:${best.color};margin-bottom:1px">${best.lbl}</div>
+           <div style="font-size:12px;font-weight:800;color:${evColor}">+${best.ev}%</div>
+           <div style="font-size:8px;color:#475569">odd ~${best.odd}</div>
+         </div>`
+      : `<div style="text-align:center;font-size:10px;color:#374151">—</div>`;
+
     return `
       <tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 8px;font-size:11px;font-weight:700;color:#f59e0b;white-space:nowrap">${b.label}</td>
@@ -5129,6 +5152,9 @@ function renderOddsPatternPanel(d) {
             <span style="font-size:8px;color:#ef4444">${b.visV}</span>
           </div>
         </td>
+
+        <!-- ASSIMETRIA -->
+        <td style="padding:6px 10px">${asymHtml}</td>
       </tr>`;
   }).join('');
 
@@ -5153,6 +5179,7 @@ function renderOddsPatternPanel(d) {
             <th colspan="2" style="padding:6px 8px;text-align:center;font-size:10px;color:#ef4444;font-weight:700">✈️ Vis.</th>
             <th style="padding:6px 8px;text-align:center;font-size:10px;color:#22c55e;font-weight:700">O2.5 / U2.5</th>
             <th style="padding:6px 8px;text-align:center;font-size:10px;color:var(--text2);font-weight:600">Dist.</th>
+            <th style="padding:6px 8px;text-align:center;font-size:10px;color:#a78bfa;font-weight:700">⚡ Assimetria</th>
           </tr>
           <tr style="background:var(--bg3);border-bottom:1px solid var(--border)">
             <th></th><th></th>
@@ -5163,6 +5190,7 @@ function renderOddsPatternPanel(d) {
             <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Real</th>
             <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">Edge</th>
             <th></th><th></th>
+            <th style="padding:3px 8px;font-size:9px;color:#475569;font-weight:400">melhor EV</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -5170,9 +5198,10 @@ function renderOddsPatternPanel(d) {
       <div style="font-size:9px;color:#475569;margin-top:8px;line-height:1.5">
         <strong style="color:var(--text2)">Como ler:</strong>
         Real% = resultado real · (Imp%) = probabilidade implícita da odd ·
-        <span style="color:#22c55e">Edge positivo</span> = mercado subestimou o resultado ·
+        <span style="color:#22c55e">Edge positivo</span> = mercado subestimou ·
         <span style="color:#ef4444">Edge negativo</span> = mercado superestimou ·
-        Odd Casa = favorito (1.01) → azarão (>5.00)
+        <span style="color:#a78bfa">⚡ Assimetria</span> = melhor EV da linha: resultado + odd que geram maior retorno esperado positivo ·
+        <span style="color:#22c55e">verde ≥ 15%</span> · <span style="color:#86efac">claro ≥ 7%</span> · cinza &lt; 7%
       </div>
     </div>`;
 }
