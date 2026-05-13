@@ -3298,17 +3298,21 @@ async function _updatePatternBadge(points, homeName, awayName) {
   const pVis   = Math.max(0, 100 - pCasa - Math.round(sim.emp / tot * 100));
   const diff   = pCasa - pVis;
 
-  let label, color, bg;
-  if (diff > 15)       { label = 'Casa + perto do gol';      color = '#60a5fa'; bg = 'rgba(59,130,246,.08)'; }
-  else if (diff < -15) { label = 'Visitante + perto do gol'; color = '#f87171'; bg = 'rgba(239,68,68,.08)';  }
-  else if (diff > 5)   { label = 'Casa perigosa';            color = '#93c5fd'; bg = 'rgba(59,130,246,.05)'; }
-  else if (diff < -5)  { label = 'Vis perigosa';             color = '#fca5a5'; bg = 'rgba(239,68,68,.05)';  }
-  else                 { label = 'Ataque equilibrado';       color = '#94a3b8'; bg = 'rgba(100,116,139,.06)';}
-
-  badge.title = `Padrões de Estatísticas · Casa ${pCasa}% vs Vis ${pVis}%`;
-  badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
-    color:${color};background:${bg};border:1px solid ${color}44;border-radius:5px;padding:2px 7px;cursor:default`;
-  badge.textContent = `📊 ${label}`;
+  // Só exibe se padrão aponta claramente Gol Casa ou Gol Visitante
+  if (diff > 15)       {
+    badge.title = `Padrões de Estatísticas · Casa ${pCasa}% vs Vis ${pVis}%`;
+    badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+      color:#60a5fa;background:rgba(59,130,246,.08);border:1px solid #60a5fa44;border-radius:5px;padding:2px 7px;cursor:default`;
+    badge.textContent = `📊 Gol Casa`;
+  } else if (diff < -15) {
+    badge.title = `Padrões de Estatísticas · Casa ${pCasa}% vs Vis ${pVis}%`;
+    badge.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+      color:#f87171;background:rgba(239,68,68,.08);border:1px solid #f8717144;border-radius:5px;padding:2px 7px;cursor:default`;
+    badge.textContent = `📊 Gol Visitante`;
+  } else {
+    badge.style.display = 'none';
+    return;
+  }
 }
 
 async function _updateShotmapBadge(eventId) {
