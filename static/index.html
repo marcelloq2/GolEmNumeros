@@ -9791,6 +9791,53 @@ function gerarBlocoHistorico(m) {
 }
 
 // ── INIT ─────────────────────────────────────
+// Carrega critérios do Edge em background sem precisar abrir a aba Backtest
+async function _autoLoadEdgeCriteria() {
+  try {
+    // 1. Busca datas disponíveis
+    const r = await fetch('/api/backtest/dates');
+    if (!r.ok) return;
+    const { dates } = await r.json();
+    if (!dates || !dates.length) return;
+
+    // Guarda para uso posterior (evita re-fetch se o usuário abrir o Backtest)
+    btAllDates = dates;
+
+    // 2. Busca dados de todas as datas em paralelo
+    const results = await Promise.all(
+      dates.map(d => fetch(`/api/backtest/${d}`).then(r => r.ok ? r.json() : null).catch(() => null))
+    );
+
+    // 3. Combina todas as partidas com resultado
+    const allByDate = [];
+    results.forEach((data, i) => {
+      if (!data) return;
+      const ms = (data.matches || []).filter(m => m.resultado);
+      if (ms.length) allByDate.push({
+        date: dates[i], matches: ms,
+        acuracia: data.tip_acuracia, acertaram: data.tips_acertaram, decididos: data.tips_decididos
+      });
+    });
+    if (!allByDate.length) return;
+
+    // Salva cache para o Backtest usar sem re-fetch
+    btAllMatchesCache = allByDate;
+
+    // 4. Combina todas as partidas num array flat
+    const matches = allByDate.flatMap(d => d.matches);
+
+    // 5. Computa critérios e atualiza o Edge
+    _btEdgeCriteria = _buildAllEdgeCriteria(matches);
+    _edgeMethodFilters = new Set();
+    _updateEdgeTabBadge();
+
+    // 6. Dispara Telegram automático se configurado
+    _tgAutoSendOnLoad();
+  } catch(e) {
+    // Silencioso — não impacta o usuário
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Garante estado inicial correto (aba Hoje visível)
   document.getElementById('todayWrapper').style.display = 'flex';
@@ -9799,6 +9846,8 @@ document.addEventListener('DOMContentLoaded', () => {
   updateFavCount();
   loadMatches();
   loadPatterns();
+  // Carrega Edge em background automaticamente
+  _autoLoadEdgeCriteria();
   // Cor do botão Telegram conforme config salva
   const _tgCfg = _tgLoad();
   const tgBtn = document.getElementById('tgConfigBtn');
