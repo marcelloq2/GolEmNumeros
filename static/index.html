@@ -1978,73 +1978,72 @@ function closeEdgeGuia() {
 }
 
 // ── TELEGRAM CONFIG ────────────────────────────────────────────────────────────
-const TG_SIGNALS = [
-  { key: 'gol_casa',      label: '📊 Gol Casa (Padrões de Estatísticas)' },
-  { key: 'gol_vis',       label: '📊 Gol Visitante (Padrões de Estatísticas)' },
-  { key: 'shot_casa',     label: '🗺️ Chutes Casa (Mapa de Chutes)' },
-  { key: 'shot_vis',      label: '🗺️ Chutes Visitante (Mapa de Chutes)' },
-  { key: 'mom_casa',      label: '⚡ Momentum Casa (Controle de Momentum)' },
-  { key: 'mom_vis',       label: '⚡ Momentum Visitante (Controle de Momentum)' },
-];
-
 function _tgLoad()  { try { return JSON.parse(localStorage.getItem('tgConfig') || '{}'); } catch(e) { return {}; } }
 function _tgSave(c) { localStorage.setItem('tgConfig', JSON.stringify(c)); }
-
-// Evita reenviar o mesmo sinal para a mesma partida na mesma sessão
 const _tgSentSet = new Set();
 
-async function _tgSend(signalKey, matchData) {
-  const cfg = _tgLoad();
-  if (!cfg.token || !cfg.chat_id) return;
-  if (!(cfg.signals || {})[signalKey]) return;
-
-  const dedup = `${signalKey}|${matchData.id}`;
-  if (_tgSentSet.has(dedup)) return;
-  _tgSentSet.add(dedup);
-
-  const msg = `🤖 <b>Gol em Números — Alerta</b>\n` +
-    `⚽ <b>${matchData.casa} × ${matchData.fora}</b>\n` +
-    `🏆 ${matchData.liga || ''}\n` +
-    `⏱ ${matchData.tempo || '-'} | ${matchData.golCasaFt ?? 0}-${matchData.golForaFt ?? 0}\n` +
-    `📡 <b>${TG_SIGNALS.find(s=>s.key===signalKey)?.label || signalKey}</b>`;
-
-  try {
-    await fetch('/api/telegram/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: msg }),
-    });
-  } catch(e) { /* silencioso */ }
+// Helper: nome curto do mercado
+function _tgMktName(c) {
+  if (c.scoreKey) return `Placar ${c.scoreKey}`;
+  return c.marketKey === 'casaVence'      ? 'Casa Vence'
+       : c.marketKey === 'visitanteVence' ? 'Vis. Vence'
+       : c.marketKey === 'empate'         ? 'Empate'
+       : c.marketKey === 'over25'         ? 'Over 2.5'
+       : c.marketKey === 'under25'        ? 'Under 2.5'
+       : c.marketKey === 'bttsS'          ? 'BTS+'
+       : c.marketKey === 'bttsN'          ? 'BTS-'
+       : c.marketKey || '?';
+}
+function _tgCriteriaKey(c) {
+  return `${c.marketKey||c.scoreKey||'?'}_${c.rangeIdx}`;
 }
 
 function openTelegramConfig() {
-  // Remove modal anterior se existir
   document.getElementById('tgModal')?.remove();
+  const cfg      = _tgLoad();
+  const selected = cfg.criteria || {};
 
-  const cfg = _tgLoad();
-  const signals = cfg.signals || {};
-  const sigHtml = TG_SIGNALS.map(s => `
-    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;
-                  border-bottom:1px solid var(--border);font-size:12px">
-      <input type="checkbox" data-sig="${s.key}" ${signals[s.key] ? 'checked' : ''}
-             style="accent-color:#3b82f6;width:14px;height:14px">
-      ${s.label}
-    </label>`).join('');
+  // Lista de metodologias do Edge (Simulação de Banca)
+  const criteria = (_btEdgeCriteria || []);
+  let criteriaHtml = '';
+  if (!criteria.length) {
+    criteriaHtml = `<div style="font-size:11px;color:#6b7280;padding:8px 0">
+      ⚠️ Carregue o Backtest primeiro para ver as metodologias disponíveis.</div>`;
+  } else {
+    criteriaHtml = criteria.map((c, i) => {
+      const key        = _tgCriteriaKey(c);
+      const rangeLabel = (BT_RANGES[c.rangeIdx]||{}).label || '?';
+      const roiSign    = c.roi >= 0 ? '+' : '';
+      const profSign   = c.profit >= 0 ? '+' : '';
+      return `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;
+                    border-bottom:1px solid var(--border);font-size:11px">
+        <input type="checkbox" data-ckey="${key}" ${selected[key] ? 'checked' : ''}
+               style="accent-color:#22c55e;width:13px;height:13px;flex-shrink:0">
+        <span style="color:#22c55e;font-weight:700">${_tgMktName(c)}</span>
+        <span style="color:#475569">range ${rangeLabel}</span>
+        <span style="color:#22c55e;margin-left:auto;white-space:nowrap">
+          ${roiSign}${c.roi.toFixed(0)}% ROI &nbsp;@${(c.simOdd||0).toFixed(2)}
+        </span>
+      </label>`;
+    }).join('');
+  }
 
   const modal = document.createElement('div');
   modal.id = 'tgModal';
-  modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.7);backdrop-filter:blur(3px)`;
+  modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+    justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(3px)`;
   modal.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-                padding:20px;width:360px;max-width:95vw;box-shadow:0 20px 60px #0008">
+                padding:20px;width:420px;max-width:96vw;max-height:90vh;
+                overflow-y:auto;box-shadow:0 20px 60px #0009">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <span style="font-size:14px;font-weight:700;color:#3b82f6">✈️ Alertas Telegram</span>
         <button onclick="document.getElementById('tgModal').remove()"
                 style="background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer">✕</button>
       </div>
 
-      <div style="margin-bottom:12px">
+      <div style="margin-bottom:10px">
         <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Bot Token</label>
         <input id="tgToken" value="${cfg.token||''}" placeholder="1234567890:AAF..."
                style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);
@@ -2052,15 +2051,22 @@ function openTelegramConfig() {
       </div>
       <div style="margin-bottom:14px">
         <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Chat ID</label>
-        <input id="tgChatId" value="${cfg.chat_id||''}" placeholder="-100xxxxxxxxxx ou @username"
+        <input id="tgChatId" value="${cfg.chat_id||''}" placeholder="@username ou número"
                style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);
                       border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);outline:none">
       </div>
 
       <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;
-                  text-transform:uppercase;letter-spacing:.4px">Sinais para alertar</div>
-      <div style="margin-bottom:16px">${sigHtml}</div>
+                  text-transform:uppercase;letter-spacing:.4px">📋 Metodologias (Simulação de Banca)</div>
+      <div style="margin-bottom:14px;max-height:220px;overflow-y:auto">${criteriaHtml}</div>
 
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button onclick="_tgSendEdge()" id="tgSendNowBtn"
+                style="flex:1;background:#16a34a;border:none;border-radius:7px;
+                       color:#fff;font-size:12px;font-weight:700;padding:8px;cursor:pointer">
+          📤 Enviar jogos do dia
+        </button>
+      </div>
       <div style="display:flex;gap:8px">
         <button onclick="_tgTest()" id="tgTestBtn"
                 style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:7px;
@@ -2073,17 +2079,7 @@ function openTelegramConfig() {
           💾 Salvar
         </button>
       </div>
-      <div id="tgStatus" style="margin-top:10px;font-size:11px;text-align:center;min-height:16px"></div>
-
-      <div style="margin-top:14px;padding:10px;background:var(--bg3);border-radius:7px;
-                  font-size:10px;color:var(--text2);line-height:1.6">
-        <b>Como configurar:</b><br>
-        1. Crie um bot com o @BotFather no Telegram → copie o <b>Token</b><br>
-        2. Envie uma mensagem ao bot e acesse:<br>
-        <code style="background:var(--bg);padding:1px 4px;border-radius:3px">
-        api.telegram.org/bot<i>TOKEN</i>/getUpdates</code><br>
-        3. Copie o <b>chat.id</b> da resposta → cole no Chat ID
-      </div>
+      <div id="tgStatus" style="margin-top:8px;font-size:11px;text-align:center;min-height:16px"></div>
     </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
@@ -2092,15 +2088,16 @@ function openTelegramConfig() {
 function _tgSaveConfig() {
   const token   = document.getElementById('tgToken')?.value.trim();
   const chat_id = document.getElementById('tgChatId')?.value.trim();
-  const signals = {};
-  document.querySelectorAll('[data-sig]').forEach(cb => { signals[cb.dataset.sig] = cb.checked; });
-  _tgSave({ token, chat_id, signals });
+  const criteria = {};
+  document.querySelectorAll('[data-ckey]').forEach(cb => { criteria[cb.dataset.ckey] = cb.checked; });
+  _tgSave({ token, chat_id, criteria });
   const st = document.getElementById('tgStatus');
   if (st) { st.style.color = '#22c55e'; st.textContent = '✅ Configuração salva!'; }
-  // Atualiza cor do botão no header
   const btn = document.getElementById('tgConfigBtn');
-  if (btn) btn.style.borderColor = token && chat_id ? '#22c55e44' : '#3b82f644',
-           btn.style.color       = token && chat_id ? '#22c55e'   : '#3b82f6';
+  if (btn) {
+    btn.style.borderColor = token && chat_id ? '#22c55e44' : '#3b82f644';
+    btn.style.color       = token && chat_id ? '#22c55e'   : '#3b82f6';
+  }
 }
 
 async function _tgTest() {
@@ -2129,63 +2126,73 @@ async function _tgTest() {
 
 async function _tgSendEdge() {
   const cfg = _tgLoad();
-  if (!cfg.token || !cfg.chat_id) {
-    openTelegramConfig();
-    return;
-  }
-  const list = _edgeLastMatching;
-  if (!list || list.length === 0) {
-    alert('Nenhuma partida visível no Edge.');
-    return;
-  }
+  if (!cfg.token || !cfg.chat_id) { openTelegramConfig(); return; }
 
-  const btn = document.querySelector('[onclick="_tgSendEdge()"]');
-  if (btn) { btn.textContent = '⏳ Enviando...'; btn.disabled = true; }
+  // Salva config antes de enviar (caso venha do modal)
+  const tokenEl   = document.getElementById('tgToken');
+  const chatIdEl  = document.getElementById('tgChatId');
+  if (tokenEl)  cfg.token   = tokenEl.value.trim();
+  if (chatIdEl) cfg.chat_id = chatIdEl.value.trim();
 
-  // Monta mensagem
-  const hoje = new Date().toLocaleDateString('pt-BR');
-  let msg = `🤖 <b>Gol em Números — Edge do dia ${hoje}</b>\n`;
-  msg += `📋 ${list.length} partida${list.length !== 1 ? 's' : ''} com metodologia ativa\n\n`;
-
-  const mktName = c => c.scoreKey
-    ? `Placar ${c.scoreKey}`
-    : c.marketKey === 'casaVence'      ? 'Casa Vence'
-    : c.marketKey === 'visitanteVence' ? 'Vis. Vence'
-    : c.marketKey === 'empate'         ? 'Empate'
-    : c.marketKey === 'over25'         ? 'Over 2.5'
-    : c.marketKey === 'under25'        ? 'Under 2.5'
-    : c.marketKey === 'bttsS'          ? 'BTS+'
-    : c.marketKey === 'bttsN'          ? 'BTS-'
-    : c.marketKey || '?';
-
-  list.slice(0, 30).forEach(({ m, fits }) => {
-    const hora = m.hora || '';
-    msg += `⚽ <b>${m.casa} × ${m.fora}</b>${hora ? ` · ${hora}` : ''}\n`;
-    msg += `🏆 ${(m.liga||'').split(' · ').pop() || m.liga || ''}\n`;
-    const top = (fits||[]).slice(0, 3).map(c => {
-      const rangeLabel = (BT_RANGES[c.rangeIdx]||{}).label || '?';
-      const roi = c.roi >= 0 ? `+${c.roi.toFixed(0)}` : c.roi.toFixed(0);
-      return `  • ${mktName(c)} range ${rangeLabel} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
-    }).join('\n');
-    msg += top + '\n\n';
+  // Filtra metodologias selecionadas no modal
+  const selected = cfg.criteria || {};
+  const activeCriteria = (_btEdgeCriteria||[]).filter(c => {
+    const key = _tgCriteriaKey(c);
+    // Se nada selecionado, usa todas; se há seleção, filtra
+    const hasAny = Object.values(selected).some(Boolean);
+    return hasAny ? selected[key] : true;
   });
 
-  if (list.length > 30) msg += `... e mais ${list.length - 30} partidas.\n`;
+  if (!activeCriteria.length) {
+    const st = document.getElementById('tgStatus');
+    if (st) { st.style.color='#ef4444'; st.textContent='Selecione pelo menos uma metodologia.'; }
+    return;
+  }
+
+  // Encontra partidas do dia que se encaixam
+  const matching = (allMatches||[]).reduce((acc, m) => {
+    const fits = activeCriteria.filter(c => matchFitsCriteria(m, c));
+    if (fits.length) acc.push({ m, fits });
+    return acc;
+  }, []).sort((a,b) => (a.m.hora||'99:99').localeCompare(b.m.hora||'99:99'));
+
+  const btns = document.querySelectorAll('[onclick="_tgSendEdge()"]');
+  btns.forEach(b => { b.textContent = '⏳ Enviando...'; b.disabled = true; });
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  let msg = `🤖 <b>Gol em Números — ${hoje}</b>\n`;
+  msg += `📋 <b>${matching.length} partida${matching.length!==1?'s':''}</b> nas metodologias selecionadas\n\n`;
+
+  matching.slice(0, 25).forEach(({ m, fits }) => {
+    const hora = m.hora ? ` · ${m.hora}` : '';
+    msg += `⚽ <b>${m.casa} × ${m.fora}</b>${hora}\n`;
+    msg += `🏆 ${(m.liga||'').split(' · ').pop()||m.liga||''}\n`;
+    fits.slice(0, 3).forEach(c => {
+      const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
+      const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
+      msg += `  • ${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}\n`;
+    });
+    msg += '\n';
+  });
+  if (matching.length > 25) msg += `...e mais ${matching.length-25} partidas.\n`;
+  if (!matching.length) msg += `Nenhuma partida encontrada para as metodologias selecionadas.`;
 
   try {
     const r = await fetch('/api/telegram/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: msg }),
     });
     const d = await r.json();
-    if (btn) {
-      btn.textContent = d.ok ? '✅ Enviado!' : '❌ Erro';
-      btn.style.color = d.ok ? '#22c55e' : '#ef4444';
-      setTimeout(() => { btn.textContent = '✈️ Telegram'; btn.style.color = '#3b82f6'; btn.disabled = false; }, 3000);
-    }
+    const st = document.getElementById('tgStatus');
+    if (st) { st.style.color = d.ok?'#22c55e':'#ef4444'; st.textContent = d.ok?'✅ Enviado!':'❌ '+( d.description||d.error||'Erro'); }
+    btns.forEach(b => {
+      b.textContent = d.ok ? '✅ Enviado!' : '❌ Erro';
+      b.style.color = d.ok ? '#22c55e' : '#ef4444';
+      setTimeout(() => { b.textContent = b.id==='tgSendNowBtn'?'📤 Enviar jogos do dia':'✈️ Telegram'; b.style.color=''; b.disabled=false; }, 3000);
+    });
   } catch(e) {
-    if (btn) { btn.textContent = '❌ Erro'; setTimeout(() => { btn.textContent = '✈️ Telegram'; btn.disabled = false; }, 3000); }
+    btns.forEach(b => { b.textContent='❌ Erro'; setTimeout(()=>{ b.textContent=b.id==='tgSendNowBtn'?'📤 Enviar jogos do dia':'✈️ Telegram'; b.disabled=false; },3000); });
   }
 }
 
