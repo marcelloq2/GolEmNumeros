@@ -972,6 +972,7 @@
     <button class="nav-tab" id="navEdgeTab" onclick="switchView('edge', this)">🎯 Edge <span id="navEdgeCount" style="display:none;background:#22c55e;color:#000;border-radius:9px;padding:0 5px;font-size:10px;font-weight:700;margin-left:2px"></span></button>
     <button class="nav-tab" onclick="switchView('live', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
+    <button class="nav-tab" onclick="switchView('historico', this)">📋 Histórico</button>
   </div>
 </header>
 
@@ -1257,18 +1258,12 @@
     <!-- Col 1: datas -->
     <div class="bt-sidebar">
       <div style="display:flex;align-items:center;justify-content:space-between;padding-right:4px">
-        <div class="bt-sidebar-title">📆 Histórico</div>
+        <div class="bt-sidebar-title">📆 Datas</div>
         <button onclick="openBacktestGuia()" title="Guia do Backtest"
           style="background:transparent;border:1px solid #a855f744;border-radius:6px;
                  color:#a855f7;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;
                  white-space:nowrap">📖 Guia</button>
       </div>
-      <div class="bt-date-filter-bar">
-        <button class="bt-df-btn active" onclick="setBtDateFilter('all', this)">Geral</button>
-        <button class="bt-df-btn" onclick="setBtDateFilter('month', this)">Mês</button>
-        <button class="bt-df-btn" onclick="setBtDateFilter('days', this)">Dias</button>
-      </div>
-      <div id="btSubFilter"></div>
       <div id="btDateList"><div class="loading" style="padding:20px;font-size:12px">Carregando...</div></div>
       <div style="padding:10px;border-top:1px solid var(--border);margin-top:auto">
         <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">📤 Exportar Ao Vivo</div>
@@ -1309,7 +1304,7 @@
         </button>
       </div>
       <div class="bt-matches-header" id="btMatchesHeader">
-        <div style="font-size:12px;color:var(--text2)">Selecione uma data</div>
+        <div style="font-size:12px;color:var(--text2)">⬅️ Selecione uma data para ver a análise do dia</div>
       </div>
       <div id="btMarketsPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btGoalPatternPanel" style="border-bottom:1px solid var(--border)"></div>
@@ -1334,6 +1329,32 @@
         </svg>
         <div style="font-size:13px">Clique numa partida para ver os detalhes</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── HISTÓRICO ── -->
+  <div id="historicoPanel" style="display:none;flex:1;overflow:hidden;flex-direction:row">
+    <!-- Sidebar: filtros de período -->
+    <div style="width:200px;min-width:160px;background:var(--bg2);border-right:1px solid var(--border);
+                overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column">
+      <div class="bt-sidebar-title" style="padding:12px 14px 6px">📆 Período</div>
+      <div class="bt-date-filter-bar">
+        <button class="bt-df-btn active" id="histBtnAll"   onclick="setHistFilter('all',this)">Geral</button>
+        <button class="bt-df-btn"        id="histBtnMonth" onclick="setHistFilter('month',this)">Mês</button>
+        <button class="bt-df-btn"        id="histBtnDays"  onclick="setHistFilter('days',this)">Dias</button>
+      </div>
+      <div id="histSubFilter"></div>
+      <div id="histDateList" style="flex:1;overflow-y:auto">
+        <div class="loading" style="padding:20px;font-size:12px">Carregando...</div>
+      </div>
+    </div>
+    <!-- Lista de jogos -->
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div id="histMatchHeader" style="padding:12px 14px;border-bottom:1px solid var(--border);
+                                       background:var(--bg3);flex-shrink:0">
+        <div style="font-size:12px;color:var(--text2)">Carregando...</div>
+      </div>
+      <div id="histMatchList" style="flex:1;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -2674,24 +2695,26 @@ function closeBacktestGuia() {
   document.body.style.overflow = '';
 }
 
-// ── SWITCH VIEW (Hoje / Favoritos / Ao Vivo / Backtest) ──
+// ── SWITCH VIEW (Hoje / Favoritos / Ao Vivo / Backtest / Histórico) ──
 function switchView(view, btn) {
   currentView = view;
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  const todayWrapper = document.getElementById('todayWrapper');
-  const favsPanel    = document.getElementById('favsPanel');
-  const edgePanel    = document.getElementById('edgePanel');
-  const livePanel    = document.getElementById('livePanel');
-  const btPanel      = document.getElementById('backtestPanel');
+  const todayWrapper  = document.getElementById('todayWrapper');
+  const favsPanel     = document.getElementById('favsPanel');
+  const edgePanel     = document.getElementById('edgePanel');
+  const livePanel     = document.getElementById('livePanel');
+  const btPanel       = document.getElementById('backtestPanel');
+  const histPanel     = document.getElementById('historicoPanel');
 
   // Oculta tudo
-  todayWrapper.style.display = 'none';
+  todayWrapper.style.display  = 'none';
   favsPanel.classList.remove('active');
-  edgePanel.style.display = 'none';
+  edgePanel.style.display     = 'none';
   livePanel.classList.remove('active');
   btPanel.classList.remove('active');
+  histPanel.style.display     = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
 
@@ -2706,6 +2729,9 @@ function switchView(view, btn) {
   } else if (view === 'live') {
     livePanel.classList.add('active');
     loadLiveMatches();
+  } else if (view === 'historico') {
+    histPanel.style.display = 'flex';
+    loadHistorico();
   } else {
     btPanel.classList.add('active');
     loadBacktestDates();
@@ -5144,7 +5170,6 @@ async function loadBacktestDates() {
     btAllDates = data.dates;
     btAllMatchesCache = null; // reseta cache ao recarregar
     renderDateList(btAllDates);
-    loadAllMatchesCombined(); // Geral: carrega todos os jogos por padrão
     updateExportLiveInfo();
     loadGoalPatterns();
     loadStatsPatterns();
@@ -10119,6 +10144,191 @@ function _triggerDownload(blob, filename) {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// ── ABA HISTÓRICO ─────────────────────────────────────────────────────────────
+let _histLoaded = false;
+
+async function loadHistorico() {
+  // Já tem tudo em cache?
+  if (_histLoaded && btAllMatchesCache) {
+    renderHistDateList(btAllDates);
+    renderHistorico(btAllMatchesCache, 'Todos os jogos');
+    return;
+  }
+  const hdr  = document.getElementById('histMatchHeader');
+  const list = document.getElementById('histMatchList');
+  if (hdr)  hdr.innerHTML  = '<div style="font-size:12px;color:var(--text2)">Carregando jogos...</div>';
+  if (list) list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    if (!btAllDates.length) {
+      const r = await fetch('/api/backtest/dates');
+      const d = await r.json();
+      btAllDates = d.dates || [];
+    }
+    if (!btAllMatchesCache) {
+      const results = await Promise.all(
+        btAllDates.map(d => fetch(`/api/backtest/${d}`).then(r => r.ok ? r.json() : null).catch(() => null))
+      );
+      const allByDate = [];
+      results.forEach((data, i) => {
+        if (!data) return;
+        const ms = (data.matches || []).filter(m => m.resultado);
+        if (ms.length) allByDate.push({
+          date: btAllDates[i], matches: ms,
+          acuracia: data.tip_acuracia, acertaram: data.tips_acertaram, decididos: data.tips_decididos
+        });
+      });
+      btAllMatchesCache = allByDate;
+    }
+    _histLoaded = true;
+    renderHistDateList(btAllDates);
+    renderHistorico(btAllMatchesCache, 'Todos os jogos');
+  } catch(e) {
+    if (hdr) hdr.innerHTML = '<div style="font-size:12px;color:var(--red)">Erro ao carregar.</div>';
+  }
+}
+
+function setHistFilter(mode, btn) {
+  document.querySelectorAll('#historicoPanel .bt-df-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sub = document.getElementById('histSubFilter');
+  if (mode === 'all') {
+    sub.innerHTML = '';
+    renderHistDateList(btAllDates);
+    renderHistorico(btAllMatchesCache || [], 'Todos os jogos');
+  } else if (mode === 'month') {
+    const months = [...new Set(btAllDates.map(d => d.slice(0,7)))];
+    sub.innerHTML = `<div class="bt-sub-filter">${months.map(m =>
+      `<button class="bt-sub-btn hist-sub" onclick="selectHistMonth('${m}',this)">${formatMonth(m)}</button>`
+    ).join('')}</div>`;
+    renderHistDateList(btAllDates);
+  } else if (mode === 'days') {
+    sub.innerHTML = `<div class="bt-sub-filter">${[7,14,30,60].map(n =>
+      `<button class="bt-sub-btn hist-sub" onclick="selectHistDays(${n},this)">${n} dias</button>`
+    ).join('')}</div>`;
+    renderHistDateList(btAllDates);
+  }
+}
+
+function selectHistMonth(month, btn) {
+  document.querySelectorAll('.hist-sub').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filtered = btAllDates.filter(d => d.startsWith(month));
+  renderHistDateList(filtered);
+  const data = (btAllMatchesCache || []).filter(d => d.date.startsWith(month));
+  renderHistorico(data, `📅 ${formatMonth(month)}`);
+}
+
+function selectHistDays(n, btn) {
+  document.querySelectorAll('.hist-sub').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filtered = btAllDates.slice(0, n);
+  renderHistDateList(filtered);
+  const data = (btAllMatchesCache || []).filter(d => filtered.includes(d.date));
+  renderHistorico(data, `🗓️ Últimos ${n} dias`);
+}
+
+function renderHistDateList(dates) {
+  const list = document.getElementById('histDateList');
+  if (!list) return;
+  if (!dates || !dates.length) {
+    list.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text2)">Nenhuma data.</div>';
+    return;
+  }
+  const rowHtml = d => `
+    <div class="bt-date-row" onclick="filterHistByDate('${d}',this)" data-date="${d}">
+      <span class="bt-date-label">${formatDate(d)}</span>
+      <span class="bt-date-sub">${d}</span>
+    </div>`;
+  if (dates.length > 10) {
+    const byMonth = {};
+    dates.forEach(d => { const m = d.slice(0,7); if (!byMonth[m]) byMonth[m] = []; byMonth[m].push(d); });
+    list.innerHTML = Object.entries(byMonth)
+      .sort(([a],[b]) => b.localeCompare(a))
+      .map(([m,ds]) => `<div class="bt-date-group-label">${formatMonth(m)}</div>${ds.map(rowHtml).join('')}`)
+      .join('');
+  } else {
+    list.innerHTML = dates.map(rowHtml).join('');
+  }
+}
+
+function filterHistByDate(date, rowEl) {
+  document.querySelectorAll('#histDateList .bt-date-row').forEach(r => r.classList.remove('active'));
+  rowEl.classList.add('active');
+  const data = (btAllMatchesCache || []).filter(d => d.date === date);
+  renderHistorico(data, `📅 ${formatDate(date)}`);
+}
+
+function renderHistorico(allByDate, titulo) {
+  const header = document.getElementById('histMatchHeader');
+  const list   = document.getElementById('histMatchList');
+  if (!header || !list) return;
+
+  const totalJogos = allByDate.reduce((s,d) => s + d.matches.length, 0);
+  const totalAcert = allByDate.reduce((s,d) => s + (d.acertaram||0), 0);
+  const totalDecid = allByDate.reduce((s,d) => s + (d.decididos||0), 0);
+  const accGeral   = totalDecid > 0 ? Math.round(totalAcert/totalDecid*100) : null;
+  const accCor     = accGeral >= 60 ? 'var(--green)' : accGeral >= 45 ? 'var(--yellow)' : 'var(--red)';
+
+  header.innerHTML = `
+    <div style="font-size:13px;font-weight:700">${titulo}</div>
+    <div class="bt-stats-row">
+      <span class="bt-stat-chip"><b>${totalJogos}</b> jogos · <b>${allByDate.length}</b> dias</span>
+      ${accGeral != null ? `<span class="bt-stat-chip" style="border-color:${accCor};color:${accCor}"><b>${accGeral}%</b> acurácia</span>` : ''}
+      ${totalDecid > 0 ? `<span class="bt-stat-chip"><b>${totalAcert}</b>/${totalDecid} TIPs</span>` : ''}
+    </div>`;
+
+  if (!allByDate.length) {
+    list.innerHTML = '<div class="bt-empty"><div style="font-size:32px">📋</div><div>Nenhuma partida.</div></div>';
+    return;
+  }
+
+  list.innerHTML = allByDate
+    .sort((a,b) => b.date.localeCompare(a.date))
+    .map(({ date, matches, acuracia }) => {
+      const aCor = acuracia >= 60 ? 'var(--green)' : acuracia >= 45 ? 'var(--yellow)' : 'var(--red)';
+      return `
+        <div style="font-size:10px;font-weight:700;padding:6px 14px 4px;letter-spacing:.4px;
+                    background:var(--bg3);border-bottom:1px solid var(--border);
+                    display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1">
+          <span style="color:var(--text2)">📅 ${formatDate(date)}</span>
+          ${acuracia != null
+            ? `<span style="color:${aCor};font-size:11px">${acuracia}% acurácia · ${matches.length}j</span>`
+            : `<span style="color:var(--text2)">${matches.length} jogos</span>`}
+        </div>
+        ${matches.map(m => renderHistMatchCard(m)).join('')}`;
+    }).join('');
+}
+
+function renderHistMatchCard(m) {
+  const [ftCasa, ftFora] = (m.resultado || '?:?').split(':');
+  const acertou     = m.tip_acertou;
+  const icon        = acertou === true ? '✅' : acertou === false ? '❌' : '—';
+  const borderColor = acertou === true ? 'var(--green)' : acertou === false ? 'var(--red)' : 'var(--border)';
+  const tipCls      = typeof tipClass === 'function' ? tipClass(m.tip) : '';
+  return `
+    <div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);
+                border-left:3px solid ${borderColor};gap:10px;cursor:pointer;transition:background .12s"
+         onmouseover="this.style.background='#1e2235'" onmouseout="this.style.background=''"
+         onclick="openBacktestDetail('${escapeJs(m.url_detalhes||'')}', this)"
+         data-url="${escapeJs(m.url_detalhes||'')}">
+      <div style="font-size:11px;color:var(--text2);min-width:36px;text-align:center;flex-shrink:0">${m.hora||'--'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.casa||'—'}</div>
+        <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.fora||'—'}</div>
+        ${m.liga ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;opacity:.65">${m.liga}</div>` : ''}
+      </div>
+      <div style="text-align:center;min-width:52px;flex-shrink:0">
+        <div style="font-size:20px;font-weight:800;letter-spacing:1px;line-height:1">${ftCasa} : ${ftFora}</div>
+        ${m.ht_score ? `<div style="font-size:9px;color:var(--text2);margin-top:2px">HT ${m.ht_score}</div>` : ''}
+      </div>
+      <div style="text-align:center;min-width:38px;flex-shrink:0">
+        ${m.tip ? `<span class="tip-badge ${tipCls}" style="font-size:10px;padding:1px 5px">${m.tip}</span>` : ''}
+        <div style="font-size:17px;margin-top:2px">${icon}</div>
+      </div>
+    </div>`;
 }
 
 // Carrega critérios do Edge em background sem precisar abrir a aba Backtest
