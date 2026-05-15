@@ -3821,6 +3821,26 @@ def api_upload_backup_bulk():
     })
 
 
+@app.route("/api/telegram/send", methods=["POST"])
+def api_telegram_send():
+    """Envia mensagem via Telegram Bot API."""
+    data    = request.json or {}
+    token   = (data.get("token") or "").strip()
+    chat_id = (data.get("chat_id") or "").strip()
+    message = (data.get("message") or "").strip()
+    if not token or not chat_id or not message:
+        return jsonify({"ok": False, "error": "Campos obrigatórios: token, chat_id, message"}), 400
+    try:
+        r = http_req.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+            timeout=8,
+        )
+        return jsonify(r.json())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"Servidor rodando em http://localhost:{port}")
