@@ -1330,6 +1330,26 @@ let allMatches = [];
 let activeFilter = 'all';
 // Critérios positivos do backtest (range + mercado com profit >= 0)
 let _btEdgeCriteria = [];
+// ── Filtros da Simulação de Banca ──
+let _btSimFilters     = {};   // { ranking: 70, roi: 5, ... }
+let _allPosColSims    = [];   // cache de todas as metodologias positivas
+let _simCSCache       = null;
+let _simCSImpCache    = null;
+let _simCSLblCache    = '';
+let _simCSImpLblCache = '';
+let _negColSimsCache  = [];
+// Definições dos filtros disponíveis
+const BT_SIM_FILTERS = [
+  { key:'ranking',  label:'Ranking',        unit:'',   op:'>=', thresholds:[60,70,80],    fn: cs => _rankSim(cs.sim).total },
+  { key:'winrate',  label:'Winrate',        unit:'%',  op:'>=', thresholds:[55,60,65],    fn: cs => cs.sim.winrate },
+  { key:'apostas',  label:'Apostas',        unit:'',   op:'>=', thresholds:[100,200,500], fn: cs => cs.sim.total },
+  { key:'profit',   label:'Profit',         unit:'u',  op:'>=', thresholds:[5,10,20],     fn: cs => cs.sim.profit },
+  { key:'roi',      label:'ROI',            unit:'%',  op:'>=', thresholds:[5,10,15],     fn: cs => cs.sim.roi },
+  { key:'maxDD',    label:'Max DD',         unit:'%',  op:'<=', thresholds:[20,15,10],    fn: cs => cs.sim.maxDD },
+  { key:'ruina',    label:'Risco Ruína',    unit:'%',  op:'<=', thresholds:[1],           fn: cs => cs.sim.rorPct },
+  { key:'pf',       label:'Profit Factor',  unit:'',   op:'>=', thresholds:[1.5,2.0],     fn: cs => cs.sim.profitFactor },
+  { key:'cv',       label:'Coef. Var.',     unit:'',   op:'<=', thresholds:[3,2],         fn: cs => cs.sim.cvRatio },
+];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
 let _edgeLastMatching = []; // Cache das partidas visíveis para o Telegram
@@ -6718,6 +6738,100 @@ function setBtMarketsTab(tab) {
 
 const BT_SCORE_LIST = ['0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3','2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3'];
 
+// ── Filtros Simulação de Banca ───────────────────────────────────────────────
+function _toggleBtSimFilter(key, val) {
+  if (_btSimFilters[key] === val) delete _btSimFilters[key];
+  else _btSimFilters[key] = val;
+  _renderSimBody();
+}
+
+function _passesBtSimFilters(cs) {
+  for (const fd of BT_SIM_FILTERS) {
+    const threshold = _btSimFilters[fd.key];
+    if (threshold == null) continue;
+    const v = fd.fn(cs);
+    if (v == null) return false;
+    if (fd.op === '>=' && v < threshold) return false;
+    if (fd.op === '<=' && v > threshold) return false;
+  }
+  return true;
+}
+
+function _renderSimBody() {
+  const detailEl = document.getElementById('btDetail');
+  if (!detailEl || detailEl.dataset.showingSim !== 'true') return;
+
+  const filtered     = _allPosColSims.filter(_passesBtSimFilters);
+  const total        = _allPosColSims.length;
+  const hasFilters   = Object.keys(_btSimFilters).length > 0;
+
+  // Barra de filtros — chips por métrica
+  const filterChips = BT_SIM_FILTERS.map(fd =>
+    fd.thresholds.map(v => {
+      const active = _btSimFilters[fd.key] === v;
+      const prefix = fd.op === '>=' ? '≥' : '≤';
+      return `<button onclick="_toggleBtSimFilter('${fd.key}',${v})"
+        style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap;
+               border:1px solid ${active ? '#3b82f6' : 'var(--border)'};
+               background:${active ? '#1e3a5f' : 'var(--bg3)'};
+               color:${active ? '#60a5fa' : 'var(--text2)'}">
+        ${fd.label} ${prefix}${v}${fd.unit}
+      </button>`;
+    }).join('')
+  ).join('');
+
+  const filterBarHTML = `
+    <div style="padding:6px 12px 0;background:var(--bg2)">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+        <span style="font-size:9px;color:#6b7280;font-weight:700;white-space:nowrap">Filtrar:</span>
+        ${filterChips}
+        ${hasFilters ? `<button onclick="_btSimFilters={};_renderSimBody()"
+          style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;
+                 border:1px solid #ef444433;background:var(--bg3);color:#ef4444;white-space:nowrap">
+          ✕ Limpar
+        </button>` : ''}
+      </div>
+      <div style="font-size:9px;color:#6b7280;margin-top:4px">
+        ${hasFilters ? `<b style="color:#60a5fa">${filtered.length}</b> de ${total} metodologias` : `${total} metodologias`}
+      </div>
+    </div>`;
+
+  const colSimsHTML = filtered.map(cs =>
+    renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
+  ).join('');
+
+  const negSummaryHTML = _negColSimsCache.length ? `
+    <div style="margin-top:4px">
+      <div style="font-size:9px;color:#4b5563;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Sem edge (ROI negativo)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${_negColSimsCache.map(cs => `
+          <span style="font-size:9px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border);
+                       border-radius:4px;color:#6b7280">
+            ${cs.mk?.label||cs.sim?.scoreKey||'?'} · ${cs.sim.rangeLabel||'?'}
+            <span style="color:#ef4444">${cs.sim.roi.toFixed(1)}% ROI</span>
+          </span>`).join('')}
+      </div>
+    </div>` : '';
+
+  detailEl.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 4px;background:var(--bg2)">
+      <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca — todas as metodologias</span>
+      <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10)</span>
+    </div>
+    ${filterBarHTML}
+    <div style="padding:12px">
+      ${colSimsHTML || `<div style="color:#6b7280;font-size:12px;text-align:center;padding:24px 12px">
+        Nenhuma metodologia passa nos filtros ativos.<br>
+        <span style="font-size:10px">Tente relaxar os critérios.</span>
+      </div>`}
+      ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS')    : ''}
+      ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp') : ''}
+      ${negSummaryHTML}
+    </div>`;
+  detailEl.dataset.showingSim = 'true';
+  setTimeout(() => _redrawBtCharts(), 50);
+}
+
 // ── Simulação de Banca ────────────────────────────────────────────────────
 
 function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertScore = false) {
@@ -7894,6 +8008,14 @@ function renderBtMarketsPanel(matches) {
     .sort((a, b) => _rankSim(b.sim).total - _rankSim(a.sim).total);
   const negColSims = colSims.filter(cs => cs.sim.profit < 0);
 
+  // Popula caches globais para _renderSimBody (com suporte a filtros)
+  _allPosColSims    = posColSims;
+  _negColSimsCache  = negColSims;
+  _simCSCache       = simCS    || null;
+  _simCSImpCache    = simCSImp || null;
+  _simCSLblCache    = simCSLbl;
+  _simCSImpLblCache = simCSImpLbl;
+
   // Armazena para redesenho ao abrir/fechar painel (toggleBtMarkets)
   panel._colSims = posColSims.map(cs => ({
     chartId: cs.chartId,
@@ -7903,35 +8025,6 @@ function renderBtMarketsPanel(matches) {
   }));
   panel._lastSimCS    = simCS    ? { bankHistory: simCS.bankHistory,    fairOdd: simCS.fairOdd,    underwaterHistory: simCS.underwaterHistory    } : null;
   panel._lastSimCSImp = simCSImp ? { bankHistory: simCSImp.bankHistory, fairOdd: simCSImp.fairOdd, underwaterHistory: simCSImp.underwaterHistory } : null;
-
-  const colSimsHTML = posColSims.map(cs =>
-    renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
-  ).join('');
-
-  const negSummaryHTML = negColSims.length ? `
-    <div style="grid-column:1/-1;margin-top:4px">
-      <div style="font-size:9px;color:#4b5563;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Sem edge (ROI negativo)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${negColSims.map(cs => `
-          <span style="font-size:9px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border);
-                       border-radius:4px;color:#6b7280">
-            ${cs.mk.label} · ${data[cs.ri]?.label || '?'}
-            <span style="color:#ef4444">${cs.sim.roi.toFixed(1)}% ROI</span>
-          </span>`).join('')}
-      </div>
-    </div>` : '';
-
-  const simBodyHTML = `
-    <div style="padding:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca — todas as metodologias</span>
-        <span style="font-size:9px;color:#4b5563">banca R$100 · stake R$1 · odd simulada (+0.10)</span>
-      </div>
-      ${colSimsHTML}
-      ${simCS    ? renderBankSimSection(simCS,    simCSLbl,    'bankChartCS')    : ''}
-      ${simCSImp ? renderBankSimSection(simCSImp, simCSImpLbl, 'bankChartCSImp') : ''}
-      ${negSummaryHTML}
-    </div>`;
 
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
@@ -7957,13 +8050,13 @@ function renderBtMarketsPanel(matches) {
   if (!_btDetailHasMatch) {
     const detailEl = document.getElementById('btDetail');
     if (detailEl) {
-      detailEl.innerHTML = simBodyHTML;
       detailEl.dataset.showingSim = 'true';
+      _renderSimBody(); // usa filtros ativos
     }
+  } else {
+    // Redesenha gráficos mesmo se o detalhe estiver mostrando partida
+    setTimeout(() => _redrawBtCharts(), 50);
   }
-
-  // Desenha gráficos após o DOM ser atualizado (50ms para garantir layout)
-  setTimeout(() => _redrawBtCharts(), 50);
 }
 
 // Score simplificado para backtest (sem detalhes completos)
