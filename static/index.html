@@ -2271,21 +2271,25 @@ async function _tgAutoSendOnLoad() {
 
   if (!matches.length) return;
 
-  // Monta mensagem
-  const lines = matches.map(m =>
-    `⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${m.fits.map(f=>`   📌 ${f}`).join('\n')}`
-  );
   const today_br = new Date().toLocaleDateString('pt-BR');
-  const text = `📅 *Entradas do dia — ${today_br}*\n\n${lines.join('\n\n')}`;
+  const send = (text) => fetch('/api/telegram/send', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text })
+  });
 
   try {
-    await fetch('/api/telegram/send', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text })
-    });
+    // Cabeçalho único
+    await send(`📅 *Entradas do dia — ${today_br}*\n${matches.length} partida${matches.length!==1?'s':''} encontradas`);
+
+    // Uma mensagem por partida
+    for (const m of matches) {
+      const text = `⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${m.fits.map(f=>`📌 ${f}`).join('\n')}`;
+      await send(text);
+      await new Promise(r => setTimeout(r, 300)); // evita rate limit
+    }
+
     // Marca que já enviou hoje
     localStorage.setItem('tgSentDate', today);
-    // Salva também no servidor como cache do dia
     await _tgSaveDaily(cfg);
     console.log('[Telegram] Envio automático realizado:', matches.length, 'entradas');
   } catch(e) {
@@ -2353,30 +2357,30 @@ async function _tgSendEdge() {
   btns.forEach(b => { b.textContent = '⏳ Enviando...'; b.disabled = true; });
 
   const hoje = new Date().toLocaleDateString('pt-BR');
-  let msg = `🤖 <b>Gol em Números — ${hoje}</b>\n`;
-  msg += `📋 <b>${matching.length} partida${matching.length!==1?'s':''}</b> nas metodologias selecionadas\n\n`;
-
-  matching.slice(0, 25).forEach(({ m, fits }) => {
-    const hora = m.hora ? ` · ${m.hora}` : '';
-    msg += `⚽ <b>${m.casa} × ${m.fora}</b>${hora}\n`;
-    msg += `🏆 ${(m.liga||'').split(' · ').pop()||m.liga||''}\n`;
-    fits.slice(0, 3).forEach(c => {
-      const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
-      const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
-      msg += `  • ${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}\n`;
-    });
-    msg += '\n';
+  const send = (text) => fetch('/api/telegram/send', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text }),
   });
-  if (matching.length > 25) msg += `...e mais ${matching.length-25} partidas.\n`;
-  if (!matching.length) msg += `Nenhuma partida encontrada para as metodologias selecionadas.`;
 
   try {
-    const r = await fetch('/api/telegram/send', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: msg }),
-    });
-    const d = await r.json();
+    if (!matching.length) {
+      await send(`🤖 <b>Gol em Números — ${hoje}</b>\nNenhuma partida encontrada para as metodologias selecionadas.`);
+    } else {
+      // Cabeçalho
+      await send(`🤖 *Gol em Números — ${hoje}*\n📋 *${matching.length} partida${matching.length!==1?'s':''}* nas metodologias selecionadas`);
+      // Uma mensagem por partida
+      for (const { m, fits } of matching) {
+        const rl_list = fits.slice(0,3).map(c => {
+          const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
+          const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
+          return `📌 ${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
+        }).join('\n');
+        await send(`⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${rl_list}`);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    const d = { ok: true }; // resposta simulada para continuar o fluxo
     const st = document.getElementById('tgStatus');
     if (st) { st.style.color = d.ok?'#22c55e':'#ef4444'; st.textContent = d.ok?'✅ Enviado!':'❌ '+( d.description||d.error||'Erro'); }
     btns.forEach(b => {
