@@ -10504,6 +10504,113 @@ function renderHistPatterns(allByDate) {
           </div>`;
         }).join('')}
       </div>` : ''}
+
+      <!-- Alertas de Inconsistência (agregado) -->
+      ${(() => {
+        const alertas = [];
+        // 1. TIPs com baixa confiança (<45%)
+        const baixaConf = allMatches.filter(m => {
+          const c = m.tip === '1' ? m.odds_1 : m.tip === '2' ? m.odds_2 : m.odds_x;
+          return c && parseInt(c) < 45;
+        });
+        if (baixaConf.length >= 5) {
+          const ok = baixaConf.filter(m => m.tip_acertou === true).length;
+          const p = Math.round(ok/baixaConf.length*100);
+          const cor = p >= 50 ? 'var(--yellow)' : 'var(--red)';
+          alertas.push(`TIPs com confiança baixa (<45%): <b style="color:${cor}">${p}%</b> de acerto em ${baixaConf.length} jogos`);
+        }
+        // 2. Over 2.5 previsto ≥65% — taxa real
+        const over25Altos = allMatches.filter(m => (parseInt(m.over_2_5)||0) >= 65);
+        if (over25Altos.length >= 5) {
+          const realOver = over25Altos.filter(m => {
+            const [c,f] = (m.resultado||'').split(':').map(Number);
+            return !isNaN(c) && !isNaN(f) && (c+f) > 2;
+          }).length;
+          const p = Math.round(realOver/over25Altos.length*100);
+          const cor = p >= 60 ? 'var(--green)' : p >= 45 ? 'var(--yellow)' : 'var(--red)';
+          alertas.push(`Over 2.5 previsto ≥65%: ocorreu em <b style="color:${cor}">${p}%</b> (${over25Altos.length}j)`);
+        }
+        // 3. Ambos Marcam previsto ≥60% — taxa real
+        const btsAltos = allMatches.filter(m => (parseInt(m.bts)||0) >= 60);
+        if (btsAltos.length >= 5) {
+          const realBts = btsAltos.filter(m => {
+            const [c,f] = (m.resultado||'').split(':').map(Number);
+            return !isNaN(c) && !isNaN(f) && c > 0 && f > 0;
+          }).length;
+          const p = Math.round(realBts/btsAltos.length*100);
+          const cor = p >= 60 ? 'var(--green)' : p >= 45 ? 'var(--yellow)' : 'var(--red)';
+          alertas.push(`Ambos Marcam previsto ≥60%: ocorreu em <b style="color:${cor}">${p}%</b> (${btsAltos.length}j)`);
+        }
+        // 4. Casa ganhou quando odds_1 ≥ 60%
+        const casaAlto = allMatches.filter(m => (parseInt(m.odds_1)||0) >= 60);
+        if (casaAlto.length >= 5) {
+          const ganhou = casaAlto.filter(m => {
+            const [c,f] = (m.resultado||'').split(':').map(Number);
+            return !isNaN(c) && !isNaN(f) && c > f;
+          }).length;
+          const p = Math.round(ganhou/casaAlto.length*100);
+          const cor = p >= 60 ? 'var(--green)' : p >= 45 ? 'var(--yellow)' : 'var(--red)';
+          alertas.push(`Casa favorita (≥60%): venceu em <b style="color:${cor}">${p}%</b> (${casaAlto.length}j)`);
+        }
+        if (!alertas.length) return '';
+        return `<div style="background:#ef444411;border:1px solid #ef444433;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚠️ Alertas de Inconsistência</div>
+          ${alertas.map(a => `<div style="font-size:11px;color:var(--text);margin-bottom:5px;padding-left:8px;border-left:2px solid #ef444466">▲ ${a}</div>`).join('')}
+        </div>`;
+      })()}
+
+      <!-- Padrões Históricos (btPatterns) -->
+      ${(() => {
+        if (!btPatterns || (btPatterns.total_partidas||0) < 5) return '';
+        const rangeKeys = ['50-59','60-69','70-79','80+'];
+        const rows = [];
+        // TIP por faixa
+        ['1','2','X'].forEach(tip => {
+          const acc = btPatterns.tip?.[tip];
+          if (!acc) return;
+          rangeKeys.forEach(rng => {
+            const ins = acc[rng];
+            if (ins && ins.total >= 5) {
+              const cor = ins.pct >= 65 ? 'var(--green)' : ins.pct >= 50 ? 'var(--yellow)' : 'var(--red)';
+              rows.push(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px">
+                <span style="flex:1;color:var(--text2)">🎯 TIP <b style="color:var(--text)">${tip}</b> faixa ${rng}%</span>
+                <span style="font-weight:700;color:${cor}">${ins.pct}%</span>
+                <span style="color:var(--text2);font-size:10px">${ins.total}j</span>
+              </div>`);
+            }
+          });
+        });
+        // Over 2.5
+        rangeKeys.forEach(rng => {
+          const ins = btPatterns.over_2_5?.[rng];
+          if (ins && ins.total >= 5) {
+            const cor = ins.pct >= 60 ? 'var(--green)' : ins.pct >= 45 ? 'var(--yellow)' : 'var(--red)';
+            rows.push(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px">
+              <span style="flex:1;color:var(--text2)">⚽ Over 2.5 faixa ${rng}%</span>
+              <span style="font-weight:700;color:${cor}">${ins.pct}%</span>
+              <span style="color:var(--text2);font-size:10px">${ins.total}j</span>
+            </div>`);
+          }
+        });
+        // BTS
+        rangeKeys.forEach(rng => {
+          const ins = btPatterns.bts?.[rng];
+          if (ins && ins.total >= 5) {
+            const cor = ins.pct >= 60 ? 'var(--green)' : ins.pct >= 45 ? 'var(--yellow)' : 'var(--red)';
+            rows.push(`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px">
+              <span style="flex:1;color:var(--text2)">🎯 Ambos Marcam faixa ${rng}%</span>
+              <span style="font-weight:700;color:${cor}">${ins.pct}%</span>
+              <span style="color:var(--text2);font-size:10px">${ins.total}j</span>
+            </div>`);
+          }
+        });
+        if (!rows.length) return '';
+        const nDias = btPatterns.datas?.length || 0;
+        return `<div>
+          ${section(`📋 Padrões Históricos — ${btPatterns.total_partidas}p · ${nDias}d`)}
+          ${rows.join('')}
+        </div>`;
+      })()}
     </div>`;
 }
 
