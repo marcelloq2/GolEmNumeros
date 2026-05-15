@@ -1331,24 +1331,25 @@ let activeFilter = 'all';
 // Critérios positivos do backtest (range + mercado com profit >= 0)
 let _btEdgeCriteria = [];
 // ── Filtros da Simulação de Banca ──
-let _btSimFilters     = {};   // { ranking: 70, roi: 5, ... }
+let _btSimFilters     = {};   // reservado (não usado — substituído por sort)
+let _btSimSort        = null; // { key, dir: 'asc'|'desc' }
 let _allPosColSims    = [];   // cache de todas as metodologias positivas
 let _simCSCache       = null;
 let _simCSImpCache    = null;
 let _simCSLblCache    = '';
 let _simCSImpLblCache = '';
 let _negColSimsCache  = [];
-// Definições dos filtros disponíveis
+// Definições das colunas de ordenação
 const BT_SIM_FILTERS = [
-  { key:'ranking',  label:'Ranking',        unit:'',   op:'>=', thresholds:[60,70,80],    fn: cs => _rankSim(cs.sim).total },
-  { key:'winrate',  label:'Winrate',        unit:'%',  op:'>=', thresholds:[55,60,65],    fn: cs => cs.sim.winrate },
-  { key:'apostas',  label:'Apostas',        unit:'',   op:'>=', thresholds:[100,200,500], fn: cs => cs.sim.total },
-  { key:'profit',   label:'Profit',         unit:'u',  op:'>=', thresholds:[5,10,20],     fn: cs => cs.sim.profit },
-  { key:'roi',      label:'ROI',            unit:'%',  op:'>=', thresholds:[5,10,15],     fn: cs => cs.sim.roi },
-  { key:'maxDD',    label:'Max DD',         unit:'%',  op:'<=', thresholds:[20,15,10],    fn: cs => cs.sim.maxDD },
-  { key:'ruina',    label:'Risco Ruína',    unit:'%',  op:'<=', thresholds:[1],           fn: cs => cs.sim.rorPct },
-  { key:'pf',       label:'Profit Factor',  unit:'',   op:'>=', thresholds:[1.5,2.0],     fn: cs => cs.sim.profitFactor },
-  { key:'cv',       label:'Coef. Var.',     unit:'',   op:'<=', thresholds:[3,2],         fn: cs => cs.sim.cvRatio },
+  { key:'ranking',  label:'Ranking',        fn: cs => _rankSim(cs.sim).total,  desc: true  },
+  { key:'winrate',  label:'Winrate',        fn: cs => cs.sim.winrate,          desc: true  },
+  { key:'apostas',  label:'Apostas',        fn: cs => cs.sim.total,            desc: true  },
+  { key:'profit',   label:'Profit',         fn: cs => cs.sim.profit,           desc: true  },
+  { key:'roi',      label:'ROI',            fn: cs => cs.sim.roi,              desc: true  },
+  { key:'maxDD',    label:'Max DD',         fn: cs => cs.sim.maxDD,            desc: false },
+  { key:'ruina',    label:'Risco Ruína',    fn: cs => cs.sim.rorPct,           desc: false },
+  { key:'pf',       label:'Profit Factor',  fn: cs => cs.sim.profitFactor,     desc: true  },
+  { key:'cv',       label:'Coef. Var.',     fn: cs => cs.sim.cvRatio,          desc: false },
 ];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
@@ -6738,65 +6739,69 @@ function setBtMarketsTab(tab) {
 
 const BT_SCORE_LIST = ['0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3','2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3'];
 
-// ── Filtros Simulação de Banca ───────────────────────────────────────────────
-function _toggleBtSimFilter(key, val) {
-  if (_btSimFilters[key] === val) delete _btSimFilters[key];
-  else _btSimFilters[key] = val;
+// ── Ordenação Simulação de Banca ─────────────────────────────────────────────
+function _toggleBtSimSort(key) {
+  if (!_btSimSort || _btSimSort.key !== key) {
+    // Primeira vez: ordena na direção "melhor" (desc para a maioria, asc para DD/ruína/CV)
+    const fd = BT_SIM_FILTERS.find(f => f.key === key);
+    _btSimSort = { key, dir: fd?.desc !== false ? 'desc' : 'asc' };
+  } else if (_btSimSort.dir === 'desc') {
+    _btSimSort = { key, dir: 'asc' };
+  } else {
+    _btSimSort = null; // terceiro clique: volta ao padrão (ranking)
+  }
   _renderSimBody();
 }
 
-function _passesBtSimFilters(cs) {
-  for (const fd of BT_SIM_FILTERS) {
-    const threshold = _btSimFilters[fd.key];
-    if (threshold == null) continue;
-    const v = fd.fn(cs);
-    if (v == null) return false;
-    if (fd.op === '>=' && v < threshold) return false;
-    if (fd.op === '<=' && v > threshold) return false;
-  }
-  return true;
+function _sortedColSims() {
+  const list = [..._allPosColSims];
+  if (!_btSimSort) return list; // ordem padrão = ranking
+  const fd = BT_SIM_FILTERS.find(f => f.key === _btSimSort.key);
+  if (!fd) return list;
+  return list.sort((a, b) => {
+    const va = fd.fn(a) ?? -Infinity;
+    const vb = fd.fn(b) ?? -Infinity;
+    return _btSimSort.dir === 'desc' ? vb - va : va - vb;
+  });
 }
 
 function _renderSimBody() {
   const detailEl = document.getElementById('btDetail');
   if (!detailEl || detailEl.dataset.showingSim !== 'true') return;
 
-  const filtered     = _allPosColSims.filter(_passesBtSimFilters);
-  const total        = _allPosColSims.length;
-  const hasFilters   = Object.keys(_btSimFilters).length > 0;
+  const sorted = _sortedColSims();
+  const total  = _allPosColSims.length;
 
-  // Barra de filtros — chips por métrica
-  const filterChips = BT_SIM_FILTERS.map(fd =>
-    fd.thresholds.map(v => {
-      const active = _btSimFilters[fd.key] === v;
-      const prefix = fd.op === '>=' ? '≥' : '≤';
-      return `<button onclick="_toggleBtSimFilter('${fd.key}',${v})"
-        style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap;
-               border:1px solid ${active ? '#3b82f6' : 'var(--border)'};
-               background:${active ? '#1e3a5f' : 'var(--bg3)'};
-               color:${active ? '#60a5fa' : 'var(--text2)'}">
-        ${fd.label} ${prefix}${v}${fd.unit}
-      </button>`;
-    }).join('')
-  ).join('');
+  // Barra de ordenação — um botão por métrica, cicla: ↓ → ↑ → padrão
+  const sortChips = BT_SIM_FILTERS.map(fd => {
+    const active = _btSimSort?.key === fd.key;
+    const icon   = !active ? '' : _btSimSort.dir === 'desc' ? ' ↓' : ' ↑';
+    return `<button onclick="_toggleBtSimSort('${fd.key}')"
+      style="padding:2px 9px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap;
+             border:1px solid ${active ? '#3b82f6' : 'var(--border)'};
+             background:${active ? '#1e3a5f' : 'var(--bg3)'};
+             color:${active ? '#60a5fa' : 'var(--text2)'}">
+      ${fd.label}${icon}
+    </button>`;
+  }).join('');
 
   const filterBarHTML = `
-    <div style="padding:6px 12px 0;background:var(--bg2)">
+    <div style="padding:6px 12px 4px;background:var(--bg2)">
       <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-        <span style="font-size:9px;color:#6b7280;font-weight:700;white-space:nowrap">Filtrar:</span>
-        ${filterChips}
-        ${hasFilters ? `<button onclick="_btSimFilters={};_renderSimBody()"
+        <span style="font-size:9px;color:#6b7280;font-weight:700;white-space:nowrap;flex-shrink:0">Ordenar:</span>
+        ${sortChips}
+        ${_btSimSort ? `<button onclick="_btSimSort=null;_renderSimBody()"
           style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;
                  border:1px solid #ef444433;background:var(--bg3);color:#ef4444;white-space:nowrap">
-          ✕ Limpar
+          ✕
         </button>` : ''}
       </div>
-      <div style="font-size:9px;color:#6b7280;margin-top:4px">
-        ${hasFilters ? `<b style="color:#60a5fa">${filtered.length}</b> de ${total} metodologias` : `${total} metodologias`}
+      <div style="font-size:9px;color:#6b7280;margin-top:3px">
+        ${_btSimSort ? `Ordenado por <b style="color:#60a5fa">${BT_SIM_FILTERS.find(f=>f.key===_btSimSort.key)?.label}</b> ${_btSimSort.dir==='desc'?'↓ maior→menor':'↑ menor→maior'}` : `${total} metodologias · padrão: Ranking`}
       </div>
     </div>`;
 
-  const colSimsHTML = filtered.map(cs =>
+  const colSimsHTML = sorted.map(cs =>
     renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
   ).join('');
 
@@ -6821,8 +6826,7 @@ function _renderSimBody() {
     ${filterBarHTML}
     <div style="padding:12px">
       ${colSimsHTML || `<div style="color:#6b7280;font-size:12px;text-align:center;padding:24px 12px">
-        Nenhuma metodologia passa nos filtros ativos.<br>
-        <span style="font-size:10px">Tente relaxar os critérios.</span>
+        Nenhuma metodologia disponível.
       </div>`}
       ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS')    : ''}
       ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp') : ''}
