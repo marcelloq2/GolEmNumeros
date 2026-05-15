@@ -6436,6 +6436,7 @@ function selectBtMonth(month, btn) {
   btn.classList.add('active');
   const filtered = btAllDates.filter(d => d.startsWith(month));
   renderDateList(filtered);
+  loadMatchesCombinedForDates(filtered, `📅 ${formatMonth(month)}`);
 }
 
 function selectBtDays(n, btn) {
@@ -6444,6 +6445,42 @@ function selectBtDays(n, btn) {
   btn.classList.add('active');
   const filtered = btAllDates.slice(0, n);
   renderDateList(filtered);
+  loadMatchesCombinedForDates(filtered, `🗓️ Últimos ${n} dias`);
+}
+
+async function loadMatchesCombinedForDates(dates, titulo) {
+  const header   = document.getElementById('btMatchesHeader');
+  const matchList = document.getElementById('btMatchList');
+  if (!header || !matchList) return;
+
+  header.innerHTML = `<div style="font-size:12px;color:var(--text2)">Carregando ${titulo}...</div>`;
+  matchList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  // Verifica se já está no cache global
+  const cacheKey = dates.join(',');
+  if (loadMatchesCombinedForDates._cache?.[cacheKey]) {
+    renderAllCombined(loadMatchesCombinedForDates._cache[cacheKey], header, matchList, titulo);
+    return;
+  }
+
+  const results = await Promise.all(
+    dates.map(d => fetch(`/api/backtest/${d}`).then(r => r.ok ? r.json() : null).catch(() => null))
+  );
+
+  const allByDate = [];
+  results.forEach((data, i) => {
+    if (!data) return;
+    const ms = (data.matches || []).filter(m => m.resultado);
+    if (ms.length) allByDate.push({
+      date: dates[i], matches: ms,
+      acuracia: data.tip_acuracia, acertaram: data.tips_acertaram, decididos: data.tips_decididos
+    });
+  });
+
+  if (!loadMatchesCombinedForDates._cache) loadMatchesCombinedForDates._cache = {};
+  loadMatchesCombinedForDates._cache[cacheKey] = allByDate;
+
+  renderAllCombined(allByDate, header, matchList, titulo);
 }
 
 function formatMonth(m) {
@@ -6513,7 +6550,7 @@ async function loadAllMatchesCombined() {
   renderAllCombined(allByDate, header, matchList);
 }
 
-function renderAllCombined(allByDate, header, matchList) {
+function renderAllCombined(allByDate, header, matchList, titulo = 'Todos os jogos') {
   const totalJogos   = allByDate.reduce((s, d) => s + d.matches.length, 0);
   const totalAcert   = allByDate.reduce((s, d) => s + (d.acertaram || 0), 0);
   const totalDecid   = allByDate.reduce((s, d) => s + (d.decididos || 0), 0);
@@ -6521,7 +6558,7 @@ function renderAllCombined(allByDate, header, matchList) {
   const accCor       = accGeral >= 60 ? 'var(--green)' : accGeral >= 45 ? 'var(--yellow)' : 'var(--red)';
 
   header.innerHTML = `
-    <div style="font-size:13px;font-weight:700">Todos os jogos</div>
+    <div style="font-size:13px;font-weight:700">${titulo}</div>
     <div class="bt-stats-row">
       <span class="bt-stat-chip"><b>${totalJogos}</b> jogos · <b>${allByDate.length}</b> dias</span>
       <span class="bt-stat-chip" style="border-color:${accCor};color:${accCor}">
