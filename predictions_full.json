@@ -7,7 +7,7 @@
     "fora": "Liverpool",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Aston+Villa (England)/Liverpool (England)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "England - Premier League 2025/2026",
     "pais": "England",
     "odds_1": 39,
@@ -1184,7 +1184,7 @@
     "fora": "Shamrock Rovers",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dundalk (Rep. Of Ireland)/Shamrock+Rovers (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - Premier Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 32,
@@ -2071,7 +2071,7 @@
     "fora": "Shelbourne",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/St.+Patricks+Athletic (Rep. Of Ireland)/Shelbourne (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - Premier Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 50,
@@ -2958,7 +2958,7 @@
     "fora": "Drogheda United",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Bohemians (Rep. Of Ireland)/Drogheda+United (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - Premier Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 51,
@@ -3845,7 +3845,7 @@
     "fora": "CD Olimpia",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/CD+Marathon (Honduras)/CD+Olimpia (Honduras)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Honduras - Liga Nacional - Clausura Triangulares Grp. A 2025/2026",
     "pais": "Honduras",
     "odds_1": 39,
@@ -4529,7 +4529,7 @@
     "fora": "Antwerp",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/OH+Leuven (Belgium)/Antwerp (Belgium)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Belgium - Belgian Pro League Playoff Conference League Group 2025/2026",
     "pais": "Belgium",
     "odds_1": 31,
@@ -5300,7 +5300,7 @@
     "fora": "FC Isloch Minsk Raion",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Neman+Grodno (Belarus)/FC+Isloch+Minsk+Raion (Belarus)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Belarus - Premier League 2026/2026",
     "pais": "Belarus",
     "odds_1": 46,
@@ -6361,7 +6361,7 @@
     "fora": "Belshina",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Minsk (Belarus)/Belshina (Belarus)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Belarus - Premier League 2026/2026",
     "pais": "Belarus",
     "odds_1": 55,
@@ -7422,7 +7422,7 @@
     "fora": "Hapoel Beer Sheva",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hapoel+Tel+Aviv (Israel)/Hapoel+Beer+Sheva (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Ligat Haal Championship Round 2025/2026",
     "pais": "Israel",
     "odds_1": 32,
@@ -7439,7 +7439,750 @@
     "votos_favor": 4,
     "votos_contra": 1,
     "detalhes": {
-      "erro": "HTTPSConnectionPool(host='www.statarea.com', port=443): Read timed out. (read timeout=15)"
+      "url": "https://www.statarea.com/compare/teams/Hapoel+Tel+Aviv (Israel)/Hapoel+Beer+Sheva (Israel)",
+      "info_times": {
+        "Hapoel Tel Aviv": {},
+        "Hapoel Beer Sheva": {}
+      },
+      "grafico_h2h": {
+        "Hapoel Tel Aviv wins": "37%",
+        "Draw matches": "24%",
+        "Hapoel Beer Sheva wins": "39%"
+      },
+      "ultimas_10_partidas": {
+        "Hapoel Tel Aviv": {
+          "form": "DWLWWWLLWD",
+          "partidas": [
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-09",
+              "casa": "Hapoel Tel Aviv",
+              "gols_casa": "1",
+              "fora": "Maccabi Tel Aviv",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - U19 Premier League Championship Round 2025/2026",
+              "data": "2026-05-09",
+              "casa": "Maccabi Tel Aviv U19",
+              "gols_casa": "0",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-06",
+              "casa": "Hapoel Tel Aviv",
+              "gols_casa": "0",
+              "fora": "Beitar Jerusalem",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-02",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "2",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-29",
+              "casa": "Hapoel Tel Aviv",
+              "gols_casa": "4",
+              "fora": "Maccabi Haifa",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-25",
+              "casa": "Hapoel Petah Tikva",
+              "gols_casa": "0",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - U19 Premier League Championship Round 2025/2026",
+              "data": "2026-04-24",
+              "casa": "Hapoel Petah Tikva Nahum",
+              "gols_casa": "0",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-19",
+              "casa": "Maccabi Tel Aviv",
+              "gols_casa": "1",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - U19 Premier League Championship Round 2025/2026",
+              "data": "2026-04-18",
+              "casa": "Hapoel Tel Aviv",
+              "gols_casa": "4",
+              "fora": "Maccabi Petach Tikva U19",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal 2025/2026",
+              "data": "2026-04-11",
+              "casa": "Hapoel Petah Tikva",
+              "gols_casa": "0",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        },
+        "Hapoel Beer Sheva": {
+          "form": "DDWWWDLWWW",
+          "partidas": [
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-09",
+              "casa": "Hapoel Petah Tikva",
+              "gols_casa": "2",
+              "fora": "Hapoel Beer Sheva",
+              "gols_fora": "4",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-06",
+              "casa": "Maccabi Haifa",
+              "gols_casa": "0",
+              "fora": "Hapoel Beer Sheva",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-05-02",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "2",
+              "fora": "Hapoel Tel Aviv",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-28",
+              "casa": "Maccabi Tel Aviv",
+              "gols_casa": "1",
+              "fora": "Hapoel Beer Sheva",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-25",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "2",
+              "fora": "Beitar Jerusalem",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+              "data": "2026-04-18",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "3",
+              "fora": "Hapoel Petah Tikva",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal 2025/2026",
+              "data": "2026-04-12",
+              "casa": "Maccabi Tel Aviv",
+              "gols_casa": "1",
+              "fora": "Hapoel Beer Sheva",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Cup 2025/2026",
+              "data": "2026-04-09",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "3",
+              "fora": "Bnei Yehuda Tel Aviv",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal 2025/2026",
+              "data": "2026-04-04",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "1",
+              "fora": "Hapoel Petah Tikva",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Israel - Ligat Haal 2025/2026",
+              "data": "2026-02-22",
+              "casa": "Hapoel Beer Sheva",
+              "gols_casa": "1",
+              "fora": "Hapoel Haifa",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        }
+      },
+      "confrontos_diretos": [],
+      "estatisticas": {
+        "Hapoel Tel Aviv": {
+          "Number of Hapoel Tel Aviv wins": "5",
+          "Number of Hapoel Tel Aviv draws": "2",
+          "Number of Hapoel Tel Aviv loses": "3",
+          "Average scored goals per match": "1.4",
+          "Average conceded goals per match": "0.5",
+          "Chance to score goal next match": "60%",
+          "Chance to conceded goal next match": "40%",
+          "Number of clean sheet matches": "6",
+          "Failure to score matches": "4",
+          "Matches over 2.5 goals in": "3",
+          "Matches under 2.5 goals in": "7",
+          "Time without scored goal": "3 min.",
+          "Time without conceded goal": "65 min."
+        },
+        "Hapoel Beer Sheva": {
+          "Number of Hapoel Beer Sheva wins": "6",
+          "Number of Hapoel Beer Sheva draws": "3",
+          "Number of Hapoel Beer Sheva loses": "1",
+          "Average scored goals per match": "2",
+          "Average conceded goals per match": "1",
+          "Chance to score goal next match": "90%",
+          "Chance to conceded goal next match": "70%",
+          "Number of clean sheet matches": "3",
+          "Failure to score matches": "1",
+          "Matches over 2.5 goals in": "5",
+          "Matches under 2.5 goals in": "5",
+          "Time without scored goal": "0 min.",
+          "Time without conceded goal": "5 min."
+        }
+      },
+      "classificacao": [
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "1",
+          "time": "Hapoel Beer Sheva",
+          "jogos": "33",
+          "pontos": "73",
+          "geral": {
+            "v": "22",
+            "e": "7",
+            "d": "4",
+            "gm": "71",
+            "gc": "71"
+          },
+          "casa": {
+            "v": "11",
+            "e": "5",
+            "d": "0",
+            "gm": "36",
+            "gc": "36"
+          },
+          "fora": {
+            "v": "11",
+            "e": "2",
+            "d": "4",
+            "gm": "35",
+            "gc": "35"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "2",
+          "time": "Beitar Jerusalem",
+          "jogos": "33",
+          "pontos": "71",
+          "geral": {
+            "v": "21",
+            "e": "8",
+            "d": "4",
+            "gm": "75",
+            "gc": "75"
+          },
+          "casa": {
+            "v": "10",
+            "e": "6",
+            "d": "1",
+            "gm": "32",
+            "gc": "32"
+          },
+          "fora": {
+            "v": "11",
+            "e": "2",
+            "d": "3",
+            "gm": "43",
+            "gc": "43"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "3",
+          "time": "Maccabi Tel Aviv",
+          "jogos": "33",
+          "pontos": "65",
+          "geral": {
+            "v": "19",
+            "e": "8",
+            "d": "6",
+            "gm": "70",
+            "gc": "70"
+          },
+          "casa": {
+            "v": "11",
+            "e": "3",
+            "d": "3",
+            "gm": "36",
+            "gc": "36"
+          },
+          "fora": {
+            "v": "8",
+            "e": "5",
+            "d": "3",
+            "gm": "34",
+            "gc": "34"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "4",
+          "time": "Hapoel Tel Aviv",
+          "jogos": "33",
+          "pontos": "59",
+          "geral": {
+            "v": "18",
+            "e": "7",
+            "d": "8",
+            "gm": "53",
+            "gc": "53"
+          },
+          "casa": {
+            "v": "14",
+            "e": "1",
+            "d": "2",
+            "gm": "33",
+            "gc": "33"
+          },
+          "fora": {
+            "v": "4",
+            "e": "6",
+            "d": "6",
+            "gm": "20",
+            "gc": "20"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "5",
+          "time": "Maccabi Haifa",
+          "jogos": "33",
+          "pontos": "48",
+          "geral": {
+            "v": "13",
+            "e": "9",
+            "d": "11",
+            "gm": "56",
+            "gc": "56"
+          },
+          "casa": {
+            "v": "9",
+            "e": "1",
+            "d": "6",
+            "gm": "37",
+            "gc": "37"
+          },
+          "fora": {
+            "v": "4",
+            "e": "8",
+            "d": "5",
+            "gm": "19",
+            "gc": "19"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "6",
+          "time": "Hapoel Petah Tikva",
+          "jogos": "33",
+          "pontos": "37",
+          "geral": {
+            "v": "9",
+            "e": "10",
+            "d": "14",
+            "gm": "45",
+            "gc": "45"
+          },
+          "casa": {
+            "v": "4",
+            "e": "5",
+            "d": "7",
+            "gm": "20",
+            "gc": "20"
+          },
+          "fora": {
+            "v": "5",
+            "e": "5",
+            "d": "7",
+            "gm": "25",
+            "gc": "25"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Israel - Ligat Haal Championship Round 2025/2026",
+          "pos": "",
+          "time": "",
+          "jogos": "",
+          "pontos": "",
+          "geral": {},
+          "casa": {},
+          "fora": {},
+          "destacado": false
+        }
+      ],
+      "bet_statistics": {
+        "Hapoel Tel Aviv": {
+          "1 X 2": {
+            "Hapoel Tel Aviv": "50%",
+            "draw": "20%",
+            "opponent": "30%"
+          },
+          "Halftime 1 X 2": {
+            "Hapoel Tel Aviv": "10%",
+            "draw": "50%",
+            "opponent": "40%"
+          },
+          "Second half 1 X 2": {
+            "Hapoel Tel Aviv": "60%",
+            "draw": "30%",
+            "opponent": "10%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "50%",
+            "under": "50%"
+          },
+          "Over/under 1.5 goals for Hapoel Tel Aviv only": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 2.5 goals for Hapoel Tel Aviv only": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "20%",
+            "under": "80%"
+          },
+          "Over/under 3.5 goals for Hapoel Tel Aviv only": {
+            "over": "20%",
+            "under": "80%"
+          },
+          "Goal bands": {
+            "0-1": "50%",
+            "2-3": "30%",
+            "4+": "20%"
+          },
+          "Team to score": {
+            "both": "10%",
+            "only one": "80%",
+            "neither": "10%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "50%",
+            "even": "50%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "25%",
+            "16-30 min.": "8%",
+            "31-45 min.": "17%",
+            "46-60 min.": "8%",
+            "61-75 min.": "25%",
+            "76-90 min.": "17%"
+          },
+          "Hapoel Tel Aviv goals only": {
+            "0-15 min.": "14%",
+            "16-30 min.": "0%",
+            "31-45 min.": "14%",
+            "46-60 min.": "0%",
+            "61-75 min.": "43%",
+            "76-90 min.": "29%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "10%",
+            "11-20 min.": "20%",
+            "21-30 min.": "10%",
+            "31-40 min.": "0%",
+            "41-50 min.": "20%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "10%",
+            "without goal": "10%"
+          },
+          "Time of first Hapoel Tel Aviv goal": {
+            "0-10 min.": "10%",
+            "11-20 min.": "0%",
+            "21-30 min.": "0%",
+            "31-40 min.": "0%",
+            "41-50 min.": "10%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "20%",
+            "without goal": "40%"
+          },
+          "First goal in matches": {
+            "Hapoel Tel Aviv": "30%",
+            "opponent": "40%",
+            "without goal": "10%"
+          },
+          "Winner after 15 minutes": {
+            "Hapoel Tel Aviv": "10%",
+            "opponent": "20%",
+            "draw": "70%"
+          },
+          "Winner after 30 minutes": {
+            "Hapoel Tel Aviv": "10%",
+            "opponent": "30%",
+            "draw": "60%"
+          },
+          "Winner after 45 minutes": {
+            "Hapoel Tel Aviv": "20%",
+            "opponent": "40%",
+            "draw": "40%"
+          },
+          "Winner after 60 minutes": {
+            "Hapoel Tel Aviv": "20%",
+            "opponent": "40%",
+            "draw": "40%"
+          },
+          "Winner after 75 minutes": {
+            "Hapoel Tel Aviv": "20%",
+            "opponent": "40%",
+            "draw": "40%"
+          },
+          "Winner after 90 minutes": {
+            "Hapoel Tel Aviv": "30%",
+            "opponent": "30%",
+            "draw": "40%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "60%",
+            "2-3 goals": "20%",
+            "4+ goals": "20%"
+          },
+          "Half with most goals": {
+            "first half": "40%",
+            "second half": "40%",
+            "tie": "20%"
+          }
+        },
+        "Hapoel Beer Sheva": {
+          "1 X 2": {
+            "Hapoel Beer Sheva": "60%",
+            "draw": "30%",
+            "opponent": "10%"
+          },
+          "Halftime 1 X 2": {
+            "Hapoel Beer Sheva": "70%",
+            "draw": "30%",
+            "opponent": "0%"
+          },
+          "Second half 1 X 2": {
+            "Hapoel Beer Sheva": "40%",
+            "draw": "10%",
+            "opponent": "50%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "80%",
+            "under": "20%"
+          },
+          "Over/under 1.5 goals for Hapoel Beer Sheva only": {
+            "over": "60%",
+            "under": "40%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "50%",
+            "under": "50%"
+          },
+          "Over/under 2.5 goals for Hapoel Beer Sheva only": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 3.5 goals for Hapoel Beer Sheva only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Goal bands": {
+            "0-1": "20%",
+            "2-3": "40%",
+            "4+": "40%"
+          },
+          "Team to score": {
+            "both": "60%",
+            "only one": "40%",
+            "neither": "0%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "40%",
+            "even": "60%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "8%",
+            "16-30 min.": "20%",
+            "31-45 min.": "20%",
+            "46-60 min.": "28%",
+            "61-75 min.": "0%",
+            "76-90 min.": "24%"
+          },
+          "Hapoel Beer Sheva goals only": {
+            "0-15 min.": "12%",
+            "16-30 min.": "24%",
+            "31-45 min.": "29%",
+            "46-60 min.": "18%",
+            "61-75 min.": "0%",
+            "76-90 min.": "18%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "10%",
+            "11-20 min.": "20%",
+            "21-30 min.": "30%",
+            "31-40 min.": "10%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "20%",
+            "without goal": "0%"
+          },
+          "Time of first Hapoel Beer Sheva goal": {
+            "0-10 min.": "10%",
+            "11-20 min.": "20%",
+            "21-30 min.": "30%",
+            "31-40 min.": "10%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "10%",
+            "without goal": "10%"
+          },
+          "First goal in matches": {
+            "Hapoel Beer Sheva": "80%",
+            "opponent": "10%",
+            "without goal": "0%"
+          },
+          "Winner after 15 minutes": {
+            "Hapoel Beer Sheva": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 30 minutes": {
+            "Hapoel Beer Sheva": "50%",
+            "opponent": "0%",
+            "draw": "50%"
+          },
+          "Winner after 45 minutes": {
+            "Hapoel Beer Sheva": "60%",
+            "opponent": "0%",
+            "draw": "40%"
+          },
+          "Winner after 60 minutes": {
+            "Hapoel Beer Sheva": "50%",
+            "opponent": "0%",
+            "draw": "50%"
+          },
+          "Winner after 75 minutes": {
+            "Hapoel Beer Sheva": "50%",
+            "opponent": "0%",
+            "draw": "50%"
+          },
+          "Winner after 90 minutes": {
+            "Hapoel Beer Sheva": "50%",
+            "opponent": "10%",
+            "draw": "40%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "60%",
+            "2-3 goals": "40%",
+            "4+ goals": "0%"
+          },
+          "Half with most goals": {
+            "first half": "40%",
+            "second half": "30%",
+            "tie": "30%"
+          }
+        }
+      }
     }
   },
   {
@@ -7450,7 +8193,7 @@
     "fora": "Besiktas",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rizespor (Turkey)/Besiktas (Turkey)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Turkey - Super Lig 2025/2026",
     "pais": "Turkey",
     "odds_1": 26,
@@ -8511,7 +9254,7 @@
     "fora": "Deportes La Serena",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Palestino (Chile)/Deportes+La+Serena (Chile)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Chile - Primera Division 2026/2026",
     "pais": "Chile",
     "odds_1": 53,
@@ -9572,7 +10315,7 @@
     "fora": "Audax Italiano",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Coquimbo (Chile)/Audax+Italiano (Chile)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Chile - Primera Division 2026/2026",
     "pais": "Chile",
     "odds_1": 49,
@@ -10633,7 +11376,7 @@
     "fora": "Pogon Szczecin",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Zaglebie+Lubin (Poland)/Pogon+Szczecin (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - Ekstraklasa 2025/2026",
     "pais": "Poland",
     "odds_1": 40,
@@ -10647,7 +11390,7 @@
     "over_3_5": 22,
     "bts": 49,
     "ots": 51,
-    "votos_favor": 7,
+    "votos_favor": 8,
     "votos_contra": 0,
     "detalhes": {
       "url": "https://www.statarea.com/compare/teams/Zaglebie+Lubin (Poland)/Pogon+Szczecin (Poland)",
@@ -11752,7 +12495,7 @@
     "fora": "Widzew Lodz",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Korona+Kielce (Poland)/Widzew+Lodz (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - Ekstraklasa 2025/2026",
     "pais": "Poland",
     "odds_1": 37,
@@ -12871,7 +13614,7 @@
     "fora": "Cerro Porteno",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Sportivo+Trinidense (Paraguay)/Cerro+Porteno (Paraguay)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Paraguay - Division Profesional - Apertura 2026/2026",
     "pais": "Paraguay",
     "odds_1": 31,
@@ -13816,7 +14559,7 @@
     "fora": "Club Nacional",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rubio+Nu (Paraguay)/Club+Nacional (Paraguay)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Paraguay - Division Profesional - Apertura 2026/2026",
     "pais": "Paraguay",
     "odds_1": 24,
@@ -14761,7 +15504,7 @@
     "fora": "Recoleta",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Olimpia (Paraguay)/Recoleta (Paraguay)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Paraguay - Division Profesional - Apertura 2026/2026",
     "pais": "Paraguay",
     "odds_1": 64,
@@ -15706,7 +16449,7 @@
     "fora": "Anorthosis",
     "tip": "12",
     "url_detalhes": "https://www.statarea.com/compare/teams/Olympiakos+Nicosia (Cyprus)/Anorthosis (Cyprus)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Cyprus - Cyprus League Relegation Playoff 2025/2026",
     "pais": "Cyprus",
     "odds_1": 43,
@@ -16535,7 +17278,7 @@
     "fora": "Omonia Aradippou",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Ethnikos+Achnas (Cyprus)/Omonia+Aradippou (Cyprus)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Cyprus - Cyprus League Relegation Playoff 2025/2026",
     "pais": "Cyprus",
     "odds_1": 27,
@@ -17364,7 +18107,7 @@
     "fora": "AEL Limassol",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Akritas+Chlorakas (Cyprus)/AEL+Limassol (Cyprus)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Cyprus - Cyprus League Relegation Playoff 2025/2026",
     "pais": "Cyprus",
     "odds_1": 38,
@@ -18193,7 +18936,7 @@
     "fora": "Rapid Bucuresti",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Arges+Pitesti (Romania)/Rapid+Bucuresti (Romania)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Romania - Superliga Championship Round 2025/2026",
     "pais": "Romania",
     "odds_1": 35,
@@ -18964,7 +19707,7 @@
     "fora": "Chaves",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Maritimo (Portugal)/Chaves (Portugal)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Portugal - Liga Portugal 2 2025/2026",
     "pais": "Portugal",
     "odds_1": 52,
@@ -20083,7 +20826,7 @@
     "fora": "Benfica B",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Porto+B (Portugal)/Benfica+B (Portugal)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Portugal - Liga Portugal 2 2025/2026",
     "pais": "Portugal",
     "odds_1": 36,
@@ -21202,7 +21945,7 @@
     "fora": "Wisla Krakow",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Polonia+Warszawa (Poland)/Wisla+Krakow (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - I Liga 2025/2026",
     "pais": "Poland",
     "odds_1": 41,
@@ -22321,7 +23064,7 @@
     "fora": "Stal Mielec",
     "tip": "12",
     "url_detalhes": "https://www.statarea.com/compare/teams/Pogon+Siedlce (Poland)/Stal+Mielec (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - I Liga 2025/2026",
     "pais": "Poland",
     "odds_1": 41,
@@ -22338,1098 +23081,7 @@
     "votos_favor": 3,
     "votos_contra": 1,
     "detalhes": {
-      "url": "https://www.statarea.com/compare/teams/Pogon+Siedlce (Poland)/Stal+Mielec (Poland)",
-      "info_times": {
-        "Pogon Siedlce": {},
-        "Stal Mielec": {}
-      },
-      "grafico_h2h": {
-        "Pogon Siedlce wins": "62%",
-        "Draw matches": "25%",
-        "Stal Mielec wins": "13%"
-      },
-      "ultimas_10_partidas": {
-        "Pogon Siedlce": {
-          "form": "DLWLLLWWLL",
-          "partidas": [
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-05-10",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "1",
-              "fora": "Stal Rzeszow",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-05-02",
-              "casa": "LKS Lodz",
-              "gols_casa": "4",
-              "fora": "Pogon Siedlce",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-25",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "2",
-              "fora": "Miedz Legnica",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-19",
-              "casa": "Pogon Grodzisk Mazowiecki",
-              "gols_casa": "0",
-              "fora": "Pogon Siedlce",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-12",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "0",
-              "fora": "GKS Tychy",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-04",
-              "casa": "Slask Wroclaw",
-              "gols_casa": "1",
-              "fora": "Pogon Siedlce",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-22",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "1",
-              "fora": "Chrobry Glogow",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-15",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "1",
-              "fora": "Znicz Pruszkow",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-06",
-              "casa": "Puszcza Niepolomice",
-              "gols_casa": "3",
-              "fora": "Pogon Siedlce",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-02-27",
-              "casa": "Pogon Siedlce",
-              "gols_casa": "1",
-              "fora": "Gornik Leczna",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            }
-          ]
-        },
-        "Stal Mielec": {
-          "form": "WWLWWWLLLD",
-          "partidas": [
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-05-09",
-              "casa": "Stal Mielec",
-              "gols_casa": "1",
-              "fora": "Puszcza Niepolomice",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-05-02",
-              "casa": "Miedz Legnica",
-              "gols_casa": "1",
-              "fora": "Stal Mielec",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-25",
-              "casa": "Stal Mielec",
-              "gols_casa": "2",
-              "fora": "Slask Wroclaw",
-              "gols_fora": "3",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-17",
-              "casa": "Chrobry Glogow",
-              "gols_casa": "2",
-              "fora": "Stal Mielec",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-11",
-              "casa": "Stal Mielec",
-              "gols_casa": "3",
-              "fora": "Stal Rzeszow",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-04-06",
-              "casa": "Pogon Grodzisk Mazowiecki",
-              "gols_casa": "1",
-              "fora": "Stal Mielec",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-22",
-              "casa": "Stal Mielec",
-              "gols_casa": "3",
-              "fora": "Wieczysta Krakow",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-14",
-              "casa": "Ruch Chorzow",
-              "gols_casa": "2",
-              "fora": "Stal Mielec",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-06",
-              "casa": "Stal Mielec",
-              "gols_casa": "4",
-              "fora": "GKS Tychy",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Poland - I Liga 2025/2026",
-              "data": "2026-03-01",
-              "casa": "Odra Opole",
-              "gols_casa": "0",
-              "fora": "Stal Mielec",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            }
-          ]
-        }
-      },
-      "confrontos_diretos": [],
-      "estatisticas": {
-        "Pogon Siedlce": {
-          "Number of Pogon Siedlce wins": "3",
-          "Number of Pogon Siedlce draws": "1",
-          "Number of Pogon Siedlce loses": "6",
-          "Average scored goals per match": "0.8",
-          "Average conceded goals per match": "1.4",
-          "Chance to score goal next match": "60%",
-          "Chance to conceded goal next match": "70%",
-          "Number of clean sheet matches": "3",
-          "Failure to score matches": "4",
-          "Matches over 2.5 goals in": "4",
-          "Matches under 2.5 goals in": "6",
-          "Time without scored goal": "26 min.",
-          "Time without conceded goal": "40 min."
-        },
-        "Stal Mielec": {
-          "Number of Stal Mielec wins": "5",
-          "Number of Stal Mielec draws": "1",
-          "Number of Stal Mielec loses": "4",
-          "Average scored goals per match": "1.9",
-          "Average conceded goals per match": "1.2",
-          "Chance to score goal next match": "90%",
-          "Chance to conceded goal next match": "80%",
-          "Number of clean sheet matches": "2",
-          "Failure to score matches": "1",
-          "Matches over 2.5 goals in": "7",
-          "Matches under 2.5 goals in": "3",
-          "Time without scored goal": "80 min.",
-          "Time without conceded goal": "46 min."
-        }
-      },
-      "classificacao": [
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "1",
-          "time": "Wisla Krakow",
-          "jogos": "32",
-          "pontos": "65",
-          "geral": {
-            "v": "18",
-            "e": "11",
-            "d": "3",
-            "gm": "69",
-            "gc": "69"
-          },
-          "casa": {
-            "v": "11",
-            "e": "4",
-            "d": "1",
-            "gm": "40",
-            "gc": "40"
-          },
-          "fora": {
-            "v": "7",
-            "e": "7",
-            "d": "2",
-            "gm": "29",
-            "gc": "29"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "2",
-          "time": "Slask Wroclaw",
-          "jogos": "32",
-          "pontos": "58",
-          "geral": {
-            "v": "16",
-            "e": "10",
-            "d": "6",
-            "gm": "66",
-            "gc": "66"
-          },
-          "casa": {
-            "v": "10",
-            "e": "5",
-            "d": "1",
-            "gm": "33",
-            "gc": "33"
-          },
-          "fora": {
-            "v": "6",
-            "e": "5",
-            "d": "5",
-            "gm": "33",
-            "gc": "33"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "3",
-          "time": "Wieczysta Krakow",
-          "jogos": "32",
-          "pontos": "53",
-          "geral": {
-            "v": "15",
-            "e": "8",
-            "d": "9",
-            "gm": "64",
-            "gc": "64"
-          },
-          "casa": {
-            "v": "7",
-            "e": "4",
-            "d": "5",
-            "gm": "31",
-            "gc": "31"
-          },
-          "fora": {
-            "v": "8",
-            "e": "4",
-            "d": "4",
-            "gm": "33",
-            "gc": "33"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "4",
-          "time": "Chrobry Glogow",
-          "jogos": "32",
-          "pontos": "51",
-          "geral": {
-            "v": "15",
-            "e": "6",
-            "d": "11",
-            "gm": "44",
-            "gc": "44"
-          },
-          "casa": {
-            "v": "8",
-            "e": "3",
-            "d": "5",
-            "gm": "26",
-            "gc": "26"
-          },
-          "fora": {
-            "v": "7",
-            "e": "3",
-            "d": "6",
-            "gm": "18",
-            "gc": "18"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "5",
-          "time": "LKS Lodz",
-          "jogos": "32",
-          "pontos": "51",
-          "geral": {
-            "v": "14",
-            "e": "9",
-            "d": "9",
-            "gm": "53",
-            "gc": "53"
-          },
-          "casa": {
-            "v": "8",
-            "e": "6",
-            "d": "2",
-            "gm": "29",
-            "gc": "29"
-          },
-          "fora": {
-            "v": "6",
-            "e": "3",
-            "d": "7",
-            "gm": "24",
-            "gc": "24"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "6",
-          "time": "Polonia Warszawa",
-          "jogos": "32",
-          "pontos": "50",
-          "geral": {
-            "v": "14",
-            "e": "8",
-            "d": "10",
-            "gm": "50",
-            "gc": "50"
-          },
-          "casa": {
-            "v": "7",
-            "e": "3",
-            "d": "6",
-            "gm": "21",
-            "gc": "21"
-          },
-          "fora": {
-            "v": "7",
-            "e": "5",
-            "d": "4",
-            "gm": "29",
-            "gc": "29"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "7",
-          "time": "Ruch Chorzow",
-          "jogos": "32",
-          "pontos": "50",
-          "geral": {
-            "v": "13",
-            "e": "11",
-            "d": "8",
-            "gm": "50",
-            "gc": "50"
-          },
-          "casa": {
-            "v": "9",
-            "e": "4",
-            "d": "4",
-            "gm": "30",
-            "gc": "30"
-          },
-          "fora": {
-            "v": "4",
-            "e": "7",
-            "d": "4",
-            "gm": "20",
-            "gc": "20"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "8",
-          "time": "Miedz Legnica",
-          "jogos": "32",
-          "pontos": "49",
-          "geral": {
-            "v": "14",
-            "e": "7",
-            "d": "11",
-            "gm": "49",
-            "gc": "49"
-          },
-          "casa": {
-            "v": "9",
-            "e": "4",
-            "d": "2",
-            "gm": "28",
-            "gc": "28"
-          },
-          "fora": {
-            "v": "5",
-            "e": "3",
-            "d": "9",
-            "gm": "21",
-            "gc": "21"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "9",
-          "time": "Polonia Bytom",
-          "jogos": "32",
-          "pontos": "47",
-          "geral": {
-            "v": "13",
-            "e": "8",
-            "d": "11",
-            "gm": "54",
-            "gc": "54"
-          },
-          "casa": {
-            "v": "7",
-            "e": "6",
-            "d": "3",
-            "gm": "30",
-            "gc": "30"
-          },
-          "fora": {
-            "v": "6",
-            "e": "2",
-            "d": "8",
-            "gm": "24",
-            "gc": "24"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "10",
-          "time": "Puszcza Niepolomice",
-          "jogos": "32",
-          "pontos": "46",
-          "geral": {
-            "v": "11",
-            "e": "13",
-            "d": "8",
-            "gm": "43",
-            "gc": "43"
-          },
-          "casa": {
-            "v": "6",
-            "e": "6",
-            "d": "4",
-            "gm": "21",
-            "gc": "21"
-          },
-          "fora": {
-            "v": "5",
-            "e": "7",
-            "d": "4",
-            "gm": "22",
-            "gc": "22"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "11",
-          "time": "Pogon Grodzisk Mazowiecki",
-          "jogos": "32",
-          "pontos": "43",
-          "geral": {
-            "v": "11",
-            "e": "10",
-            "d": "11",
-            "gm": "51",
-            "gc": "51"
-          },
-          "casa": {
-            "v": "7",
-            "e": "6",
-            "d": "3",
-            "gm": "32",
-            "gc": "32"
-          },
-          "fora": {
-            "v": "4",
-            "e": "4",
-            "d": "8",
-            "gm": "19",
-            "gc": "19"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "12",
-          "time": "Stal Rzeszow",
-          "jogos": "32",
-          "pontos": "42",
-          "geral": {
-            "v": "12",
-            "e": "6",
-            "d": "14",
-            "gm": "45",
-            "gc": "45"
-          },
-          "casa": {
-            "v": "6",
-            "e": "4",
-            "d": "6",
-            "gm": "21",
-            "gc": "21"
-          },
-          "fora": {
-            "v": "6",
-            "e": "2",
-            "d": "8",
-            "gm": "24",
-            "gc": "24"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "13",
-          "time": "Odra Opole",
-          "jogos": "32",
-          "pontos": "41",
-          "geral": {
-            "v": "10",
-            "e": "11",
-            "d": "11",
-            "gm": "31",
-            "gc": "31"
-          },
-          "casa": {
-            "v": "7",
-            "e": "5",
-            "d": "4",
-            "gm": "18",
-            "gc": "18"
-          },
-          "fora": {
-            "v": "3",
-            "e": "6",
-            "d": "7",
-            "gm": "13",
-            "gc": "13"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "14",
-          "time": "Pogon Siedlce",
-          "jogos": "32",
-          "pontos": "36",
-          "geral": {
-            "v": "9",
-            "e": "9",
-            "d": "14",
-            "gm": "32",
-            "gc": "32"
-          },
-          "casa": {
-            "v": "5",
-            "e": "4",
-            "d": "7",
-            "gm": "17",
-            "gc": "17"
-          },
-          "fora": {
-            "v": "4",
-            "e": "5",
-            "d": "7",
-            "gm": "15",
-            "gc": "15"
-          },
-          "destacado": true
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "15",
-          "time": "Stal Mielec",
-          "jogos": "32",
-          "pontos": "30",
-          "geral": {
-            "v": "8",
-            "e": "6",
-            "d": "18",
-            "gm": "44",
-            "gc": "44"
-          },
-          "casa": {
-            "v": "4",
-            "e": "4",
-            "d": "8",
-            "gm": "24",
-            "gc": "24"
-          },
-          "fora": {
-            "v": "4",
-            "e": "2",
-            "d": "10",
-            "gm": "20",
-            "gc": "20"
-          },
-          "destacado": true
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "16",
-          "time": "Gornik Leczna",
-          "jogos": "32",
-          "pontos": "27",
-          "geral": {
-            "v": "5",
-            "e": "12",
-            "d": "15",
-            "gm": "38",
-            "gc": "38"
-          },
-          "casa": {
-            "v": "4",
-            "e": "4",
-            "d": "8",
-            "gm": "15",
-            "gc": "15"
-          },
-          "fora": {
-            "v": "1",
-            "e": "8",
-            "d": "7",
-            "gm": "23",
-            "gc": "23"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "17",
-          "time": "Znicz Pruszkow",
-          "jogos": "32",
-          "pontos": "25",
-          "geral": {
-            "v": "6",
-            "e": "7",
-            "d": "19",
-            "gm": "35",
-            "gc": "35"
-          },
-          "casa": {
-            "v": "2",
-            "e": "3",
-            "d": "11",
-            "gm": "22",
-            "gc": "22"
-          },
-          "fora": {
-            "v": "4",
-            "e": "4",
-            "d": "8",
-            "gm": "13",
-            "gc": "13"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "18",
-          "time": "GKS Tychy",
-          "jogos": "32",
-          "pontos": "21",
-          "geral": {
-            "v": "5",
-            "e": "6",
-            "d": "21",
-            "gm": "37",
-            "gc": "37"
-          },
-          "casa": {
-            "v": "2",
-            "e": "4",
-            "d": "10",
-            "gm": "23",
-            "gc": "23"
-          },
-          "fora": {
-            "v": "3",
-            "e": "2",
-            "d": "11",
-            "gm": "14",
-            "gc": "14"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Poland - I Liga 2025/2026",
-          "pos": "",
-          "time": "",
-          "jogos": "",
-          "pontos": "",
-          "geral": {},
-          "casa": {},
-          "fora": {},
-          "destacado": false
-        }
-      ],
-      "bet_statistics": {
-        "Pogon Siedlce": {
-          "1 X 2": {
-            "Pogon Siedlce": "30%",
-            "draw": "10%",
-            "opponent": "60%"
-          },
-          "Halftime 1 X 2": {
-            "Pogon Siedlce": "10%",
-            "draw": "50%",
-            "opponent": "40%"
-          },
-          "Second half 1 X 2": {
-            "Pogon Siedlce": "30%",
-            "draw": "30%",
-            "opponent": "40%"
-          },
-          "Over/under 1.5 for all goals in matches": {
-            "over": "70%",
-            "under": "30%"
-          },
-          "Over/under 1.5 goals for Pogon Siedlce only": {
-            "over": "20%",
-            "under": "80%"
-          },
-          "Over/under 2.5 for all goals in matches": {
-            "over": "40%",
-            "under": "60%"
-          },
-          "Over/under 2.5 goals for Pogon Siedlce only": {
-            "over": "0%",
-            "under": "100%"
-          },
-          "Over/under 3.5 for all goals in matches": {
-            "over": "10%",
-            "under": "90%"
-          },
-          "Over/under 3.5 goals for Pogon Siedlce only": {
-            "over": "0%",
-            "under": "100%"
-          },
-          "Goal bands": {
-            "0-1": "30%",
-            "2-3": "60%",
-            "4+": "10%"
-          },
-          "Team to score": {
-            "both": "30%",
-            "only one": "70%",
-            "neither": "0%"
-          },
-          "Odd/even goals in matches": {
-            "odd": "60%",
-            "even": "40%"
-          },
-          "All goals in matches": {
-            "0-15 min.": "5%",
-            "16-30 min.": "5%",
-            "31-45 min.": "18%",
-            "46-60 min.": "32%",
-            "61-75 min.": "23%",
-            "76-90 min.": "18%"
-          },
-          "Pogon Siedlce goals only": {
-            "0-15 min.": "0%",
-            "16-30 min.": "0%",
-            "31-45 min.": "13%",
-            "46-60 min.": "25%",
-            "61-75 min.": "50%",
-            "76-90 min.": "13%"
-          },
-          "Time of first goal in matches": {
-            "0-10 min.": "10%",
-            "11-20 min.": "10%",
-            "21-30 min.": "0%",
-            "31-40 min.": "20%",
-            "41-50 min.": "30%",
-            "51-60 min.": "0%",
-            "61-70 min.": "10%",
-            "71-80 min.": "20%",
-            "81-90 min.": "0%",
-            "without goal": "0%"
-          },
-          "Time of first Pogon Siedlce goal": {
-            "0-10 min.": "0%",
-            "11-20 min.": "0%",
-            "21-30 min.": "0%",
-            "31-40 min.": "10%",
-            "41-50 min.": "10%",
-            "51-60 min.": "10%",
-            "61-70 min.": "10%",
-            "71-80 min.": "10%",
-            "81-90 min.": "10%",
-            "without goal": "40%"
-          },
-          "First goal in matches": {
-            "Pogon Siedlce": "30%",
-            "opponent": "70%",
-            "without goal": "0%"
-          },
-          "Winner after 15 minutes": {
-            "Pogon Siedlce": "0%",
-            "opponent": "10%",
-            "draw": "90%"
-          },
-          "Winner after 30 minutes": {
-            "Pogon Siedlce": "0%",
-            "opponent": "20%",
-            "draw": "80%"
-          },
-          "Winner after 45 minutes": {
-            "Pogon Siedlce": "10%",
-            "opponent": "40%",
-            "draw": "50%"
-          },
-          "Winner after 60 minutes": {
-            "Pogon Siedlce": "20%",
-            "opponent": "50%",
-            "draw": "30%"
-          },
-          "Winner after 75 minutes": {
-            "Pogon Siedlce": "30%",
-            "opponent": "60%",
-            "draw": "10%"
-          },
-          "Winner after 90 minutes": {
-            "Pogon Siedlce": "30%",
-            "opponent": "60%",
-            "draw": "10%"
-          },
-          "Goal difference in match": {
-            "0-1 goal": "60%",
-            "2-3 goals": "30%",
-            "4+ goals": "10%"
-          },
-          "Half with most goals": {
-            "first half": "50%",
-            "second half": "40%",
-            "tie": "10%"
-          }
-        },
-        "Stal Mielec": {
-          "1 X 2": {
-            "Stal Mielec": "50%",
-            "draw": "10%",
-            "opponent": "40%"
-          },
-          "Halftime 1 X 2": {
-            "Stal Mielec": "30%",
-            "draw": "60%",
-            "opponent": "10%"
-          },
-          "Second half 1 X 2": {
-            "Stal Mielec": "50%",
-            "draw": "20%",
-            "opponent": "30%"
-          },
-          "Over/under 1.5 for all goals in matches": {
-            "over": "90%",
-            "under": "10%"
-          },
-          "Over/under 1.5 goals for Stal Mielec only": {
-            "over": "60%",
-            "under": "40%"
-          },
-          "Over/under 2.5 for all goals in matches": {
-            "over": "70%",
-            "under": "30%"
-          },
-          "Over/under 2.5 goals for Stal Mielec only": {
-            "over": "30%",
-            "under": "70%"
-          },
-          "Over/under 3.5 for all goals in matches": {
-            "over": "40%",
-            "under": "60%"
-          },
-          "Over/under 3.5 goals for Stal Mielec only": {
-            "over": "10%",
-            "under": "90%"
-          },
-          "Goal bands": {
-            "0-1": "10%",
-            "2-3": "50%",
-            "4+": "40%"
-          },
-          "Team to score": {
-            "both": "70%",
-            "only one": "30%",
-            "neither": "0%"
-          },
-          "Odd/even goals in matches": {
-            "odd": "50%",
-            "even": "50%"
-          },
-          "All goals in matches": {
-            "0-15 min.": "20%",
-            "16-30 min.": "24%",
-            "31-45 min.": "28%",
-            "46-60 min.": "4%",
-            "61-75 min.": "8%",
-            "76-90 min.": "16%"
-          },
-          "Stal Mielec goals only": {
-            "0-15 min.": "21%",
-            "16-30 min.": "21%",
-            "31-45 min.": "29%",
-            "46-60 min.": "0%",
-            "61-75 min.": "7%",
-            "76-90 min.": "21%"
-          },
-          "Time of first goal in matches": {
-            "0-10 min.": "30%",
-            "11-20 min.": "20%",
-            "21-30 min.": "20%",
-            "31-40 min.": "0%",
-            "41-50 min.": "0%",
-            "51-60 min.": "0%",
-            "61-70 min.": "20%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "0%"
-          },
-          "Time of first Stal Mielec goal": {
-            "0-10 min.": "20%",
-            "11-20 min.": "20%",
-            "21-30 min.": "20%",
-            "31-40 min.": "10%",
-            "41-50 min.": "0%",
-            "51-60 min.": "0%",
-            "61-70 min.": "10%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "10%"
-          },
-          "First goal in matches": {
-            "Stal Mielec": "60%",
-            "opponent": "30%",
-            "without goal": "0%"
-          },
-          "Winner after 15 minutes": {
-            "Stal Mielec": "20%",
-            "opponent": "10%",
-            "draw": "70%"
-          },
-          "Winner after 30 minutes": {
-            "Stal Mielec": "30%",
-            "opponent": "10%",
-            "draw": "60%"
-          },
-          "Winner after 45 minutes": {
-            "Stal Mielec": "30%",
-            "opponent": "10%",
-            "draw": "60%"
-          },
-          "Winner after 60 minutes": {
-            "Stal Mielec": "30%",
-            "opponent": "20%",
-            "draw": "50%"
-          },
-          "Winner after 75 minutes": {
-            "Stal Mielec": "40%",
-            "opponent": "30%",
-            "draw": "30%"
-          },
-          "Winner after 90 minutes": {
-            "Stal Mielec": "40%",
-            "opponent": "40%",
-            "draw": "20%"
-          },
-          "Goal difference in match": {
-            "0-1 goal": "60%",
-            "2-3 goals": "30%",
-            "4+ goals": "10%"
-          },
-          "Half with most goals": {
-            "first half": "60%",
-            "second half": "30%",
-            "tie": "10%"
-          }
-        }
-      }
+      "erro": "HTTPSConnectionPool(host='www.statarea.com', port=443): Read timed out. (read timeout=15)"
     }
   },
   {
@@ -23440,7 +23092,7 @@
     "fora": "UCV",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Deportivo+La+Guaira (Venezuela)/UCV (Venezuela)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Venezuela - Primera Division - Apertura First Stage Grp. A 2026/2026",
     "pais": "Venezuela",
     "odds_1": 44,
@@ -24153,7 +23805,7 @@
     "fora": "Tacuary",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Deportivo+Santani (Paraguay)/Tacuary (Paraguay)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Paraguay - Division Intermedia 2025/2025",
     "pais": "Paraguay",
     "odds_1": 46,
@@ -25214,7 +24866,7 @@
     "fora": "FK Panevezys",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/FK+Riteriai (Lithuania)/FK+Panevezys (Lithuania)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Lithuania - A Lyga 2025/2025",
     "pais": "Lithuania",
     "odds_1": 23,
@@ -26101,7 +25753,7 @@
     "fora": "FC Dila Gori",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Torpedo+Kutaisi (Georgia)/FC+Dila+Gori (Georgia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Georgia - Erovnuli Liga 2025/2025",
     "pais": "Georgia",
     "odds_1": 38,
@@ -26988,7 +26640,7 @@
     "fora": "Persebaya Surabaya",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Semen+Padang (Indonesia)/Persebaya+Surabaya (Indonesia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Indonesia - Super League 2025/2026",
     "pais": "Indonesia",
     "odds_1": 16,
@@ -28107,7 +27759,7 @@
     "fora": "Maccabi Petah Tikva",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hapoel+Kfar+Saba (Israel)/Maccabi+Petah+Tikva (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Championship Round 2025/2026",
     "pais": "Israel",
     "odds_1": 22,
@@ -28936,7 +28588,7 @@
     "fora": "Kiryat Yam",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Bnei+Yehuda+Tel+Aviv (Israel)/Kiryat+Yam (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Championship Round 2025/2026",
     "pais": "Israel",
     "odds_1": 47,
@@ -29765,7 +29417,7 @@
     "fora": "Maccabi Herzliya",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hapoel+Rishon+LeZion (Israel)/Maccabi+Herzliya (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Championship Round 2025/2026",
     "pais": "Israel",
     "odds_1": 26,
@@ -30594,7 +30246,7 @@
     "fora": "Hapoel Kfar Shalem",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hapoel+Ramat+Gan (Israel)/Hapoel+Kfar+Shalem (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Championship Round 2025/2026",
     "pais": "Israel",
     "odds_1": 48,
@@ -31423,7 +31075,7 @@
     "fora": "Qabala",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/FK+Karvan (Azerbaijan)/Qabala (Azerbaijan)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Azerbaijan - Premier League 2025/2026",
     "pais": "Azerbaijan",
     "odds_1": 35,
@@ -32368,7 +32020,7 @@
     "fora": "Kapaz",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Araz (Azerbaijan)/Kapaz (Azerbaijan)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Azerbaijan - Premier League 2025/2026",
     "pais": "Azerbaijan",
     "odds_1": 44,
@@ -33313,7 +32965,7 @@
     "fora": "Aurora",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Real+Tomayapo (Bolivia)/Aurora (Bolivia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bolivia - Primera Division 2026/2026",
     "pais": "Bolivia",
     "odds_1": 33,
@@ -34374,7 +34026,7 @@
     "fora": "Independiente Medellin",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Orsomarso (Colombia)/Independiente+Medellin (Colombia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Colombia - Cup Grp. C 2026/2026",
     "pais": "Colombia",
     "odds_1": 30,
@@ -35111,7 +34763,7 @@
     "fora": "Tatran Liptovsky Mikulas",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/MFK+Petrzalka (Slovakia)/Tatran+Liptovsky+Mikulas (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 34,
@@ -36172,7 +35824,7 @@
     "fora": "Slovan Bratislava B",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/FK+Pohronie+Dolna+Zdana (Slovakia)/Slovan+Bratislava+B (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 51,
@@ -37233,7 +36885,7 @@
     "fora": "Dukla Banska Bystrica",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Inter+Bratislava (Slovakia)/Dukla+Banska+Bystrica (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 24,
@@ -38294,7 +37946,7 @@
     "fora": "Slavia Tu Kosice",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/MSK+Zilina+B (Slovakia)/Slavia+Tu+Kosice (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 59,
@@ -38311,1040 +37963,7 @@
     "votos_favor": 0,
     "votos_contra": 0,
     "detalhes": {
-      "url": "https://www.statarea.com/compare/teams/MSK+Zilina+B (Slovakia)/Slavia+Tu+Kosice (Slovakia)",
-      "info_times": {
-        "MSK Zilina B": {},
-        "Slavia Tu Kosice": {}
-      },
-      "grafico_h2h": {
-        "MSK Zilina B wins": "100%",
-        "Draw matches": "",
-        "Slavia Tu Kosice wins": ""
-      },
-      "ultimas_10_partidas": {
-        "MSK Zilina B": {
-          "form": "DLLLLLDLDL",
-          "partidas": [
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-05-08",
-              "casa": "Lokomotiva Zvolen",
-              "gols_casa": "5",
-              "fora": "MSK Zilina B",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-05-03",
-              "casa": "MSK Zilina B",
-              "gols_casa": "1",
-              "fora": "OFK Malzenice",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-26",
-              "casa": "Slovan Bratislava B",
-              "gols_casa": "4",
-              "fora": "MSK Zilina B",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-22",
-              "casa": "MSK Zilina B",
-              "gols_casa": "2",
-              "fora": "MSK Povazska Bystrica",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-18",
-              "casa": "Tatran Liptovsky Mikulas",
-              "gols_casa": "2",
-              "fora": "MSK Zilina B",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-12",
-              "casa": "MSK Zilina B",
-              "gols_casa": "1",
-              "fora": "FC ViOn Zlate Moravce",
-              "gols_fora": "4",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-03",
-              "casa": "Dukla Banska Bystrica",
-              "gols_casa": "4",
-              "fora": "MSK Zilina B",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-28",
-              "casa": "MSK Zilina B",
-              "gols_casa": "1",
-              "fora": "Inter Bratislava",
-              "gols_fora": "2",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-21",
-              "casa": "Banik Lehota Pod Vtacnikom",
-              "gols_casa": "1",
-              "fora": "MSK Zilina B",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-15",
-              "casa": "MSK Zilina B",
-              "gols_casa": "1",
-              "fora": "MFK Petrzalka",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            }
-          ]
-        },
-        "Slavia Tu Kosice": {
-          "form": "WDLDLWLDLW",
-          "partidas": [
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-05-08",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "2",
-              "fora": "Inter Bratislava",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-05-02",
-              "casa": "Lokomotiva Zvolen",
-              "gols_casa": "2",
-              "fora": "Slavia Tu Kosice",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-26",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "1",
-              "fora": "Banik Lehota Pod Vtacnikom",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-22",
-              "casa": "OFK Malzenice",
-              "gols_casa": "1",
-              "fora": "Slavia Tu Kosice",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-19",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "1",
-              "fora": "MFK Petrzalka",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-12",
-              "casa": "Slovan Bratislava B",
-              "gols_casa": "4",
-              "fora": "Slavia Tu Kosice",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-04-05",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "0",
-              "fora": "Puchov",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-28",
-              "casa": "MSK Povazska Bystrica",
-              "gols_casa": "4",
-              "fora": "Slavia Tu Kosice",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-22",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "1",
-              "fora": "FK Pohronie Dolna Zdana",
-              "gols_fora": "1",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            },
-            {
-              "competicao": "Slovakia - 2. Liga 2025/2026",
-              "data": "2026-03-08",
-              "casa": "Slavia Tu Kosice",
-              "gols_casa": "3",
-              "fora": "MFK Stara Lubovna",
-              "gols_fora": "0",
-              "ht_casa": "",
-              "ht_fora": "",
-              "artilheiros": []
-            }
-          ]
-        }
-      },
-      "confrontos_diretos": [],
-      "estatisticas": {
-        "MSK Zilina B": {
-          "Number of MSK Zilina B wins": "0",
-          "Number of MSK Zilina B draws": "3",
-          "Number of MSK Zilina B loses": "7",
-          "Average scored goals per match": "1.1",
-          "Average conceded goals per match": "2.6",
-          "Chance to score goal next match": "80%",
-          "Chance to conceded goal next match": "100%",
-          "Number of clean sheet matches": "0",
-          "Failure to score matches": "2",
-          "Matches over 2.5 goals in": "6",
-          "Matches under 2.5 goals in": "4",
-          "Time without scored goal": "11 min.",
-          "Time without conceded goal": "0 min."
-        },
-        "Slavia Tu Kosice": {
-          "Number of Slavia Tu Kosice wins": "3",
-          "Number of Slavia Tu Kosice draws": "3",
-          "Number of Slavia Tu Kosice loses": "4",
-          "Average scored goals per match": "1",
-          "Average conceded goals per match": "1.4",
-          "Chance to score goal next match": "70%",
-          "Chance to conceded goal next match": "70%",
-          "Number of clean sheet matches": "3",
-          "Failure to score matches": "3",
-          "Matches over 2.5 goals in": "5",
-          "Matches under 2.5 goals in": "5",
-          "Time without scored goal": "57 min.",
-          "Time without conceded goal": "78 min."
-        }
-      },
-      "classificacao": [
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "1",
-          "time": "Dukla Banska Bystrica",
-          "jogos": "29",
-          "pontos": "66",
-          "geral": {
-            "v": "20",
-            "e": "6",
-            "d": "3",
-            "gm": "61",
-            "gc": "61"
-          },
-          "casa": {
-            "v": "11",
-            "e": "3",
-            "d": "1",
-            "gm": "35",
-            "gc": "35"
-          },
-          "fora": {
-            "v": "9",
-            "e": "3",
-            "d": "2",
-            "gm": "26",
-            "gc": "26"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "2",
-          "time": "Lokomotiva Zvolen",
-          "jogos": "29",
-          "pontos": "49",
-          "geral": {
-            "v": "13",
-            "e": "10",
-            "d": "6",
-            "gm": "45",
-            "gc": "45"
-          },
-          "casa": {
-            "v": "7",
-            "e": "4",
-            "d": "4",
-            "gm": "26",
-            "gc": "26"
-          },
-          "fora": {
-            "v": "6",
-            "e": "6",
-            "d": "2",
-            "gm": "19",
-            "gc": "19"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "3",
-          "time": "Tatran Liptovsky Mikulas",
-          "jogos": "29",
-          "pontos": "48",
-          "geral": {
-            "v": "13",
-            "e": "9",
-            "d": "7",
-            "gm": "54",
-            "gc": "54"
-          },
-          "casa": {
-            "v": "11",
-            "e": "2",
-            "d": "2",
-            "gm": "32",
-            "gc": "32"
-          },
-          "fora": {
-            "v": "2",
-            "e": "7",
-            "d": "5",
-            "gm": "22",
-            "gc": "22"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "4",
-          "time": "MFK Petrzalka",
-          "jogos": "29",
-          "pontos": "45",
-          "geral": {
-            "v": "13",
-            "e": "6",
-            "d": "10",
-            "gm": "43",
-            "gc": "43"
-          },
-          "casa": {
-            "v": "9",
-            "e": "2",
-            "d": "3",
-            "gm": "26",
-            "gc": "26"
-          },
-          "fora": {
-            "v": "4",
-            "e": "4",
-            "d": "7",
-            "gm": "17",
-            "gc": "17"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "5",
-          "time": "OFK Malzenice",
-          "jogos": "29",
-          "pontos": "44",
-          "geral": {
-            "v": "12",
-            "e": "8",
-            "d": "9",
-            "gm": "42",
-            "gc": "42"
-          },
-          "casa": {
-            "v": "9",
-            "e": "3",
-            "d": "3",
-            "gm": "22",
-            "gc": "22"
-          },
-          "fora": {
-            "v": "3",
-            "e": "5",
-            "d": "6",
-            "gm": "20",
-            "gc": "20"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "6",
-          "time": "FC ViOn Zlate Moravce",
-          "jogos": "29",
-          "pontos": "43",
-          "geral": {
-            "v": "12",
-            "e": "7",
-            "d": "10",
-            "gm": "54",
-            "gc": "54"
-          },
-          "casa": {
-            "v": "7",
-            "e": "5",
-            "d": "3",
-            "gm": "29",
-            "gc": "29"
-          },
-          "fora": {
-            "v": "5",
-            "e": "2",
-            "d": "7",
-            "gm": "25",
-            "gc": "25"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "7",
-          "time": "FK Pohronie Dolna Zdana",
-          "jogos": "29",
-          "pontos": "41",
-          "geral": {
-            "v": "10",
-            "e": "11",
-            "d": "8",
-            "gm": "45",
-            "gc": "45"
-          },
-          "casa": {
-            "v": "8",
-            "e": "4",
-            "d": "2",
-            "gm": "29",
-            "gc": "29"
-          },
-          "fora": {
-            "v": "2",
-            "e": "7",
-            "d": "6",
-            "gm": "16",
-            "gc": "16"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "8",
-          "time": "Slovan Bratislava B",
-          "jogos": "29",
-          "pontos": "40",
-          "geral": {
-            "v": "10",
-            "e": "10",
-            "d": "9",
-            "gm": "44",
-            "gc": "44"
-          },
-          "casa": {
-            "v": "7",
-            "e": "5",
-            "d": "3",
-            "gm": "30",
-            "gc": "30"
-          },
-          "fora": {
-            "v": "3",
-            "e": "5",
-            "d": "6",
-            "gm": "14",
-            "gc": "14"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "9",
-          "time": "Inter Bratislava",
-          "jogos": "29",
-          "pontos": "39",
-          "geral": {
-            "v": "11",
-            "e": "6",
-            "d": "12",
-            "gm": "34",
-            "gc": "34"
-          },
-          "casa": {
-            "v": "6",
-            "e": "4",
-            "d": "4",
-            "gm": "20",
-            "gc": "20"
-          },
-          "fora": {
-            "v": "5",
-            "e": "2",
-            "d": "8",
-            "gm": "14",
-            "gc": "14"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "10",
-          "time": "STK 1914 Samorin",
-          "jogos": "29",
-          "pontos": "35",
-          "geral": {
-            "v": "9",
-            "e": "8",
-            "d": "12",
-            "gm": "41",
-            "gc": "41"
-          },
-          "casa": {
-            "v": "3",
-            "e": "7",
-            "d": "4",
-            "gm": "15",
-            "gc": "15"
-          },
-          "fora": {
-            "v": "6",
-            "e": "1",
-            "d": "8",
-            "gm": "26",
-            "gc": "26"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "11",
-          "time": "Banik Lehota Pod Vtacnikom",
-          "jogos": "29",
-          "pontos": "34",
-          "geral": {
-            "v": "9",
-            "e": "7",
-            "d": "13",
-            "gm": "38",
-            "gc": "38"
-          },
-          "casa": {
-            "v": "7",
-            "e": "2",
-            "d": "5",
-            "gm": "24",
-            "gc": "24"
-          },
-          "fora": {
-            "v": "2",
-            "e": "5",
-            "d": "8",
-            "gm": "14",
-            "gc": "14"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "12",
-          "time": "Slavia Tu Kosice",
-          "jogos": "29",
-          "pontos": "32",
-          "geral": {
-            "v": "8",
-            "e": "8",
-            "d": "13",
-            "gm": "38",
-            "gc": "38"
-          },
-          "casa": {
-            "v": "6",
-            "e": "6",
-            "d": "3",
-            "gm": "22",
-            "gc": "22"
-          },
-          "fora": {
-            "v": "2",
-            "e": "2",
-            "d": "10",
-            "gm": "16",
-            "gc": "16"
-          },
-          "destacado": true
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "13",
-          "time": "MSK Povazska Bystrica",
-          "jogos": "29",
-          "pontos": "30",
-          "geral": {
-            "v": "7",
-            "e": "9",
-            "d": "13",
-            "gm": "37",
-            "gc": "37"
-          },
-          "casa": {
-            "v": "4",
-            "e": "5",
-            "d": "6",
-            "gm": "18",
-            "gc": "18"
-          },
-          "fora": {
-            "v": "3",
-            "e": "4",
-            "d": "7",
-            "gm": "19",
-            "gc": "19"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "14",
-          "time": "MSK Zilina B",
-          "jogos": "29",
-          "pontos": "30",
-          "geral": {
-            "v": "8",
-            "e": "6",
-            "d": "15",
-            "gm": "39",
-            "gc": "39"
-          },
-          "casa": {
-            "v": "5",
-            "e": "3",
-            "d": "6",
-            "gm": "22",
-            "gc": "22"
-          },
-          "fora": {
-            "v": "3",
-            "e": "3",
-            "d": "9",
-            "gm": "17",
-            "gc": "17"
-          },
-          "destacado": true
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "15",
-          "time": "Puchov",
-          "jogos": "29",
-          "pontos": "29",
-          "geral": {
-            "v": "6",
-            "e": "11",
-            "d": "12",
-            "gm": "33",
-            "gc": "33"
-          },
-          "casa": {
-            "v": "5",
-            "e": "4",
-            "d": "5",
-            "gm": "21",
-            "gc": "21"
-          },
-          "fora": {
-            "v": "1",
-            "e": "7",
-            "d": "7",
-            "gm": "12",
-            "gc": "12"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "16",
-          "time": "MFK Stara Lubovna",
-          "jogos": "29",
-          "pontos": "26",
-          "geral": {
-            "v": "6",
-            "e": "8",
-            "d": "15",
-            "gm": "34",
-            "gc": "34"
-          },
-          "casa": {
-            "v": "4",
-            "e": "6",
-            "d": "4",
-            "gm": "21",
-            "gc": "21"
-          },
-          "fora": {
-            "v": "2",
-            "e": "2",
-            "d": "11",
-            "gm": "13",
-            "gc": "13"
-          },
-          "destacado": false
-        },
-        {
-          "competicao": "Slovakia - 2. Liga 2025/2026",
-          "pos": "",
-          "time": "",
-          "jogos": "",
-          "pontos": "",
-          "geral": {},
-          "casa": {},
-          "fora": {},
-          "destacado": false
-        }
-      ],
-      "bet_statistics": {
-        "MSK Zilina B": {
-          "1 X 2": {
-            "MSK Zilina B": "0%",
-            "draw": "30%",
-            "opponent": "70%"
-          },
-          "Halftime 1 X 2": {
-            "MSK Zilina B": "20%",
-            "draw": "20%",
-            "opponent": "60%"
-          },
-          "Second half 1 X 2": {
-            "MSK Zilina B": "20%",
-            "draw": "30%",
-            "opponent": "50%"
-          },
-          "Over/under 1.5 for all goals in matches": {
-            "over": "90%",
-            "under": "10%"
-          },
-          "Over/under 1.5 goals for MSK Zilina B only": {
-            "over": "30%",
-            "under": "70%"
-          },
-          "Over/under 2.5 for all goals in matches": {
-            "over": "60%",
-            "under": "40%"
-          },
-          "Over/under 2.5 goals for MSK Zilina B only": {
-            "over": "0%",
-            "under": "100%"
-          },
-          "Over/under 3.5 for all goals in matches": {
-            "over": "50%",
-            "under": "50%"
-          },
-          "Over/under 3.5 goals for MSK Zilina B only": {
-            "over": "0%",
-            "under": "100%"
-          },
-          "Goal bands": {
-            "0-1": "10%",
-            "2-3": "40%",
-            "4+": "50%"
-          },
-          "Team to score": {
-            "both": "80%",
-            "only one": "20%",
-            "neither": "0%"
-          },
-          "Odd/even goals in matches": {
-            "odd": "50%",
-            "even": "50%"
-          },
-          "All goals in matches": {
-            "0-15 min.": "0%",
-            "16-30 min.": "11%",
-            "31-45 min.": "11%",
-            "46-60 min.": "22%",
-            "61-75 min.": "0%",
-            "76-90 min.": "56%"
-          },
-          "MSK Zilina B goals only": {
-            "0-15 min.": "0%",
-            "16-30 min.": "33%",
-            "31-45 min.": "0%",
-            "46-60 min.": "33%",
-            "61-75 min.": "0%",
-            "76-90 min.": "33%"
-          },
-          "Time of first goal in matches": {
-            "0-10 min.": "0%",
-            "11-20 min.": "0%",
-            "21-30 min.": "10%",
-            "31-40 min.": "10%",
-            "41-50 min.": "0%",
-            "51-60 min.": "0%",
-            "61-70 min.": "0%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "0%"
-          },
-          "Time of first MSK Zilina B goal": {
-            "0-10 min.": "0%",
-            "11-20 min.": "0%",
-            "21-30 min.": "10%",
-            "31-40 min.": "0%",
-            "41-50 min.": "0%",
-            "51-60 min.": "10%",
-            "61-70 min.": "0%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "20%"
-          },
-          "First goal in matches": {
-            "MSK Zilina B": "10%",
-            "opponent": "10%",
-            "without goal": "0%"
-          },
-          "Winner after 15 minutes": {
-            "MSK Zilina B": "0%",
-            "opponent": "0%",
-            "draw": "100%"
-          },
-          "Winner after 30 minutes": {
-            "MSK Zilina B": "10%",
-            "opponent": "0%",
-            "draw": "90%"
-          },
-          "Winner after 45 minutes": {
-            "MSK Zilina B": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 60 minutes": {
-            "MSK Zilina B": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 75 minutes": {
-            "MSK Zilina B": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 90 minutes": {
-            "MSK Zilina B": "0%",
-            "opponent": "10%",
-            "draw": "90%"
-          },
-          "Goal difference in match": {
-            "0-1 goal": "50%",
-            "2-3 goals": "50%",
-            "4+ goals": "0%"
-          },
-          "Half with most goals": {
-            "first half": "50%",
-            "second half": "20%",
-            "tie": "30%"
-          }
-        },
-        "Slavia Tu Kosice": {
-          "1 X 2": {
-            "Slavia Tu Kosice": "30%",
-            "draw": "30%",
-            "opponent": "40%"
-          },
-          "Halftime 1 X 2": {
-            "Slavia Tu Kosice": "30%",
-            "draw": "30%",
-            "opponent": "40%"
-          },
-          "Second half 1 X 2": {
-            "Slavia Tu Kosice": "10%",
-            "draw": "80%",
-            "opponent": "10%"
-          },
-          "Over/under 1.5 for all goals in matches": {
-            "over": "70%",
-            "under": "30%"
-          },
-          "Over/under 1.5 goals for Slavia Tu Kosice only": {
-            "over": "20%",
-            "under": "80%"
-          },
-          "Over/under 2.5 for all goals in matches": {
-            "over": "50%",
-            "under": "50%"
-          },
-          "Over/under 2.5 goals for Slavia Tu Kosice only": {
-            "over": "10%",
-            "under": "90%"
-          },
-          "Over/under 3.5 for all goals in matches": {
-            "over": "20%",
-            "under": "80%"
-          },
-          "Over/under 3.5 goals for Slavia Tu Kosice only": {
-            "over": "0%",
-            "under": "100%"
-          },
-          "Goal bands": {
-            "0-1": "30%",
-            "2-3": "50%",
-            "4+": "20%"
-          },
-          "Team to score": {
-            "both": "50%",
-            "only one": "40%",
-            "neither": "10%"
-          },
-          "Odd/even goals in matches": {
-            "odd": "60%",
-            "even": "40%"
-          },
-          "All goals in matches": {
-            "0-15 min.": "33%",
-            "16-30 min.": "17%",
-            "31-45 min.": "17%",
-            "46-60 min.": "0%",
-            "61-75 min.": "33%",
-            "76-90 min.": "0%"
-          },
-          "Slavia Tu Kosice goals only": {
-            "0-15 min.": "33%",
-            "16-30 min.": "0%",
-            "31-45 min.": "33%",
-            "46-60 min.": "0%",
-            "61-75 min.": "33%",
-            "76-90 min.": "0%"
-          },
-          "Time of first goal in matches": {
-            "0-10 min.": "10%",
-            "11-20 min.": "0%",
-            "21-30 min.": "10%",
-            "31-40 min.": "0%",
-            "41-50 min.": "0%",
-            "51-60 min.": "0%",
-            "61-70 min.": "0%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "10%"
-          },
-          "Time of first Slavia Tu Kosice goal": {
-            "0-10 min.": "10%",
-            "11-20 min.": "0%",
-            "21-30 min.": "0%",
-            "31-40 min.": "0%",
-            "41-50 min.": "0%",
-            "51-60 min.": "0%",
-            "61-70 min.": "10%",
-            "71-80 min.": "0%",
-            "81-90 min.": "0%",
-            "without goal": "30%"
-          },
-          "First goal in matches": {
-            "Slavia Tu Kosice": "10%",
-            "opponent": "10%",
-            "without goal": "10%"
-          },
-          "Winner after 15 minutes": {
-            "Slavia Tu Kosice": "0%",
-            "opponent": "0%",
-            "draw": "100%"
-          },
-          "Winner after 30 minutes": {
-            "Slavia Tu Kosice": "0%",
-            "opponent": "10%",
-            "draw": "90%"
-          },
-          "Winner after 45 minutes": {
-            "Slavia Tu Kosice": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 60 minutes": {
-            "Slavia Tu Kosice": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 75 minutes": {
-            "Slavia Tu Kosice": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Winner after 90 minutes": {
-            "Slavia Tu Kosice": "10%",
-            "opponent": "10%",
-            "draw": "80%"
-          },
-          "Goal difference in match": {
-            "0-1 goal": "70%",
-            "2-3 goals": "20%",
-            "4+ goals": "10%"
-          },
-          "Half with most goals": {
-            "first half": "70%",
-            "second half": "0%",
-            "tie": "30%"
-          }
-        }
-      }
+      "erro": "HTTPSConnectionPool(host='www.statarea.com', port=443): Read timed out. (read timeout=15)"
     }
   },
   {
@@ -39355,7 +37974,7 @@
     "fora": "MSK Povazska Bystrica",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Puchov (Slovakia)/MSK+Povazska+Bystrica (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 39,
@@ -40416,7 +39035,7 @@
     "fora": "OFK Malzenice",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/MFK+Stara+Lubovna (Slovakia)/OFK+Malzenice (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 24,
@@ -41477,7 +40096,7 @@
     "fora": "Lokomotiva Zvolen",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/STK+1914+Samorin (Slovakia)/Lokomotiva+Zvolen (Slovakia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovakia - 2. Liga 2025/2026",
     "pais": "Slovakia",
     "odds_1": 20,
@@ -41494,7 +40113,1040 @@
     "votos_favor": 2,
     "votos_contra": 0,
     "detalhes": {
-      "erro": "HTTPSConnectionPool(host='www.statarea.com', port=443): Read timed out. (read timeout=15)"
+      "url": "https://www.statarea.com/compare/teams/STK+1914+Samorin (Slovakia)/Lokomotiva+Zvolen (Slovakia)",
+      "info_times": {
+        "STK 1914 Samorin": {},
+        "Lokomotiva Zvolen": {}
+      },
+      "grafico_h2h": {
+        "STK 1914 Samorin wins": "67%",
+        "Draw matches": "",
+        "Lokomotiva Zvolen wins": "33%"
+      },
+      "ultimas_10_partidas": {
+        "STK 1914 Samorin": {
+          "form": "DLLWLWDDDW",
+          "partidas": [
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-05-08",
+              "casa": "OFK Malzenice",
+              "gols_casa": "2",
+              "fora": "STK 1914 Samorin",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-05-02",
+              "casa": "STK 1914 Samorin",
+              "gols_casa": "1",
+              "fora": "Slovan Bratislava B",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-25",
+              "casa": "MSK Povazska Bystrica",
+              "gols_casa": "1",
+              "fora": "STK 1914 Samorin",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-22",
+              "casa": "STK 1914 Samorin",
+              "gols_casa": "1",
+              "fora": "Tatran Liptovsky Mikulas",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-17",
+              "casa": "FC ViOn Zlate Moravce",
+              "gols_casa": "1",
+              "fora": "STK 1914 Samorin",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-11",
+              "casa": "STK 1914 Samorin",
+              "gols_casa": "0",
+              "fora": "Dukla Banska Bystrica",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-03",
+              "casa": "Inter Bratislava",
+              "gols_casa": "0",
+              "fora": "STK 1914 Samorin",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-28",
+              "casa": "STK 1914 Samorin",
+              "gols_casa": "0",
+              "fora": "Banik Lehota Pod Vtacnikom",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-22",
+              "casa": "MFK Petrzalka",
+              "gols_casa": "3",
+              "fora": "STK 1914 Samorin",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-14",
+              "casa": "STK 1914 Samorin",
+              "gols_casa": "0",
+              "fora": "Puchov",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        },
+        "Lokomotiva Zvolen": {
+          "form": "WWDDWWLDWW",
+          "partidas": [
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-05-08",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "5",
+              "fora": "MSK Zilina B",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-05-02",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "2",
+              "fora": "Slavia Tu Kosice",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-26",
+              "casa": "OFK Malzenice",
+              "gols_casa": "0",
+              "fora": "Lokomotiva Zvolen",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-22",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "1",
+              "fora": "Slovan Bratislava B",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-18",
+              "casa": "MSK Povazska Bystrica",
+              "gols_casa": "0",
+              "fora": "Lokomotiva Zvolen",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-11",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "2",
+              "fora": "Tatran Liptovsky Mikulas",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-04-02",
+              "casa": "FC ViOn Zlate Moravce",
+              "gols_casa": "0",
+              "fora": "Lokomotiva Zvolen",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-28",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "1",
+              "fora": "Dukla Banska Bystrica",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-21",
+              "casa": "Inter Bratislava",
+              "gols_casa": "0",
+              "fora": "Lokomotiva Zvolen",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovakia - 2. Liga 2025/2026",
+              "data": "2026-03-14",
+              "casa": "Lokomotiva Zvolen",
+              "gols_casa": "1",
+              "fora": "Banik Lehota Pod Vtacnikom",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        }
+      },
+      "confrontos_diretos": [],
+      "estatisticas": {
+        "STK 1914 Samorin": {
+          "Number of STK 1914 Samorin wins": "3",
+          "Number of STK 1914 Samorin draws": "4",
+          "Number of STK 1914 Samorin loses": "3",
+          "Average scored goals per match": "1",
+          "Average conceded goals per match": "1.2",
+          "Chance to score goal next match": "60%",
+          "Chance to conceded goal next match": "80%",
+          "Number of clean sheet matches": "2",
+          "Failure to score matches": "4",
+          "Matches over 2.5 goals in": "3",
+          "Matches under 2.5 goals in": "7",
+          "Time without scored goal": "52 min.",
+          "Time without conceded goal": "0 min."
+        },
+        "Lokomotiva Zvolen": {
+          "Number of Lokomotiva Zvolen wins": "6",
+          "Number of Lokomotiva Zvolen draws": "3",
+          "Number of Lokomotiva Zvolen loses": "1",
+          "Average scored goals per match": "1.5",
+          "Average conceded goals per match": "0.7",
+          "Chance to score goal next match": "80%",
+          "Chance to conceded goal next match": "50%",
+          "Number of clean sheet matches": "5",
+          "Failure to score matches": "2",
+          "Matches over 2.5 goals in": "4",
+          "Matches under 2.5 goals in": "6",
+          "Time without scored goal": "0 min.",
+          "Time without conceded goal": "11 min."
+        }
+      },
+      "classificacao": [
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "1",
+          "time": "Dukla Banska Bystrica",
+          "jogos": "29",
+          "pontos": "66",
+          "geral": {
+            "v": "20",
+            "e": "6",
+            "d": "3",
+            "gm": "61",
+            "gc": "61"
+          },
+          "casa": {
+            "v": "11",
+            "e": "3",
+            "d": "1",
+            "gm": "35",
+            "gc": "35"
+          },
+          "fora": {
+            "v": "9",
+            "e": "3",
+            "d": "2",
+            "gm": "26",
+            "gc": "26"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "2",
+          "time": "Lokomotiva Zvolen",
+          "jogos": "29",
+          "pontos": "49",
+          "geral": {
+            "v": "13",
+            "e": "10",
+            "d": "6",
+            "gm": "45",
+            "gc": "45"
+          },
+          "casa": {
+            "v": "7",
+            "e": "4",
+            "d": "4",
+            "gm": "26",
+            "gc": "26"
+          },
+          "fora": {
+            "v": "6",
+            "e": "6",
+            "d": "2",
+            "gm": "19",
+            "gc": "19"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "3",
+          "time": "Tatran Liptovsky Mikulas",
+          "jogos": "29",
+          "pontos": "48",
+          "geral": {
+            "v": "13",
+            "e": "9",
+            "d": "7",
+            "gm": "54",
+            "gc": "54"
+          },
+          "casa": {
+            "v": "11",
+            "e": "2",
+            "d": "2",
+            "gm": "32",
+            "gc": "32"
+          },
+          "fora": {
+            "v": "2",
+            "e": "7",
+            "d": "5",
+            "gm": "22",
+            "gc": "22"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "4",
+          "time": "MFK Petrzalka",
+          "jogos": "29",
+          "pontos": "45",
+          "geral": {
+            "v": "13",
+            "e": "6",
+            "d": "10",
+            "gm": "43",
+            "gc": "43"
+          },
+          "casa": {
+            "v": "9",
+            "e": "2",
+            "d": "3",
+            "gm": "26",
+            "gc": "26"
+          },
+          "fora": {
+            "v": "4",
+            "e": "4",
+            "d": "7",
+            "gm": "17",
+            "gc": "17"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "5",
+          "time": "OFK Malzenice",
+          "jogos": "29",
+          "pontos": "44",
+          "geral": {
+            "v": "12",
+            "e": "8",
+            "d": "9",
+            "gm": "42",
+            "gc": "42"
+          },
+          "casa": {
+            "v": "9",
+            "e": "3",
+            "d": "3",
+            "gm": "22",
+            "gc": "22"
+          },
+          "fora": {
+            "v": "3",
+            "e": "5",
+            "d": "6",
+            "gm": "20",
+            "gc": "20"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "6",
+          "time": "FC ViOn Zlate Moravce",
+          "jogos": "29",
+          "pontos": "43",
+          "geral": {
+            "v": "12",
+            "e": "7",
+            "d": "10",
+            "gm": "54",
+            "gc": "54"
+          },
+          "casa": {
+            "v": "7",
+            "e": "5",
+            "d": "3",
+            "gm": "29",
+            "gc": "29"
+          },
+          "fora": {
+            "v": "5",
+            "e": "2",
+            "d": "7",
+            "gm": "25",
+            "gc": "25"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "7",
+          "time": "FK Pohronie Dolna Zdana",
+          "jogos": "29",
+          "pontos": "41",
+          "geral": {
+            "v": "10",
+            "e": "11",
+            "d": "8",
+            "gm": "45",
+            "gc": "45"
+          },
+          "casa": {
+            "v": "8",
+            "e": "4",
+            "d": "2",
+            "gm": "29",
+            "gc": "29"
+          },
+          "fora": {
+            "v": "2",
+            "e": "7",
+            "d": "6",
+            "gm": "16",
+            "gc": "16"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "8",
+          "time": "Slovan Bratislava B",
+          "jogos": "29",
+          "pontos": "40",
+          "geral": {
+            "v": "10",
+            "e": "10",
+            "d": "9",
+            "gm": "44",
+            "gc": "44"
+          },
+          "casa": {
+            "v": "7",
+            "e": "5",
+            "d": "3",
+            "gm": "30",
+            "gc": "30"
+          },
+          "fora": {
+            "v": "3",
+            "e": "5",
+            "d": "6",
+            "gm": "14",
+            "gc": "14"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "9",
+          "time": "Inter Bratislava",
+          "jogos": "29",
+          "pontos": "39",
+          "geral": {
+            "v": "11",
+            "e": "6",
+            "d": "12",
+            "gm": "34",
+            "gc": "34"
+          },
+          "casa": {
+            "v": "6",
+            "e": "4",
+            "d": "4",
+            "gm": "20",
+            "gc": "20"
+          },
+          "fora": {
+            "v": "5",
+            "e": "2",
+            "d": "8",
+            "gm": "14",
+            "gc": "14"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "10",
+          "time": "STK 1914 Samorin",
+          "jogos": "29",
+          "pontos": "35",
+          "geral": {
+            "v": "9",
+            "e": "8",
+            "d": "12",
+            "gm": "41",
+            "gc": "41"
+          },
+          "casa": {
+            "v": "3",
+            "e": "7",
+            "d": "4",
+            "gm": "15",
+            "gc": "15"
+          },
+          "fora": {
+            "v": "6",
+            "e": "1",
+            "d": "8",
+            "gm": "26",
+            "gc": "26"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "11",
+          "time": "Banik Lehota Pod Vtacnikom",
+          "jogos": "29",
+          "pontos": "34",
+          "geral": {
+            "v": "9",
+            "e": "7",
+            "d": "13",
+            "gm": "38",
+            "gc": "38"
+          },
+          "casa": {
+            "v": "7",
+            "e": "2",
+            "d": "5",
+            "gm": "24",
+            "gc": "24"
+          },
+          "fora": {
+            "v": "2",
+            "e": "5",
+            "d": "8",
+            "gm": "14",
+            "gc": "14"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "12",
+          "time": "Slavia Tu Kosice",
+          "jogos": "29",
+          "pontos": "32",
+          "geral": {
+            "v": "8",
+            "e": "8",
+            "d": "13",
+            "gm": "38",
+            "gc": "38"
+          },
+          "casa": {
+            "v": "6",
+            "e": "6",
+            "d": "3",
+            "gm": "22",
+            "gc": "22"
+          },
+          "fora": {
+            "v": "2",
+            "e": "2",
+            "d": "10",
+            "gm": "16",
+            "gc": "16"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "13",
+          "time": "MSK Povazska Bystrica",
+          "jogos": "29",
+          "pontos": "30",
+          "geral": {
+            "v": "7",
+            "e": "9",
+            "d": "13",
+            "gm": "37",
+            "gc": "37"
+          },
+          "casa": {
+            "v": "4",
+            "e": "5",
+            "d": "6",
+            "gm": "18",
+            "gc": "18"
+          },
+          "fora": {
+            "v": "3",
+            "e": "4",
+            "d": "7",
+            "gm": "19",
+            "gc": "19"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "14",
+          "time": "MSK Zilina B",
+          "jogos": "29",
+          "pontos": "30",
+          "geral": {
+            "v": "8",
+            "e": "6",
+            "d": "15",
+            "gm": "39",
+            "gc": "39"
+          },
+          "casa": {
+            "v": "5",
+            "e": "3",
+            "d": "6",
+            "gm": "22",
+            "gc": "22"
+          },
+          "fora": {
+            "v": "3",
+            "e": "3",
+            "d": "9",
+            "gm": "17",
+            "gc": "17"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "15",
+          "time": "Puchov",
+          "jogos": "29",
+          "pontos": "29",
+          "geral": {
+            "v": "6",
+            "e": "11",
+            "d": "12",
+            "gm": "33",
+            "gc": "33"
+          },
+          "casa": {
+            "v": "5",
+            "e": "4",
+            "d": "5",
+            "gm": "21",
+            "gc": "21"
+          },
+          "fora": {
+            "v": "1",
+            "e": "7",
+            "d": "7",
+            "gm": "12",
+            "gc": "12"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "16",
+          "time": "MFK Stara Lubovna",
+          "jogos": "29",
+          "pontos": "26",
+          "geral": {
+            "v": "6",
+            "e": "8",
+            "d": "15",
+            "gm": "34",
+            "gc": "34"
+          },
+          "casa": {
+            "v": "4",
+            "e": "6",
+            "d": "4",
+            "gm": "21",
+            "gc": "21"
+          },
+          "fora": {
+            "v": "2",
+            "e": "2",
+            "d": "11",
+            "gm": "13",
+            "gc": "13"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovakia - 2. Liga 2025/2026",
+          "pos": "",
+          "time": "",
+          "jogos": "",
+          "pontos": "",
+          "geral": {},
+          "casa": {},
+          "fora": {},
+          "destacado": false
+        }
+      ],
+      "bet_statistics": {
+        "STK 1914 Samorin": {
+          "1 X 2": {
+            "STK 1914 Samorin": "30%",
+            "draw": "40%",
+            "opponent": "30%"
+          },
+          "Halftime 1 X 2": {
+            "STK 1914 Samorin": "40%",
+            "draw": "40%",
+            "opponent": "20%"
+          },
+          "Second half 1 X 2": {
+            "STK 1914 Samorin": "10%",
+            "draw": "50%",
+            "opponent": "40%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "80%",
+            "under": "20%"
+          },
+          "Over/under 1.5 goals for STK 1914 Samorin only": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 2.5 goals for STK 1914 Samorin only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Over/under 3.5 goals for STK 1914 Samorin only": {
+            "over": "0%",
+            "under": "100%"
+          },
+          "Goal bands": {
+            "0-1": "20%",
+            "2-3": "70%",
+            "4+": "10%"
+          },
+          "Team to score": {
+            "both": "50%",
+            "only one": "40%",
+            "neither": "10%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "40%",
+            "even": "60%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "14%",
+            "16-30 min.": "29%",
+            "31-45 min.": "14%",
+            "46-60 min.": "14%",
+            "61-75 min.": "0%",
+            "76-90 min.": "29%"
+          },
+          "STK 1914 Samorin goals only": {
+            "0-15 min.": "25%",
+            "16-30 min.": "50%",
+            "31-45 min.": "25%",
+            "46-60 min.": "0%",
+            "61-75 min.": "0%",
+            "76-90 min.": "0%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "10%",
+            "11-20 min.": "0%",
+            "21-30 min.": "10%",
+            "31-40 min.": "0%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "10%"
+          },
+          "Time of first STK 1914 Samorin goal": {
+            "0-10 min.": "10%",
+            "11-20 min.": "0%",
+            "21-30 min.": "10%",
+            "31-40 min.": "0%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "40%"
+          },
+          "First goal in matches": {
+            "STK 1914 Samorin": "20%",
+            "opponent": "0%",
+            "without goal": "10%"
+          },
+          "Winner after 15 minutes": {
+            "STK 1914 Samorin": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 30 minutes": {
+            "STK 1914 Samorin": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 45 minutes": {
+            "STK 1914 Samorin": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 60 minutes": {
+            "STK 1914 Samorin": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 75 minutes": {
+            "STK 1914 Samorin": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 90 minutes": {
+            "STK 1914 Samorin": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "70%",
+            "2-3 goals": "30%",
+            "4+ goals": "0%"
+          },
+          "Half with most goals": {
+            "first half": "10%",
+            "second half": "50%",
+            "tie": "40%"
+          }
+        },
+        "Lokomotiva Zvolen": {
+          "1 X 2": {
+            "Lokomotiva Zvolen": "60%",
+            "draw": "30%",
+            "opponent": "10%"
+          },
+          "Halftime 1 X 2": {
+            "Lokomotiva Zvolen": "40%",
+            "draw": "60%",
+            "opponent": "0%"
+          },
+          "Second half 1 X 2": {
+            "Lokomotiva Zvolen": "30%",
+            "draw": "60%",
+            "opponent": "10%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "60%",
+            "under": "40%"
+          },
+          "Over/under 1.5 goals for Lokomotiva Zvolen only": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 2.5 goals for Lokomotiva Zvolen only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Over/under 3.5 goals for Lokomotiva Zvolen only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Goal bands": {
+            "0-1": "40%",
+            "2-3": "50%",
+            "4+": "10%"
+          },
+          "Team to score": {
+            "both": "50%",
+            "only one": "30%",
+            "neither": "20%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "60%",
+            "even": "40%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "0%",
+            "16-30 min.": "10%",
+            "31-45 min.": "10%",
+            "46-60 min.": "20%",
+            "61-75 min.": "20%",
+            "76-90 min.": "40%"
+          },
+          "Lokomotiva Zvolen goals only": {
+            "0-15 min.": "0%",
+            "16-30 min.": "14%",
+            "31-45 min.": "14%",
+            "46-60 min.": "14%",
+            "61-75 min.": "14%",
+            "76-90 min.": "43%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "0%",
+            "11-20 min.": "0%",
+            "21-30 min.": "10%",
+            "31-40 min.": "10%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "20%"
+          },
+          "Time of first Lokomotiva Zvolen goal": {
+            "0-10 min.": "0%",
+            "11-20 min.": "0%",
+            "21-30 min.": "10%",
+            "31-40 min.": "10%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "20%"
+          },
+          "First goal in matches": {
+            "Lokomotiva Zvolen": "20%",
+            "opponent": "0%",
+            "without goal": "20%"
+          },
+          "Winner after 15 minutes": {
+            "Lokomotiva Zvolen": "0%",
+            "opponent": "0%",
+            "draw": "100%"
+          },
+          "Winner after 30 minutes": {
+            "Lokomotiva Zvolen": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 45 minutes": {
+            "Lokomotiva Zvolen": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 60 minutes": {
+            "Lokomotiva Zvolen": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 75 minutes": {
+            "Lokomotiva Zvolen": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 90 minutes": {
+            "Lokomotiva Zvolen": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "80%",
+            "2-3 goals": "20%",
+            "4+ goals": "0%"
+          },
+          "Half with most goals": {
+            "first half": "40%",
+            "second half": "30%",
+            "tie": "30%"
+          }
+        }
+      }
     }
   },
   {
@@ -41505,7 +41157,7 @@
     "fora": "Zhejiang Greentown",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Shanghai+SIPG+FC (China)/Zhejiang+Greentown (China)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "China - Super League 2026/2026",
     "pais": "China",
     "odds_1": 42,
@@ -42566,7 +42218,7 @@
     "fora": "Chengdu Qianbao",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Tianjin+Teda (China)/Chengdu+Qianbao (China)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "China - Super League 2026/2026",
     "pais": "China",
     "odds_1": 19,
@@ -43627,7 +43279,7 @@
     "fora": "Qingdao Youth Island FC",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dalian+Zhixing (China)/Qingdao+Youth+Island+FC (China)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "China - Super League 2026/2026",
     "pais": "China",
     "odds_1": 53,
@@ -44688,7 +44340,7 @@
     "fora": "Cadiz",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Castellon (Spain)/Cadiz (Spain)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Spain - Laliga2 2025/2026",
     "pais": "Spain",
     "odds_1": 69,
@@ -45923,7 +45575,7 @@
     "fora": "Albacete",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Cordoba (Spain)/Albacete (Spain)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Spain - Laliga2 2025/2026",
     "pais": "Spain",
     "odds_1": 53,
@@ -47158,7 +46810,7 @@
     "fora": "Dunfermline",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Partick (Scotland)/Dunfermline (Scotland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Scotland",
     "odds_1": 51,
@@ -47742,7 +47394,7 @@
     "fora": "Le Puy",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Sochaux (France)/Le+Puy (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 50,
@@ -48832,7 +48484,7 @@
     "fora": "Caen",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Aubagne (France)/Caen (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 33,
@@ -49922,7 +49574,7 @@
     "fora": "Chateauroux",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Valenciennes (France)/Chateauroux (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 32,
@@ -51012,7 +50664,7 @@
     "fora": "Orleans",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dijon (France)/Orleans (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 49,
@@ -52102,7 +51754,7 @@
     "fora": "Villefranche",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Concarneau (France)/Villefranche (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 43,
@@ -53192,7 +52844,7 @@
     "fora": "Rouen",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Fleury+91 (France)/Rouen (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 44,
@@ -54282,7 +53934,7 @@
     "fora": "Paris 13 Atletico",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Quevilly (France)/Paris+13+Atletico (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 41,
@@ -55372,7 +55024,7 @@
     "fora": "Stade Briochin",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Versailles+78+FC (France)/Stade+Briochin (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "France - National 2025/2026",
     "pais": "France",
     "odds_1": 59,
@@ -56462,7 +56114,7 @@
     "fora": "HNK Cibalia",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rudes (Croatia)/HNK+Cibalia (Croatia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Croatia - Prva Nl 2025/2026",
     "pais": "Croatia",
     "odds_1": 53,
@@ -57407,7 +57059,7 @@
     "fora": "Croatia Zmijavci",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Opatija (Croatia)/Croatia+Zmijavci (Croatia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Croatia - Prva Nl 2025/2026",
     "pais": "Croatia",
     "odds_1": 52,
@@ -58352,7 +58004,7 @@
     "fora": "Bray Wanderers",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/UCD (Rep. Of Ireland)/Bray+Wanderers (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - First Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 45,
@@ -59239,7 +58891,7 @@
     "fora": "Finn Harps",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Treaty+United (Rep. Of Ireland)/Finn+Harps (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - First Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 44,
@@ -60126,7 +59778,7 @@
     "fora": "Athlone Town",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Cobh+Ramblers (Rep. Of Ireland)/Athlone+Town (Rep. Of Ireland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Ireland - First Division 2026/2026",
     "pais": "Rep. Of Ireland",
     "odds_1": 43,
@@ -61013,7 +60665,7 @@
     "fora": "Al-Riyadh",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Al-Taawon (Saudi Arabia)/Al-Riyadh (Saudi Arabia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Saudi Arabia - Saudi Pro League 2025/2026",
     "pais": "Saudi Arabia",
     "odds_1": 55,
@@ -62132,7 +61784,7 @@
     "fora": "Al-Feiha",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dhamk (Saudi Arabia)/Al-Feiha (Saudi Arabia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Saudi Arabia - Saudi Pro League 2025/2026",
     "pais": "Saudi Arabia",
     "odds_1": 46,
@@ -63251,7 +62903,7 @@
     "fora": "Rodez",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/St+Etienne (France)/Rodez (France)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "France",
     "odds_1": 46,
@@ -64370,7 +64022,7 @@
     "fora": "Aalborg",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/B93+Copenhagen (Denmark)/Aalborg (Denmark)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Denmark - 1. Division Relegation Group 2025/2026",
     "pais": "Denmark",
     "odds_1": 31,
@@ -65141,7 +64793,7 @@
     "fora": "Sudtirol",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Bari (Italy)/Sudtirol (Italy)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Italy",
     "odds_1": 40,
@@ -66318,7 +65970,7 @@
     "fora": "Auckland FC",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Adelaide+United+FC (Australia)/Auckland+FC (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Australia",
     "odds_1": 38,
@@ -66902,7 +66554,7 @@
     "fora": "Ludogorets II",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Etar+Veliko+Tarnovo (Bulgaria)/Ludogorets+II (Bulgaria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bulgaria - Second Professional League 2025/2026",
     "pais": "Bulgaria",
     "odds_1": 47,
@@ -67992,7 +67644,7 @@
     "fora": "Sevlievo",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Pirin+Blagoevgrad (Bulgaria)/Sevlievo (Bulgaria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bulgaria - Second Professional League 2025/2026",
     "pais": "Bulgaria",
     "odds_1": 42,
@@ -69082,7 +68734,7 @@
     "fora": "Lokomotiv G.O.",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Spartak+Pleven (Bulgaria)/Lokomotiv+G.O. (Bulgaria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bulgaria - Second Professional League 2025/2026",
     "pais": "Bulgaria",
     "odds_1": 47,
@@ -70172,7 +69824,7 @@
     "fora": "Yantra 2019",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dunav+Ruse (Bulgaria)/Yantra+2019 (Bulgaria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bulgaria - Second Professional League 2025/2026",
     "pais": "Bulgaria",
     "odds_1": 48,
@@ -71262,7 +70914,7 @@
     "fora": "Marek",
     "tip": "12",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hebar+Pazardzhik (Bulgaria)/Marek (Bulgaria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Bulgaria - Second Professional League 2025/2026",
     "pais": "Bulgaria",
     "odds_1": 41,
@@ -72352,7 +72004,7 @@
     "fora": "Neuchatel Xamax FC",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Stade+LS+Ouchy (Switzerland)/Neuchatel+Xamax+FC (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Challenge League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 52,
@@ -73239,7 +72891,7 @@
     "fora": "FC Vaduz",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Wil+1900 (Switzerland)/FC+Vaduz (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Challenge League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 25,
@@ -74126,7 +73778,7 @@
     "fora": "Yverdon-Sport FC",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/FC+Aarau (Switzerland)/Yverdon-Sport+FC (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Challenge League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 53,
@@ -75013,7 +74665,7 @@
     "fora": "AC Bellinzona",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Etoile-Carouge+FC (Switzerland)/AC+Bellinzona (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Challenge League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 51,
@@ -75900,7 +75552,7 @@
     "fora": "Stade Nyonnais",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rapperswil (Switzerland)/Stade+Nyonnais (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Challenge League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 49,
@@ -76787,7 +76439,7 @@
     "fora": "Hapoel Nof HagGalil",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hapoel+Afula (Israel)/Hapoel+Nof+HagGalil (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Relegation Round 2025/2026",
     "pais": "Israel",
     "odds_1": 33,
@@ -77616,7 +77268,7 @@
     "fora": "Maccabi Kabilio Jaffa",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/SC+Kafr+Qasim (Israel)/Maccabi+Kabilio+Jaffa (Israel)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Israel - Leumit League Relegation Round 2025/2026",
     "pais": "Israel",
     "odds_1": 38,
@@ -78445,7 +78097,7 @@
     "fora": "ND Ilirija",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/ND+Gorica (Slovenia)/ND+Ilirija (Slovenia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovenia - 2. Division 2025/2026",
     "pais": "Slovenia",
     "odds_1": 39,
@@ -78462,7 +78114,1040 @@
     "votos_favor": 1,
     "votos_contra": 0,
     "detalhes": {
-      "erro": "HTTPSConnectionPool(host='www.statarea.com', port=443): Read timed out. (read timeout=15)"
+      "url": "https://www.statarea.com/compare/teams/ND+Gorica (Slovenia)/ND+Ilirija (Slovenia)",
+      "info_times": {
+        "ND Gorica": {},
+        "ND Ilirija": {}
+      },
+      "grafico_h2h": {
+        "ND Gorica wins": "72%",
+        "Draw matches": "14%",
+        "ND Ilirija wins": "14%"
+      },
+      "ultimas_10_partidas": {
+        "ND Gorica": {
+          "form": "WDLLLLWLWD",
+          "partidas": [
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-05-11",
+              "casa": "ND Gorica",
+              "gols_casa": "1",
+              "fora": "Dravinja Kostroj",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-05-06",
+              "casa": "Krka",
+              "gols_casa": "1",
+              "fora": "ND Gorica",
+              "gols_fora": "4",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-05-02",
+              "casa": "ND Gorica",
+              "gols_casa": "2",
+              "fora": "Rudar Velenje",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-25",
+              "casa": "Nd Slovan Ljubljana",
+              "gols_casa": "0",
+              "fora": "ND Gorica",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-18",
+              "casa": "ND Gorica",
+              "gols_casa": "0",
+              "fora": "Triglav Kranj",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-10",
+              "casa": "NK Brinje Grosuplje",
+              "gols_casa": "1",
+              "fora": "ND Gorica",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-03",
+              "casa": "ND Gorica",
+              "gols_casa": "2",
+              "fora": "Beltinci",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-03-29",
+              "casa": "ND Bilje",
+              "gols_casa": "3",
+              "fora": "ND Gorica",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-03-21",
+              "casa": "ND Gorica",
+              "gols_casa": "1",
+              "fora": "Nafta",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-03-14",
+              "casa": "Nk Bistrica",
+              "gols_casa": "1",
+              "fora": "ND Gorica",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        },
+        "ND Ilirija": {
+          "form": "DDLLDWWLLW",
+          "partidas": [
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-05-09",
+              "casa": "ND Ilirija",
+              "gols_casa": "1",
+              "fora": "ND Bilje",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-05-06",
+              "casa": "Dravinja Kostroj",
+              "gols_casa": "2",
+              "fora": "ND Ilirija",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-30",
+              "casa": "ND Ilirija",
+              "gols_casa": "0",
+              "fora": "Nafta",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-24",
+              "casa": "Krka",
+              "gols_casa": "1",
+              "fora": "ND Ilirija",
+              "gols_fora": "4",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-17",
+              "casa": "ND Ilirija",
+              "gols_casa": "2",
+              "fora": "Nk Bistrica",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-11",
+              "casa": "Rudar Velenje",
+              "gols_casa": "0",
+              "fora": "ND Ilirija",
+              "gols_fora": "0",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-08",
+              "casa": "Nd Slovan Ljubljana",
+              "gols_casa": "2",
+              "fora": "ND Ilirija",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-04-03",
+              "casa": "ND Ilirija",
+              "gols_casa": "2",
+              "fora": "NK Tabor Sezana",
+              "gols_fora": "3",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-03-20",
+              "casa": "ND Ilirija",
+              "gols_casa": "2",
+              "fora": "Jadran Dekani",
+              "gols_fora": "2",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            },
+            {
+              "competicao": "Slovenia - 2. Division 2025/2026",
+              "data": "2026-03-14",
+              "casa": "Triglav Kranj",
+              "gols_casa": "1",
+              "fora": "ND Ilirija",
+              "gols_fora": "1",
+              "ht_casa": "",
+              "ht_fora": "",
+              "artilheiros": []
+            }
+          ]
+        }
+      },
+      "confrontos_diretos": [],
+      "estatisticas": {
+        "ND Gorica": {
+          "Number of ND Gorica wins": "3",
+          "Number of ND Gorica draws": "2",
+          "Number of ND Gorica loses": "5",
+          "Average scored goals per match": "1.7",
+          "Average conceded goals per match": "1.5",
+          "Chance to score goal next match": "80%",
+          "Chance to conceded goal next match": "90%",
+          "Number of clean sheet matches": "1",
+          "Failure to score matches": "2",
+          "Matches over 2.5 goals in": "6",
+          "Matches under 2.5 goals in": "4",
+          "Time without scored goal": "6 min.",
+          "Time without conceded goal": "60 min."
+        },
+        "ND Ilirija": {
+          "Number of ND Ilirija wins": "3",
+          "Number of ND Ilirija draws": "3",
+          "Number of ND Ilirija loses": "4",
+          "Average scored goals per match": "1.4",
+          "Average conceded goals per match": "1.4",
+          "Chance to score goal next match": "80%",
+          "Chance to conceded goal next match": "80%",
+          "Number of clean sheet matches": "2",
+          "Failure to score matches": "2",
+          "Matches over 2.5 goals in": "6",
+          "Matches under 2.5 goals in": "4",
+          "Time without scored goal": "30 min.",
+          "Time without conceded goal": "93 min."
+        }
+      },
+      "classificacao": [
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "1",
+          "time": "Nafta",
+          "jogos": "28",
+          "pontos": "74",
+          "geral": {
+            "v": "23",
+            "e": "5",
+            "d": "0",
+            "gm": "63",
+            "gc": "63"
+          },
+          "casa": {
+            "v": "12",
+            "e": "2",
+            "d": "0",
+            "gm": "36",
+            "gc": "36"
+          },
+          "fora": {
+            "v": "11",
+            "e": "3",
+            "d": "0",
+            "gm": "27",
+            "gc": "27"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "2",
+          "time": "NK Brinje Grosuplje",
+          "jogos": "28",
+          "pontos": "69",
+          "geral": {
+            "v": "21",
+            "e": "6",
+            "d": "1",
+            "gm": "67",
+            "gc": "67"
+          },
+          "casa": {
+            "v": "12",
+            "e": "2",
+            "d": "0",
+            "gm": "36",
+            "gc": "36"
+          },
+          "fora": {
+            "v": "9",
+            "e": "4",
+            "d": "1",
+            "gm": "31",
+            "gc": "31"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "3",
+          "time": "Triglav Kranj",
+          "jogos": "28",
+          "pontos": "63",
+          "geral": {
+            "v": "20",
+            "e": "3",
+            "d": "5",
+            "gm": "71",
+            "gc": "71"
+          },
+          "casa": {
+            "v": "9",
+            "e": "2",
+            "d": "3",
+            "gm": "41",
+            "gc": "41"
+          },
+          "fora": {
+            "v": "11",
+            "e": "1",
+            "d": "2",
+            "gm": "30",
+            "gc": "30"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "4",
+          "time": "Beltinci",
+          "jogos": "28",
+          "pontos": "57",
+          "geral": {
+            "v": "17",
+            "e": "6",
+            "d": "5",
+            "gm": "51",
+            "gc": "51"
+          },
+          "casa": {
+            "v": "7",
+            "e": "4",
+            "d": "3",
+            "gm": "29",
+            "gc": "29"
+          },
+          "fora": {
+            "v": "10",
+            "e": "2",
+            "d": "2",
+            "gm": "22",
+            "gc": "22"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "5",
+          "time": "NK Tabor Sezana",
+          "jogos": "28",
+          "pontos": "47",
+          "geral": {
+            "v": "14",
+            "e": "5",
+            "d": "9",
+            "gm": "34",
+            "gc": "34"
+          },
+          "casa": {
+            "v": "7",
+            "e": "3",
+            "d": "4",
+            "gm": "12",
+            "gc": "12"
+          },
+          "fora": {
+            "v": "7",
+            "e": "2",
+            "d": "5",
+            "gm": "22",
+            "gc": "22"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "6",
+          "time": "Nk Bistrica",
+          "jogos": "28",
+          "pontos": "39",
+          "geral": {
+            "v": "11",
+            "e": "6",
+            "d": "11",
+            "gm": "45",
+            "gc": "45"
+          },
+          "casa": {
+            "v": "8",
+            "e": "2",
+            "d": "4",
+            "gm": "29",
+            "gc": "29"
+          },
+          "fora": {
+            "v": "3",
+            "e": "4",
+            "d": "7",
+            "gm": "16",
+            "gc": "16"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "7",
+          "time": "Rudar Velenje",
+          "jogos": "28",
+          "pontos": "36",
+          "geral": {
+            "v": "9",
+            "e": "9",
+            "d": "10",
+            "gm": "44",
+            "gc": "44"
+          },
+          "casa": {
+            "v": "5",
+            "e": "6",
+            "d": "3",
+            "gm": "25",
+            "gc": "25"
+          },
+          "fora": {
+            "v": "4",
+            "e": "3",
+            "d": "7",
+            "gm": "19",
+            "gc": "19"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "8",
+          "time": "Dravinja Kostroj",
+          "jogos": "28",
+          "pontos": "31",
+          "geral": {
+            "v": "8",
+            "e": "7",
+            "d": "13",
+            "gm": "29",
+            "gc": "29"
+          },
+          "casa": {
+            "v": "6",
+            "e": "3",
+            "d": "5",
+            "gm": "15",
+            "gc": "15"
+          },
+          "fora": {
+            "v": "2",
+            "e": "4",
+            "d": "8",
+            "gm": "14",
+            "gc": "14"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "9",
+          "time": "ND Bilje",
+          "jogos": "28",
+          "pontos": "31",
+          "geral": {
+            "v": "8",
+            "e": "7",
+            "d": "13",
+            "gm": "24",
+            "gc": "24"
+          },
+          "casa": {
+            "v": "6",
+            "e": "4",
+            "d": "4",
+            "gm": "14",
+            "gc": "14"
+          },
+          "fora": {
+            "v": "2",
+            "e": "3",
+            "d": "9",
+            "gm": "10",
+            "gc": "10"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "10",
+          "time": "Nd Slovan Ljubljana",
+          "jogos": "28",
+          "pontos": "29",
+          "geral": {
+            "v": "8",
+            "e": "5",
+            "d": "15",
+            "gm": "27",
+            "gc": "27"
+          },
+          "casa": {
+            "v": "5",
+            "e": "2",
+            "d": "7",
+            "gm": "14",
+            "gc": "14"
+          },
+          "fora": {
+            "v": "3",
+            "e": "3",
+            "d": "8",
+            "gm": "13",
+            "gc": "13"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "11",
+          "time": "Jadran Dekani",
+          "jogos": "28",
+          "pontos": "29",
+          "geral": {
+            "v": "7",
+            "e": "8",
+            "d": "13",
+            "gm": "34",
+            "gc": "34"
+          },
+          "casa": {
+            "v": "6",
+            "e": "2",
+            "d": "6",
+            "gm": "25",
+            "gc": "25"
+          },
+          "fora": {
+            "v": "1",
+            "e": "6",
+            "d": "7",
+            "gm": "9",
+            "gc": "9"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "12",
+          "time": "ND Ilirija",
+          "jogos": "28",
+          "pontos": "27",
+          "geral": {
+            "v": "6",
+            "e": "9",
+            "d": "13",
+            "gm": "37",
+            "gc": "37"
+          },
+          "casa": {
+            "v": "4",
+            "e": "4",
+            "d": "6",
+            "gm": "17",
+            "gc": "17"
+          },
+          "fora": {
+            "v": "2",
+            "e": "5",
+            "d": "7",
+            "gm": "20",
+            "gc": "20"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "13",
+          "time": "Krka",
+          "jogos": "28",
+          "pontos": "26",
+          "geral": {
+            "v": "5",
+            "e": "11",
+            "d": "12",
+            "gm": "26",
+            "gc": "26"
+          },
+          "casa": {
+            "v": "2",
+            "e": "4",
+            "d": "8",
+            "gm": "9",
+            "gc": "9"
+          },
+          "fora": {
+            "v": "3",
+            "e": "7",
+            "d": "4",
+            "gm": "17",
+            "gc": "17"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "14",
+          "time": "NK Krsko",
+          "jogos": "28",
+          "pontos": "23",
+          "geral": {
+            "v": "6",
+            "e": "5",
+            "d": "17",
+            "gm": "21",
+            "gc": "21"
+          },
+          "casa": {
+            "v": "3",
+            "e": "3",
+            "d": "8",
+            "gm": "11",
+            "gc": "11"
+          },
+          "fora": {
+            "v": "3",
+            "e": "2",
+            "d": "9",
+            "gm": "10",
+            "gc": "10"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "15",
+          "time": "ND Gorica",
+          "jogos": "28",
+          "pontos": "19",
+          "geral": {
+            "v": "3",
+            "e": "10",
+            "d": "15",
+            "gm": "30",
+            "gc": "30"
+          },
+          "casa": {
+            "v": "0",
+            "e": "8",
+            "d": "6",
+            "gm": "15",
+            "gc": "15"
+          },
+          "fora": {
+            "v": "3",
+            "e": "2",
+            "d": "9",
+            "gm": "15",
+            "gc": "15"
+          },
+          "destacado": true
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "16",
+          "time": "Jesenice",
+          "jogos": "28",
+          "pontos": "18",
+          "geral": {
+            "v": "4",
+            "e": "6",
+            "d": "18",
+            "gm": "24",
+            "gc": "24"
+          },
+          "casa": {
+            "v": "2",
+            "e": "3",
+            "d": "9",
+            "gm": "13",
+            "gc": "13"
+          },
+          "fora": {
+            "v": "2",
+            "e": "3",
+            "d": "9",
+            "gm": "11",
+            "gc": "11"
+          },
+          "destacado": false
+        },
+        {
+          "competicao": "Slovenia - 2. Division 2025/2026",
+          "pos": "",
+          "time": "",
+          "jogos": "",
+          "pontos": "",
+          "geral": {},
+          "casa": {},
+          "fora": {},
+          "destacado": false
+        }
+      ],
+      "bet_statistics": {
+        "ND Gorica": {
+          "1 X 2": {
+            "ND Gorica": "30%",
+            "draw": "20%",
+            "opponent": "50%"
+          },
+          "Halftime 1 X 2": {
+            "ND Gorica": "30%",
+            "draw": "60%",
+            "opponent": "10%"
+          },
+          "Second half 1 X 2": {
+            "ND Gorica": "20%",
+            "draw": "40%",
+            "opponent": "40%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "80%",
+            "under": "20%"
+          },
+          "Over/under 1.5 goals for ND Gorica only": {
+            "over": "60%",
+            "under": "40%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "60%",
+            "under": "40%"
+          },
+          "Over/under 2.5 goals for ND Gorica only": {
+            "over": "20%",
+            "under": "80%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 3.5 goals for ND Gorica only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Goal bands": {
+            "0-1": "20%",
+            "2-3": "40%",
+            "4+": "40%"
+          },
+          "Team to score": {
+            "both": "70%",
+            "only one": "30%",
+            "neither": "0%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "80%",
+            "even": "20%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "0%",
+            "16-30 min.": "40%",
+            "31-45 min.": "0%",
+            "46-60 min.": "10%",
+            "61-75 min.": "30%",
+            "76-90 min.": "20%"
+          },
+          "ND Gorica goals only": {
+            "0-15 min.": "0%",
+            "16-30 min.": "50%",
+            "31-45 min.": "0%",
+            "46-60 min.": "17%",
+            "61-75 min.": "17%",
+            "76-90 min.": "17%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "0%",
+            "11-20 min.": "10%",
+            "21-30 min.": "10%",
+            "31-40 min.": "0%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "0%"
+          },
+          "Time of first ND Gorica goal": {
+            "0-10 min.": "0%",
+            "11-20 min.": "10%",
+            "21-30 min.": "10%",
+            "31-40 min.": "0%",
+            "41-50 min.": "0%",
+            "51-60 min.": "0%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "20%"
+          },
+          "First goal in matches": {
+            "ND Gorica": "20%",
+            "opponent": "0%",
+            "without goal": "0%"
+          },
+          "Winner after 15 minutes": {
+            "ND Gorica": "0%",
+            "opponent": "0%",
+            "draw": "100%"
+          },
+          "Winner after 30 minutes": {
+            "ND Gorica": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 45 minutes": {
+            "ND Gorica": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 60 minutes": {
+            "ND Gorica": "20%",
+            "opponent": "0%",
+            "draw": "80%"
+          },
+          "Winner after 75 minutes": {
+            "ND Gorica": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 90 minutes": {
+            "ND Gorica": "10%",
+            "opponent": "10%",
+            "draw": "80%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "80%",
+            "2-3 goals": "20%",
+            "4+ goals": "0%"
+          },
+          "Half with most goals": {
+            "first half": "20%",
+            "second half": "60%",
+            "tie": "20%"
+          }
+        },
+        "ND Ilirija": {
+          "1 X 2": {
+            "ND Ilirija": "30%",
+            "draw": "30%",
+            "opponent": "40%"
+          },
+          "Halftime 1 X 2": {
+            "ND Ilirija": "40%",
+            "draw": "20%",
+            "opponent": "40%"
+          },
+          "Second half 1 X 2": {
+            "ND Ilirija": "50%",
+            "draw": "20%",
+            "opponent": "30%"
+          },
+          "Over/under 1.5 for all goals in matches": {
+            "over": "80%",
+            "under": "20%"
+          },
+          "Over/under 1.5 goals for ND Ilirija only": {
+            "over": "40%",
+            "under": "60%"
+          },
+          "Over/under 2.5 for all goals in matches": {
+            "over": "60%",
+            "under": "40%"
+          },
+          "Over/under 2.5 goals for ND Ilirija only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Over/under 3.5 for all goals in matches": {
+            "over": "30%",
+            "under": "70%"
+          },
+          "Over/under 3.5 goals for ND Ilirija only": {
+            "over": "10%",
+            "under": "90%"
+          },
+          "Goal bands": {
+            "0-1": "20%",
+            "2-3": "50%",
+            "4+": "30%"
+          },
+          "Team to score": {
+            "both": "70%",
+            "only one": "20%",
+            "neither": "10%"
+          },
+          "Odd/even goals in matches": {
+            "odd": "60%",
+            "even": "40%"
+          },
+          "All goals in matches": {
+            "0-15 min.": "20%",
+            "16-30 min.": "0%",
+            "31-45 min.": "20%",
+            "46-60 min.": "40%",
+            "61-75 min.": "0%",
+            "76-90 min.": "20%"
+          },
+          "ND Ilirija goals only": {
+            "0-15 min.": "50%",
+            "16-30 min.": "0%",
+            "31-45 min.": "0%",
+            "46-60 min.": "50%",
+            "61-75 min.": "0%",
+            "76-90 min.": "0%"
+          },
+          "Time of first goal in matches": {
+            "0-10 min.": "0%",
+            "11-20 min.": "10%",
+            "21-30 min.": "0%",
+            "31-40 min.": "0%",
+            "41-50 min.": "10%",
+            "51-60 min.": "10%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "10%"
+          },
+          "Time of first ND Ilirija goal": {
+            "0-10 min.": "0%",
+            "11-20 min.": "10%",
+            "21-30 min.": "0%",
+            "31-40 min.": "0%",
+            "41-50 min.": "0%",
+            "51-60 min.": "10%",
+            "61-70 min.": "0%",
+            "71-80 min.": "0%",
+            "81-90 min.": "0%",
+            "without goal": "20%"
+          },
+          "First goal in matches": {
+            "ND Ilirija": "20%",
+            "opponent": "10%",
+            "without goal": "10%"
+          },
+          "Winner after 15 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 30 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "0%",
+            "draw": "90%"
+          },
+          "Winner after 45 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "10%",
+            "draw": "80%"
+          },
+          "Winner after 60 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "10%",
+            "draw": "80%"
+          },
+          "Winner after 75 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "10%",
+            "draw": "80%"
+          },
+          "Winner after 90 minutes": {
+            "ND Ilirija": "10%",
+            "opponent": "20%",
+            "draw": "70%"
+          },
+          "Goal difference in match": {
+            "0-1 goal": "80%",
+            "2-3 goals": "20%",
+            "4+ goals": "0%"
+          },
+          "Half with most goals": {
+            "first half": "40%",
+            "second half": "30%",
+            "tie": "30%"
+          }
+        }
+      }
     }
   },
   {
@@ -78473,7 +79158,7 @@
     "fora": "Jesenice",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Krka (Slovenia)/Jesenice (Slovenia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovenia - 2. Division 2025/2026",
     "pais": "Slovenia",
     "odds_1": 47,
@@ -79534,7 +80219,7 @@
     "fora": "Jadran Dekani",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rudar+Velenje (Slovenia)/Jadran+Dekani (Slovenia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Slovenia - 2. Division 2025/2026",
     "pais": "Slovenia",
     "odds_1": 45,
@@ -80595,7 +81280,7 @@
     "fora": "FC Nomme United",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Tammeka+Tartu (Estonia)/FC+Nomme+United (Estonia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Estonia - Meistriliiga 2026/2026",
     "pais": "Estonia",
     "odds_1": 42,
@@ -81482,7 +82167,7 @@
     "fora": "Kazincbarcikai",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Nyiregyhaza (Hungary)/Kazincbarcikai (Hungary)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Hungary - Nb I 2025/2026",
     "pais": "Hungary",
     "odds_1": 63,
@@ -82427,7 +83112,7 @@
     "fora": "Egersund",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Sandnes+ULF (Norway)/Egersund (Norway)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Norway - 1. Division 2026/2026",
     "pais": "Norway",
     "odds_1": 28,
@@ -83488,7 +84173,7 @@
     "fora": "Al-Salmiyah",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Al-Qadsia (Kuwait)/Al-Salmiyah (Kuwait)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Kuwait - Premier League 2025/2026",
     "pais": "Kuwait",
     "odds_1": 48,
@@ -84375,7 +85060,7 @@
     "fora": "Kazma",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Al-Shabab+Al+Ahmadi (Kuwait)/Kazma (Kuwait)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Kuwait - Premier League 2025/2026",
     "pais": "Kuwait",
     "odds_1": 20,
@@ -85262,7 +85947,7 @@
     "fora": "Lyngby",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Kolding+IF (Denmark)/Lyngby (Denmark)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Denmark - 1. Division Promotion Group 2025/2026",
     "pais": "Denmark",
     "odds_1": 25,
@@ -85276,7 +85961,7 @@
     "over_3_5": 40,
     "bts": 66,
     "ots": 34,
-    "votos_favor": 2,
+    "votos_favor": 3,
     "votos_contra": 0,
     "detalhes": {
       "url": "https://www.statarea.com/compare/teams/Kolding+IF (Denmark)/Lyngby (Denmark)",
@@ -86033,7 +86718,7 @@
     "fora": "NK Varazdin",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Vukovar+91 (Croatia)/NK+Varazdin (Croatia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Croatia - Hnl 2025/2026",
     "pais": "Croatia",
     "odds_1": 27,
@@ -86920,7 +87605,7 @@
     "fora": "Clyde",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Hamilton+Academical (Scotland)/Clyde (Scotland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Scotland",
     "odds_1": 45,
@@ -87504,7 +88189,7 @@
     "fora": "FK Tukums 2000",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Grobina (Latvia)/FK+Tukums+2000 (Latvia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Latvia - Virsliga 2026/2026",
     "pais": "Latvia",
     "odds_1": 29,
@@ -88391,7 +89076,7 @@
     "fora": "Stal Stalowa Wola",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Resovia+Rzeszow (Poland)/Stal+Stalowa+Wola (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - II Liga 2025/2026",
     "pais": "Poland",
     "odds_1": 42,
@@ -89510,7 +90195,7 @@
     "fora": "Unia Skierniewice",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/LKS+Lodz+II (Poland)/Unia+Skierniewice (Poland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Poland - II Liga 2025/2026",
     "pais": "Poland",
     "odds_1": 17,
@@ -90629,7 +91314,7 @@
     "fora": "FC Biel Bienne",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Team+Vaud+%28u21%29 (Switzerland)/FC+Biel+Bienne (Switzerland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Switzerland - Promotion League 2025/2026",
     "pais": "Switzerland",
     "odds_1": 21,
@@ -91748,7 +92433,7 @@
     "fora": "Terengganu",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Sabah (Malaysia)/Terengganu (Malaysia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Malaysia - Liga Super 2025/2026",
     "pais": "Malaysia",
     "odds_1": 28,
@@ -92722,7 +93407,7 @@
     "fora": "Balestier Khalsa FC",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Geylang+International (Singapore)/Balestier+Khalsa+FC (Singapore)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Singapore - Premier League 2025/2026",
     "pais": "Singapore",
     "odds_1": 40,
@@ -93551,7 +94236,7 @@
     "fora": "Kristianstads DFF (w)",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Rosengard+%28w%29 (Sweden)/Kristianstads+DFF+%28w%29 (Sweden)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Sweden - Damallsvenskan 2026/2026",
     "pais": "Sweden",
     "odds_1": 44,
@@ -94554,7 +95239,7 @@
     "fora": "Bjelovar",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Mladost+Zdralovi (Croatia)/Bjelovar (Croatia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Croatia - 3. Division 2025/2026",
     "pais": "Croatia",
     "odds_1": 49,
@@ -95610,7 +96295,7 @@
     "fora": "Fjolnir",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Haukar (Iceland)/Fjolnir (Iceland)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Iceland - 2. Deild 2026/2026",
     "pais": "Iceland",
     "odds_1": 46,
@@ -96555,7 +97240,7 @@
     "fora": "Grimsby",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Salford+City (England)/Grimsby (England)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "England",
     "odds_1": 47,
@@ -97139,7 +97824,7 @@
     "fora": "Chesterfield",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Notts+County (England)/Chesterfield (England)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "England",
     "odds_1": 43,
@@ -97723,7 +98408,7 @@
     "fora": "IK Tord",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Husqvarna+FF (Sweden)/IK+Tord (Sweden)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Sweden - 2. Division Norra Gotaland 2026/2026",
     "pais": "Sweden",
     "odds_1": 66,
@@ -98726,7 +99411,7 @@
     "fora": "Vanersborgs IF",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/IFK+Skoevde+FK (Sweden)/Vanersborgs+IF (Sweden)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Sweden - 2. Division Norra Gotaland 2026/2026",
     "pais": "Sweden",
     "odds_1": 66,
@@ -99729,7 +100414,7 @@
     "fora": "ASK Voitsberg",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/SV+Lafnitz (Austria)/ASK+Voitsberg (Austria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Austria - Regionalliga Middle 2025/2026",
     "pais": "Austria",
     "odds_1": 24,
@@ -100790,7 +101475,7 @@
     "fora": "ASKO Oedt",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Union+Gurten (Austria)/ASKO+Oedt (Austria)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Austria - Regionalliga Middle 2025/2026",
     "pais": "Austria",
     "odds_1": 33,
@@ -101846,7 +102531,7 @@
     "fora": "Sydney Olympic",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Sydney+FC+Youth (Australia)/Sydney+Olympic (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - New South Wales 2026/2026",
     "pais": "Australia",
     "odds_1": 56,
@@ -102907,7 +103592,7 @@
     "fora": "Nanjing City FC",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Qingdao+Red+Lions (China)/Nanjing+City+FC (China)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "China",
     "odds_1": 36,
@@ -103491,7 +104176,7 @@
     "fora": "Newcastle Jets Youth",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Bankstown+City+Lions (Australia)/Newcastle+Jets+Youth (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - New South Wales League One 2026/2026",
     "pais": "Australia",
     "odds_1": 42,
@@ -104552,7 +105237,7 @@
     "fora": "Northbridge FC Bulls",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Blacktown+Spartans (Australia)/Northbridge+FC+Bulls (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - New South Wales League One 2026/2026",
     "pais": "Australia",
     "odds_1": 53,
@@ -105613,7 +106298,7 @@
     "fora": "Eastern Suburbs FC",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Wolves+FC (Australia)/Eastern+Suburbs+FC (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Queensland 2026/2026",
     "pais": "Australia",
     "odds_1": 31,
@@ -106558,7 +107243,7 @@
     "fora": "Redlands United",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Logan+Lightning (Australia)/Redlands+United (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Queensland Premier League 2026/2026",
     "pais": "Australia",
     "odds_1": 42,
@@ -107503,7 +108188,7 @@
     "fora": "Cooks Hill United FC",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Maitland+FC (Australia)/Cooks+Hill+United+FC (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Northern New South Wales 2026/2026",
     "pais": "Australia",
     "odds_1": 50,
@@ -108448,7 +109133,7 @@
     "fora": "Oakleigh Cannons",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Dandenong+City (Australia)/Oakleigh+Cannons (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Victorian 2026/2026",
     "pais": "Australia",
     "odds_1": 23,
@@ -109451,7 +110136,7 @@
     "fora": "Heidelberg United",
     "tip": "2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Bentleigh+Greens (Australia)/Heidelberg+United (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Victorian 2026/2026",
     "pais": "Australia",
     "odds_1": 36,
@@ -110454,7 +111139,7 @@
     "fora": "Bulleen Lions",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Northcote+City (Australia)/Bulleen+Lions (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Victorian Premier League One 2026/2026",
     "pais": "Australia",
     "odds_1": 60,
@@ -111457,7 +112142,7 @@
     "fora": "Eastern Lions SC",
     "tip": "X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Kingston+City+FC (Australia)/Eastern+Lions+SC (Australia)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Australia - Victoria Premier League 2 2026/2026",
     "pais": "Australia",
     "odds_1": 37,
@@ -112460,7 +113145,7 @@
     "fora": "San Marino (u19)",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Slovakia+%28u19%29 (Slovakia)/San+Marino+%28u19%29 (San Marino)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "International - Euro U19 Qualification League B R1 Grp. 3 2026/2027",
     "pais": "International",
     "odds_1": 85,
@@ -113168,7 +113853,7 @@
     "fora": "Olancho FC",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/Genesis+FC (Honduras)/Olancho+FC (Honduras)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Honduras - Liga Nacional - Clausura Triangulares Grp. B 2025/2026",
     "pais": "Honduras",
     "odds_1": 26,
@@ -113852,7 +114537,7 @@
     "fora": "Central Norte",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Racing+de+Cordoba (Argentina)/Central+Norte (Argentina)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Argentina - Primera Nacional 2026/2026",
     "pais": "Argentina",
     "odds_1": 54,
@@ -115493,7 +116178,7 @@
     "fora": "Argentino De Quilmes",
     "tip": "1X",
     "url_detalhes": "https://www.statarea.com/compare/teams/Comunicaciones (Argentina)/Argentino+De+Quilmes (Argentina)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Argentina - Primera B Metropolitana 2026/2026",
     "pais": "Argentina",
     "odds_1": 49,
@@ -116728,7 +117413,7 @@
     "fora": "Washington Spirit (w)",
     "tip": "X2",
     "url_detalhes": "https://www.statarea.com/compare/teams/San+Diego+Wave+FC+%28w%29 (USA)/Washington+Spirit+%28w%29 (USA)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "Usa - Nwsl 2026/2026",
     "pais": "USA",
     "odds_1": 27,
@@ -117789,7 +118474,7 @@
     "fora": "BB Bodrumspor",
     "tip": "1",
     "url_detalhes": "https://www.statarea.com/compare/teams/Corumspor (Turkey)/BB+Bodrumspor (Turkey)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Turkey",
     "odds_1": 53,
@@ -118373,7 +119058,7 @@
     "fora": "Hamrun Spartans",
     "tip": "12",
     "url_detalhes": "https://www.statarea.com/compare/teams/Valletta+FC (Malta)/Hamrun+Spartans (Malta)",
-    "data_coleta": "2026-05-15 07:35",
+    "data_coleta": "2026-05-15 07:41",
     "liga": "N/D",
     "pais": "Malta",
     "odds_1": 42,
