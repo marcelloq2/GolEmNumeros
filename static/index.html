@@ -1319,8 +1319,8 @@ let _btEdgeCriteria = [];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
 let _edgeLastMatching = []; // Cache das partidas visíveis para o Telegram
-let _edgeScoreTabFilter  = null;      // null | 'casa' | 'fora' | 'gols'
-let _edgeMethodFilters  = new Set();  // Set de índices selecionados (multi-select)
+let _edgeScoreTabFilter  = null;      // null | 'casa' | 'fora' | 'gols' (filtra só a visualização do dropdown)
+let _edgeMethodFilters  = new Set();  // Set de chaves estáveis (multi-select entre tabs)
 let _edgeMethodPanelOpen = false;     // painel de seleção aberto/fechado
 let viewMode    = 'liga'; // 'liga' | 'hora'
 let favViewMode = 'liga'; // 'liga' | 'hora'
@@ -5885,15 +5885,20 @@ function _toggleEdgeMethodPanel() {
   renderEdgePanel();
 }
 
+// Chave estável para um critério (independente da tab ativa)
+function _edgeMethodKey(c) {
+  return `${c.tab}|${c.marketKey||''}|${c.scoreKey||''}|${c.rangeIdx}`;
+}
+
 function _toggleEdgeScoreFilter(tab) {
   _edgeScoreTabFilter = _edgeScoreTabFilter === tab ? null : tab;
-  _edgeMethodFilters = new Set();
+  // NÃO limpa _edgeMethodFilters — apenas muda a visualização do dropdown
   renderEdgePanel();
 }
 
-function _setEdgeMethodFilter(idx) {
-  if (_edgeMethodFilters.has(idx)) _edgeMethodFilters.delete(idx);
-  else _edgeMethodFilters.add(idx);
+function _setEdgeMethodFilter(key) {
+  if (_edgeMethodFilters.has(key)) _edgeMethodFilters.delete(key);
+  else _edgeMethodFilters.add(key);
   renderEdgePanel();
 }
 
@@ -6013,14 +6018,15 @@ function renderEdgePanel() {
   }
 
   // ── Criteria summary bar ──
-  const activeCriteria = _edgeScoreTabFilter
+  // activeCriteria = TODOS os critérios (de todas as tabs)
+  // displayCriteria = filtra só a visualização do dropdown pela tab selecionada
+  const activeCriteria  = _btEdgeCriteria;
+  const displayCriteria = _edgeScoreTabFilter
     ? _btEdgeCriteria.filter(c => c.tab === _edgeScoreTabFilter)
     : _btEdgeCriteria;
 
-  // Remove índices fora dos limites do Set
-  for (const idx of [..._edgeMethodFilters]) {
-    if (idx >= activeCriteria.length) _edgeMethodFilters.delete(idx);
-  }
+  // Lista de critérios selecionados (por chave estável, cross-tab)
+  const selectedList = _btEdgeCriteria.filter(c => _edgeMethodFilters.has(_edgeMethodKey(c)));
 
   const scoreTabBtns = [
     { id: 'casa', lbl: 'Score Casa' },
@@ -6028,17 +6034,22 @@ function renderEdgePanel() {
     { id: 'gols', lbl: 'Score Gols' },
   ].map(t => {
     const on = _edgeScoreTabFilter === t.id;
+    // Conta quantas metodologias desta tab estão selecionadas
+    const selCount = _btEdgeCriteria.filter(c => c.tab === t.id && _edgeMethodFilters.has(_edgeMethodKey(c))).length;
     return `<button onclick="_toggleEdgeScoreFilter('${t.id}')"
-      style="padding:3px 9px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;
-             border:1px solid ${on ? '#60a5fa' : 'var(--border)'};
-             background:${on ? '#1e3a5f' : 'var(--bg4)'};
-             color:${on ? '#60a5fa' : 'var(--text2)'}">
+      style="display:flex;align-items:center;gap:3px;padding:3px 9px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;
+             border:1px solid ${on ? '#60a5fa' : selCount ? '#22c55e55' : 'var(--border)'};
+             background:${on ? '#1e3a5f' : selCount ? '#162a1a' : 'var(--bg4)'};
+             color:${on ? '#60a5fa' : selCount ? '#4ade80' : 'var(--text2)'}">
       ${t.lbl}
+      ${selCount ? `<span style="background:#22c55e;color:#000;border-radius:8px;padding:0 4px;font-size:8px;font-weight:800">${selCount}</span>` : ''}
     </button>`;
   }).join('');
 
-  const criteriaChips = activeCriteria.map((c, i) => {
-    const on        = _edgeMethodFilters.has(i);
+  // Chips do dropdown — apenas as da tab visível, mas a seleção é cross-tab
+  const criteriaChips = displayCriteria.map((c) => {
+    const key       = _edgeMethodKey(c);
+    const on        = _edgeMethodFilters.has(key);
     const profColor = c.profit >= 0 ? '#22c55e' : '#ef4444';
     const profSign  = c.profit >= 0 ? '+' : '';
     const scoreTypeLbl = c.scoreType === 'provavel'   ? ' (Provável)'
@@ -6061,7 +6072,7 @@ function renderEdgePanel() {
       : c.marketKey === 'over15HT'       ? 'Over 1.5HT'
       : c.marketKey || '?';
     const rangeLabel = (BT_RANGES[c.rangeIdx] || {}).label || '?';
-    return `<div onclick="_setEdgeMethodFilter(${i})"
+    return `<div onclick="_setEdgeMethodFilter('${key}')"
       style="display:flex;align-items:center;gap:5px;cursor:pointer;
              background:${on ? '#162a1a' : 'var(--bg3)'};
              border:1px solid ${on ? '#22c55e' : '#22c55e33'};
@@ -6075,11 +6086,9 @@ function renderEdgePanel() {
     </div>`;
   }).join('');
 
-  const selectedList = [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean);
-
-  // ── Filtra partidas de hoje (antes de montar a barra p/ mostrar contagem) ──
+  // ── Filtra partidas de hoje usando TODOS os critérios selecionados (cross-tab) ──
   const criteriaToUse = _edgeMethodFilters.size > 0
-    ? [..._edgeMethodFilters].map(i => activeCriteria[i]).filter(Boolean)
+    ? _btEdgeCriteria.filter(c => _edgeMethodFilters.has(_edgeMethodKey(c)))
     : activeCriteria;
 
   const allMatching = allMatches
@@ -6106,9 +6115,10 @@ function renderEdgePanel() {
       </span>
     </div>`;
 
-  // Tags compactas das metodologias já selecionadas
-  const selectedTagsHTML = selectedList.map((c, si) => {
-    const idx = [..._edgeMethodFilters][si];
+  // Tags compactas das metodologias já selecionadas (cross-tab)
+  const _tabLbl = t => t === 'casa' ? '🏠' : t === 'fora' ? '✈️' : '⚽';
+  const selectedTagsHTML = selectedList.map((c) => {
+    const key = _edgeMethodKey(c);
     const lbl = c.scoreKey ? `Placar ${c.scoreKey}` :
       c.marketKey === 'casaVence' ? 'Casa V.' : c.marketKey === 'visitanteVence' ? 'Vis. V.' :
       c.marketKey === 'empate' ? 'Empate' : c.marketKey === 'over25' ? 'O 2.5' :
@@ -6121,8 +6131,8 @@ function renderEdgePanel() {
     return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;
                          padding:2px 6px;border-radius:4px;background:#162a1a;
                          border:1px solid #22c55e66;color:#4ade80">
-      ${lbl}
-      <span onclick="event.stopPropagation();_setEdgeMethodFilter(${idx})"
+      <span style="opacity:.7">${_tabLbl(c.tab)}</span>${lbl}
+      <span onclick="event.stopPropagation();_setEdgeMethodFilter('${key}')"
             style="cursor:pointer;color:#6b7280;font-size:10px;line-height:1;padding-left:2px">×</span>
     </span>`;
   }).join('');
@@ -7837,7 +7847,9 @@ function renderBtMarketsPanel(matches) {
 
   // ── Atualiza critérios para as 3 abas de uma vez ──
   _btEdgeCriteria = _buildAllEdgeCriteria(matches);
-  _edgeMethodFilters = new Set();   // limpa seleção ao recalcular
+  // Mantém apenas seleções que ainda existem nos novos critérios
+  const _newKeys = new Set(_btEdgeCriteria.map(_edgeMethodKey));
+  _edgeMethodFilters = new Set([..._edgeMethodFilters].filter(k => _newKeys.has(k)));
   _updateEdgeTabBadge();
   // Disparo automático: se auto_send ativado e ainda não enviou hoje, envia agora
   _tgAutoSendOnLoad();
@@ -9828,7 +9840,8 @@ async function _autoLoadEdgeCriteria() {
 
     // 5. Computa critérios e atualiza o Edge
     _btEdgeCriteria = _buildAllEdgeCriteria(matches);
-    _edgeMethodFilters = new Set();
+    const _newKeys2 = new Set(_btEdgeCriteria.map(_edgeMethodKey));
+    _edgeMethodFilters = new Set([..._edgeMethodFilters].filter(k => _newKeys2.has(k)));
     _updateEdgeTabBadge();
 
     // 6. Dispara Telegram automático se configurado
