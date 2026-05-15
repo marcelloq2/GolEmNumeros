@@ -1318,6 +1318,7 @@ let activeFilter = 'all';
 let _btEdgeCriteria = [];
 let _edgeFavs = new Set();
 let _edgeShowFavsOnly = false;
+let _edgeLastMatching = []; // Cache das partidas visíveis para o Telegram
 let _edgeScoreTabFilter  = null;      // null | 'casa' | 'fora' | 'gols'
 let _edgeMethodFilters  = new Set();  // Set de índices selecionados (multi-select)
 let _edgeMethodPanelOpen = false;     // painel de seleção aberto/fechado
@@ -2124,6 +2125,68 @@ async function _tgTest() {
     if (st) { st.style.color='#ef4444'; st.textContent=`❌ ${e.message}`; }
   }
   if (btn) btn.textContent = '🔔 Testar';
+}
+
+async function _tgSendEdge() {
+  const cfg = _tgLoad();
+  if (!cfg.token || !cfg.chat_id) {
+    openTelegramConfig();
+    return;
+  }
+  const list = _edgeLastMatching;
+  if (!list || list.length === 0) {
+    alert('Nenhuma partida visível no Edge.');
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="_tgSendEdge()"]');
+  if (btn) { btn.textContent = '⏳ Enviando...'; btn.disabled = true; }
+
+  // Monta mensagem
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  let msg = `🤖 <b>Gol em Números — Edge do dia ${hoje}</b>\n`;
+  msg += `📋 ${list.length} partida${list.length !== 1 ? 's' : ''} com metodologia ativa\n\n`;
+
+  const mktName = c => c.scoreKey
+    ? `Placar ${c.scoreKey}`
+    : c.marketKey === 'casaVence'      ? 'Casa Vence'
+    : c.marketKey === 'visitanteVence' ? 'Vis. Vence'
+    : c.marketKey === 'empate'         ? 'Empate'
+    : c.marketKey === 'over25'         ? 'Over 2.5'
+    : c.marketKey === 'under25'        ? 'Under 2.5'
+    : c.marketKey === 'bttsS'          ? 'BTS+'
+    : c.marketKey === 'bttsN'          ? 'BTS-'
+    : c.marketKey || '?';
+
+  list.slice(0, 30).forEach(({ m, fits }) => {
+    const hora = m.hora || '';
+    msg += `⚽ <b>${m.casa} × ${m.fora}</b>${hora ? ` · ${hora}` : ''}\n`;
+    msg += `🏆 ${(m.liga||'').split(' · ').pop() || m.liga || ''}\n`;
+    const top = (fits||[]).slice(0, 3).map(c => {
+      const rangeLabel = (BT_RANGES[c.rangeIdx]||{}).label || '?';
+      const roi = c.roi >= 0 ? `+${c.roi.toFixed(0)}` : c.roi.toFixed(0);
+      return `  • ${mktName(c)} range ${rangeLabel} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
+    }).join('\n');
+    msg += top + '\n\n';
+  });
+
+  if (list.length > 30) msg += `... e mais ${list.length - 30} partidas.\n`;
+
+  try {
+    const r = await fetch('/api/telegram/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: msg }),
+    });
+    const d = await r.json();
+    if (btn) {
+      btn.textContent = d.ok ? '✅ Enviado!' : '❌ Erro';
+      btn.style.color = d.ok ? '#22c55e' : '#ef4444';
+      setTimeout(() => { btn.textContent = '✈️ Telegram'; btn.style.color = '#3b82f6'; btn.disabled = false; }, 3000);
+    }
+  } catch(e) {
+    if (btn) { btn.textContent = '❌ Erro'; setTimeout(() => { btn.textContent = '✈️ Telegram'; btn.disabled = false; }, 3000); }
+  }
 }
 
 // ── GUIA AO VIVO ───────────────────────────────────────────────────────────────
@@ -6004,13 +6067,19 @@ function renderEdgePanel() {
         <span>Só favoritos</span>
         ${favCount > 0 ? `<span style="background:#f59e0b;color:#000;border-radius:8px;padding:0 5px;font-size:10px;font-weight:700">${favCount}</span>` : ''}
       </button>
-      <span style="font-size:10px;color:#4b5563">${allMatching.length} partida${allMatching.length !== 1 ? 's' : ''} no Edge${favBtnActive ? ` · exibindo ${favCount} favorita${favCount !== 1 ? 's' : ''}` : ''}</span>`;
+      <span style="font-size:10px;color:#4b5563">${allMatching.length} partida${allMatching.length !== 1 ? 's' : ''} no Edge${favBtnActive ? ` · exibindo ${favCount} favorita${favCount !== 1 ? 's' : ''}` : ''}</span>
+      <button onclick="_tgSendEdge()" title="Enviar partidas do Edge para Telegram"
+        style="margin-left:auto;background:transparent;border:1px solid #3b82f644;border-radius:6px;
+               color:#3b82f6;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+        ✈️ Telegram
+      </button>`;
   }
 
   // Aplica filtro de favoritos se ativo
   const matching = _edgeShowFavsOnly
     ? allMatching.filter(({ m }) => _edgeFavs.has(_edgeFavKey(m)))
     : allMatching;
+  _edgeLastMatching = matching; // salva para o botão Telegram
 
   if (!matching.length) {
     list.innerHTML = `
