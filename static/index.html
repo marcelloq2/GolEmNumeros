@@ -1356,6 +1356,15 @@
       </div>
       <div id="histMatchList" style="flex:1;overflow-y:auto"></div>
     </div>
+    <!-- Detalhe da partida -->
+    <div id="histDetail" class="bt-detail">
+      <div class="bt-detail-placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+          <circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/>
+        </svg>
+        <div style="font-size:13px">Clique numa partida para ver os detalhes</div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -10197,6 +10206,8 @@ function setHistFilter(mode, btn) {
   if (mode === 'all') {
     sub.innerHTML = '';
     renderHistDateList(btAllDates);
+    // Limpa seleção de data na sidebar
+    document.querySelectorAll('#histDateList .bt-date-row').forEach(r => r.classList.remove('active'));
     renderHistorico(btAllMatchesCache || [], 'Todos os jogos');
   } else if (mode === 'month') {
     const months = [...new Set(btAllDates.map(d => d.slice(0,7)))];
@@ -10309,10 +10320,11 @@ function renderHistMatchCard(m) {
   const borderColor = acertou === true ? 'var(--green)' : acertou === false ? 'var(--red)' : 'var(--border)';
   const tipCls      = typeof tipClass === 'function' ? tipClass(m.tip) : '';
   return `
-    <div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);
+    <div class="hist-match-row" style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);
                 border-left:3px solid ${borderColor};gap:10px;cursor:pointer;transition:background .12s"
-         onmouseover="this.style.background='#1e2235'" onmouseout="this.style.background=''"
-         onclick="openBacktestDetail('${escapeJs(m.url_detalhes||'')}', this)"
+         onmouseover="if(!this.classList.contains('hist-active'))this.style.background='#1e2235'"
+         onmouseout="if(!this.classList.contains('hist-active'))this.style.background=''"
+         onclick="openHistDetail('${escapeJs(m.url_detalhes||'')}', this)"
          data-url="${escapeJs(m.url_detalhes||'')}">
       <div style="font-size:11px;color:var(--text2);min-width:36px;text-align:center;flex-shrink:0">${m.hora||'--'}</div>
       <div style="flex:1;min-width:0">
@@ -10329,6 +10341,47 @@ function renderHistMatchCard(m) {
         <div style="font-size:17px;margin-top:2px">${icon}</div>
       </div>
     </div>`;
+}
+
+async function openHistDetail(url, rowEl) {
+  // Desmarca seleção anterior
+  document.querySelectorAll('.hist-match-row').forEach(r => {
+    r.classList.remove('hist-active');
+    r.style.background = '';
+  });
+  rowEl.classList.add('hist-active');
+  rowEl.style.background = '#1a2040';
+
+  const detail = document.getElementById('histDetail');
+  detail.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Buscando detalhes...</div>';
+
+  // Busca dados do backtest no cache
+  let btMatch = {};
+  if (btAllMatchesCache) {
+    for (const { matches } of btAllMatchesCache) {
+      const found = matches.find(m => m.url_detalhes === url);
+      if (found) { btMatch = found; break; }
+    }
+  }
+
+  try {
+    const encoded = encodeURIComponent((url.split('/compare/teams/')[1] || url));
+    let res = await fetch('/api/match/' + encoded);
+    let match;
+    if (res.ok) {
+      const cached = await res.json();
+      match = { ...btMatch, ...cached };
+    } else {
+      const liveEncoded = (url.split('/compare/teams/')[1] || url);
+      res = await fetch('/api/match/live/' + liveEncoded);
+      if (!res.ok) throw new Error('not found');
+      const liveData = await res.json();
+      match = { ...btMatch, detalhes: liveData.detalhes };
+    }
+    detail.innerHTML = buildDetailHtml(match);
+  } catch(e) {
+    detail.innerHTML = '<div class="loading">Não foi possível carregar os detalhes.<br><span style="font-size:12px;color:var(--text2)">Verifique a conexão.</span></div>';
+  }
 }
 
 // Carrega critérios do Edge em background sem precisar abrir a aba Backtest
