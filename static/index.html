@@ -10301,15 +10301,18 @@ function renderHistorico(allByDate, titulo) {
     .map(({ date, matches, acuracia }) => {
       const aCor = acuracia >= 60 ? 'var(--green)' : acuracia >= 45 ? 'var(--yellow)' : 'var(--red)';
       return `
-        <div style="font-size:10px;font-weight:700;padding:6px 14px 4px;letter-spacing:.4px;
-                    background:var(--bg3);border-bottom:1px solid var(--border);
-                    display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1">
-          <span style="color:var(--text2)">📅 ${formatDate(date)}</span>
+        <div style="padding:4px 14px 3px;font-size:10px;font-weight:700;color:var(--text2);
+                    letter-spacing:.5px;text-transform:uppercase;background:var(--bg3);
+                    border-bottom:1px solid var(--border);display:flex;justify-content:space-between;
+                    align-items:center;position:sticky;top:0;z-index:1">
+          <span>📅 ${formatDate(date)}</span>
           ${acuracia != null
-            ? `<span style="color:${aCor};font-size:11px">${acuracia}% acurácia · ${matches.length}j</span>`
-            : `<span style="color:var(--text2)">${matches.length} jogos</span>`}
+            ? `<span style="color:${aCor}">${acuracia}% · ${matches.length}j</span>`
+            : `<span>${matches.length}j</span>`}
         </div>
-        ${matches.map(m => renderHistMatchCard(m)).join('')}`;
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
+          ${matches.map(m => renderHistMatchCard(m)).join('')}
+        </div>`;
     }).join('');
 }
 
