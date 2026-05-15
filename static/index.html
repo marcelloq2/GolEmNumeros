@@ -1273,11 +1273,25 @@
 
     <!-- Col 2: lista de partidas -->
     <div class="bt-matches">
-      <div style="display:flex;justify-content:flex-end;padding:6px 12px 0;background:var(--bg2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px 0;background:var(--bg2)">
+        <div style="display:flex;gap:6px">
+          <button onclick="_downloadBacktest('csv')"
+            style="background:transparent;border:1px solid #22c55e44;border-radius:6px;
+                   color:#22c55e;font-size:11px;font-weight:700;padding:3px 10px;cursor:pointer"
+            title="Baixar CSV para análise em IA">
+            ⬇️ CSV
+          </button>
+          <button onclick="_downloadBacktest('json')"
+            style="background:transparent;border:1px solid #f59e0b44;border-radius:6px;
+                   color:#f59e0b;font-size:11px;font-weight:700;padding:3px 10px;cursor:pointer"
+            title="Baixar JSON completo">
+            ⬇️ JSON
+          </button>
+        </div>
         <button onclick="openBacktestGuia()"
           style="background:transparent;border:1px solid #a855f744;border-radius:6px;
                  color:#a855f7;font-size:11px;font-weight:700;padding:3px 10px;cursor:pointer">
-          📖 Guia do Backtest
+          📖 Guia
         </button>
       </div>
       <div class="bt-matches-header" id="btMatchesHeader">
@@ -9803,6 +9817,79 @@ function gerarBlocoHistorico(m) {
 }
 
 // ── INIT ─────────────────────────────────────
+// ── DOWNLOAD BACKTEST ────────────────────────────────────────────────────────
+async function _downloadBacktest(fmt) {
+  // Garante que os dados estejam carregados
+  let cache = btAllMatchesCache;
+  if (!cache) {
+    if (!btAllDates.length) {
+      alert('Carregue o Backtest primeiro (clique em "Geral" na lista de datas).');
+      return;
+    }
+    // Busca tudo em paralelo
+    const results = await Promise.all(
+      btAllDates.map(d => fetch(`/api/backtest/${d}`).then(r => r.ok ? r.json() : null).catch(() => null))
+    );
+    cache = [];
+    results.forEach((data, i) => {
+      if (!data) return;
+      const ms = (data.matches || []).filter(m => m.resultado);
+      if (ms.length) cache.push({ date: btAllDates[i], matches: ms });
+    });
+    btAllMatchesCache = cache;
+  }
+
+  // Achata: um objeto por partida com o campo "data" adicionado
+  const rows = cache.flatMap(({ date, matches }) =>
+    matches.map(m => ({ data: date, ...m }))
+  );
+
+  if (!rows.length) { alert('Nenhuma partida com resultado encontrada.'); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (fmt === 'json') {
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+    _triggerDownload(blob, `backtest_${today}.json`);
+    return;
+  }
+
+  // CSV — colunas otimizadas para análise em IA
+  const COLS = [
+    'data','hora','liga','pais','casa','fora',
+    'tip','resultado','tip_acertou',
+    'odds_1','odds_x','odds_2',
+    'odds_h1','odds_hx','odds_h2',
+    'over_1_5','over_2_5','over_3_5',
+    'bts','ots',
+    'votos_favor','votos_contra',
+    'form_casa','form_fora','momento_casa','momento_fora'
+  ];
+
+  const esc = v => {
+    if (v == null) return '';
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = COLS.join(',');
+  const lines  = rows.map(r => COLS.map(c => esc(r[c])).join(','));
+  const csv    = [header, ...lines].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }); // BOM para Excel
+  _triggerDownload(blob, `backtest_${today}.csv`);
+}
+
+function _triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
 // Carrega critérios do Edge em background sem precisar abrir a aba Backtest
 async function _autoLoadEdgeCriteria() {
   try {
