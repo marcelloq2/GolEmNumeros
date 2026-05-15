@@ -1356,14 +1356,10 @@
       </div>
       <div id="histMatchList" style="flex:1;overflow-y:auto"></div>
     </div>
-    <!-- Detalhe da partida -->
-    <div id="histDetail" class="bt-detail">
-      <div class="bt-detail-placeholder">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
-          <circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/>
-        </svg>
-        <div style="font-size:13px">Clique numa partida para ver os detalhes</div>
-      </div>
+    <!-- Painel de Padrões & Tendências -->
+    <div id="histPatternsPanel" style="width:320px;min-width:260px;flex-shrink:0;overflow-y:auto;
+         background:var(--bg);border-left:1px solid var(--border)">
+      <div style="padding:14px;font-size:12px;color:var(--text2);text-align:center">Carregando padrões...</div>
     </div>
   </div>
 
@@ -10293,8 +10289,11 @@ function renderHistorico(allByDate, titulo) {
 
   if (!allByDate.length) {
     list.innerHTML = '<div class="bt-empty"><div style="font-size:32px">📋</div><div>Nenhuma partida.</div></div>';
+    renderHistPatterns([]);
     return;
   }
+
+  renderHistPatterns(allByDate);
 
   list.innerHTML = allByDate
     .sort((a,b) => b.date.localeCompare(a.date))
@@ -10324,10 +10323,8 @@ function renderHistMatchCard(m) {
   const tipCls      = typeof tipClass === 'function' ? tipClass(m.tip) : '';
   return `
     <div class="hist-match-row" style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);
-                border-left:3px solid ${borderColor};gap:10px;cursor:pointer;transition:background .12s"
-         onmouseover="if(!this.classList.contains('hist-active'))this.style.background='#1e2235'"
-         onmouseout="if(!this.classList.contains('hist-active'))this.style.background=''"
-         onclick="openHistDetail('${escapeJs(m.url_detalhes||'')}', this)"
+                border-left:3px solid ${borderColor};gap:10px;transition:background .12s"
+         onmouseover="this.style.background='#1e2235'" onmouseout="this.style.background=''"
          data-url="${escapeJs(m.url_detalhes||'')}">
       <div style="font-size:11px;color:var(--text2);min-width:36px;text-align:center;flex-shrink:0">${m.hora||'--'}</div>
       <div style="flex:1;min-width:0">
@@ -10343,6 +10340,170 @@ function renderHistMatchCard(m) {
         ${m.tip ? `<span class="tip-badge ${tipCls}" style="font-size:10px;padding:1px 5px">${m.tip}</span>` : ''}
         <div style="font-size:17px;margin-top:2px">${icon}</div>
       </div>
+    </div>`;
+}
+
+function renderHistPatterns(allByDate) {
+  const panel = document.getElementById('histPatternsPanel');
+  if (!panel) return;
+  const allMatches = allByDate.flatMap(d => d.matches);
+  if (!allMatches.length) {
+    panel.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--text2);text-align:center">Nenhuma partida no período.</div>';
+    return;
+  }
+
+  // 1. Acurácia por mercado (TIP)
+  const byTip = {};
+  allMatches.forEach(m => {
+    const tip = m.tip || '—';
+    if (!byTip[tip]) byTip[tip] = { total: 0, acertou: 0 };
+    byTip[tip].total++;
+    if (m.tip_acertou === true) byTip[tip].acertou++;
+  });
+  const tipRows = Object.entries(byTip)
+    .filter(([,s]) => s.total >= 3)
+    .sort((a,b) => b[1].total - a[1].total)
+    .map(([tip, s]) => {
+      const pct = Math.round(s.acertou / s.total * 100);
+      const cor = pct >= 60 ? 'var(--green)' : pct >= 45 ? 'var(--yellow)' : 'var(--red)';
+      const tipCls = typeof tipClass === 'function' ? tipClass(tip) : '';
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span class="tip-badge ${tipCls}" style="font-size:10px;padding:1px 6px;flex-shrink:0;min-width:28px;text-align:center">${tip}</span>
+        <div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${cor};border-radius:3px"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${cor};min-width:34px;text-align:right">${pct}%</span>
+        <span style="font-size:10px;color:var(--text2)">${s.total}j</span>
+      </div>`;
+    }).join('');
+
+  // 2. Placares mais frequentes
+  const byScore = {};
+  allMatches.forEach(m => {
+    const s = m.resultado || '?:?';
+    byScore[s] = (byScore[s] || 0) + 1;
+  });
+  const topScores = Object.entries(byScore)
+    .filter(([s]) => s !== '?:?')
+    .sort((a,b) => b[1]-a[1]).slice(0,10);
+  const maxScoreN = topScores[0]?.[1] || 1;
+
+  // 3. Distribuição de gols
+  const goalBuckets = [
+    { label: 'Under 1.5', max: 1 }, { label: 'Over 1.5', min: 2, max: 2 },
+    { label: 'Over 2.5', min: 3, max: 3 }, { label: 'Over 3.5', min: 4 }
+  ];
+  const goalCounts = goalBuckets.map(b => {
+    const n = allMatches.filter(m => {
+      const [c,f] = (m.resultado||'0:0').split(':').map(Number);
+      const total = (isNaN(c)?0:c) + (isNaN(f)?0:f);
+      if (b.min !== undefined && b.max !== undefined) return total >= b.min && total <= b.max;
+      if (b.min !== undefined) return total >= b.min;
+      return total <= b.max;
+    }).length;
+    return { ...b, n, pct: Math.round(n / allMatches.length * 100) };
+  });
+
+  // 4. Por liga (top 6)
+  const byLiga = {};
+  allMatches.forEach(m => {
+    const liga = (m.liga || 'Outras').split(' - ').pop().trim();
+    if (!byLiga[liga]) byLiga[liga] = { total: 0, acertou: 0 };
+    byLiga[liga].total++;
+    if (m.tip_acertou === true) byLiga[liga].acertou++;
+  });
+  const topLigas = Object.entries(byLiga)
+    .filter(([,s]) => s.total >= 3)
+    .sort((a,b) => b[1].total-a[1].total).slice(0,6);
+
+  // 5. Casa vs Visitante vs Empate
+  let wCasa = 0, wFora = 0, emp = 0, semResult = 0;
+  allMatches.forEach(m => {
+    const [c,f] = (m.resultado||'').split(':').map(Number);
+    if (isNaN(c)||isNaN(f)) { semResult++; return; }
+    if (c > f) wCasa++;
+    else if (f > c) wFora++;
+    else emp++;
+  });
+  const totalComResult = wCasa + wFora + emp;
+  const pctCasa = totalComResult ? Math.round(wCasa/totalComResult*100) : 0;
+  const pctFora = totalComResult ? Math.round(wFora/totalComResult*100) : 0;
+  const pctEmp  = totalComResult ? Math.round(emp/totalComResult*100) : 0;
+
+  const section = (title) => `<div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${title}</div>`;
+
+  panel.innerHTML = `
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg3);
+                font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;
+                position:sticky;top:0;z-index:2">
+      📊 Padrões & Tendências
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:18px">
+
+      <!-- Resultado: Casa / Empate / Fora -->
+      <div>
+        ${section(`⚽ Resultados (${totalComResult}j)`)}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+          ${[['Casa','var(--green)',pctCasa,wCasa],['Empate','var(--yellow)',pctEmp,emp],['Fora','var(--red)',pctFora,wFora]]
+            .map(([lbl,cor,pct,n]) => `
+            <div style="background:var(--bg2);border-radius:8px;padding:8px 4px;border:1px solid var(--border)">
+              <div style="font-size:18px;font-weight:800;color:${cor}">${pct}%</div>
+              <div style="font-size:10px;color:var(--text2);margin-top:2px">${lbl} · ${n}j</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Acurácia por TIP -->
+      ${tipRows ? `<div>${section('🎯 Acurácia por Mercado')}${tipRows}</div>` : ''}
+
+      <!-- Distribuição de gols -->
+      <div>
+        ${section('📈 Gols por Partida')}
+        ${goalCounts.map(({label,n,pct}) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <span style="font-size:10px;color:var(--text2);min-width:68px">${label}</span>
+            <div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px"></div>
+            </div>
+            <span style="font-size:10px;color:var(--text2);min-width:36px;text-align:right">${pct}% <span style="opacity:.6">${n}j</span></span>
+          </div>`).join('')}
+      </div>
+
+      <!-- Placares mais frequentes -->
+      <div>
+        ${section('🏅 Placares + Frequentes')}
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${topScores.map(([score,n]) => {
+            const pct = Math.round(n/maxScoreN*100);
+            return `<div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;font-weight:700;min-width:34px;text-align:center;
+                           background:var(--bg2);border-radius:5px;padding:2px 4px;border:1px solid var(--border)">${score}</span>
+              <div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+                <div style="width:${pct}%;height:100%;background:#6366f1;border-radius:3px"></div>
+              </div>
+              <span style="font-size:10px;color:var(--text2);min-width:20px;text-align:right">×${n}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Por liga -->
+      ${topLigas.length ? `<div>
+        ${section('🏆 Por Competição')}
+        ${topLigas.map(([liga,s]) => {
+          const pct = Math.round(s.acertou/s.total*100);
+          const cor = pct >= 60 ? 'var(--green)' : pct >= 45 ? 'var(--yellow)' : 'var(--red)';
+          return `<div style="margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px">
+              <span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${liga}</span>
+              <span style="color:${cor};flex-shrink:0;margin-left:4px">${pct}% · ${s.total}j</span>
+            </div>
+            <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${cor};border-radius:2px"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
     </div>`;
 }
 
