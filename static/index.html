@@ -2164,6 +2164,66 @@ async function _tgSaveDaily(cfg) {
   } catch(e) { /* silencioso */ }
 }
 
+// Disparo automático quando a base é carregada — checa se já enviou hoje
+async function _tgAutoSendOnLoad() {
+  const cfg = _tgLoad();
+  if (!cfg.auto_send || !cfg.token || !cfg.chat_id) return;
+
+  // Verifica se já enviou hoje
+  const today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem('tgSentDate') === today) return;
+
+  // Aguarda um tick para garantir que allMatches e _btEdgeCriteria estejam prontos
+  await new Promise(r => setTimeout(r, 300));
+
+  // Computa partidas do dia
+  const selected = cfg.criteria || {};
+  const activeCriteria = (_btEdgeCriteria||[]).filter(c => {
+    const key = _tgCriteriaKey(c);
+    const hasAny = Object.values(selected).some(Boolean);
+    return hasAny ? selected[key] : true;
+  });
+  if (!activeCriteria.length) return;
+
+  const matches = (allMatches||[]).reduce((acc, m) => {
+    const fits = activeCriteria.filter(c => matchFitsCriteria(m, c));
+    if (fits.length) {
+      acc.push({
+        casa: m.casa, fora: m.fora, liga: m.liga, hora: m.hora,
+        fits: fits.slice(0,3).map(c => {
+          const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
+          const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
+          return `${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
+        })
+      });
+    }
+    return acc;
+  }, []).sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
+
+  if (!matches.length) return;
+
+  // Monta mensagem
+  const lines = matches.map(m =>
+    `⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${m.fits.map(f=>`   📌 ${f}`).join('\n')}`
+  );
+  const today_br = new Date().toLocaleDateString('pt-BR');
+  const text = `📅 *Entradas do dia — ${today_br}*\n\n${lines.join('\n\n')}`;
+
+  try {
+    await fetch('/api/telegram/send', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text })
+    });
+    // Marca que já enviou hoje
+    localStorage.setItem('tgSentDate', today);
+    // Salva também no servidor como cache do dia
+    await _tgSaveDaily(cfg);
+    console.log('[Telegram] Envio automático realizado:', matches.length, 'entradas');
+  } catch(e) {
+    console.warn('[Telegram] Falha no envio automático:', e);
+  }
+}
+
 async function _tgTest() {
   const token   = document.getElementById('tgToken')?.value.trim();
   const chat_id = document.getElementById('tgChatId')?.value.trim();
@@ -7774,6 +7834,8 @@ function renderBtMarketsPanel(matches) {
   _btEdgeCriteria = _buildAllEdgeCriteria(matches);
   _edgeMethodFilters = new Set();   // limpa seleção ao recalcular
   _updateEdgeTabBadge();
+  // Disparo automático: se auto_send ativado e ainda não enviou hoje, envia agora
+  _tgAutoSendOnLoad();
 
   // Separa positivos (lucro) e negativos (prejuízo); ordena por ranking qualitativo
   const posColSims = colSims
