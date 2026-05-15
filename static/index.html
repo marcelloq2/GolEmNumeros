@@ -2060,6 +2060,27 @@ function openTelegramConfig() {
                   text-transform:uppercase;letter-spacing:.4px">📋 Metodologias (Simulação de Banca)</div>
       <div style="margin-bottom:14px;max-height:220px;overflow-y:auto">${criteriaHtml}</div>
 
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                  padding:12px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;
+                    text-transform:uppercase;letter-spacing:.4px">⏰ Envio Automático Diário</div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px">
+          <input type="checkbox" id="tgAutoSend" ${cfg.auto_send ? 'checked' : ''}
+                 style="accent-color:#22c55e;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:12px;color:var(--text)">Receber entradas todo dia automaticamente</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:11px;color:var(--text2);white-space:nowrap">Horário de envio:</label>
+          <input type="time" id="tgSendTime" value="${cfg.send_time || '09:00'}"
+                 style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+                        padding:5px 8px;font-size:12px;color:var(--text);outline:none;flex:1">
+        </div>
+        <div style="font-size:10px;color:#6b7280;margin-top:8px">
+          💡 O servidor enviará automaticamente as entradas do dia no horário definido.
+             Configure uma vez e receba todo dia sem precisar abrir o app.
+        </div>
+      </div>
+
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <button onclick="_tgSendEdge()" id="tgSendNowBtn"
                 style="flex:1;background:#16a34a;border:none;border-radius:7px;
@@ -2085,19 +2106,62 @@ function openTelegramConfig() {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-function _tgSaveConfig() {
-  const token   = document.getElementById('tgToken')?.value.trim();
-  const chat_id = document.getElementById('tgChatId')?.value.trim();
-  const criteria = {};
+async function _tgSaveConfig() {
+  const token     = document.getElementById('tgToken')?.value.trim();
+  const chat_id   = document.getElementById('tgChatId')?.value.trim();
+  const auto_send = document.getElementById('tgAutoSend')?.checked || false;
+  const send_time = document.getElementById('tgSendTime')?.value || '09:00';
+  const criteria  = {};
   document.querySelectorAll('[data-ckey]').forEach(cb => { criteria[cb.dataset.ckey] = cb.checked; });
-  _tgSave({ token, chat_id, criteria });
+  const cfg = { token, chat_id, auto_send, send_time, criteria };
+  _tgSave(cfg);
+  // Salva também no servidor para envio automático
+  try {
+    await fetch('/api/telegram/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(cfg)
+    });
+    // Salva lista do dia no servidor
+    await _tgSaveDaily(cfg);
+  } catch(e) { /* silencioso */ }
   const st = document.getElementById('tgStatus');
-  if (st) { st.style.color = '#22c55e'; st.textContent = '✅ Configuração salva!'; }
+  if (st) { st.style.color = '#22c55e'; st.textContent = auto_send ? `✅ Salvo! Envio automático às ${send_time}` : '✅ Configuração salva!'; }
   const btn = document.getElementById('tgConfigBtn');
   if (btn) {
     btn.style.borderColor = token && chat_id ? '#22c55e44' : '#3b82f644';
     btn.style.color       = token && chat_id ? '#22c55e'   : '#3b82f6';
   }
+}
+
+async function _tgSaveDaily(cfg) {
+  // Computa e salva no servidor a lista de partidas do dia para envio automático
+  const selected = (cfg || _tgLoad()).criteria || {};
+  const activeCriteria = (_btEdgeCriteria||[]).filter(c => {
+    const key = _tgCriteriaKey(c);
+    const hasAny = Object.values(selected).some(Boolean);
+    return hasAny ? selected[key] : true;
+  });
+  if (!activeCriteria.length) return;
+  const matches = (allMatches||[]).reduce((acc, m) => {
+    const fits = activeCriteria.filter(c => matchFitsCriteria(m, c));
+    if (fits.length) {
+      acc.push({
+        casa: m.casa, fora: m.fora, liga: m.liga, hora: m.hora,
+        fits: fits.slice(0,3).map(c => {
+          const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
+          const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
+          return `${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
+        })
+      });
+    }
+    return acc;
+  }, []).sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
+  try {
+    await fetch('/api/telegram/daily', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ matches })
+    });
+  } catch(e) { /* silencioso */ }
 }
 
 async function _tgTest() {

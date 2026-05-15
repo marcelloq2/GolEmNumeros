@@ -3821,6 +3821,74 @@ def api_upload_backup_bulk():
     })
 
 
+TG_CONFIG_FILE = os.path.join(DATA_DIR, "telegram_config.json")
+TG_DAILY_FILE  = os.path.join(DATA_DIR, "telegram_daily.json")
+
+def _tg_load_config():
+    try:
+        with open(TG_CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _tg_send_message(token, chat_id, message):
+    r = http_req.post(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+        timeout=10,
+    )
+    return r.json()
+
+def _tg_auto_send():
+    """Envia as entradas do dia automaticamente via Telegram."""
+    cfg = _tg_load_config()
+    if not cfg.get("token") or not cfg.get("chat_id"):
+        return
+    try:
+        with open(TG_DAILY_FILE, "r", encoding="utf-8") as f:
+            daily = json.load(f)
+    except Exception:
+        daily = []
+    if not daily:
+        return
+    hoje = datetime.now().strftime("%d/%m/%Y")
+    msg  = f"🤖 <b>Gol em Números — {hoje}</b>\n"
+    msg += f"📋 <b>{len(daily)} partida{'s' if len(daily)!=1 else ''}</b> nas metodologias configuradas\n\n"
+    for item in daily[:25]:
+        hora = f" · {item['hora']}" if item.get("hora") else ""
+        msg += f"⚽ <b>{item['casa']} × {item['fora']}</b>{hora}\n"
+        msg += f"🏆 {item.get('liga','')}\n"
+        for fit in item.get("fits", [])[:3]:
+            msg += f"  • {fit}\n"
+        msg += "\n"
+    if len(daily) > 25:
+        msg += f"...e mais {len(daily)-25} partidas.\n"
+    try:
+        _tg_send_message(cfg["token"], cfg["chat_id"], msg)
+        print(f"[Telegram] Envio automático: {len(daily)} partidas enviadas às {datetime.now().strftime('%H:%M')}")
+    except Exception as e:
+        print(f"[Telegram] Erro no envio automático: {e}")
+
+def _tg_scheduler():
+    """Background thread que verifica o horário e dispara o envio automático."""
+    sent_today = None
+    while True:
+        try:
+            cfg = _tg_load_config()
+            if cfg.get("auto_send") and cfg.get("send_time"):
+                now       = datetime.now()
+                today_str = now.strftime("%Y-%m-%d")
+                hm        = now.strftime("%H:%M")
+                if hm == cfg["send_time"] and sent_today != today_str:
+                    sent_today = today_str
+                    _tg_auto_send()
+        except Exception as e:
+            print(f"[Telegram scheduler] {e}")
+        time.sleep(30)
+
+# Inicia background thread do scheduler
+threading.Thread(target=_tg_scheduler, daemon=True).start()
+
 @app.route("/api/telegram/send", methods=["POST"])
 def api_telegram_send():
     """Envia mensagem via Telegram Bot API."""
@@ -3831,14 +3899,41 @@ def api_telegram_send():
     if not token or not chat_id or not message:
         return jsonify({"ok": False, "error": "Campos obrigatórios: token, chat_id, message"}), 400
     try:
-        r = http_req.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
-            timeout=8,
-        )
-        return jsonify(r.json())
+        return jsonify(_tg_send_message(token, chat_id, message))
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/telegram/config", methods=["GET", "POST"])
+def api_telegram_config():
+    """Salva ou carrega configuração do Telegram."""
+    if request.method == "POST":
+        data = request.json or {}
+        try:
+            with open(TG_CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+    else:
+        return jsonify(_tg_load_config())
+
+@app.route("/api/telegram/daily", methods=["POST"])
+def api_telegram_daily():
+    """Salva a lista pré-computada de partidas do dia para envio automático."""
+    data = request.json or {}
+    matches = data.get("matches", [])
+    try:
+        with open(TG_DAILY_FILE, "w", encoding="utf-8") as f:
+            json.dump(matches, f, ensure_ascii=False, indent=2)
+        return jsonify({"ok": True, "saved": len(matches)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/telegram/send-now", methods=["POST"])
+def api_telegram_send_now():
+    """Dispara o envio automático imediatamente."""
+    _tg_auto_send()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
