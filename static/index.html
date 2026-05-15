@@ -33,8 +33,22 @@
     height: 56px;
     position: sticky; top: 0; z-index: 100;
   }
-  .logo { font-size: 20px; font-weight: 700; color: var(--accent2); letter-spacing: -0.5px; }
-  .logo span { color: var(--text2); font-weight: 400; }
+  .logo {
+    font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+    color: #e8e8e8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex; align-items: baseline; gap: 0.22em;
+  }
+  .logo-em { font-weight: 400; color: #c0c0c0; font-size: 0.9em; }
+  .logo-numeros {
+    font-weight: 900;
+    background: linear-gradient(135deg, #00e5ff 0%, #0099cc 50%, #0055aa 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+    text-shadow: none;
+    filter: drop-shadow(0 0 8px rgba(0,200,255,0.35));
+  }
   .header-stats { display: flex; gap: 16px; color: var(--text2); font-size: 13px; }
   .header-stats b { color: var(--text); }
   .nav-tabs { display: flex; gap: 4px; margin-left: auto; }
@@ -948,7 +962,7 @@
 <body>
 
 <header>
-  <div class="logo">Gol em <span>Números</span></div>
+  <div class="logo">Gol <span class="logo-em">em</span> <span class="logo-numeros">Números</span></div>
   <div class="header-stats" id="headerStats">
     <span><div class="status-dot"></div>Carregando...</span>
   </div>
