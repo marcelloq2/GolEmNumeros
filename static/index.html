@@ -9817,68 +9817,124 @@ function gerarBlocoHistorico(m) {
 }
 
 // ── INIT ─────────────────────────────────────
-// ── DOWNLOAD BACKTEST ────────────────────────────────────────────────────────
+// ── DOWNLOAD BACKTEST ANÁLISES ───────────────────────────────────────────────
 async function _downloadBacktest(fmt) {
-  // Garante que os dados estejam carregados
-  let cache = btAllMatchesCache;
-  if (!cache) {
-    if (!btAllDates.length) {
-      alert('Carregue o Backtest primeiro (clique em "Geral" na lista de datas).');
+  // Botão feedback
+  const btns = document.querySelectorAll('[onclick*="_downloadBacktest"]');
+  btns.forEach(b => { b._orig = b.textContent; b.textContent = '⏳'; b.disabled = true; });
+  const restore = () => btns.forEach(b => { b.textContent = b._orig; b.disabled = false; });
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // ── Busca todas as fontes em paralelo ──────────────────────────────────
+    const [goalData, statsData, oddsData, shotmapData] = await Promise.all([
+      fetch('/api/momentum/analysis').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/momentum/stats-patterns').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/momentum/odds-patterns').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/shotmap/patterns').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+
+    // ── Correlação de Scores: computa do cache local ───────────────────────
+    let scoreCorr = null;
+    const cache = btAllMatchesCache;
+    if (cache && cache.length) {
+      const allMatches = cache.flatMap(d => d.matches);
+      scoreCorr = calcScoreCorrelation(allMatches);
+    }
+
+    // ── Monta estrutura completa ───────────────────────────────────────────
+    const payload = {
+      _gerado_em: new Date().toISOString(),
+      _total_dias: cache ? cache.length : null,
+      _total_partidas: cache ? cache.reduce((s, d) => s + d.matches.length, 0) : null,
+      correlacao_scores:      scoreCorr,
+      padroes_gol:            goalData,
+      padroes_estatisticas:   statsData,
+      correlacao_odds_abertura: oddsData,
+      padroes_mapa_chutes:    shotmapData,
+    };
+
+    if (fmt === 'json') {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      _triggerDownload(blob, `analises_backtest_${today}.json`);
+      restore();
       return;
     }
-    // Busca tudo em paralelo
-    const results = await Promise.all(
-      btAllDates.map(d => fetch(`/api/backtest/${d}`).then(r => r.ok ? r.json() : null).catch(() => null))
-    );
-    cache = [];
-    results.forEach((data, i) => {
-      if (!data) return;
-      const ms = (data.matches || []).filter(m => m.resultado);
-      if (ms.length) cache.push({ date: btAllDates[i], matches: ms });
-    });
-    btAllMatchesCache = cache;
+
+    // ── CSV: gera uma seção por bloco de dados ─────────────────────────────
+    const sections = [];
+    const esc = v => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const row  = (...cols) => cols.map(esc).join(',');
+    const sep  = (title) => [`\n### ${title} ###`];
+
+    // 1. Correlação de Scores
+    if (scoreCorr) {
+      sections.push(...sep('CORRELAÇÃO DE SCORES'));
+      sections.push(row('tab','range_label','n_partidas','score','freq_base_%','freq_range_%','diferenca_pp'));
+      ['casa','fora','gols'].forEach(tab => {
+        (scoreCorr[tab] || []).forEach(r => {
+          Object.entries(r.scores || {}).forEach(([sk, cnt]) => {
+            const baseFreq = scoreCorr.base.n > 0
+              ? Math.round((scoreCorr.base.scores[sk]||0)/scoreCorr.base.n*100) : 0;
+            const rangeFreq = r.n > 0 ? Math.round(cnt/r.n*100) : 0;
+            sections.push(row(tab, r.label||'?', r.n, sk, baseFreq, rangeFreq, rangeFreq-baseFreq));
+          });
+        });
+      });
+    }
+
+    // 2. Padrões de Gol
+    if (goalData) {
+      sections.push(...sep('PADRÕES DE GOL'));
+      sections.push(row('mercado','range_odds','n_partidas','freq_%','roi_%'));
+      (goalData.ranges || []).forEach(r => {
+        Object.entries(r.markets || {}).forEach(([mk, val]) => {
+          sections.push(row(mk, r.label||'?', r.n||'', val||'', ''));
+        });
+      });
+    }
+
+    // 3. Padrões de Estatísticas
+    if (statsData) {
+      sections.push(...sep('PADRÕES DE ESTATÍSTICAS'));
+      sections.push(row('metrica','range','n_partidas','resultado_1_%','resultado_x_%','resultado_2_%'));
+      (statsData.buckets || []).forEach(b => {
+        sections.push(row(b.metric||'', b.label||'?', b.n||'', b.r1||'', b.rx||'', b.r2||''));
+      });
+    }
+
+    // 4. Correlação de Odds de Abertura
+    if (oddsData) {
+      sections.push(...sep('CORRELAÇÃO DE ODDS DE ABERTURA'));
+      sections.push(row('range_odds_casa','range_odds_vis','n_partidas','casa_vence_%','empate_%','vis_vence_%','imp_casa_%','imp_vis_%'));
+      (oddsData.buckets || []).forEach(b => {
+        sections.push(row(b.label_h||'?', b.label_a||'?', b.n||'', b.casaV_pct||'', b.emp_pct||'', b.visV_pct||'', b.imp_h||'', b.imp_a||''));
+      });
+    }
+
+    // 5. Padrões de Mapa de Chutes
+    if (shotmapData) {
+      sections.push(...sep('PADRÕES DE MAPA DE CHUTES'));
+      sections.push(row('zona','n_chutes','gols','conversao_%','xg_medio'));
+      (shotmapData.zones || []).forEach(z => {
+        sections.push(row(z.zone||'?', z.shots||'', z.goals||'', z.conversion||'', z.xg_avg||''));
+      });
+    }
+
+    const blob = new Blob(['﻿' + sections.join('\n')], { type: 'text/csv;charset=utf-8' });
+    _triggerDownload(blob, `analises_backtest_${today}.csv`);
+
+  } catch(e) {
+    alert('Erro ao gerar download: ' + e.message);
+  } finally {
+    restore();
   }
-
-  // Achata: um objeto por partida com o campo "data" adicionado
-  const rows = cache.flatMap(({ date, matches }) =>
-    matches.map(m => ({ data: date, ...m }))
-  );
-
-  if (!rows.length) { alert('Nenhuma partida com resultado encontrada.'); return; }
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (fmt === 'json') {
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
-    _triggerDownload(blob, `backtest_${today}.json`);
-    return;
-  }
-
-  // CSV — colunas otimizadas para análise em IA
-  const COLS = [
-    'data','hora','liga','pais','casa','fora',
-    'tip','resultado','tip_acertou',
-    'odds_1','odds_x','odds_2',
-    'odds_h1','odds_hx','odds_h2',
-    'over_1_5','over_2_5','over_3_5',
-    'bts','ots',
-    'votos_favor','votos_contra',
-    'form_casa','form_fora','momento_casa','momento_fora'
-  ];
-
-  const esc = v => {
-    if (v == null) return '';
-    const s = String(v);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-      ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
-  const header = COLS.join(',');
-  const lines  = rows.map(r => COLS.map(c => esc(r[c])).join(','));
-  const csv    = [header, ...lines].join('\n');
-
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }); // BOM para Excel
-  _triggerDownload(blob, `backtest_${today}.csv`);
 }
 
 function _triggerDownload(blob, filename) {
