@@ -7104,7 +7104,10 @@ function _renderSimBody() {
     </div>`;
 
   const colSimsHTML = sorted.map(cs =>
-    renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
+    renderBankSimSection(cs.sim, cs.lbl, cs.chartId, {
+      tab: btMarketsTab, rangeIdx: cs.ri,
+      marketKey: cs.mk?.key || null, scoreKey: null
+    })
   ).join('');
 
   const negSummaryHTML = _negColSimsCache.length ? `
@@ -7130,8 +7133,10 @@ function _renderSimBody() {
       ${colSimsHTML || `<div style="color:#6b7280;font-size:12px;text-align:center;padding:24px 12px">
         Nenhuma metodologia disponível.
       </div>`}
-      ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS')    : ''}
-      ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp') : ''}
+      ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS',
+          { tab: btMarketsTab, rangeIdx: _simCSCache._ri||0, marketKey: null, scoreKey: _simCSCache.scoreKey }) : ''}
+      ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp',
+          { tab: btMarketsTab, rangeIdx: _simCSImpCache._ri||0, marketKey: null, scoreKey: _simCSImpCache.scoreKey }) : ''}
       ${negSummaryHTML}
     </div>`;
   detailEl.dataset.showingSim = 'true';
@@ -7139,6 +7144,193 @@ function _renderSimBody() {
 }
 
 // ── Simulação de Banca ────────────────────────────────────────────────────
+
+// Helper: função de resultado de mercado (compartilhado com btBankSimulation)
+function _btOutcomeCheck(marketKey, scoreKey, invertScore) {
+  if (scoreKey) {
+    return m => {
+      const [gc,gf] = m.resultado.split(':').map(v => parseInt(v)||0);
+      const hit = `${gc}-${gf}` === scoreKey;
+      return invertScore ? !hit : hit;
+    };
+  }
+  return m => {
+    const [gc,gf] = m.resultado.split(':').map(v => parseInt(v)||0);
+    const [hc,hf] = (m.ht_score||'').split(':').map(v => parseInt(v)||0);
+    if (marketKey === 'casaVence')      return gc > gf;
+    if (marketKey === 'visitanteVence') return gf > gc;
+    if (marketKey === 'empate')         return gc === gf;
+    if (marketKey === 'over25')         return gc+gf >= 3;
+    if (marketKey === 'under25')        return gc+gf < 3;
+    if (marketKey === 'bttsS')          return gc > 0 && gf > 0;
+    if (marketKey === 'bttsN')          return !(gc > 0 && gf > 0);
+    if (marketKey === 'under35')        return gc+gf <= 3;
+    if (marketKey === 'over15')         return gc+gf >= 2;
+    if (marketKey === 'over05')         return gc+gf >= 1;
+    if (marketKey === 'over05HT')   { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf > 0; }
+    if (marketKey === 'under05HT')  { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf === 0; }
+    if (marketKey === 'under15HT')  { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf <= 1; }
+    if (marketKey === 'over15HT')   { if (!m.ht_score||!m.ht_score.includes(':')) return null; return hc+hf >= 2; }
+    return false;
+  };
+}
+
+// Identifica ligas que causam ruído (ROI negativo com ≥ MIN_GAMES jogos)
+function btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey, MIN_GAMES = 8) {
+  const getDim = tab === 'casa' ? m => calcBtTeamScore(m, true)
+               : tab === 'fora' ? m => calcBtTeamScore(m, false)
+               : m => calcGoalScore(m);
+  const range = BT_RANGES[rangeIdx];
+  if (!range) return { noisy: new Set(), stats: [] };
+
+  const wr = matches.filter(m => m.resultado && m.resultado.includes(':'));
+  const filtered = wr.filter(m => { const v = getDim(m); return v != null && v >= range.min && v <= range.max; });
+  if (filtered.length < 10) return { noisy: new Set(), stats: [] };
+
+  const outcomeCheck = _btOutcomeCheck(marketKey, scoreKey, false);
+
+  // Calcula simOdd global para usar na avaliação por liga
+  let gWins = 0, gTotal = 0;
+  for (const m of filtered) {
+    const w = outcomeCheck(m);
+    if (w === null) continue;
+    gTotal++; if (w) gWins++;
+  }
+  if (gTotal < 5) return { noisy: new Set(), stats: [] };
+  const globalRate = gWins / gTotal;
+  const simOdd = Math.round((100 / globalRate / 100 + 0.10) * 100) / 100;
+
+  // Agrupa por liga e calcula ROI por liga usando simOdd global
+  const byLiga = {};
+  for (const m of filtered) {
+    const liga = (m.liga || m.pais || 'Outra').trim();
+    const w = outcomeCheck(m);
+    if (w === null) continue;
+    if (!byLiga[liga]) byLiga[liga] = { n: 0, wins: 0, profit: 0 };
+    byLiga[liga].n++;
+    if (w) { byLiga[liga].wins++; byLiga[liga].profit += simOdd - 1; }
+    else   { byLiga[liga].profit -= 1; }
+  }
+
+  const stats = Object.entries(byLiga).map(([liga, s]) => ({
+    liga, n: s.n, wins: s.wins,
+    winrate: Math.round(s.wins / s.n * 100),
+    roi: Math.round(s.profit / s.n * 100 * 10) / 10,
+    profit: Math.round(s.profit * 100) / 100,
+  })).sort((a, b) => a.roi - b.roi);
+
+  // Ligas com ROI negativo e amostra suficiente
+  const noisy = new Set(stats.filter(s => s.n >= MIN_GAMES && s.roi < 0).map(s => s.liga));
+  return { noisy, stats };
+}
+
+// Mostra a versão filtrada de uma metodologia (remove ligas de ruído)
+function _showFilteredSim(containerId, tab, rangeIdx, marketKey, scoreKey) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  // Toggle: se já aberto, fecha
+  if (el.dataset.open === '1') {
+    el.innerHTML = '';
+    el.dataset.open = '0';
+    return;
+  }
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);padding:8px 12px">⏳ Calculando...</div>`;
+  el.dataset.open = '1';
+
+  // Usa btAllMatchesCache como fonte de dados
+  const allMatches = (btAllMatchesCache || []).flatMap(d => d.matches);
+  if (!allMatches.length) {
+    el.innerHTML = `<div style="font-size:11px;color:#f59e0b;padding:8px 12px">Carregue dados no Backtest primeiro.</div>`;
+    return;
+  }
+
+  const { noisy, stats } = btNoisyLeagues(allMatches, tab, rangeIdx, marketKey, scoreKey);
+
+  if (!noisy.size) {
+    el.innerHTML = `<div style="font-size:11px;color:#22c55e;padding:8px 12px">
+      ✅ Nenhuma liga identificada como ruído (todas têm ROI ≥ 0 ou amostra insuficiente).
+    </div>`;
+    return;
+  }
+
+  // Simulação sem as ligas ruidosas
+  const filtMatches = allMatches.filter(m => !noisy.has((m.liga||m.pais||'Outra').trim()));
+  const simFilt = btBankSimulation(filtMatches, tab, rangeIdx, marketKey, scoreKey);
+  const simOrig = btBankSimulation(allMatches, tab, rangeIdx, marketKey, scoreKey);
+
+  if (!simFilt) {
+    el.innerHTML = `<div style="font-size:11px;color:#f59e0b;padding:8px 12px">
+      Dados insuficientes após remoção das ligas (mínimo 5 partidas).
+    </div>`;
+    return;
+  }
+
+  const pn = (v, f=1) => (v >= 0 ? '+' : '') + v.toFixed(f);
+  const delta = (a, b, f=1) => {
+    if (a == null || b == null) return '';
+    const d = a - b;
+    const c = d > 0 ? '#22c55e' : d < 0 ? '#ef4444' : 'var(--text2)';
+    return `<span style="font-size:9px;color:${c};margin-left:4px">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(f)}</span>`;
+  };
+
+  // Lista de ligas removidas
+  const noisyList = stats.filter(s => noisy.has(s.liga)).map(s =>
+    `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border);font-size:10px">
+      <span style="flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.liga}</span>
+      <span style="color:#94a3b8">${s.n}j</span>
+      <span style="color:#ef4444;font-weight:700;min-width:40px;text-align:right">${pn(s.roi)}%</span>
+    </div>`
+  ).join('');
+
+  // Métricas comparativas
+  const rows = [
+    ['Apostas',      simOrig.total,                   simFilt.total,                   0, 'j'],
+    ['Winrate',      simOrig.winrate,                  simFilt.winrate,                  1, '%'],
+    ['ROI',          simOrig.roi,                      simFilt.roi,                      1, '%'],
+    ['Profit (u)',   simOrig.profit,                   simFilt.profit,                   2, 'u'],
+    ['Max DD',       simOrig.maxDD,                    simFilt.maxDD,                    1, '%'],
+    ['Odd Justa',    simOrig.fairOdd,                  simFilt.fairOdd,                  2, ''],
+    ['Odd Simulada', simOrig.simOdd,                   simFilt.simOdd,                   2, ''],
+    ['Sharpe',       simOrig.sharpe,                   simFilt.sharpe,                   2, ''],
+  ].map(([lbl, orig, filt, dec, unit]) => {
+    const origStr = orig != null ? orig.toFixed(dec) + unit : '—';
+    const filtStr = filt != null ? filt.toFixed(dec) + unit : '—';
+    const d       = (filt != null && orig != null) ? filt - orig : null;
+    const dColor  = d === null ? '' : lbl === 'Max DD' ? (d < 0 ? '#22c55e' : '#ef4444')
+                                                        : (d > 0 ? '#22c55e' : '#ef4444');
+    const dStr    = d === null ? '' : `<span style="font-size:9px;color:${dColor};margin-left:3px">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(dec)}</span>`;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <span style="flex:1;color:var(--text2)">${lbl}</span>
+      <span style="color:var(--text2);min-width:55px;text-align:right">${origStr}</span>
+      <span style="color:#22c55e;font-weight:700;min-width:55px;text-align:right">${filtStr}${dStr}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="border:1px solid #22c55e33;border-radius:8px;background:#0a1a0f;margin:4px 0 8px;overflow:hidden">
+      <div style="background:#0d2416;padding:8px 12px;border-bottom:1px solid #22c55e22">
+        <div style="font-size:11px;font-weight:700;color:#22c55e">⚡ Versão Filtrada — ${noisy.size} liga${noisy.size>1?'s':''} removida${noisy.size>1?'s':''}</div>
+        <div style="font-size:10px;color:#4b5563;margin-top:2px">
+          ${simOrig.total - simFilt.total} aposta${simOrig.total-simFilt.total!==1?'s':''} excluída${simOrig.total-simFilt.total!==1?'s':''} · ${filtMatches.length} partidas restantes
+        </div>
+      </div>
+      <div style="padding:10px 12px">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+          🚫 Ligas removidas (ROI negativo com ≥8 jogos)
+        </div>
+        ${noisyList}
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 6px">
+          📊 Comparativo &nbsp;<span style="color:#6b7280;text-transform:none;font-weight:400">Original → Filtrado</span>
+        </div>
+        ${rows}
+        <div style="font-size:9px;color:#4b5563;margin-top:8px;line-height:1.5">
+          ⚠️ A versão filtrada usa apenas ligas com histórico positivo nesta metodologia.
+          Não é garantia de resultados futuros — ligas removidas podem melhorar no futuro.
+        </div>
+      </div>
+    </div>`;
+}
 
 function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertScore = false) {
   const BANK = 100, STAKE = 1;
@@ -7684,7 +7876,7 @@ function _renderBlockWinrate(sim) {
     </div>`;
 }
 
-function renderBankSimSection(sim, label, simId) {
+function renderBankSimSection(sim, label, simId, criterion = null) {
   if (!sim) return `<div style="font-size:10px;color:#4b5563;padding:8px 0">Dados insuficientes (min. 5 partidas)</div>`;
   const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
   const proC = sim.profit >= 0 ? '#22c55e' : '#ef4444';
@@ -7918,6 +8110,19 @@ function renderBankSimSection(sim, label, simId) {
       ${wfHtml}
       ${heatHtml}
       ${_renderBlockWinrate(sim)}
+      ${criterion ? (() => {
+        const filtId = `filtSim_${simId}`;
+        const args   = `'${filtId}','${criterion.tab}',${criterion.rangeIdx},'${criterion.marketKey||''}','${criterion.scoreKey||''}'`;
+        return `<div style="margin-top:6px">
+          <button onclick="_showFilteredSim(${args})"
+            style="width:100%;background:transparent;border:1px dashed #22c55e44;border-radius:6px;
+                   color:#22c55e;font-size:10px;font-weight:700;padding:5px;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;gap:5px">
+            ⚡ Ver versão filtrada (remover ligas com ruído)
+          </button>
+          <div id="${filtId}" data-open="0"></div>
+        </div>`;
+      })() : ''}
     </div>`;
 }
 
@@ -8291,9 +8496,9 @@ function renderBtMarketsPanel(matches) {
 
   // Simulações de placar correto e improvável
   const simCS    = csGlobalMax.sk
-    ? btBankSimulation(matches, btMarketsTab, csGlobalMax.ri, null, csGlobalMax.sk) : null;
+    ? Object.assign(btBankSimulation(matches, btMarketsTab, csGlobalMax.ri, null, csGlobalMax.sk) || {}, { _ri: csGlobalMax.ri }) : null;
   const simCSImp = csGlobalMaxImp.sk
-    ? btBankSimulation(matches, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk) : null;
+    ? Object.assign(btBankSimulation(matches, btMarketsTab, csGlobalMaxImp.ri, null, csGlobalMaxImp.sk) || {}, { _ri: csGlobalMaxImp.ri }) : null;
   const simCSLbl = csGlobalMax.sk
     ? `👑 Placar — ${csGlobalMax.sk} · ${data[csGlobalMax.ri]?.label || '?'} · ${csGlobalMax.val}%` : '';
   const simCSImpLbl = csGlobalMaxImp.sk
