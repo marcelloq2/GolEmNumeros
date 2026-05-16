@@ -1294,6 +1294,7 @@
         <div style="font-size:12px;color:var(--text2)">Carregando análise...</div>
       </div>
       <div id="btMarketsPanel" style="border-bottom:1px solid var(--border)"></div>
+      <div id="btCalibrationPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btGoalPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btStatsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btOddsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
@@ -5259,6 +5260,7 @@ async function loadBacktestDates() {
     loadStatsPatterns();
     loadOddsPatterns();
     loadShotmapPatterns();
+    loadCalibration();
   } catch(e) {
     list.innerHTML = '<div class="loading" style="padding:16px;font-size:12px">Erro ao carregar.</div>';
   }
@@ -5341,6 +5343,129 @@ function goalPatternCard(label, icon, pat, accentColor, bgColor, catInfo) {
       ${acc != null ? `<span style="font-size:9px;font-weight:700;color:${accC}">${acc}% acerto</span>` : ''}
     </div>` : ''}
   </div>`;
+}
+
+// ── CALIBRAÇÃO DO MODELO ──────────────────────────────────────────────────────
+async function loadCalibration() {
+  const panel = document.getElementById('btCalibrationPanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="padding:10px 12px;font-size:11px;color:var(--text2)">Calculando calibração...</div>`;
+  try {
+    const r = await fetch('/api/backtest/calibration');
+    if (!r.ok) throw new Error('no data');
+    const data = await r.json();
+    renderCalibration(panel, data);
+  } catch(e) {
+    panel.innerHTML = '';
+  }
+}
+
+function renderCalibration(panel, data) {
+  const mkts = Object.values(data);
+  if (!mkts.length) { panel.innerHTML = ''; return; }
+
+  // Verifica se há dados suficientes
+  const totalN = mkts.reduce((s, m) => s + m.buckets.reduce((ss, b) => ss + b.n, 0), 0);
+  if (totalN < 20) { panel.innerHTML = ''; return; }
+
+  // Calcula desvio médio por mercado (previsto - real)
+  const mktRows = Object.entries(data).map(([key, mkt]) => {
+    const valid = mkt.buckets.filter(b => b.actual_pct !== null && b.n >= 5);
+    if (!valid.length) return null;
+    const avgBias = valid.reduce((s, b) => s + (b.mid - b.actual_pct), 0) / valid.length;
+    const totalN  = valid.reduce((s, b) => s + b.n, 0);
+    return { key, label: mkt.label, buckets: mkt.buckets, avgBias, totalN };
+  }).filter(Boolean);
+
+  if (!mktRows.length) { panel.innerHTML = ''; return; }
+
+  // Estado: mercado selecionado
+  if (!panel._calibMkt) panel._calibMkt = mktRows[0].key;
+  const sel = mktRows.find(m => m.key === panel._calibMkt) || mktRows[0];
+
+  const tabsHtml = mktRows.map(m => {
+    const isSel  = m.key === sel.key;
+    const bias   = m.avgBias;
+    const biasLbl = Math.abs(bias) < 3 ? '✅' : bias > 0 ? '⬆️' : '⬇️';
+    return `<button onclick="document.getElementById('btCalibrationPanel')._calibMkt='${m.key}';loadCalibration()"
+      style="padding:4px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;
+             border:1px solid ${isSel ? '#6366f1' : 'var(--border)'};
+             background:${isSel ? '#1e1b4b' : 'var(--bg3)'};
+             color:${isSel ? '#818cf8' : 'var(--text2)'}">
+      ${biasLbl} ${m.label}
+    </button>`;
+  }).join('');
+
+  // Barras de calibração para o mercado selecionado
+  const barsHtml = sel.buckets.map(b => {
+    if (b.n < 5) return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;opacity:.35">
+        <span style="font-size:10px;color:var(--text2);min-width:52px;text-align:right">${b.range}</span>
+        <span style="font-size:10px;color:#374151;flex:1">— poucos dados (${b.n}j)</span>
+      </div>`;
+
+    const pred   = b.mid;
+    const actual = b.actual_pct;
+    const diff   = actual - pred;
+    const diffAbs = Math.abs(diff);
+    const diffColor = diffAbs <= 5 ? '#22c55e' : diffAbs <= 12 ? '#f59e0b' : '#ef4444';
+    const diffSign  = diff >= 0 ? '+' : '';
+    // Barra dupla: previsto (fundo) vs real (frente)
+    const predW   = Math.min(pred, 100);
+    const actualW = Math.min(actual, 100);
+    return `
+      <div style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <span style="font-size:10px;color:var(--text2);min-width:52px;text-align:right;flex-shrink:0">${b.range}</span>
+          <div style="flex:1;position:relative;height:14px;background:var(--bg3);border-radius:4px;overflow:hidden">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${predW}%;
+                        background:#6366f122;border-radius:4px"></div>
+            <div style="position:absolute;left:0;top:2px;height:10px;width:${actualW}%;
+                        background:${diffColor};border-radius:3px;opacity:.85"></div>
+          </div>
+          <div style="min-width:110px;display:flex;gap:6px;align-items:center;font-size:10px">
+            <span style="color:var(--text2)">prev: <b style="color:var(--text)">${pred.toFixed(0)}%</b></span>
+            <span style="color:var(--text2)">real: <b style="color:${diffColor}">${actual.toFixed(1)}%</b></span>
+            <span style="font-weight:700;color:${diffColor}">(${diffSign}${diff.toFixed(1)})</span>
+          </div>
+          <span style="font-size:9px;color:#4b5563;min-width:28px;text-align:right">${b.n}j</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Legenda do viés geral
+  const bias = sel.avgBias;
+  const biasMsg = Math.abs(bias) < 3
+    ? `✅ Modelo <b style="color:#22c55e">bem calibrado</b> — desvio médio ${bias.toFixed(1)}pp`
+    : bias > 0
+    ? `⬆️ Modelo <b style="color:#f59e0b">otimista demais</b> — prevê ${bias.toFixed(1)}pp a mais do que acontece`
+    : `⬇️ Modelo <b style="color:#60a5fa">conservador</b> — prevê ${Math.abs(bias).toFixed(1)}pp a menos do que acontece`;
+
+  panel.innerHTML = `
+    <div style="padding:10px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  cursor:pointer;user-select:none" onclick="
+                    const b=this.nextElementSibling;
+                    b.style.display=b.style.display==='none'?'block':'none';
+                    this.querySelector('.calib-arrow').textContent=b.style.display==='none'?'▶':'▼'">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">🎯 Calibração do Modelo</span>
+          <span style="font-size:10px;color:var(--text2)">${totalN} partidas analisadas</span>
+        </div>
+        <span class="calib-arrow" style="font-size:10px;color:var(--text2)">▼</span>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text2);margin:8px 0 10px;line-height:1.5">${biasMsg}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${tabsHtml}</div>
+        <div style="font-size:10px;color:#4b5563;margin-bottom:8px;display:flex;gap:14px">
+          <span>🟣 Previsto &nbsp; 🟩 Real</span>
+          <span style="color:#22c55e">≤5pp ✅ calibrado</span>
+          <span style="color:#f59e0b">5–12pp ⚠️</span>
+          <span style="color:#ef4444">&gt;12pp ❌</span>
+        </div>
+        ${barsHtml}
+      </div>
+    </div>`;
 }
 
 async function loadGoalPatterns() {
