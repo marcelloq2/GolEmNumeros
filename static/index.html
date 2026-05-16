@@ -5175,6 +5175,19 @@ async function loadBacktestDates() {
     btAllDates = data.dates;
     btAllMatchesCache = null; // reseta cache ao recarregar
     renderDateList(btAllDates);
+    // Carrega Correlação de Scores usando o cache do Edge (se já disponível)
+    if (btAllMatchesCache) {
+      renderBtMarketsPanel(btAllMatchesCache.flatMap(d => d.matches));
+    } else {
+      // Aguarda o _autoLoadEdgeCriteria popular o cache e renderiza
+      const _waitCache = setInterval(() => {
+        if (btAllMatchesCache) {
+          clearInterval(_waitCache);
+          renderBtMarketsPanel(btAllMatchesCache.flatMap(d => d.matches));
+        }
+      }, 500);
+      setTimeout(() => clearInterval(_waitCache), 15000); // timeout 15s
+    }
     updateExportLiveInfo();
     loadGoalPatterns();
     loadStatsPatterns();
