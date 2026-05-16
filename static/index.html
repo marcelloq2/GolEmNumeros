@@ -2784,8 +2784,12 @@ async function loadLiveMatches(silent = false) {
 
     const fetchedAt = Date.now();
     const matches = (data.live || []).map(m => ({ ...m, _fetchedAt: fetchedAt }));
+    const isStale = !!data.stale;
     liveMatchesCache = matches;
-    document.getElementById('liveCountBadge').textContent = matches.length;
+    const badge = document.getElementById('liveCountBadge');
+    badge.textContent = matches.length;
+    badge.title = isStale ? 'Dados do cache anterior (API sem resposta)' : '';
+    badge.style.background = isStale ? '#78350f' : '';
 
     if (!matches.length) {
       list.innerHTML = `
@@ -2796,6 +2800,13 @@ async function loadLiveMatches(silent = false) {
         </div>`;
       return;
     }
+
+    // Indicador de dados antigos (API falhou mas cache manteve jogos)
+    const staleBar = isStale
+      ? `<div style="background:#78350f;color:#fbbf24;font-size:10px;text-align:center;padding:3px 0">
+           ⚠️ Atualizando... dados podem estar desatualizados
+         </div>`
+      : '';
 
     // Agrupa por liga
     const byLeague = {};
@@ -2864,7 +2875,7 @@ async function loadLiveMatches(silent = false) {
       });
       html += `</div>`;
     }
-    list.innerHTML = html;
+    list.innerHTML = staleBar + html;
 
     // ── Enriquecimento automático com Uniscore (assíncrono, não bloqueia render) ──
     _enrichAllWithUniscore(matches);

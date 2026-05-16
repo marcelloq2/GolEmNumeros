@@ -425,9 +425,16 @@ def api_radar_live():
 
     live = list(all_by_id.values())
     print(f"[live] {len(live)} jogos ao vivo retornados")
+
+    # Se a fetch retornou 0 jogos mas o cache anterior tem dados recentes (< 5 min),
+    # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
+    if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):
+        print(f"[live] API retornou 0 jogos — mantendo cache anterior com {len(_uniscore_full_cache['live'])} jogos")
+        return jsonify({"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True})
+
     _uniscore_full_cache["ts"]   = time.time()
     _uniscore_full_cache["live"] = live
-    return jsonify({"live": live, "total": len(live)})
+    return jsonify({"live": live, "total": len(live), "stale": False})
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
