@@ -7027,7 +7027,7 @@ function _renderSimBody() {
     <div style="margin-top:16px;padding-top:12px;border-top:2px solid #22c55e22">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;padding:4px 0">
         <span style="font-size:11px;font-weight:700;color:#22c55e">🔬 Metodologias Refinadas</span>
-        <span style="font-size:9px;color:#4b5563">ligas com ROI negativo removidas (≥8 jogos)</span>
+        <span style="font-size:9px;color:#4b5563">apenas ligas com profit positivo</span>
       </div>
       ${allFiltHtml}
     </div>` : '';
@@ -7083,7 +7083,7 @@ function _btOutcomeCheck(marketKey, scoreKey, invertScore) {
   };
 }
 
-// Identifica ligas que causam ruído (ROI negativo com ≥ MIN_GAMES jogos)
+// Identifica ligas com profit negativo (removidas na versão refinada)
 function btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey, MIN_GAMES = 8) {
   const getDim = tab === 'casa' ? m => calcBtTeamScore(m, true)
                : tab === 'fora' ? m => calcBtTeamScore(m, false)
@@ -7127,12 +7127,12 @@ function btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey, MIN_GAMES =
     profit: Math.round(s.profit * 100) / 100,
   })).sort((a, b) => a.roi - b.roi);
 
-  // Ligas com ROI negativo e amostra suficiente
-  const noisy = new Set(stats.filter(s => s.n >= MIN_GAMES && s.roi < 0).map(s => s.liga));
+  // Ligas com profit negativo (sem mínimo de jogos)
+  const noisy = new Set(stats.filter(s => s.profit < 0).map(s => s.liga));
   return { noisy, stats };
 }
 
-// Cria uma simulação refinada removendo ligas com ROI negativo (≥ MIN_GAMES jogos)
+// Cria uma simulação refinada mantendo apenas ligas com profit positivo
 // Retorna null se não há ligas ruidosas ou dados insuficientes após filtragem
 function btBuildFilteredSim(matches, tab, rangeIdx, marketKey, scoreKey) {
   const { noisy, stats } = btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey);
@@ -7892,7 +7892,7 @@ function renderBankSimSection(sim, label, simId) {
   const filteredBannerHtml = isFiltered ? `
     <div style="margin:-10px -10px 8px;padding:5px 10px 6px;background:#071a0e;border-bottom:1px solid #22c55e33">
       <div style="font-size:8px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">
-        🔬 Refinada &nbsp;·&nbsp; ${sim._removedLeagues.length} liga${sim._removedLeagues.length>1?'s':''} com ROI negativo removida${sim._removedLeagues.length>1?'s':''}
+        🔬 Refinada &nbsp;·&nbsp; ${sim._removedLeagues.length} liga${sim._removedLeagues.length>1?'s':''} com profit negativo removida${sim._removedLeagues.length>1?'s':''}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:3px">
         ${sim._removedLeagues.map(l =>
