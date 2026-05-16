@@ -10277,13 +10277,56 @@ function renderHistorico(allByDate, titulo) {
   const accGeral   = totalDecid > 0 ? Math.round(totalAcert/totalDecid*100) : null;
   const accCor     = accGeral >= 60 ? 'var(--green)' : accGeral >= 45 ? 'var(--yellow)' : 'var(--red)';
 
+  // Calcula padrões ⭐ (taxa real > probabilidade prevista) do btPatterns
+  const starredPatterns = [];
+  if (btPatterns && btPatterns.total_partidas >= 5) {
+    const rangeMin = { '50-59': 50, '60-69': 60, '70-79': 70, '80+': 80 };
+    const mktLabels = { over_2_5: 'Over 2.5', bts: 'Ambos Marcam' };
+    // TIP 1/2/X
+    ['1','2','X'].forEach(tip => {
+      const acc = btPatterns.tip?.[tip];
+      if (!acc) return;
+      Object.entries(rangeMin).forEach(([rng, minVal]) => {
+        const ins = acc[rng];
+        if (ins && ins.total >= 5 && ins.pct > minVal) {
+          starredPatterns.push({ label: `TIP ${tip} ${rng}%`, pct: ins.pct, total: ins.total, ref: minVal });
+        }
+      });
+    });
+    // Over 2.5 e BTS
+    ['over_2_5','bts'].forEach(mkt => {
+      const acc = btPatterns[mkt];
+      if (!acc) return;
+      Object.entries(rangeMin).forEach(([rng, minVal]) => {
+        const ins = acc[rng];
+        if (ins && ins.total >= 5 && ins.pct > minVal) {
+          starredPatterns.push({ label: `${mktLabels[mkt]} ${rng}%`, pct: ins.pct, total: ins.total, ref: minVal });
+        }
+      });
+    });
+  }
+
+  const starredHtml = starredPatterns.length ? `
+    <div style="margin-top:8px;padding:8px 10px;background:#a855f711;border:1px solid #a855f733;
+                border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="font-size:10px;font-weight:700;color:#a855f7;white-space:nowrap">⭐ Subvalorados:</span>
+      ${starredPatterns.map(p => {
+        const cor = p.pct >= 70 ? 'var(--green)' : p.pct >= 55 ? 'var(--yellow)' : 'var(--text)';
+        return `<span style="font-size:11px;background:var(--bg3);border:1px solid #a855f755;border-radius:6px;
+                             padding:2px 8px;color:${cor}">
+          ${p.label} → <b>${p.pct}%</b> <span style="color:var(--text2);font-size:10px">${p.total}j</span>
+        </span>`;
+      }).join('')}
+    </div>` : '';
+
   header.innerHTML = `
     <div style="font-size:13px;font-weight:700">${titulo}</div>
     <div class="bt-stats-row">
       <span class="bt-stat-chip"><b>${totalJogos}</b> jogos · <b>${allByDate.length}</b> dias</span>
       ${accGeral != null ? `<span class="bt-stat-chip" style="border-color:${accCor};color:${accCor}"><b>${accGeral}%</b> acurácia</span>` : ''}
       ${totalDecid > 0 ? `<span class="bt-stat-chip"><b>${totalAcert}</b>/${totalDecid} TIPs</span>` : ''}
-    </div>`;
+    </div>
+    ${starredHtml}`;
 
   if (!allByDate.length) {
     list.innerHTML = '<div class="bt-empty"><div style="font-size:32px">📋</div><div>Nenhuma partida.</div></div>';
