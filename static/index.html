@@ -5158,20 +5158,18 @@ async function loadBacktestDates() {
       return;
     }
     btAllDates = data.dates;
-    btAllMatchesCache = null; // reseta cache ao recarregar
-    // btDateList agora é hidden — renderDateList não precisa mais ser chamado aqui
-    // Carrega Correlação de Scores usando o cache do Edge (se já disponível)
+    // Não zera btAllMatchesCache — o _autoLoadEdgeCriteria já populou em background
+    // Se cache já existe, renderiza imediatamente; senão aguarda até 15s
     if (btAllMatchesCache) {
       renderBtMarketsPanel(btAllMatchesCache.flatMap(d => d.matches));
     } else {
-      // Aguarda o _autoLoadEdgeCriteria popular o cache e renderiza
       const _waitCache = setInterval(() => {
         if (btAllMatchesCache) {
           clearInterval(_waitCache);
           renderBtMarketsPanel(btAllMatchesCache.flatMap(d => d.matches));
         }
-      }, 500);
-      setTimeout(() => clearInterval(_waitCache), 15000); // timeout 15s
+      }, 300);
+      setTimeout(() => clearInterval(_waitCache), 15000);
     }
     updateExportLiveInfo();
     loadGoalPatterns();
