@@ -2285,7 +2285,7 @@ async function _tgAutoSendOnLoad() {
   const today_br = new Date().toLocaleDateString('pt-BR');
   const send = (text) => fetch('/api/telegram/send', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text })
+    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: text })
   });
 
   try {
@@ -2370,7 +2370,7 @@ async function _tgSendEdge() {
   const hoje = new Date().toLocaleDateString('pt-BR');
   const send = (text) => fetch('/api/telegram/send', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, text }),
+    body: JSON.stringify({ token: cfg.token, chat_id: cfg.chat_id, message: text }),
   });
 
   try {
