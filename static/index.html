@@ -10307,16 +10307,24 @@ function renderHistorico(allByDate, titulo) {
   }
 
   const starredHtml = starredPatterns.length ? `
-    <div style="margin-top:8px;padding:8px 10px;background:#a855f711;border:1px solid #a855f733;
-                border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-      <span style="font-size:10px;font-weight:700;color:#a855f7;white-space:nowrap">⭐ Subvalorados:</span>
-      ${starredPatterns.map(p => {
-        const cor = p.pct >= 70 ? 'var(--green)' : p.pct >= 55 ? 'var(--yellow)' : 'var(--text)';
-        return `<span style="font-size:11px;background:var(--bg3);border:1px solid #a855f755;border-radius:6px;
-                             padding:2px 8px;color:${cor}">
-          ${p.label} → <b>${p.pct}%</b> <span style="color:var(--text2);font-size:10px">${p.total}j</span>
-        </span>`;
-      }).join('')}
+    <div style="margin-top:8px;padding:8px 10px;background:#a855f711;border:1px solid #a855f733;border-radius:8px">
+      <div style="font-size:10px;font-weight:700;color:#a855f7;margin-bottom:6px;letter-spacing:.4px">⭐ PADRÕES SUBVALORADOS — taxa real supera o previsto</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${starredPatterns.map(p => {
+          const diff = p.pct - p.ref;
+          const cor = diff >= 10 ? 'var(--green)' : diff >= 5 ? 'var(--yellow)' : '#a3e635';
+          return `<div style="background:var(--bg2);border:1px solid #a855f744;border-radius:8px;padding:5px 10px;min-width:0">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:3px">${p.label}</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:var(--text2)">Previsto: <b style="color:var(--text)">${p.ref}%</b></span>
+              <span style="color:var(--text2)">→</span>
+              <span style="font-size:11px;color:${cor}">Real: <b>${p.pct}%</b></span>
+              <span style="font-size:10px;color:${cor};font-weight:700">+${diff}pp</span>
+              <span style="font-size:10px;color:var(--text2)">${p.total}j</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>` : '';
 
   header.innerHTML = `
