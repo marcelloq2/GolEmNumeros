@@ -2061,6 +2061,13 @@ function openTelegramConfig() {
       const tabTag = `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
                                    background:${tabInfo.bg};color:${tabInfo.color};
                                    white-space:nowrap;flex-shrink:0">${tabInfo.lbl}</span>`;
+      const typeTag = c._isRefined
+        ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
+                        background:#071a0e;color:#22c55e;border:1px solid #22c55e44;
+                        white-space:nowrap;flex-shrink:0">🔬 Refinada</span>`
+        : `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
+                        background:#1a1a2e;color:#94a3b8;border:1px solid #33334455;
+                        white-space:nowrap;flex-shrink:0">📊 Original</span>`;
       return `
       <label style="display:flex;align-items:flex-start;gap:7px;padding:6px 0;cursor:pointer;
                     border-bottom:1px solid var(--border)">
@@ -2070,6 +2077,7 @@ function openTelegramConfig() {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span style="color:#22c55e;font-weight:700;font-size:11px">${_tgMktName(c)}</span>
             ${tabTag}
+            ${typeTag}
           </div>
           <div style="font-size:10px;color:#475569;margin-top:2px">
             range ${rangeLabel} &nbsp;·&nbsp;
@@ -2475,11 +2483,17 @@ function _tgMethodLine(c) {
     : c.tab === 'fora'
     ? { lbl: '✈️ Score Vis.', bg: '#3b1f00', color: '#fb923c' }
     : { lbl: '⚽ Score Gols', bg: '#14291a', color: '#4ade80' };
+  const typeTag = c._isRefined
+    ? `<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;
+                    background:#071a0e;color:#22c55e;border:1px solid #22c55e44">🔬 Refinada</span>`
+    : `<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;
+                    background:#1a1a2e;color:#94a3b8;border:1px solid #33334455">📊 Original</span>`;
   return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
-    <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:2px">
       <span style="color:#22c55e;font-weight:700;font-size:11px">${_tgMktName(c)}</span>
       <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
                    background:${tabInfo.bg};color:${tabInfo.color};white-space:nowrap">${tabInfo.lbl}</span>
+      ${typeTag}
     </div>
     <div style="font-size:10px;color:var(--text2)">
       faixa ${rl} &nbsp;·&nbsp;<span style="color:#22c55e">${roi}%</span> @${(c.simOdd||0).toFixed(2)}
