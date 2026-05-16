@@ -3876,18 +3876,6 @@ def _tg_auto_send():
     except Exception as e:
         print(f"[Telegram] Erro no envio automático: {e}")
 
-def _calib_over(m, n):
-    try:
-        return (int(m.get("gols_casa") or 0) + int(m.get("gols_fora") or 0)) > n
-    except Exception:
-        return False
-
-def _calib_bts(m):
-    try:
-        return int(m.get("gols_casa") or 0) > 0 and int(m.get("gols_fora") or 0) > 0
-    except Exception:
-        return False
-
 _tg_match_alerts = {}   # { date_str: set(alert_keys_already_sent) }
 
 def _tg_scheduler():
@@ -4006,73 +3994,6 @@ def api_telegram_send_now():
     """Dispara o envio automático imediatamente."""
     _tg_auto_send()
     return jsonify({"ok": True})
-
-
-@app.route("/api/backtest/calibration")
-def api_backtest_calibration():
-    """Calibração do modelo: probabilidade prevista vs taxa real por faixa."""
-    bt_dir = os.path.join(DATA_DIR, "backtest")
-    files  = sorted(glob.glob(os.path.join(bt_dir, "*.json")))
-
-    buckets = [(40,50),(50,55),(55,60),(60,65),(65,70),(70,75),(75,80),(80,100)]
-
-    markets = {
-        "tip_1":  {"label": "TIP 1 (Casa)",   "pred": "odds_1",
-                   "filter": lambda m: m.get("tip") == "1",
-                   "hit":    lambda m: m.get("tip") == "1" and m.get("tip_acertou") is True},
-        "tip_2":  {"label": "TIP 2 (Vis.)",   "pred": "odds_2",
-                   "filter": lambda m: m.get("tip") == "2",
-                   "hit":    lambda m: m.get("tip") == "2" and m.get("tip_acertou") is True},
-        "tip_x":  {"label": "TIP X (Emp.)",   "pred": "odds_x",
-                   "filter": lambda m: m.get("tip") == "X",
-                   "hit":    lambda m: m.get("tip") == "X" and m.get("tip_acertou") is True},
-        "over25": {"label": "Over 2.5",        "pred": "over_2_5",
-                   "filter": lambda m: m.get("over_2_5") is not None,
-                   "hit":    lambda m: _calib_over(m, 2)},
-        "bts":    {"label": "Ambos Marcam",    "pred": "bts",
-                   "filter": lambda m: m.get("bts") is not None,
-                   "hit":    lambda m: _calib_bts(m)},
-    }
-
-    result = {}
-    for mk, cfg_mk in markets.items():
-        counts = {f"{lo}-{hi}": {"n": 0, "hits": 0} for lo, hi in buckets}
-        for fpath in files:
-            try:
-                with open(fpath, "r", encoding="utf-8") as fp:
-                    matches = json.load(fp)
-                for m in matches:
-                    if not cfg_mk["filter"](m):
-                        continue
-                    raw = m.get(cfg_mk["pred"])
-                    if raw is None:
-                        continue
-                    pred = int(raw)
-                    for lo, hi in buckets:
-                        if lo <= pred < hi:
-                            bk = f"{lo}-{hi}"
-                            counts[bk]["n"] += 1
-                            if cfg_mk["hit"](m):
-                                counts[bk]["hits"] += 1
-                            break
-            except Exception:
-                continue
-
-        result[mk] = {
-            "label": cfg_mk["label"],
-            "buckets": [
-                {
-                    "range":      f"{lo}–{hi}%",
-                    "mid":        (lo + hi) / 2,
-                    "n":          counts[f"{lo}-{hi}"]["n"],
-                    "actual_pct": round(counts[f"{lo}-{hi}"]["hits"] /
-                                        counts[f"{lo}-{hi}"]["n"] * 100, 1)
-                                  if counts[f"{lo}-{hi}"]["n"] >= 5 else None,
-                }
-                for lo, hi in buckets
-            ],
-        }
-    return jsonify(result)
 
 
 if __name__ == "__main__":
