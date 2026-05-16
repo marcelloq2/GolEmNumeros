@@ -1255,30 +1255,8 @@
 
   <!-- BACKTEST -->
   <div class="backtest-panel" id="backtestPanel">
-    <!-- Col 1: datas -->
-    <div class="bt-sidebar">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding-right:4px">
-        <div class="bt-sidebar-title">📆 Datas</div>
-        <button onclick="openBacktestGuia()" title="Guia do Backtest"
-          style="background:transparent;border:1px solid #a855f744;border-radius:6px;
-                 color:#a855f7;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;
-                 white-space:nowrap">📖 Guia</button>
-      </div>
-      <div id="btDateList"><div class="loading" style="padding:20px;font-size:12px">Carregando...</div></div>
-      <div style="padding:10px;border-top:1px solid var(--border);margin-top:auto">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">📤 Exportar Ao Vivo</div>
-        <a id="btnExportLive" href="/api/momentum/export" target="_blank"
-           style="display:flex;align-items:center;justify-content:center;gap:6px;
-                  width:100%;padding:7px 0;border-radius:6px;border:1px solid var(--border);
-                  background:var(--bg3);color:var(--text2);font-size:11px;font-weight:600;
-                  text-decoration:none;cursor:pointer;transition:all .15s"
-           onmouseover="this.style.background='var(--accent)';this.style.color='#fff';this.style.borderColor='var(--accent)'"
-           onmouseout="this.style.background='var(--bg3)';this.style.color='var(--text2)';this.style.borderColor='var(--border)'">
-          📊 Baixar Excel
-        </a>
-        <div style="font-size:9px;color:var(--text2);margin-top:4px;text-align:center" id="exportLiveInfo">carregando...</div>
-      </div>
-    </div>
+    <!-- btDateList oculto (usado internamente) -->
+    <div id="btDateList" style="display:none"></div>
 
     <!-- Col 2: lista de partidas -->
     <div class="bt-matches">
@@ -1297,14 +1275,24 @@
             ⬇️ JSON
           </button>
         </div>
-        <button onclick="openBacktestGuia()"
-          style="background:transparent;border:1px solid #a855f744;border-radius:6px;
-                 color:#a855f7;font-size:11px;font-weight:700;padding:3px 10px;cursor:pointer">
-          📖 Guia
-        </button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <a id="btnExportLive" href="/api/momentum/export" target="_blank"
+             style="display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;
+                    border:1px solid var(--border);background:transparent;color:var(--text2);
+                    font-size:11px;font-weight:600;text-decoration:none;cursor:pointer"
+             onmouseover="this.style.color='#fff';this.style.borderColor='var(--accent)'"
+             onmouseout="this.style.color='var(--text2)';this.style.borderColor='var(--border)'">
+            📊 Excel
+          </a>
+          <button onclick="openBacktestGuia()"
+            style="background:transparent;border:1px solid #a855f744;border-radius:6px;
+                   color:#a855f7;font-size:11px;font-weight:700;padding:3px 10px;cursor:pointer">
+            📖 Guia
+          </button>
+        </div>
       </div>
       <div class="bt-matches-header" id="btMatchesHeader">
-        <div style="font-size:12px;color:var(--text2)">⬅️ Selecione uma data para ver a análise do dia</div>
+        <div style="font-size:12px;color:var(--text2)">Carregando análise...</div>
       </div>
       <div id="btMarketsPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btGoalPatternPanel" style="border-bottom:1px solid var(--border)"></div>
@@ -5174,7 +5162,7 @@ async function loadBacktestDates() {
     }
     btAllDates = data.dates;
     btAllMatchesCache = null; // reseta cache ao recarregar
-    renderDateList(btAllDates);
+    // btDateList agora é hidden — renderDateList não precisa mais ser chamado aqui
     // Carrega Correlação de Scores usando o cache do Edge (se já disponível)
     if (btAllMatchesCache) {
       renderBtMarketsPanel(btAllMatchesCache.flatMap(d => d.matches));
