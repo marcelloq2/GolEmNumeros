@@ -1338,6 +1338,9 @@ let _simCSImpCache    = null;
 let _simCSLblCache    = '';
 let _simCSImpLblCache = '';
 let _negColSimsCache  = [];
+let _allFiltColSims    = [];   // metodologias refinadas (pre-computadas)
+let _filtSimCSCache    = null; // placar correto refinado
+let _filtSimCSImpCache = null; // placar improvável refinado
 // Definições das colunas de ordenação
 const BT_SIM_FILTERS = [
   { key:'ranking',  label:'Ranking',        fn: cs => _rankSim(cs.sim).total,  desc: true  },
@@ -7030,6 +7033,19 @@ function _redrawBtCharts() {
       _drawBankChart('bankChartCSImp', panel._lastSimCSImp.bankHistory, panel._lastSimCSImp.fairOdd);
       _drawUnderwaterChart('bankChartCSImp_uw', panel._lastSimCSImp.underwaterHistory);
     }
+    // ── Gráficos das metodologias refinadas ──────────────────────────────
+    (panel._filtColSims || []).forEach(cs => {
+      _drawBankChart(cs.chartId, cs.bankHistory, cs.fairOdd);
+      _drawUnderwaterChart(cs.chartId + '_uw', cs.underwaterHistory);
+    });
+    if (panel._lastFiltCS) {
+      _drawBankChart('bankChartCS_filt', panel._lastFiltCS.bankHistory, panel._lastFiltCS.fairOdd);
+      _drawUnderwaterChart('bankChartCS_filt_uw', panel._lastFiltCS.underwaterHistory);
+    }
+    if (panel._lastFiltCSImp) {
+      _drawBankChart('bankChartCSImp_filt', panel._lastFiltCSImp.bankHistory, panel._lastFiltCSImp.fairOdd);
+      _drawUnderwaterChart('bankChartCSImp_filt_uw', panel._lastFiltCSImp.underwaterHistory);
+    }
   }, 50);
 }
 
@@ -7104,10 +7120,7 @@ function _renderSimBody() {
     </div>`;
 
   const colSimsHTML = sorted.map(cs =>
-    renderBankSimSection(cs.sim, cs.lbl, cs.chartId, {
-      tab: btMarketsTab, rangeIdx: cs.ri,
-      marketKey: cs.mk?.key || null, scoreKey: null
-    })
+    renderBankSimSection(cs.sim, cs.lbl, cs.chartId)
   ).join('');
 
   const negSummaryHTML = _negColSimsCache.length ? `
@@ -7123,6 +7136,27 @@ function _renderSimBody() {
       </div>
     </div>` : '';
 
+  // ── Seção de Metodologias Refinadas ─────────────────────────────────────
+  // Filtra _allFiltColSims na mesma ordem do sorted (espelha ordenação atual)
+  const sortedFilt = sorted.map(cs => {
+    const key = cs.mk?.key || null;
+    const ri  = cs.ri;
+    return _allFiltColSims.find(f => (f.mk?.key || null) === key && f.ri === ri) || null;
+  }).filter(Boolean);
+
+  const filtCardsHTML    = sortedFilt.map(cs => renderBankSimSection(cs.sim, cs.lbl, cs.chartId)).join('');
+  const filtCSHtml       = _filtSimCSCache    ? renderBankSimSection(_filtSimCSCache,    _simCSLblCache,    'bankChartCS_filt')    : '';
+  const filtCSImpHtml    = _filtSimCSImpCache ? renderBankSimSection(_filtSimCSImpCache, _simCSImpLblCache, 'bankChartCSImp_filt') : '';
+  const allFiltHtml      = filtCardsHTML + filtCSHtml + filtCSImpHtml;
+  const filtColSimsHTML  = allFiltHtml.trim() ? `
+    <div style="margin-top:16px;padding-top:12px;border-top:2px solid #22c55e22">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;padding:4px 0">
+        <span style="font-size:11px;font-weight:700;color:#22c55e">🔬 Metodologias Refinadas</span>
+        <span style="font-size:9px;color:#4b5563">ligas com ROI negativo removidas (≥8 jogos)</span>
+      </div>
+      ${allFiltHtml}
+    </div>` : '';
+
   detailEl.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 4px;background:var(--bg2)">
       <span style="font-size:11px;font-weight:700;color:var(--accent)">📈 Simulação de Banca — todas as metodologias</span>
@@ -7133,11 +7167,10 @@ function _renderSimBody() {
       ${colSimsHTML || `<div style="color:#6b7280;font-size:12px;text-align:center;padding:24px 12px">
         Nenhuma metodologia disponível.
       </div>`}
-      ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS',
-          { tab: btMarketsTab, rangeIdx: _simCSCache._ri||0, marketKey: null, scoreKey: _simCSCache.scoreKey }) : ''}
-      ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp',
-          { tab: btMarketsTab, rangeIdx: _simCSImpCache._ri||0, marketKey: null, scoreKey: _simCSImpCache.scoreKey }) : ''}
+      ${_simCSCache    ? renderBankSimSection(_simCSCache,    _simCSLblCache,    'bankChartCS')    : ''}
+      ${_simCSImpCache ? renderBankSimSection(_simCSImpCache, _simCSImpLblCache, 'bankChartCSImp') : ''}
       ${negSummaryHTML}
+      ${filtColSimsHTML}
     </div>`;
   detailEl.dataset.showingSim = 'true';
   setTimeout(() => _redrawBtCharts(), 50);
@@ -7224,112 +7257,16 @@ function btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey, MIN_GAMES =
   return { noisy, stats };
 }
 
-// Mostra a versão filtrada de uma metodologia (remove ligas de ruído)
-function _showFilteredSim(containerId, tab, rangeIdx, marketKey, scoreKey) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-
-  // Toggle: se já aberto, fecha
-  if (el.dataset.open === '1') {
-    el.innerHTML = '';
-    el.dataset.open = '0';
-    return;
-  }
-  el.innerHTML = `<div style="font-size:11px;color:var(--text2);padding:8px 12px">⏳ Calculando...</div>`;
-  el.dataset.open = '1';
-
-  // Usa btAllMatchesCache como fonte de dados
-  const allMatches = (btAllMatchesCache || []).flatMap(d => d.matches);
-  if (!allMatches.length) {
-    el.innerHTML = `<div style="font-size:11px;color:#f59e0b;padding:8px 12px">Carregue dados no Backtest primeiro.</div>`;
-    return;
-  }
-
-  const { noisy, stats } = btNoisyLeagues(allMatches, tab, rangeIdx, marketKey, scoreKey);
-
-  if (!noisy.size) {
-    el.innerHTML = `<div style="font-size:11px;color:#22c55e;padding:8px 12px">
-      ✅ Nenhuma liga identificada como ruído (todas têm ROI ≥ 0 ou amostra insuficiente).
-    </div>`;
-    return;
-  }
-
-  // Simulação sem as ligas ruidosas
-  const filtMatches = allMatches.filter(m => !noisy.has((m.liga||m.pais||'Outra').trim()));
-  const simFilt = btBankSimulation(filtMatches, tab, rangeIdx, marketKey, scoreKey);
-  const simOrig = btBankSimulation(allMatches, tab, rangeIdx, marketKey, scoreKey);
-
-  if (!simFilt) {
-    el.innerHTML = `<div style="font-size:11px;color:#f59e0b;padding:8px 12px">
-      Dados insuficientes após remoção das ligas (mínimo 5 partidas).
-    </div>`;
-    return;
-  }
-
-  const pn = (v, f=1) => (v >= 0 ? '+' : '') + v.toFixed(f);
-  const delta = (a, b, f=1) => {
-    if (a == null || b == null) return '';
-    const d = a - b;
-    const c = d > 0 ? '#22c55e' : d < 0 ? '#ef4444' : 'var(--text2)';
-    return `<span style="font-size:9px;color:${c};margin-left:4px">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(f)}</span>`;
-  };
-
-  // Lista de ligas removidas
-  const noisyList = stats.filter(s => noisy.has(s.liga)).map(s =>
-    `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border);font-size:10px">
-      <span style="flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.liga}</span>
-      <span style="color:#94a3b8">${s.n}j</span>
-      <span style="color:#ef4444;font-weight:700;min-width:40px;text-align:right">${pn(s.roi)}%</span>
-    </div>`
-  ).join('');
-
-  // Métricas comparativas
-  const rows = [
-    ['Apostas',      simOrig.total,                   simFilt.total,                   0, 'j'],
-    ['Winrate',      simOrig.winrate,                  simFilt.winrate,                  1, '%'],
-    ['ROI',          simOrig.roi,                      simFilt.roi,                      1, '%'],
-    ['Profit (u)',   simOrig.profit,                   simFilt.profit,                   2, 'u'],
-    ['Max DD',       simOrig.maxDD,                    simFilt.maxDD,                    1, '%'],
-    ['Odd Justa',    simOrig.fairOdd,                  simFilt.fairOdd,                  2, ''],
-    ['Odd Simulada', simOrig.simOdd,                   simFilt.simOdd,                   2, ''],
-    ['Sharpe',       simOrig.sharpe,                   simFilt.sharpe,                   2, ''],
-  ].map(([lbl, orig, filt, dec, unit]) => {
-    const origStr = orig != null ? orig.toFixed(dec) + unit : '—';
-    const filtStr = filt != null ? filt.toFixed(dec) + unit : '—';
-    const d       = (filt != null && orig != null) ? filt - orig : null;
-    const dColor  = d === null ? '' : lbl === 'Max DD' ? (d < 0 ? '#22c55e' : '#ef4444')
-                                                        : (d > 0 ? '#22c55e' : '#ef4444');
-    const dStr    = d === null ? '' : `<span style="font-size:9px;color:${dColor};margin-left:3px">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(dec)}</span>`;
-    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
-      <span style="flex:1;color:var(--text2)">${lbl}</span>
-      <span style="color:var(--text2);min-width:55px;text-align:right">${origStr}</span>
-      <span style="color:#22c55e;font-weight:700;min-width:55px;text-align:right">${filtStr}${dStr}</span>
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `
-    <div style="border:1px solid #22c55e33;border-radius:8px;background:#0a1a0f;margin:4px 0 8px;overflow:hidden">
-      <div style="background:#0d2416;padding:8px 12px;border-bottom:1px solid #22c55e22">
-        <div style="font-size:11px;font-weight:700;color:#22c55e">⚡ Versão Filtrada — ${noisy.size} liga${noisy.size>1?'s':''} removida${noisy.size>1?'s':''}</div>
-        <div style="font-size:10px;color:#4b5563;margin-top:2px">
-          ${simOrig.total - simFilt.total} aposta${simOrig.total-simFilt.total!==1?'s':''} excluída${simOrig.total-simFilt.total!==1?'s':''} · ${filtMatches.length} partidas restantes
-        </div>
-      </div>
-      <div style="padding:10px 12px">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
-          🚫 Ligas removidas (ROI negativo com ≥8 jogos)
-        </div>
-        ${noisyList}
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 6px">
-          📊 Comparativo &nbsp;<span style="color:#6b7280;text-transform:none;font-weight:400">Original → Filtrado</span>
-        </div>
-        ${rows}
-        <div style="font-size:9px;color:#4b5563;margin-top:8px;line-height:1.5">
-          ⚠️ A versão filtrada usa apenas ligas com histórico positivo nesta metodologia.
-          Não é garantia de resultados futuros — ligas removidas podem melhorar no futuro.
-        </div>
-      </div>
-    </div>`;
+// Cria uma simulação refinada removendo ligas com ROI negativo (≥ MIN_GAMES jogos)
+// Retorna null se não há ligas ruidosas ou dados insuficientes após filtragem
+function btBuildFilteredSim(matches, tab, rangeIdx, marketKey, scoreKey) {
+  const { noisy, stats } = btNoisyLeagues(matches, tab, rangeIdx, marketKey, scoreKey);
+  if (!noisy.size) return null;
+  const filtMatches = matches.filter(m => !noisy.has((m.liga||m.pais||'Outra').trim()));
+  const sim = btBankSimulation(filtMatches, tab, rangeIdx, marketKey, scoreKey);
+  if (!sim) return null;
+  sim._removedLeagues = stats.filter(s => noisy.has(s.liga));
+  return sim;
 }
 
 function btBankSimulation(matches, tab, rangeIdx, marketKey, scoreKey, invertScore = false) {
@@ -7876,7 +7813,7 @@ function _renderBlockWinrate(sim) {
     </div>`;
 }
 
-function renderBankSimSection(sim, label, simId, criterion = null) {
+function renderBankSimSection(sim, label, simId) {
   if (!sim) return `<div style="font-size:10px;color:#4b5563;padding:8px 0">Dados insuficientes (min. 5 partidas)</div>`;
   const pn = (v, f=1) => (v > 0 ? '+' : '') + v.toFixed(f);
   const proC = sim.profit >= 0 ? '#22c55e' : '#ef4444';
@@ -8075,9 +8012,24 @@ function renderBankSimSection(sim, label, simId, criterion = null) {
     </div>`;
   }).join('');
 
-  const borderCol = val.validated ? '#16a34a55' : val.partial ? '#d9770655' : 'var(--border)';
+  const isFiltered = !!(sim._removedLeagues && sim._removedLeagues.length > 0);
+  const borderCol = isFiltered ? '#16a34a99' : val.validated ? '#16a34a55' : val.partial ? '#d9770655' : 'var(--border)';
+  const filteredBannerHtml = isFiltered ? `
+    <div style="margin:-10px -10px 8px;padding:5px 10px 6px;background:#071a0e;border-bottom:1px solid #22c55e33">
+      <div style="font-size:8px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">
+        🔬 Refinada &nbsp;·&nbsp; ${sim._removedLeagues.length} liga${sim._removedLeagues.length>1?'s':''} com ROI negativo removida${sim._removedLeagues.length>1?'s':''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">
+        ${sim._removedLeagues.map(l =>
+          `<span style="font-size:8px;padding:1px 5px;background:#1f0808;border:1px solid #ef444433;border-radius:3px;color:#f87171;white-space:nowrap">
+            ${l.liga} · ${l.n}j · ${l.roi.toFixed(1)}%
+          </span>`
+        ).join('')}
+      </div>
+    </div>` : '';
   return `
-    <div style="background:var(--bg);border:1px solid ${borderCol};border-radius:8px;padding:10px;margin-top:8px">
+    <div style="background:var(--bg);border:1px solid ${borderCol};border-radius:8px;padding:10px;margin-top:8px;overflow:hidden">
+      ${filteredBannerHtml}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:10px;font-weight:700;color:var(--text)">${label}</div>
         ${valBadge}
@@ -8110,19 +8062,6 @@ function renderBankSimSection(sim, label, simId, criterion = null) {
       ${wfHtml}
       ${heatHtml}
       ${_renderBlockWinrate(sim)}
-      ${criterion ? (() => {
-        const filtId = `filtSim_${simId}`;
-        const args   = `'${filtId}','${criterion.tab}',${criterion.rangeIdx},'${criterion.marketKey||''}','${criterion.scoreKey||''}'`;
-        return `<div style="margin-top:6px">
-          <button onclick="_showFilteredSim(${args})"
-            style="width:100%;background:transparent;border:1px dashed #22c55e44;border-radius:6px;
-                   color:#22c55e;font-size:10px;font-weight:700;padding:5px;cursor:pointer;
-                   display:flex;align-items:center;justify-content:center;gap:5px">
-            ⚡ Ver versão filtrada (remover ligas com ruído)
-          </button>
-          <div id="${filtId}" data-open="0"></div>
-        </div>`;
-      })() : ''}
     </div>`;
 }
 
@@ -8527,6 +8466,18 @@ function renderBtMarketsPanel(matches) {
   _simCSLblCache    = simCSLbl;
   _simCSImpLblCache = simCSImpLbl;
 
+  // ── Metodologias Refinadas: computa uma vez, reutiliza em _renderSimBody ──
+  const filtColSims = posColSims.map(cs => {
+    const sf = btBuildFilteredSim(matches, btMarketsTab, cs.ri, cs.mk?.key||null, null);
+    if (!sf) return null;
+    return { ...cs, sim: sf, chartId: cs.chartId + '_filt' };
+  }).filter(Boolean);
+  const filtSimCS    = simCS    ? btBuildFilteredSim(matches, btMarketsTab, simCS._ri||0,    null, simCS.scoreKey)    : null;
+  const filtSimCSImp = simCSImp ? btBuildFilteredSim(matches, btMarketsTab, simCSImp._ri||0, null, simCSImp.scoreKey) : null;
+  _allFiltColSims    = filtColSims;
+  _filtSimCSCache    = filtSimCS    || null;
+  _filtSimCSImpCache = filtSimCSImp || null;
+
   // Armazena para redesenho ao abrir/fechar painel (toggleBtMarkets)
   panel._colSims = posColSims.map(cs => ({
     chartId: cs.chartId,
@@ -8536,6 +8487,15 @@ function renderBtMarketsPanel(matches) {
   }));
   panel._lastSimCS    = simCS    ? { bankHistory: simCS.bankHistory,    fairOdd: simCS.fairOdd,    underwaterHistory: simCS.underwaterHistory    } : null;
   panel._lastSimCSImp = simCSImp ? { bankHistory: simCSImp.bankHistory, fairOdd: simCSImp.fairOdd, underwaterHistory: simCSImp.underwaterHistory } : null;
+  // Chart data das refinadas
+  panel._filtColSims   = filtColSims.map(cs => ({
+    chartId: cs.chartId,
+    bankHistory: cs.sim.bankHistory,
+    fairOdd: cs.sim.fairOdd,
+    underwaterHistory: cs.sim.underwaterHistory,
+  }));
+  panel._lastFiltCS    = filtSimCS    ? { bankHistory: filtSimCS.bankHistory,    fairOdd: filtSimCS.fairOdd,    underwaterHistory: filtSimCS.underwaterHistory    } : null;
+  panel._lastFiltCSImp = filtSimCSImp ? { bankHistory: filtSimCSImp.bankHistory, fairOdd: filtSimCSImp.fairOdd, underwaterHistory: filtSimCSImp.underwaterHistory } : null;
 
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
