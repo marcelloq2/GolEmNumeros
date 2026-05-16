@@ -2047,17 +2047,31 @@ function openTelegramConfig() {
       const key        = _tgCriteriaKey(c);
       const rangeLabel = (BT_RANGES[c.rangeIdx]||{}).label || '?';
       const roiSign    = c.roi >= 0 ? '+' : '';
-      const profSign   = c.profit >= 0 ? '+' : '';
+      // Tag colorida por tipo de score
+      const tabInfo = c.tab === 'casa'
+        ? { lbl: '🏠 Score Casa',  bg: '#1e3a5f', color: '#60a5fa' }
+        : c.tab === 'fora'
+        ? { lbl: '✈️ Score Vis.',  bg: '#3b1f00', color: '#fb923c' }
+        : { lbl: '⚽ Score Gols',  bg: '#14291a', color: '#4ade80' };
+      const tabTag = `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
+                                   background:${tabInfo.bg};color:${tabInfo.color};
+                                   white-space:nowrap;flex-shrink:0">${tabInfo.lbl}</span>`;
       return `
-      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;
-                    border-bottom:1px solid var(--border);font-size:11px">
+      <label style="display:flex;align-items:flex-start;gap:7px;padding:6px 0;cursor:pointer;
+                    border-bottom:1px solid var(--border)">
         <input type="checkbox" data-ckey="${key}" ${selected[key] ? 'checked' : ''}
-               style="accent-color:#22c55e;width:13px;height:13px;flex-shrink:0">
-        <span style="color:#22c55e;font-weight:700">${_tgMktName(c)}</span>
-        <span style="color:#475569">range ${rangeLabel}</span>
-        <span style="color:#22c55e;margin-left:auto;white-space:nowrap">
-          ${roiSign}${c.roi.toFixed(0)}% ROI &nbsp;@${(c.simOdd||0).toFixed(2)}
-        </span>
+               style="accent-color:#22c55e;width:13px;height:13px;flex-shrink:0;margin-top:2px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="color:#22c55e;font-weight:700;font-size:11px">${_tgMktName(c)}</span>
+            ${tabTag}
+          </div>
+          <div style="font-size:10px;color:#475569;margin-top:2px">
+            range ${rangeLabel} &nbsp;·&nbsp;
+            <span style="color:#22c55e">${roiSign}${c.roi.toFixed(0)}% ROI</span>
+            &nbsp;@${(c.simOdd||0).toFixed(2)}
+          </div>
+        </div>
       </label>`;
     }).join('');
   }
@@ -2451,11 +2465,20 @@ function _tgShowPanel(btn) {
 function _tgMethodLine(c) {
   const rl  = (BT_RANGES[c.rangeIdx]||{}).label || '?';
   const roi = (c.roi >= 0 ? '+' : '') + c.roi.toFixed(0);
-  return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;
-                      border-bottom:1px solid var(--border);font-size:11px">
-    <span style="color:#22c55e;font-weight:700;flex:1">${_tgMktName(c)}</span>
-    <span style="color:var(--text2);font-size:10px">faixa ${rl}</span>
-    <span style="color:#22c55e;font-size:10px;white-space:nowrap">${roi}% @${(c.simOdd||0).toFixed(2)}</span>
+  const tabInfo = c.tab === 'casa'
+    ? { lbl: '🏠 Score Casa', bg: '#1e3a5f', color: '#60a5fa' }
+    : c.tab === 'fora'
+    ? { lbl: '✈️ Score Vis.', bg: '#3b1f00', color: '#fb923c' }
+    : { lbl: '⚽ Score Gols', bg: '#14291a', color: '#4ade80' };
+  return `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+      <span style="color:#22c55e;font-weight:700;font-size:11px">${_tgMktName(c)}</span>
+      <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
+                   background:${tabInfo.bg};color:${tabInfo.color};white-space:nowrap">${tabInfo.lbl}</span>
+    </div>
+    <div style="font-size:10px;color:var(--text2)">
+      faixa ${rl} &nbsp;·&nbsp;<span style="color:#22c55e">${roi}%</span> @${(c.simOdd||0).toFixed(2)}
+    </div>
   </div>`;
 }
 
