@@ -8903,17 +8903,27 @@ async function triggerScrapeNow() {
   try {
     const r = await fetch('/api/scrape/now', { method: 'POST' });
     const d = await r.json();
-    if (!d.ok && !d.running) {
-      label.textContent = 'Erro';
-      setTimeout(() => { label.textContent = 'Atualizar'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
+    if (d.running) {
+      // Já estava rodando ou acabou de iniciar
+      label.textContent = '⏳ Raspando...';
+      _pollScrapeStatus();
+      return;
+    }
+    if (!d.ok) {
+      const msg = d.error || d.message || 'Erro desconhecido';
+      console.error('[scrape] Falha ao iniciar:', msg);
+      label.textContent = '✗ Erro';
+      btn.title = msg;
+      setTimeout(() => { label.textContent = 'Atualizar'; btn.disabled = false; btn.style.opacity = '1'; btn.title = 'Raspar jogos de hoje do StatArea agora'; }, 4000);
       return;
     }
     label.textContent = '⏳ Raspando...';
     _pollScrapeStatus();
   } catch(e) {
-    label.textContent = 'Erro';
+    console.error('[scrape] Exceção:', e);
+    label.textContent = '✗ Erro rede';
     btn.disabled = false; btn.style.opacity = '1';
-    setTimeout(() => { label.textContent = 'Atualizar'; }, 3000);
+    setTimeout(() => { label.textContent = 'Atualizar'; }, 4000);
   }
 }
 

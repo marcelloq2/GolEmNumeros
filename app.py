@@ -216,12 +216,8 @@ def _run_scrape_bg(fetch_details: bool = False):
 
 @app.route("/api/scrape/now", methods=["POST"])
 def api_scrape_now():
-    """Dispara raspagem remota do StatArea (sem detalhes — rápida)."""
-    token    = request.args.get("token", "")
-    expected = os.environ.get("UPLOAD_TOKEN", "")
-    if expected and token != expected:
-        return jsonify({"ok": False, "error": "Token inválido"}), 403
-
+    """Dispara raspagem remota do StatArea (sem detalhes — rápida).
+    Sem autenticação: raspa só dados públicos do StatArea, sem risco."""
     with _scrape_lock:
         if _scrape_state["running"]:
             return jsonify({"ok": False, "running": True,
