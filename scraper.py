@@ -131,9 +131,13 @@ def _parse_cmatch(cmatch) -> dict | None:
         if val_div:
             tip_acertou = "success" in (val_div.get("class") or [])
 
-    # StatArea exibe horário já no fuso local do usuário (BRT para visitantes brasileiros)
+    # StatArea exibe horário CET/CEST (Europa); subtrai 3h para BRT (UTC-3)
     hora_raw = time_div.get_text(strip=True)
-    hora_ajustada = hora_raw
+    try:
+        t = datetime.strptime(hora_raw, "%H:%M") - timedelta(hours=3)
+        hora_ajustada = t.strftime("%H:%M")
+    except Exception:
+        hora_ajustada = hora_raw
 
     return {
         "hora": hora_ajustada,
