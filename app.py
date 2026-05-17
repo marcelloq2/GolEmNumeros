@@ -3941,11 +3941,8 @@ def _tg_auto_send():
     except Exception as e:
         print(f"[Telegram] Erro no envio automático: {e}")
 
-_tg_match_alerts = {}   # { date_str: set(alert_keys_already_sent) }
-
 def _tg_scheduler():
-    """Background thread: envio diário + alertas 15min antes de cada partida."""
-    global _tg_match_alerts
+    """Background thread: envio diário no horário configurado."""
     sent_today = None
     while True:
         try:
@@ -3953,59 +3950,12 @@ def _tg_scheduler():
             now       = datetime.now()
             today_str = now.strftime("%Y-%m-%d")
 
-            # ── 1. Envio diário no horário configurado ─────────────────────────
+            # Envio diário no horário configurado
             if cfg.get("auto_send") and cfg.get("send_time"):
                 hm = now.strftime("%H:%M")
                 if hm == cfg["send_time"] and sent_today != today_str:
                     sent_today = today_str
                     _tg_auto_send()
-
-            # ── 2. Alertas 15 min antes de cada partida ────────────────────────
-            if cfg.get("token") and cfg.get("chat_id") and cfg.get("auto_send"):
-                # Zera o rastreador a cada novo dia
-                if today_str not in _tg_match_alerts:
-                    _tg_match_alerts = {today_str: set()}
-
-                try:
-                    with open(TG_DAILY_FILE, "r", encoding="utf-8") as fp:
-                        daily = json.load(fp)
-                except Exception:
-                    daily = []
-
-                for item in daily:
-                    hora = (item.get("hora") or "").strip()
-                    if not hora or ":" not in hora:
-                        continue
-                    try:
-                        hh, mm = hora.split(":")
-                        match_dt = now.replace(hour=int(hh), minute=int(mm),
-                                               second=0, microsecond=0)
-                    except Exception:
-                        continue
-
-                    diff = (match_dt - now).total_seconds()
-                    # Janela: 13–17 min antes do início
-                    if 13 * 60 <= diff <= 17 * 60:
-                        alert_key = f"{item.get('casa','')}_{item.get('fora','')}_{hora}"
-                        if alert_key in _tg_match_alerts[today_str]:
-                            continue
-                        _tg_match_alerts[today_str].add(alert_key)
-
-                        fits_txt = "\n".join(
-                            f"  📌 {f}" for f in item.get("fits", [])[:3]
-                        )
-                        msg = (
-                            f"⏰ <b>Jogo em 15 minutos!</b>\n\n"
-                            f"⚽ <b>{item.get('casa','?')} × {item.get('fora','?')}</b>\n"
-                            f"🏆 {item.get('liga','—')} · 🕐 {hora}"
-                            + (f"\n\n{fits_txt}" if fits_txt else "")
-                        )
-                        try:
-                            _tg_send_message(cfg["token"], cfg["chat_id"], msg)
-                            print(f"[Telegram] ⏰ Alerta 15min: "
-                                  f"{item.get('casa')} x {item.get('fora')} às {hora}")
-                        except Exception as e:
-                            print(f"[Telegram] Erro alerta 15min: {e}")
 
         except Exception as e:
             print(f"[Telegram scheduler] {e}")
