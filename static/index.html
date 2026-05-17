@@ -214,16 +214,36 @@
     border: 1px solid var(--border);
   }
   .detail-league { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 16px; }
-  .detail-teams {
+  /* ── DETALHE: layout em linhas ── */
+  .detail-teams-row {
     display: grid; grid-template-columns: 1fr auto 1fr;
-    gap: 16px; align-items: center;
+    gap: 12px; align-items: center; margin-bottom: 10px;
   }
-  .detail-team { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
-  .detail-team-name { font-size: 20px; font-weight: 800; text-align: center; word-break: break-word; overflow-wrap: break-word; width: 100%; line-height: 1.2; }
-  .detail-team.home .detail-team-name { text-align: right; }
-  .detail-team.away .detail-team-name { text-align: left; }
+  .detail-team-name { font-size: 20px; font-weight: 800; word-break: break-word; overflow-wrap: break-word; line-height: 1.2; }
+  .home-name { text-align: right; }
+  .away-name { text-align: left; }
+  .detail-vs-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .detail-vs { font-size: 28px; font-weight: 700; color: var(--text2); text-align: center; }
   .detail-time-big { font-size: 13px; color: var(--text2); text-align: center; }
+
+  .detail-form-row {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 12px; align-items: center; margin-bottom: 10px;
+  }
+  .detail-form-side { display: flex; flex-wrap: wrap; gap: 3px; }
+  .home-form { justify-content: flex-end; }
+  .away-form { justify-content: flex-start; }
+
+  .detail-scores-row {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 12px; align-items: start; margin-bottom: 6px;
+  }
+  .detail-scores-row > div:first-child { display: flex; justify-content: flex-start; }
+  .detail-scores-row > div:last-child  { display: flex; justify-content: flex-end; }
+
+  /* legado removido */
+  .detail-teams { display: none; }
+  .detail-team  { display: none; }
 
   /* ── H2H BAR ── */
   .h2h-bar-section { margin-top: 20px; }
@@ -9343,28 +9363,36 @@ function buildDetailHtml(m) {
   html += `
     <div class="detail-header">
       <div class="detail-league">${m.pais || ''} — ${m.liga || ''}</div>
-      <div class="detail-teams">
-        <div class="detail-team home">
-          <div class="detail-team-name">${m.casa}</div>
-          ${formBadges(d.ultimas_10_partidas?.[m.casa]?.form || '')}
-          ${renderTeamScore(m, true)}
-        </div>
-        <div>
+
+      <!-- Linha 1: nomes + horário na mesma altura -->
+      <div class="detail-teams-row">
+        <div class="detail-team-name home-name">${m.casa}</div>
+        <div class="detail-vs-col">
           <div class="detail-vs">${m.hora || '--:--'}</div>
           ${m.resultado ? `
-            <div style="font-size:22px;font-weight:800;color:var(--text);text-align:center;letter-spacing:2px;margin:4px 0">
+            <div style="font-size:20px;font-weight:800;color:var(--text);text-align:center;letter-spacing:2px;margin:2px 0">
               ${m.resultado.replace(':', ' — ')}
             </div>
             ${m.ht_score ? `<div style="font-size:11px;color:var(--text2);text-align:center">HT ${m.ht_score}</div>` : ''}
           ` : '<div class="detail-time-big">Hoje</div>'}
-          ${renderH2HBar(d.grafico_h2h, m.casa, m.fora)}
         </div>
-        <div class="detail-team away">
-          <div class="detail-team-name">${m.fora}</div>
-          ${formBadges(d.ultimas_10_partidas?.[m.fora]?.form || '')}
-          ${renderTeamScore(m, false)}
-        </div>
+        <div class="detail-team-name away-name">${m.fora}</div>
       </div>
+
+      <!-- Linha 2: badges de forma -->
+      <div class="detail-form-row">
+        <div class="detail-form-side home-form">${formBadges(d.ultimas_10_partidas?.[m.casa]?.form || '')}</div>
+        <div style="flex:0 0 auto">${renderH2HBar(d.grafico_h2h, m.casa, m.fora)}</div>
+        <div class="detail-form-side away-form">${formBadges(d.ultimas_10_partidas?.[m.fora]?.form || '')}</div>
+      </div>
+
+      <!-- Linha 3: scores dos times -->
+      <div class="detail-scores-row">
+        <div>${renderTeamScore(m, true)}</div>
+        <div></div>
+        <div>${renderTeamScore(m, false)}</div>
+      </div>
+
       ${renderGoalScore(m)}
     </div>`;
 
