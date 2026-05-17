@@ -2315,15 +2315,15 @@ async function _tgAutoSendOnLoad() {
   });
 
   try {
-    // Cabeçalho único
-    await send(`📅 *Entradas do dia — ${today_br}*\n${matches.length} partida${matches.length!==1?'s':''} encontradas`);
-
-    // Uma mensagem por partida
+    // Monta mensagem única com todas as partidas
+    let msg = `🤖 <b>Gol em Números — ${today_br}</b>\n`;
+    msg += `📋 <b>${matches.length} partida${matches.length!==1?'s':''}</b> nas metodologias selecionadas\n\n`;
     for (const m of matches) {
-      const text = `⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${m.fits.map(f=>`📌 ${f}`).join('\n')}`;
-      await send(text);
-      await new Promise(r => setTimeout(r, 300)); // evita rate limit
+      msg += `⚽ <b>${m.casa} × ${m.fora}</b>  ⏰ ${m.hora||'—'}\n`;
+      msg += `🏆 ${m.liga||'—'}\n`;
+      msg += m.fits.map(f => `  📌 ${f}`).join('\n') + '\n\n';
     }
+    await send(msg);
 
     // Marca que já enviou hoje
     localStorage.setItem('tgSentDate', today);
@@ -2400,22 +2400,23 @@ async function _tgSendEdge() {
   });
 
   try {
+    let msg = `🤖 <b>Gol em Números — ${hoje}</b>\n`;
     if (!matching.length) {
-      await send(`🤖 <b>Gol em Números — ${hoje}</b>\nNenhuma partida encontrada para as metodologias selecionadas.`);
+      msg += `Nenhuma partida encontrada para as metodologias selecionadas.`;
     } else {
-      // Cabeçalho
-      await send(`🤖 *Gol em Números — ${hoje}*\n📋 *${matching.length} partida${matching.length!==1?'s':''}* nas metodologias selecionadas`);
-      // Uma mensagem por partida
+      msg += `📋 <b>${matching.length} partida${matching.length!==1?'s':''}</b> nas metodologias selecionadas\n\n`;
       for (const { m, fits } of matching) {
         const rl_list = fits.slice(0,3).map(c => {
           const rl  = (BT_RANGES[c.rangeIdx]||{}).label||'?';
           const roi = (c.roi>=0?'+':'')+c.roi.toFixed(0);
-          return `📌 ${_tgMktName(c)} range ${rl} ROI ${roi}% @${(c.simOdd||0).toFixed(2)}`;
+          return `  📌 ${_tgMktName(c)} range ${rl} ROI ${roi}%`;
         }).join('\n');
-        await send(`⚽ *${m.casa} × ${m.fora}*\n🏆 ${m.liga||'—'} · ⏰ ${m.hora||'—'}\n${rl_list}`);
-        await new Promise(r => setTimeout(r, 300));
+        msg += `⚽ <b>${m.casa} × ${m.fora}</b>  ⏰ ${m.hora||'—'}\n`;
+        msg += `🏆 ${m.liga||'—'}\n`;
+        msg += `${rl_list}\n\n`;
       }
     }
+    await send(msg);
 
     const d = { ok: true }; // resposta simulada para continuar o fluxo
     const st = document.getElementById('tgStatus');
