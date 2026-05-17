@@ -2829,6 +2829,24 @@ let liveMatchesCache = [];
 let _prevLiveScore   = {};   // { [matchId]: { casa: N, fora: N } }
 let _tempoInterval        = null;   // relógio local do minuto ao vivo (detalhe)
 let _sidebarTempoInterval = null;   // relógio da sidebar (todos os jogos)
+
+// ── Ligas ocultas no Ao Vivo (persiste em localStorage, backtest não afetado) ──
+let _liveHiddenLeagues = new Set(JSON.parse(localStorage.getItem('liveHiddenLeagues') || '[]'));
+
+function _liveHideSave() {
+  localStorage.setItem('liveHiddenLeagues', JSON.stringify([..._liveHiddenLeagues]));
+}
+function toggleLiveLeague(key) {
+  if (_liveHiddenLeagues.has(key)) _liveHiddenLeagues.delete(key);
+  else _liveHiddenLeagues.add(key);
+  _liveHideSave();
+  loadLiveMatches();   // re-renderiza
+}
+function showAllLiveLeagues() {
+  _liveHiddenLeagues.clear();
+  _liveHideSave();
+  loadLiveMatches();
+}
 let _sidebarTempos        = {};     // { id: { baseSec, startedAt } }
 
 // ── Cache Uniscore { "casa|fora": enrichData } ──
@@ -2910,11 +2928,31 @@ async function loadLiveMatches(silent = false) {
       byLeague[k].matches.push(m);
     });
 
-    let html = '';
-    for (const grp of Object.values(byLeague)) {
+    // Chip de ligas ocultas
+    const hiddenCount = _liveHiddenLeagues.size;
+    const hiddenChip  = hiddenCount > 0
+      ? `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;
+                     background:#1c1c2e;border-bottom:1px solid var(--border);font-size:11px">
+           <span style="color:#f59e0b">👁 ${hiddenCount} liga${hiddenCount>1?'s':''} oculta${hiddenCount>1?'s':''}</span>
+           <button onclick="showAllLiveLeagues()"
+             style="background:none;border:1px solid #f59e0b55;color:#f59e0b;border-radius:5px;
+                    padding:2px 8px;font-size:10px;cursor:pointer">Mostrar todas</button>
+         </div>`
+      : '';
+
+    let html = hiddenChip;
+    for (const [leagueKey, grp] of Object.entries(byLeague)) {
+      const isHidden = _liveHiddenLeagues.has(leagueKey);
+      if (isHidden) continue;   // oculta do display (backtest não afetado)
+
       html += `<div class="live-league-group">
-        <div class="live-league-header">
+        <div class="live-league-header" style="display:flex;align-items:center;justify-content:space-between">
           <span>${grp.pais ? grp.pais + ' · ' : ''}${grp.name}</span>
+          <button onclick="event.stopPropagation();toggleLiveLeague('${leagueKey.replace(/'/g,"\\'")}')"
+            title="Ocultar esta liga do Ao Vivo"
+            style="background:none;border:none;color:#6b7280;font-size:12px;cursor:pointer;
+                   padding:0 4px;line-height:1;opacity:.6" onmouseover="this.style.opacity=1"
+            onmouseout="this.style.opacity=.6">✕</button>
         </div>`;
       grp.matches.forEach(m => {
         const scoreFt  = `${m.golCasaFt} - ${m.golForaFt}`;
