@@ -52,6 +52,7 @@
   .header-stats { display: flex; gap: 16px; color: var(--text2); font-size: 13px; }
   .header-stats b { color: var(--text); }
   .nav-tabs { display: flex; gap: 4px; margin-left: auto; }
+  #scrapeNowBtn { flex-shrink: 0; margin-left: 8px; }
   .nav-tab {
     padding: 6px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
     cursor: pointer; border: 1px solid var(--border); background: transparent;
@@ -973,6 +974,11 @@
     <button class="nav-tab" onclick="switchView('live', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
   </div>
+  <button id="scrapeNowBtn" title="Raspar jogos de hoje do StatArea agora"
+    onclick="triggerScrapeNow()"
+    style="display:none;align-items:center;gap:5px;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:8px;padding:5px 11px;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap">
+    🔄 <span id="scrapeNowLabel">Atualizar</span>
+  </button>
 </header>
 
 <div class="container">
@@ -8833,10 +8839,46 @@ async function loadMatches() {
   allMatches = data.matches;
   _updateEdgeTabBadge();
 
+  // Calcula idade dos dados a partir do data_coleta do primeiro jogo
+  const firstColeta = allMatches.length ? allMatches[0].data_coleta : null;
+  let ageHtml = '';
+  let dotColor = '#22c55e';
+  let isStale  = false;
+  if (firstColeta) {
+    try {
+      const ts  = new Date(firstColeta.replace(' ', 'T'));
+      const now = new Date();
+      const diffMin = Math.round((now - ts) / 60000);
+      const diffH   = Math.floor(diffMin / 60);
+      const diffM   = diffMin % 60;
+      let ageStr;
+      if (diffMin < 60)      ageStr = `${diffMin}min atrás`;
+      else if (diffH < 24)   ageStr = `${diffH}h${diffM > 0 ? diffM + 'min' : ''} atrás`;
+      else                   ageStr = `${Math.floor(diffH/24)}d atrás`;
+      // Dados com > 4h ficam com dot amarelo, > 12h ficam laranja
+      if (diffMin > 720)      { dotColor = '#f97316'; isStale = true; }
+      else if (diffMin > 240) { dotColor = '#facc15'; isStale = true; }
+      ageHtml = `<span style="color:${dotColor};font-size:11px" title="Coletado em ${firstColeta}">⏱ ${ageStr}</span>`;
+    } catch(e) {}
+  }
+
   document.getElementById('headerStats').innerHTML = `
-    <span><div class="status-dot"></div><b>${data.total}</b> partidas</span>
-    <span>Fonte: <b>${data.source || '—'}</b></span>
+    <span><div class="status-dot" style="background:${dotColor}"></div><b>${data.total}</b> partidas</span>
+    ${ageHtml}
+    <span style="font-size:11px;color:#888">Fonte: <b>${data.source || '—'}</b></span>
   `;
+
+  // Mostra botão de atualizar sempre (útil para ver se rodou)
+  const btn = document.getElementById('scrapeNowBtn');
+  if (btn) {
+    btn.style.display = 'flex';
+    if (isStale) {
+      btn.style.borderColor = '#f97316';
+      btn.style.color = '#fdba74';
+      btn.title = `Dados com ${Math.round((new Date() - new Date(firstColeta.replace(' ','T')))/3600000)}h — clique para raspar agora`;
+    }
+  }
+
   updateFavCount();
   renderMatchList(allMatches);
   // Verifica se o ajuste de horário já foi feito hoje
@@ -8844,6 +8886,67 @@ async function loadMatches() {
   // Disparo Telegram: se _btEdgeCriteria já estiver pronto, tenta enviar agora
   // (caso contrário, _autoLoadEdgeCriteria vai chamar _tgAutoSendOnLoad depois)
   if (_btEdgeCriteria.length) _tgAutoSendOnLoad();
+}
+
+// ── SCRAPE REMOTO ─────────────────────────────
+let _scrapePolling = null;
+
+async function triggerScrapeNow() {
+  const btn   = document.getElementById('scrapeNowBtn');
+  const label = document.getElementById('scrapeNowLabel');
+  if (!btn || btn.disabled) return;
+
+  btn.disabled = true;
+  label.textContent = 'Iniciando...';
+  btn.style.opacity = '0.6';
+
+  try {
+    const r = await fetch('/api/scrape/now', { method: 'POST' });
+    const d = await r.json();
+    if (!d.ok && !d.running) {
+      label.textContent = 'Erro';
+      setTimeout(() => { label.textContent = 'Atualizar'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
+      return;
+    }
+    label.textContent = '⏳ Raspando...';
+    _pollScrapeStatus();
+  } catch(e) {
+    label.textContent = 'Erro';
+    btn.disabled = false; btn.style.opacity = '1';
+    setTimeout(() => { label.textContent = 'Atualizar'; }, 3000);
+  }
+}
+
+async function _pollScrapeStatus() {
+  if (_scrapePolling) clearInterval(_scrapePolling);
+  _scrapePolling = setInterval(async () => {
+    try {
+      const r = await fetch('/api/scrape/status');
+      const d = await r.json();
+      const btn   = document.getElementById('scrapeNowBtn');
+      const label = document.getElementById('scrapeNowLabel');
+      if (!btn) { clearInterval(_scrapePolling); return; }
+
+      if (d.running) {
+        label.textContent = '⏳ Raspando...';
+        return;
+      }
+      clearInterval(_scrapePolling);
+      btn.disabled = false; btn.style.opacity = '1';
+      if (d.result === 'ok') {
+        label.textContent = `✓ ${d.total} jogos`;
+        // Recarrega os jogos
+        await loadMatches();
+        setTimeout(() => { label.textContent = 'Atualizar'; }, 4000);
+      } else {
+        label.textContent = '✗ Falhou';
+        console.warn('[scrape]', d.message);
+        setTimeout(() => { label.textContent = 'Atualizar'; }, 4000);
+      }
+    } catch(e) {
+      // silencia erros de rede
+    }
+  }, 4000);
 }
 
 function filterMatches() {

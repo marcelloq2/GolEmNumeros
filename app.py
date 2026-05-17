@@ -164,11 +164,80 @@ def api_match_detail(match_id):
 def api_status():
     matches, source = load_predictions()
     has_details = sum(1 for m in matches if "detalhes" in m and "erro" not in m.get("detalhes", {}))
+    last_updated = matches[0].get("data_coleta") if matches else None
     return jsonify({
         "total_partidas": len(matches),
         "com_detalhes": has_details,
         "source": source,
+        "last_updated": last_updated,
     })
+
+
+# ── SCRAPE REMOTO ────────────────────────────────────────────────────────────
+_scrape_state = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "result": None,   # "ok" | "error"
+    "message": "",
+    "total": 0,
+}
+_scrape_lock = threading.Lock()
+
+
+def _run_scrape_bg(fetch_details: bool = False):
+    """Raspa jogos do StatArea em background e salva predictions_full.json."""
+    global _scrape_state
+    with _scrape_lock:
+        _scrape_state.update({"running": True, "started_at": datetime.now().isoformat(),
+                              "finished_at": None, "result": None, "message": "Raspando...", "total": 0})
+    try:
+        from scraper import scrape_all, save_json
+        matches = scrape_all(fetch_details=fetch_details, delay=0.5 if not fetch_details else 2.0)
+        path = os.path.join(DATA_DIR, "predictions_full.json")
+        save_json(matches, path)
+        # Sobe para GitHub para persistir no próximo redeploy
+        github_storage.push_file_bg(path, "predictions_full.json")
+        with _scrape_lock:
+            _scrape_state.update({
+                "running": False, "finished_at": datetime.now().isoformat(),
+                "result": "ok", "message": f"{len(matches)} partidas raspadas com sucesso.",
+                "total": len(matches),
+            })
+        print(f"[scrape] ✓ {len(matches)} partidas salvas em predictions_full.json")
+    except Exception as e:
+        with _scrape_lock:
+            _scrape_state.update({
+                "running": False, "finished_at": datetime.now().isoformat(),
+                "result": "error", "message": str(e), "total": 0,
+            })
+        print(f"[scrape] ✗ Erro: {e}")
+
+
+@app.route("/api/scrape/now", methods=["POST"])
+def api_scrape_now():
+    """Dispara raspagem remota do StatArea (sem detalhes — rápida)."""
+    token    = request.args.get("token", "")
+    expected = os.environ.get("UPLOAD_TOKEN", "")
+    if expected and token != expected:
+        return jsonify({"ok": False, "error": "Token inválido"}), 403
+
+    with _scrape_lock:
+        if _scrape_state["running"]:
+            return jsonify({"ok": False, "running": True,
+                            "message": "Raspagem já em andamento — aguarde.", **_scrape_state})
+
+    full = request.args.get("full", "0") == "1"
+    threading.Thread(target=_run_scrape_bg, args=(full,), daemon=True).start()
+    return jsonify({"ok": True, "running": True, "message": "Raspagem iniciada em background.",
+                    "full": full})
+
+
+@app.route("/api/scrape/status")
+def api_scrape_status():
+    """Retorna o estado atual da raspagem remota."""
+    with _scrape_lock:
+        return jsonify(dict(_scrape_state))
 
 
 BACKTEST_DIR = os.path.join(DATA_DIR, "backtest")
