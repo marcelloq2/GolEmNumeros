@@ -554,15 +554,49 @@ def _norm(s: str) -> str:
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     return s
 
+# Sufixos genéricos a ignorar na comparação de nomes de times
+_TEAM_SUFFIXES = {
+    "fc", "cf", "ac", "sc", "bc", "bk", "sk", "fk", "nk", "rk",
+    "united", "utd", "city", "town", "rovers", "wanderers",
+    "sporting", "sport", "club", "atletico", "atletico", "deportivo",
+    "real", "de", "do", "da", "dos", "las", "los", "el",
+}
+
+def _strip_suffixes(words: set) -> set:
+    """Remove palavras genéricas de um conjunto de tokens."""
+    return {w for w in words if w not in _TEAM_SUFFIXES}
+
 def _name_match(a: str, b: str) -> bool:
-    """Verifica se dois nomes de times batem (fuzzy: substring ou palavra em comum)."""
+    """Verifica se dois nomes de times batem (fuzzy aprimorado)."""
     na, nb = _norm(a), _norm(b)
+
+    # 1. Igualdade exata
+    if na == nb:
+        return True
+
+    # 2. Substring direta
     if na in nb or nb in na:
         return True
-    # Checa palavras significativas (>= 4 chars) em comum
-    words_a = {w for w in na.split() if len(w) >= 4}
-    words_b = {w for w in nb.split() if len(w) >= 4}
-    return bool(words_a & words_b)
+
+    # 3. Palavras com >= 3 chars em comum (anterior era >= 4)
+    words_a = {w for w in na.split() if len(w) >= 3}
+    words_b = {w for w in nb.split() if len(w) >= 3}
+    if words_a & words_b:
+        return True
+
+    # 4. Palavras sem sufixos genéricos — evita falso positivo por "FC"/"Sporting"
+    core_a = _strip_suffixes(words_a)
+    core_b = _strip_suffixes(words_b)
+    if core_a and core_b and core_a & core_b:
+        return True
+
+    # 5. Nomes curtos (≤ 4 chars): exige igualdade exata entre os tokens curtos
+    short_a = {w for w in na.split() if len(w) <= 4}
+    short_b = {w for w in nb.split() if len(w) <= 4}
+    if short_a and short_b and short_a == short_b and len(short_a) >= 1:
+        return True
+
+    return False
 
 
 def _get_sofa_live_events():
