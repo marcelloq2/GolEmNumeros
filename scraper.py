@@ -131,11 +131,10 @@ def _parse_cmatch(cmatch) -> dict | None:
         if val_div:
             tip_acertou = "success" in (val_div.get("class") or [])
 
-    # StatArea retorna horário em UTC-7 (IP do Railway detectado como costa oeste EUA)
-    # BRT = UTC-3 = UTC-7 + 4h → soma 4h ao horário do StatArea
+    # StatArea retorna horário em UTC-4 (EDT, Railway us-east); BRT = UTC-4 + 1h
     hora_raw = time_div.get_text(strip=True)
     try:
-        t = datetime.strptime(hora_raw, "%H:%M") + timedelta(hours=4)
+        t = datetime.strptime(hora_raw, "%H:%M") + timedelta(hours=1)
         hora_ajustada = t.strftime("%H:%M")
     except Exception:
         hora_ajustada = hora_raw
