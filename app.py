@@ -111,6 +111,12 @@ def load_predictions():
     return [], None
 
 
+APP_VERSION = "2026-05-18-v4"
+
+@app.route("/version")
+def version():
+    return jsonify({"version": APP_VERSION, "ts": datetime.now().isoformat()})
+
 @app.route("/")
 def index():
     resp = send_from_directory("static", "index.html")
