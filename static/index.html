@@ -9216,12 +9216,42 @@ async function openDetail(url, rowEl) {
   panel.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Carregando detalhes...</div>';
 
   try {
-    // Busca dados completos no endpoint por URL
-    const encoded = encodeURIComponent(url.split('/compare/teams/')[1] || url);
+    const matchId = url.split('/compare/teams/')[1] || url;
+    const encoded = encodeURIComponent(matchId);
+
+    // 1. Busca dados básicos do cache (rápido)
     const res = await fetch('/api/match/' + encoded);
     if (!res.ok) throw new Error('not found');
     const match = await res.json();
-    renderDetail(match);
+
+    // 2. Se não tem detalhes (raspagem rápida), busca ao vivo em background
+    const hasDetails = match.detalhes && Object.keys(match.detalhes).length > 0 &&
+                       (match.detalhes.ultimas_10_partidas || match.detalhes.estatisticas);
+    if (!hasDetails) {
+      // Renderiza o que tem agora (probabilidades + análise)
+      renderDetail(match);
+      // Mostra aviso de carregamento dos detalhes
+      const loadingBar = document.createElement('div');
+      loadingBar.id = 'detailLiveLoading';
+      loadingBar.style.cssText = 'padding:10px 16px;background:#1e3a5f;color:#93c5fd;font-size:12px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px';
+      loadingBar.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Buscando últimas partidas e estatísticas ao vivo...';
+      panel.insertAdjacentElement('afterbegin', loadingBar);
+
+      // Busca detalhes ao vivo
+      try {
+        const liveRes = await fetch('/api/match/live/' + encoded);
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+          match.detalhes = liveData.detalhes || {};
+        }
+      } catch(_) {}
+
+      // Remove aviso e re-renderiza com detalhes
+      document.getElementById('detailLiveLoading')?.remove();
+      renderDetail(match);
+    } else {
+      renderDetail(match);
+    }
   } catch (e) {
     panel.innerHTML = '<div class="loading">Detalhes não disponíveis ainda. Aguarde o scraping completo.</div>';
   }

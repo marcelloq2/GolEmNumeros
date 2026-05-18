@@ -111,7 +111,7 @@ def load_predictions():
     return [], None
 
 
-APP_VERSION = "2026-05-18-v5"
+APP_VERSION = "2026-05-18-v6"
 
 @app.route("/version")
 def version():
