@@ -27,6 +27,9 @@ HEADERS = {
 def create_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(HEADERS)
+    session.verify = False  # certificado SSL do statarea.com pode estar expirado
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     session.get(BASE_URL, timeout=15)
     time.sleep(1)
     return session
