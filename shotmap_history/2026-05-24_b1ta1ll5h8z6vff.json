@@ -1,0 +1,223 @@
+{
+  "event_id": "b1ta1ll5h8z6vff",
+  "date": "2026-05-24",
+  "casa": "Tampa Bay Rowdies",
+  "fora": "Phoenix Rising",
+  "liga": "",
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "total_shots": 19,
+  "shotmap": [
+    {
+      "id": 2941096875,
+      "minute": 69,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "G. Rivera",
+      "x": 19.3,
+      "y": 49.8
+    },
+    {
+      "id": 2941096205,
+      "minute": 68,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "H. Kodzo Avayevu",
+      "x": 22,
+      "y": 31.7
+    },
+    {
+      "id": 2941096885,
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L. Wyke",
+      "x": 9.5,
+      "y": 45
+    },
+    {
+      "id": 2941091929,
+      "minute": 59,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S. Cruz",
+      "x": 30.4,
+      "y": 53
+    },
+    {
+      "id": 2941085815,
+      "minute": 50,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L. Hilton",
+      "x": 16.2,
+      "y": 67
+    },
+    {
+      "id": 2941069389,
+      "minute": 39,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "unassisted",
+      "player": "J. Moursou",
+      "x": 24.8,
+      "y": 33.9
+    },
+    {
+      "id": 2941068557,
+      "minute": 37,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J. Moursou",
+      "x": 22.6,
+      "y": 57.6
+    },
+    {
+      "id": 2941066225,
+      "minute": 33,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L. Perez",
+      "x": 14.8,
+      "y": 66.2
+    },
+    {
+      "id": 2941064203,
+      "minute": 28,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M. Myers",
+      "x": 12.8,
+      "y": 53.2
+    },
+    {
+      "id": 2941062697,
+      "minute": 25,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "I. Sacko",
+      "x": 23.2,
+      "y": 63.6
+    },
+    {
+      "id": 2941061489,
+      "minute": 23,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G. Rivera",
+      "x": 28.5,
+      "y": 55.2
+    },
+    {
+      "id": 2941058989,
+      "minute": 17,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "E. Conway",
+      "x": 13.3,
+      "y": 27.1
+    },
+    {
+      "id": 2941055537,
+      "minute": 12,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "other_body_part",
+      "situation": "assisted",
+      "player": "I. Sacko",
+      "x": 5.3,
+      "y": 48.5
+    },
+    {
+      "id": 2941054757,
+      "minute": 11,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M. Micaletto",
+      "x": 10.3,
+      "y": 37.9
+    },
+    {
+      "id": 2941054269,
+      "minute": 10,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M. Myers",
+      "x": 4.9,
+      "y": 62.4
+    },
+    {
+      "id": 2941054087,
+      "minute": 10,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "P. Becker Dolabella",
+      "x": 13.1,
+      "y": 66.9
+    },
+    {
+      "id": 2941053077,
+      "minute": 9,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "unassisted",
+      "player": "L. Hilton",
+      "x": 7.4,
+      "y": 57.9
+    },
+    {
+      "id": 2941051987,
+      "minute": 7,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Perez",
+      "x": 8.1,
+      "y": 67.6
+    },
+    {
+      "id": 2941048161,
+      "minute": 2,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "P. Becker Dolabella",
+      "x": 6.4,
+      "y": 52.3
+    }
+  ]
+}
