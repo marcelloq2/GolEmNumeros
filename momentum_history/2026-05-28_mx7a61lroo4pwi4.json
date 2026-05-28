@@ -1,0 +1,432 @@
+{
+  "event_id": "mx7a61lroo4pwi4",
+  "date": "2026-05-28",
+  "saved_at": "2026-05-28T13:14:25.177065",
+  "source": "uniscore",
+  "casa": "Gerda Barney",
+  "fora": "FC Gonio",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": -45
+    },
+    {
+      "minute": 2,
+      "value": -80
+    },
+    {
+      "minute": 3,
+      "value": 28
+    },
+    {
+      "minute": 4,
+      "value": -100
+    },
+    {
+      "minute": 5,
+      "value": -100
+    },
+    {
+      "minute": 6,
+      "value": -100
+    },
+    {
+      "minute": 7,
+      "value": 100
+    },
+    {
+      "minute": 8,
+      "value": 100
+    },
+    {
+      "minute": 9,
+      "value": 100
+    },
+    {
+      "minute": 10,
+      "value": 20
+    },
+    {
+      "minute": 11,
+      "value": 100
+    },
+    {
+      "minute": 12,
+      "value": 100
+    },
+    {
+      "minute": 13,
+      "value": -100
+    },
+    {
+      "minute": 14,
+      "value": 100
+    },
+    {
+      "minute": 15,
+      "value": -20
+    },
+    {
+      "minute": 16,
+      "value": 100
+    },
+    {
+      "minute": 17,
+      "value": -100
+    },
+    {
+      "minute": 18,
+      "value": 100
+    },
+    {
+      "minute": 19,
+      "value": -50
+    },
+    {
+      "minute": 20,
+      "value": 100
+    },
+    {
+      "minute": 21,
+      "value": 20
+    },
+    {
+      "minute": 22,
+      "value": -100
+    },
+    {
+      "minute": 23,
+      "value": 100
+    },
+    {
+      "minute": 24,
+      "value": -100
+    },
+    {
+      "minute": 25,
+      "value": -20
+    },
+    {
+      "minute": 26,
+      "value": 100
+    },
+    {
+      "minute": 27,
+      "value": -100
+    },
+    {
+      "minute": 28,
+      "value": -20
+    },
+    {
+      "minute": 29,
+      "value": 52
+    },
+    {
+      "minute": 30,
+      "value": -100
+    },
+    {
+      "minute": 31,
+      "value": -100
+    },
+    {
+      "minute": 32,
+      "value": 100
+    },
+    {
+      "minute": 33,
+      "value": -100
+    },
+    {
+      "minute": 34,
+      "value": -42
+    },
+    {
+      "minute": 35,
+      "value": -100
+    },
+    {
+      "minute": 36,
+      "value": 0
+    },
+    {
+      "minute": 37,
+      "value": -20
+    },
+    {
+      "minute": 38,
+      "value": 100
+    },
+    {
+      "minute": 39,
+      "value": -100
+    },
+    {
+      "minute": 40,
+      "value": 100
+    },
+    {
+      "minute": 41,
+      "value": -20
+    },
+    {
+      "minute": 42,
+      "value": -100
+    },
+    {
+      "minute": 43,
+      "value": 20
+    },
+    {
+      "minute": 44,
+      "value": -34
+    },
+    {
+      "minute": 45,
+      "value": -100
+    },
+    {
+      "minute": 46,
+      "value": -100
+    },
+    {
+      "minute": 47,
+      "value": 0
+    },
+    {
+      "minute": 48,
+      "value": 0
+    },
+    {
+      "minute": 49,
+      "value": 0
+    },
+    {
+      "minute": 50,
+      "value": 0
+    }
+  ],
+  "goals": [
+    {
+      "minute": 5,
+      "addedTime": 0,
+      "team": "away",
+      "player": "Avto Ebralidze",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "shotmap": [],
+  "statistics": {
+    "shots_on_target": {
+      "home": "0",
+      "away": "3",
+      "homeValue": 0,
+      "awayValue": 3
+    },
+    "corner_kicks": {
+      "home": "3",
+      "away": "2",
+      "homeValue": 3,
+      "awayValue": 2
+    },
+    "freekicks": {
+      "home": "8",
+      "away": "5",
+      "homeValue": 8,
+      "awayValue": 5
+    },
+    "red_cards": {
+      "home": "1",
+      "away": "0",
+      "homeValue": 1,
+      "awayValue": 0
+    },
+    "yellow_cards": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "attacks": {
+      "home": "55",
+      "away": "61",
+      "homeValue": 55,
+      "awayValue": 61
+    },
+    "dangerous_attacks": {
+      "home": "36",
+      "away": "26",
+      "homeValue": 36,
+      "awayValue": 26
+    },
+    "ball_possession": {
+      "home": "50%",
+      "away": "50%",
+      "homeValue": 50,
+      "awayValue": 50
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "shots_on_target": {
+        "home": "0",
+        "away": "3",
+        "homeValue": 0,
+        "awayValue": 3
+      },
+      "corner_kicks": {
+        "home": "3",
+        "away": "2",
+        "homeValue": 3,
+        "awayValue": 2
+      },
+      "freekicks": {
+        "home": "8",
+        "away": "5",
+        "homeValue": 8,
+        "awayValue": 5
+      },
+      "red_cards": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "yellow_cards": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "55",
+        "away": "61",
+        "homeValue": 55,
+        "awayValue": 61
+      },
+      "dangerous_attacks": {
+        "home": "36",
+        "away": "26",
+        "homeValue": 36,
+        "awayValue": 26
+      },
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    },
+    "1ST": {
+      "shots_on_target": {
+        "home": "0",
+        "away": "3",
+        "homeValue": 0,
+        "awayValue": 3
+      },
+      "corner_kicks": {
+        "home": "3",
+        "away": "2",
+        "homeValue": 3,
+        "awayValue": 2
+      },
+      "freekicks": {
+        "home": "8",
+        "away": "5",
+        "homeValue": 8,
+        "awayValue": 5
+      },
+      "red_cards": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "yellow_cards": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "55",
+        "away": "61",
+        "homeValue": 55,
+        "awayValue": 61
+      },
+      "dangerous_attacks": {
+        "home": "36",
+        "away": "26",
+        "homeValue": 36,
+        "awayValue": 26
+      },
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    },
+    "2ND": {
+      "shots_on_target": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "4",
+        "away": "7",
+        "homeValue": 4,
+        "awayValue": 7
+      },
+      "dangerous_attacks": {
+        "home": "3",
+        "away": "4",
+        "homeValue": 3,
+        "awayValue": 4
+      },
+      "ball_possession": {
+        "home": "48%",
+        "away": "52%",
+        "homeValue": 48,
+        "awayValue": 52
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": -8.22,
+    "h1_avg": 6.12,
+    "h2_avg": -22.56,
+    "home_dominance_pct": 38.0,
+    "max_home": 100,
+    "max_away": 100,
+    "momentum_swings": 26,
+    "total_points": 50
+  },
+  "xg": {
+    "home": 0.17,
+    "away": 1.1,
+    "source": "estimated",
+    "fields_used": [
+      "shots_on_target",
+      "corners",
+      "freekicks"
+    ],
+    "n_fields": 3
+  },
+  "opening_odds": {
+    "h": "3.10",
+    "x": "3.60",
+    "a": "1.95",
+    "ou_line": "2.75",
+    "ou_over": "1.85",
+    "ou_under": "1.95"
+  }
+}
