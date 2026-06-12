@@ -1,0 +1,145 @@
+{
+  "event_id": "7kbz8iluex2mr9b",
+  "date": "2026-06-12",
+  "saved_at": "2026-06-12T16:56:47.447714",
+  "source": "uniscore",
+  "casa": "Turan",
+  "fora": "FK Kaspiy Aktau B",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": 0
+    },
+    {
+      "minute": 3,
+      "value": 0
+    },
+    {
+      "minute": 4,
+      "value": 0
+    },
+    {
+      "minute": 5,
+      "value": -100
+    },
+    {
+      "minute": 6,
+      "value": 100
+    }
+  ],
+  "goals": [
+    {
+      "minute": 90,
+      "addedTime": 0,
+      "team": "home",
+      "player": "Orken Makhan",
+      "ownGoal": false
+    },
+    {
+      "minute": 37,
+      "addedTime": 0,
+      "team": "home",
+      "player": "aziretsultan turlybek",
+      "ownGoal": false
+    },
+    {
+      "minute": 23,
+      "addedTime": 0,
+      "team": "home",
+      "player": "Arman Kenesov",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "shotmap": [],
+  "statistics": {
+    "corner_kicks": {
+      "home": "1",
+      "away": "0",
+      "homeValue": 1,
+      "awayValue": 0
+    },
+    "attacks": {
+      "home": "1",
+      "away": "1",
+      "homeValue": 1,
+      "awayValue": 1
+    },
+    "ball_possession": {
+      "home": "50%",
+      "away": "50%",
+      "homeValue": 50,
+      "awayValue": 50
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "attacks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    },
+    "1ST": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "attacks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": 0.0,
+    "h1_avg": 0.0,
+    "h2_avg": 0.0,
+    "home_dominance_pct": 16.7,
+    "max_home": 100,
+    "max_away": 100,
+    "momentum_swings": 1,
+    "total_points": 6
+  },
+  "xg": {
+    "home": 0.03,
+    "away": 0.0,
+    "source": "estimated",
+    "fields_used": [
+      "corners"
+    ],
+    "n_fields": 1
+  },
+  "opening_odds": {}
+}
