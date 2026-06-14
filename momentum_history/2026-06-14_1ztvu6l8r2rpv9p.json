@@ -1,0 +1,312 @@
+{
+  "event_id": "1ztvu6l8r2rpv9p",
+  "date": "2026-06-14",
+  "saved_at": "2026-06-14T16:53:20.063867",
+  "source": "uniscore",
+  "casa": "Naftan Novopolock (W)",
+  "fora": "Dnepr Mogilev (W)",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": 0
+    },
+    {
+      "minute": 3,
+      "value": 0
+    },
+    {
+      "minute": 4,
+      "value": 100
+    },
+    {
+      "minute": 5,
+      "value": 76
+    },
+    {
+      "minute": 6,
+      "value": 54
+    },
+    {
+      "minute": 7,
+      "value": 62
+    },
+    {
+      "minute": 8,
+      "value": -34
+    },
+    {
+      "minute": 9,
+      "value": 100
+    },
+    {
+      "minute": 10,
+      "value": 32
+    },
+    {
+      "minute": 11,
+      "value": -50
+    },
+    {
+      "minute": 12,
+      "value": 70
+    },
+    {
+      "minute": 13,
+      "value": -50
+    },
+    {
+      "minute": 14,
+      "value": 20
+    },
+    {
+      "minute": 15,
+      "value": -70
+    },
+    {
+      "minute": 16,
+      "value": -34
+    },
+    {
+      "minute": 17,
+      "value": -68
+    },
+    {
+      "minute": 18,
+      "value": -54
+    },
+    {
+      "minute": 19,
+      "value": 0
+    },
+    {
+      "minute": 20,
+      "value": -64
+    },
+    {
+      "minute": 21,
+      "value": 32
+    },
+    {
+      "minute": 22,
+      "value": -26
+    },
+    {
+      "minute": 23,
+      "value": -100
+    },
+    {
+      "minute": 24,
+      "value": -100
+    },
+    {
+      "minute": 25,
+      "value": -20
+    },
+    {
+      "minute": 26,
+      "value": 0
+    },
+    {
+      "minute": 27,
+      "value": -50
+    },
+    {
+      "minute": 28,
+      "value": -100
+    },
+    {
+      "minute": 29,
+      "value": -100
+    },
+    {
+      "minute": 30,
+      "value": -50
+    }
+  ],
+  "goals": [
+    {
+      "minute": 84,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 69,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 40,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 21,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 2,
+      "addedTime": 0,
+      "team": "home",
+      "player": "",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 1,
+    "away": 4
+  },
+  "shotmap": [],
+  "statistics": {
+    "shots": {
+      "home": "4",
+      "away": "5",
+      "homeValue": 4,
+      "awayValue": 5
+    },
+    "shots_on_target": {
+      "home": "2",
+      "away": "2",
+      "homeValue": 2,
+      "awayValue": 2
+    },
+    "corner_kicks": {
+      "home": "3",
+      "away": "1",
+      "homeValue": 3,
+      "awayValue": 1
+    },
+    "attacks": {
+      "home": "13",
+      "away": "26",
+      "homeValue": 13,
+      "awayValue": 26
+    },
+    "dangerous_attacks": {
+      "home": "3",
+      "away": "5",
+      "homeValue": 3,
+      "awayValue": 5
+    },
+    "ball_possession": {
+      "home": "34%",
+      "away": "66%",
+      "homeValue": 34,
+      "awayValue": 66
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "shots": {
+        "home": "4",
+        "away": "5",
+        "homeValue": 4,
+        "awayValue": 5
+      },
+      "shots_on_target": {
+        "home": "2",
+        "away": "2",
+        "homeValue": 2,
+        "awayValue": 2
+      },
+      "corner_kicks": {
+        "home": "3",
+        "away": "1",
+        "homeValue": 3,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "13",
+        "away": "26",
+        "homeValue": 13,
+        "awayValue": 26
+      },
+      "dangerous_attacks": {
+        "home": "3",
+        "away": "5",
+        "homeValue": 3,
+        "awayValue": 5
+      },
+      "ball_possession": {
+        "home": "34%",
+        "away": "66%",
+        "homeValue": 34,
+        "awayValue": 66
+      }
+    },
+    "1ST": {
+      "shots": {
+        "home": "4",
+        "away": "5",
+        "homeValue": 4,
+        "awayValue": 5
+      },
+      "shots_on_target": {
+        "home": "2",
+        "away": "2",
+        "homeValue": 2,
+        "awayValue": 2
+      },
+      "corner_kicks": {
+        "home": "3",
+        "away": "1",
+        "homeValue": 3,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "13",
+        "away": "26",
+        "homeValue": 13,
+        "awayValue": 26
+      },
+      "dangerous_attacks": {
+        "home": "3",
+        "away": "5",
+        "homeValue": 3,
+        "awayValue": 5
+      },
+      "ball_possession": {
+        "home": "34%",
+        "away": "66%",
+        "homeValue": 34,
+        "awayValue": 66
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": -14.133,
+    "h1_avg": 20.667,
+    "h2_avg": -48.933,
+    "home_dominance_pct": 30.0,
+    "max_home": 100,
+    "max_away": 100,
+    "momentum_swings": 10,
+    "total_points": 30
+  },
+  "xg": {
+    "home": 0.99,
+    "away": 1.01,
+    "source": "estimated",
+    "fields_used": [
+      "shots_on_target",
+      "shots_inside_box",
+      "shots_outside_box",
+      "corners"
+    ],
+    "n_fields": 4
+  },
+  "opening_odds": {}
+}
