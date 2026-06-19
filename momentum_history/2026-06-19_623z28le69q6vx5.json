@@ -1,0 +1,156 @@
+{
+  "event_id": "623z28le69q6vx5",
+  "date": "2026-06-19",
+  "saved_at": "2026-06-19T15:54:30.381061",
+  "source": "uniscore",
+  "casa": "Khan Tengri",
+  "fora": "Taraz",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": -100
+    },
+    {
+      "minute": 3,
+      "value": -100
+    },
+    {
+      "minute": 4,
+      "value": 42
+    },
+    {
+      "minute": 5,
+      "value": 40
+    },
+    {
+      "minute": 6,
+      "value": 100
+    }
+  ],
+  "goals": [
+    {
+      "minute": 70,
+      "addedTime": 0,
+      "team": "home",
+      "player": "bakhtishat abdullaev",
+      "ownGoal": false
+    },
+    {
+      "minute": 50,
+      "addedTime": 0,
+      "team": "home",
+      "player": "a.bizhan",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 2,
+    "away": 0
+  },
+  "shotmap": [],
+  "statistics": {
+    "corner_kicks": {
+      "home": "1",
+      "away": "1",
+      "homeValue": 1,
+      "awayValue": 1
+    },
+    "attacks": {
+      "home": "1",
+      "away": "6",
+      "homeValue": 1,
+      "awayValue": 6
+    },
+    "dangerous_attacks": {
+      "home": "1",
+      "away": "4",
+      "homeValue": 1,
+      "awayValue": 4
+    },
+    "ball_possession": {
+      "home": "17%",
+      "away": "83%",
+      "homeValue": 17,
+      "awayValue": 83
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "1",
+        "away": "6",
+        "homeValue": 1,
+        "awayValue": 6
+      },
+      "dangerous_attacks": {
+        "home": "1",
+        "away": "4",
+        "homeValue": 1,
+        "awayValue": 4
+      },
+      "ball_possession": {
+        "home": "17%",
+        "away": "83%",
+        "homeValue": 17,
+        "awayValue": 83
+      }
+    },
+    "1ST": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "1",
+        "away": "6",
+        "homeValue": 1,
+        "awayValue": 6
+      },
+      "dangerous_attacks": {
+        "home": "1",
+        "away": "4",
+        "homeValue": 1,
+        "awayValue": 4
+      },
+      "ball_possession": {
+        "home": "17%",
+        "away": "83%",
+        "homeValue": 17,
+        "awayValue": 83
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": -3.0,
+    "h1_avg": -66.667,
+    "h2_avg": 60.667,
+    "home_dominance_pct": 50.0,
+    "max_home": 100,
+    "max_away": 100,
+    "momentum_swings": 1,
+    "total_points": 6
+  },
+  "xg": {
+    "home": 0.03,
+    "away": 0.03,
+    "source": "estimated",
+    "fields_used": [
+      "corners"
+    ],
+    "n_fields": 1
+  },
+  "opening_odds": {}
+}
