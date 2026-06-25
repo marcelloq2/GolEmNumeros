@@ -1,0 +1,137 @@
+{
+  "event_id": "54cvbml3rv3mvp4",
+  "date": "2026-06-25",
+  "saved_at": "2026-06-25T15:52:51.885039",
+  "source": "uniscore",
+  "casa": "Gazovik Orenburg",
+  "fora": "Neftekhimik",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": 100
+    },
+    {
+      "minute": 3,
+      "value": 100
+    }
+  ],
+  "goals": [
+    {
+      "minute": 66,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "shotmap": [],
+  "statistics": {
+    "corner_kicks": {
+      "home": "1",
+      "away": "0",
+      "homeValue": 1,
+      "awayValue": 0
+    },
+    "attacks": {
+      "home": "4",
+      "away": "1",
+      "homeValue": 4,
+      "awayValue": 1
+    },
+    "dangerous_attacks": {
+      "home": "2",
+      "away": "0",
+      "homeValue": 2,
+      "awayValue": 0
+    },
+    "ball_possession": {
+      "home": "86%",
+      "away": "14%",
+      "homeValue": 86,
+      "awayValue": 14
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "attacks": {
+        "home": "4",
+        "away": "1",
+        "homeValue": 4,
+        "awayValue": 1
+      },
+      "dangerous_attacks": {
+        "home": "2",
+        "away": "0",
+        "homeValue": 2,
+        "awayValue": 0
+      },
+      "ball_possession": {
+        "home": "86%",
+        "away": "14%",
+        "homeValue": 86,
+        "awayValue": 14
+      }
+    },
+    "1ST": {
+      "corner_kicks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "attacks": {
+        "home": "4",
+        "away": "1",
+        "homeValue": 4,
+        "awayValue": 1
+      },
+      "dangerous_attacks": {
+        "home": "2",
+        "away": "0",
+        "homeValue": 2,
+        "awayValue": 0
+      },
+      "ball_possession": {
+        "home": "86%",
+        "away": "14%",
+        "homeValue": 86,
+        "awayValue": 14
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": 66.667,
+    "h1_avg": 0.0,
+    "h2_avg": 100.0,
+    "home_dominance_pct": 66.7,
+    "max_home": 100,
+    "max_away": 0.0,
+    "momentum_swings": 1,
+    "total_points": 3
+  },
+  "xg": {
+    "home": 0.03,
+    "away": 0.0,
+    "source": "estimated",
+    "fields_used": [
+      "corners"
+    ],
+    "n_fields": 1
+  },
+  "opening_odds": {}
+}
