@@ -1,0 +1,175 @@
+{
+  "event_id": "5z3v0bl2dlo4vu6",
+  "date": "2026-06-27",
+  "saved_at": "2026-06-27T15:56:30.035181",
+  "source": "uniscore",
+  "casa": "Rubin Yalta",
+  "fora": "Nart Cherkessk",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": 0
+    },
+    {
+      "minute": 3,
+      "value": -82
+    },
+    {
+      "minute": 4,
+      "value": 32
+    }
+  ],
+  "goals": [
+    {
+      "minute": 65,
+      "addedTime": 0,
+      "team": "away",
+      "player": "A. Dashaev",
+      "ownGoal": true
+    },
+    {
+      "minute": 63,
+      "addedTime": 0,
+      "team": "home",
+      "player": "A. Dashaev",
+      "ownGoal": true
+    },
+    {
+      "minute": 2,
+      "addedTime": 0,
+      "team": "away",
+      "player": "Artemiy ositsin",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "shotmap": [],
+  "statistics": {
+    "shots": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "shots_on_target": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "attacks": {
+      "home": "1",
+      "away": "5",
+      "homeValue": 1,
+      "awayValue": 5
+    },
+    "dangerous_attacks": {
+      "home": "0",
+      "away": "2",
+      "homeValue": 0,
+      "awayValue": 2
+    },
+    "ball_possession": {
+      "home": "13%",
+      "away": "87%",
+      "homeValue": 13,
+      "awayValue": 87
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "shots": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "shots_on_target": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "1",
+        "away": "5",
+        "homeValue": 1,
+        "awayValue": 5
+      },
+      "dangerous_attacks": {
+        "home": "0",
+        "away": "2",
+        "homeValue": 0,
+        "awayValue": 2
+      },
+      "ball_possession": {
+        "home": "13%",
+        "away": "87%",
+        "homeValue": 13,
+        "awayValue": 87
+      }
+    },
+    "1ST": {
+      "shots": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "shots_on_target": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "1",
+        "away": "5",
+        "homeValue": 1,
+        "awayValue": 5
+      },
+      "dangerous_attacks": {
+        "home": "0",
+        "away": "2",
+        "homeValue": 0,
+        "awayValue": 2
+      },
+      "ball_possession": {
+        "home": "13%",
+        "away": "87%",
+        "homeValue": 13,
+        "awayValue": 87
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": -12.5,
+    "h1_avg": 0.0,
+    "h2_avg": -25.0,
+    "home_dominance_pct": 25.0,
+    "max_home": 32,
+    "max_away": 82,
+    "momentum_swings": 1,
+    "total_points": 4
+  },
+  "xg": {
+    "home": 0.0,
+    "away": 0.39,
+    "source": "estimated",
+    "fields_used": [
+      "shots_on_target",
+      "shots_inside_box",
+      "shots_outside_box"
+    ],
+    "n_fields": 3
+  },
+  "opening_odds": {}
+}
