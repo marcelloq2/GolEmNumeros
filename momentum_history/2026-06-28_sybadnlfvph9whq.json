@@ -1,0 +1,207 @@
+{
+  "event_id": "sybadnlfvph9whq",
+  "date": "2026-06-28",
+  "saved_at": "2026-06-28T08:55:32.623781",
+  "source": "uniscore",
+  "casa": "Yenisey-2 Krasnoyarsk",
+  "fora": "Baltika-BFU",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 100
+    },
+    {
+      "minute": 2,
+      "value": 64
+    },
+    {
+      "minute": 3,
+      "value": -40
+    },
+    {
+      "minute": 4,
+      "value": -72
+    },
+    {
+      "minute": 5,
+      "value": 100
+    }
+  ],
+  "goals": [
+    {
+      "minute": 75,
+      "addedTime": 0,
+      "team": "home",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 73,
+      "addedTime": 0,
+      "team": "away",
+      "player": "Arsenii popushoi",
+      "ownGoal": false
+    },
+    {
+      "minute": 47,
+      "addedTime": 0,
+      "team": "away",
+      "player": "eldzhat mamedov",
+      "ownGoal": false
+    },
+    {
+      "minute": 30,
+      "addedTime": 0,
+      "team": "away",
+      "player": "kirill nikishin",
+      "ownGoal": false
+    },
+    {
+      "minute": 19,
+      "addedTime": 0,
+      "team": "away",
+      "player": "kirill nikishin",
+      "ownGoal": false
+    },
+    {
+      "minute": 17,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 3,
+      "addedTime": 0,
+      "team": "away",
+      "player": "D. Kiselev",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 1,
+    "away": 6
+  },
+  "shotmap": [],
+  "statistics": {
+    "shots": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "shots_on_target": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "attacks": {
+      "home": "5",
+      "away": "2",
+      "homeValue": 5,
+      "awayValue": 2
+    },
+    "dangerous_attacks": {
+      "home": "1",
+      "away": "1",
+      "homeValue": 1,
+      "awayValue": 1
+    },
+    "ball_possession": {
+      "home": "67%",
+      "away": "33%",
+      "homeValue": 67,
+      "awayValue": 33
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "shots": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "shots_on_target": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "5",
+        "away": "2",
+        "homeValue": 5,
+        "awayValue": 2
+      },
+      "dangerous_attacks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "ball_possession": {
+        "home": "67%",
+        "away": "33%",
+        "homeValue": 67,
+        "awayValue": 33
+      }
+    },
+    "1ST": {
+      "shots": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "shots_on_target": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "attacks": {
+        "home": "5",
+        "away": "2",
+        "homeValue": 5,
+        "awayValue": 2
+      },
+      "dangerous_attacks": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "ball_possession": {
+        "home": "67%",
+        "away": "33%",
+        "homeValue": 67,
+        "awayValue": 33
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": 30.4,
+    "h1_avg": 82.0,
+    "h2_avg": -4.0,
+    "home_dominance_pct": 60.0,
+    "max_home": 100,
+    "max_away": 72,
+    "momentum_swings": 2,
+    "total_points": 5
+  },
+  "xg": {
+    "home": 0.0,
+    "away": 0.39,
+    "source": "estimated",
+    "fields_used": [
+      "shots_on_target",
+      "shots_inside_box",
+      "shots_outside_box"
+    ],
+    "n_fields": 3
+  },
+  "opening_odds": {}
+}
