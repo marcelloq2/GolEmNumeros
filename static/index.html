@@ -819,6 +819,51 @@
     height: 100%; color: var(--text2); gap: 12px; padding: 40px 20px;
   }
 
+  /* Grid de cards ao vivo */
+  .live-grid-view {
+    display: none; flex: 1; overflow-y: auto; background: var(--bg);
+    padding: 14px; box-sizing: border-box;
+  }
+  .live-grid-view.active { display: block; }
+  .live-grid-wrap {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .live-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; cursor: pointer; transition: border-color .15s;
+  }
+  .live-card:hover { border-color: #4f6ef7; }
+  .live-card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; background: var(--bg3); font-size: 10px; color: var(--text2);
+    font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  }
+  .live-card-body { padding: 10px 12px; }
+  .live-card-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .live-card-team { flex: 1; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .live-card-team span.tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-card-score {
+    font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: 1px;
+    font-variant-numeric: tabular-nums; padding: 0 8px; flex-shrink: 0;
+  }
+  .live-card-meta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 10px; color: #ef4444; font-weight: 700; margin-top: 4px;
+  }
+  .live-card-stats {
+    display: flex; gap: 10px; font-size: 10px; color: var(--text2);
+    border-top: 1px solid var(--border); padding: 7px 12px; flex-wrap: wrap;
+  }
+  .live-card-stats span { display: flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+  .live-view-toggle {
+    display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  }
+  .live-view-toggle button {
+    background: transparent; border: none; color: var(--text2); font-size: 11px;
+    font-weight: 700; padding: 4px 9px; cursor: pointer;
+  }
+  .live-view-toggle button.active { background: #4f6ef7; color: #fff; }
 
   /* Painel de detalhes ao vivo */
   .live-detail {
@@ -1135,6 +1180,10 @@
           <option value="30">30s</option>
           <option value="60">60s</option>
         </select>
+        <div class="live-view-toggle" id="liveViewToggle">
+          <button id="liveViewBtnList" class="active" onclick="setLiveView('list')" title="Ver como lista">☰</button>
+          <button id="liveViewBtnGrid" onclick="setLiveView('grid')" title="Ver como grade de cards">▦</button>
+        </div>
         <button onclick="openLiveGuia()" title="Guia do Ao Vivo"
           style="background:transparent;border:1px solid #ef444444;border-radius:6px;
                  color:#ef4444;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
@@ -1165,6 +1214,9 @@
         </svg>
         <div style="font-size:13px;color:var(--text2)">Selecione um jogo ao vivo</div>
       </div>
+    </div>
+    <div class="live-grid-view" id="liveGridView">
+      <div class="live-grid-wrap" id="liveGridWrap"></div>
     </div>
   </div>
 
@@ -3008,6 +3060,7 @@ async function loadLiveMatches(silent = false) {
       html += `</div>`;
     }
     list.innerHTML = staleBar + html;
+    renderLiveGrid(matches);
 
     // ── Enriquecimento automático com Uniscore (assíncrono, não bloqueia render) ──
     _enrichAllWithUniscore(matches);
@@ -3083,6 +3136,7 @@ async function _enrichAllWithUniscore(matches) {
       if (m) _uniCache[`${m.casa}|${m.fora}`] = d;
     });
     _injectUniDataToRows(matches);
+    renderLiveGrid(matches);
     // Se há detalhe aberto, re-renderiza painel Uniscore com dados frescos
     if (activeLiveId !== null) {
       const m = matches.find(x => x.id === activeLiveId);
@@ -3099,6 +3153,100 @@ async function _enrichAllWithUniscore(matches) {
 }
 
 function _uniKeyFor(m) { return `${m.casa}|${m.fora}`; }
+
+// ── Alterna entre visão em lista (sidebar+detalhe) e grade de cards ──
+let currentLiveView = 'list';
+function setLiveView(view) {
+  currentLiveView = view;
+  document.getElementById('liveViewBtnList').classList.toggle('active', view === 'list');
+  document.getElementById('liveViewBtnGrid').classList.toggle('active', view === 'grid');
+  document.getElementById('liveSidebar').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('liveSidebarFab').style.display = 'none';
+  document.getElementById('liveDetail').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('liveGridView').classList.toggle('active', view === 'grid');
+  if (view === 'grid') renderLiveGrid(liveMatchesCache);
+}
+
+// ── Renderiza os jogos ao vivo como grade de cards (visão compacta) ──
+function renderLiveGrid(matches) {
+  const wrap = document.getElementById('liveGridWrap');
+  if (!wrap) return;
+  if (!matches || !matches.length) {
+    wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
+      <div style="font-size:36px">😴</div>
+      <div style="font-size:13px;font-weight:600">Nenhum jogo ao vivo agora</div>
+    </div>`;
+    return;
+  }
+
+  const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+
+  wrap.innerHTML = matches.map(m => {
+    const ref  = (allMatches||[]).find(x =>
+      norm(x.casa).includes(norm(m.casa).slice(0,6)) ||
+      norm(m.casa).includes(norm(x.casa).slice(0,6))
+    );
+    const sCasa = ref ? calcBtTeamScore(ref, true)  : null;
+    const sVis  = ref ? calcBtTeamScore(ref, false) : null;
+    const sGols = ref ? calcGoalScore(ref)          : null;
+
+    const scoreBadgeHtml = (v) => {
+      if (v === null) return '';
+      const cor = v >= 70 ? '#22c55e' : v >= 55 ? '#a3e635' : v >= 40 ? '#f59e0b' : '#ef4444';
+      const bg  = v >= 70 ? '#0d2d0d' : v >= 55 ? '#1a2a0a' : v >= 40 ? '#2a1f00' : '#2d0a0a';
+      return `<span style="font-size:9px;font-weight:700;color:${cor};background:${bg};
+        border-radius:3px;padding:0 4px;flex-shrink:0">${v}</span>`;
+    };
+    const goalBadgeHtml = (v) => {
+      if (v === null) return '';
+      const info = goalScoreInfo(v);
+      return `<span style="font-size:9px;font-weight:700;color:${info.color};
+        background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px">⚽${v}</span>`;
+    };
+
+    const d  = _uniCache[`${m.casa}|${m.fora}`];
+    let statsHtml = '<span style="opacity:.5">sem stats ainda</span>';
+    if (d && d.found) {
+      const s  = d.stats || {};
+      const st = d.statistics || {};
+      const gv = (key, fallH, fallA) => {
+        const it = st[key];
+        return it ? [it.homeValue ?? fallH, it.awayValue ?? fallA] : [fallH, fallA];
+      };
+      const [posH,   posA]   = gv('ball_possession', s.posse_casa ?? '?', s.posse_fora ?? '?');
+      const [shotsH, shotsA] = gv('shots', s.chutes_casa ?? '?', s.chutes_fora ?? '?');
+      const [cornH,  cornA]  = gv('corner_kicks', s.escanteios_casa ?? '?', s.escanteios_fora ?? '?');
+      statsHtml = `
+        <span title="Posse de Bola">⚽ ${posH}%<span style="color:var(--text2)">-</span>${posA}%</span>
+        <span title="Total de Chutes">🎯 ${shotsH}<span style="color:var(--text2)">-</span>${shotsA}</span>
+        <span title="Escanteios">🔄 ${cornH}<span style="color:var(--text2)">-</span>${cornA}</span>
+      `;
+    }
+
+    const redCasa = m.cartaoCasa > 0 ? `<span style="color:#ef4444">🟥${m.cartaoCasa}</span>` : '';
+    const redFora = m.cartaoFora > 0 ? `<span style="color:#ef4444">🟥${m.cartaoFora}</span>` : '';
+    const isFav   = isLiveMatchFavorite(m.casa, m.fora);
+
+    return `
+      <div class="live-card" onclick="setLiveView('list');openLiveDetail('${m.id}', document.getElementById('liveRow_${m.id}'))">
+        <div class="live-card-top">
+          <span>${m.pais ? m.pais + ' · ' : ''}${m.liga || ''}</span>
+          ${goalBadgeHtml(sGols)}
+        </div>
+        <div class="live-card-body">
+          <div class="live-card-teams">
+            <div class="live-card-team">${isFav ? '⭐' : ''}<span class="tname">${m.casa}</span>${redCasa}${scoreBadgeHtml(sCasa)}</div>
+            <div class="live-card-score">${m.golCasaFt} - ${m.golForaFt}</div>
+          </div>
+          <div class="live-card-teams" style="margin-top:4px">
+            <div class="live-card-team"><span class="tname">${m.fora}</span>${redFora}${scoreBadgeHtml(sVis)}</div>
+          </div>
+          <div class="live-card-meta">⏱ ${m.tempo || '--'}</div>
+        </div>
+        <div class="live-card-stats">${statsHtml}</div>
+      </div>`;
+  }).join('');
+}
 
 // Injeta mini-estatísticas Uniscore em cada card da sidebar
 function _injectUniDataToRows(matches) {
