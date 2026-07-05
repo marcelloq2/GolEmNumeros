@@ -257,8 +257,12 @@ def _parse_compare_page(html: str, source_url: str = "") -> dict:
     if last10:
         result["ultimas_10_partidas"] = _parse_last10(last10)
 
-    # H2H — confrontos diretos (pode estar vazio se não houver histórico)
-    h2h_div = dc.find("div", class_="matchbtwteams")
+    # H2H — confrontos diretos (pode estar vazio se não houver histórico).
+    # A página tem DOIS <div class="matchbtwteams">: o primeiro é só um ícone de navegação
+    # (sempre vazio) e o segundo é o container real com os confrontos — por isso pega
+    # o que realmente tem "matchitem" dentro, em vez do primeiro encontrado.
+    h2h_divs = dc.find_all("div", class_="matchbtwteams")
+    h2h_div = next((d for d in h2h_divs if d.find("div", class_="matchitem")), None)
     if h2h_div:
         result["confrontos_diretos"] = _parse_matchitems(h2h_div)
 
@@ -287,7 +291,7 @@ def _parse_teamsinfo(div) -> dict:
         name_div = half.find("div", class_="name")
         name = name_div.get_text(strip=True) if name_div else "?"
         rows = {}
-        for row in half.find_all("div", class_="row"):
+        for row in half.find_all("div", class_="datarow"):
             label_div = row.find("div", class_="label")
             value_div = row.find("div", class_="value")
             if label_div and value_div:
@@ -350,21 +354,34 @@ def _parse_matchitems(container) -> list[dict]:
         host_goals = host.find("div", class_="goals")
         guest_goals = guest.find("div", class_="goals")
 
-        # Primeiro tempo
-        ht_div = item.find("div", class_="halftimeresult")
-        ht_host = ht_div.find("div", class_="hostteam") if ht_div else None
-        ht_guest = ht_div.find("div", class_="guestteam") if ht_div else None
+        # Primeiro tempo — dentro de div.details > div.info > div.holder, tem 2x div.goals
+        # (o 1º é o placar HT do mandante, o 2º do visitante) seguidos de div.label "half time result"
+        ht_casa, ht_fora = "", ""
+        details_div = item.find("div", class_="details")
+        holder = details_div.find("div", class_="holder") if details_div else None
+        if holder:
+            label = holder.find("div", class_="label")
+            if label and "half time" in label.get_text(strip=True).lower():
+                ht_goals = holder.find_all("div", class_="goals")
+                if len(ht_goals) >= 2:
+                    ht_casa = ht_goals[0].get_text(strip=True)
+                    ht_fora = ht_goals[1].get_text(strip=True)
 
-        # Artilheiros
+        # Artilheiros — cada gol vem num div.action, com div.player tipo "13' Nome do Jogador",
+        # dentro de div.hostteam (marcou o mandante) ou div.guestteam (marcou o visitante)
         scorers = []
-        for scorer_div in item.find_all("div", class_=lambda c: c and "scorer" in str(c).lower()):
-            scorers.append(scorer_div.get_text(strip=True))
-        # Fallback: minuto + nome nos goals div
-        if not scorers:
-            for goal_ev in item.find_all("div", class_="goal"):
-                t = goal_ev.get_text(strip=True)
-                if t:
-                    scorers.append(t)
+        if details_div:
+            for action in details_div.find_all("div", class_="action"):
+                player_div = action.find("div", class_="player")
+                if not player_div:
+                    continue
+                texto = player_div.get_text(strip=True)
+                if not texto:
+                    continue
+                is_host_goal = action.find("div", class_="hostteam") is not None
+                time_marcador = (host_name.get_text(strip=True) if host_name else "") if is_host_goal \
+                    else (guest_name.get_text(strip=True) if guest_name else "")
+                scorers.append(f"{texto} ({time_marcador})" if time_marcador else texto)
 
         items.append({
             "competicao": comp.get_text(strip=True) if comp else "",
@@ -373,8 +390,8 @@ def _parse_matchitems(container) -> list[dict]:
             "gols_casa": host_goals.get_text(strip=True) if host_goals else "",
             "fora": guest_name.get_text(strip=True) if guest_name else "",
             "gols_fora": guest_goals.get_text(strip=True) if guest_goals else "",
-            "ht_casa": ht_host.get_text(strip=True) if ht_host else "",
-            "ht_fora": ht_guest.get_text(strip=True) if ht_guest else "",
+            "ht_casa": ht_casa,
+            "ht_fora": ht_fora,
             "artilheiros": scorers[:10],
         })
     return items

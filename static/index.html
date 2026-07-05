@@ -826,36 +826,68 @@
   }
   .live-grid-view.active { display: block; }
   .live-grid-wrap {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 14px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+    gap: 18px;
   }
   .live-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
     overflow: hidden; cursor: pointer; transition: border-color .15s;
   }
   .live-card:hover { border-color: #4f6ef7; }
+  .live-card-pinned { border-color: #f59e0b88; box-shadow: 0 0 0 1px #f59e0b44; }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 10px; background: var(--bg3); font-size: 10px; color: var(--text2);
+    padding: 10px 14px; background: var(--bg3); font-size: 12px; color: var(--text2);
     font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   }
-  .live-card-body { padding: 10px 12px; }
-  .live-card-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .live-card-team { flex: 1; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .live-card-body { padding: 14px 16px; }
+  .live-card-teams { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .live-card-team { flex: 1; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
   .live-card-team span.tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .live-card-score {
-    font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: 1px;
-    font-variant-numeric: tabular-nums; padding: 0 8px; flex-shrink: 0;
+    font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: 1px;
+    font-variant-numeric: tabular-nums; padding: 0 10px; flex-shrink: 0;
   }
   .live-card-meta {
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: 10px; color: #ef4444; font-weight: 700; margin-top: 4px;
+    font-size: 13px; color: #ef4444; font-weight: 700; margin-top: 8px;
   }
   .live-card-stats {
-    display: flex; gap: 10px; font-size: 10px; color: var(--text2);
-    border-top: 1px solid var(--border); padding: 7px 12px; flex-wrap: wrap;
+    font-size: 15px; color: var(--text2);
+    border-top: 1px solid var(--border); padding: 10px 16px 12px;
+    font-variant-numeric: tabular-nums;
   }
-  .live-card-stats span { display: flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+  .live-card-stats > * { max-width: 80%; margin-left: auto; margin-right: auto; }
+  .live-card-momentum-wrap {
+    border-top: 1px solid var(--border); padding: 10px 16px 4px;
+  }
+  .live-card-shotmap-wrap {
+    padding: 6px 16px 0;
+  }
+  .live-card-shotmap-wrap svg {
+    max-width: 80%; display: block; margin: 0 auto;
+  }
+  .live-card-shotmap-wrap > div:last-child {
+    max-width: 80%; margin: 0 auto;
+  }
+  .live-card-odds-narrow {
+    padding: 0 16px;
+  }
+  .live-card-odds-narrow > div {
+    max-width: 80%; margin: 0 auto;
+  }
+  .live-card-tabs-narrow {
+    justify-content: center;
+  }
+  .live-card-tabs {
+    display: flex; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
+  }
+  .live-card-tab-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text2);
+    font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px 6px 0 0;
+    cursor: pointer; border-bottom: none;
+  }
+  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #4f6ef7; }
   .live-view-toggle {
     display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0;
   }
@@ -1015,10 +1047,9 @@
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchView('today', this)">📅 Hoje</button>
-    <button class="nav-tab" id="navFavTab" onclick="switchView('favs', this)">⭐ Favoritos <span id="navFavCount"></span></button>
-    <button class="nav-tab" id="navEdgeTab" onclick="switchView('edge', this)">🎯 Edge <span id="navEdgeCount" style="display:none;background:#22c55e;color:#000;border-radius:9px;padding:0 5px;font-size:10px;font-weight:700;margin-left:2px"></span></button>
     <button class="nav-tab" onclick="switchView('live', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
+    <button class="nav-tab" onclick="switchView('passadas', this)">📅 Passadas</button>
   </div>
 </header>
 
@@ -1124,6 +1155,37 @@
 
   </div>
 
+  <!-- PASSADAS wrapper (sidebar + detail) -->
+  <div id="passadasWrapper" style="display:none;flex:1;position:relative;overflow:hidden">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="passadasSidebar">
+      <div class="sidebar-top">
+        <input class="search-box" id="passadasSearchBox" placeholder="🔍  Buscar time ou liga..." oninput="filterPassadas()">
+        <button class="filter-btn active" onclick="setPassadasFilter('all', this)">Todos</button>
+        <button class="filter-btn" onclick="setPassadasFilter('tip1', this)">TIP 1</button>
+        <button class="filter-btn" onclick="setPassadasFilter('tipx', this)">TIP X</button>
+        <button class="filter-btn" onclick="setPassadasFilter('tip2', this)">TIP 2</button>
+        <button class="filter-btn" onclick="setPassadasFilter('acertou', this)">✅ Acertou</button>
+        <button class="filter-btn" onclick="setPassadasFilter('errou', this)">❌ Errou</button>
+        <div class="sf-divider"></div>
+        <span id="passadasCount" style="font-size:11px;color:var(--text2);white-space:nowrap"></span>
+      </div>
+      <div id="passadasMatchList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- DETAIL -->
+    <div class="detail-panel" id="passadasDetail">
+      <div class="detail-placeholder">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+        </svg>
+        <div>Selecione uma partida passada para ver os detalhes</div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- FAVORITOS -->
   <div class="favs-panel" id="favsPanel">
     <div class="favs-sidebar">
@@ -1176,14 +1238,10 @@
         <select id="liveRefreshSelect" onchange="setLiveRefreshInterval(+this.value)"
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);
                  border-radius:6px;padding:3px 6px;font-size:11px;cursor:pointer">
-          <option value="15" selected>15s</option>
+          <option value="15">15s</option>
           <option value="30">30s</option>
-          <option value="60">60s</option>
+          <option value="60" selected>60s</option>
         </select>
-        <div class="live-view-toggle" id="liveViewToggle">
-          <button id="liveViewBtnList" class="active" onclick="setLiveView('list')" title="Ver como lista">☰</button>
-          <button id="liveViewBtnGrid" onclick="setLiveView('grid')" title="Ver como grade de cards">▦</button>
-        </div>
         <button onclick="openLiveGuia()" title="Guia do Ao Vivo"
           style="background:transparent;border:1px solid #ef444444;border-radius:6px;
                  color:#ef4444;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
@@ -1216,6 +1274,15 @@
       </div>
     </div>
     <div class="live-grid-view" id="liveGridView">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px 0">
+        <input id="liveSearchInput" type="text" placeholder="🔍 Buscar jogo ou time..." oninput="filterLiveGridBySearch(this.value)"
+          style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:12px;padding:5px 10px;flex:1;max-width:260px">
+        <button id="liveShowAllBtn" onclick="toggleLiveShowAllNoMap()" title="Mostrar também jogos sem mapa/gráfico ainda"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:11px;font-weight:700;padding:4px 10px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">👁 Mostrar todos</button>
+      </div>
       <div class="live-grid-wrap" id="liveGridWrap"></div>
     </div>
   </div>
@@ -1352,6 +1419,7 @@
       <div id="btStatsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btOddsPatternPanel" style="border-bottom:1px solid var(--border)"></div>
       <div id="btShotmapPanel" style="border-bottom:1px solid var(--border)"></div>
+      <div id="btConvergencePanel" style="border-bottom:1px solid var(--border)"></div>
       <div class="bt-match-list" id="btMatchList" style="display:none">
         <div class="bt-empty">
           <div style="font-size:32px">📅</div>
@@ -2843,17 +2911,19 @@ function switchView(view, btn) {
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  const todayWrapper  = document.getElementById('todayWrapper');
-  const favsPanel     = document.getElementById('favsPanel');
-  const edgePanel     = document.getElementById('edgePanel');
-  const livePanel     = document.getElementById('livePanel');
-  const btPanel       = document.getElementById('backtestPanel');
+  const todayWrapper    = document.getElementById('todayWrapper');
+  const favsPanel       = document.getElementById('favsPanel');
+  const edgePanel       = document.getElementById('edgePanel');
+  const livePanel       = document.getElementById('livePanel');
+  const btPanel         = document.getElementById('backtestPanel');
+  const passadasWrapper = document.getElementById('passadasWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   favsPanel.classList.remove('active');
   edgePanel.style.display     = 'none';
   livePanel.classList.remove('active');
   btPanel.classList.remove('active');
+  passadasWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
 
@@ -2867,7 +2937,11 @@ function switchView(view, btn) {
     renderEdgePanel();
   } else if (view === 'live') {
     livePanel.classList.add('active');
+    setLiveView('grid');
     loadLiveMatches();
+  } else if (view === 'passadas') {
+    passadasWrapper.style.display = 'flex';
+    loadPassadas();
   } else {
     btPanel.classList.add('active');
     loadBacktestDates();
@@ -3127,13 +3201,13 @@ async function _enrichAllWithUniscore(matches) {
       body: JSON.stringify({ partidas })
     });
     const results = await res.json();
-    // Armazena no cache e injeta nos cards
-    results.forEach(d => {
-      const key = `${d.casa}|${d.fora}`;
-      _uniCache[key] = d;
-      // também indexa pela chave original do painel (pode ter nomes ligeiramente diferentes)
-      const m = matches.find(x => x.casa === d.casa || x.fora === d.fora || (d.found && _uniKeyFor(x) === key));
+    // Armazena no cache pela chave ORIGINAL do painel (mesma ordem/índice do request) —
+    // o Uniscore pode devolver o nome do time em outro idioma/grafia (ex: "Australia" em vez
+    // de "Austrália"), então comparar nomes pra achar o match de volta não é confiável.
+    results.forEach((d, i) => {
+      const m = matches[i];
       if (m) _uniCache[`${m.casa}|${m.fora}`] = d;
+      if (d && d.casa) _uniCache[`${d.casa}|${d.fora}`] = d; // também guarda pela chave "nativa" (compatibilidade)
     });
     _injectUniDataToRows(matches);
     renderLiveGrid(matches);
@@ -3154,17 +3228,1097 @@ async function _enrichAllWithUniscore(matches) {
 
 function _uniKeyFor(m) { return `${m.casa}|${m.fora}`; }
 
-// ── Alterna entre visão em lista (sidebar+detalhe) e grade de cards ──
-let currentLiveView = 'list';
+// ── A visão em lista (sidebar+detalhe) foi removida — só existe mais a grade de cards ──
+let currentLiveView = 'grid';
+let _prevGridScore = {};   // { [matchId]: { casa: N, fora: N } } — usado pro efeito de gol nos cards
 function setLiveView(view) {
-  currentLiveView = view;
-  document.getElementById('liveViewBtnList').classList.toggle('active', view === 'list');
-  document.getElementById('liveViewBtnGrid').classList.toggle('active', view === 'grid');
-  document.getElementById('liveSidebar').style.display = view === 'list' ? '' : 'none';
+  currentLiveView = 'grid';
+  document.getElementById('liveSidebar').style.display = 'none';
   document.getElementById('liveSidebarFab').style.display = 'none';
-  document.getElementById('liveDetail').style.display = view === 'list' ? '' : 'none';
-  document.getElementById('liveGridView').classList.toggle('active', view === 'grid');
-  if (view === 'grid') renderLiveGrid(liveMatchesCache);
+  document.getElementById('liveDetail').style.display = 'none';
+  document.getElementById('liveGridView').classList.add('active');
+  renderLiveGrid(liveMatchesCache);
+}
+
+// ── Conteúdo compartilhado dos cards da grade (globais — usados também por setCardTab) ──
+// ── Lista de artilheiros (quem fez o gol e o minuto) — usa os incidentes já buscados do Uniscore ──
+// ── Widget "Estudo de Score" — correlação histórica (do Backtest) pro score atual do jogo ──
+function _liveScoreRef(m) {
+  const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  return (allMatches||[]).find(x =>
+    norm(x.casa).includes(norm(m.casa).slice(0,6)) ||
+    norm(m.casa).includes(norm(x.casa).slice(0,6))
+  );
+}
+
+// ── Mesma conta de picks do widget (_prog dentro de _renderScoreStudyBody), mas standalone —
+// permite salvar o Prognóstico Pré-Live no histórico de acertos SEM precisar abrir o widget.
+// Recebe corr/allWr já calculados (compartilhados entre as partidas) pra não recalcular
+// a correlação inteira do backtest uma vez por jogo. ──
+function _computeProgStandalone(m, corr, allWr) {
+  const ref = _liveScoreRef(m);
+  if (!ref) return null;
+
+  const sCasa = calcBtTeamScore(ref, true);
+  const sVis  = calcBtTeamScore(ref, false);
+  const sGols = calcGoalScore(ref);
+
+  const findBucket = (buckets, score) => buckets.find(b => score >= b.min && score <= b.max);
+  const bCasa = findBucket(corr.casa, sCasa);
+  const bFora = findBucket(corr.fora, sVis);
+  const bGols = sGols !== null ? findBucket(corr.gols, sGols) : null;
+
+  const crossStats = (dim1Fn, r1, dim2Fn, r2) => {
+    if (!r1 || !r2) return null;
+    const sub = allWr.filter(mm => {
+      const v1 = dim1Fn(mm), v2 = dim2Fn(mm);
+      return v1 != null && v1 >= r1.min && v1 <= r1.max && v2 != null && v2 >= r2.min && v2 <= r2.max;
+    });
+    return _mktStats(sub);
+  };
+  const crossCasaFora = crossStats(mm => calcBtTeamScore(mm, true),  bCasa, mm => calcBtTeamScore(mm, false), bFora);
+  const crossCasaGols = crossStats(mm => calcBtTeamScore(mm, true),  bCasa, mm => calcGoalScore(mm),          bGols);
+  const crossForaGols = crossStats(mm => calcBtTeamScore(mm, false), bFora, mm => calcGoalScore(mm),          bGols);
+
+  const confidenceInfo = (n) =>
+    n >= 200 ? { label: 'Amostra forte',    dot: '🟢', hex: '#22c55e' } :
+    n >= 50  ? { label: 'Amostra moderada', dot: '🟡', hex: '#f59e0b' } :
+               { label: 'Amostra pequena',  dot: '🔴', hex: '#ef4444' };
+
+  const _bestPick = (marketKeys, buckets) => {
+    let best = null;
+    for (const b of buckets) {
+      if (!b || b.n < 30) continue;
+      for (const mk of marketKeys) {
+        const val = b.mkt[mk.key];
+        if (val === null || val === undefined) continue;
+        const base = corr.base.mkt[mk.key];
+        const diff = base !== null && base !== undefined ? val - base : 0;
+        const rank = diff + Math.min(b.n, 500) / 500 * 5;
+        if (!best || rank > best.rank) best = { label: mk.label, val, diff, n: b.n, rank };
+      }
+    }
+    return best;
+  };
+
+  const pick1x2 = _bestPick([
+    { key: 'casaVence',      label: `${m.casa} vencer` },
+    { key: 'visitanteVence', label: `${m.fora} vencer` },
+    { key: 'empate',         label: 'Empate' },
+  ], [crossCasaFora, bCasa, bFora]);
+
+  const pickGols = _bestPick([
+    { key: 'over05',  label: 'Over 0.5' },  { key: 'under05', label: 'Under 0.5' },
+    { key: 'over15',  label: 'Over 1.5' },  { key: 'under15', label: 'Under 1.5' },
+    { key: 'over25',  label: 'Over 2.5' },  { key: 'under25', label: 'Under 2.5' },
+    { key: 'over35',  label: 'Over 3.5' },  { key: 'under35', label: 'Under 3.5' },
+  ], [crossCasaGols, crossForaGols, bGols]);
+
+  const pickBts = _bestPick([
+    { key: 'bttsS', label: 'Ambas Marcam - Sim' },
+    { key: 'bttsN', label: 'Ambas Marcam - Não' },
+  ], [crossCasaGols, crossForaGols, bGols]);
+
+  const picks = [pick1x2, pickGols, pickBts].filter(Boolean);
+  if (!picks.length) return null;
+
+  const scoreSrc = crossCasaFora && crossCasaFora.n >= 30 ? crossCasaFora
+                  : bCasa && bCasa.n >= 30 ? bCasa
+                  : bFora;
+  let placarSugerido = null, placarImprovavel = null;
+  if (scoreSrc && scoreSrc.n) {
+    const sorted = Object.entries(scoreSrc.scores || {})
+      .filter(([score]) => { const [gc,gf] = score.split('-').map(Number); return gc <= 4 && gf <= 4; })
+      .sort((a, b) => b[1] - a[1]);
+    const top = sorted[0];
+    if (top) placarSugerido = { score: top[0], pct: Math.round(top[1] / scoreSrc.n * 100) };
+    if (scoreSrc.n >= 100 && sorted.length > 1) {
+      const bottom = sorted[sorted.length - 1];
+      placarImprovavel = { score: bottom[0], pct: Math.round(bottom[1] / scoreSrc.n * 100) };
+    }
+  }
+
+  const minN = Math.min(...picks.map(p => p.n));
+  return { pick1x2, pickGols, pickBts, picks, placarSugerido, placarImprovavel, conf: confidenceInfo(minN) };
+}
+
+// ── Roda em segundo plano (a cada atualização da grade "Ao Vivo") e salva o Prognóstico
+// Pré-Live de TODO jogo ao vivo no histórico de acertos — sem precisar abrir o widget.
+// Só computa pra jogos ainda não salvos hoje, pra não recalcular a correlação toda hora. ──
+function _autoSaveLivePrognoses() {
+  if (!btAllMatchesCache || !liveMatchesCache || !liveMatchesCache.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const history = _loadProgHistory();
+  const savedKeys = new Set(history.map(e => e.key));
+  const pendentes = liveMatchesCache.filter(m => !savedKeys.has(`${m.casa}|${m.fora}|${today}`));
+  if (!pendentes.length) return;
+
+  const allMatchesFlat = btAllMatchesCache.flatMap(d => d.matches);
+  const corr  = calcScoreCorrelation(allMatchesFlat);
+  const allWr = allMatchesFlat.filter(mm => mm.resultado && mm.resultado.includes(':'));
+
+  pendentes.forEach(m => {
+    try {
+      const prog = _computeProgStandalone(m, corr, allWr);
+      if (prog) _savePrognosisSnapshot(m, prog);
+    } catch(e) { /* silencioso — não deve travar o refresh da grade por causa disso */ }
+  });
+}
+
+let _scoreStudyRefreshInterval = null;
+
+function openScoreStudy(matchId) {
+  const m = liveMatchesCache.find(x => String(x.id) === String(matchId));
+  if (!m) return;
+
+  // Fecha qualquer widget/intervalo anterior antes de abrir um novo — evita que o
+  // refresh automático de uma partida antiga sobrescreva o conteúdo da partida atual
+  if (_scoreStudyRefreshInterval) { clearInterval(_scoreStudyRefreshInterval); _scoreStudyRefreshInterval = null; }
+  const oldOverlay = document.getElementById('scoreStudyOverlay');
+  if (oldOverlay) oldOverlay.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'scoreStudyOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = (ev) => { if (ev.target === overlay) _closeScoreStudy(); };
+  overlay.innerHTML = `
+    <div style="max-width:420px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
+                border:1px solid var(--border);border-radius:12px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:800">📈 Estatísticas Pré — ${m.casa} × ${m.fora}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="openProgHistory()" title="Histórico de acertos"
+            style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
+                   font-size:11px;padding:4px 8px;cursor:pointer">📈 Histórico</button>
+          <button onclick="_closeScoreStudy()"
+            style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
+                   width:26px;height:26px;cursor:pointer">×</button>
+        </div>
+      </div>
+      <div id="scoreStudyBody">⏳ Carregando histórico...</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  _renderScoreStudyBody(m);
+
+  // Re-renderiza o widget periodicamente enquanto estiver aberto, pra o Prognóstico Live
+  // acompanhar os sinais (xG/momentum/chutes) conforme o card atualiza em segundo plano.
+  // Guarda o id da própria partida (matchId) fechado no closure — só essa instância pode
+  // se re-renderizar, e ela para sozinha se o overlay já não for mais dela (outro jogo abriu).
+  _scoreStudyRefreshInterval = setInterval(() => {
+    if (!document.getElementById('scoreStudyOverlay') || _scoreStudyOpenId !== matchId) {
+      clearInterval(_scoreStudyRefreshInterval); _scoreStudyRefreshInterval = null; return;
+    }
+    const fresh = liveMatchesCache.find(x => String(x.id) === String(matchId));
+    if (fresh) _renderScoreStudyBody(fresh);
+  }, 20000);
+  _scoreStudyOpenId = matchId;
+}
+
+let _scoreStudyOpenId = null;
+
+function _closeScoreStudy() {
+  if (_scoreStudyRefreshInterval) { clearInterval(_scoreStudyRefreshInterval); _scoreStudyRefreshInterval = null; }
+  _scoreStudyOpenId = null;
+  const el = document.getElementById('scoreStudyOverlay');
+  if (el) el.remove();
+}
+
+// Cache compartilhado de "detalhes" do StatArea por partida (por url_detalhes) — usado tanto
+// pela aba Classificação quanto pela Estatísticas Pré, pra não buscar os mesmos dados 2x
+// se o usuário abrir as duas abas do mesmo jogo.
+let _matchDetalhesCache = {};
+async function _fetchMatchDetalhes(urlDetalhes) {
+  if (_matchDetalhesCache[urlDetalhes]) return _matchDetalhesCache[urlDetalhes];
+  const matchId = urlDetalhes.split('/compare/teams/')[1] || urlDetalhes;
+  const encoded = encodeURIComponent(matchId);
+  let detalhes = {};
+  const cached = await fetch('/api/match/' + encoded);
+  if (cached.ok) {
+    detalhes = (await cached.json()).detalhes || {};
+  }
+  // O cache local pode ter a partida salva mas com "detalhes" vazio (raspagem sem
+  // fetch_details, ou jogo adicionado depois) — nesse caso o /api/match/ responde 200
+  // só que sem nada útil, então busca ao vivo em vez de aceitar o vazio.
+  const temConteudo = detalhes && (detalhes.bet_statistics || detalhes.estatisticas || detalhes.ultimas_10_partidas);
+  if (!temConteudo) {
+    const liveRes = await fetch('/api/match/live/' + encoded);
+    const liveDetalhes = liveRes.ok ? ((await liveRes.json()).detalhes || {}) : {};
+    if (liveDetalhes && Object.keys(liveDetalhes).length) detalhes = liveDetalhes;
+  }
+  _matchDetalhesCache[urlDetalhes] = detalhes;
+  return detalhes;
+}
+
+// Cache por partida — as estatísticas de apostas do StatArea não mudam durante o jogo
+let _scoreStudyBetStatsCache = {};
+
+async function _renderScoreStudyBody(m) {
+  const body = document.getElementById('scoreStudyBody');
+  if (!body) return;
+
+  if (_scoreStudyBetStatsCache[m.id]) {
+    body.innerHTML = _scoreStudyBetStatsCache[m.id];
+    return;
+  }
+
+  body.innerHTML = '⏳ Buscando estatísticas na base...';
+
+  const ref = _liveScoreRef(m);
+  if (!ref || !ref.url_detalhes) {
+    body.innerHTML = '<div style="opacity:.6;font-size:12px">Não achei esse jogo na base do StatArea pra buscar as estatísticas de apostas.</div>';
+    return;
+  }
+
+  let detalhes;
+  try {
+    detalhes = await _fetchMatchDetalhes(ref.url_detalhes);
+  } catch (e) {
+    body.innerHTML = '<div style="opacity:.6;font-size:12px">Erro ao buscar as estatísticas de apostas.</div>';
+    return;
+  }
+
+  const html = buildStatAreaPrognosisHtml(detalhes, m) + buildScoreStudyBetStatsHtml(detalhes.bet_statistics || {});
+  _scoreStudyBetStatsCache[m.id] = html;
+  body.innerHTML = html;
+}
+
+// ── Acha a chave de um time num objeto {nomeTime: {...}} do StatArea, tolerando pequenas
+// diferenças de grafia/idioma entre o nome vindo do Uniscore (m.casa/m.fora) e o do StatArea ──
+function _findStatAreaKey(obj, teamName) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const tn = norm(teamName);
+  const keys = Object.keys(obj || {});
+  return keys.find(k => norm(k).includes(tn.slice(0, 6)) || tn.includes(norm(k).slice(0, 6))) || keys[0];
+}
+
+// ── Prognóstico calculado SÓ com as Estatísticas de Apostas de cada time (o mesmo dado
+// que aparece na aba Hoje e logo abaixo neste widget) — sem cruzar com Últimas 10 Partidas
+// nem Confrontos Diretos, que são seções separadas ──
+function buildStatAreaPrognosisHtml(detalhes, m) {
+  const betStats  = detalhes.bet_statistics || {};
+  const kCasaBet  = _findStatAreaKey(betStats, m.casa);
+  const kForaBet  = _findStatAreaKey(betStats, m.fora);
+  if (!kCasaBet && !kForaBet) return '';
+
+  const pct = (v) => parseInt(v) || 0;
+
+  // ── 1X2 — só com o histórico próprio de cada time nas Estatísticas de Apostas ──
+  const casa1x2 = betStats[kCasaBet]?.['1 X 2'] || {};
+  const fora1x2 = betStats[kForaBet]?.['1 X 2'] || {};
+  const betCasaWin = pct(casa1x2[kCasaBet]), betCasaDraw = pct(casa1x2.draw);
+  const betForaWin = pct(fora1x2[kForaBet]), betForaDraw = pct(fora1x2.draw);
+
+  let pCasa, pEmp, pFora;
+  if (betCasaWin || betForaWin) {
+    pCasa = (betCasaWin + (100 - betForaWin - betForaDraw)) / 2;
+    pFora = (betForaWin + (100 - betCasaWin - betCasaDraw)) / 2;
+    pEmp  = (betCasaDraw + betForaDraw) / 2;
+  } else { pCasa = 33; pEmp = 34; pFora = 33; }
+  const tot1x2 = pCasa + pEmp + pFora || 1;
+  pCasa = Math.round(pCasa / tot1x2 * 100);
+  pEmp  = Math.round(pEmp  / tot1x2 * 100);
+  pFora = Math.max(0, 100 - pCasa - pEmp);
+
+  // ── Nível de confiança: como não temos amostra (backtest), a confiança aqui mede o quanto
+  // os 2 times CONCORDAM entre si nos próprios números — se os dois times apontam pro mesmo
+  // lado, é um sinal mais confiável; se divergem muito, a média fica menos confiável ──
+  const agreementConf = (a, b) => {
+    if (!a && !b) return null;
+    const diff = Math.abs(a - b);
+    return diff <= 12 ? { dot: '🟢', label: 'Confiança alta — times concordam' }
+         : diff <= 28 ? { dot: '🟡', label: 'Confiança média — times parcialmente divergem' }
+                       : { dot: '🔴', label: 'Confiança baixa — times divergem bastante' };
+  };
+  const marginConf = (probs) => {
+    const sorted = [...probs].sort((a,b) => b - a);
+    const margin = sorted[0] - sorted[1];
+    return margin >= 20 ? { dot: '🟢', label: 'Confiança alta — favorito bem destacado' }
+         : margin >= 8  ? { dot: '🟡', label: 'Confiança média' }
+                        : { dot: '🔴', label: 'Confiança baixa — resultado bem disputado' };
+  };
+  const confSpan = () => ''; // selos de confiança removidos a pedido do usuário
+
+  // ── Over/Under (1.5/2.5/3.5) — média do próprio histórico dos 2 times, genérico pra linha ──
+  const overLine = (line) => {
+    const key = (obj) => Object.keys(obj || {}).find(k => k.includes(`${line}`) && k.includes('all goals'));
+    const casaV = pct(betStats[kCasaBet]?.[key(betStats[kCasaBet])]?.over);
+    const foraV = pct(betStats[kForaBet]?.[key(betStats[kForaBet])]?.over);
+    const betV = [casaV, foraV].filter(Boolean);
+    const p = betV.length ? betV.reduce((a,b)=>a+b,0) / betV.length : null;
+    return { p, conf: agreementConf(casaV, foraV) };
+  };
+  const { p: pOver15, conf: confOver15 } = overLine(1.5);
+  const { p: pOver25, conf: confOver25 } = overLine(2.5);
+  const { p: pOver35, conf: confOver35 } = overLine(3.5);
+
+  const _1x2Conf = marginConf([pCasa, pEmp, pFora]);
+
+  // ── Ambas Marcam — "Team to score" (both%) dos 2 times ──
+  const bttsRow = (obj) => Object.entries(obj || {}).find(([k]) => k.toLowerCase() === 'team to score')?.[1];
+  const casaBtts = pct(bttsRow(betStats[kCasaBet])?.both);
+  const foraBtts = pct(bttsRow(betStats[kForaBet])?.both);
+  const betBtts = [casaBtts, foraBtts].filter(Boolean);
+  const pBtts = betBtts.length ? betBtts.reduce((a,b)=>a+b,0) / betBtts.length : null;
+  const confBtts = agreementConf(casaBtts, foraBtts);
+
+  // ── 1º Tempo — 1X2 — mesma lógica do FT, usando só a linha "Halftime 1 X 2" ──
+  const casaHt = betStats[kCasaBet]?.['Halftime 1 X 2'] || {};
+  const foraHt = betStats[kForaBet]?.['Halftime 1 X 2'] || {};
+  const betCasaWinHt = pct(casaHt[kCasaBet]), betCasaDrawHt = pct(casaHt.draw);
+  const betForaWinHt = pct(foraHt[kForaBet]), betForaDrawHt = pct(foraHt.draw);
+  let pCasaHt, pEmpHt, pForaHt;
+  if (betCasaWinHt || betForaWinHt) {
+    pCasaHt = (betCasaWinHt + (100 - betForaWinHt - betForaDrawHt)) / 2;
+    pForaHt = (betForaWinHt + (100 - betCasaWinHt - betCasaDrawHt)) / 2;
+    pEmpHt  = (betCasaDrawHt + betForaDrawHt) / 2;
+    const totHt = pCasaHt + pEmpHt + pForaHt || 1;
+    pCasaHt = Math.round(pCasaHt / totHt * 100);
+    pEmpHt  = Math.round(pEmpHt  / totHt * 100);
+    pForaHt = Math.max(0, 100 - pCasaHt - pEmpHt);
+  }
+  const htConf = (pCasaHt !== undefined && pCasaHt !== null) ? marginConf([pCasaHt, pEmpHt, pForaHt]) : null;
+
+  // ── Par/Ímpar de gols — média do próprio histórico dos 2 times ──
+  const oddEvenRow = (obj) => Object.entries(obj || {}).find(([k]) => k.toLowerCase().includes('odd/even'))?.[1];
+  const casaOdd = pct(oddEvenRow(betStats[kCasaBet])?.odd);
+  const foraOdd = pct(oddEvenRow(betStats[kForaBet])?.odd);
+  const betOdd = [casaOdd, foraOdd].filter(Boolean);
+  const pOdd = betOdd.length ? betOdd.reduce((a,b)=>a+b,0) / betOdd.length : null;
+  const confOdd = agreementConf(casaOdd, foraOdd);
+
+  // ── Quem marca primeiro — "Team to score first" próprio de cada time ──
+  const scoreFirstRow = (obj, key) => Object.entries(obj || {}).find(([k]) => k.toLowerCase() === 'team to score first')?.[1]?.[key];
+  const casaMarcaPrimeiro = pct(scoreFirstRow(betStats[kCasaBet], kCasaBet));
+  const foraMarcaPrimeiro = pct(scoreFirstRow(betStats[kForaBet], kForaBet));
+  let pCasaPrimeiro = null, pForaPrimeiro = null, confPrimeiro = null;
+  if (casaMarcaPrimeiro || foraMarcaPrimeiro) {
+    const totPrimeiro = casaMarcaPrimeiro + foraMarcaPrimeiro || 1;
+    pCasaPrimeiro = casaMarcaPrimeiro / totPrimeiro * 100;
+    pForaPrimeiro = foraMarcaPrimeiro / totPrimeiro * 100;
+    confPrimeiro = marginConf([pCasaPrimeiro, pForaPrimeiro]);
+  }
+
+  // ── Under (FT) — simplesmente o complemento do Over já calculado acima ──
+  const pUnder15 = pOver15 !== null ? 100 - pOver15 : null;
+  const pUnder25 = pOver25 !== null ? 100 - pOver25 : null;
+  const pUnder35 = pOver35 !== null ? 100 - pOver35 : null;
+
+  // ── Placar sugerido + Handicap — estima o total de gols esperado (lambda) invertendo
+  // as % de Over 1.5/2.5/3.5 já calculadas (só com Estatísticas de Apostas) contra um
+  // modelo Poisson, depois divide entre os 2 times conforme o favoritismo do 1X2 ──
+  let lambdaCasa = null, lambdaFora = null, placarSugerido = null, confGols = null;
+  if (pOver15 !== null || pOver25 !== null || pOver35 !== null) {
+    const fatL = [1,1,2,6,24,120,720,5040];
+    const poissonL = (k, lambda) => Math.exp(-lambda) * Math.pow(lambda, k) / fatL[k];
+    const pOverAt = (lambda, line) => {
+      let acc = 0;
+      for (let k = 0; k <= Math.floor(line); k++) acc += poissonL(k, lambda);
+      return (1 - acc) * 100;
+    };
+    let bestLambda = 2.5, bestErr = Infinity, nLinhas = 0;
+    for (let lambda = 0.3; lambda <= 7; lambda += 0.1) {
+      let err = 0, n = 0;
+      if (pOver15 !== null) { err += Math.pow(pOverAt(lambda, 1.5) - pOver15, 2); n++; }
+      if (pOver25 !== null) { err += Math.pow(pOverAt(lambda, 2.5) - pOver25, 2); n++; }
+      if (pOver35 !== null) { err += Math.pow(pOverAt(lambda, 3.5) - pOver35, 2); n++; }
+      if (err < bestErr) { bestErr = err; bestLambda = lambda; nLinhas = n; }
+    }
+    // Divide o total esperado entre os times conforme quem é mais favorito no 1X2
+    const shareCasa = 0.5 + (pCasa - pFora) / 200;
+    lambdaCasa = Math.max(0.15, bestLambda * shareCasa);
+    lambdaFora = Math.max(0.15, bestLambda - lambdaCasa);
+    const expCasa = Math.max(0, Math.round(lambdaCasa));
+    const expFora = Math.max(0, Math.round(lambdaFora));
+    placarSugerido = `${Math.min(expCasa, 5)}-${Math.min(expFora, 5)}`;
+    // Confiança do ajuste: erro médio por linha usada — quanto menor, melhor o Poisson "explica"
+    // as % de Over que os times realmente têm nas Estatísticas de Apostas
+    const errMedio = bestErr / Math.max(1, nLinhas);
+    confGols = errMedio <= 40 ? { dot: '🟢', label: 'Confiança alta — modelo bate com as % de Over dos times' }
+             : errMedio <= 120 ? { dot: '🟡', label: 'Confiança média' }
+                                : { dot: '🔴', label: 'Confiança baixa — % de Over dos times são inconsistentes entre si' };
+  }
+
+  // ── Handicap Asiático — usa o mesmo modelo Poisson do placar sugerido pra estimar,
+  // pra cada linha, a % de vezes que a Casa "cobre" aquele handicap (vence a aposta),
+  // incluindo o "empurra" (push) quando a linha é inteira e o resultado bate exato ──
+  let handicapRows = [];
+  let placaresProvaveis = [], placaresImprovaveis = [];
+  if (lambdaCasa !== null && lambdaFora !== null) {
+    const fat = [1,1,2,6,24,120,720,5040];
+    const poisson = (k, lambda) => Math.exp(-lambda) * Math.pow(lambda, k) / fat[k];
+    const MAXG = 7;
+    const matrix = [];
+    for (let i = 0; i <= MAXG; i++) {
+      matrix.push([]);
+      for (let j = 0; j <= MAXG; j++) matrix[i].push(poisson(i, lambdaCasa) * poisson(j, lambdaFora));
+    }
+    const HANDICAP_LINES = [-1.5, -1, -0.5, 0, 0.5, 1, 1.5];
+    handicapRows = HANDICAP_LINES.map(line => {
+      let win = 0, push = 0, lose = 0;
+      for (let i = 0; i <= MAXG; i++) {
+        for (let j = 0; j <= MAXG; j++) {
+          const diff = (i + line) - j;
+          if (diff > 0) win += matrix[i][j];
+          else if (diff === 0) push += matrix[i][j];
+          else lose += matrix[i][j];
+        }
+      }
+      return { line, win: win * 100, push: push * 100 };
+    });
+
+    // ── Placares prováveis/improváveis — mesma matriz de Poisson, só que lendo direto
+    // célula a célula (até 4 gols por lado) em vez de somar handicap ──
+    const scoreEntries = [];
+    for (let i = 0; i <= 4; i++) {
+      for (let j = 0; j <= 4; j++) scoreEntries.push({ score: `${i}-${j}`, pct: matrix[i][j] * 100 });
+    }
+    scoreEntries.sort((a, b) => b.pct - a.pct);
+    placaresProvaveis   = scoreEntries.slice(0, 4);
+    placaresImprovaveis = scoreEntries.slice(-4).reverse();
+  }
+
+  const barRow = (label, val, color, conf) => val === null ? '' : `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:12px">${label}</span>
+      <span style="font-size:13px;font-weight:800;color:${color || 'var(--text)'}">${Math.round(val)}%${confSpan(conf)}</span>
+    </div>`;
+  const groupTitle = (label) => `
+    <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 2px">${label}</div>`;
+
+  return `
+    <div style="background:var(--bg3);border:1px solid #a855f766;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;color:#a855f7;text-transform:uppercase;margin-bottom:6px">
+        🎯 Prognóstico
+      </div>
+      ${groupTitle('Resultado Final', _1x2Conf)}
+      ${barRow(`${m.casa} vencer`, pCasa, pCasa >= 45 ? '#22c55e' : null)}
+      ${barRow('Empate', pEmp)}
+      ${barRow(`${m.fora} vencer`, pFora, pFora >= 45 ? '#22c55e' : null)}
+      ${pCasaHt !== undefined && pCasaHt !== null ? `
+      ${groupTitle('1º Tempo', htConf)}
+      ${barRow(`${m.casa} vencer HT`, pCasaHt, pCasaHt >= 45 ? '#22c55e' : null)}
+      ${barRow('Empate HT', pEmpHt)}
+      ${barRow(`${m.fora} vencer HT`, pForaHt, pForaHt >= 45 ? '#22c55e' : null)}` : ''}
+      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 2px">Gols FT</div>
+      ${pOver15 !== null ? barRow('Over 1.5', pOver15, pOver15 >= 65 ? '#22c55e' : pOver15 <= 45 ? '#ef4444' : null, confOver15) : ''}
+      ${pUnder15 !== null ? barRow('Under 1.5', pUnder15, pUnder15 >= 55 ? '#22c55e' : pUnder15 <= 35 ? '#ef4444' : null, confOver15) : ''}
+      ${pOver25 !== null ? barRow('Over 2.5', pOver25, pOver25 >= 55 ? '#22c55e' : pOver25 <= 40 ? '#ef4444' : null, confOver25) : ''}
+      ${pUnder25 !== null ? barRow('Under 2.5', pUnder25, pUnder25 >= 60 ? '#22c55e' : pUnder25 <= 45 ? '#ef4444' : null, confOver25) : ''}
+      ${pOver35 !== null ? barRow('Over 3.5', pOver35, pOver35 >= 45 ? '#22c55e' : pOver35 <= 25 ? '#ef4444' : null, confOver35) : ''}
+      ${pUnder35 !== null ? barRow('Under 3.5', pUnder35, pUnder35 >= 75 ? '#22c55e' : pUnder35 <= 55 ? '#ef4444' : null, confOver35) : ''}
+      ${pBtts !== null ? barRow('Ambas Marcam', pBtts, pBtts >= 55 ? '#22c55e' : pBtts <= 40 ? '#ef4444' : null, confBtts) : ''}
+      ${pOdd !== null ? barRow('Total de gols ímpar', pOdd, pOdd >= 55 ? '#22c55e' : pOdd <= 40 ? '#ef4444' : null, confOdd) : ''}
+      ${pCasaPrimeiro !== null ? `
+      ${groupTitle('Quem marca primeiro', confPrimeiro)}
+      ${barRow(`${m.casa} marca primeiro`, pCasaPrimeiro, pCasaPrimeiro >= 55 ? '#22c55e' : null)}
+      ${barRow(`${m.fora} marca primeiro`, pForaPrimeiro, pForaPrimeiro >= 55 ? '#22c55e' : null)}` : ''}
+      ${handicapRows.length ? `
+      ${groupTitle(`Handicap Asiático (${m.casa})`, confGols)}
+      ${handicapRows.map(h => `
+        ${barRow(`${m.casa} ${h.line > 0 ? '+' : ''}${h.line}${h.push >= 1 ? ` (${Math.round(h.push)}% empurra)` : ''}`, h.win, h.win >= 60 ? '#22c55e' : h.win <= 40 ? '#ef4444' : null)}`).join('')}
+      <div style="font-size:9px;color:var(--text2);opacity:.7">estimado por um modelo Poisson que ajusta o total de gols esperado às % de Over já mostradas acima — não é a odd real do mercado</div>` : ''}
+      ${placarSugerido ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px;margin-top:4px">
+        <span style="font-size:11px;color:var(--text2)">Placar sugerido</span>
+        <span style="font-size:13px;font-weight:800;color:#22c55e">${placarSugerido}${confSpan(confGols)}</span>
+      </div>` : ''}
+      ${placaresProvaveis.length ? (() => {
+        const chip = (e, color) => `
+          <span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid ${color}44;
+                       border-radius:6px;padding:3px 8px;font-size:11px">
+            <b style="color:${color}">${e.score}</b>
+            <span style="color:var(--text2);font-size:10px">${e.pct.toFixed(1)}%</span>
+          </span>`;
+        return `
+        <div style="margin-top:8px">
+          <div style="font-size:9px;color:var(--text2);margin-bottom:4px">🎯 placares mais prováveis</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${placaresProvaveis.map(e => chip(e, '#22c55e')).join('')}</div>
+          <div style="font-size:9px;color:var(--text2);margin:6px 0 4px">🧊 placares menos prováveis</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${placaresImprovaveis.map(e => chip(e, '#ef4444')).join('')}</div>
+        </div>`;
+      })() : ''}
+      <div style="font-size:9px;color:var(--text2);margin-top:6px;opacity:.8">
+        calculado só com as Estatísticas de Apostas do StatArea (mesmos dados de cada time que aparecem logo abaixo) — não é garantia de resultado
+      </div>
+    </div>`;
+}
+
+// ── Mesmo formato de "Estatísticas de Apostas" da aba Hoje (traduzBetTitle/traduzBetName,
+// classes betstats-section/betstats-grid), reaproveitado aqui dentro do widget do card ao vivo ──
+function buildScoreStudyBetStatsHtml(betStats) {
+  if (!Object.keys(betStats).some(t => Object.keys(betStats[t]).length)) {
+    return '<div style="opacity:.6;font-size:12px">Sem estatísticas de apostas disponíveis pra esse confronto no StatArea.</div>';
+  }
+  return `
+    <div class="betstats-section" style="padding:0;border:none;background:none">
+      <div class="betstats-grid" style="grid-template-columns:1fr">
+        ${Object.entries(betStats).map(([team, charts]) => `
+          <div>
+            <div class="form-team-name">${team}</div>
+            ${Object.entries(charts).map(([title, rows]) => `
+              <div style="margin-bottom:14px">
+                <div class="barchart-title">${traduzBetTitle(title)}</div>
+                ${Object.entries(rows).map(([name, pct]) => {
+                  const num = parseInt(pct) || 0;
+                  return `
+                    <div class="bar-row">
+                      <span class="bar-name">${traduzBetName(name)}</span>
+                      <div class="bar-track"><div class="bar-fill" style="width:${num}%"></div></div>
+                      <span class="bar-pct">${pct}</span>
+                    </div>`;
+                }).join('')}
+              </div>`).join('')}
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ── Histórico de acerto: guarda o prognóstico pré-live no localStorage assim que o widget
+// é aberto, pra depois comparar com o resultado real e montar um placar de acerto do sistema ──
+const PROG_HISTORY_KEY = 'progHistory';
+
+function _loadProgHistory() {
+  try { return JSON.parse(localStorage.getItem(PROG_HISTORY_KEY) || '[]'); }
+  catch { return []; }
+}
+function _saveProgHistory(list) {
+  localStorage.setItem(PROG_HISTORY_KEY, JSON.stringify(list.slice(-500)));
+}
+
+function _savePrognosisSnapshot(m, prog) {
+  if (!prog.picks.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const list = _loadProgHistory();
+  const key = `${m.casa}|${m.fora}|${today}`;
+  const existing = list.find(e => e.key === key);
+  const snapshot = {
+    key, data: today, casa: m.casa, fora: m.fora,
+    pick1x2: prog.pick1x2 ? prog.pick1x2.label : null,
+    pickGols: prog.pickGols ? prog.pickGols.label : null,
+    pickBts: prog.pickBts ? prog.pickBts.label : null,
+    placarSugerido: prog.placarSugerido ? prog.placarSugerido.score : null,
+    verificado: false,
+  };
+  if (existing) {
+    // Não sobrescreve se já foi verificado (senão perderíamos o resultado apurado)
+    if (!existing.verificado) Object.assign(existing, snapshot, { verificado: existing.verificado });
+  } else {
+    list.push(snapshot);
+    _saveProgHistory(list);
+  }
+}
+
+// Compara cada prognóstico salvo contra o resultado real (via backtest do dia) e marca acerto/erro
+async function _verifyProgHistory() {
+  const list = _loadProgHistory();
+  const pendentes = list.filter(e => !e.verificado);
+  const porData = {};
+  pendentes.forEach(e => { (porData[e.data] = porData[e.data] || []).push(e); });
+
+  for (const data of Object.keys(porData)) {
+    let matches;
+    try {
+      const r = await fetch(`/api/backtest/${data}`);
+      if (!r.ok) continue;
+      matches = await r.json();
+    } catch { continue; }
+    if (!Array.isArray(matches)) continue;
+
+    for (const e of porData[data]) {
+      const found = matches.find(bm =>
+        bm.resultado && bm.resultado.includes(':') &&
+        _nameMatch(bm.casa, e.casa) && _nameMatch(bm.fora, e.fora));
+      if (!found) continue;
+      const [gc, gf] = found.resultado.split(':').map(Number);
+      e.golsCasa = gc; e.golsFora = gf;
+      e.acertos = {};
+      if (e.pick1x2) {
+        const v = gc > gf ? e.casa : gf > gc ? e.fora : 'Empate';
+        e.acertos.pick1x2 = e.pick1x2.includes(v) || (v === 'Empate' && e.pick1x2 === 'Empate');
+      }
+      if (e.pickGols) {
+        const total = gc + gf;
+        const line = parseFloat(e.pickGols.match(/[\d.]+/)[0]);
+        const isOver = e.pickGols.startsWith('Over');
+        e.acertos.pickGols = isOver ? total > line : total < line;
+      }
+      if (e.pickBts) {
+        const bts = gc > 0 && gf > 0;
+        e.acertos.pickBts = e.pickBts.includes('Sim') ? bts : !bts;
+      }
+      if (e.placarSugerido) e.acertos.placar = e.placarSugerido === `${gc}-${gf}`;
+      e.verificado = true;
+    }
+  }
+  _saveProgHistory(list);
+  return list;
+}
+
+function _nameMatch(a, b) {
+  if (!a || !b) return false;
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  const na = norm(a), nb = norm(b);
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+async function openProgHistory() {
+  const overlay = document.createElement('div');
+  overlay.id = 'progHistoryOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="max-width:460px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
+                border:1px solid var(--border);border-radius:12px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:800">📈 Histórico de Acertos</span>
+        <button onclick="document.getElementById('progHistoryOverlay').remove()"
+          style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
+                 width:26px;height:26px;cursor:pointer">×</button>
+      </div>
+      <div id="progHistoryBody">⏳ Verificando resultados...</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const list = await _verifyProgHistory();
+  const bodyEl = document.getElementById('progHistoryBody');
+  if (!bodyEl) return;
+
+  const verificados = list.filter(e => e.verificado && e.acertos);
+  if (!verificados.length) {
+    bodyEl.innerHTML = '<div style="font-size:12px;color:var(--text2)">Ainda não há prognósticos verificados — volte depois que os jogos salvos terminarem.</div>';
+    return;
+  }
+
+  const tally = (field) => {
+    const withPick = verificados.filter(e => e.acertos[field] !== undefined);
+    const hits = withPick.filter(e => e.acertos[field]).length;
+    return { hits, total: withPick.length, pct: withPick.length ? Math.round(hits / withPick.length * 100) : 0 };
+  };
+  const t1x2 = tally('pick1x2'), tGols = tally('pickGols'), tBts = tally('pickBts'), tPlacar = tally('placar');
+
+  const summaryRow = (label, t) => !t.total ? '' : `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:12px">${label}</span>
+      <span style="font-size:13px;font-weight:800;color:${t.pct>=55?'#22c55e':t.pct>=45?'#f59e0b':'#ef4444'}">${t.hits}/${t.total} (${t.pct}%)</span>
+    </div>`;
+
+  const rowsHtml = verificados.slice(-30).reverse().map(e => `
+    <div style="font-size:11px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="font-weight:700">${e.casa} ${e.golsCasa}-${e.golsFora} ${e.fora} <span style="color:var(--text2);font-weight:400">(${e.data})</span></div>
+      <div style="color:var(--text2);margin-top:2px">
+        ${e.pick1x2 ? `${e.acertos.pick1x2?'✅':'❌'} ${e.pick1x2}` : ''}
+        ${e.pickGols ? ` · ${e.acertos.pickGols?'✅':'❌'} ${e.pickGols}` : ''}
+        ${e.pickBts ? ` · ${e.acertos.pickBts?'✅':'❌'} ${e.pickBts}` : ''}
+      </div>
+    </div>`).join('');
+
+  bodyEl.innerHTML = `
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Taxa de acerto geral</div>
+      ${summaryRow('1X2', t1x2)}
+      ${summaryRow('Gols O/U', tGols)}
+      ${summaryRow('Ambas Marcam', tBts)}
+      ${summaryRow('Placar exato', tPlacar)}
+    </div>
+    <div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Últimos verificados</div>
+    ${rowsHtml}
+  `;
+}
+
+function buildGoalScorersHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const goals = (d?.incidents || []).filter(i =>
+    i.type === 'goal' || (i.type === 'inGamePenalty' && i.class === 'scored')
+  );
+  if (!goals.length) return '';
+
+  // Segurança: o "casamento" de nomes com o Uniscore às vezes acha o jogo errado
+  // (times com nome parecido). Se a contagem de gols não bater com o placar real
+  // do card, é sinal de que são incidentes de outra partida — não mostra nada
+  // em vez de mostrar informação errada.
+  const golsCasa = goals.filter(g => g.isHome).length;
+  const golsFora = goals.filter(g => !g.isHome).length;
+  if (golsCasa !== (m.golCasaFt ?? 0) || golsFora !== (m.golForaFt ?? 0)) return '';
+
+  goals.sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  const rows = goals.map(g => {
+    const who = g.isHome ? m.casa : m.fora;
+    const color = g.isHome ? '#60a5fa' : '#f87171';
+    const name = g.player ? g.player : who;
+    const og = g.ownGoal ? ' (contra)' : '';
+    return `<span style="font-size:9px;color:${color};white-space:nowrap">⚽ ${g.minute}' ${name}${og}</span>`;
+  }).join('<span style="color:var(--text2);font-size:9px"> · </span>');
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${rows}</div>`;
+}
+
+// ── Linha de estatística no mesmo estilo antigo (número grande + verde pra quem está na frente) ──
+function _cardStatRow(label, key, fmt, stObj, keyAcc) {
+  const item = stObj[key];
+  if (!item) return '';
+  const hv = item.homeValue ?? 0;
+  const av = item.awayValue ?? 0;
+  const hDisp = fmt === 'pct' ? `${item.home ?? hv}` : (item.home ?? hv);
+  const aDisp = fmt === 'pct' ? `${item.away ?? av}` : (item.away ?? av);
+  const accItem = keyAcc ? stObj[keyAcc] : null;
+  const accH = accItem ? `<div style="font-size:10px;color:var(--text2)">${accItem.home}</div>` : '';
+  const accA = accItem ? `<div style="font-size:10px;color:var(--text2)">${accItem.away}</div>` : '';
+  const hColor = hv > av ? '#22c55e' : hv === av ? 'var(--text)' : 'var(--text)';
+  const aColor = av > hv ? '#22c55e' : av === hv ? 'var(--text)' : 'var(--text)';
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0">
+      <span style="width:42px;text-align:right;font-weight:700;color:${hColor};font-size:16px">${hDisp}${accH}</span>
+      <span style="flex:1;text-align:center;color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.3px">${label}</span>
+      <span style="width:42px;text-align:left;font-weight:700;color:${aColor};font-size:16px">${aDisp}${accA}</span>
+    </div>`;
+}
+function _cardStatSection(label) {
+  return `<div style="font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.6px;
+    text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid var(--border);padding-bottom:3px">${label}</div>`;
+}
+// Primeira seção (Posse & Ataque) — sempre visível
+function _buildStatsRowsPrimary(stObj) {
+  return [
+    _cardStatSection('⚽ Posse & Ataque'),
+    _cardStatRow('Posse de Bola',           'ball_possession',      'pct', stObj),
+    _cardStatRow('Total de Chutes',         'shots',                '',    stObj),
+    _cardStatRow('Chutes no Alvo',          'shots_on_target',      '',    stObj),
+    _cardStatRow('Chutes Bloqueados',       'blocked_shots',        '',    stObj),
+    _cardStatRow('Chutes Dentro da Área',   'shots_inside_box',     '',    stObj),
+    _cardStatRow('Chutes Fora da Área',     'shots_outside_box',    '',    stObj),
+    _cardStatRow('Toques na Área',          'touches_in_box',       '',    stObj),
+    _cardStatRow('Grandes Chances',         'big_chances',          '',    stObj),
+    _cardStatRow('Gds Chances Convertidas', 'big_chances_scored',   '',    stObj),
+    _cardStatRow('Gds Chances Perdidas',    'big_chances_missed',   '',    stObj),
+    _cardStatRow('Escanteios',              'corner_kicks',         '',    stObj),
+    _cardStatRow('Cobranças de Falta',      'freekicks',            '',    stObj),
+    _cardStatRow('Impedimentos',            'offsides',             '',    stObj),
+  ].filter(Boolean).join('');
+}
+// Demais seções — ocultas por padrão, reveladas pelo botão "Ver mais"
+function _buildStatsRowsRest(stObj) {
+  return [
+    _cardStatSection('🎯 Passes'),
+    _cardStatRow('Total de Passes',         'passes',               '',    stObj, 'passes_accuracy'),
+    _cardStatRow('Arremesso Lateral',       'throw_in',             '',    stObj),
+    _cardStatRow('Entradas no Últ. Terço',  'final_third_entries',  '',    stObj),
+    _cardStatRow('Passes no Terço Final',   'pass_in_final_third',  '',    stObj, 'pass_in_final_third_accuracy'),
+    _cardStatRow('Lançamentos Longos',      'long_balls',           '',    stObj, 'long_balls_accuracy'),
+    _cardStatRow('Cruzamentos',             'crosses_accuracy',     '',    stObj),
+    _cardStatSection('💪 Duelos & Dribles'),
+    _cardStatRow('Duelos',                  'duels',                '',    stObj, 'duels_accuracy'),
+    _cardStatRow('Duelos no Chão',          'ground_duels',         '',    stObj, 'ground_duels_accuracy'),
+    _cardStatRow('Duelos Aéreos',           'aerial_duels',         '',    stObj, 'aerial_duels_accuracy'),
+    _cardStatRow('Dribles',                 'dribble',              '',    stObj, 'dribble_succ'),
+    _cardStatRow('Perda de Posse',          'dispossessed',         '',    stObj),
+    _cardStatSection('🛡️ Defesa'),
+    _cardStatRow('Desarmes',                'tackles',              '',    stObj, 'tackles_won'),
+    _cardStatRow('Intercepções',            'interceptions',        '',    stObj),
+    _cardStatRow('Recuperações',            'recoveries',           '',    stObj),
+    _cardStatRow('Rebotes',                 'clearances',           '',    stObj),
+    _cardStatSection('🧤 Goleiro'),
+    _cardStatRow('Defesas',                 'saves',                '',    stObj),
+    _cardStatRow('Tiro de Meta',            'goal_kicks',           '',    stObj),
+    _cardStatRow('Socos',                   'punches',              '',    stObj),
+    _cardStatSection('🟨 Disciplina'),
+    _cardStatRow('Faltas Cometidas',        'fouls',                '',    stObj),
+    _cardStatRow('Sofreu Falta',            'was_fouled',           '',    stObj),
+    _cardStatRow('Cartões Amarelos',        'yellow_cards',         '',    stObj),
+    _cardStatSection('🔄 Perda de Posse'),
+    _cardStatRow('Perda de Posse Total',    'poss_losts',           '',    stObj),
+  ].filter(Boolean).join('');
+}
+function toggleCardStatsMore(id, btn) {
+  const box = document.getElementById(`cardStatsMore_${id}`);
+  if (!box) return;
+  const open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '▾ Ver mais estatísticas' : '▴ Ver menos';
+}
+
+let _cardPeriod = {}; // { [matchId]: 'ALL'|'1ST'|'2ND' }
+let _shotsCache = {};  // { [matchId]: shots[] } — chutes crus, pra refiltrar por tempo sem nova chamada
+let _momentumPointsCache = {}; // { [matchId]: graphPoints[] } — reaproveitado pelo Prognóstico Live
+function setCardPeriod(id, period, btn) {
+  _cardPeriod[id] = period;
+  document.querySelectorAll(`#cardPeriodTabs_${id} button`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const m = liveMatchesCache.find(x => String(x.id) === String(id));
+  if (m) document.getElementById(`cardStats_${id}`).innerHTML = buildStatsHtml(m);
+
+  // Refiltra o mapa de chutes pelo mesmo período — sem buscar nada de novo, só reusa o cache
+  const shots = _shotsCache[id];
+  const shotEl = document.getElementById(`cardShotmapWrap_${id}`);
+  if (shots && shotEl) {
+    const filtered = period === '1ST' ? shots.filter(s => (s.minute || 0) <= 45)
+                    : period === '2ND' ? shots.filter(s => (s.minute || 0) > 45)
+                    : shots;
+    shotEl.innerHTML = filtered.length ? buildMiniShotMapSvg(filtered)
+      : '<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem chutes nesse período</div>';
+  }
+}
+
+function buildStatsHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  if (!d || !d.found) return '<div style="opacity:.5;padding:6px 0">sem stats ainda</div>';
+
+  const periods = d.statistics_periods || {};
+  const hasPeriods = periods['1ST'] || periods['2ND'];
+  const period = _cardPeriod[m.id] || 'ALL';
+  const st = (period !== 'ALL' && periods[period]) ? periods[period] : (d.statistics || {});
+
+  const periodTabsHtml = hasPeriods ? `
+    <div id="cardPeriodTabs_${m.id}" style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+      <button onclick="setCardPeriod('${m.id}','ALL',this)" class="live-card-tab-btn ${period === 'ALL' ? 'active' : ''}">Todos</button>
+      <button onclick="setCardPeriod('${m.id}','1ST',this)" class="live-card-tab-btn ${period === '1ST' ? 'active' : ''}">1º</button>
+      <button onclick="setCardPeriod('${m.id}','2ND',this)" class="live-card-tab-btn ${period === '2ND' ? 'active' : ''}">2º</button>
+    </div>` : '';
+
+  const gv = (key, fallH, fallA) => {
+    const it = st[key];
+    return it ? [it.homeValue ?? fallH, it.awayValue ?? fallA] : [fallH, fallA];
+  };
+  const [bigH, bigA] = gv('big_chances', 0, 0);
+  const [boxH, boxA] = gv('shots_inside_box', 0, 0);
+  const [outH, outA] = gv('shots_outside_box', 0, 0);
+
+  // xG simplificado (mesma fórmula do painel de detalhe)
+  const calcXg = (big, boxIn, boxOut) => {
+    const bc        = Number(big)   || 0;
+    const insideReg = Math.max(0, (Number(boxIn) || 0) - bc);
+    const outside   = Number(boxOut) || 0;
+    return Math.round((bc * 0.40 + insideReg * 0.12 + outside * 0.04) * 100) / 100;
+  };
+  const xgH = calcXg(bigH, boxH, outH);
+  const xgA = calcXg(bigA, boxA, outA);
+
+  const xgHColor = xgH > xgA ? '#22c55e' : 'var(--text)';
+  const xgAColor = xgA > xgH ? '#22c55e' : 'var(--text)';
+  const xgHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;margin-bottom:0">
+      <span style="width:42px;text-align:right;font-weight:700;color:${xgHColor};font-size:16px">${xgH.toFixed(2)}</span>
+      <span style="flex:1;text-align:center;color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.3px">xG</span>
+      <span style="width:42px;text-align:left;font-weight:700;color:${xgAColor};font-size:16px">${xgA.toFixed(2)}</span>
+    </div>`;
+
+  // xG oficial do Uniscore (quando ele manda "Expected Goals" pronto) — fica ABAIXO do
+  // xG estimado acima, que é o "permanente" (sempre dá pra calcular com big chances/chutes,
+  // mesmo quando o Uniscore não manda o Expected Goals oficial)
+  const xgUni = st.expected_goals;
+  let xgUniHtml = '';
+  if (xgUni && (xgUni.homeValue || xgUni.awayValue)) {
+    const uH = Number(xgUni.homeValue) || 0, uA = Number(xgUni.awayValue) || 0;
+    const uHColor = uH > uA ? '#22c55e' : 'var(--text)';
+    const uAColor = uA > uH ? '#22c55e' : 'var(--text)';
+    xgUniHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;margin-bottom:4px">
+        <span style="width:42px;text-align:right;font-weight:700;color:${uHColor};font-size:13px">${uH.toFixed(2)}</span>
+        <span style="flex:1;text-align:center;color:var(--text2);font-size:9px;text-transform:uppercase;letter-spacing:.3px">xG (Uniscore)</span>
+        <span style="width:42px;text-align:left;font-weight:700;color:${uAColor};font-size:13px">${uA.toFixed(2)}</span>
+      </div>`;
+  } else {
+    xgUniHtml = `<div style="margin-bottom:4px"></div>`;
+  }
+
+  // xG por zona (xGZ) — terceira fonte, calculada só com os chutes já mapeados no card
+  let xgzHtml = '';
+  const xgzPair = _calcXgzPair(_shotsCache[m.id] || []);
+  if (xgzPair) {
+    const xgzHColor = xgzPair.xgzCasa > xgzPair.xgzFora ? '#22c55e' : 'var(--text)';
+    const xgzAColor = xgzPair.xgzFora > xgzPair.xgzCasa ? '#22c55e' : 'var(--text)';
+    xgzHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;margin-bottom:4px">
+        <span style="width:42px;text-align:right;font-weight:700;color:${xgzHColor};font-size:13px">${xgzPair.xgzCasa.toFixed(2)}</span>
+        <span style="flex:1;text-align:center;color:var(--text2);font-size:9px;text-transform:uppercase;letter-spacing:.3px">xG (chutes)</span>
+        <span style="width:42px;text-align:left;font-weight:700;color:${xgzAColor};font-size:13px">${xgzPair.xgzFora.toFixed(2)}</span>
+      </div>`;
+  }
+
+  return periodTabsHtml + xgHtml + xgUniHtml + xgzHtml + _buildStatsRowsPrimary(st) + `
+    <button onclick="toggleCardStatsMore('${m.id}', this)"
+      style="width:100%;background:none;border:1px dashed var(--border);color:var(--text2);
+             font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;margin-top:4px">
+      ▾ Ver mais estatísticas
+    </button>
+    <div id="cardStatsMore_${m.id}" style="display:none">${_buildStatsRowsRest(st)}</div>`;
+}
+
+// Agrupa os 11 titulares em linhas (goleiro, defesa, meio(s), ataque) a partir da formação (ex: "4-2-3-1")
+function _lineupRows(lineup) {
+  const players = [...(lineup.titulares || [])];
+  const gk = players.find(p => p.pos === 'G') || players[0];
+  const rest = players.filter(p => p !== gk);
+  const groups = (lineup.formation || '').split('-').map(n => parseInt(n)).filter(n => !isNaN(n));
+  const rows = [[gk].filter(Boolean)];
+  let i = 0;
+  if (groups.length) {
+    groups.forEach(count => { rows.push(rest.slice(i, i + count)); i += count; });
+  } else {
+    rows.push(rest); // sem formação conhecida: uma linha só
+  }
+  return rows.filter(r => r.length);
+}
+
+function _ratingColor(r) {
+  const v = parseFloat(r);
+  if (isNaN(v)) return '#6b7280';
+  if (v >= 7.5) return '#22c55e';
+  if (v >= 7.0) return '#a3e635';
+  if (v >= 6.5) return '#f59e0b';
+  if (v >= 6.0) return '#fb923c';
+  return '#ef4444';
+}
+
+function _lineupPlayer(p, teamColor) {
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0" title="${p.name || ''}">
+      ${p.rating ? `<div style="font-size:7px;font-weight:800;color:#000;background:${_ratingColor(p.rating)};
+        border-radius:6px;padding:0 3px;margin-bottom:1px">${p.rating}</div>` : ''}
+      <div style="width:18px;height:18px;border-radius:50%;background:${teamColor};color:#fff;
+        display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;flex-shrink:0">${p.number ?? ''}</div>
+      <div style="font-size:7px;color:var(--text);max-width:36px;overflow:hidden;text-overflow:ellipsis;
+        white-space:nowrap;text-align:center">${p.captain ? '©️' : ''}${p.name || ''}</div>
+    </div>`;
+}
+
+function buildLineupHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const lc = d?.lineup_casa, lf = d?.lineup_fora;
+  if (!lc?.titulares?.length && !lf?.titulares?.length) {
+    return '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+  }
+
+  const homeRows = lc?.titulares?.length ? _lineupRows(lc) : [];
+  const awayRows = lf?.titulares?.length ? _lineupRows(lf) : [];
+
+  const col = (row) => `
+    <div style="flex:0 0 auto;width:38px;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;gap:6px">
+      ${row.map(p => _lineupPlayer(p, '#3b82f6')).join('')}
+    </div>`;
+  const colAway = (row) => `
+    <div style="flex:0 0 auto;width:38px;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;gap:6px">
+      ${row.map(p => _lineupPlayer(p, '#f97316')).join('')}
+    </div>`;
+
+  const header = (label, formation) => `
+    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase">
+      ${label} ${formation ? `<span style="color:var(--text)">· ${formation}</span>` : ''}
+    </div>`;
+
+  return `
+    <div style="display:flex;justify-content:space-between;padding:6px 4px 2px">
+      ${header(m.casa, lc?.formation)}
+      ${header(m.fora, lf?.formation)}
+    </div>
+    <div style="overflow-x:auto;border-radius:8px">
+      <div style="display:flex;background:linear-gradient(90deg,#1b3a1b,#1e4220,#1b3a1b);
+                  padding:10px 6px;min-height:150px;position:relative;min-width:min-content">
+        <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#ffffff25"></div>
+        <div style="display:flex;flex:1;gap:4px">
+          ${homeRows.length ? homeRows.map(col).join('') : '<div style="flex:1;text-align:center;font-size:10px;opacity:.5;align-self:center">sem dados</div>'}
+        </div>
+        <div style="display:flex;flex:1;gap:4px;flex-direction:row-reverse">
+          ${awayRows.length ? awayRows.map(colAway).join('') : '<div style="flex:1;text-align:center;font-size:10px;opacity:.5;align-self:center">sem dados</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCardTabContent(m) {
+  const tab = _cardTab[m.id] || 'geral';
+  if (tab === 'escalacoes') return buildLineupHtml(m);
+  if (tab === 'odds') return buildLiveOddsHtml(m);
+  return buildStatsHtml(m);
+}
+
+// ── Odds ao vivo — mesma fonte usada pra odds de abertura, mas lida a cada
+// atualização do card, então reflete a movimentação de mercado durante o jogo ──
+function buildLiveOddsHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const od = d && d.live_odds;
+  if (!od || !od.h) {
+    return `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">
+      💤 sem odds ao vivo disponíveis pra esse jogo no momento</div>`;
+  }
+  const oddBox = (label, val) => `
+    <div style="flex:1;background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:9px;color:var(--text2);text-transform:uppercase">${label}</div>
+      <div style="font-size:16px;font-weight:800;color:var(--text)">${val || '-'}</div>
+    </div>`;
+  return `
+    <div style="padding:8px 4px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">
+        💰 Resultado Final (1X2)
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        ${oddBox(m.casa, od.h)}
+        ${oddBox('Empate', od.x)}
+        ${oddBox(m.fora, od.a)}
+      </div>
+      ${od.ou_line ? `
+      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">
+        ⚽ Over/Under ${od.ou_line}
+      </div>
+      <div style="display:flex;gap:8px">
+        ${oddBox(`Over ${od.ou_line}`, od.ou_over)}
+        ${oddBox(`Under ${od.ou_line}`, od.ou_under)}
+      </div>` : ''}
+      <div style="font-size:9px;color:var(--text2);margin-top:10px;opacity:.7">
+        odds ao vivo — atualiza junto com o card, refletem a movimentação de mercado durante a partida
+      </div>
+    </div>`;
+}
+
+// ── Placar Correto (CS) — busca no histórico jogos com o mesmo padrão de gráfico
+// nesse minuto e conta quais placares finais mais aconteceram a partir dali ──
+let _cardCsLastFetch = {};
+function _refreshCardCsIfDue(m) {
+  const intervalSec = +(document.getElementById('liveRefreshSelect')?.value || 15);
+  const now = Date.now();
+  if (now - (_cardCsLastFetch[m.id] || 0) < intervalSec * 1000) return;
+  _cardCsLastFetch[m.id] = now;
+  const target = document.getElementById(`cardStats_${m.id}`);
+  if (target) loadCardCs(m, target);
+}
+
+async function loadCardCs(m, target) {
+  target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">⏳ Buscando placares parecidos no histórico...</div>`;
+  try {
+    const res = await fetch('/api/momentum/similar-scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cur_casa: m.golCasaFt ?? 0, cur_fora: m.golForaFt ?? 0,
+      }),
+    });
+    const data = await res.json();
+    target.innerHTML = buildCsResultHtml(data, m);
+  } catch(e) {
+    target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">erro ao calcular o placar mais provável</div>`;
+  }
+}
+
+function buildCsResultHtml(data, m) {
+  const scores = data.scores || [];
+  if (!scores.length) {
+    return `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">
+      nenhuma partida no histórico teve esse placar (${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}) ainda</div>`;
+  }
+  const rows = scores.map(s => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:52px;font-weight:800;font-size:14px;text-align:center;
+                   background:var(--bg3);border-radius:5px;padding:3px 0">${s.score}</span>
+      <div style="flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${s.pct}%;background:#4f6ef7;border-radius:4px"></div>
+      </div>
+      <span style="width:32px;text-align:right;font-size:12px;font-weight:700;color:var(--text2)">${s.pct}%</span>
+    </div>`).join('');
+
+  return `
+    <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
+      🎯 de ${data.total} partidas do histórico, <b>${data.stat_n}</b> tiveram o placar
+      <b>${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</b> em algum momento — esses foram os placares finais mais comuns entre elas
+    </div>
+    ${rows}`;
 }
 
 // ── Renderiza os jogos ao vivo como grade de cards (visão compacta) ──
@@ -3181,7 +4335,36 @@ function renderLiveGrid(matches) {
 
   const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
 
-  wrap.innerHTML = matches.map(m => {
+  const scoreBadgeHtml = (v) => {
+    if (v === null) return '';
+    const cor = v >= 70 ? '#22c55e' : v >= 55 ? '#a3e635' : v >= 40 ? '#f59e0b' : '#ef4444';
+    const bg  = v >= 70 ? '#0d2d0d' : v >= 55 ? '#1a2a0a' : v >= 40 ? '#2a1f00' : '#2d0a0a';
+    return `<span style="font-size:9px;font-weight:700;color:${cor};background:${bg};
+      border-radius:3px;padding:0 4px;flex-shrink:0">${v}</span>`;
+  };
+  const goalBadgeHtml = (v) => {
+    if (v === null) return '';
+    const info = goalScoreInfo(v);
+    return `<span style="font-size:9px;font-weight:700;color:${info.color};
+      background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px">⚽${v}</span>`;
+  };
+  // Remove a mensagem de "nenhum jogo" que possa ter ficado de uma atualização anterior vazia
+  wrap.querySelectorAll('.live-empty').forEach(el => el.remove());
+
+  // Remove cards de partidas que saíram do ao vivo (encerradas)
+  const currentIds = new Set(matches.map(m => String(m.id)));
+  wrap.querySelectorAll('.live-card[data-id]').forEach(el => {
+    if (!currentIds.has(el.dataset.id)) el.remove();
+  });
+
+  // Jogos fixados (⭐ na liga) vêm primeiro, mantendo a ordem original entre si
+  const sortedMatches = [...matches].sort((a, b) => {
+    const pa = _pinnedLive.has(String(a.id)) ? 0 : 1;
+    const pb = _pinnedLive.has(String(b.id)) ? 0 : 1;
+    return pa - pb;
+  });
+
+  sortedMatches.forEach(m => {
     const ref  = (allMatches||[]).find(x =>
       norm(x.casa).includes(norm(m.casa).slice(0,6)) ||
       norm(m.casa).includes(norm(x.casa).slice(0,6))
@@ -3189,63 +4372,795 @@ function renderLiveGrid(matches) {
     const sCasa = ref ? calcBtTeamScore(ref, true)  : null;
     const sVis  = ref ? calcBtTeamScore(ref, false) : null;
     const sGols = ref ? calcGoalScore(ref)          : null;
-
-    const scoreBadgeHtml = (v) => {
-      if (v === null) return '';
-      const cor = v >= 70 ? '#22c55e' : v >= 55 ? '#a3e635' : v >= 40 ? '#f59e0b' : '#ef4444';
-      const bg  = v >= 70 ? '#0d2d0d' : v >= 55 ? '#1a2a0a' : v >= 40 ? '#2a1f00' : '#2d0a0a';
-      return `<span style="font-size:9px;font-weight:700;color:${cor};background:${bg};
-        border-radius:3px;padding:0 4px;flex-shrink:0">${v}</span>`;
-    };
-    const goalBadgeHtml = (v) => {
-      if (v === null) return '';
-      const info = goalScoreInfo(v);
-      return `<span style="font-size:9px;font-weight:700;color:${info.color};
-        background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px">⚽${v}</span>`;
-    };
-
-    const d  = _uniCache[`${m.casa}|${m.fora}`];
-    let statsHtml = '<span style="opacity:.5">sem stats ainda</span>';
-    if (d && d.found) {
-      const s  = d.stats || {};
-      const st = d.statistics || {};
-      const gv = (key, fallH, fallA) => {
-        const it = st[key];
-        return it ? [it.homeValue ?? fallH, it.awayValue ?? fallA] : [fallH, fallA];
-      };
-      const [posH,   posA]   = gv('ball_possession', s.posse_casa ?? '?', s.posse_fora ?? '?');
-      const [shotsH, shotsA] = gv('shots', s.chutes_casa ?? '?', s.chutes_fora ?? '?');
-      const [cornH,  cornA]  = gv('corner_kicks', s.escanteios_casa ?? '?', s.escanteios_fora ?? '?');
-      statsHtml = `
-        <span title="Posse de Bola">⚽ ${posH}%<span style="color:var(--text2)">-</span>${posA}%</span>
-        <span title="Total de Chutes">🎯 ${shotsH}<span style="color:var(--text2)">-</span>${shotsA}</span>
-        <span title="Escanteios">🔄 ${cornH}<span style="color:var(--text2)">-</span>${cornA}</span>
-      `;
-    }
-
     const redCasa = m.cartaoCasa > 0 ? `<span style="color:#ef4444">🟥${m.cartaoCasa}</span>` : '';
     const redFora = m.cartaoFora > 0 ? `<span style="color:#ef4444">🟥${m.cartaoFora}</span>` : '';
     const isFav   = isLiveMatchFavorite(m.casa, m.fora);
 
-    return `
-      <div class="live-card" onclick="setLiveView('list');openLiveDetail('${m.id}', document.getElementById('liveRow_${m.id}'))">
-        <div class="live-card-top">
-          <span>${m.pais ? m.pais + ' · ' : ''}${m.liga || ''}</span>
-          ${goalBadgeHtml(sGols)}
+    let card = document.getElementById(`liveCard_${m.id}`);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'live-card';
+      card.id = `liveCard_${m.id}`;
+      card.dataset.id = String(m.id);
+      card.innerHTML = `
+        <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
+          <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
+          <span id="cardPin_${m.id}" onclick="event.stopPropagation();toggleLivePin('${m.id}')"
+            style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:13px"></span>
         </div>
         <div class="live-card-body">
-          <div class="live-card-teams">
-            <div class="live-card-team">${isFav ? '⭐' : ''}<span class="tname">${m.casa}</span>${redCasa}${scoreBadgeHtml(sCasa)}</div>
-            <div class="live-card-score">${m.golCasaFt} - ${m.golForaFt}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div class="live-card-team" id="cardTeamCasa_${m.id}" style="flex:1;justify-content:flex-start"></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;position:relative">
+              <div class="live-card-score" id="cardScore_${m.id}"></div>
+              <div style="font-size:10px;color:var(--text2)" id="cardHt_${m.id}"></div>
+            </div>
+            <div class="live-card-team" id="cardTeamFora_${m.id}" style="flex:1;justify-content:flex-end;text-align:right"></div>
           </div>
-          <div class="live-card-teams" style="margin-top:4px">
-            <div class="live-card-team"><span class="tname">${m.fora}</span>${redFora}${scoreBadgeHtml(sVis)}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+            <div class="live-card-meta" id="cardMeta_${m.id}"></div>
+            <span id="cardTopBadge_${m.id}"></span>
           </div>
-          <div class="live-card-meta">⏱ ${m.tempo || '--'}</div>
+          <div id="cardGoals_${m.id}" style="text-align:center;margin-top:4px"></div>
         </div>
-        <div class="live-card-stats">${statsHtml}</div>
-      </div>`;
-  }).join('');
+        <div class="live-card-momentum-wrap" id="cardMomentumWrap_${m.id}">
+          <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
+        </div>
+        <div class="live-card-shotmap-wrap" id="cardShotmapWrap_${m.id}"></div>
+        <div class="live-card-tabs live-card-tabs-narrow" id="cardTabs_${m.id}">
+          <button class="live-card-tab-btn" onclick="openScoreStudy('${m.id}')" title="Estatísticas Pré"
+            style="color:#a855f7;border-color:#a855f766">📈</button>
+          <button class="live-card-tab-btn active" onclick="setCardTab('${m.id}','geral',this)">Geral</button>
+          <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','escalacoes',this)">Escalações</button>
+          <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','odds',this)">Odds</button>
+          <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','classificacao',this)">Classificação</button>
+        </div>
+        <div class="live-card-stats" id="cardStats_${m.id}"></div>`;
+      wrap.appendChild(card);
+    }
+
+    // ── Efeito de gol no card (mesma detecção usada no painel de detalhe) ──
+    const _prevGrid = _prevGridScore[m.id] || { casa: 0, fora: 0 };
+    const _curCasa  = m.golCasaFt ?? 0, _curFora = m.golForaFt ?? 0;
+    const _goalScoredGrid = _curCasa > _prevGrid.casa || _curFora > _prevGrid.fora;
+    _prevGridScore[m.id] = { casa: _curCasa, fora: _curFora };
+
+    // Atualiza só as partes que mudam — não mexe no gráfico/mapa já carregados
+    document.getElementById(`cardTopBadge_${m.id}`).innerHTML   = goalBadgeHtml(sGols);
+    document.getElementById(`cardTeamCasa_${m.id}`).innerHTML   = `${isFav ? '⭐' : ''}<span class="tname">${m.casa}</span>${redCasa}${scoreBadgeHtml(sCasa)}`;
+    document.getElementById(`cardScore_${m.id}`).innerHTML      = `${m.golCasaFt} - ${m.golForaFt}`;
+    document.getElementById(`cardHt_${m.id}`).innerHTML         = `HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}`;
+
+    if (_goalScoredGrid) {
+      const scoreEl = document.getElementById(`cardScore_${m.id}`);
+      if (scoreEl) {
+        const who = (_curCasa > _prevGrid.casa && _curFora > _prevGrid.fora) ? '⚽ GOL!'
+                  : (_curCasa > _prevGrid.casa) ? `⚽ GOL! ${m.casa}`
+                  : `⚽ GOL! ${m.fora}`;
+        const banner = document.createElement('div');
+        banner.className = 'goal-banner';
+        banner.textContent = who;
+        scoreEl.parentElement.appendChild(banner);
+        scoreEl.classList.remove('goal-flash');
+        void scoreEl.offsetWidth;
+        scoreEl.classList.add('goal-flash');
+        setTimeout(() => { scoreEl.classList.remove('goal-flash'); banner.remove(); }, 2400);
+      }
+    }
+    document.getElementById(`cardTeamFora_${m.id}`).innerHTML   = `<span class="tname">${m.fora}</span>${redFora}${scoreBadgeHtml(sVis)}`;
+    // Só usa o texto bruto (ex: "1st_half") como placeholder — se já temos o minuto real (via momentum), não sobrescreve
+    if (!_gridTempos[m.id]) {
+      document.getElementById(`cardMeta_${m.id}`).innerHTML = `⏱ ${m.tempo || '--'}`;
+    }
+    document.getElementById(`cardGoals_${m.id}`).innerHTML      = buildGoalScorersHtml(m);
+    // A aba Análise carrega de forma assíncrona (busca padrões no histórico) — não sobrescreve
+    // direto no refresh automático (senão "pula" de volta pra Geral); em vez disso, recarrega
+    // ela mesma no mesmo ritmo das outras (throttle próprio, pra não repetir a busca demais).
+    if (_cardTab[m.id] === 'analise') {
+      _refreshCardAnaliseIfDue(m);
+    } else if (_cardTab[m.id] === 'cs') {
+      _refreshCardCsIfDue(m);
+    } else if (_cardTab[m.id] === 'classificacao') {
+      loadCardStandings(m, document.getElementById(`cardStats_${m.id}`)); // já cacheado — não refaz a busca
+    } else {
+      document.getElementById(`cardStats_${m.id}`).innerHTML = renderCardTabContent(m);
+    }
+
+    const isPinned = _pinnedLive.has(String(m.id));
+    const pinEl = document.getElementById(`cardPin_${m.id}`);
+    if (pinEl) {
+      pinEl.textContent = isPinned ? '⭐' : '☆';
+      pinEl.title = isPinned ? 'Remover dos fixados' : 'Fixar no topo';
+    }
+    card.classList.toggle('live-card-pinned', isPinned);
+
+    // Garante que a ordem no DOM siga a ordem calculada (fixados primeiro)
+    wrap.appendChild(card);
+  });
+
+  _ensureGridTempoTicker();
+  if (currentLiveView === 'grid') _loadAllGridExtras(matches);
+  _autoSaveLivePrognoses();
+}
+
+// ── Fixar/desfixar um jogo no topo da grade (persiste entre sessões) ──
+let _pinnedLive = new Set(JSON.parse(localStorage.getItem('pinnedLiveMatches') || '[]'));
+function toggleLivePin(id) {
+  id = String(id);
+  if (_pinnedLive.has(id)) _pinnedLive.delete(id);
+  else _pinnedLive.add(id);
+  localStorage.setItem('pinnedLiveMatches', JSON.stringify([..._pinnedLive]));
+  renderLiveGrid(liveMatchesCache);
+}
+
+// ── Controle da aba ativa (Geral / Escalações) de cada card ──
+let _cardTab = {};
+function setCardTab(id, tab, btn) {
+  _cardTab[id] = tab;
+  document.querySelectorAll(`#cardTabs_${id} .live-card-tab-btn`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const m = liveMatchesCache.find(x => String(x.id) === String(id));
+  if (!m) return;
+  const target = document.getElementById(`cardStats_${id}`);
+  if (tab === 'analise') {
+    _cardAnaliseLastFetch[id] = Date.now();
+    loadCardAnalise(m, target);
+  } else if (tab === 'cs') {
+    _cardCsLastFetch[id] = Date.now();
+    loadCardCs(m, target);
+  } else if (tab === 'classificacao') {
+    loadCardStandings(m, target);
+  } else {
+    target.innerHTML = renderCardTabContent(m);
+  }
+}
+
+// ── Classificação — busca a tabela da liga na base do StatArea (mesmo dado usado no
+// painel de detalhe da aba Hoje) pro jogo ao vivo correspondente. Cacheia por partida,
+// já que a classificação praticamente não muda durante o jogo (não precisa refazer a cada refresh). ──
+let _cardStandingsCache = {};
+async function loadCardStandings(m, target) {
+  if (_cardStandingsCache[m.id]) {
+    target.innerHTML = _cardStandingsCache[m.id];
+    return;
+  }
+  target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">⏳ Buscando classificação...</div>`;
+  try {
+    const ref = _liveScoreRef(m);
+    if (!ref || !ref.url_detalhes) {
+      target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">jogo não encontrado na base pra buscar a classificação</div>`;
+      return;
+    }
+    const detalhes = await _fetchMatchDetalhes(ref.url_detalhes);
+    const html = buildCardStandingsHtml(detalhes.classificacao || [], m);
+    _cardStandingsCache[m.id] = html;
+    target.innerHTML = html;
+  } catch (e) {
+    target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">erro ao buscar a classificação</div>`;
+  }
+}
+
+function buildCardStandingsHtml(standings, m) {
+  if (!standings.length) {
+    return `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">sem tabela de classificação disponível pra essa liga</div>`;
+  }
+  return `
+    <div style="padding:6px 4px">
+      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">
+        🏆 ${standings[0]?.competicao || ''}
+      </div>
+      <table class="standings-table" style="font-size:11px">
+        <thead>
+          <tr>
+            <th class="left">#</th><th class="left">Time</th><th>Pts</th><th>J</th>
+            <th>V</th><th>E</th><th>D</th><th>GM</th><th>GC</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${standings.map(row => `
+            <tr class="${row.destacado ? 'highlighted' : ''}">
+              <td class="left">${row.pos}</td>
+              <td class="left">${row.time}</td>
+              <td><b>${row.pontos}</b></td>
+              <td>${row.jogos}</td>
+              <td>${row.geral?.v ?? ''}</td>
+              <td>${row.geral?.e ?? ''}</td>
+              <td>${row.geral?.d ?? ''}</td>
+              <td>${row.geral?.gm ?? ''}</td>
+              <td>${row.geral?.gc ?? ''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── Aba Análise — reaproveita os indicadores de padrão já usados no painel de detalhe ──
+// ── Recarrega a aba Análise no mesmo ritmo do auto-refresh geral (15s/30s/60s) ──
+let _cardAnaliseLastFetch = {};
+function _refreshCardAnaliseIfDue(m) {
+  const intervalSec = +(document.getElementById('liveRefreshSelect')?.value || 15);
+  const now = Date.now();
+  if (now - (_cardAnaliseLastFetch[m.id] || 0) < intervalSec * 1000) return;
+  _cardAnaliseLastFetch[m.id] = now;
+  const target = document.getElementById(`cardStats_${m.id}`);
+  if (target) loadCardAnalise(m, target);
+}
+
+async function loadCardAnalise(m, target) {
+  target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">⏳ Analisando padrão do gráfico...</div>`;
+  try {
+    // 1. Pega o gráfico de pressão atual (mesmo usado no mini gráfico do card)
+    const params  = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '', liga: m.liga || '' });
+    const momRes  = await fetch(`/api/radar/momentum/${m.id}?${params}`);
+    const momData = await momRes.json();
+    const points  = momData.graphPoints || [];
+
+    const W = 5; // janela (minutos) usada pra comparar o padrão
+    if (points.length < W) {
+      target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">
+        ainda não tem gráfico suficiente pra analisar (precisa de pelo menos ${W} min de dados)</div>`;
+      return;
+    }
+
+    // 2. Busca no histórico de todas as partidas passadas salvas por padrão de gráfico parecido
+    const simRes = await fetch('/api/momentum/similar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points, window: W, lookahead: 5 }),
+    });
+    const sim = await simRes.json();
+
+    // 3. Mapa de chutes atual → compara padrão de zonas com o histórico salvo
+    let shotSim = null;
+    try {
+      const paramsSm = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const smRes    = await fetch(`/api/radar/shotmap/${m.id}?${paramsSm}`);
+      const smData   = await smRes.json();
+      const shots    = smData.shots || [];
+      if (shots.length) {
+        const simSmRes = await fetch('/api/shotmap/similar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shots }),
+        });
+        shotSim = await simSmRes.json();
+      }
+    } catch(e) { /* mapa de chutes é um extra — se falhar, segue sem ele */ }
+
+    target.innerHTML = buildCardAnaliseHtml(sim, m) + buildShotAnaliseHtml(shotSim, m);
+  } catch(e) {
+    target.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">erro ao analisar o gráfico</div>`;
+  }
+}
+
+// ── Análise do padrão do mapa de chutes: % de gol casa/visitante/nenhum em partidas com zonas de chute parecidas ──
+function buildShotAnaliseHtml(shotSim, m) {
+  if (!shotSim) return '';
+  const list = shotSim.similar || [];
+  if (!list.length) {
+    return `<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px;
+                border-top:1px solid var(--border);padding-top:10px">🎯 Padrão de Chutes</div>
+      <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px 0">
+        ainda sem histórico de mapa de chutes parecido suficiente</div>`;
+  }
+  const statN = shotSim.stat_n || list.length;
+  const pctH  = statN > 0 ? Math.round(shotSim.goal_home / statN * 100) : 0;
+  const pctA  = statN > 0 ? Math.round(shotSim.goal_away / statN * 100) : 0;
+  const pctN  = statN > 0 ? Math.round(shotSim.goal_none / statN * 100) : 0;
+
+  const pctBar = (label, pct, color) => `
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="font-size:11px;color:var(--text2)">${label}</span>
+        <span style="font-size:13px;font-weight:800;color:${color}">${pct}%</span>
+      </div>
+      <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+      </div>
+    </div>`;
+
+  return `
+    <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px;
+                border-top:1px solid var(--border);padding-top:10px">🎯 Padrão de Chutes</div>
+    <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
+      comparando as zonas de chute atuais com ${shotSim.total || list.length} partidas parecidas
+      (estatística sobre ${statN}${statN < 15 ? ' — amostra pequena ainda' : ''})
+    </div>
+    ${pctBar(`${m.casa} marcar gol no jogo`, pctH, '#3b82f6')}
+    ${pctBar(`${m.fora} marcar gol no jogo`, pctA, '#ef4444')}
+    ${pctBar('Nenhum dos dois marcar', pctN, '#9ca3af')}`;
+}
+
+// ── Análise do padrão do gráfico: % de gol casa/visitante/nenhum em partidas passadas com padrão parecido ──
+function buildCardAnaliseHtml(sim, m) {
+  const list  = sim.similar || [];
+  if (!list.length) {
+    return `<div style="font-size:11px;color:var(--text2);text-align:center;padding:14px 0">
+      nenhum padrão de gráfico parecido encontrado no histórico ainda</div>`;
+  }
+
+  const statN = sim.stat_n || list.length;
+  const gh    = sim.goal_home || 0;
+  const ga    = sim.goal_away || 0;
+  const gn    = sim.goal_none || 0;
+  const pctH  = statN > 0 ? Math.round(gh / statN * 100) : 0;
+  const pctA  = statN > 0 ? Math.round(ga / statN * 100) : 0;
+  const pctN  = statN > 0 ? Math.round(gn / statN * 100) : 0;
+
+  const pctBar = (label, pct, color) => `
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="font-size:11px;color:var(--text2)">${label}</span>
+        <span style="font-size:13px;font-weight:800;color:${color}">${pct}%</span>
+      </div>
+      <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+      </div>
+    </div>`;
+
+  return `
+    <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
+      📈 comparando o padrão dos últimos 5 min do gráfico de <b>${m.casa}</b> × <b>${m.fora}</b>
+      com ${sim.total || list.length} partidas passadas parecidas (estatística sobre ${statN})
+    </div>
+    ${pctBar(`${m.casa} marcar nos próximos 5min`, pctH, '#3b82f6')}
+    ${pctBar(`${m.fora} marcar nos próximos 5min`, pctA, '#ef4444')}
+    ${pctBar('Não sair gol nos próximos 5min', pctN, '#9ca3af')}`;
+}
+
+// ── Relógio dos cards da grade: usa o minuto real vindo do momentum (SofaScore/UniScore) ──
+let _gridTempos = {};
+let _gridTempoInterval = null;
+function _ensureGridTempoTicker() {
+  if (_gridTempoInterval) return;
+  _gridTempoInterval = setInterval(() => {
+    for (const id in _gridTempos) {
+      _gridTempos[id].sec++;
+      const el = document.getElementById(`cardMeta_${id}`);
+      if (el) el.innerHTML = `⏱ ${formatTempo(_gridTempos[id].sec)}`;
+    }
+  }, 1000);
+}
+
+// ── Busca e desenha o mini gráfico de pressão + mini mapa de chutes por card ──
+let _gridExtrasLastFetch = {};
+function _loadAllGridExtras(matches) {
+  // Pré-aquece o cache de padrões de zona (xGZ) de uma vez só — antes ele só era buscado
+  // como efeito colateral de um selo específico, e às vezes o mapa de chutes/aba Geral
+  // desenhavam ANTES desse fetch terminar, fazendo o "xG (chutes)" sumir por 1 ciclo.
+  _fetchSmPatLive();
+
+  const now = Date.now();
+  matches.forEach(m => {
+    if (now - (_gridExtrasLastFetch[m.id] || 0) < 25000) return;
+    _gridExtrasLastFetch[m.id] = now;
+    _loadGridExtras(m);
+  });
+}
+
+async function _loadGridExtras(m) {
+  // Mini gráfico de pressão (Attack Momentum)
+  try {
+    const params = new URLSearchParams({ casa: m.casa||'', fora: m.fora||'', liga: m.liga||'' });
+    const res    = await fetch(`/api/radar/momentum/${m.id}?${params}`);
+    const data   = await res.json();
+    const points = data.graphPoints || [];
+    _momentumPointsCache[m.id] = points;
+    const wrap   = document.getElementById(`cardMomentumWrap_${m.id}`);
+    if (wrap) {
+      if (points.length) {
+        wrap.innerHTML = `<canvas id="cardMomentumCanvas_${m.id}"></canvas><div id="cardPressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div>`;
+        drawMiniMomentum(document.getElementById(`cardMomentumCanvas_${m.id}`), points, data.goals || []);
+        const badgeEl = document.getElementById(`cardPressureBadge_${m.id}`);
+        if (badgeEl) badgeEl.innerHTML = buildPressureBadgeHtml(points, m);
+      } else {
+        wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 sem dados de pressão ainda</div>`;
+      }
+    }
+
+    // Minuto real do jogo (o "tempo" bruto do radar às vezes só traz "1st_half"/"2nd_half")
+    if (points.length) {
+      const lastMin = Math.max(...points.map(p => p.minute || 0));
+      const metaEl  = document.getElementById(`cardMeta_${m.id}`);
+      if (data.finished) {
+        delete _gridTempos[m.id];
+        if (metaEl) metaEl.innerHTML = '⏱ Encerrado';
+      } else if (lastMin > 0) {
+        _gridTempos[m.id] = { sec: lastMin * 60 };
+        if (metaEl) metaEl.innerHTML = `⏱ ${formatTempo(lastMin * 60)}`;
+      }
+    }
+
+    // Corrige o placar usando a contagem de bolinhas ⚽ do gráfico — essa fonte costuma
+    // atualizar mais rápido que o placar da lista principal (que às vezes fica "preso"
+    // em um jogo já com mais gols reais).
+    const goals = data.goals || [];
+    if (goals.length) {
+      const gh = goals.filter(g => g.team === 'home').length;
+      const ga = goals.filter(g => g.team === 'away').length;
+      if (gh > (m.golCasaFt ?? 0) || ga > (m.golForaFt ?? 0)) {
+        m.golCasaFt = Math.max(gh, m.golCasaFt ?? 0);
+        m.golForaFt = Math.max(ga, m.golForaFt ?? 0);
+        const scoreEl = document.getElementById(`cardScore_${m.id}`);
+        if (scoreEl) scoreEl.textContent = `${m.golCasaFt} - ${m.golForaFt}`;
+      }
+    }
+  } catch(e) {
+    const wrap = document.getElementById(`cardMomentumWrap_${m.id}`);
+    if (wrap) wrap.innerHTML = '';
+  }
+
+  // Mini mapa de chutes
+  try {
+    const params2 = new URLSearchParams({ casa: m.casa||'', fora: m.fora||'' });
+    const r2 = await fetch(`/api/radar/shotmap/${m.id}?${params2}`);
+    const d2 = await r2.json();
+    const shots = d2.shots || [];
+    _shotsCache[m.id] = shots;
+    const el = document.getElementById(`cardShotmapWrap_${m.id}`);
+    if (el && shots.length) {
+      const period = _cardPeriod[m.id] || 'ALL';
+      const filtered = period === '1ST' ? shots.filter(s => (s.minute || 0) <= 45)
+                      : period === '2ND' ? shots.filter(s => (s.minute || 0) > 45)
+                      : shots;
+      el.innerHTML = filtered.length ? buildMiniShotMapSvg(filtered)
+        : '<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem chutes nesse período</div>';
+    }
+
+    // Selo de chutes + selo de xG ao lado do selo de pressão — recombina os 3 toda vez que
+    // os chutes chegam, já que a pressão/xG já podem ter sido atualizados antes neste ciclo
+    const badgeEl = document.getElementById(`cardPressureBadge_${m.id}`);
+    if (badgeEl) {
+      const pressureHtml = buildPressureBadgeHtml(_momentumPointsCache[m.id] || [], m);
+      const shotsHtml    = buildShotsBadgeHtml(shots, m);
+      const xgHtml       = buildXgBadgeHtml(m);
+      const xgzHtml      = await buildIndicatorXgBadgeHtml(shots, m);
+      const comboHtml    = buildCombinedSignalBadgeHtml(_momentumPointsCache[m.id] || [], shots, m);
+      if (pressureHtml || shotsHtml || xgHtml || xgzHtml || comboHtml) {
+        badgeEl.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px';
+        badgeEl.innerHTML = comboHtml + pressureHtml + shotsHtml + xgHtml + xgzHtml;
+      } else {
+        badgeEl.innerHTML = '';
+      }
+    }
+  } catch(e) { /* silencioso */ }
+
+  // Oculta (sem excluir dos dados) jogos que ainda não têm mapa de chutes — o card
+  // continua existindo em liveMatchesCache normalmente, só não aparece na tela até o
+  // mapa vir a existir (ou até o usuário clicar "Mostrar todos")
+  _applyCardVisibility(m);
+}
+
+// ── Campo de busca: filtra os cards da grade por nome do time (ou liga), sem mexer
+// no cache de dados — só esconde/mostra via CSS, igual ao filtro de "sem mapa" ──
+function filterLiveGridBySearch(texto) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const termo = norm(texto);
+  liveMatchesCache.forEach(m => {
+    const card = document.getElementById(`liveCard_${m.id}`);
+    if (!card) return;
+    const bate = !termo || norm(m.casa).includes(termo) || norm(m.fora).includes(termo) || norm(m.liga).includes(termo);
+    card.dataset.searchHidden = bate ? '0' : '1';
+    _applyCardVisibility(m);
+  });
+}
+
+// ── Aplica a visibilidade final do card combinando os 2 filtros (busca + sem mapa) ──
+function _applyCardVisibility(m) {
+  const card = document.getElementById(`liveCard_${m.id}`);
+  if (!card) return;
+  const searchHidden = card.dataset.searchHidden === '1';
+  const semMapa = (_shotsCache[m.id] || []).length === 0;
+  const mapHidden = semMapa && _liveHideNoMap;
+  card.style.display = (searchHidden || mapHidden) ? 'none' : '';
+}
+
+// ── Botão "Mostrar todos" — alterna se os jogos sem mapa/gráfico ficam escondidos ──
+let _liveHideNoMap = true;
+function toggleLiveShowAllNoMap() {
+  _liveHideNoMap = !_liveHideNoMap;
+  const btn = document.getElementById('liveShowAllBtn');
+  if (btn) {
+    btn.textContent = _liveHideNoMap ? '👁 Mostrar todos' : '🙈 Ocultar sem mapa';
+    btn.style.color = _liveHideNoMap ? 'var(--text2)' : '#3b82f6';
+    btn.style.borderColor = _liveHideNoMap ? 'var(--border)' : '#3b82f666';
+  }
+  liveMatchesCache.forEach(m => _applyCardVisibility(m));
+}
+
+// ── xG "dos indicadores": em vez do xG oficial (Uniscore/big chances), calcula um xG
+// próprio a partir só dos chutes já mapeados no card (mesma técnica xGZ do painel de
+// detalhe) — cada chute vale a taxa histórica de conversão da zona de onde saiu ──
+async function buildIndicatorXgBadgeHtml(shots, m) {
+  if (!shots || !shots.length) return '';
+  const smPat = await _fetchSmPatLive();
+  if (!smPat?.by_zone) return '';
+
+  const convMap = {};
+  smPat.by_zone.forEach(z => convMap[z.key] = (z.goal_pct || 0) / 100);
+  const classZ = (x) => {
+    const xv = x ?? 50;
+    if (xv < 12) return 'area_pequena';
+    if (xv < 32) return 'area_grande';
+    if (xv < 55) return 'meia_distancia';
+    return 'longa_distancia';
+  };
+
+  let xgzCasa = 0, xgzFora = 0;
+  shots.forEach(s => {
+    const v = convMap[classZ(s.x)] || 0;
+    if (s.isHome) xgzCasa += v; else xgzFora += v;
+  });
+  if (xgzCasa <= 0 && xgzFora <= 0) return '';
+
+  const maior = Math.max(xgzCasa, xgzFora), menor = Math.min(xgzCasa, xgzFora);
+  if (menor > 0 && maior / menor < 2) return '';
+  if (menor === 0 && maior < 0.4) return '';
+
+  const isHome = xgzCasa >= xgzFora;
+  const who    = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;
+    color:${color};background:${color}22;border:1px solid ${color}44;border-radius:10px;padding:2px 8px">
+    🗺️🧮 ${who} dobro de xG (chutes) (${xgzCasa.toFixed(2)} x ${xgzFora.toFixed(2)})
+  </span>`;
+}
+
+// ── Selo combinado: só acende quando pressão E chute apontam pro MESMO time no mesmo
+// ciclo — sem histórico, sem janela de minutos, só o instante atual. Se só um dos dois
+// bater (só pressão ou só chute), não aparece nada — é o sinal mais "forte" dos 3 selos ──
+function buildCombinedSignalBadgeHtml(points, shots, m) {
+  // Pressão: mesma condição do selo de pressão (últimas 8 leituras, THRESHOLD 20)
+  let pressaoTeam = null;
+  const N = Math.min(8, points.length);
+  if (N) {
+    const recent = points.slice(-N).map(p => p.value || 0);
+    const avg = recent.reduce((a, b) => a + b, 0) / N;
+    if (Math.abs(avg) >= 20) pressaoTeam = avg > 0 ? 'casa' : 'fora';
+  }
+  if (!pressaoTeam) return '';
+
+  // Chute: mesma condição do selo de zona (chute no minuto atual do jogo)
+  let chuteTeam = null;
+  if (shots && shots.length) {
+    const lastMin = Math.max(...shots.map(s => s.minute || 0), 0);
+    const curMin = _gridTempos[m.id] ? Math.round(_gridTempos[m.id].sec / 60) : null;
+    if (curMin === null || Math.abs(curMin - lastMin) <= 1) {
+      const recent = shots.filter(s => (s.minute || 0) === lastMin);
+      if (recent.length) {
+        const homeCount = recent.filter(s => s.isHome).length;
+        const awayCount = recent.length - homeCount;
+        chuteTeam = homeCount >= awayCount ? 'casa' : 'fora';
+      }
+    }
+  }
+  if (!chuteTeam || chuteTeam !== pressaoTeam) return '';
+
+  const isHome = pressaoTeam === 'casa';
+  const who    = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;
+    color:${color};background:${color}22;border:1px solid ${color}66;border-radius:10px;padding:2px 8px">
+    🔥 ${who} pressionando e finalizando
+  </span>`;
+}
+
+// ── Selo de xG: fica visível enquanto o xG de um time for pelo menos o DOBRO do outro —
+// some sozinho assim que a diferença cai abaixo de 2x (recalculado a cada refresh) ──
+function buildXgBadgeHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const stats = d && d.statistics;
+  if (!stats) return '';
+
+  let xgH, xgA;
+  const xg = stats.expected_goals;
+  if (xg && (xg.homeValue || xg.awayValue)) {
+    // Prioriza o xG real do Uniscore quando ele vier preenchido
+    xgH = parseFloat(xg.homeValue);
+    xgA = parseFloat(xg.awayValue);
+  } else {
+    // Fallback: mesma fórmula simplificada usada na aba Geral (big_chances + chutes
+    // dentro/fora da área) — o Uniscore às vezes não manda "Expected Goals" pronto
+    const gv = (key) => { const it = stats[key]; return it ? [it.homeValue || 0, it.awayValue || 0] : [0, 0]; };
+    const [bigH, bigA] = gv('big_chances');
+    const [boxH, boxA] = gv('shots_inside_box');
+    const [outH, outA] = gv('shots_outside_box');
+    const calcXg = (big, boxIn, boxOut) => {
+      const bc = Number(big) || 0;
+      const insideReg = Math.max(0, (Number(boxIn) || 0) - bc);
+      const outside = Number(boxOut) || 0;
+      return Math.round((bc * 0.40 + insideReg * 0.12 + outside * 0.04) * 100) / 100;
+    };
+    xgH = calcXg(bigH, boxH, outH);
+    xgA = calcXg(bigA, boxA, outA);
+  }
+  if (!(xgH >= 0) || !(xgA >= 0)) return '';
+
+  const maior = Math.max(xgH, xgA), menor = Math.min(xgH, xgA);
+  if (menor <= 0 && maior <= 0) return '';
+  if (menor > 0 && maior / menor < 2) return '';
+  if (menor === 0 && maior < 0.6) return ''; // evita disparar com xG muito baixo tipo 0.1 x 0
+
+  const isHome = xgH >= xgA;
+  const who    = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;
+    color:${color};background:${color}22;border:1px solid ${color}44;border-radius:10px;padding:2px 8px">
+    🧠 ${who} dobro de xG (${xgH.toFixed(2)} x ${xgA.toFixed(2)})
+  </span>`;
+}
+
+// ── Selo de chutes: compara o volume de finalizações dos últimos 15' entre os 2 times —
+// mesma ideia do selo de pressão, mas usando o mapa de chutes em vez do momentum ──
+// ── Selo de zona: só aparece no minuto exato em que rolou um chute — some sozinho no
+// próximo minuto se não vier chute novo (mesma classificação de zona usada no xGZ) ──
+function buildShotsBadgeHtml(shots, m) {
+  if (!shots || !shots.length) return '';
+  const lastMin = Math.max(...shots.map(s => s.minute || 0), 0);
+
+  // Só mostra se o chute foi MESMO agora — compara com o minuto real do jogo (não só o
+  // último chute que existe nos dados, que pode ser de vários minutos atrás)
+  const curMin = _gridTempos[m.id] ? Math.round(_gridTempos[m.id].sec / 60) : null;
+  if (curMin !== null && Math.abs(curMin - lastMin) > 1) return '';
+
+  const recent = shots.filter(s => (s.minute || 0) === lastMin);
+  if (!recent.length) return '';
+
+  const classZ = (x) => {
+    const xv = x ?? 50;
+    if (xv < 12) return 'area_pequena';
+    if (xv < 32) return 'area_grande';
+    if (xv < 55) return 'meia_distancia';
+    return 'longa_distancia';
+  };
+  const ZONE_LABEL = { area_pequena: 'Área Pequena', area_grande: 'Área Grande', meia_distancia: 'Meia Distância', longa_distancia: 'Longa Distância' };
+
+  // Time que mais chutou nesse minuto exato — se empatar, prevalece o mandante
+  const homeCount = recent.filter(s => s.isHome).length;
+  const awayCount = recent.length - homeCount;
+  const isHome = homeCount >= awayCount;
+  const time   = isHome ? 'Casa' : 'Visitante';
+  // Cor por TIME (mesma paleta do selo de pressão: azul = casa, vermelho = fora) — não
+  // pela zona, senão dá a entender errado quem é casa/fora (zona não indica lado nenhum)
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  const doTime = recent.filter(s => !!s.isHome === isHome);
+  const counts = {};
+  doTime.forEach(s => { const z = classZ(s.x); counts[z] = (counts[z] || 0) + 1; });
+  const [zonaTop, qtd] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;
+    color:${color};background:${color}22;border:1px solid ${color}44;border-radius:10px;padding:2px 8px">
+    🗺️ ${time} · ${ZONE_LABEL[zonaTop]} (chute aos ${lastMin}')
+  </span>`;
+}
+
+// ── Canvas compacto de pressão pra grid (sem indicadores de padrão) ──
+// ── Selo de pressão: quando as barras recentes ficam consistentemente de um lado da
+// linha do meio, aponta quem está "empurrando" o jogo agora ──
+function buildPressureBadgeHtml(points, m) {
+  const N = Math.min(8, points.length); // últimas 8 leituras
+  const recent = points.slice(-N).map(p => p.value || 0);
+  const avg = recent.reduce((a, b) => a + b, 0) / N;
+
+  const THRESHOLD = 20; // abaixo disso, considera equilibrado
+  if (Math.abs(avg) < THRESHOLD) return '';
+
+  const isHome = avg > 0;
+  const who    = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+  const bg     = isHome ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)';
+  const arrow  = isHome ? '▲' : '▼';
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;
+    color:${color};background:${bg};border:1px solid ${color}44;border-radius:10px;padding:2px 8px">
+    ${arrow} ${who} pressionando
+  </span>`;
+}
+
+function drawMiniMomentum(canvas, points, goals) {
+  if (!canvas || !points.length) return;
+  const W = canvas.parentElement.offsetWidth || 280;
+  const H = 90;
+  canvas.width  = W;
+  canvas.height = H;
+  canvas.style.width  = '100%';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  const mid = H / 2;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxVal = Math.max(...points.map(d => Math.abs(d.value || 0)), 1);
+  const barW   = W / points.length;
+  const gap    = Math.max(0.5, barW * 0.15);
+  const barNet = barW - gap;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+  points.forEach((d, i) => {
+    const x    = i * barW + gap / 2;
+    const val  = d.value || 0;
+    const barH = Math.abs(val / maxVal) * mid * 0.9;
+    ctx.fillStyle = val >= 0 ? 'rgba(59,130,246,0.9)' : 'rgba(220,80,80,0.9)';
+    if (val >= 0) ctx.fillRect(x, mid - barH, barNet, barH);
+    else ctx.fillRect(x, mid, barNet, barH);
+  });
+
+  (goals || []).forEach(g => {
+    let closest = 0, bestDiff = Infinity;
+    points.forEach((d, i) => {
+      const dif = Math.abs(Math.floor(d.minute) - g.minute);
+      if (dif < bestDiff) { bestDiff = dif; closest = i; }
+    });
+    const gx = closest * barW + barW / 2;
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚽', gx, g.team === 'home' ? 10 : H - 10);
+  });
+}
+
+// ── SVG compacto de mapa de chutes pra grid (sem legenda/zonas, só campo+bolinhas) ──
+// ── xG por zona (xGZ) a partir só dos chutes já mapeados — usa o cache de padrões
+// históricos já buscado em segundo plano (_smPatCacheLive), sem precisar de outro fetch ──
+function _calcXgzPair(shots) {
+  if (!_smPatCacheLive?.by_zone || !shots || !shots.length) return null;
+  const convMap = {};
+  _smPatCacheLive.by_zone.forEach(z => convMap[z.key] = (z.goal_pct || 0) / 100);
+  const classZ = (x) => {
+    const xv = x ?? 50;
+    if (xv < 12) return 'area_pequena';
+    if (xv < 32) return 'area_grande';
+    if (xv < 55) return 'meia_distancia';
+    return 'longa_distancia';
+  };
+  let xgzCasa = 0, xgzFora = 0;
+  shots.forEach(s => {
+    const v = convMap[classZ(s.x)] || 0;
+    if (s.isHome) xgzCasa += v; else xgzFora += v;
+  });
+  return { xgzCasa, xgzFora };
+}
+
+function buildMiniShotMapSvg(shots) {
+  const homeShots = shots.filter(s => s.isHome);
+  const awayShots = shots.filter(s => !s.isHome);
+  const homeGoals = homeShots.filter(s => s.shotType === 'goal').length;
+  const awayGoals = awayShots.filter(s => s.shotType === 'goal').length;
+  const W = 280, H = 150;
+
+  const shotIcon = (s) => {
+    const px = s.isHome ? (s.x / 100) * W : (1 - s.x / 100) * W;
+    const py = (s.y / 100) * H;
+    const color  = s.isHome ? '#3b82f6' : '#f97316';
+    const radius = s.shotType === 'goal' ? 5 : 3.5;
+    const fill   = s.shotType === 'goal' ? color : 'none';
+    const sw     = s.shotType === 'goal' ? 0 : 1.4;
+    const op     = s.shotType === 'miss' ? 0.6 : 1;
+    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${radius}"
+      fill="${fill}" stroke="${color}" stroke-width="${sw}" opacity="${op}"><title>${s.player||''} ${s.minute?s.minute+"'":''}</title></circle>`;
+  };
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;border-radius:6px">
+      <rect width="${W}" height="${H}" fill="#1b3a1b" rx="4"/>
+      <rect x="1.5" y="1.5" width="${W-3}" height="${H-3}" fill="none" stroke="#ffffff25" stroke-width="1" rx="3"/>
+      <line x1="${W/2}" y1="2" x2="${W/2}" y2="${H-2}" stroke="#ffffff20" stroke-width="1"/>
+      <circle cx="${W/2}" cy="${H/2}" r="${H*0.16}" fill="none" stroke="#ffffff20" stroke-width="1"/>
+      <rect x="1.5" y="${H*0.2}" width="${W*0.14}" height="${H*0.6}" fill="none" stroke="#ffffff25" stroke-width="1"/>
+      <rect x="${W-1.5-W*0.14}" y="${H*0.2}" width="${W*0.14}" height="${H*0.6}" fill="none" stroke="#ffffff25" stroke-width="1"/>
+      ${homeShots.map(s => shotIcon(s)).join('')}
+      ${awayShots.map(s => shotIcon(s)).join('')}
+    </svg>
+    <div style="display:flex;justify-content:space-between;padding:5px 2px 2px;font-size:12px;color:var(--text2)">
+      <span>🔵 ${homeShots.length} chutes · ${homeGoals}⚽</span>
+      <span>${awayShots.length} chutes · ${awayGoals}⚽ 🟠</span>
+    </div>`;
 }
 
 // Injeta mini-estatísticas Uniscore em cada card da sidebar
@@ -5467,6 +7382,7 @@ async function loadBacktestDates() {
     loadStatsPatterns();
     loadOddsPatterns();
     loadShotmapPatterns();
+    loadConvergenceAccuracy();
   } catch(e) {
     list.innerHTML = '<div class="loading" style="padding:16px;font-size:12px">Erro ao carregar.</div>';
   }
@@ -5987,6 +7903,399 @@ function toggleShotmapPanel() {
   const i = document.getElementById('btSMToggleIcon');
   if (c) c.style.display = btShotmapOpen ? 'block' : 'none';
   if (i) i.textContent = btShotmapOpen ? '▲' : '▼';
+}
+
+// ── TAXA DE ACERTO — CONVERGÊNCIA DE SINAIS ─────────────────────────────────
+// Roda o mesmo veredicto usado em "Análise de Cenários" (aba Hoje) contra TODOS os
+// jogos do backtest que já têm resultado, e mede quantas vezes acertou o vencedor.
+// O backtest não guarda "detalhes" completos (a raspagem em massa não busca a página de
+// confronto de cada jogo), então os 6 sinais de vencedor são obtidos assim:
+//   1. TIP do site               → campo m.tip (sempre presente)
+//   2. Padrão histórico          → btPatterns + odds do TIP (sempre presente se padrões carregados)
+//   3. Forma recente             → campos m.form_casa/m.form_fora (presente quando o time já
+//                                   tinha jogo anterior no backtest)
+//   4. Ataque×Defesa             → DERIVADO: média de gols marcados/sofridos de cada time nos
+//                                   jogos anteriores do próprio corpus do backtest
+//   5. H2H (confronto direto)    → DERIVADO: jogos anteriores entre esses 2 times exatos,
+//                                   também tirado do próprio corpus do backtest
+//   6. Classificação da liga     → NÃO DÁ — o backtest não guarda posição/pontos de nenhuma
+//                                   liga em lugar nenhum; esse sinal fica de fora sempre.
+// Ou seja: cobre 5 dos 6 sinais que aparecem ao vivo, só falta a tabela de classificação.
+let btConvergenceOpen = false;
+
+async function loadConvergenceAccuracy() {
+  const panel = document.getElementById('btConvergencePanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="padding:10px 12px;font-size:11px;color:var(--text2)">🔀 Calculando taxa de acerto da Convergência de Sinais...</div>`;
+
+  // Espera o cache de todos os jogos do backtest ficar pronto (mesmo padrão do btMarketsPanel)
+  const run = () => {
+    const allMatches = btAllMatchesCache.flatMap(d => d.matches).filter(m => m.resultado && m.resultado.includes(':'));
+    // Índices construídos 1x sobre TODO o corpus — usados pra derivar Ataque×Defesa e H2H
+    const teamIdx = _buildTeamGoalsIndex(allMatches);
+    const h2hIdx  = _buildH2HIndex(allMatches);
+    renderConvergenceAccuracyPanel(_computeConvergenceAccuracy(allMatches, teamIdx, h2hIdx));
+  };
+  if (btAllMatchesCache) {
+    run();
+  } else {
+    const wait = setInterval(() => {
+      if (btAllMatchesCache) { clearInterval(wait); run(); }
+    }, 300);
+    setTimeout(() => clearInterval(wait), 15000);
+  }
+}
+
+// ── Índices auxiliares construídos 1x sobre TODO o corpus do backtest — derivam os
+// sinais de Ataque×Defesa e H2H (que ao vivo vêm de "detalhes", quase nunca presente no
+// backtest) a partir do próprio histórico de resultados. Sempre olham só pra jogos com
+// data ANTERIOR à partida sendo avaliada, pra não usar informação que ainda não existia ──
+function _normTeam(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
+function _buildTeamGoalsIndex(allMatches) {
+  const idx = {};
+  allMatches.forEach(m => {
+    if (!m.resultado || !m.resultado.includes(':') || !m.data_partida) return;
+    const [gc, gf] = m.resultado.split(':').map(Number);
+    const nCasa = _normTeam(m.casa), nFora = _normTeam(m.fora);
+    (idx[nCasa] = idx[nCasa] || []).push({ date: m.data_partida, scored: gc, conceded: gf });
+    (idx[nFora] = idx[nFora] || []).push({ date: m.data_partida, scored: gf, conceded: gc });
+  });
+  Object.values(idx).forEach(arr => arr.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return idx;
+}
+
+function _avgGoalsBefore(idx, team, beforeDate, n = 10) {
+  const arr = idx[_normTeam(team)];
+  if (!arr) return null;
+  const prior = arr.filter(r => r.date < beforeDate).slice(-n);
+  if (prior.length < 3) return null;
+  return {
+    avgScored:   prior.reduce((a, r) => a + r.scored, 0) / prior.length,
+    avgConceded: prior.reduce((a, r) => a + r.conceded, 0) / prior.length,
+    n: prior.length,
+  };
+}
+
+function _buildH2HIndex(allMatches) {
+  const idx = {};
+  allMatches.forEach(m => {
+    if (!m.resultado || !m.resultado.includes(':') || !m.data_partida) return;
+    const a = _normTeam(m.casa), b = _normTeam(m.fora);
+    const key = [a, b].sort().join('|');
+    (idx[key] = idx[key] || []).push({ date: m.data_partida, casa: a, fora: b, resultado: m.resultado });
+  });
+  return idx;
+}
+
+function _h2hBefore(idx, casa, fora, beforeDate) {
+  const nCasa = _normTeam(casa), nFora = _normTeam(fora);
+  const key = [nCasa, nFora].sort().join('|');
+  const arr = (idx[key] || []).filter(r => r.date < beforeDate);
+  if (arr.length < 2) return null;
+  let winsCasaSide = 0, winsForaSide = 0, draws = 0;
+  arr.forEach(r => {
+    const [g1, g2] = r.resultado.split(':').map(Number);
+    let vencedor = null;
+    if (g1 > g2) vencedor = r.casa;
+    else if (g2 > g1) vencedor = r.fora;
+    if (vencedor === null) draws++;
+    else if (vencedor === nCasa) winsCasaSide++;
+    else if (vencedor === nFora) winsForaSide++;
+  });
+  const total = arr.length;
+  return { pctCasa: winsCasaSide / total * 100, pctFora: winsForaSide / total * 100, n: total };
+}
+
+// Mesma lógica de sinais do gerarConvergencia (aba Hoje), mas com os campos que
+// existem nos jogos de backtest (tip, odds, over/under·bts, forma) mais os 2 sinais
+// derivados acima (Ataque×Defesa e H2H) — só a Classificação da liga (tabela de pontos)
+// fica de fora, porque o backtest não guarda posição/pontos de nenhum time em lugar nenhum
+function _computeConvergenceVerdict(m, teamIdx, h2hIdx) {
+  const sinais = { casa: [], empate: [], fora: [] };
+  const tip = m.tip;
+
+  if (tip === '1') sinais.casa.push(1);
+  else if (tip === 'X') sinais.empate.push(1);
+  else if (tip === '2') sinais.fora.push(1);
+
+  if (btPatterns && tip) {
+    const tipOddsMap = { '1': m.odds_1, '2': m.odds_2, 'X': m.odds_x };
+    const tipAcc = btPatterns.tip?.[tip];
+    const tipOdds = tipOddsMap[tip];
+    if (tipAcc && tipOdds) {
+      const rng = rangeKey(tipOdds);
+      if (rng && tipAcc[rng] && tipAcc[rng].total >= 5 && tipAcc[rng].pct > parseInt(tipOdds)) {
+        if (tip === '1') sinais.casa.push(1);
+        else if (tip === '2') sinais.fora.push(1);
+        else sinais.empate.push(1);
+      }
+    }
+  }
+
+  // Forma recente (últimos jogos) — o backtest calcula isso pra CADA jogo via
+  // compute_rolling_form (campos m.form_casa/m.form_fora, tipo "WW"/"DDL"), então esse
+  // sinal SEMPRE está disponível quando o time já tem histórico anterior no backtest —
+  // mesma lógica de "Momento dos Times" usada ao vivo, só que a partir desse campo pronto
+  if (m.form_casa && m.form_fora) {
+    const wH = (m.form_casa.match(/W/g) || []).length;
+    const wA = (m.form_fora.match(/W/g) || []).length;
+    if (wH > wA + 1) sinais.casa.push(1);
+    else if (wA > wH + 1) sinais.fora.push(1);
+  }
+
+  // Ataque×Defesa — média de gols marcados/sofridos de cada time nos jogos ANTERIORES
+  // a essa data, calculada em cima do próprio corpus do backtest (não precisa de "detalhes")
+  if (teamIdx && m.data_partida) {
+    const aCasa = _avgGoalsBefore(teamIdx, m.casa, m.data_partida);
+    const aFora = _avgGoalsBefore(teamIdx, m.fora, m.data_partida);
+    if (aCasa && aFora) {
+      if (aCasa.avgScored > aFora.avgConceded + 0.4) sinais.casa.push(1);
+      else if (aFora.avgScored > aCasa.avgConceded + 0.4) sinais.fora.push(1);
+    }
+  }
+
+  // H2H — confrontos diretos anteriores entre esses 2 times exatos, dentro do próprio
+  // corpus do backtest (substitui o grafico_h2h que só vem em "detalhes" completos)
+  if (h2hIdx && m.data_partida) {
+    const h2h = _h2hBefore(h2hIdx, m.casa, m.fora, m.data_partida);
+    if (h2h) {
+      if (h2h.pctCasa >= 50) sinais.casa.push(1);
+      else if (h2h.pctFora >= 50) sinais.fora.push(1);
+    }
+  }
+
+  // Se o jogo tiver "detalhes" completos (raros no backtest, mas possível se veio do
+  // cache do Hoje em algum momento), aproveita o H2H oficial também (evita duplicar
+  // com o derivado acima só se os dois discordarem — na prática são complementares)
+  const d = m.detalhes;
+  if (d) {
+    const h2hOficial = d.grafico_h2h || {};
+    const h2hVals = Object.values(h2hOficial).map(v => parseInt(v) || 0);
+    if (h2hVals.length === 3) {
+      const [ph, , pa] = h2hVals;
+      if (ph >= 50) sinais.casa.push(1);
+      else if (pa >= 50) sinais.fora.push(1);
+    }
+  }
+
+  const totalRes = sinais.casa.length + sinais.empate.length + sinais.fora.length;
+  if (totalRes === 0) return null;
+
+  let dom = null;
+  if (sinais.casa.length > sinais.fora.length && sinais.casa.length >= sinais.empate.length) dom = 'casa';
+  else if (sinais.fora.length > sinais.casa.length && sinais.fora.length >= sinais.empate.length) dom = 'fora';
+  else if (sinais.empate.length >= sinais.casa.length && sinais.empate.length >= sinais.fora.length) dom = 'empate';
+  if (!dom) return null;
+
+  return { dom, count: sinais[dom].length, total: totalRes };
+}
+
+// ── Segundo sistema de sinais que aparece na mesma seção (Análise de Cenários): a
+// "⚽ Direção de Gols" (muitos/poucos gols), separada da convergência de vencedor acima.
+// Mesma lógica do golSinais dentro de gerarConvergencia: Over2.5/BTS + reforço de padrão
+// histórico + a parte de gols do sinal Ataque×Defesa (média combinada dos 2 times) ──
+function _computeGolVerdict(m, teamIdx) {
+  const golSinais = { muitos: 0, poucos: 0 };
+
+  const over25v = parseInt(m.over_2_5) || 0;
+  const btsV = parseInt(m.bts) || 0;
+  if (over25v >= 65) golSinais.muitos++;
+  else if (over25v > 0 && over25v <= 35) golSinais.poucos++;
+  if (btsV >= 60) golSinais.muitos++;
+
+  if (btPatterns && m.over_2_5) {
+    const ins = patternInsight(btPatterns.over_2_5, m.over_2_5);
+    if (ins && ins.total >= 5) {
+      if (ins.pct >= 60) golSinais.muitos++;
+      else if (ins.pct <= 40) golSinais.poucos++;
+    }
+  }
+
+  // Ataque×Defesa (gols) — mesma ideia do sinal de vencedor, mas olhando a média
+  // COMBINADA dos 2 times (>= 2.5 aponta "muitos gols", < 1.8 aponta "poucos")
+  if (teamIdx && m.data_partida) {
+    const aCasa = _avgGoalsBefore(teamIdx, m.casa, m.data_partida);
+    const aFora = _avgGoalsBefore(teamIdx, m.fora, m.data_partida);
+    if (aCasa && aFora) {
+      const totalAvg = aCasa.avgScored + aFora.avgScored;
+      if (totalAvg >= 2.5) golSinais.muitos++;
+      else if (totalAvg > 0 && totalAvg < 1.8) golSinais.poucos++;
+    }
+  }
+
+  const totalRes = golSinais.muitos + golSinais.poucos;
+  if (totalRes === 0) return null;
+  const dom = golSinais.muitos >= golSinais.poucos ? 'muitos' : 'poucos';
+  return { dom, count: golSinais[dom], total: totalRes };
+}
+
+function _computeConvergenceAccuracy(matches, teamIdx, h2hIdx) {
+  let acertos = 0, total = 0;
+  // Um balde por combinação (lado do veredicto × nível de unanimidade) — assim dá pra
+  // ver, por exemplo, especificamente "quando o sinal foi 2 de 2 pra Casa, quantas vezes
+  // a Casa realmente venceu", em vez de só uma taxa geral misturando tudo
+  const buckets = {};
+  const bucketKey = (dom, unanime) => `${dom}__${unanime ? 'unanime' : 'maioria'}`;
+  const getBucket = (dom, unanime) => {
+    const k = bucketKey(dom, unanime);
+    if (!buckets[k]) buckets[k] = { acertos: 0, total: 0 };
+    return buckets[k];
+  };
+  // Também guarda por proporção exata (ex: "2 de 2", "4 de 6") só pro lado que mais
+  // aparece nos exemplos reais — ajuda a comparar "2 de 2" vs "4 de 4" separadamente
+  const porProporcao = {};
+
+  // Mesma estrutura, só que pro segundo sistema de sinais (Direção de Gols)
+  let golAcertos = 0, golTotal = 0;
+  const golBuckets = {};
+  const getGolBucket = (dom, unanime) => {
+    const k = `${dom}__${unanime ? 'unanime' : 'maioria'}`;
+    if (!golBuckets[k]) golBuckets[k] = { acertos: 0, total: 0 };
+    return golBuckets[k];
+  };
+  const golPorProporcao = {};
+
+  matches.forEach(m => {
+    const [gc, gf] = m.resultado.split(':').map(Number);
+
+    const v = _computeConvergenceVerdict(m, teamIdx, h2hIdx);
+    if (v) {
+      const real = gc > gf ? 'casa' : gc < gf ? 'fora' : 'empate';
+      const acertou = v.dom === real;
+      const unanime = v.count === v.total;
+
+      total++;
+      if (acertou) acertos++;
+
+      const bucket = getBucket(v.dom, unanime);
+      bucket.total++;
+      if (acertou) bucket.acertos++;
+
+      const propKey = `${v.dom}__${v.count} de ${v.total}`;
+      if (!porProporcao[propKey]) porProporcao[propKey] = { acertos: 0, total: 0, dom: v.dom, count: v.count, totalSinais: v.total };
+      porProporcao[propKey].total++;
+      if (acertou) porProporcao[propKey].acertos++;
+    }
+
+    const g = _computeGolVerdict(m, teamIdx);
+    if (g) {
+      const realGols = gc + gf > 2.5 ? 'muitos' : 'poucos';
+      const acertouGol = g.dom === realGols;
+      const unanimeGol = g.count === g.total;
+
+      golTotal++;
+      if (acertouGol) golAcertos++;
+
+      const gb = getGolBucket(g.dom, unanimeGol);
+      gb.total++;
+      if (acertouGol) gb.acertos++;
+
+      const propKeyGol = `${g.dom}__${g.count} de ${g.total}`;
+      if (!golPorProporcao[propKeyGol]) golPorProporcao[propKeyGol] = { acertos: 0, total: 0, dom: g.dom, count: g.count, totalSinais: g.total };
+      golPorProporcao[propKeyGol].total++;
+      if (acertouGol) golPorProporcao[propKeyGol].acertos++;
+    }
+  });
+
+  return {
+    acertos, total, buckets, porProporcao,
+    golAcertos, golTotal, golBuckets, golPorProporcao,
+  };
+}
+
+function toggleConvergencePanel() {
+  btConvergenceOpen = !btConvergenceOpen;
+  const c = document.getElementById('btConvContent');
+  const i = document.getElementById('btConvToggleIcon');
+  if (c) c.style.display = btConvergenceOpen ? 'block' : 'none';
+  if (i) i.textContent = btConvergenceOpen ? '▲' : '▼';
+}
+
+function renderConvergenceAccuracyPanel(r) {
+  const panel = document.getElementById('btConvergencePanel');
+  if (!panel) return;
+  if (!r.total) { panel.innerHTML = ''; return; }
+
+  const pct = Math.round(r.acertos / r.total * 100);
+  const display = btConvergenceOpen ? 'block' : 'none';
+  const icon    = btConvergenceOpen ? '▲' : '▼';
+  const pctColor = pct >= 55 ? '#22c55e' : pct >= 45 ? '#f59e0b' : '#ef4444';
+
+  const row = (label, b) => !b || !b.total ? '' : `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;font-size:11px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text2)">${label}</span>
+      <span style="font-weight:700;color:${b.acertos/b.total >= 0.5 ? '#22c55e' : '#ef4444'}">
+        ${b.acertos}/${b.total} (${Math.round(b.acertos/b.total*100)}%)
+      </span>
+    </div>`;
+
+  const domLabel = { casa: '🏠 Casa', fora: '✈️ Visitante', empate: '🤝 Empate' };
+
+  // Proporções exatas (ex: "2 de 2 → Casa", "4 de 6 → Fora") — todas, da maior % de acerto pra menor
+  const proporcoesOrdenadas = Object.entries(r.porProporcao)
+    .sort((a, b) => (b[1].acertos / b[1].total) - (a[1].acertos / a[1].total));
+  const blocoProporcoes = proporcoesOrdenadas.length ? `
+    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;padding:8px 8px 2px;border-top:1px solid var(--border);margin-top:4px">
+      Por proporção exata do sinal
+    </div>
+    ${proporcoesOrdenadas.map(([, p]) =>
+      row(`${p.count} de ${p.totalSinais} sinais → ${domLabel[p.dom]}`, p)
+    ).join('')}` : '';
+
+  // ── Segundo sistema: Direção de Gols (Over/Under 2.5) — mesmo formato, mas separado
+  // porque é uma pergunta diferente ("vai ter muitos gols?" em vez de "quem vence?") ──
+  const golLabel = { muitos: '⚽ Muitos gols (+2.5)', poucos: '🧤 Poucos gols (-2.5)' };
+  let blocoGols = '';
+  if (r.golTotal) {
+    const golPct = Math.round(r.golAcertos / r.golTotal * 100);
+    const golPctColor = golPct >= 55 ? '#22c55e' : golPct >= 45 ? '#f59e0b' : '#ef4444';
+    const golProporcoesOrdenadas = Object.entries(r.golPorProporcao)
+      .sort((a, b) => (b[1].acertos / b[1].total) - (a[1].acertos / a[1].total));
+    const blocoGolProporcoes = golProporcoesOrdenadas.length ? `
+      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;padding:8px 8px 2px;border-top:1px solid var(--border);margin-top:4px">
+        Por proporção exata do sinal
+      </div>
+      ${golProporcoesOrdenadas.map(([, p]) =>
+        row(`${p.count} de ${p.totalSinais} sinais → ${golLabel[p.dom]}`, p)
+      ).join('')}` : '';
+
+    blocoGols = `
+      <div style="border-top:2px solid var(--border);margin-top:10px;padding-top:6px;display:flex;align-items:center;justify-content:space-between;padding:6px 8px">
+        <span style="font-size:11px;font-weight:700;color:#06b6d4">⚽ Direção de Gols (Over/Under 2.5)</span>
+        <span style="font-size:10px;color:${golPctColor};font-weight:700">${r.golAcertos}/${r.golTotal} (${golPct}%)</span>
+      </div>
+      ${blocoGolProporcoes}`;
+  }
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                cursor:pointer;user-select:none;background:var(--bg2)"
+         onclick="toggleConvergencePanel()">
+      <span style="font-size:11px;font-weight:700;color:#a855f7">🔀 Taxa de Acerto — Convergência de Sinais</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:${pctColor};font-weight:700">${r.acertos}/${r.total} (${pct}%)</span>
+        <span id="btConvToggleIcon" style="font-size:10px;color:var(--text2)">${icon}</span>
+      </span>
+    </div>
+    <div id="btConvContent" style="display:${display};background:var(--bg2);padding:6px 4px 10px">
+      ${blocoProporcoes}
+      ${blocoGols}
+      <div style="font-size:9px;color:var(--text2);padding:6px 12px 0;line-height:1.5">
+        Calculado sobre ${r.total} jogos do backtest com veredicto de vencedor
+        ${r.golTotal ? `e ${r.golTotal} com veredicto de gols` : ''} (de todos os dias carregados).
+        Sinais usados no vencedor: TIP do site, reforço de padrão histórico, forma recente
+        (form_casa/form_fora), Ataque×Defesa e H2H — esses 2 últimos calculados a partir do
+        histórico de resultados do próprio backtest (só jogos anteriores à data de cada partida,
+        sem olhar pro futuro). Sinais usados nos gols: Over 2.5 / BTS informados pelo site,
+        reforço de padrão histórico de Over 2.5, e a média combinada de gols dos 2 times
+        (Ataque×Defesa, mesmo índice derivado usado no vencedor). Só a Classificação da liga
+        (tabela de pontos) fica de fora — o backtest não guarda posição/pontos de nenhuma liga
+        em lugar nenhum. Ou seja: cobre 5 dos 6 sinais completos que aparecem ao vivo.
+      </div>
+    </div>`;
 }
 
 function renderShotmapPatterns(d) {
@@ -8239,20 +10548,29 @@ const BT_MKTS = [
   { key: 'over15HT',       label: 'O 1.5HT' },
 ];
 
+// Lista de mercados só do widget Estudo de Score (não mexe no BT_MKTS, que também monta a
+// tabela do Backtest) — inclui as linhas de O/U que faltavam (U 0.5, U 1.5, O 3.5).
+const WIDGET_MKTS = [...BT_MKTS,
+  { key: 'under05', label: 'U 0.5' },
+  { key: 'under15', label: 'U 1.5' },
+  { key: 'over35',  label: 'O 3.5' },
+];
+
 function _mktStats(subset) {
   const n = subset.length;
-  if (!n) return { n: 0, htN: 0, mkt: {}, scores: {} };
-  let cv=0, vv=0, emp=0, o25=0, u25=0, u35=0, o15=0, o05=0, bs=0, bn=0;
+  if (!n) return { n: 0, htN: 0, mkt: {}, scores: {}, htScores: {} };
+  let cv=0, vv=0, emp=0, o25=0, u25=0, u35=0, o35=0, o15=0, u15=0, o05=0, u05=0, bs=0, bn=0;
   let ht_o05=0, ht_u05=0, ht_u15=0, ht_o15=0, htN=0;
   const scores = {};
+  const htScores = {};
   for (const m of subset) {
     const [gc, gf] = m.resultado.split(':').map(v => parseInt(v)||0);
     const total = gc + gf;
     if (gc > gf) cv++; else if (gf > gc) vv++; else emp++;
     if (total >= 3) o25++; else u25++;
-    if (total <= 3) u35++;
-    if (total >= 2) o15++;
-    if (total >= 1) o05++;
+    if (total <= 3) u35++; else o35++;
+    if (total >= 2) o15++; else u15++;
+    if (total >= 1) o05++; else u05++;
     if (gc > 0 && gf > 0) bs++; else bn++;
     if (m.ht_score && m.ht_score.includes(':')) {
       const [hc,hf] = m.ht_score.split(':').map(v => parseInt(v)||0);
@@ -8260,17 +10578,21 @@ function _mktStats(subset) {
       if (htTotal > 0) ht_o05++; else ht_u05++;
       if (htTotal <= 1) ht_u15++; else ht_o15++;
       htN++;
+      const htk = `${hc}-${hf}`;
+      htScores[htk] = (htScores[htk] || 0) + 1;
     }
     const ek = `${gc}-${gf}`;
     scores[ek] = (scores[ek] || 0) + 1;
   }
   function p(v,t){ return t > 0 ? Math.round(v/t*100) : null; }
   return {
-    n, htN, scores,
+    n, htN, scores, htScores,
     mkt: {
       casaVence: p(cv,n), visitanteVence: p(vv,n), empate: p(emp,n),
       over25: p(o25,n), under25: p(u25,n),
-      under35: p(u35,n), over15: p(o15,n), over05: p(o05,n),
+      under35: p(u35,n), over35: p(o35,n),
+      over15: p(o15,n), under15: p(u15,n),
+      over05: p(o05,n), under05: p(u05,n),
       bttsS: p(bs,n), bttsN: p(bn,n),
       over05HT: p(ht_o05,htN), under05HT: p(ht_u05,htN),
       under15HT: p(ht_u15,htN), over15HT: p(ht_o15,htN),
@@ -8721,7 +11043,8 @@ function btGoalScoreBadge(m) {
     background:var(--bg);border:1px solid ${color}44;border-radius:4px;padding:1px 5px">⚽${gs}</span>`;
 }
 
-function renderBtMatchRow(m) {
+function renderBtMatchRow(m, handler) {
+  handler = handler || 'openBacktestDetail';
   const acertou  = m.tip_acertou;
   const rowClass = acertou === true ? 'acertou' : acertou === false ? 'errou' : '';
   const icon     = acertou === true ? '✅' : acertou === false ? '❌' : '';
@@ -8729,7 +11052,7 @@ function renderBtMatchRow(m) {
   const sCasa = calcBtTeamScore(m, true);
   const sFora = calcBtTeamScore(m, false);
   return `
-    <div class="bt-match-row ${rowClass}" onclick="openBacktestDetail('${escapeJs(m.url_detalhes)}', this)"
+    <div class="bt-match-row ${rowClass}" onclick="${handler}('${escapeJs(m.url_detalhes)}', this)"
          data-url="${escapeJs(m.url_detalhes)}">
       <div class="bt-match-hora">${m.hora || '--'}</div>
       <div class="bt-match-teams">
@@ -8799,6 +11122,107 @@ async function openBacktestDetail(url, rowEl) {
     detail.innerHTML = buildDetailHtml(match);
   } catch(e) {
     detail.innerHTML = '<div class="loading">Não foi possível carregar os detalhes.<br><span style="font-size:12px;color:var(--text2)">Verifique a conexão com o StatArea.</span></div>';
+  }
+}
+
+// ── PASSADAS — mesmo layout da aba Hoje, mas navegando o histórico completo ──
+let passadasAllMatches = [];
+let passadasFilter     = 'all';
+let passadasLoaded     = false;
+
+async function loadPassadas() {
+  const list = document.getElementById('passadasMatchList');
+  if (passadasLoaded) { filterPassadas(); return; }
+  list.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Carregando histórico...</div>';
+  try {
+    const res  = await fetch('/api/passadas');
+    const data = await res.json();
+    passadasAllMatches = data.matches || [];
+    passadasLoaded = true;
+    document.getElementById('passadasCount').textContent =
+      `${data.total} jogos · ${data.dates} dias · ${data.tip_acuracia != null ? data.tip_acuracia + '% acurácia' : ''}`;
+    filterPassadas();
+  } catch(e) {
+    list.innerHTML = '<div class="loading">Não foi possível carregar o histórico.</div>';
+  }
+}
+
+function setPassadasFilter(f, btn) {
+  passadasFilter = f;
+  document.querySelectorAll('#passadasSidebar .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterPassadas();
+}
+
+function filterPassadas() {
+  const q = (document.getElementById('passadasSearchBox').value || '').toLowerCase();
+  let filtered = passadasAllMatches;
+
+  if (passadasFilter === 'tip1')         filtered = filtered.filter(m => m.tip === '1');
+  else if (passadasFilter === 'tipx')    filtered = filtered.filter(m => m.tip === 'X');
+  else if (passadasFilter === 'tip2')    filtered = filtered.filter(m => m.tip === '2');
+  else if (passadasFilter === 'acertou') filtered = filtered.filter(m => m.tip_acertou === true);
+  else if (passadasFilter === 'errou')   filtered = filtered.filter(m => m.tip_acertou === false);
+
+  if (q) filtered = filtered.filter(m =>
+    (m.casa || '').toLowerCase().includes(q) ||
+    (m.fora || '').toLowerCase().includes(q) ||
+    (m.liga || '').toLowerCase().includes(q)
+  );
+
+  renderPassadasList(filtered);
+}
+
+function renderPassadasList(matches) {
+  const list = document.getElementById('passadasMatchList');
+  if (!matches.length) {
+    list.innerHTML = '<div class="bt-empty"><div>Nenhuma partida encontrada.</div></div>';
+    return;
+  }
+
+  // Agrupa por data (mais recente primeiro — já vem ordenado do backend)
+  const byDate = {};
+  matches.forEach(m => {
+    const k = m.data_partida || '—';
+    (byDate[k] = byDate[k] || []).push(m);
+  });
+
+  let html = '';
+  for (const [date, dayMatches] of Object.entries(byDate)) {
+    html += `
+      <div class="live-league-header">${formatDate(date)} · ${dayMatches.length} jogos</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+        ${dayMatches.map(m => renderBtMatchRow(m, 'openPassadaDetail')).join('')}
+      </div>`;
+  }
+  list.innerHTML = html;
+}
+
+async function openPassadaDetail(url, rowEl) {
+  document.querySelectorAll('#passadasMatchList .bt-match-row').forEach(r => r.classList.remove('active'));
+  rowEl.classList.add('active');
+  const detail = document.getElementById('passadasDetail');
+  detail.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Buscando detalhes...</div>';
+
+  const btMatch = passadasAllMatches.find(m => m.url_detalhes === url) || {};
+
+  try {
+    const encoded = encodeURIComponent((url.split('/compare/teams/')[1] || url));
+    let res = await fetch('/api/match/' + encoded);
+    let match;
+    if (res.ok) {
+      const cached = await res.json();
+      match = { ...btMatch, ...cached };
+    } else {
+      const liveEncoded = (url.split('/compare/teams/')[1] || url);
+      res = await fetch('/api/match/live/' + liveEncoded);
+      if (!res.ok) throw new Error('not found');
+      const liveData = await res.json();
+      match = { ...btMatch, detalhes: liveData.detalhes };
+    }
+    detail.innerHTML = buildDetailHtml(match);
+  } catch(e) {
+    detail.innerHTML = buildDetailHtml(btMatch);
   }
 }
 
@@ -9600,6 +12024,52 @@ function buildDetailHtml(m) {
   // ANÁLISE DE CENÁRIOS
   html += gerarAnalise(m);
 
+  // CONFRONTOS DIRETOS (H2H)
+  const h2hDiretos = d.confrontos_diretos || [];
+  if (h2hDiretos.length) {
+    html += `
+      <div class="matches-section">
+        <div class="section-title">Confrontos Diretos</div>
+        ${renderMatchTable(h2hDiretos, m.casa)}
+      </div>`;
+
+    // Estatísticas — mesmo formato de "Últimas 10 Partidas", mas calculado só
+    // em cima do histórico de confrontos diretos entre esses dois times específicos
+    html += `
+      <div class="stats-section">
+        <div class="section-title">Estatísticas — Confrontos Diretos</div>
+        <div class="stats-grid">
+          ${[m.casa, m.fora].map(team => {
+            const st = calcH2HStats(h2hDiretos, team);
+            if (!st) return `<div><div class="form-team-name">${team}</div><div class="stat-item"><span class="stat-label">sem jogos suficientes nos confrontos diretos</span></div></div>`;
+            const row = (label, val) => `
+              <div class="stat-item">
+                <span class="stat-label">${label}</span>
+                <span class="stat-value">${val}</span>
+              </div>`;
+            return `
+              <div>
+                <div class="form-team-name">${team}</div>
+                ${row('Média de gols sofridos por jogo', st.avgConceded.toFixed(1))}
+                ${row('Média de gols marcados por jogo', st.avgScored.toFixed(1))}
+                ${row('Chance de sofrer gol no próximo jogo', st.chanceConcede + '%')}
+                ${row('Chance de marcar no próximo jogo', st.chanceScore + '%')}
+                ${row('Jogos sem marcar', st.jogosSemMarcar)}
+                ${row('Jogos com +2.5 gols', st.jogosOver25)}
+                ${row('Jogos com -2.5 gols', st.jogosUnder25)}
+                ${row(`Número de ${team} empates`, st.draws)}
+                ${row(`Número de ${team} derrotas`, st.loses)}
+                ${row(`Número de ${team} vitórias`, st.wins)}
+                ${row('Jogos sem sofrer gol (CS)', st.cleanSheets)}
+              </div>`;
+          }).join('')}
+        </div>
+        <div style="font-size:9px;color:var(--text2);margin-top:10px;opacity:.7">
+          calculado só com os ${h2hDiretos.length} confrontos diretos entre ${m.casa} e ${m.fora} listados acima
+        </div>
+      </div>`;
+  }
+
   // ÚLTIMAS PARTIDAS
   const last10 = d.ultimas_10_partidas || {};
   if (Object.keys(last10).length) {
@@ -9647,7 +12117,7 @@ function buildDetailHtml(m) {
           ${Object.entries(betStats).map(([team, charts]) => `
             <div>
               <div class="form-team-name">${team}</div>
-              ${Object.entries(charts).slice(0, 4).map(([title, rows]) => `
+              ${Object.entries(charts).map(([title, rows]) => `
                 <div style="margin-bottom:14px">
                   <div class="barchart-title">${traduzBetTitle(title)}</div>
                   ${Object.entries(rows).map(([name, pct]) => {
@@ -9665,38 +12135,51 @@ function buildDetailHtml(m) {
       </div>`;
   }
 
-  // CLASSIFICAÇÃO
+  // CLASSIFICAÇÃO — geral, mas também casa/fora (o site já traz o recorte, só não mostrávamos)
   const standings = d.classificacao || [];
   if (standings.length > 1) {
-    html += `
-      <div class="standings-section">
-        <div class="section-title">Classificação — ${standings[0]?.competicao || ''}</div>
-        <table class="standings-table">
-          <thead>
-            <tr>
-              <th class="left">#</th>
-              <th class="left">Time</th>
-              <th>Pts</th>
-              <th>J</th>
-              <th>V</th><th>E</th><th>D</th>
-              <th>GM</th><th>GC</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${standings.map(row => `
+    const standingsTable = (key) => `
+      <table class="standings-table">
+        <thead>
+          <tr>
+            <th class="left">#</th>
+            <th class="left">Time</th>
+            ${key === 'geral' ? '<th>Pts</th>' : ''}
+            <th>J</th>
+            <th>V</th><th>E</th><th>D</th>
+            <th>GM</th><th>GC</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${standings.map(row => {
+            const sec = row[key] || {};
+            const jogos = key === 'geral' ? row.jogos : (parseInt(sec.v||0) + parseInt(sec.e||0) + parseInt(sec.d||0)) || '';
+            return `
               <tr class="${row.destacado ? 'highlighted' : ''}">
                 <td class="left">${row.pos}</td>
                 <td class="left">${row.time}</td>
-                <td><b>${row.pontos}</b></td>
-                <td>${row.jogos}</td>
-                <td>${row.geral?.v ?? ''}</td>
-                <td>${row.geral?.e ?? ''}</td>
-                <td>${row.geral?.d ?? ''}</td>
-                <td>${row.geral?.gm ?? ''}</td>
-                <td>${row.geral?.gc ?? ''}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
+                ${key === 'geral' ? `<td><b>${row.pontos}</b></td>` : ''}
+                <td>${jogos}</td>
+                <td>${sec.v ?? ''}</td>
+                <td>${sec.e ?? ''}</td>
+                <td>${sec.d ?? ''}</td>
+                <td>${sec.gm ?? ''}</td>
+                <td>${sec.gc ?? ''}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    html += `
+      <div class="standings-section">
+        <div class="section-title">Classificação — ${standings[0]?.competicao || ''}</div>
+        <div class="matches-tabs">
+          <button class="tab-btn active" onclick="switchTab('standings', 0, this)">Geral</button>
+          <button class="tab-btn" onclick="switchTab('standings', 1, this)">Casa</button>
+          <button class="tab-btn" onclick="switchTab('standings', 2, this)">Fora</button>
+        </div>
+        <div id="standings_tab_0">${standingsTable('geral')}</div>
+        <div id="standings_tab_1" class="hidden">${standingsTable('casa')}</div>
+        <div id="standings_tab_2" class="hidden">${standingsTable('fora')}</div>
       </div>`;
   }
 
@@ -9784,8 +12267,44 @@ function renderMatchTable(partidas, teamName) {
     </table>`;
 }
 
+// ── Calcula as mesmas métricas de "Últimas 10 Partidas" mas usando só o histórico de
+// confrontos diretos entre os dois times (h2hDiretos), do ponto de vista de um time ──
+function calcH2HStats(h2hDiretos, teamName) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const tn = norm(teamName).split(' ')[0];
+  const jogos = h2hDiretos.filter(p => norm(p.casa).includes(tn) || norm(p.fora).includes(tn) || tn.length && (norm(p.casa).startsWith(tn) || norm(p.fora).startsWith(tn)));
+  if (!jogos.length) return null;
+
+  let golsMarcados = 0, golsSofridos = 0, wins = 0, draws = 0, loses = 0;
+  let jogosSemMarcar = 0, jogosOver25 = 0, jogosUnder25 = 0, cleanSheets = 0;
+
+  jogos.forEach(p => {
+    const isHome = norm(p.casa).includes(tn) || norm(p.casa).startsWith(tn);
+    const gc = parseInt(p.gols_casa) || 0;
+    const gf = parseInt(p.gols_fora) || 0;
+    const marcou   = isHome ? gc : gf;
+    const sofreu   = isHome ? gf : gc;
+    golsMarcados += marcou;
+    golsSofridos += sofreu;
+    if (marcou > sofreu) wins++; else if (marcou < sofreu) loses++; else draws++;
+    if (marcou === 0) jogosSemMarcar++;
+    if (sofreu === 0) cleanSheets++;
+    if (gc + gf > 2.5) jogosOver25++; else jogosUnder25++;
+  });
+
+  const n = jogos.length;
+  return {
+    avgScored:   golsMarcados / n,
+    avgConceded: golsSofridos / n,
+    chanceScore:   Math.round((n - jogosSemMarcar) / n * 100),
+    chanceConcede: Math.round((n - cleanSheets) / n * 100),
+    jogosSemMarcar, jogosOver25, jogosUnder25,
+    wins, draws, loses, cleanSheets,
+  };
+}
+
 function switchTab(prefix, idx, btn) {
-  const parent = btn.closest('.matches-section');
+  const parent = btn.closest('.matches-section') || btn.closest('.standings-section');
   parent.querySelectorAll('[id^="' + prefix + '_tab_"]').forEach(el => el.classList.add('hidden'));
   parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   parent.querySelector('#' + prefix + '_tab_' + idx)?.classList.remove('hidden');
@@ -9822,6 +12341,8 @@ const STAT_PT = {
   'Matches under 2.5 goals in': 'Jogos com -2.5 gols',
   'min. Time without scored goal': 'min. sem marcar gol',
   'min. Time without conceded goal': 'min. sem sofrer gol',
+  'Time without scored goal': 'Tempo sem marcar gol',
+  'Time without conceded goal': 'Tempo sem sofrer gol',
 };
 const BET_TITLE_PT = {
   '1 X 2': '1 X 2 — Resultado Final',
@@ -9842,6 +12363,13 @@ const BET_TITLE_PT = {
   'Half with most goals': 'Tempo com mais gols',
   'Odd/even goals in matches': 'Gols — par ou ímpar',
   'All goals in matches': 'Todos os gols',
+  'Winner after 15 minutes': 'Vencedor aos 15 minutos',
+  'Winner after 30 minutes': 'Vencedor aos 30 minutos',
+  'Winner after 45 minutes': 'Vencedor aos 45 minutos',
+  'Winner after 60 minutes': 'Vencedor aos 60 minutos',
+  'Winner after 75 minutes': 'Vencedor aos 75 minutos',
+  'Winner after 90 minutes': 'Vencedor aos 90 minutos',
+  'Time of first goal in matches': 'Minuto do 1º gol da partida',
 };
 const BET_NAME_PT = {
   'draw': 'Empate',
@@ -9853,6 +12381,8 @@ const BET_NAME_PT = {
   'odd': 'Ímpar',
   'even': 'Par',
   'neither': 'Nenhum',
+  'both': 'Ambos',
+  'only one': 'Só um',
   '0-1': '0-1 gols',
   '0-1 goal': '0-1 gol',
   '2-3': '2-3 gols',
@@ -9864,6 +12394,10 @@ const BET_NAME_PT = {
   'home': 'Casa',
   'away': 'Fora',
   'none': 'Nenhum',
+  'without goal': 'Sem gol',
+  'first half': '1º Tempo',
+  'second half': '2º Tempo',
+  'tie': 'Empate',
 };
 function traduzStat(label) {
   if (STAT_PT[label]) return STAT_PT[label];

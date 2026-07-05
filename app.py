@@ -20,6 +20,57 @@ SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
 os.makedirs(MOMENTUM_DIR, exist_ok=True)
 os.makedirs(SHOTMAP_DIR,  exist_ok=True)
 
+# ── Cache em memória dos arquivos de momentum_history — evita reler e reparsear os
+# +2000 arquivos do disco a cada busca de padrão (aba Análise/CS do Ao Vivo).
+# Reaproveita o que já foi parseado; só relê arquivos novos ou modificados (por mtime).
+_momentum_files_cache = {}   # fpath -> {mtime, pt_list, goals, casa, fora, liga, date, shotmap, score}
+_momentum_files_lock  = threading.Lock()
+
+def _get_momentum_files_cached():
+    """Retorna a lista de dados já parseados de todos os arquivos de momentum_history,
+    reutilizando o cache em memória sempre que possível."""
+    with _momentum_files_lock:
+        files = sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json")))
+        result = []
+        for fpath in files:
+            try:
+                mtime = os.path.getmtime(fpath)
+            except OSError:
+                continue
+            cached = _momentum_files_cache.get(fpath)
+            if cached and cached["mtime"] == mtime:
+                result.append(cached)
+                continue
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    d = json.load(f)
+                pt_list = sorted(
+                    [(float(p["minute"]), float(p["value"]))
+                     for p in d.get("graphPoints", [])
+                     if "minute" in p and "value" in p],
+                    key=lambda x: x[0]
+                )
+                entry = {
+                    "mtime":   mtime,
+                    "pt_list": pt_list,
+                    "goals":   d.get("goals", []),
+                    "casa":    d.get("casa", "—"),
+                    "fora":    d.get("fora", "—"),
+                    "liga":    d.get("liga", ""),
+                    "date":    d.get("date", ""),
+                    "shotmap": d.get("shotmap", []),
+                    "score":   d.get("score", {}),
+                }
+                _momentum_files_cache[fpath] = entry
+                result.append(entry)
+            except Exception:
+                continue
+        # Remove do cache arquivos que não existem mais
+        stale = set(_momentum_files_cache) - set(files)
+        for fpath in stale:
+            _momentum_files_cache.pop(fpath, None)
+        return result
+
 
 def ajustar_hora(hora_str):
     """Subtrai 3 horas do horário vindo do StatArea (UTC → BRT)."""
@@ -310,6 +361,32 @@ def api_backtest_day(date_str):
         "tips_decididos": len(decididos),
         "tip_acuracia": tip_acuracia,
         "matches": matches,
+    })
+
+
+@app.route("/api/passadas")
+def api_passadas():
+    """Retorna todas as partidas passadas (todos os dias de backtest) em uma lista única,
+    já com placar final e HT, pra alimentar a aba Partidas Passadas."""
+    dates = load_backtest_dates()
+    all_matches = []
+    for date_str in dates:
+        matches = load_backtest_day(date_str) or []
+        for m in matches:
+            if m.get("resultado"):
+                m.setdefault("data_partida", date_str)
+                all_matches.append(m)
+
+    all_matches.sort(key=lambda m: (m.get("data_partida") or "", m.get("hora") or ""), reverse=True)
+
+    decididos = [m for m in all_matches if m.get("tip_acertou") is not None]
+    acertaram = [m for m in decididos if m.get("tip_acertou") is True]
+
+    return jsonify({
+        "total": len(all_matches),
+        "dates": len(dates),
+        "tip_acuracia": round(len(acertaram) / len(decididos) * 100, 1) if decididos else None,
+        "matches": all_matches,
     })
 
 
@@ -2310,34 +2387,32 @@ def api_momentum_analysis():
 
 @app.route("/api/momentum/similar", methods=["POST"])
 def api_momentum_similar():
-    """Busca partidas salvas com padrão de momentum similar ao atual."""
+    """Busca partidas salvas com padrão de momentum similar ao atual.
+
+    Usa uma comparação leve (soma/tendência da janela, não o vetor ponto-a-ponto
+    completo) pra ficar rápido mesmo varrendo milhares de jogos salvos — comparar
+    cada posição de cada arquivo com distância euclidiana completa era o gargalo
+    que deixava a aba Análise lenta."""
     try:
         body    = request.get_json(force=True) or {}
         pts_raw = body.get("points", [])
         W       = int(body.get("window", 8))
-        LOOKAHEAD = 10
+        LOOKAHEAD = int(body.get("lookahead", 10))
 
         if len(pts_raw) < W:
             return jsonify({"similar": [], "total": 0, "goal_home": 0, "goal_away": 0, "goal_none": 0})
 
-        cur_vals = [float(p.get("value", 0)) for p in pts_raw[-W:]]
+        cur_vals    = [float(p.get("value", 0)) for p in pts_raw[-W:]]
+        cur_signal  = sum(cur_vals) / W                       # tendência média da janela
+        cur_swing   = max(cur_vals) - min(cur_vals) if cur_vals else 0  # volatilidade
 
-        def normalize(vals):
-            mx = max(abs(v) for v in vals) or 1.0
-            return [v / mx for v in vals]
-
-        cur_norm = normalize(cur_vals)
+        STRIDE = 2  # varre de 2 em 2 minutos em vez de todo minuto — ~2x mais rápido
 
         similar = []
-        for fpath in sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json"))):
+        for d in _get_momentum_files_cached():
             try:
-                with open(fpath, encoding="utf-8") as f:
-                    d = json.load(f)
-                pt_list = sorted([(float(p["minute"]), float(p["value"]))
-                                  for p in d.get("graphPoints", [])
-                                  if "minute" in p and "value" in p],
-                                 key=lambda x: x[0])
-                goals = d.get("goals", [])
+                pt_list = d["pt_list"]
+                goals   = d["goals"]
                 if len(pt_list) < W + 2:
                     continue
 
@@ -2345,10 +2420,11 @@ def api_momentum_similar():
                 best_outcome = "none"
                 best_min = 0
 
-                for i in range(W, len(pt_list)):
+                for i in range(W, len(pt_list), STRIDE):
                     win = [pt_list[j][1] for j in range(i - W, i)]
-                    win_norm = normalize(win)
-                    dist = sum((a - b) ** 2 for a, b in zip(cur_norm, win_norm)) ** 0.5
+                    win_signal = sum(win) / W
+                    win_swing  = max(win) - min(win) if win else 0
+                    dist = abs(win_signal - cur_signal) + 0.3 * abs(win_swing - cur_swing)
                     if dist < best_dist:
                         best_dist = dist
                         m_now = pt_list[i][0]
@@ -2384,10 +2460,14 @@ def api_momentum_similar():
         # Top 5 para exibição na lista
         top_display = similar[:5]
 
-        # Estatísticas nos 30 mais similares (ou todos se < 30)
-        # — quanto mais base, mais representativo o sinal
-        STAT_N = min(30, total)
-        top_stat = similar[:STAT_N]
+        # Estatísticas em TODAS as partidas com distância <= limiar (sem tamanho fixo) —
+        # ou seja, pega quantas forem realmente parecidas com o padrão atual, nem mais nem menos.
+        DIST_THRESHOLD = float(body.get("dist_threshold", 8))
+        MIN_SAMPLE = 10  # piso pra evitar % instável com amostra minúscula
+        top_stat = [s for s in similar if s["distance"] <= DIST_THRESHOLD]
+        if len(top_stat) < MIN_SAMPLE:
+            top_stat = similar[:MIN_SAMPLE]
+        STAT_N = len(top_stat)
 
         return jsonify({
             "similar":    top_display,
@@ -2396,6 +2476,141 @@ def api_momentum_similar():
             "goal_home":  sum(1 for s in top_stat if s["outcome"] == "home"),
             "goal_away":  sum(1 for s in top_stat if s["outcome"] == "away"),
             "goal_none":  sum(1 for s in top_stat if s["outcome"] == "none"),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/momentum/similar-scores", methods=["POST"])
+def api_momentum_similar_scores():
+    """Identifica o placar atual (casa/visitante) e busca no histórico partidas que
+    tiveram esse MESMO placar em algum momento do jogo, informando os placares finais
+    mais comuns entre elas. Sem análise de gráfico — só o placar, bem mais rápido."""
+    try:
+        body     = request.get_json(force=True) or {}
+        cur_casa = int(body.get("cur_casa", 0))
+        cur_fora = int(body.get("cur_fora", 0))
+
+        counts = {}
+        total_checked = 0
+        for d in _get_momentum_files_cached():
+            try:
+                goals = sorted(d["goals"], key=lambda g: float(g.get("minute", 0)))
+                score_final = d.get("score") or {}
+                fh, fa = score_final.get("home"), score_final.get("away")
+                if fh is None or fa is None:
+                    continue
+                total_checked += 1
+
+                # Recria o placar minuto a minuto pra ver se em algum ponto bateu com o atual
+                h = a = 0
+                hit = (cur_casa == 0 and cur_fora == 0)  # todo jogo começa 0-0
+                for g in goals:
+                    if g.get("team") == "home": h += 1
+                    elif g.get("team") == "away": a += 1
+                    if h == cur_casa and a == cur_fora:
+                        hit = True
+                        break
+                    if h > cur_casa or a > cur_fora:
+                        break  # passou do placar atual sem bater — não teve esse momento
+
+                if hit:
+                    key = f"{fh}-{fa}"
+                    counts[key] = counts.get(key, 0) + 1
+            except Exception:
+                continue
+
+        stat_n = sum(counts.values())
+        if stat_n == 0:
+            return jsonify({"scores": [], "total": total_checked, "stat_n": 0})
+
+        scores = sorted(
+            [{"score": k, "count": v, "pct": round(v / stat_n * 100)} for k, v in counts.items()],
+            key=lambda x: -x["count"]
+        )[:4]
+
+        return jsonify({"scores": scores, "total": total_checked, "stat_n": stat_n})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _shotmap_feature_vector(shots):
+    """Converte uma lista de chutes num vetor de 10 posições: contagem por zona
+    (Área Pequena / Área Grande / Meia Distância / Longa Distância) e chutes no
+    alvo, separado por casa/visitante. Mesmas zonas usadas no mapa de chutes visual."""
+    zones = {"casa": [0, 0, 0, 0], "fora": [0, 0, 0, 0]}
+    on_target = {"casa": 0, "fora": 0}
+    for s in shots:
+        side = "casa" if s.get("isHome") else "fora"
+        x = float(s.get("x", 50))
+        if x <= 12:
+            zi = 0
+        elif x <= 32:
+            zi = 1
+        elif x <= 45:
+            zi = 2
+        else:
+            zi = 3
+        zones[side][zi] += 1
+        if s.get("shotType") in ("goal", "save"):
+            on_target[side] += 1
+    vec = zones["casa"] + zones["fora"] + [on_target["casa"], on_target["fora"]]
+    total = sum(abs(v) for v in vec) or 1
+    return [v / total for v in vec]
+
+
+@app.route("/api/shotmap/similar", methods=["POST"])
+def api_shotmap_similar():
+    """Busca partidas salvas com padrão de mapa de chutes parecido e informa
+    a % de jogos em que casa/visitante marcou gol nesse padrão."""
+    try:
+        body  = request.get_json(force=True) or {}
+        shots = body.get("shots", [])
+        if not shots:
+            return jsonify({"similar": [], "total": 0, "goal_home": 0, "goal_away": 0, "goal_none": 0})
+
+        cur_vec = _shotmap_feature_vector(shots)
+
+        similar = []
+        for d in _get_momentum_files_cached():
+            try:
+                hist_shots = d["shotmap"]
+                if not hist_shots:
+                    continue
+                score = d.get("score", {}) or {}
+                gh, ga = score.get("home"), score.get("away")
+                if gh is None or ga is None:
+                    continue
+
+                hist_vec = _shotmap_feature_vector(hist_shots)
+                dist = sum((a - b) ** 2 for a, b in zip(cur_vec, hist_vec)) ** 0.5
+
+                outcome = "home" if gh > 0 and ga == 0 else \
+                          "away" if ga > 0 and gh == 0 else \
+                          "both" if gh > 0 and ga > 0 else "none"
+
+                similar.append({
+                    "casa": d.get("casa", "—"), "fora": d.get("fora", "—"),
+                    "liga": d.get("liga", ""), "date": d.get("date", ""),
+                    "outcome": outcome, "distance": round(dist, 3),
+                    "placar": f"{gh}-{ga}",
+                    "home_scored": gh > 0, "away_scored": ga > 0,
+                })
+            except Exception:
+                continue
+
+        similar.sort(key=lambda x: x["distance"])
+        total = len(similar)
+        STAT_N = min(30, total)
+        top_stat = similar[:STAT_N]
+
+        return jsonify({
+            "similar":   similar[:5],
+            "total":     total,
+            "stat_n":    STAT_N,
+            "goal_home": sum(1 for s in top_stat if s["home_scored"]),
+            "goal_away": sum(1 for s in top_stat if s["away_scored"]),
+            "goal_none": sum(1 for s in top_stat if not s["home_scored"] and not s["away_scored"]),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -3136,33 +3351,144 @@ def _uni_odds_today():
         return {}
 
 def _uni_events_today():
-    """Retorna lista de eventos de futebol do dia (cache 30s)."""
+    """Retorna lista de eventos de futebol do dia — TODOS os locales + paginação,
+    combinando os jogos AO VIVO (live-v2) com os AINDA NÃO COMEÇADOS (scheduled-events).
+    O endpoint de scheduled-events sozinho não inclui partidas já em andamento, por isso
+    a combinação — senão a maioria dos jogos ao vivo não é encontrada pra enriquecimento.
+    Todas as chamadas (locale × fonte) rodam em PARALELO — sequencial chegava a travar
+    dezenas de segundos numa única busca. Cache de 30s."""
+    from concurrent.futures import ThreadPoolExecutor
     global _uni_events_cache
     if time.time() - _uni_events_cache["ts"] < 30 and _uni_events_cache["data"]:
         return _uni_events_cache["data"]
     today = datetime.now().strftime("%Y-%m-%d")
+    all_by_id = {}
+    lock = threading.Lock()
+
+    def _paginate_locale(url_fmt, locale):
+        page = 1
+        while True:
+            try:
+                r = http_req.post(url_fmt.format(locale=locale), json={"page": page},
+                                   headers=UNISCORE_HEADERS, timeout=6)
+                data   = r.json().get("data", {})
+                events = data.get("events", [])
+                pag    = data.get("pagination", {})
+                with lock:
+                    for ev in events:
+                        eid = ev.get("id")
+                        if eid and eid not in all_by_id:
+                            all_by_id[eid] = ev
+                if not pag.get("hasNextPage"):
+                    break
+                page += 1
+                if page > 4:   # safety cap (mais baixo — já roda em paralelo por locale)
+                    break
+            except Exception:
+                break
+
+    urls = [
+        f"{UNISCORE_BASE}/sport/football/events/live-v2/locale/{{locale}}",
+        f"{UNISCORE_BASE}/sport/football/scheduled-events-pagination-v2/{today}/locale/{{locale}}/type/all?language=pt-BR",
+    ]
+    tasks = [(url_fmt, locale) for url_fmt in urls for locale in _UNISCORE_LOCALES]
+    with ThreadPoolExecutor(max_workers=len(tasks)) as ex:
+        futures = [ex.submit(_paginate_locale, url_fmt, locale) for url_fmt, locale in tasks]
+        for fut in futures:
+            try:
+                fut.result(timeout=15)
+            except Exception:
+                pass
+
+    events = list(all_by_id.values())
+    _uni_events_cache = {"ts": time.time(), "data": events}
+    print(f"[uniscore] {len(events)} eventos de hoje (ao vivo + agendados, todos os locales, em paralelo)")
+    return events
+
+
+# Seleções nacionais mudam MUITO de nome entre idiomas (ex: "Brasil"/"Brazil",
+# "Alemanha"/"Germany") — ao contrário de clubes, que costumam ser parecidos. O Uniscore
+# às vezes devolve o nome em inglês pra um evento e em português pra outro no mesmo
+# request (mistura de locale), então sem esse mapa a busca por seleção falha silenciosamente.
+_COUNTRY_ALIASES = {
+    "brasil": "brazil", "alemanha": "germany", "espanha": "spain", "franca": "france",
+    "inglaterra": "england", "italia": "italy", "holanda": "netherlands",
+    "paises baixos": "netherlands", "belgica": "belgium", "suica": "switzerland",
+    "suecia": "sweden", "noruega": "norway", "dinamarca": "denmark", "polonia": "poland",
+    "austria": "austria", "escocia": "scotland", "irlanda": "ireland",
+    "irlanda do norte": "northern ireland", "pais de gales": "wales", "gales": "wales",
+    "russia": "russia", "ucrania": "ukraine", "sercia": "serbia", "servia": "serbia",
+    "croacia": "croatia", "romenia": "romania", "grecia": "greece", "turquia": "turkey",
+    "portugal": "portugal", "mexico": "mexico", "estados unidos": "united states",
+    "eua": "united states", "canada": "canada", "argentina": "argentina",
+    "uruguai": "uruguay", "paraguai": "paraguay", "chile": "chile", "colombia": "colombia",
+    "equador": "ecuador", "peru": "peru", "venezuela": "venezuela", "bolivia": "bolivia",
+    "japao": "japan", "coreia do sul": "south korea", "coreia do norte": "north korea",
+    "china": "china", "australia": "australia", "arabia saudita": "saudi arabia",
+    "ira": "iran", "iraque": "iraq", "egito": "egypt", "marrocos": "morocco",
+    "argelia": "algeria", "tunisia": "tunisia", "nigeria": "nigeria", "senegal": "senegal",
+    "camaroes": "cameroon", "gana": "ghana", "africa do sul": "south africa",
+    "costa do marfim": "ivory coast", "cabo verde": "cape verde", "nova zelandia": "new zealand",
+}
+
+
+# ── Memória de apelidos Uniscore — toda vez que a busca fuzzy abaixo acha um evento com
+# confiança boa, grava aqui o nome EXATO que o Uniscore usa pra aquele confronto
+# (StatArea "Brasil"/"Noruega" → Uniscore "Brazil"/"Norway"). Da próxima vez que a mesma
+# dupla de times aparecer, usamos esse nome direto (sem depender do dicionário de países
+# nem da pontuação fuzzy), então o sistema "aprende" qualquer confronto que já resolveu,
+# não só seleções que estão no dicionário manual. Persiste em disco entre reinícios. ──
+_UNI_NAME_ALIASES_PATH = os.path.join(DATA_DIR, "uni_name_aliases.json")
+_uni_name_aliases_cache = None
+
+def _load_uni_name_aliases():
+    global _uni_name_aliases_cache
+    if _uni_name_aliases_cache is not None:
+        return _uni_name_aliases_cache
     try:
-        r = http_req.post(
-            f"{UNISCORE_BASE}/sport/football/scheduled-events-pagination-v2/{today}/locale/BR/type/all?language=pt-BR",
-            json={}, headers=UNISCORE_HEADERS, timeout=8
-        )
-        events = r.json().get("data", {}).get("events", [])
-        _uni_events_cache = {"ts": time.time(), "data": events}
-        return events
+        with open(_UNI_NAME_ALIASES_PATH, encoding="utf-8") as f:
+            _uni_name_aliases_cache = json.load(f)
     except Exception:
-        return []
+        _uni_name_aliases_cache = {}
+    return _uni_name_aliases_cache
+
+def _save_uni_name_alias(casa, fora, uni_home, uni_away):
+    aliases = _load_uni_name_aliases()
+    key = f"{casa.strip().lower()}|{fora.strip().lower()}"
+    if aliases.get(key) == [uni_home, uni_away]:
+        return  # já está salvo, não regrava toda vez
+    aliases[key] = [uni_home, uni_away]
+    try:
+        with open(_UNI_NAME_ALIASES_PATH, "w", encoding="utf-8") as f:
+            json.dump(aliases, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 def _uni_find(casa, fora):
     """Encontra evento Uniscore pelo nome dos times (fuzzy com remoção de acentos)."""
     import unicodedata
 
     def norm(s):
-        """Normaliza: minúsculo, sem acentos, sem pontuação."""
+        """Normaliza: minúsculo, sem acentos, sem pontuação, com apelidos de seleção traduzidos."""
         s = s.lower()
         s = unicodedata.normalize("NFD", s)
         s = "".join(c for c in s if unicodedata.category(c) != "Mn")  # remove diacritics
         s = re.sub(r"[^a-z0-9 ]", " ", s)
-        return re.sub(r"\s+", " ", s).strip()
+        s = re.sub(r"\s+", " ", s).strip()
+        return _COUNTRY_ALIASES.get(s, s)
+
+    events = _uni_events_today()
+
+    # 1. Já resolvemos essa dupla antes? Usa o nome exato do Uniscore que aprendemos,
+    # sem precisar de fuzzy nem do dicionário de países.
+    aliases = _load_uni_name_aliases()
+    key = f"{casa.strip().lower()}|{fora.strip().lower()}"
+    known = aliases.get(key)
+    if known:
+        uni_home, uni_away = known
+        for ev in events:
+            if ev.get("homeTeam", {}).get("name") == uni_home and ev.get("awayTeam", {}).get("name") == uni_away:
+                return ev
 
     def words(s):
         """Conjunto de palavras significativas (>= 3 letras)."""
@@ -3185,7 +3511,7 @@ def _uni_find(casa, fora):
 
     best = None
     best_score = 0.0
-    for ev in _uni_events_today():
+    for ev in events:
         hn = ev.get("homeTeam", {}).get("name", "")
         an = ev.get("awayTeam", {}).get("name", "")
         sc = score_team(casa, hn) + score_team(fora, an)
@@ -3195,6 +3521,11 @@ def _uni_find(casa, fora):
     # Threshold mínimo: pelo menos um nome com score >= 2
     if best_score < 2.0:
         return None
+
+    # 2. Achou com boa confiança — grava o apelido pra próxima vez nem precisar de fuzzy
+    if best_score >= 3.0:
+        _save_uni_name_alias(casa, fora, best.get("homeTeam", {}).get("name"), best.get("awayTeam", {}).get("name"))
+
     return best
 
 def _uni_enrich_one(casa, fora):
@@ -3236,79 +3567,83 @@ def _uni_enrich_one(casa, fora):
         "odds": odds,  # {h, x, a, ah_line, ah_h, ah_a, ou_line, ou_over, ou_under}
     }
 
-    # Detalhes: clima, árbitro, estádio
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        d = r.json().get("data", {}).get("event", {})
-        result["clima"]   = d.get("environment")
-        result["arbitro"] = d.get("referee", {}).get("name") if isinstance(d.get("referee"), dict) else d.get("referee")
-        result["estadio"] = d.get("venue", {}).get("name") if isinstance(d.get("venue"), dict) else None
-    except Exception:
-        pass
-
-    # Incidentes
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/incidents?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        incs = r.json().get("data", {}).get("incidents", [])
-        result["incidents"] = [
-            {
-                "type":    i.get("incidentType"),
-                "class":   i.get("incidentClass"),
-                "minute":  i.get("time"),
-                "player":  i.get("player", {}).get("name"),
-                "assist":  i.get("assist1", {}).get("name") if i.get("assist1") else None,
-                "isHome":  i.get("isHome"),
-                "score_h": i.get("homeScore"),
-                "score_a": i.get("awayScore"),
-            }
-            for i in (incs or [])
-        ]
-    except Exception:
-        result["incidents"] = []
-
-    # Forma recente
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/recent-form?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        d = r.json().get("data", {})
-        def parse_form(matches):
-            out = []
-            for m in (matches or []):
-                hs = m.get("homeScore", {})
-                as_ = m.get("awayScore", {})
-                out.append({
-                    "home":   m.get("homeTeam", {}).get("name"),
-                    "away":   m.get("awayTeam", {}).get("name"),
-                    "score":  f"{hs.get('current',0)}-{as_.get('current',0)}",
-                    "status": m.get("status", {}).get("type"),
-                })
-            return out
-        result["forma_casa"] = parse_form(d.get("home", {}).get("latest_matches", []))
-        result["forma_fora"] = parse_form(d.get("away", {}).get("latest_matches", []))
-    except Exception:
-        result["forma_casa"] = []
-        result["forma_fora"] = []
-
-    # Jogador destaque
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/sport/football/events/{eid}/top-players?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        d = r.json().get("data", {})
-        def parse_player(p):
-            if not p: return None
+    def _fetch_details():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}?language=pt-BR",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            d = r.json().get("data", {}).get("event", {})
             return {
-                "name":   p.get("name"),
-                "pos":    p.get("position"),
-                "rating": p.get("rating"),
-                "attrs":  p.get("attributes", {}),
+                "clima":   d.get("environment"),
+                "arbitro": d.get("referee", {}).get("name") if isinstance(d.get("referee"), dict) else d.get("referee"),
+                "estadio": d.get("venue", {}).get("name") if isinstance(d.get("venue"), dict) else None,
             }
-        result["top_casa"] = parse_player(d.get("home_player"))
-        result["top_fora"] = parse_player(d.get("away_player"))
-    except Exception:
-        result["top_casa"] = None
-        result["top_fora"] = None
+        except Exception:
+            return {}
+
+    def _fetch_incidents():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/incidents?language=pt-BR",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            incs = r.json().get("data", {}).get("incidents", [])
+            return {"incidents": [
+                {
+                    "type":    i.get("incidentType"),
+                    "class":   i.get("incidentClass"),
+                    "minute":  i.get("time"),
+                    "player":  i.get("player", {}).get("name"),
+                    "assist":  i.get("assist1", {}).get("name") if i.get("assist1") else None,
+                    "isHome":  i.get("isHome"),
+                    "score_h": i.get("homeScore"),
+                    "score_a": i.get("awayScore"),
+                }
+                for i in (incs or [])
+            ]}
+        except Exception:
+            return {"incidents": []}
+
+    def _fetch_form():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/recent-form?language=pt-BR",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            d = r.json().get("data", {})
+            def parse_form(matches):
+                out = []
+                for m in (matches or []):
+                    hs = m.get("homeScore", {})
+                    as_ = m.get("awayScore", {})
+                    out.append({
+                        "home":   m.get("homeTeam", {}).get("name"),
+                        "away":   m.get("awayTeam", {}).get("name"),
+                        "score":  f"{hs.get('current',0)}-{as_.get('current',0)}",
+                        "status": m.get("status", {}).get("type"),
+                    })
+                return out
+            return {
+                "forma_casa": parse_form(d.get("home", {}).get("latest_matches", [])),
+                "forma_fora": parse_form(d.get("away", {}).get("latest_matches", [])),
+            }
+        except Exception:
+            return {"forma_casa": [], "forma_fora": []}
+
+    def _fetch_top_players():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/sport/football/events/{eid}/top-players?language=pt-BR",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            d = r.json().get("data", {})
+            def parse_player(p):
+                if not p: return None
+                return {
+                    "name":   p.get("name"),
+                    "pos":    p.get("position"),
+                    "rating": p.get("rating"),
+                    "attrs":  p.get("attributes", {}),
+                }
+            return {
+                "top_casa": parse_player(d.get("home_player")),
+                "top_fora": parse_player(d.get("away_player")),
+            }
+        except Exception:
+            return {"top_casa": None, "top_fora": None}
 
     # Estatísticas detalhadas (chutes, posse, passes, duelos...)
     # Mapeamento: nome original UniScore → chave snake_case usada no frontend
@@ -3375,84 +3710,87 @@ def _uni_enrich_one(casa, fora):
                     stat_map[snake] = item                   # alias snake_case
         return stat_map
 
-    try:
-        url_stats = f"{UNISCORE_BASE}/football/event/{eid}/home/{home_tid}/away/{away_tid}/statistics"
-        r = http_req.get(url_stats, headers=UNISCORE_HEADERS, timeout=6)
-        periods = r.json().get("data", {}).get("statistics", [])
-
-        # Monta statistics (ALL) e statistics_periods (ALL + 1ST + 2ND)
-        stat_periods_out = {}
-        for pd in periods:
-            period_key = pd.get("period", "ALL")
-            stat_periods_out[period_key] = _build_stat_map(pd)
-
-        all_pd = next((p for p in periods if p.get("period") == "ALL"), periods[0] if periods else None)
-        result["statistics"]         = _build_stat_map(all_pd) if all_pd else {}
-        result["statistics_periods"] = stat_periods_out
-    except Exception:
-        result["statistics"]         = {}
-        result["statistics_periods"] = {}
-
-    # Escalação
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/lineups?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        ld = r.json().get("data", {})
-        def parse_side(side):
-            sd = ld.get(side, {})
-            def pp(p):
-                pl = p.get("player", {})
-                return {
-                    "name":    pl.get("fullName") or pl.get("name"),
-                    "number":  p.get("shirtNumber"),
-                    "pos":     p.get("position"),
-                    "captain": p.get("captain", False),
-                    "rating":  p.get("rating"),
-                }
-            players = sd.get("players", [])
+    def _fetch_statistics():
+        try:
+            url_stats = f"{UNISCORE_BASE}/football/event/{eid}/home/{home_tid}/away/{away_tid}/statistics"
+            r = http_req.get(url_stats, headers=UNISCORE_HEADERS, timeout=6)
+            periods = r.json().get("data", {}).get("statistics", [])
+            stat_periods_out = {}
+            for pd in periods:
+                period_key = pd.get("period", "ALL")
+                stat_periods_out[period_key] = _build_stat_map(pd)
+            all_pd = next((p for p in periods if p.get("period") == "ALL"), periods[0] if periods else None)
             return {
-                "formation":  sd.get("formation", ""),
-                "confirmed":  ld.get("confirmed", False),
-                "titulares":  [pp(p) for p in players if not p.get("substitute", False)],
-                "reservas":   [pp(p) for p in players if p.get("substitute", False)],
+                "statistics":         _build_stat_map(all_pd) if all_pd else {},
+                "statistics_periods": stat_periods_out,
             }
-        result["lineup_casa"] = parse_side("home")
-        result["lineup_fora"] = parse_side("away")
-    except Exception:
-        result["lineup_casa"] = None
-        result["lineup_fora"] = None
+        except Exception:
+            return {"statistics": {}, "statistics_periods": {}}
 
-    # Gráfico de pressão (minuto a minuto)
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/graph",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        pts = r.json().get("data", {}).get("graphPoints", [])
-        result["graph"] = [{"m": p.get("minute"), "v": p.get("value")} for p in pts]
-    except Exception:
-        result["graph"] = []
+    def _fetch_lineups():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/lineups?language=pt-BR",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            ld = r.json().get("data", {})
+            def parse_side(side):
+                sd = ld.get(side, {})
+                def pp(p):
+                    pl = p.get("player", {})
+                    return {
+                        "name":    pl.get("fullName") or pl.get("name"),
+                        "number":  p.get("shirtNumber"),
+                        "pos":     p.get("position"),
+                        "captain": p.get("captain", False),
+                        "rating":  p.get("rating"),
+                        "order":   p.get("counterOrder"),
+                    }
+                players = sd.get("players", [])
+                titulares = [pp(p) for p in players if not p.get("substitute", False)]
+                titulares.sort(key=lambda p: p.get("order") or 99)
+                return {
+                    "formation":  sd.get("formation", ""),
+                    "confirmed":  ld.get("confirmed", False),
+                    "titulares":  titulares,
+                    "reservas":   [pp(p) for p in players if p.get("substitute", False)],
+                }
+            return {"lineup_casa": parse_side("home"), "lineup_fora": parse_side("away")}
+        except Exception:
+            return {"lineup_casa": None, "lineup_fora": None}
 
-    # Odds ao vivo (movimentação de mercado)
+    def _fetch_graph():
+        try:
+            r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/graph",
+                             headers=UNISCORE_HEADERS, timeout=6)
+            pts = r.json().get("data", {}).get("graphPoints", [])
+            return {"graph": [{"m": p.get("minute"), "v": p.get("value")} for p in pts]}
+        except Exception:
+            return {"graph": []}
+
+    # Todas as chamadas acima são independentes — rodam em paralelo em vez de uma
+    # atrás da outra, senão uma única partida podia levar 8-12s pra carregar.
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+    fetchers = [_fetch_details, _fetch_incidents, _fetch_form, _fetch_top_players,
+                _fetch_statistics, _fetch_lineups, _fetch_graph]
+    with _TPE(max_workers=len(fetchers)) as ex:
+        for fut in [ex.submit(fn) for fn in fetchers]:
+            try:
+                result.update(fut.result(timeout=10))
+            except Exception:
+                pass
+
+    # Odds ao vivo (mesma fonte das odds de abertura — o feed do dia já reflete
+    # a movimentação de mercado durante o jogo, então serve pra odds ao vivo também)
     try:
-        r = http_req.get(f"{UNISCORE_BASE}/sport/football/odd-live-change/8",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        raw = r.json().get("data", {}).get("odds", "")
-        for entry in raw.split("!"):
-            parts = entry.split("^")
-            if len(parts) < 4 or parts[0] != eid:
-                continue
-            def _p(seg):
-                v = seg.split(":"); return v if len(v) >= 3 else ["","",""]
-            fx2 = _p(parts[3])
-            def hk2(v):
-                try: f=float(v); return str(round(f+1,2)) if f<1.0 else v
-                except: return v
-            ou = _p(parts[4]) if len(parts) > 4 else ["","",""]
+        odds_today = _uni_odds_today()
+        od = odds_today.get(eid)
+        if od and od.get("h"):
             result["live_odds"] = {
-                "h": fx2[0], "x": fx2[1], "a": fx2[2],
-                "ou_line": ou[0], "ou_over": hk2(ou[1]), "ou_under": hk2(ou[2]),
-                "changed": parts[1] == "1",
+                "h": od["h"], "x": od["x"], "a": od["a"],
+                "ou_line": od.get("ou_line", ""),
+                "ou_over": od.get("ou_over", ""),
+                "ou_under": od.get("ou_under", ""),
+                "changed": True,
             }
-            break
     except Exception:
         pass
 
@@ -3482,7 +3820,7 @@ def api_uniscore_live_all():
     _uni_events_today()
 
     results = [None] * len(partidas)
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    with ThreadPoolExecutor(max_workers=16) as ex:
         fut_map = {
             ex.submit(_uni_enrich_one, p.get("casa", ""), p.get("fora", "")): i
             for i, p in enumerate(partidas)
@@ -4058,4 +4396,4 @@ def api_telegram_send_now():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"Servidor rodando em http://localhost:{port}")
-    app.run(debug=False, host="0.0.0.0", port=port, use_reloader=False)
+    app.run(debug=False, host="0.0.0.0", port=port, use_reloader=False, threaded=True)
