@@ -1,11 +1,11 @@
 {
   "event_id": "5z3v0bl27zshvu6",
   "date": "2026-07-05",
-  "saved_at": "2026-07-05T20:24:12.908047",
+  "saved_at": "2026-07-05T17:24:36.353520",
   "source": "uniscore",
   "casa": "Boca Unidos",
   "fora": "Sarmiento Resistencia",
-  "liga": "",
+  "liga": "ARFC",
   "graphPoints": [
     {
       "minute": 1,
@@ -381,7 +381,11 @@
     },
     {
       "minute": 94,
-      "value": 46
+      "value": 0
+    },
+    {
+      "minute": 95,
+      "value": 26
     }
   ],
   "goals": [
@@ -602,14 +606,14 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 5.979,
+    "overall_avg": 5.705,
     "h1_avg": -3.277,
-    "h2_avg": 15.234,
-    "home_dominance_pct": 48.9,
+    "h2_avg": 14.5,
+    "home_dominance_pct": 48.4,
     "max_home": 100,
     "max_away": 100,
     "momentum_swings": 49,
-    "total_points": 94
+    "total_points": 95
   },
   "xg": {
     "home": 4.02,
