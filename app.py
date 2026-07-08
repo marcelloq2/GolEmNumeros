@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time
+import json, os, glob, re, threading, time, sqlite3
 import requests as http_req
 from datetime import datetime
 import github_storage
@@ -320,12 +320,6 @@ def load_backtest_day(date_str: str):
         return json.load(f)
 
 
-@app.route("/api/backtest/dates")
-def api_backtest_dates():
-    dates = load_backtest_dates()
-    return jsonify({"dates": dates, "total": len(dates)})
-
-
 @app.route("/api/backtest/<date_str>")
 def api_backtest_day(date_str):
     if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
@@ -518,6 +512,30 @@ def api_patterns():
 
 _uniscore_full_cache = {"ts": 0, "live": []}
 
+_UNISCORE_PERIOD_OFFSET = {
+    "1st_half": 0, "2nd_half": 45,
+    "overtime1": 90, "overtime2": 105,
+    "penalties": None, "halftime": None, "break_time": None,
+}
+
+def _uniscore_minuto(e):
+    """Minuto real da partida, calculado a partir de time.currentPeriodStartTimestamp
+    (quando o período atual começou) — o campo 'tempo'/status.description só traz o
+    NOME do período (ex: '2nd_half'), não o minuto em si."""
+    status_desc = e.get("status", {}).get("description", "")
+    if status_desc not in _UNISCORE_PERIOD_OFFSET:
+        return None
+    offset = _UNISCORE_PERIOD_OFFSET[status_desc]
+    if offset is None:
+        return None  # intervalo/pênaltis — sem minuto corrido
+    start_ts = e.get("time", {}).get("currentPeriodStartTimestamp")
+    if not start_ts:
+        return None
+    elapsed_min = int((time.time() - start_ts) / 60)
+    if elapsed_min < 0:
+        return None
+    return f"{offset + elapsed_min}'"
+
 @app.route("/api/radar/live")
 def api_radar_live():
     """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
@@ -559,6 +577,7 @@ def api_radar_live():
                         "liga":      e.get("tournament", {}).get("name", ""),
                         "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
                         "tempo":     e.get("status", {}).get("description", ""),
+                        "minuto":    _uniscore_minuto(e),
                         "golCasaFt": hs.get("current", 0),
                         "golForaFt": aws.get("current", 0),
                         "golCasaHt": hs.get("period1", 0),
@@ -3983,6 +4002,1515 @@ def api_fotmob_match_detail(match_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 503
+
+
+# ── ODDSPEDIA (Ao Vivo 2 — experimental) ──────────────────────────────────────
+ODDSPEDIA_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+}
+
+@app.route("/api/oddspedia/debug/<path:slug>")
+def api_oddspedia_debug(slug):
+    """DEBUG: abre a página da partida no Oddspedia via Playwright e intercepta TODAS
+    as chamadas de rede que parecem trazer odds/dados de partida — usado só pra
+    descobrir a URL real da API antes de fazer o scraper de verdade. slug = ex:
+    'br/futebol/brasil-noruega-1982539' (sem o domínio, como aparece no link do site)."""
+    from playwright.sync_api import sync_playwright
+
+    captured = []
+    KEYWORDS = ("odds", "bookmaker", "api", "market", "event", "match")
+
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            ctx  = browser.new_context(locale="pt-BR", user_agent=ODDSPEDIA_HEADERS["User-Agent"])
+            page = ctx.new_page()
+
+            def on_resp(resp):
+                url = resp.url
+                low = url.lower()
+                if "oddspedia.com" not in low:
+                    return
+                if "/_nuxt/" in low or low.endswith((".js", ".css", ".woff2", ".png", ".svg", ".ico")):
+                    return
+                if not any(k in low for k in KEYWORDS):
+                    return
+                entry = {"url": url, "status": resp.status}
+                try:
+                    ct = resp.headers.get("content-type", "")
+                    if "json" in ct:
+                        body = resp.json()
+                        entry["body_preview"] = json.dumps(body, ensure_ascii=False)[:1500]
+                except Exception:
+                    pass
+                captured.append(entry)
+
+            page.on("response", on_resp)
+            page.goto(f"https://oddspedia.com/{slug}", wait_until="domcontentloaded", timeout=25000)
+            page.wait_for_timeout(6000)
+            browser.close()
+
+        return jsonify({"slug": slug, "total_capturado": len(captured), "chamadas": captured})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
+
+
+# ── FLASHSCORE/SOCCERWAY (Ao Vivo 2 — experimental) ───────────────────────────
+# O Soccerway roda em cima da mesma infraestrutura do Flashscore/Livesport. O feed
+# devolve texto num formato próprio (blocos separados por "~", campos "chave÷valor"
+# separados por "¬") — sem JSON, mas simples de parsear. Sem Cloudflare, só precisa
+# de um Referer válido e um header x-fsign (não parece ser validado com rigor).
+FS_BASE = "https://global.flashscore.ninja/2051/x/feed"
+FS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://br.soccerway.com/",
+    "x-fsign": "SW9D1eZo",
+}
+
+def _fs_get(path):
+    r = http_req.get(f"{FS_BASE}/{path}", headers=FS_HEADERS, timeout=10)
+    r.raise_for_status()
+    return r.text
+
+def _fs_blocks(text):
+    return [b for b in text.split("~") if b.strip()]
+
+def _fs_kv(block):
+    d = {}
+    for part in block.split("¬"):
+        if "÷" in part:
+            k, _, v = part.partition("÷")
+            d[k] = v
+    return d
+
+_fs_live_cache = {"ts": 0, "data": []}
+
+def _fs_all_matches():
+    """Lista de TODAS as partidas do dia no feed (agendadas + ao vivo + encerradas),
+    com liga/país (o feed lista um bloco "ZA" (liga) seguido dos jogos "AA" daquela
+    liga, em ordem — então vamos guardando a liga atual enquanto percorremos)."""
+    global _fs_live_cache
+    if time.time() - _fs_live_cache["ts"] < 30 and _fs_live_cache["data"]:
+        return _fs_live_cache["data"]
+    try:
+        text = _fs_get("f_1_0_-3_pt-br_1")
+    except Exception:
+        return _fs_live_cache["data"]
+    matches = []
+    liga_atual, pais_atual = "", ""
+    for block in _fs_blocks(text):
+        if block.startswith("ZA"):
+            d = _fs_kv(block)
+            liga_atual = d.get("ZA", "")
+            pais_atual = d.get("ZY", "")
+            continue
+        if not block.startswith("AA"):
+            continue
+        d = _fs_kv(block)
+        if not d.get("AE") or not d.get("AF"):
+            continue
+        matches.append({
+            "id":          d.get("AA"),
+            "home":        d.get("AE"),
+            "away":        d.get("AF"),
+            "home_score":  d.get("AG"),
+            "away_score":  d.get("AH"),
+            "status":      d.get("AB"),   # 1=agendado, 2=ao vivo, 3=encerrado (aproximado)
+            "kickoff_ts":  d.get("AD"),
+            "liga":        liga_atual,
+            "pais":        pais_atual,
+        })
+    _fs_live_cache = {"ts": time.time(), "data": matches}
+    return matches
+
+# Mantém o nome antigo funcionando (usado pelo _fs_find_match) — mesmo dado, só outro nome
+def _fs_live_matches():
+    return _fs_all_matches()
+
+def _fs_find_match(casa, fora):
+    """Acha o jogo no feed pelo nome dos times (fuzzy, mesma técnica do _uni_find)."""
+    import unicodedata
+
+    def norm(s):
+        s = (s or "").lower()
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        s = re.sub(r"[^a-z0-9 ]", " ", s)
+        return re.sub(r"\s+", " ", s).strip()
+
+    def side_score(query, candidate):
+        s = 0
+        if len(query) >= 4 and candidate[:5] == query[:5]: s += 2
+        if query[:6] and (query[:6] in candidate or candidate[:6] in query): s += 1
+        return s
+
+    nc, nf = norm(casa), norm(fora)
+    best, best_score = None, 0
+    for m in _fs_live_matches():
+        h, a = norm(m["home"]), norm(m["away"])
+        sc_home, sc_away = side_score(nc, h), side_score(nf, a)
+        # Exige alguma confiança dos DOIS lados — senão um nome parecido de um só
+        # time (ex: "Nautico" batendo com "Nautico Hacoaj") pode casar o jogo errado
+        if sc_home == 0 or sc_away == 0:
+            continue
+        score = sc_home + sc_away
+        if score > best_score:
+            best_score = score
+            best = m
+    if best_score < 4:
+        return None
+    return best
+
+def _fs_match_stats(event_id):
+    """Estatísticas da partida (posse, chutes, xG, etc.), agrupadas por seção."""
+    text = _fs_get(f"df_st_1_{event_id}")
+    sections = []
+    current = None
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        if "SF" in d and "SG" not in d:
+            current = {"title": d["SF"], "rows": []}
+            sections.append(current)
+        elif "SG" in d:
+            if current is None:
+                current = {"title": "Geral", "rows": []}
+                sections.append(current)
+            current["rows"].append({"label": d.get("SG", ""), "home": d.get("SH", ""), "away": d.get("SI", "")})
+    return sections
+
+def _fs_h2h(event_id):
+    """Últimos jogos de cada time + confrontos diretos, agrupados por aba (campo KA:
+    'Total' / 'Time A - Casa' / 'Time B - Fora') e por seção dentro da aba (campo KB)."""
+    text = _fs_get(f"df_hh_1_{event_id}")
+    RESULT_LABEL = {"w": "V", "d": "E", "l": "D"}
+    tabs = []
+    tab = None
+    section = None
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        if "KA" in d:
+            tab = {"label": d["KA"], "sections": []}
+            tabs.append(tab)
+            section = None
+            continue
+        if "KB" in d:
+            section = {"title": d["KB"], "rows": []}
+            if tab is None:
+                tab = {"label": "Total", "sections": []}
+                tabs.append(tab)
+            tab["sections"].append(section)
+            continue
+        if "KC" not in d or "KJ" not in d:
+            continue
+        if d.get("KP") == event_id:
+            continue  # é a própria partida ainda não disputada, não um jogo passado
+        if section is None:
+            if tab is None:
+                tab = {"label": "Total", "sections": []}
+                tabs.append(tab)
+            section = {"title": "Confrontos", "rows": []}
+            tab["sections"].append(section)
+        home = (d.get("KJ") or "").lstrip("*")
+        away = (d.get("KK") or "").lstrip("*")
+        section["rows"].append({
+            "id":     d.get("KP", ""),
+            "date":   d.get("KC", ""),
+            "league": d.get("KF", ""),
+            "pais":   d.get("KH", ""),
+            "home":   home,
+            "away":   away,
+            "score":  d.get("KL", ""),
+            "result": RESULT_LABEL.get(d.get("WIS", ""), ""),
+        })
+    return tabs
+
+def _fs_half_time(event_id):
+    """Placar do 1º tempo de uma partida já disputada (feed df_sui_, blocos 'AC': o
+    primeiro bloco 'AC' é sempre o 1º tempo, com IG/IH = gols de casa/fora nesse tempo)."""
+    text = _fs_get(f"df_sui_1_{event_id}")
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        if "AC" in d and "1" in d["AC"]:
+            return {"home": d.get("IG", "0"), "away": d.get("IH", "0")}
+    return None
+
+def _fs_goal_minutes(event_id):
+    """Minutos de cada gol da partida, separados por time (casa/fora), usando o feed
+    df_sui_ (resumo/timeline). Cada bloco de gol (IK='Gol') traz INX/IOX = placar da
+    casa/fora IMEDIATAMENTE APÓS aquele gol — comparando com o placar anterior dá pra
+    saber de qual time foi o gol."""
+    text = _fs_get(f"df_sui_1_{event_id}")
+
+    def _parse_minute(raw):
+        # "26'" -> 26 ; "45+2'" -> 47 (soma o acréscimo)
+        raw = (raw or "").rstrip("'")
+        if "+" in raw:
+            try:
+                base, extra = raw.split("+")
+                return int(base) + int(extra)
+            except ValueError:
+                return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    home_minutes, away_minutes = [], []
+    prev_home, prev_away = 0, 0
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        if d.get("IK") != "Gol":
+            continue
+        try:
+            cur_home, cur_away = int(d.get("INX", prev_home)), int(d.get("IOX", prev_away))
+        except ValueError:
+            continue
+        minute = _parse_minute(d.get("IB"))
+        if minute is not None:
+            if cur_home > prev_home:
+                home_minutes.append(minute)
+            elif cur_away > prev_away:
+                away_minutes.append(minute)
+        prev_home, prev_away = cur_home, cur_away
+    return {"home": home_minutes, "away": away_minutes}
+
+def _fs_standings(event_id, home_name="", away_name=""):
+    """Tabela de classificação da liga da partida (posição, pontos, V/E/D, saldo)."""
+    text = _fs_get(f"df_tl_1_{event_id}")
+    rows = []
+
+    def _norm(s):
+        return (s or "").strip().lower()
+    nh, na = _norm(home_name), _norm(away_name)
+
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        if "TR" not in d or "TN" not in d:
+            continue
+        nome = d.get("TN", "")
+        rows.append({
+            "pos":     d.get("TR", ""),
+            "team":    nome,
+            "jogos":   d.get("TM", ""),
+            "vitorias":  d.get("TW", ""),
+            "empates":   d.get("TDR", ""),
+            "derrotas":  d.get("TL", ""),
+            "gols":    d.get("TG", ""),
+            "pontos":  d.get("TP", ""),
+            "destacado": _norm(nome) in (nh, na),
+        })
+    return rows
+
+def _fs_odds(event_id, bookmaker_id=574, bet_type="HOME_DRAW_AWAY", bet_scope="FULL_TIME"):
+    """Odds 1X2 de uma casa de apostas específica (bookmaker_id) via GraphQL da lsapp.eu.
+    Timeout curto (4s) — em ligas menores, essa API às vezes trava ao invés de retornar
+    404 rápido; com timeout de 10s e fallback de 3 casas, um jogo lento sozinho podia
+    travar até 30s, e multiplicado por centenas de jogos no ranking do Backtest 2 isso
+    inflava o tempo total demais."""
+    url = ("https://global.ds.lsapp.eu/odds/pq_graphql"
+           f"?_hash=ope2&eventId={event_id}&bookmakerId={bookmaker_id}"
+           f"&betType={bet_type}&betScope={bet_scope}")
+    r = http_req.get(url, headers=FS_HEADERS, timeout=4)
+    r.raise_for_status()
+    return r.json().get("data", {}).get("findPrematchOddsForBookmaker")
+
+@app.route("/api/flashscore/today")
+def api_flashscore_today():
+    """Todas as partidas do dia no Soccerway/Flashscore (agendadas + ao vivo + encerradas),
+    com liga/país — usado pela aba experimental 'Hoje 2'."""
+    matches = _fs_all_matches()
+    return jsonify({"total": len(matches), "matches": matches})
+
+@app.route("/api/flashscore/match")
+def api_flashscore_match():
+    """Busca id/placar/status do jogo pelo nome dos times (casa/fora), sem estatísticas."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    return jsonify({"found": True, **m})
+
+@app.route("/api/flashscore/stats")
+def api_flashscore_stats():
+    """Estatísticas completas da partida (xG, posse, chutes, passes, defesa, etc.)."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    try:
+        sections = _fs_match_stats(m["id"])
+    except Exception as e:
+        return jsonify({"found": True, "match": m, "error": str(e)}), 503
+    return jsonify({"found": True, "match": m, "sections": sections})
+
+@app.route("/api/flashscore/odds")
+def api_flashscore_odds():
+    """Odds 1X2 (uma ou mais casas de apostas) da partida, pelo nome dos times."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    # Algumas casas conhecidas nesse feed (bet365=16, Betano.br=574, ...) — tenta a
+    # primeira que responder com dados válidos, sem travar em uma só
+    BOOKMAKERS = [(16, "bet365"), (574, "Betano.br"), (49, "Tipsport")]
+    for bid, name in BOOKMAKERS:
+        try:
+            odds = _fs_odds(m["id"], bookmaker_id=bid)
+            if odds:
+                return jsonify({"found": True, "match": m, "bookmaker": name, "odds": odds})
+        except Exception:
+            continue
+    return jsonify({"found": True, "match": m, "odds": None})
+
+FS_ODDS_MARKETS = [
+    ("1x2", "HOME_DRAW_AWAY"),
+    ("over_under", "OVER_UNDER"),
+    ("ambos_marcam", "BOTH_TEAMS_TO_SCORE"),
+    ("dupla_chance", "DOUBLE_CHANCE"),
+    ("handicap_asiatico", "ASIAN_HANDICAP"),
+    ("placar_exato", "CORRECT_SCORE"),
+]
+
+FS_ODDS_BOOKMAKERS = [(16, "bet365"), (574, "Betano.br"), (49, "Tipsport")]
+
+from concurrent.futures import ThreadPoolExecutor
+
+# Pools separados (mercados dentro de 1 jogo vs. vários jogos ao mesmo tempo) pra evitar
+# que um pool único fique com todos os workers presos esperando sub-tarefas dele mesmo.
+_fs_market_pool = ThreadPoolExecutor(max_workers=30)
+_fs_event_pool = ThreadPoolExecutor(max_workers=12)
+
+# Pools dedicados só pro "jogos que se encaixam na metodologia" (Backtest 2) — sem
+# isso, essa busca rápida (poucos jogos) ficava presa na fila atrás do cálculo pesado
+# do ranking (centenas de lookups de odds), que usa _fs_event_pool E _fs_market_pool
+# por até 1 minuto. Isolando os dois níveis (evento e mercado), a busca continua
+# rápida mesmo com um recálculo de ranking rodando ao mesmo tempo.
+_bt2_matches_pool = ThreadPoolExecutor(max_workers=10)
+_bt2_matches_market_pool = ThreadPoolExecutor(max_workers=20)
+
+def _fs_odds_has_data(key, odds):
+    """A API às vezes retorna um objeto 'válido' mas vazio (ex: Placar Exato com
+    items:[] quando essa casa não tem esse mercado pra esse jogo) — sem isso, o código
+    tratava como 'achei dados' e parava de tentar outras casas de apostas."""
+    if not odds:
+        return False
+    if key in ("over_under", "handicap_asiatico"):
+        return bool(odds.get("opportunities"))
+    if key == "placar_exato":
+        return bool(odds.get("items"))
+    if key == "1x2":
+        return bool(odds.get("home") and odds.get("draw") and odds.get("away"))
+    if key == "ambos_marcam":
+        return bool(odds.get("yes") and odds.get("no"))
+    if key == "dupla_chance":
+        return bool(odds.get("homeOrDraw") and odds.get("homeOrAway") and odds.get("drawOrAway"))
+    return True
+
+def _fs_odds_all_markets(event_id, bookmaker_id=16, pool=None):
+    """Busca os 6 mercados confirmados pra um event_id numa casa específica, em paralelo
+    (uma requisição por mercado ao mesmo tempo). Retorna markets_dict (pode vir vazio).
+    Aceita um pool alternativo (default: _fs_market_pool) pra isolar chamadas que não
+    podem ficar presas atrás de cálculos pesados que também usam o pool padrão."""
+    pool = pool or _fs_market_pool
+
+    def _fetch_one(item):
+        key, bet_type = item
+        try:
+            return key, _fs_odds(event_id, bookmaker_id=bookmaker_id, bet_type=bet_type)
+        except Exception:
+            return key, None
+    markets = {}
+    for key, odds in pool.map(_fetch_one, FS_ODDS_MARKETS):
+        if _fs_odds_has_data(key, odds):
+            markets[key] = odds
+    return markets
+
+def _fs_odds_all_markets_any_bookmaker(event_id, pool=None):
+    """Tenta bet365/Betano/Tipsport nessa ordem até achar uma casa com dados. Retorna
+    (bookmaker_name, markets_dict)."""
+    for bid, name in FS_ODDS_BOOKMAKERS:
+        markets = _fs_odds_all_markets(event_id, bookmaker_id=bid, pool=pool)
+        if markets:
+            return name, markets
+    return None, {}
+
+@app.route("/api/flashscore/odds_all")
+def api_flashscore_odds_all():
+    """Todos os mercados de odds confirmados (1X2, Acima/Abaixo, Ambos Marcam,
+    Dupla Chance, Handicap Asiático, Placar Exato) de uma casa de apostas, pelo
+    nome dos times. Usado apenas na aba experimental 'Hoje 2'."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    bookmaker_name, markets = _fs_odds_all_markets_any_bookmaker(m["id"])
+    return jsonify({"found": True, "match": m, "bookmaker": bookmaker_name, "markets": markets})
+
+@app.route("/api/flashscore/odds_all_batch")
+def api_flashscore_odds_all_batch():
+    """Odds (todos os mercados) de várias partidas JÁ DISPUTADAS de uma vez, direto
+    pelo event_id de cada uma (sem precisar buscar por nome de time) — usado pela aba
+    'Profit' pra calcular o profit histórico usando as odds de cada jogo passado do H2H.
+    Tenta bet365/Betano/Tipsport (várias ligas menores só têm odds em uma delas) e
+    busca todos os ids em paralelo. Limitado a 20 ids por chamada pra não sobrecarregar
+    o feed."""
+    ids = [i for i in request.args.get("ids", "").split(",") if i][:20]
+
+    def _fetch_one(event_id):
+        try:
+            return event_id, _fs_odds_all_markets_any_bookmaker(event_id)
+        except Exception:
+            return event_id, (None, {})
+
+    result = {}
+    for event_id, (bookmaker_name, markets) in _fs_event_pool.map(_fetch_one, ids):
+        if markets:
+            result[event_id] = {"bookmaker": bookmaker_name, "markets": markets}
+    return jsonify({"results": result})
+
+@app.route("/api/flashscore/h2h")
+def api_flashscore_h2h():
+    """Últimos jogos de cada time + confrontos diretos, pelo nome dos times."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    try:
+        tabs = _fs_h2h(m["id"])
+    except Exception as e:
+        return jsonify({"found": True, "match": m, "error": str(e)}), 503
+    return jsonify({"found": True, "match": m, "tabs": tabs})
+
+@app.route("/api/flashscore/half_time_batch")
+def api_flashscore_half_time_batch():
+    """Placar do 1º tempo de várias partidas já disputadas de uma vez (usado para
+    mostrar 'gols no 1º tempo' nos jogos passados listados no H2H). Limitado a 15
+    ids por chamada pra não sobrecarregar o feed."""
+    ids = [i for i in request.args.get("ids", "").split(",") if i][:15]
+    result = {}
+    for event_id in ids:
+        try:
+            ht = _fs_half_time(event_id)
+        except Exception:
+            ht = None
+        if ht:
+            result[event_id] = ht
+    return jsonify({"results": result})
+
+@app.route("/api/flashscore/goal_minutes_batch")
+def api_flashscore_goal_minutes_batch():
+    """Minutos dos gols (por time) de várias partidas já disputadas de uma vez — usado
+    pra calcular 'tempo sem marcar/sofrer gol' na aba Jogo. Busca em paralelo, limitado
+    a 20 ids por chamada."""
+    ids = [i for i in request.args.get("ids", "").split(",") if i][:20]
+
+    def _fetch_one(event_id):
+        try:
+            return event_id, _fs_goal_minutes(event_id)
+        except Exception:
+            return event_id, None
+
+    result = {}
+    for event_id, gm in _fs_event_pool.map(_fetch_one, ids):
+        if gm is not None:
+            result[event_id] = gm
+    return jsonify({"results": result})
+
+@app.route("/api/flashscore/standings")
+def api_flashscore_standings():
+    """Tabela de classificação da liga da partida, pelo nome dos times."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    try:
+        rows = _fs_standings(m["id"], home_name=m.get("home", ""), away_name=m.get("away", ""))
+    except Exception as e:
+        return jsonify({"found": True, "match": m, "error": str(e)}), 503
+    return jsonify({"found": True, "match": m, "rows": rows})
+
+
+
+# ── BACKTEST 2 — ranking global de metodologias ──────────────────────────────
+# Roda a MESMA simulação de lucro da aba "Profit" (Hoje 2), mas agregando o
+# histórico de TODOS os jogos de hoje de uma vez, pra ter amostra estatística
+# grande o suficiente pra rankear mercado+seleção do mais pro menos lucrativo.
+_bt2_cache = {"ts": 0, "data": None}
+_BT2_CACHE_TTL = 30 * 60  # 30 minutos
+
+_BT2_MARKET_LABELS = {
+    "1x2": "1X2", "over_under": "Acima/Abaixo", "ambos_marcam": "Ambos Marcam",
+    "dupla_chance": "Dupla Chance", "handicap_asiatico": "Handicap Asiático",
+}
+_BT2_MIN_SAMPLE = 15
+_BT2_MAX_HISTORICAL_IDS = 400
+
+
+def _bt2_parse_score(s):
+    m = re.match(r"^(\d+):(\d+)$", s or "")
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def _bt2_team_rows_from_section(tabs, team_home):
+    """Porta do _profitTeamRowsFromSection (JS) pra Python: pega a seção "Últimos
+    jogos: <time>" (não confrontos) do time casa/fora dentro da aba 'Total' (idx 0)
+    e extrai {id,h,a,date} de cada jogo com placar válido (até 30 por time)."""
+    if not tabs:
+        return []
+    tab = tabs[0]
+    sections = [s for s in tab["sections"] if "confront" not in (s.get("title") or "").lower()]
+    sec = sections[0] if team_home else (sections[1] if len(sections) > 1 else (sections[0] if sections else None))
+    if not sec:
+        return []
+    rows = []
+    for r in sec["rows"][:30]:
+        sc = _bt2_parse_score(r.get("score"))
+        if not sc:
+            continue
+        rows.append({"id": r.get("id"), "h": sc[0], "a": sc[1], "date": r.get("date"),
+                     "home": r.get("home"), "away": r.get("away")})
+    return rows
+
+
+def _bt2_market_selections(market_key, o, h, a):
+    """Porta do _profitMarketSelections (JS) pra Python — mesma lógica, mesmos 6
+    mercados, mesmas condições de vitória por seleção."""
+    if not o:
+        return []
+    total = h + a
+
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    if market_key == "1x2":
+        return [
+            {"label": "Casa", "odd": _f((o.get("home") or {}).get("value")), "won": h > a},
+            {"label": "Empate", "odd": _f((o.get("draw") or {}).get("value")), "won": h == a},
+            {"label": "Fora", "odd": _f((o.get("away") or {}).get("value")), "won": a > h},
+        ]
+    if market_key == "ambos_marcam":
+        btts = h >= 1 and a >= 1
+        return [
+            {"label": "Sim", "odd": _f((o.get("yes") or {}).get("value")), "won": btts},
+            {"label": "Não", "odd": _f((o.get("no") or {}).get("value")), "won": not btts},
+        ]
+    if market_key == "dupla_chance":
+        return [
+            {"label": "1X", "odd": _f((o.get("homeOrDraw") or {}).get("value")), "won": h >= a},
+            {"label": "12", "odd": _f((o.get("homeOrAway") or {}).get("value")), "won": h != a},
+            {"label": "X2", "odd": _f((o.get("drawOrAway") or {}).get("value")), "won": a >= h},
+        ]
+    if market_key == "over_under":
+        sels = []
+        for op in o.get("opportunities") or []:
+            line = _f((op.get("handicap") or {}).get("value"))
+            if line is None or total == line:
+                continue
+            sels.append({"label": f"Acima {line}", "odd": _f((op.get("over") or {}).get("value")), "won": total > line})
+            sels.append({"label": f"Abaixo {line}", "odd": _f((op.get("under") or {}).get("value")), "won": total < line})
+        return sels
+    if market_key == "handicap_asiatico":
+        sels = []
+        for op in o.get("opportunities") or []:
+            line = _f((op.get("handicap") or {}).get("value"))
+            if line is None:
+                continue
+            adj_home = h + line
+            if adj_home == a:
+                continue
+            sign = "+" if line >= 0 else ""
+            sign2 = "+" if -line >= 0 else ""
+            sels.append({"label": f"Casa ({sign}{line})", "odd": _f((op.get("home") or {}).get("value")), "won": adj_home > a})
+            sels.append({"label": f"Fora ({sign2}{-line})", "odd": _f((op.get("away") or {}).get("value")), "won": adj_home < a})
+        return sels
+    return []
+
+
+# ── BACKTEST 2 — persistência acumulada em SQLite ────────────────────────────
+# Além do snapshot "últimos 30 jogos" (em memória, recalculado a cada 30min),
+# guardamos cada aposta histórica individual num SQLite pra construir um ranking
+# ACUMULADO que cresce com o tempo (não se limita ao histórico dos jogos de hoje).
+_BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
+_bt2_db_lock = threading.Lock()
+
+
+def _bt2_db_conn():
+    conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS bt2_bets (
+            event_id TEXT NOT NULL,
+            market_key TEXT NOT NULL,
+            selection TEXT NOT NULL,
+            odd REAL NOT NULL,
+            won INTEGER NOT NULL,
+            profit REAL NOT NULL,
+            match_date TEXT,
+            inserted_at TEXT NOT NULL,
+            PRIMARY KEY (event_id, market_key, selection)
+        )
+    """)
+    return conn
+
+
+def _bt2_persist_bets(rows):
+    """Grava linhas [(event_id, market_key, selection, odd, won, profit, match_date), ...]
+    no SQLite via INSERT OR IGNORE (chave event_id+market_key+selection evita
+    duplicar apostas já processadas em execuções anteriores)."""
+    if not rows:
+        return
+    now = datetime.utcnow().isoformat() + "Z"
+    with _bt2_db_lock:
+        conn = _bt2_db_conn()
+        try:
+            conn.executemany(
+                """INSERT OR IGNORE INTO bt2_bets
+                   (event_id, market_key, selection, odd, won, profit, match_date, inserted_at)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                [(eid, mk, sel, odd, 1 if won else 0, profit, date, now) for (eid, mk, sel, odd, won, profit, date) in rows],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _bt2_compute_variance(profits):
+    mean = sum(profits) / len(profits)
+    variance = sum((p - mean) ** 2 for p in profits) / len(profits)
+    stddev = variance ** 0.5
+    cv = (stddev / abs(mean)) if mean != 0 else None
+    return variance, stddev, cv
+
+
+def _bt2_compute_ranking_acumulado():
+    """Ranking acumulado: lê TODAS as apostas já persistidas em bt2_bets (não só as
+    dos jogos de hoje) e agrega por mercado+seleção, com timeline cumulativa por
+    match_date. Sem cache — leitura no SQLite é barata."""
+    with _bt2_db_lock:
+        conn = _bt2_db_conn()
+        try:
+            cur = conn.execute(
+                "SELECT market_key, selection, odd, won, profit, match_date FROM bt2_bets ORDER BY match_date ASC"
+            )
+            all_rows = cur.fetchall()
+            sample_matches_used = conn.execute("SELECT COUNT(DISTINCT event_id) FROM bt2_bets").fetchone()[0]
+        finally:
+            conn.close()
+
+    agg = {}
+    for market_key, selection, odd, won, profit, match_date in all_rows:
+        bucket = agg.setdefault(market_key, {})
+        r = bucket.setdefault(selection, {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": []})
+        r["bets"] += 1
+        if won:
+            r["wins"] += 1
+        r["profit"] += profit
+        r["profits"].append(profit)
+        r["dates"].append(match_date or "")
+        r["odds"].append(odd)
+
+    methodologies = []
+    for market_key, bucket in agg.items():
+        market_label = _BT2_MARKET_LABELS.get(market_key, market_key)
+        for selection, r in bucket.items():
+            if r["bets"] < _BT2_MIN_SAMPLE:
+                continue
+            profits = r["profits"]
+            variance, stddev, cv = _bt2_compute_variance(profits)
+
+            pairs = sorted(zip(r["dates"], profits), key=lambda x: (x[0] or ""))
+            cum = 0.0
+            timeline = []
+            for date, p in pairs:
+                cum += p
+                timeline.append({"date": date, "cumulative_profit": round(cum, 4)})
+
+            methodologies.append({
+                "market": market_key,
+                "market_label": market_label,
+                "selection": selection,
+                "bets": r["bets"],
+                "wins": r["wins"],
+                "winrate": round(r["wins"] / r["bets"], 4),
+                "profit": round(r["profit"], 4),
+                "roi": round(r["profit"] / r["bets"] * 100, 2),
+                "variance": round(variance, 4),
+                "stddev": round(stddev, 4),
+                "cv": round(cv, 4) if cv is not None else None,
+                "avg_odd": round(sum(r["odds"]) / len(r["odds"]), 2) if r["odds"] else None,
+                "timeline": timeline,
+            })
+
+    methodologies.sort(key=lambda x: x["profit"], reverse=True)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sample_matches_used": sample_matches_used,
+        "methodologies": methodologies,
+    }
+
+
+def _bt2_compute_ranking():
+    """Algoritmo completo: coleta histórico de todos os jogos de hoje, busca odds em
+    lote, agrega bets/wins/profit por mercado+seleção e rankeia por lucro."""
+    today_matches = _fs_all_matches()
+
+    # 1) Coleta ids históricos (até 400 distintos) percorrendo o H2H de cada jogo de hoje
+    historical_by_id = {}
+    for m in today_matches:
+        if len(historical_by_id) >= _BT2_MAX_HISTORICAL_IDS:
+            break
+        try:
+            tabs = _fs_h2h(m["id"])
+        except Exception:
+            continue
+        for team_home in (True, False):
+            for row in _bt2_team_rows_from_section(tabs, team_home):
+                if not row["id"] or row["id"] in historical_by_id:
+                    continue
+                historical_by_id[row["id"]] = row
+                if len(historical_by_id) >= _BT2_MAX_HISTORICAL_IDS:
+                    break
+
+    hist_ids = list(historical_by_id.keys())
+
+    # 2) Busca odds de todos os jogos históricos em paralelo (reaproveita o pool existente)
+    def _fetch_odds(event_id):
+        try:
+            return event_id, _fs_odds_all_markets_any_bookmaker(event_id)
+        except Exception:
+            return event_id, (None, {})
+
+    odds_by_id = {}
+    for event_id, (bookmaker_name, markets) in _fs_event_pool.map(_fetch_odds, hist_ids):
+        if markets:
+            odds_by_id[event_id] = markets
+
+    # 3) Agrega globalmente por mercado+seleção
+    agg = {}  # market_key -> { label -> {bets,wins,profit,profits:[],dates:[]} }
+    sample_matches_used = 0
+    persist_rows = []  # (event_id, market_key, selection, odd, won, profit, match_date) p/ SQLite
+    for event_id, markets in odds_by_id.items():
+        row = historical_by_id.get(event_id)
+        if not row:
+            continue
+        sample_matches_used += 1
+        for market_key, market_label in _BT2_MARKET_LABELS.items():
+            sels = _bt2_market_selections(market_key, markets.get(market_key), row["h"], row["a"])
+            for sel in sels:
+                if not sel["odd"]:
+                    continue
+                bucket = agg.setdefault(market_key, {})
+                r = bucket.setdefault(sel["label"], {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": []})
+                p = (sel["odd"] - 1) if sel["won"] else -1
+                r["bets"] += 1
+                if sel["won"]:
+                    r["wins"] += 1
+                r["profit"] += p
+                r["profits"].append(p)
+                r["dates"].append(row.get("date") or "")
+                r["odds"].append(sel["odd"])
+                persist_rows.append((str(event_id), market_key, sel["label"], sel["odd"], sel["won"], p, row.get("date") or ""))
+
+    # Persiste cada aposta individual no SQLite (modo acumulado), sem afetar o
+    # snapshot "últimos 30" retornado abaixo — é só um efeito colateral de gravação.
+    try:
+        _bt2_persist_bets(persist_rows)
+    except Exception:
+        pass
+
+    # 4) Monta lista final com variância/roi/timeline, filtrando amostra mínima
+    methodologies = []
+    for market_key, bucket in agg.items():
+        market_label = _BT2_MARKET_LABELS.get(market_key, market_key)
+        for selection, r in bucket.items():
+            if r["bets"] < _BT2_MIN_SAMPLE:
+                continue
+            profits = r["profits"]
+            mean = sum(profits) / len(profits)
+            variance = sum((p - mean) ** 2 for p in profits) / len(profits)
+            stddev = variance ** 0.5
+            cv = (stddev / abs(mean)) if mean != 0 else None
+
+            # timeline: cumulativo ordenado por data ascendente (data no formato timestamp
+            # unix em string, mesmo campo "KC" usado no resto do H2H)
+            pairs = sorted(zip(r["dates"], profits), key=lambda x: (x[0] or ""))
+            cum = 0.0
+            timeline = []
+            for date, p in pairs:
+                cum += p
+                timeline.append({"date": date, "cumulative_profit": round(cum, 4)})
+
+            methodologies.append({
+                "market": market_key,
+                "market_label": market_label,
+                "selection": selection,
+                "bets": r["bets"],
+                "wins": r["wins"],
+                "winrate": round(r["wins"] / r["bets"], 4),
+                "profit": round(r["profit"], 4),
+                "roi": round(r["profit"] / r["bets"] * 100, 2),
+                "variance": round(variance, 4),
+                "stddev": round(stddev, 4),
+                "cv": round(cv, 4) if cv is not None else None,
+                "avg_odd": round(sum(r["odds"]) / len(r["odds"]), 2) if r["odds"] else None,
+                "timeline": timeline,
+            })
+
+    methodologies.sort(key=lambda x: x["profit"], reverse=True)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sample_matches_used": sample_matches_used,
+        "methodologies": methodologies,
+    }
+
+
+@app.route("/api/backtest2/ranking")
+def api_backtest2_ranking():
+    """Ranking global de metodologias (mercado+seleção) por lucro, agregando a
+    simulação de profit em cima do histórico de TODOS os jogos de hoje (não só um
+    jogo). Cálculo caro (centenas de lookups de odds), então cacheia em memória por
+    30 minutos — use ?refresh=1 pra forçar recálculo."""
+    mode = request.args.get("mode") or "recente"
+    if mode == "acumulado":
+        return jsonify(_bt2_compute_ranking_acumulado())
+    force = request.args.get("refresh") == "1"
+    if not force and _bt2_cache["data"] is not None and (time.time() - _bt2_cache["ts"]) < _BT2_CACHE_TTL:
+        return jsonify(_bt2_cache["data"])
+    data = _bt2_compute_ranking()
+    _bt2_cache["ts"] = time.time()
+    _bt2_cache["data"] = data
+    return jsonify(data)
+
+
+@app.route("/api/backtest2/ranking_acumulado")
+def api_backtest2_ranking_acumulado():
+    """Ranking ACUMULADO: agrega TODAS as apostas históricas já persistidas em
+    bt2_bets (cresce a cada vez que /api/backtest2/ranking roda), não só o
+    histórico dos jogos de hoje. Sem cache — leitura SQLite é barata."""
+    return jsonify(_bt2_compute_ranking_acumulado())
+
+
+def _bt2_market_selection_labels(market_key, o):
+    """Como _bt2_market_selections, mas SEM depender do placar final (jogo ainda não
+    aconteceu) — não filtra linhas 'push' nem calcula 'won', só lista as seleções e
+    odds disponíveis nesse mercado pra poder casar com o rótulo de uma metodologia."""
+    if not o:
+        return []
+
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    if market_key == "1x2":
+        return [
+            {"label": "Casa", "odd": _f((o.get("home") or {}).get("value"))},
+            {"label": "Empate", "odd": _f((o.get("draw") or {}).get("value"))},
+            {"label": "Fora", "odd": _f((o.get("away") or {}).get("value"))},
+        ]
+    if market_key == "ambos_marcam":
+        return [
+            {"label": "Sim", "odd": _f((o.get("yes") or {}).get("value"))},
+            {"label": "Não", "odd": _f((o.get("no") or {}).get("value"))},
+        ]
+    if market_key == "dupla_chance":
+        return [
+            {"label": "1X", "odd": _f((o.get("homeOrDraw") or {}).get("value"))},
+            {"label": "12", "odd": _f((o.get("homeOrAway") or {}).get("value"))},
+            {"label": "X2", "odd": _f((o.get("drawOrAway") or {}).get("value"))},
+        ]
+    if market_key == "over_under":
+        sels = []
+        for op in o.get("opportunities") or []:
+            line = _f((op.get("handicap") or {}).get("value"))
+            if line is None:
+                continue
+            sels.append({"label": f"Acima {line}", "odd": _f((op.get("over") or {}).get("value"))})
+            sels.append({"label": f"Abaixo {line}", "odd": _f((op.get("under") or {}).get("value"))})
+        return sels
+    if market_key == "handicap_asiatico":
+        sels = []
+        for op in o.get("opportunities") or []:
+            line = _f((op.get("handicap") or {}).get("value"))
+            if line is None:
+                continue
+            sign = "+" if line >= 0 else ""
+            sign2 = "+" if -line >= 0 else ""
+            sels.append({"label": f"Casa ({sign}{line})", "odd": _f((op.get("home") or {}).get("value"))})
+            sels.append({"label": f"Fora ({sign2}{-line})", "odd": _f((op.get("away") or {}).get("value"))})
+        return sels
+    return []
+
+
+@app.route("/api/backtest2/matches_for_methodology")
+def api_backtest2_matches_for_methodology():
+    """Jogos de HOJE que ainda não começaram (status agendado) onde a metodologia
+    selecionada (mercado+seleção) está disponível nas odds atuais — pra saber em
+    quais partidas reais dá pra aplicar aquele sinal hoje."""
+    market_key = request.args.get("market", "")
+    selection = request.args.get("selection", "")
+    if not market_key or not selection:
+        return jsonify({"matches": []}), 400
+
+    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+
+    def _fetch_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+        except Exception:
+            markets = {}
+        return m, markets
+
+    resultado = []
+    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+        sels = _bt2_market_selection_labels(market_key, markets.get(market_key))
+        for sel in sels:
+            if sel["label"] == selection and sel["odd"]:
+                resultado.append({
+                    "id": m["id"], "home": m["home"], "away": m["away"],
+                    "liga": m.get("liga", ""), "pais": m.get("pais", ""),
+                    "kickoff_ts": m.get("kickoff_ts"), "odd": sel["odd"],
+                })
+                break
+    resultado.sort(key=lambda x: x.get("kickoff_ts") or "")
+    return jsonify({"matches": resultado})
+
+
+# ── BACKTEST CS — ranking global dos 19 buckets de "placar exato" por TAXA DE
+# ACERTO ────────────────────────────────────────────────────────────────────
+# Irmã do Backtest 2, mas em vez de rankear mercado+seleção por LUCRO, rankeia
+# os 19 buckets fixos de placar exato (0-0 .. 3-3 + 3 "qualquer outro") por
+# quantas vezes o placar final de um jogo histórico realmente caiu ali. Não
+# precisa de odds pro cálculo do ranking em si (o placar já vem no H2H), só
+# reaproveita a coleta de jogos históricos já feita pro Backtest 2 — por isso é
+# bem mais rápido. Odds só entram na hora de achar "jogos de hoje que se
+# encaixam" num bucket específico.
+_btcs_cache = {"ts": 0, "data": None}
+_BTCS_CACHE_TTL = 30 * 60  # 30 minutos
+_BTCS_MAX_HISTORICAL_IDS = _BT2_MAX_HISTORICAL_IDS
+
+# Amostra mínima pra considerar o ranking como um todo minimamente confiável.
+# Diferente do Backtest 2 (onde cada mercado+seleção tem sua própria amostra
+# independente), aqui todos os 19 buckets compartilham a MESMA amostra total
+# (cada jogo histórico contribui pra exatamente um bucket), então o gate
+# relevante é sobre o TOTAL coletado, não por bucket. Ainda assim, exigimos
+# pelo menos 1 acerto (hits >= 1) pra listar um bucket, senão buckets raros
+# (tipo "3-3") apareceriam com 0% poluindo a tabela sem sinal nenhum.
+_BTCS_MIN_TOTAL_SAMPLE = 15
+_BTCS_MIN_HITS = 0  # 0 inclui buckets que NUNCA ocorreram — é justamente o que o
+                     # filtro "⚡ Placares mais improváveis" precisa mostrar
+
+# Porta de PLACAR_EXATO_BUCKETS_ORDER (JS, static/index.html) — mesma ordem.
+PLACAR_EXATO_BUCKETS_ORDER = [
+    "0-0", "0-1", "0-2", "0-3", "1-0", "1-1", "1-2", "1-3",
+    "2-0", "2-1", "2-2", "2-3", "3-0", "3-1", "3-2", "3-3",
+    "Qualquer outra vitória em casa", "Qualquer Outra Vitória de Visitante", "Qualquer outro empate",
+]
+
+
+def _btcs_bucket_key(h, a):
+    """Porta exata de _placarExatoBucketKey (JS) pra Python."""
+    if h <= 3 and a <= 3:
+        return f"{h}-{a}"
+    if h > a:
+        return "Qualquer outra vitória em casa"
+    if a > h:
+        return "Qualquer Outra Vitória de Visitante"
+    return "Qualquer outro empate"
+
+
+# ── BACKTEST CS — persistência acumulada em SQLite (mesmo arquivo do Backtest 2,
+# tabela própria) ─────────────────────────────────────────────────────────────
+def _btcs_db_conn():
+    conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS btcs_results (
+            event_id TEXT PRIMARY KEY,
+            bucket TEXT NOT NULL,
+            match_date TEXT,
+            inserted_at TEXT NOT NULL
+        )
+    """)
+    return conn
+
+
+def _btcs_persist_results(rows):
+    """Grava [(event_id, bucket, match_date), ...] via INSERT OR IGNORE — chave
+    é só event_id, então o mesmo jogo histórico reaparecendo em janelas futuras
+    de 'últimos 30' não é contado duas vezes no acumulado."""
+    if not rows:
+        return
+    now = datetime.utcnow().isoformat() + "Z"
+    with _bt2_db_lock:
+        conn = _btcs_db_conn()
+        try:
+            conn.executemany(
+                """INSERT OR IGNORE INTO btcs_results
+                   (event_id, bucket, match_date, inserted_at)
+                   VALUES (?,?,?,?)""",
+                [(eid, bucket, date, now) for (eid, bucket, date) in rows],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _btcs_build_methodologies(bucket_dates):
+    """A partir de {bucket: [dates ordenáveis...]} (uma entrada por acerto,
+    já na ordem de ocorrência) e do total_sample, monta a lista final ordenada
+    por winrate desc, com timeline de hit count acumulado."""
+    total_sample = sum(len(v) for v in bucket_dates.values())
+    methodologies = []
+    if total_sample >= _BTCS_MIN_TOTAL_SAMPLE:
+        for bucket in PLACAR_EXATO_BUCKETS_ORDER:
+            dates = sorted(bucket_dates.get(bucket, []), key=lambda d: d or "")
+            hits = len(dates)
+            if hits < _BTCS_MIN_HITS:
+                continue
+            cum = 0
+            timeline = []
+            for date in dates:
+                cum += 1
+                timeline.append({"date": date, "cumulative_hits": cum})
+            methodologies.append({
+                "bucket": bucket,
+                "bets": total_sample,
+                "wins": hits,
+                "winrate": round(hits / total_sample, 4),
+                "timeline": timeline,
+            })
+    methodologies.sort(key=lambda x: x["winrate"], reverse=True)
+    return total_sample, methodologies
+
+
+def _btcs_compute_ranking():
+    """Coleta o histórico de todos os jogos de hoje (mesma lógica de
+    _bt2_compute_ranking, sem precisar de odds) e rankeia os 19 buckets de
+    placar exato por taxa de acerto."""
+    today_matches = _fs_all_matches()
+
+    historical_by_id = {}
+    for m in today_matches:
+        if len(historical_by_id) >= _BTCS_MAX_HISTORICAL_IDS:
+            break
+        try:
+            tabs = _fs_h2h(m["id"])
+        except Exception:
+            continue
+        for team_home in (True, False):
+            for row in _bt2_team_rows_from_section(tabs, team_home):
+                if not row["id"] or row["id"] in historical_by_id:
+                    continue
+                historical_by_id[row["id"]] = row
+                if len(historical_by_id) >= _BTCS_MAX_HISTORICAL_IDS:
+                    break
+
+    bucket_dates = {}
+    persist_rows = []
+    for event_id, row in historical_by_id.items():
+        bucket = _btcs_bucket_key(row["h"], row["a"])
+        bucket_dates.setdefault(bucket, []).append(row.get("date") or "")
+        persist_rows.append((str(event_id), bucket, row.get("date") or ""))
+
+    try:
+        _btcs_persist_results(persist_rows)
+    except Exception:
+        pass
+
+    total_sample, methodologies = _btcs_build_methodologies(bucket_dates)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sample_matches_used": total_sample,
+        "methodologies": methodologies,
+    }
+
+
+def _btcs_compute_ranking_acumulado():
+    """Ranking acumulado: lê TODAS as linhas já persistidas em btcs_results
+    (dedupadas por event_id) e reaplica a mesma agregação por bucket."""
+    with _bt2_db_lock:
+        conn = _btcs_db_conn()
+        try:
+            cur = conn.execute("SELECT bucket, match_date FROM btcs_results ORDER BY match_date ASC")
+            all_rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    bucket_dates = {}
+    for bucket, match_date in all_rows:
+        bucket_dates.setdefault(bucket, []).append(match_date or "")
+
+    total_sample, methodologies = _btcs_build_methodologies(bucket_dates)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sample_matches_used": total_sample,
+        "methodologies": methodologies,
+    }
+
+
+# ── BACKTEST CS — PADRÕES: em que condições dos times a taxa de acerto de um
+# bucket de placar exato melhora vs a taxa geral (baseline) ─────────────────
+# Reusa a MESMA coleta de histórico do ranking, mas mantendo o agrupamento POR
+# TIME (o ranking achata tudo num dict global de event_id -> row; aqui
+# precisamos saber a QUEM cada jogo pertence pra calcular médias/percentuais
+# por time e então segmentar). Não busca odds — só o H2H já dá tudo que
+# precisa, por isso é rápido como o ranking.
+_btcs_patterns_cache = {"ts": 0, "data": None}
+
+_BTCS_PATTERN_VARIABLES = {
+    "avg_scored": "Média de gols marcados",
+    "avg_conceded": "Média de gols sofridos",
+    "pct_scored": "Chance de marcar gol",
+    "pct_conceded": "Chance de sofrer gol",
+    "pct_over25": "Over/Under 2.5",
+    "mandante": "Mandante",
+}
+
+_BTCS_PATTERN_MIN_SEGMENT_GAMES = 30
+_BTCS_PATTERN_MIN_SEGMENT_HITS = 3
+_BTCS_PATTERN_MIN_LIFT = 1.3
+_BTCS_PATTERN_TOP_N = 30
+
+# "Padrões que reduzem a chance" — o oposto: condições em que um placar fica
+# AINDA MENOS provável que o normal (útil pra apostar CONTRA aquele placar
+# com mais confiança). Aqui não exigimos um mínimo de acertos no segmento
+# (0 acertos é o caso ideal), só amostra suficiente pra confiar no número.
+_BTCS_PATTERN_MAX_LIFT_AVOID = 0.7
+_BTCS_PATTERN_AVOID_TOP_N = 30
+
+# Faixas de segmentação: lista de (limite_superior_exclusivo, label), em ordem
+# crescente, o último item deve ter limite None (>= o penúltimo limite).
+_BTCS_AVG_RANGES = [(1.5, "<1.5 gols/jogo"), (2.5, "1.5–2.5 gols/jogo"),
+                     (3.5, "2.5–3.5 gols/jogo"), (None, "≥3.5 gols/jogo")]
+_BTCS_PCT_RANGES = [(0.70, "<70%"), (0.90, "70–90%"), (None, "≥90%")]
+_BTCS_OVER_RANGES = [(0.40, "<40%"), (0.60, "40–60%"), (None, "≥60%")]
+
+
+def _btcs_norm_name(s):
+    """Normaliza nome de time pra comparação (minúsculo, sem acento, só
+    alfanumérico+espaço) — mesma técnica do norm() interno de _fs_find_match."""
+    import unicodedata
+    s = (s or "").lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[^a-z0-9 ]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _btcs_segment_range(value, ranges):
+    for hi, label in ranges:
+        if hi is None or value < hi:
+            return label
+    return ranges[-1][1]
+
+
+def _btcs_compute_patterns():
+    """Coleta o histórico dos times de hoje mantendo o agrupamento POR TIME,
+    calcula variáveis team-level (média de gols marcados/sofridos, chance de
+    marcar/sofrer gol, over/under 2.5) e uma variável row-level (mandante:
+    casa/fora), segmenta os times/jogos e mede o LIFT da taxa de acerto de
+    cada bucket de placar exato dentro de cada segmento vs a taxa geral
+    (baseline) calculada sobre a MESMA amostra total coletada."""
+    today_matches = _fs_all_matches()
+
+    teams = {}  # norm(nome) -> {"name": nome original, "rows": [...]}
+    all_ids_seen = set()
+    total_ids = 0
+    for m in today_matches:
+        if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+            break
+        try:
+            tabs = _fs_h2h(m["id"])
+        except Exception:
+            continue
+        for team_home in (True, False):
+            if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+                break
+            team_name = m["home"] if team_home else m["away"]
+            key = _btcs_norm_name(team_name)
+            if not key:
+                continue
+            rows = _bt2_team_rows_from_section(tabs, team_home)
+            if not rows:
+                continue
+            entry = teams.setdefault(key, {"name": team_name, "rows": []})
+            existing_ids = {r["id"] for r in entry["rows"]}
+            for row in rows:
+                if not row["id"] or row["id"] in existing_ids or row["id"] in all_ids_seen:
+                    continue
+                entry["rows"].append(row)
+                existing_ids.add(row["id"])
+                all_ids_seen.add(row["id"])
+                total_ids += 1
+                if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+                    break
+
+    # Baseline: taxa de acerto geral de cada bucket sobre TODOS os jogos
+    # coletados (mesma amostra usada pra formar os segmentos abaixo).
+    baseline_bucket_counts = {}
+    total_games = 0
+    for entry in teams.values():
+        for row in entry["rows"]:
+            bucket = _btcs_bucket_key(row["h"], row["a"])
+            baseline_bucket_counts[bucket] = baseline_bucket_counts.get(bucket, 0) + 1
+            total_games += 1
+    baseline_rate = {b: (c / total_games if total_games else 0.0) for b, c in baseline_bucket_counts.items()}
+
+    # {variable: {segment: {bucket: hits, "_total": n_jogos_no_segmento}}}
+    seg_data = {v: {} for v in _BTCS_PATTERN_VARIABLES}
+
+    def _accum(variable, segment, bucket):
+        seg = seg_data[variable].setdefault(segment, {"_total": 0})
+        seg["_total"] += 1
+        seg[bucket] = seg.get(bucket, 0) + 1
+
+    for entry in teams.values():
+        rows = entry["rows"]
+        n = len(rows)
+        if n == 0:
+            continue
+        team_key = _btcs_norm_name(entry["name"])
+        scored_total = conceded_total = 0
+        games_scored = games_conceded = games_over25 = 0
+        row_is_home = []
+        for row in rows:
+            row_home_key = _btcs_norm_name(row.get("home"))
+            # Se por algum motivo o nome não bate com nenhum lado (dado
+            # incompleto), assume casa como padrão conservador.
+            is_home = (row_home_key == team_key) if row_home_key and team_key else True
+            own = row["h"] if is_home else row["a"]
+            opp = row["a"] if is_home else row["h"]
+            scored_total += own
+            conceded_total += opp
+            if own >= 1:
+                games_scored += 1
+            if opp >= 1:
+                games_conceded += 1
+            if row["h"] + row["a"] >= 3:
+                games_over25 += 1
+            row_is_home.append(is_home)
+
+        seg_avg_scored = _btcs_segment_range(scored_total / n, _BTCS_AVG_RANGES)
+        seg_avg_conceded = _btcs_segment_range(conceded_total / n, _BTCS_AVG_RANGES)
+        seg_pct_scored = _btcs_segment_range(games_scored / n, _BTCS_PCT_RANGES)
+        seg_pct_conceded = _btcs_segment_range(games_conceded / n, _BTCS_PCT_RANGES)
+        seg_pct_over25 = _btcs_segment_range(games_over25 / n, _BTCS_OVER_RANGES)
+
+        for row in rows:
+            bucket = _btcs_bucket_key(row["h"], row["a"])
+            _accum("avg_scored", seg_avg_scored, bucket)
+            _accum("avg_conceded", seg_avg_conceded, bucket)
+            _accum("pct_scored", seg_pct_scored, bucket)
+            _accum("pct_conceded", seg_pct_conceded, bucket)
+            _accum("pct_over25", seg_pct_over25, bucket)
+
+        # Mandante é row-level: os 30 jogos de um time podem se dividir entre
+        # os dois segmentos (casa/fora), diferente das variáveis acima que
+        # atribuem o time inteiro a UM segmento.
+        for row, is_home in zip(rows, row_is_home):
+            bucket = _btcs_bucket_key(row["h"], row["a"])
+            segment = "Jogando em casa" if is_home else "Jogando fora"
+            _accum("mandante", segment, bucket)
+
+    patterns = []
+    patterns_avoid = []
+    for variable, segments in seg_data.items():
+        variable_label = _BTCS_PATTERN_VARIABLES[variable]
+        for segment, counts in segments.items():
+            segment_games = counts["_total"]
+            if segment_games < _BTCS_PATTERN_MIN_SEGMENT_GAMES:
+                continue
+            # Buckets que nunca acertaram nesse segmento não aparecem em
+            # `counts` (só acumulamos quando há hit) — pra achar os padrões
+            # de "reduz a chance" precisamos considerar TODOS os 19 buckets,
+            # inclusive os com 0 acertos no segmento.
+            for bucket in PLACAR_EXATO_BUCKETS_ORDER:
+                hits = counts.get(bucket, 0)
+                base = baseline_rate.get(bucket, 0.0)
+                if base <= 0:
+                    continue  # sem baseline confiável pra comparar, pula
+                segment_rate = hits / segment_games
+                lift = segment_rate / base
+                row = {
+                    "variable": variable,
+                    "variable_label": variable_label,
+                    "segment": segment,
+                    "segment_label": segment,
+                    "bucket": bucket,
+                    "segment_games": segment_games,
+                    "segment_hits": hits,
+                    "segment_rate": round(segment_rate, 4),
+                    "baseline_rate": round(base, 4),
+                    "lift": round(lift, 3),
+                }
+                if hits >= _BTCS_PATTERN_MIN_SEGMENT_HITS and lift >= _BTCS_PATTERN_MIN_LIFT:
+                    patterns.append(row)
+                elif lift <= _BTCS_PATTERN_MAX_LIFT_AVOID:
+                    patterns_avoid.append(row)
+
+    # "Aumenta a chance": ordena por lift desc; segment_hits como desempate
+    # (entre lifts iguais/muito próximos, prefere o padrão com mais evidência).
+    patterns.sort(key=lambda p: (p["lift"], p["segment_hits"]), reverse=True)
+    patterns = patterns[:_BTCS_PATTERN_TOP_N]
+
+    # "Reduz a chance": ordena por lift ASC (quanto mais perto de 0, mais forte
+    # o sinal de que aquele placar não vai sair), segment_games como desempate
+    # (entre lifts iguais, prefere o padrão com amostra maior/mais confiável).
+    patterns_avoid.sort(key=lambda p: (p["lift"], -p["segment_games"]))
+    patterns_avoid = patterns_avoid[:_BTCS_PATTERN_AVOID_TOP_N]
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sample_teams_used": len(teams),
+        "sample_matches_used": total_games,
+        "patterns": patterns,
+        "patterns_avoid": patterns_avoid,
+    }
+
+
+@app.route("/api/backtestcs/ranking")
+def api_backtestcs_ranking():
+    """Ranking global dos 19 buckets de placar exato por taxa de acerto,
+    agregando o histórico de TODOS os jogos de hoje. Bem mais barato que o
+    Backtest 2 (não busca odds), mas ainda cacheia 30min pra evitar recalcular
+    o H2H de todo mundo a cada request — use ?refresh=1 pra forçar."""
+    mode = request.args.get("mode") or "recente"
+    if mode == "acumulado":
+        return jsonify(_btcs_compute_ranking_acumulado())
+    force = request.args.get("refresh") == "1"
+    if not force and _btcs_cache["data"] is not None and (time.time() - _btcs_cache["ts"]) < _BTCS_CACHE_TTL:
+        return jsonify(_btcs_cache["data"])
+    data = _btcs_compute_ranking()
+    _btcs_cache["ts"] = time.time()
+    _btcs_cache["data"] = data
+    return jsonify(data)
+
+
+@app.route("/api/backtestcs/ranking_acumulado")
+def api_backtestcs_ranking_acumulado():
+    """Ranking ACUMULADO: agrega todos os resultados já persistidos em
+    btcs_results (cresce a cada vez que /api/backtestcs/ranking roda)."""
+    return jsonify(_btcs_compute_ranking_acumulado())
+
+
+@app.route("/api/backtestcs/patterns")
+def api_backtestcs_patterns():
+    """Padrões: quais combinações (variável do time, segmento, bucket de placar
+    exato) têm taxa de acerto significativamente melhor que a geral (lift >=
+    1.3). Mesmo cache de 30min do ranking — use ?refresh=1 pra forçar."""
+    force = request.args.get("refresh") == "1"
+    if not force and _btcs_patterns_cache["data"] is not None and (time.time() - _btcs_patterns_cache["ts"]) < _BTCS_CACHE_TTL:
+        return jsonify(_btcs_patterns_cache["data"])
+    data = _btcs_compute_patterns()
+    _btcs_patterns_cache["ts"] = time.time()
+    _btcs_patterns_cache["data"] = data
+    return jsonify(data)
+
+
+def _btcs_bucket_odds(items):
+    """Porta de _placarExatoBuckets (JS) pra Python: agrupa os placares crus
+    do mercado 'placar_exato' nos 19 buckets fixos, odd combinada = 1/soma das
+    probabilidades implícitas dos placares que caem em cada bucket."""
+    prob_sum = {}
+    for it in items or []:
+        m = re.match(r"^(\d+):(\d+)$", it.get("score") or "")
+        if not m:
+            continue
+        try:
+            odd = float((it.get("item") or {}).get("value"))
+        except (TypeError, ValueError):
+            continue
+        if not odd:
+            continue
+        key = _btcs_bucket_key(int(m.group(1)), int(m.group(2)))
+        prob_sum[key] = prob_sum.get(key, 0.0) + 1 / odd
+    return {key: 1 / prob_sum[key] for key in prob_sum}
+
+
+_BTCS_BUCKET_ODDS_CACHE_TTL = 300  # 5min — odds mudam pouco em poucos minutos
+_btcs_bucket_odds_cache = {"ts": 0, "data": None}
+
+
+@app.route("/api/backtestcs/bucket_odds_today")
+def api_backtestcs_bucket_odds_today():
+    """Odd média ATUAL de cada um dos 19 buckets, calculada em cima dos jogos
+    de HOJE que ainda não começaram (média entre os jogos que oferecem odd
+    pra aquele bucket). Busca as odds de cada jogo de hoje UMA VEZ SÓ (não
+    por bucket) e classifica em paralelo — bem mais barato que chamar
+    matches_for_bucket bucket por bucket. Cacheado 5min."""
+    force = request.args.get("refresh") == "1"
+    if not force and _btcs_bucket_odds_cache["data"] is not None and \
+            (time.time() - _btcs_bucket_odds_cache["ts"]) < _BTCS_BUCKET_ODDS_CACHE_TTL:
+        return jsonify(_btcs_bucket_odds_cache["data"])
+
+    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+
+    def _fetch_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+        except Exception:
+            markets = {}
+        return _btcs_bucket_odds((markets.get("placar_exato") or {}).get("items"))
+
+    odds_sum = {}
+    odds_n = {}
+    for odds_by_bucket in _bt2_matches_pool.map(_fetch_one, candidatos):
+        for bucket, odd in odds_by_bucket.items():
+            odds_sum[bucket] = odds_sum.get(bucket, 0.0) + odd
+            odds_n[bucket] = odds_n.get(bucket, 0) + 1
+
+    avg_odds = {b: round(odds_sum[b] / odds_n[b], 2) for b in odds_sum}
+    data = {"avg_odds": avg_odds}
+    _btcs_bucket_odds_cache["ts"] = time.time()
+    _btcs_bucket_odds_cache["data"] = data
+    return jsonify(data)
+
+
+@app.route("/api/backtestcs/matches_for_bucket")
+def api_backtestcs_matches_for_bucket():
+    """Jogos de HOJE que ainda não começaram onde o bucket de placar exato
+    selecionado tem odd disponível no mercado 'placar_exato' atual."""
+    bucket = request.args.get("bucket", "")
+    if not bucket:
+        return jsonify({"matches": []}), 400
+
+    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+
+    def _fetch_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+        except Exception:
+            markets = {}
+        return m, markets
+
+    resultado = []
+    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+        odds_by_bucket = _btcs_bucket_odds((markets.get("placar_exato") or {}).get("items"))
+        odd = odds_by_bucket.get(bucket)
+        if odd:
+            resultado.append({
+                "id": m["id"], "home": m["home"], "away": m["away"],
+                "liga": m.get("liga", ""), "pais": m.get("pais", ""),
+                "kickoff_ts": m.get("kickoff_ts"), "odd": odd,
+            })
+    resultado.sort(key=lambda x: x.get("kickoff_ts") or "")
+    return jsonify({"matches": resultado})
 
 
 @app.route("/api/match/live/<path:match_id>")
