@@ -3382,6 +3382,18 @@ async function _btcsLoadMatchesForSelected() {
   }
 }
 
+let _btcsMatchesSortKey = 'kickoff_ts';
+let _btcsMatchesSortDir = 1; // 1 = asc, -1 = desc
+
+function _btcsMatchesSortBy(key) {
+  if (_btcsMatchesSortKey === key) { _btcsMatchesSortDir *= -1; } else { _btcsMatchesSortKey = key; _btcsMatchesSortDir = 1; }
+  const selected = (_btcsData?.methodologies || [])[_btcsSelectedIdx];
+  const key2 = selected ? selected.bucket : null;
+  const cached = key2 && _btcsMatchesCache[key2];
+  const box = document.getElementById('btcsMatchesBox');
+  if (selected && cached && !cached.loading && box) box.innerHTML = _btcsMatchesHtml(selected, cached.matches);
+}
+
 function _btcsMatchesHtml(m, matches) {
   const titulo = `🎯 Jogos de hoje que ainda não aconteceram e se encaixam no placar "${_bt2EscXml(m.bucket)}"`;
   if (!matches.length) {
@@ -3390,7 +3402,15 @@ function _btcsMatchesHtml(m, matches) {
       <div style="font-size:12px;color:var(--text2)">Nenhum jogo de hoje (ainda não iniciado) tem esse bucket disponível nas odds atuais.</div>
     </div>`;
   }
-  const rows = matches.map(mt => `
+  const key = _btcsMatchesSortKey, dir = _btcsMatchesSortDir;
+  const sorted = matches.slice().sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (key === 'kickoff_ts') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; }
+    if (typeof va === 'string') return dir * va.localeCompare(vb);
+    return dir * (va - vb);
+  });
+  const arrow = (k) => _btcsMatchesSortKey === k ? (_btcsMatchesSortDir === 1 ? ' ▴' : ' ▾') : '';
+  const rows = sorted.map(mt => `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:13px;border-radius:6px"
          onmouseover="this.style.background='rgba(79,110,247,.08)'" onmouseout="this.style.background='transparent'">
       <span style="width:90px;flex-shrink:0;color:var(--text2)">${_bt2FmtHora(mt.kickoff_ts)}</span>
@@ -3402,6 +3422,11 @@ function _btcsMatchesHtml(m, matches) {
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-top:10px">
       <div style="font-size:12px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
         ${titulo} — ${matches.length} jogo(s)
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:11px;color:var(--text2)">
+        <span onclick="_btcsMatchesSortBy('kickoff_ts')" style="width:90px;flex-shrink:0;cursor:pointer;user-select:none">Horário${arrow('kickoff_ts')}</span>
+        <span style="flex:1"></span>
+        <span onclick="_btcsMatchesSortBy('odd')" style="flex-shrink:0;cursor:pointer;user-select:none">Odd${arrow('odd')}</span>
       </div>
       <div style="padding:4px">${rows}</div>
     </div>`;

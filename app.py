@@ -4392,6 +4392,18 @@ _fs_event_pool = ThreadPoolExecutor(max_workers=12)
 _bt2_matches_pool = ThreadPoolExecutor(max_workers=10)
 _bt2_matches_market_pool = ThreadPoolExecutor(max_workers=20)
 
+# Em dias com muitos jogos (200+), buscar odds de TODOS os agendados demora
+# minutos (até 3 tentativas de casa de apostas x timeout por jogo, dividido
+# entre poucos workers). Limita aos próximos N jogos por horário — cobre o
+# que realmente dá pra apostar em breve, sem travar a busca.
+_BT2_MATCHES_MAX_CANDIDATOS = 60
+
+
+def _bt2_matches_candidatos():
+    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+    candidatos.sort(key=lambda m: m.get("kickoff_ts") or "")
+    return candidatos[:_BT2_MATCHES_MAX_CANDIDATOS]
+
 def _fs_odds_has_data(key, odds):
     """A API às vezes retorna um objeto 'válido' mas vazio (ex: Placar Exato com
     items:[] quando essa casa não tem esse mercado pra esse jogo) — sem isso, o código
@@ -4966,7 +4978,7 @@ def api_backtest2_matches_for_methodology():
     if not market_key or not selection:
         return jsonify({"matches": []}), 400
 
-    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+    candidatos = _bt2_matches_candidatos()
 
     def _fetch_one(m):
         try:
@@ -5459,7 +5471,7 @@ def api_backtestcs_bucket_odds_today():
             (time.time() - _btcs_bucket_odds_cache["ts"]) < _BTCS_BUCKET_ODDS_CACHE_TTL:
         return jsonify(_btcs_bucket_odds_cache["data"])
 
-    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+    candidatos = _bt2_matches_candidatos()
 
     def _fetch_one(m):
         try:
@@ -5490,7 +5502,7 @@ def api_backtestcs_matches_for_bucket():
     if not bucket:
         return jsonify({"matches": []}), 400
 
-    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+    candidatos = _bt2_matches_candidatos()
 
     def _fetch_one(m):
         try:
