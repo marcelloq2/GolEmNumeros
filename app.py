@@ -5057,6 +5057,23 @@ def _btcs_db_conn():
             inserted_at TEXT NOT NULL
         )
     """)
+    # Linhas por TIME (não só por jogo) — guarda o suficiente pra recalcular as
+    # variáveis dos Padrões (média de gols, mandante etc.) em cima de TODO o
+    # histórico já visto, não só os últimos 30 jogos do dia. Mesmo jogo pode
+    # aparecer 2x (uma por time), então a chave inclui o time.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS btcs_pattern_rows (
+            event_id TEXT NOT NULL,
+            team_key TEXT NOT NULL,
+            team_name TEXT NOT NULL,
+            h INTEGER NOT NULL,
+            a INTEGER NOT NULL,
+            home_name TEXT,
+            match_date TEXT,
+            inserted_at TEXT NOT NULL,
+            PRIMARY KEY (event_id, team_key)
+        )
+    """)
     return conn
 
 
@@ -5075,6 +5092,27 @@ def _btcs_persist_results(rows):
                    (event_id, bucket, match_date, inserted_at)
                    VALUES (?,?,?,?)""",
                 [(eid, bucket, date, now) for (eid, bucket, date) in rows],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _btcs_persist_pattern_rows(rows):
+    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date), ...]
+    via INSERT OR IGNORE — chave é (event_id, team_key), então o mesmo jogo
+    reaparecendo em janelas futuras de 'últimos 30' não duplica pro mesmo time."""
+    if not rows:
+        return
+    now = datetime.utcnow().isoformat() + "Z"
+    with _bt2_db_lock:
+        conn = _btcs_db_conn()
+        try:
+            conn.executemany(
+                """INSERT OR IGNORE INTO btcs_pattern_rows
+                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                [(eid, tk, tn, h, a, home, date, now) for (eid, tk, tn, h, a, home, date) in rows],
             )
             conn.commit()
         finally:
@@ -5232,47 +5270,13 @@ def _btcs_segment_range(value, ranges):
     return ranges[-1][1]
 
 
-def _btcs_compute_patterns():
-    """Coleta o histórico dos times de hoje mantendo o agrupamento POR TIME,
-    calcula variáveis team-level (média de gols marcados/sofridos, chance de
-    marcar/sofrer gol, over/under 2.5) e uma variável row-level (mandante:
-    casa/fora), segmenta os times/jogos e mede o LIFT da taxa de acerto de
-    cada bucket de placar exato dentro de cada segmento vs a taxa geral
-    (baseline) calculada sobre a MESMA amostra total coletada."""
-    today_matches = _fs_all_matches()
-
-    teams = {}  # norm(nome) -> {"name": nome original, "rows": [...]}
-    all_ids_seen = set()
-    total_ids = 0
-    for m in today_matches:
-        if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
-            break
-        try:
-            tabs = _fs_h2h(m["id"])
-        except Exception:
-            continue
-        for team_home in (True, False):
-            if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
-                break
-            team_name = m["home"] if team_home else m["away"]
-            key = _btcs_norm_name(team_name)
-            if not key:
-                continue
-            rows = _bt2_team_rows_from_section(tabs, team_home)
-            if not rows:
-                continue
-            entry = teams.setdefault(key, {"name": team_name, "rows": []})
-            existing_ids = {r["id"] for r in entry["rows"]}
-            for row in rows:
-                if not row["id"] or row["id"] in existing_ids or row["id"] in all_ids_seen:
-                    continue
-                entry["rows"].append(row)
-                existing_ids.add(row["id"])
-                all_ids_seen.add(row["id"])
-                total_ids += 1
-                if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
-                    break
-
+def _btcs_build_patterns_from_teams(teams):
+    """Núcleo compartilhado entre o modo 'últimos 30' e o 'acumulado': recebe
+    {team_key: {"name":..., "rows":[{id,h,a,date,home}, ...]}} já montado (de
+    onde vier — H2H de hoje ou SQLite acumulado) e calcula variáveis team-level
+    (média de gols marcados/sofridos, chance de marcar/sofrer, over/under 2.5)
+    + uma variável row-level (mandante), medindo o LIFT da taxa de acerto de
+    cada bucket de placar exato dentro de cada segmento vs a taxa geral."""
     # Baseline: taxa de acerto geral de cada bucket sobre TODOS os jogos
     # coletados (mesma amostra usada pra formar os segmentos abaixo).
     baseline_bucket_counts = {}
@@ -5396,6 +5400,81 @@ def _btcs_compute_patterns():
     }
 
 
+def _btcs_compute_patterns():
+    """Coleta o histórico dos times de hoje (últimos 30 jogos por time,
+    mesma fonte do H2H) mantendo o agrupamento POR TIME, monta os padrões via
+    _btcs_build_patterns_from_teams, e persiste cada linha (jogo+time) no
+    SQLite como efeito colateral — é isso que alimenta o modo 'acumulado'."""
+    today_matches = _fs_all_matches()
+
+    teams = {}  # norm(nome) -> {"name": nome original, "rows": [...]}
+    all_ids_seen = set()
+    total_ids = 0
+    for m in today_matches:
+        if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+            break
+        try:
+            tabs = _fs_h2h(m["id"])
+        except Exception:
+            continue
+        for team_home in (True, False):
+            if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+                break
+            team_name = m["home"] if team_home else m["away"]
+            key = _btcs_norm_name(team_name)
+            if not key:
+                continue
+            rows = _bt2_team_rows_from_section(tabs, team_home)
+            if not rows:
+                continue
+            entry = teams.setdefault(key, {"name": team_name, "rows": []})
+            existing_ids = {r["id"] for r in entry["rows"]}
+            for row in rows:
+                if not row["id"] or row["id"] in existing_ids or row["id"] in all_ids_seen:
+                    continue
+                entry["rows"].append(row)
+                existing_ids.add(row["id"])
+                all_ids_seen.add(row["id"])
+                total_ids += 1
+                if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+                    break
+
+    persist_rows = [
+        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"))
+        for key, entry in teams.items()
+        for row in entry["rows"]
+    ]
+    try:
+        _btcs_persist_pattern_rows(persist_rows)
+    except Exception:
+        pass
+
+    return _btcs_build_patterns_from_teams(teams)
+
+
+def _btcs_compute_patterns_acumulado():
+    """Mesma lógica de _btcs_compute_patterns, mas monta 'teams' a partir de
+    TODO o histórico já persistido em btcs_pattern_rows (não só os times de
+    hoje nem os últimos 30 jogos) — cresce a cada vez que o modo 'últimos 30'
+    roda. Sem cache — leitura no SQLite é barata."""
+    with _bt2_db_lock:
+        conn = _btcs_db_conn()
+        try:
+            cur = conn.execute(
+                "SELECT event_id, team_key, team_name, h, a, home_name, match_date FROM btcs_pattern_rows"
+            )
+            all_rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    teams = {}
+    for event_id, team_key, team_name, h, a, home_name, match_date in all_rows:
+        entry = teams.setdefault(team_key, {"name": team_name, "rows": []})
+        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date})
+
+    return _btcs_build_patterns_from_teams(teams)
+
+
 @app.route("/api/backtestcs/ranking")
 def api_backtestcs_ranking():
     """Ranking global dos 19 buckets de placar exato por taxa de acerto,
@@ -5424,8 +5503,13 @@ def api_backtestcs_ranking_acumulado():
 @app.route("/api/backtestcs/patterns")
 def api_backtestcs_patterns():
     """Padrões: quais combinações (variável do time, segmento, bucket de placar
-    exato) têm taxa de acerto significativamente melhor que a geral (lift >=
-    1.3). Mesmo cache de 30min do ranking — use ?refresh=1 pra forçar."""
+    exato) têm taxa de acerto significativamente melhor/pior que a geral.
+    ?mode=acumulado usa TODO o histórico já persistido (sem cache, leitura
+    SQLite é barata). Modo padrão ('últimos 30') cacheia 30min — ?refresh=1
+    força recálculo."""
+    mode = request.args.get("mode") or "recente"
+    if mode == "acumulado":
+        return jsonify(_btcs_compute_patterns_acumulado())
     force = request.args.get("refresh") == "1"
     if not force and _btcs_patterns_cache["data"] is not None and (time.time() - _btcs_patterns_cache["ts"]) < _BTCS_CACHE_TTL:
         return jsonify(_btcs_patterns_cache["data"])

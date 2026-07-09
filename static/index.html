@@ -2254,7 +2254,8 @@ function selectToday2Match(id, rowEl) {
     <button class="live-card-tab-btn ${_today2Tab[id]==='h2h'?'active':''}" onclick="setToday2Tab('${id}','h2h',this)">H2H</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='standings'?'active':''}" onclick="setToday2Tab('${id}','standings',this)">Classificações</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='profit'?'active':''}" onclick="setToday2Tab('${id}','profit',this)">Profit mercados tradicionais</button>
-    <button class="live-card-tab-btn ${_today2Tab[id]==='profit_cs'?'active':''}" onclick="setToday2Tab('${id}','profit_cs',this)">Placares Corretos — Taxa de Acerto</button>`;
+    <button class="live-card-tab-btn ${_today2Tab[id]==='profit_cs'?'active':''}" onclick="setToday2Tab('${id}','profit_cs',this)">Placares Corretos — Taxa de Acerto</button>
+    <button class="live-card-tab-btn ${_today2Tab[id]==='insights'?'active':''}" onclick="setToday2Tab('${id}','insights',this)">🧠 Leitura da Partida</button>`;
 
   _renderToday2Content(id);
 }
@@ -2359,6 +2360,10 @@ async function _renderToday2Content(matchId) {
     _renderToday2ProfitCs(matchId);
     return;
   }
+  if (tab === 'insights') {
+    _renderToday2Insights(matchId);
+    return;
+  }
 
   const cache = _today2TabCache[matchId] || (_today2TabCache[matchId] = {});
   if (cache[tab]) { content.innerHTML = cache[tab]; return; }
@@ -2382,6 +2387,7 @@ async function _renderToday2Content(matchId) {
     } else if (tab === 'standings') {
       const r = await fetch(`/api/flashscore/standings?${params}`);
       const d = await r.json();
+      cache._standingsRows = d.rows || [];
       cache.standings = _buildToday2StandingsHtml(d);
     }
     // Só aplica se o usuário ainda estiver nessa mesma aba (evita sobrescrever se ele já trocou)
@@ -2600,33 +2606,74 @@ function _h2hHtLabel(r) {
   return `<span class="h2hHt" data-htid="${r.id}" style="font-size:15px;color:var(--text2)">(1ºT ${ht.home}:${ht.away})</span>`;
 }
 
-function _h2hSectionHtml(matchId, sec, secIdx, isDirect) {
+function _h2hPlacarCell(r) {
+  // "(HT)FT" empilhado por time, igual ao print de referência — HT vem de um
+  // fetch em lote separado (_h2hHtCache), então some/aparece conforme carrega
+  const ht = _h2hHtCache[r.id];
+  const htHtml = (side) => {
+    if (!r.id) return '';
+    if (ht === undefined) return `<span class="h2hHt" data-htid="${r.id}" data-htside="${side}" style="color:var(--text2)">(…)</span>`;
+    if (ht === null) return '';
+    return `<span style="color:var(--text2)">(${side === 'home' ? ht.home : ht.away})</span>`;
+  };
+  return `
+    <div style="display:flex;flex-direction:column;gap:2px;font-size:14px;font-weight:700;color:var(--text)">
+      <div>${htHtml('home')} ${r.scoreHome}</div>
+      <div>${htHtml('away')} ${r.scoreAway}</div>
+    </div>`;
+}
+
+function _h2hTableSectionHtml(matchId, sec, secIdx, isDirect) {
   const key = `${secIdx}`;
   const expanded = _today2H2hExpanded[matchId]?.[key];
-  const rows = expanded ? sec.rows : sec.rows.slice(0, 5);
-  const rowsHtml = rows.map((r, i) => `
-    <div style="display:flex;align-items:center;gap:10px;font-size:15px;text-align:left;padding:8px 10px;
-                background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'};border-radius:6px;transition:background .12s"
-         onmouseover="this.style.background='rgba(79,110,247,.08)'"
-         onmouseout="this.style.background='${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}'">
-      <span style="width:48px;color:var(--text2);flex-shrink:0;font-size:15px">${_h2hDate(r.date)}</span>
-      <span style="width:18px;flex-shrink:0;text-align:center">${_h2hFlag(r.pais)}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.home} <b style="color:var(--text)">${r.score}</b> ${r.away}
-        <span style="color:var(--text2);font-size:15px">${_h2hHtLabel(r)}</span></span>
-      ${r.result ? `<span style="width:20px;height:20px;line-height:20px;text-align:center;font-weight:700;font-size:15px;color:#fff;background:${H2H_RESULT_COLOR[r.result]};border-radius:5px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.3)">${r.result}</span>` : ''}
-    </div>`).join('');
-  const hasMore = sec.rows.length > 5;
+  const rows = expanded ? sec.rows : sec.rows.slice(0, 10);
+  const rowsHtml = rows.map((r, i) => {
+    const sc = _profitParseScore(r.score);
+    const scoreHome = sc ? sc.h : '-';
+    const scoreAway = sc ? sc.a : '-';
+    return `
+    <tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">
+      <td style="padding:7px 8px;font-size:13px;color:var(--text2);white-space:nowrap;vertical-align:middle">${_h2hDate(r.date)}</td>
+      <td style="padding:7px 8px;font-size:12px;color:var(--text2);vertical-align:middle">${_h2hFlag(r.pais)} ${_truncateH2h(r.league)}</td>
+      <td style="padding:7px 8px;font-size:13px;color:var(--text);vertical-align:middle">
+        <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_truncateH2h(r.home, 16)}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${_truncateH2h(r.away, 16)}</span>
+        </div>
+      </td>
+      <td style="padding:7px 8px;vertical-align:middle">${_h2hPlacarCell({ ...r, scoreHome, scoreAway })}</td>
+      <td style="padding:7px 8px;text-align:center;vertical-align:middle">
+        ${r.result ? `<span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-weight:700;font-size:13px;color:#fff;background:${H2H_RESULT_COLOR[r.result]};border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,.3)">${r.result}</span>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+  const hasMore = sec.rows.length > 10;
   const toggleHtml = expanded
-    ? `<div style="text-align:center;padding:6px 0 2px"><a href="javascript:void(0)" onclick="_today2H2hCollapse('${matchId}','${key}')" style="font-size:15px;color:var(--accent);text-decoration:none;font-weight:600">Mostrar menos jogos ▴</a></div>`
-    : (hasMore ? `<div style="text-align:center;padding:6px 0 2px"><a href="javascript:void(0)" onclick="_today2H2hExpand('${matchId}','${key}')" style="font-size:15px;color:var(--accent);text-decoration:none;font-weight:600">Mostrar mais jogos ▾</a></div>` : '');
+    ? `<div style="text-align:center;padding:6px 0 2px"><a href="javascript:void(0)" onclick="_today2H2hCollapse('${matchId}','${key}')" style="font-size:13px;color:var(--accent);text-decoration:none;font-weight:600">Mostrar menos jogos ▴</a></div>`
+    : (hasMore ? `<div style="text-align:center;padding:6px 0 2px"><a href="javascript:void(0)" onclick="_today2H2hExpand('${matchId}','${key}')" style="font-size:13px;color:var(--accent);text-decoration:none;font-weight:600">Mostrar mais jogos ▾</a></div>` : '');
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px">
-      <div style="font-size:15px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:2px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)">
         ${isDirect ? '⚔️' : '⚽'} ${sec.title}
       </div>
-      ${rowsHtml}
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            ${['Data', 'Competição', 'Confronto', 'Placares (HT)/FT', 'Result.'].map(l => `
+              <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:#22c55e;
+                text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap">${l}</th>`).join('')}
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
       ${toggleHtml}
     </div>`;
+}
+
+function _truncateH2h(s, max) {
+  s = s || '';
+  max = max || 22;
+  return s.length > max ? _bt2EscXml(s.slice(0, max - 1)) + '…' : _bt2EscXml(s);
 }
 
 async function _fetchToday2H2hHt(matchId) {
@@ -2644,11 +2691,12 @@ async function _fetchToday2H2hHt(matchId) {
   } catch (e) {
     ids.forEach(id => { _h2hHtCache[id] = null; });
   }
-  content.querySelectorAll('.h2hHt[data-htid]').forEach(el => {
-    const ht = _h2hHtCache[el.dataset.htid];
-    if (ht) el.textContent = `(1ºT ${ht.home}:${ht.away})`;
-    else if (ht === null) el.remove();
-  });
+  // re-renderiza a tabela inteira (mais simples que fazer patch por célula,
+  // já que agora cada linha tem 2 sub-valores de HT — casa e fora)
+  const cache = _today2TabCache[matchId];
+  if (cache && cache._h2hTabs && _today2Tab[matchId] === 'h2h') {
+    content.innerHTML = _renderToday2H2hTab(matchId, cache._h2hTabs);
+  }
 }
 
 function _today2H2hCollapse(matchId, key) {
@@ -2682,8 +2730,10 @@ function _renderToday2H2hTab(matchId, tabs) {
     <div style="display:flex;gap:6px;margin-bottom:14px">
       ${tabs.map((t, i) => `<button onclick="_setToday2H2hTab('${matchId}',${i},this)" style="font-size:15px;font-weight:600;padding:6px 14px;border-radius:8px;border:1px solid ${i===activeIdx?'var(--accent)':'var(--border)'};background:${i===activeIdx?'var(--accent)':'var(--bg2)'};color:${i===activeIdx?'#fff':'var(--text2)'};cursor:pointer;transition:all .15s">${t.label}</button>`).join('')}
     </div>
-    ${normalSections.map((s, i) => _h2hSectionHtml(matchId, s, `n${i}_${activeIdx}`, false)).join('')}
-    ${directSection ? _h2hSectionHtml(matchId, directSection, `d_${activeIdx}`, true) : ''}`;
+    <div style="display:grid;grid-template-columns:${normalSections.length > 1 ? '1fr 1fr' : '1fr'};gap:12px;align-items:start">
+      ${normalSections.map((s, i) => _h2hTableSectionHtml(matchId, s, `n${i}_${activeIdx}`, false)).join('')}
+    </div>
+    ${directSection ? _h2hTableSectionHtml(matchId, directSection, `d_${activeIdx}`, true) : ''}`;
 }
 
 function _setToday2H2hTab(matchId, idx, btn) {
@@ -3438,6 +3488,8 @@ function _btcsMatchesHtml(m, matches) {
 let _btcsPatternsData = null;
 let _btcsPatternsLoading = false;
 let _btcsBucketOdds = null; // { [bucket]: odd_media_hoje } — carregado à parte, não bloqueia os padrões
+let _btcsPatternsMode = 'recente'; // 'recente' (últimos 30 jogos) | 'acumulado' (histórico persistido, cresce com o tempo)
+let _btcsPatternsDataByMode = { recente: null, acumulado: null };
 
 async function _btcsLoadPatterns(refresh) {
   if (_btcsPatternsLoading) return;
@@ -3445,15 +3497,31 @@ async function _btcsLoadPatterns(refresh) {
   _btcsPatternsLoading = true;
   _btcsPatternsRenderBox(true);
   try {
-    const url = `/api/backtestcs/patterns${refresh ? '?refresh=1' : ''}`;
+    const url = _btcsPatternsMode === 'acumulado'
+      ? '/api/backtestcs/patterns?mode=acumulado'
+      : `/api/backtestcs/patterns${refresh ? '?refresh=1' : ''}`;
     const r = await fetch(url);
     _btcsPatternsData = await r.json();
+    _btcsPatternsDataByMode[_btcsPatternsMode] = _btcsPatternsData;
   } catch (e) {
     _btcsPatternsData = { patterns: [], patterns_avoid: [], sample_teams_used: 0, sample_matches_used: 0 };
   }
   _btcsPatternsLoading = false;
   _btcsPatternsRenderBox();
   _btcsLoadBucketOdds(refresh);
+}
+
+async function _btcsPatternsSetMode(mode) {
+  if (_btcsPatternsMode === mode) return;
+  _btcsPatternsMode = mode;
+  _btcsSelectedPattern = null;
+  if (_btcsPatternsDataByMode[mode]) {
+    _btcsPatternsData = _btcsPatternsDataByMode[mode];
+    _btcsPatternsRenderBox();
+  } else {
+    _btcsPatternsData = null;
+    await _btcsLoadPatterns(false);
+  }
 }
 
 async function _btcsLoadBucketOdds(refresh) {
@@ -3566,10 +3634,17 @@ function _btcsPatternsRenderBox(loading) {
   const d = _btcsPatternsData;
   if (!d) { box.innerHTML = ''; return; }
   const generatedAt = d.generated_at ? new Date(d.generated_at).toLocaleString('pt-BR') : '-';
+  const modeBtn = (m, label) => `<button onclick="_btcsPatternsSetMode('${m}')" style="font-size:13px;font-weight:600;padding:6px 14px;
+    border-radius:8px;border:1px solid ${_btcsPatternsMode===m?'var(--accent)':'var(--border)'};
+    background:${_btcsPatternsMode===m?'var(--accent)':'var(--bg2)'};color:${_btcsPatternsMode===m?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
   box.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      ${modeBtn('recente', 'Últimos 30 jogos')}
+      ${modeBtn('acumulado', '📈 Acumulado (histórico)')}
+    </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2)">
       <span>gerado em ${generatedAt}</span>
-      <span>amostra: ${d.sample_teams_used ?? 0} times, ${d.sample_matches_used ?? 0} jogos históricos</span>
+      <span>amostra: ${d.sample_teams_used ?? 0} times, ${d.sample_matches_used ?? 0} jogos históricos${_btcsPatternsMode==='acumulado' ? ' (acumulado)' : ''}</span>
       <button onclick="_btcsPatternsRefresh()" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
     </div>
@@ -4419,6 +4494,274 @@ function _buildToday2StandingsHtml(d) {
     </div>`;
 }
 
+// ── 🧠 LEITURA DA PARTIDA — aba de insights (Hoje 2) ────────────────────────
+// Não busca nada novo: só reaproveita o que as outras abas (Jogo/Odds/Classificações/
+// Profit/Placares Corretos) já calculam e cacheiam, e roda um motor de regras em cima
+// pra gerar cartões de leitura em linguagem natural. Cada regra só dispara com amostra
+// mínima — nada de "achismo" com 2-3 jogos.
+function _insNorm(s) { return (s || '').trim().toLowerCase(); }
+
+function _insFindStandingRow(rows, teamName) {
+  const alvo = _insNorm(teamName);
+  return (rows || []).find(r => _insNorm(r.team) === alvo) || null;
+}
+
+async function _renderToday2Insights(matchId) {
+  const content = document.getElementById('today2DetailBody');
+  if (!content) return;
+  const cache = _today2TabCache[matchId] || (_today2TabCache[matchId] = {});
+  const m = today2MatchesCache.find(x => String(x.id) === String(matchId));
+  if (!m) return;
+
+  content.innerHTML = '⏳ Cruzando os dados já buscados (jogo, odds, classificação, profit)...';
+
+  const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+  try {
+    const fetches = [];
+    if (!cache._h2hTabs) fetches.push(fetch(`/api/flashscore/h2h?${params}`).then(r => r.json()).then(d => { cache._h2hTabs = d.tabs || []; }));
+    if (!cache._oddsMarkets) fetches.push(fetch(`/api/flashscore/odds_all?${params}`).then(r => r.json()).then(d => { cache._oddsMarkets = d.markets || {}; }));
+    if (!cache._standingsRows) fetches.push(fetch(`/api/flashscore/standings?${params}`).then(r => r.json()).then(d => { cache._standingsRows = d.rows || []; }));
+    await Promise.all(fetches);
+  } catch (e) {
+    content.innerHTML = '<div style="color:var(--text2)">erro ao buscar dados</div>';
+    return;
+  }
+  if (_today2Tab[matchId] !== 'insights') return;
+
+  const tabs = cache._h2hTabs || [];
+  if (!tabs.length) { content.innerHTML = '<div style="color:var(--text2)">sem histórico disponível pra gerar leitura da partida</div>'; return; }
+
+  content.innerHTML = `<div id="today2InsightsBody_${matchId}">⏳ Calculando estatísticas (minutos de gol, 1º tempo, profit)...</div>`;
+
+  // Blocos específicos: time da casa jogando em casa / time visitante jogando fora
+  // (o recorte mais relevante pro jogo de hoje) + blocos gerais (pra profit e placares)
+  const homeHomeBlock = _jogoStatsRowsFromSection(tabs, 1, true);
+  const awayAwayBlock = _jogoStatsRowsFromSection(tabs, 2, false);
+  const homeGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, true);
+  const awayGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, false);
+
+  await Promise.all([homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock]
+    .map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
+  if (_today2Tab[matchId] !== 'insights') return;
+
+  // Profit (mesma lógica da aba Profit, mercados tradicionais) pra achar o melhor sinal ⚡
+  const profitHomeRows = _profitTeamRowsFromSection(tabs, 0, true);
+  const profitAwayRows = _profitTeamRowsFromSection(tabs, 0, false);
+  await _ensureToday2Odds([...profitHomeRows.rows, ...profitAwayRows.rows].map(r => r.id));
+  const profitAggHome = _profitAggregate(profitHomeRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
+  const profitAggAway = _profitAggregate(profitAwayRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
+  if (_today2Tab[matchId] !== 'insights') return;
+
+  const csFreqHome = _csBucketFrequency(homeGeneralBlock.rows);
+  const csFreqAway = _csBucketFrequency(awayGeneralBlock.rows);
+
+  const body = document.getElementById(`today2InsightsBody_${matchId}`);
+  if (!body) return;
+
+  const cards = _today2InsightsCards({
+    m,
+    homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
+    standingsRows: cache._standingsRows || [],
+    oddsMarkets: cache._oddsMarkets || {},
+    profitHomeTeam: profitHomeRows.teamName, profitAwayTeam: profitAwayRows.teamName,
+    profitAggHome, profitAggAway,
+    csFreqHome, csFreqAway,
+  });
+
+  body.innerHTML = _today2InsightsGridHtml(cards);
+}
+
+const INSIGHT_TONE_COLOR = { green: '#22c55e', red: '#ef4444', amber: '#f59e0b' };
+
+function _today2InsightsGridHtml(cards) {
+  if (cards.length < 3) {
+    return `
+      ${cards.length ? _today2InsightsGridInner(cards) : ''}
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:${cards.length ? '12px' : '0'};color:var(--text2);font-size:14px">
+        🔍 Amostra histórica curta demais pra essa partida — só ${cards.length} leitura(s) com confiança suficiente pra mostrar. Consulte as abas Jogo, Profit e Placares Corretos pra ver os números crus.
+      </div>`;
+  }
+  return _today2InsightsGridInner(cards);
+}
+
+function _today2InsightsGridInner(cards) {
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+      ${cards.map(c => {
+        const color = INSIGHT_TONE_COLOR[c.tone] || INSIGHT_TONE_COLOR.amber;
+        return `
+        <div style="background:var(--bg2);border-left:4px solid ${color};border-radius:8px;padding:12px 14px">
+          <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:6px">${c.headline}</div>
+          <div style="font-size:13px;color:${color};line-height:1.4">${c.detail}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function _today2InsightsCards(ctx) {
+  const cards = [];
+  const {
+    m, homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
+    standingsRows, oddsMarkets, profitAggHome, profitAggAway,
+    profitHomeTeam, profitAwayTeam, csFreqHome, csFreqAway,
+  } = ctx;
+  const MIN_N = 8;
+  const totalTimes = standingsRows.length;
+  const posHome = _insFindStandingRow(standingsRows, m.home);
+  const posAway = _insFindStandingRow(standingsRows, m.away);
+
+  // ── 1) Quem costuma abrir o placar primeiro (casa em casa vs fora fora) ──
+  const gpHome = _jogoGoalPatternStats(homeHomeBlock.rows);
+  const gpAway = _jogoGoalPatternStats(awayAwayBlock.rows);
+  const firstGoalCandidates = [];
+  if (gpHome && gpHome.totalComGm >= MIN_N) {
+    firstGoalCandidates.push({ team: homeHomeBlock.teamName || m.home, lado: 'jogando em casa', pct: gpHome.timeMarcouPrimeiroCount / gpHome.totalComGm * 100, n: gpHome.totalComGm, marcou: gpHome.timeMarcouPrimeiroCount });
+  }
+  if (gpAway && gpAway.totalComGm >= MIN_N) {
+    firstGoalCandidates.push({ team: awayAwayBlock.teamName || m.away, lado: 'jogando fora', pct: gpAway.timeMarcouPrimeiroCount / gpAway.totalComGm * 100, n: gpAway.totalComGm, marcou: gpAway.timeMarcouPrimeiroCount });
+  }
+  const melhorPrimeiroGol = firstGoalCandidates.filter(c => c.pct >= 60).sort((a, b) => b.pct - a.pct)[0];
+  if (melhorPrimeiroGol) {
+    cards.push({
+      tone: 'green',
+      headline: `${melhorPrimeiroGol.team} costuma sair na frente ${melhorPrimeiroGol.lado}!`,
+      detail: `Abriu o placar em ${melhorPrimeiroGol.marcou} de ${melhorPrimeiroGol.n} jogos (${melhorPrimeiroGol.pct.toFixed(0)}%) nesse recorte.`,
+    });
+  }
+
+  // ── 2) Visitante com desempenho fraco fora + posição ruim na tabela ──
+  const statsAway = _jogoComputeStats(awayAwayBlock.rows);
+  if (statsAway && statsAway.n >= MIN_N && posAway && totalTimes >= 6) {
+    const taxaVitoriaFora = (awayAwayBlock.rows.filter(r => r.result === 'V').length / statsAway.n) * 100;
+    const posicaoRuim = parseInt(posAway.pos) > totalTimes / 2;
+    if (taxaVitoriaFora <= 25 && posicaoRuim) {
+      cards.push({
+        tone: 'red',
+        headline: `${awayAwayBlock.teamName || m.away} é ${posAway.pos}º colocado e rende pouco fora de casa!`,
+        detail: `Venceu só ${taxaVitoriaFora.toFixed(0)}% dos últimos ${statsAway.n} jogos como visitante.`,
+      });
+    }
+  }
+
+  // ── 3) Mandante forte em casa + posição boa na tabela ──
+  const statsHome = _jogoComputeStats(homeHomeBlock.rows);
+  if (statsHome && statsHome.n >= MIN_N && posHome && totalTimes >= 6) {
+    const taxaVitoriaCasa = (homeHomeBlock.rows.filter(r => r.result === 'V').length / statsHome.n) * 100;
+    const posicaoBoa = parseInt(posHome.pos) <= totalTimes / 2;
+    if (taxaVitoriaCasa >= 60 && posicaoBoa) {
+      cards.push({
+        tone: 'green',
+        headline: `${homeHomeBlock.teamName || m.home} manda bem em casa e ocupa a ${posHome.pos}ª colocação!`,
+        detail: `Venceu ${taxaVitoriaCasa.toFixed(0)}% dos últimos ${statsHome.n} jogos como mandante.`,
+      });
+    }
+  }
+
+  // ── 4) Tendência de Acima/Abaixo 2.5 muito unilateral, cruzada com a linha de hoje ──
+  const ouCandidates = [];
+  if (gpHome && gpHome.n >= MIN_N) ouCandidates.push({ team: homeHomeBlock.teamName || m.home, lado: 'em casa', ou: gpHome.ou.l25, n: gpHome.n });
+  if (gpAway && gpAway.n >= MIN_N) ouCandidates.push({ team: awayAwayBlock.teamName || m.away, lado: 'fora', ou: gpAway.ou.l25, n: gpAway.n });
+  const melhorOu = ouCandidates
+    .map(c => ({ ...c, lado_dom: c.ou.sobre >= c.ou.sob ? 'sobre' : 'sob', pct_dom: Math.max(c.ou.sobre, c.ou.sob) }))
+    .filter(c => c.pct_dom >= 70)
+    .sort((a, b) => b.pct_dom - a.pct_dom)[0];
+  if (melhorOu) {
+    const opps = oddsMarkets?.over_under?.opportunities || [];
+    const linha25 = opps.find(op => parseFloat(op.handicap?.value) === 2.5);
+    const oddLinha = linha25 ? (melhorOu.lado_dom === 'sobre' ? linha25.over?.value : linha25.under?.value) : null;
+    const rotulo = melhorOu.lado_dom === 'sobre' ? 'Mais de 2,5 gols' : 'Menos de 2,5 gols';
+    cards.push({
+      tone: 'amber',
+      headline: `Jogos de ${melhorOu.team} ${melhorOu.lado} pendem forte pra "${rotulo}"!`,
+      detail: `${melhorOu.pct_dom.toFixed(0)}% dos últimos ${melhorOu.n} jogos bateram esse padrão${oddLinha ? ` — a odd de hoje pra essa linha é ${oddLinha}` : ''}.`,
+    });
+  }
+
+  // ── 5) Melhor sinal de valor da aba Profit (ROI≥20%, 8+ apostas) ──
+  const valueSignals = [];
+  const collectValue = (agg, teamName) => {
+    Object.entries(agg).forEach(([mk, sels]) => {
+      Object.entries(sels).forEach(([label, r]) => {
+        const roi = r.bets ? (r.profit / r.bets * 100) : 0;
+        if (roi >= 20 && r.bets >= 8) valueSignals.push({ teamName, market: PROFIT_MARKET_LABELS_TRADICIONAL[mk] || mk, label, r, roi });
+      });
+    });
+  };
+  collectValue(profitAggHome, profitHomeTeam || m.home);
+  collectValue(profitAggAway, profitAwayTeam || m.away);
+  const melhorValor = valueSignals.sort((a, b) => b.roi - a.roi)[0];
+  if (melhorValor) {
+    cards.push({
+      tone: 'green',
+      headline: `Padrão de valor encontrado: ${melhorValor.teamName} no mercado ${melhorValor.market}!`,
+      detail: `Seleção "${melhorValor.label}" acertou ${melhorValor.r.wins} de ${melhorValor.r.bets} apostas simuladas (ROI de +${melhorValor.roi.toFixed(0)}%).`,
+    });
+  }
+
+  // ── 6) Placar raro (nunca ocorreu no histórico) com odd curta demais hoje ──
+  const AMOSTRA_MIN_RARO = 20;
+  if (csFreqHome.n >= AMOSTRA_MIN_RARO && csFreqAway.n >= AMOSTRA_MIN_RARO) {
+    const nuncaOcorreu = PLACAR_EXATO_BUCKETS_ORDER.filter(key =>
+      (csFreqHome.counts[key] || 0) === 0 && (csFreqAway.counts[key] || 0) === 0);
+    if (nuncaOcorreu.length) {
+      const items = oddsMarkets?.placar_exato?.items || [];
+      if (items.length) {
+        const buckets = _placarExatoBuckets(items);
+        const suspeito = buckets
+          .filter(b => nuncaOcorreu.includes(b.score) && b.odd <= 10)
+          .sort((a, b) => a.odd - b.odd)[0];
+        if (suspeito) {
+          cards.push({
+            tone: 'red',
+            headline: `Cuidado com o placar ${suspeito.score} no mercado de hoje!`,
+            detail: `Esse placar nunca ocorreu em ${csFreqHome.n}+ jogos de nenhum dos dois times, mas a odd oferecida hoje é de apenas ${suspeito.odd.toFixed(2)}.`,
+          });
+        }
+      }
+    }
+  }
+
+  // ── 7) Chance de gol sofrido/zerado cruzando defesa de um lado com ataque do outro ──
+  if (statsHome && statsHome.n >= MIN_N && statsAway && statsAway.n >= MIN_N) {
+    const cleanSheetHomePct = statsHome.semSofrer / statsHome.n * 100;
+    const scoreAwayPct = statsAway.pctMarcar;
+    if (cleanSheetHomePct >= 40 && scoreAwayPct <= 55) {
+      cards.push({
+        tone: 'green',
+        headline: `${homeHomeBlock.teamName || m.home} tem boas chances de sair sem sofrer gols em casa!`,
+        detail: `Não sofreu gols em ${statsHome.semSofrer} de ${statsHome.n} jogos em casa (${cleanSheetHomePct.toFixed(0)}%), enquanto ${awayAwayBlock.teamName || m.away} só marcou fora em ${scoreAwayPct.toFixed(0)}% dos jogos.`,
+      });
+    } else {
+      const cleanSheetAwayPct = statsAway.semSofrer / statsAway.n * 100;
+      const scoreHomePct = statsHome.pctMarcar;
+      if (cleanSheetAwayPct >= 40 && scoreHomePct <= 55) {
+        cards.push({
+          tone: 'red',
+          headline: `${awayAwayBlock.teamName || m.away} costuma segurar o resultado fora de casa!`,
+          detail: `Não sofreu gols em ${statsAway.semSofrer} de ${statsAway.n} jogos fora (${cleanSheetAwayPct.toFixed(0)}%), enquanto ${homeHomeBlock.teamName || m.home} só marcou em casa em ${scoreHomePct.toFixed(0)}% dos jogos.`,
+        });
+      }
+    }
+  }
+
+  // ── 8) Momentum: costuma estar à frente no placar já nos 75 minutos ──
+  const winnerHome = _jogoWinnerAtMinuteStats(homeHomeBlock.rows);
+  const winnerAway = _jogoWinnerAtMinuteStats(awayAwayBlock.rows);
+  const momentumCandidates = [];
+  if (winnerHome && winnerHome.n >= MIN_N) momentumCandidates.push({ team: homeHomeBlock.teamName || m.home, lado: 'em casa', pct: winnerHome.out[75].time, n: winnerHome.n });
+  if (winnerAway && winnerAway.n >= MIN_N) momentumCandidates.push({ team: awayAwayBlock.teamName || m.away, lado: 'fora', pct: winnerAway.out[75].time, n: winnerAway.n });
+  const melhorMomentum = momentumCandidates.filter(c => c.pct >= 55).sort((a, b) => b.pct - a.pct)[0];
+  if (melhorMomentum) {
+    cards.push({
+      tone: 'amber',
+      headline: `${melhorMomentum.team} costuma já estar na frente aos 75 minutos ${melhorMomentum.lado}!`,
+      detail: `Isso aconteceu em ${melhorMomentum.pct.toFixed(0)}% dos últimos ${melhorMomentum.n} jogos com dado de minutos de gol.`,
+    });
+  }
+
+  return cards;
+}
+
 // ── AO VIVO 2 (laboratório) ────────────────────────────────────────────────
 // Cópia isolada do Ao Vivo pra testar coisas novas (ex: fontes de odds tipo BetExplorer/
 // Academia das Apostas) sem risco nenhum de quebrar o painel principal. Usa o mesmo
@@ -4533,6 +4876,7 @@ function renderLive2Card(m) {
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
+      <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
       <div style="padding:8px 12px;border-top:1px dashed var(--border)">
         <button onclick="loadLive2Flashscore('${m.id}', this)"
           style="width:100%;background:none;border:1px solid #a855f766;color:#a855f7;
@@ -4564,7 +4908,9 @@ async function _loadLive2Momentum(matches) {
       const points = data.graphPoints || [];
       if (points.length) {
         wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas>`;
-        drawMiniMomentum(document.getElementById(`live2MomentumCanvas_${m.id}`), points, data.goals || []);
+        const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
+        drawMiniMomentum(canvasEl, points, data.goals || []);
+        _live2AttachMomentumTooltip(canvasEl, points);
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
       }
@@ -4572,6 +4918,38 @@ async function _loadLive2Momentum(matches) {
       wrap.innerHTML = '';
     }
   }
+}
+
+// Tooltip do gráfico de pressão — não mexe em drawMiniMomentum (compartilhado com o
+// Ao Vivo original), só escuta mousemove por cima do canvas e calcula qual barra está
+// sob o cursor. `value` de cada ponto é assinado (>=0 pressão casa, <0 pressão fora),
+// então derivamos os dois lados a partir dele pra mostrar igual ao print de referência.
+let _live2MomentumTooltipEl = null;
+function _live2AttachMomentumTooltip(canvas, points) {
+  if (!canvas || !points.length) return;
+  if (!_live2MomentumTooltipEl) {
+    _live2MomentumTooltipEl = document.createElement('div');
+    _live2MomentumTooltipEl.style.cssText = `position:fixed;z-index:9999;pointer-events:none;
+      background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;
+      font-size:10px;font-weight:600;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.4);display:none;white-space:nowrap`;
+    document.body.appendChild(_live2MomentumTooltipEl);
+  }
+  const tip = _live2MomentumTooltipEl;
+  canvas.addEventListener('mousemove', (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const barW = rect.width / points.length;
+    const idx = Math.max(0, Math.min(points.length - 1, Math.floor(x / barW)));
+    const p = points[idx];
+    const val = p.value || 0;
+    const pressaoCasa = val >= 0 ? val : 0;
+    const pressaoFora = val < 0 ? Math.abs(val) : 0;
+    tip.innerHTML = `<div style="color:#3b82f6">Pressão Casa: ${pressaoCasa.toFixed(2)}</div><div style="color:#ef4444">Pressão Fora: ${pressaoFora.toFixed(2)}</div>`;
+    tip.style.left = (ev.clientX + 12) + 'px';
+    tip.style.top = (ev.clientY - 36) + 'px';
+    tip.style.display = 'block';
+  });
+  canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 }
 
 // ── Estatísticas + odds do Flashscore/Soccerway (experimento novo) — busca sob demanda,
@@ -4587,19 +4965,41 @@ async function loadLive2Flashscore(matchId, btn) {
   btn.textContent = '⏳ Buscando...';
   wrap.innerHTML = '';
 
+  const formWrap = document.getElementById(`live2FormWrap_${matchId}`);
+
   try {
     const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-    const [statsRes, oddsRes] = await Promise.all([
+    const [statsRes, oddsRes, h2hRes] = await Promise.all([
       fetch(`/api/flashscore/stats?${params}`),
       fetch(`/api/flashscore/odds?${params}`),
+      fetch(`/api/flashscore/h2h?${params}`),
     ]);
     const statsData = await statsRes.json();
     const oddsData  = await oddsRes.json();
+    const h2hData   = await h2hRes.json();
 
     if (!statsData.found) {
       wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">jogo não encontrado no Flashscore/Soccerway</div>`;
       btn.style.display = 'none';
       return;
+    }
+
+    // Badges de forma recente (V/E/D) — reaproveita a mesma seleção de seções
+    // (sections[0]=casa, sections[1]=fora, ignorando "confront...") já usada em
+    // _profitTeamRowsFromSection, mas aqui só precisamos do campo `result` pronto.
+    if (formWrap) {
+      const tabs = h2hData.tabs || [];
+      const tab0 = tabs[0];
+      if (tab0) {
+        const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
+        const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
+        const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
+        formWrap.innerHTML = _live2FormRowHtml(homeRows) ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 6px">
+            <div style="display:flex;gap:3px">${_live2FormRowHtml(homeRows)}</div>
+            <div style="display:flex;gap:3px">${_live2FormRowHtml(awayRows)}</div>
+          </div>` : '';
+      }
     }
 
     let oddsHtml = '';
@@ -4618,26 +5018,119 @@ async function loadLive2Flashscore(matchId, btn) {
         </div>`;
     }
 
-    const sections = statsData.sections || [];
-    const statsHtml = sections.map(sec => `
-      <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 4px">${sec.title}</div>
-      ${sec.rows.map(r => `
-        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
-          <span style="width:60px;text-align:right;font-weight:700">${r.home}</span>
-          <span style="flex:1;text-align:center;color:var(--text2);font-size:10px">${r.label}</span>
-          <span style="width:60px;text-align:left;font-weight:700">${r.away}</span>
-        </div>`).join('')}
-    `).join('');
+    // O feed do Flashscore não marca cada seção com o período a que pertence — mas
+    // repete o MESMO conjunto de títulos (Destaques/Finalizações/...) uma vez para o
+    // jogo todo e de novo por tempo, nessa ordem. Detectar o ciclo (título repetido =
+    // novo grupo) é a única forma real de separar por período sem inventar dado.
+    const periods = _live2SplitPeriods(statsData.sections || []);
+    const periodLabels = periods.length > 1
+      ? ['Total', '1ºT', '2ºT', '3ºT', '4ºT'].slice(0, periods.length)
+      : ['Total'];
 
-    const finalHtml = oddsHtml + statsHtml;
+    const tabsHtml = periods.length > 1 ? `
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        ${periodLabels.map((lbl, i) => `
+          <button onclick="_live2ShowPeriod('${matchId}', ${i})" id="live2PeriodBtn_${matchId}_${i}"
+            style="flex:1;font-size:10px;font-weight:700;padding:4px;border-radius:5px;cursor:pointer;
+                   border:1px solid var(--border);background:${i === 0 ? 'var(--accent)' : 'var(--bg3)'};
+                   color:${i === 0 ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
+      </div>` : '';
+
+    const periodsHtml = periods.map((sections, i) => `
+      <div id="live2PeriodBody_${matchId}_${i}" style="${i === 0 ? '' : 'display:none'}">
+        ${_live2StatsSectionsHtml(sections)}
+      </div>`).join('');
+
+    const finalHtml = oddsHtml + tabsHtml + periodsHtml;
     wrap.innerHTML = finalHtml;
     _live2FsCache[matchId] = finalHtml;
+    _live2FsFormCache[matchId] = formWrap ? formWrap.innerHTML : '';
     btn.style.display = 'none';
   } catch (e) {
     wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">erro ao buscar dados do Flashscore</div>`;
     btn.disabled = false;
     btn.textContent = '📊 Carregar estatísticas + odds (Flashscore)';
   }
+}
+
+// Guarda o HTML dos badges de forma já carregados por partida, no mesmo espírito do
+// _live2FsCache — sem isso, os badges sumiriam a cada re-render do grid do Ao Vivo 2
+let _live2FsFormCache = {};
+
+function _live2FormRowHtml(rows) {
+  return rows.filter(r => r.result).map(r => `
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+                 border-radius:50%;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;
+                 background:${H2H_RESULT_COLOR[r.result]}">${r.result}</span>`).join('');
+}
+
+function _live2SplitPeriods(sections) {
+  // Agrupa a lista linear de seções em blocos, começando um bloco novo toda vez que
+  // reaparece um título já visto no bloco atual (ver comentário acima de onde é chamada)
+  const groups = [];
+  let current = [];
+  let seenTitles = new Set();
+  for (const sec of sections) {
+    if (seenTitles.has(sec.title)) {
+      groups.push(current);
+      current = [];
+      seenTitles = new Set();
+    }
+    seenTitles.add(sec.title);
+    current.push(sec);
+  }
+  if (current.length) groups.push(current);
+  return groups.length ? groups : [[]];
+}
+
+function _live2ShowPeriod(matchId, idx) {
+  const wrap = document.getElementById(`live2FsWrap_${matchId}`);
+  if (!wrap) return;
+  wrap.querySelectorAll(`[id^="live2PeriodBody_${matchId}_"]`).forEach(el => {
+    el.style.display = el.id === `live2PeriodBody_${matchId}_${idx}` ? '' : 'none';
+  });
+  wrap.querySelectorAll(`[id^="live2PeriodBtn_${matchId}_"]`).forEach(btn => {
+    const active = btn.id === `live2PeriodBtn_${matchId}_${idx}`;
+    btn.style.background = active ? 'var(--accent)' : 'var(--bg3)';
+    btn.style.color = active ? '#fff' : 'var(--text2)';
+  });
+}
+
+function _live2StatBarRowHtml(r) {
+  // Valores já em % (ex: Posse de Bola) somam ~100 sozinhos; valores de contagem
+  // (chutes, escanteios etc.) viram proporção home/(home+away) pra desenhar a barra
+  const parsePct = v => /%$/.test(String(v || '').trim());
+  const num = v => parseFloat(String(v || '').replace('%', '').replace(',', '.')) || 0;
+  const isPct = parsePct(r.home) || parsePct(r.away);
+  const hVal = num(r.home), aVal = num(r.away);
+  let homePct, awayPct;
+  if (isPct) {
+    homePct = hVal; awayPct = aVal;
+  } else if (hVal + aVal > 0) {
+    homePct = (hVal / (hVal + aVal)) * 100;
+    awayPct = 100 - homePct;
+  } else {
+    homePct = 0; awayPct = 0;
+  }
+  return `
+    <div style="margin:6px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--text2);margin-bottom:2px">
+        <span style="font-weight:700;font-size:10px;color:var(--text)">${r.home}</span>
+        <span style="text-transform:uppercase">${r.label}</span>
+        <span style="font-weight:700;font-size:10px;color:var(--text)">${r.away}</span>
+      </div>
+      <div style="display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--bg3)">
+        <div style="width:${homePct}%;background:var(--accent)"></div>
+        <div style="width:${awayPct}%;background:#a855f7"></div>
+      </div>
+    </div>`;
+}
+
+function _live2StatsSectionsHtml(sections) {
+  return sections.map(sec => `
+    <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 4px">${sec.title}</div>
+    ${sec.rows.map(r => _live2StatBarRowHtml(r)).join('')}
+  `).join('');
 }
 
 // ── AO VIVO (UniScore) ────────────────────────
