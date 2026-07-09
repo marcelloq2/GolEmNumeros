@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3
+import json, os, glob, re, threading, time, sqlite3, itertools
 import requests as http_req
 from datetime import datetime
 import github_storage
@@ -5234,6 +5234,12 @@ _BTCS_PATTERN_VARIABLES = {
 
 _BTCS_PATTERN_MIN_SEGMENT_GAMES = 30
 _BTCS_PATTERN_MIN_SEGMENT_HITS = 3
+
+# Pares de variáveis combinadas (ex: "média de gols marcados" + "mandante") têm
+# amostra naturalmente menor que uma variável isolada — exige menos jogos/acertos
+# pra não descartar tudo, mas ainda o suficiente pra não virar coincidência.
+_BTCS_COMBO_MIN_SEGMENT_GAMES = 20
+_BTCS_COMBO_MIN_SEGMENT_HITS = 2
 _BTCS_PATTERN_MIN_LIFT = 1.3
 _BTCS_PATTERN_TOP_N = 30
 
@@ -5290,11 +5296,29 @@ def _btcs_build_patterns_from_teams(teams):
 
     # {variable: {segment: {bucket: hits, "_total": n_jogos_no_segmento}}}
     seg_data = {v: {} for v in _BTCS_PATTERN_VARIABLES}
+    # {(var1,var2): {"segA + segB": {bucket: hits, "_total": n}}} — pares de
+    # variáveis combinadas (ex: "2.5-3.5 gols/jogo" + "Jogando em casa")
+    combo_seg_data = {}
 
     def _accum(variable, segment, bucket):
         seg = seg_data[variable].setdefault(segment, {"_total": 0})
         seg["_total"] += 1
         seg[bucket] = seg.get(bucket, 0) + 1
+
+    def _accum_combo(var_combo, label_combo, bucket):
+        seg = combo_seg_data.setdefault(var_combo, {})
+        combo_label = " + ".join(label_combo)
+        entry = seg.setdefault(combo_label, {"_total": 0})
+        entry["_total"] += 1
+        entry[bucket] = entry.get(bucket, 0) + 1
+
+    _TEAM_LEVEL_VARS = ("avg_scored", "avg_conceded", "pct_scored", "pct_conceded", "pct_over25")
+    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante",)
+    # Combinações de 2 a 4 variáveis ao mesmo tempo (ex: média de gols marcados
+    # + chance de sofrer gol + mandante) — quanto mais variáveis, menor a
+    # amostra de cada combinação específica, por isso o limite de tamanho em 4.
+    _COMBO_SIZES = (2, 3, 4)
+    _VAR_COMBOS = [c for size in _COMBO_SIZES for c in itertools.combinations(_ALL_PATTERN_VARS, size)]
 
     for entry in teams.values():
         rows = entry["rows"]
@@ -5322,27 +5346,37 @@ def _btcs_build_patterns_from_teams(teams):
                 games_over25 += 1
             row_is_home.append(is_home)
 
-        seg_avg_scored = _btcs_segment_range(scored_total / n, _BTCS_AVG_RANGES)
-        seg_avg_conceded = _btcs_segment_range(conceded_total / n, _BTCS_AVG_RANGES)
-        seg_pct_scored = _btcs_segment_range(games_scored / n, _BTCS_PCT_RANGES)
-        seg_pct_conceded = _btcs_segment_range(games_conceded / n, _BTCS_PCT_RANGES)
-        seg_pct_over25 = _btcs_segment_range(games_over25 / n, _BTCS_OVER_RANGES)
+        team_segs = {
+            "avg_scored": _btcs_segment_range(scored_total / n, _BTCS_AVG_RANGES),
+            "avg_conceded": _btcs_segment_range(conceded_total / n, _BTCS_AVG_RANGES),
+            "pct_scored": _btcs_segment_range(games_scored / n, _BTCS_PCT_RANGES),
+            "pct_conceded": _btcs_segment_range(games_conceded / n, _BTCS_PCT_RANGES),
+            "pct_over25": _btcs_segment_range(games_over25 / n, _BTCS_OVER_RANGES),
+        }
 
         for row in rows:
             bucket = _btcs_bucket_key(row["h"], row["a"])
-            _accum("avg_scored", seg_avg_scored, bucket)
-            _accum("avg_conceded", seg_avg_conceded, bucket)
-            _accum("pct_scored", seg_pct_scored, bucket)
-            _accum("pct_conceded", seg_pct_conceded, bucket)
-            _accum("pct_over25", seg_pct_over25, bucket)
+            for v in _TEAM_LEVEL_VARS:
+                _accum(v, team_segs[v], bucket)
 
-        # Mandante é row-level: os 30 jogos de um time podem se dividir entre
-        # os dois segmentos (casa/fora), diferente das variáveis acima que
+        # Mandante é row-level: os jogos de um time podem se dividir entre os
+        # dois segmentos (casa/fora), diferente das variáveis acima que
         # atribuem o time inteiro a UM segmento.
         for row, is_home in zip(rows, row_is_home):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             segment = "Jogando em casa" if is_home else "Jogando fora"
             _accum("mandante", segment, bucket)
+
+        # Combinações de 2 a 4 variáveis: monta o "perfil" completo de CADA
+        # jogo (segmento de todas as variáveis team-level, que são as mesmas
+        # em todos os jogos do time, + o mandante daquele jogo específico) e
+        # acumula em cada combinação de variáveis que existir.
+        for row, is_home in zip(rows, row_is_home):
+            bucket = _btcs_bucket_key(row["h"], row["a"])
+            row_segs = dict(team_segs)
+            row_segs["mandante"] = "Jogando em casa" if is_home else "Jogando fora"
+            for var_combo in _VAR_COMBOS:
+                _accum_combo(var_combo, [row_segs[v] for v in var_combo], bucket)
 
     patterns = []
     patterns_avoid = []
@@ -5374,8 +5408,44 @@ def _btcs_build_patterns_from_teams(teams):
                     "segment_rate": round(segment_rate, 4),
                     "baseline_rate": round(base, 4),
                     "lift": round(lift, 3),
+                    "combined": False,
                 }
                 if hits >= _BTCS_PATTERN_MIN_SEGMENT_HITS and lift >= _BTCS_PATTERN_MIN_LIFT:
+                    patterns.append(row)
+                elif lift <= _BTCS_PATTERN_MAX_LIFT_AVOID:
+                    patterns_avoid.append(row)
+
+    # Mesma lógica acima, mas pros pares de variáveis combinadas — limiares
+    # de amostra/acertos mais baixos (_BTCS_COMBO_*) porque cada combinação
+    # naturalmente reparte a amostra em fatias menores.
+    for var_combo, segments in combo_seg_data.items():
+        variable_label = " + ".join(_BTCS_PATTERN_VARIABLES[v] for v in var_combo)
+        for combo_label, counts in segments.items():
+            segment_games = counts["_total"]
+            if segment_games < _BTCS_COMBO_MIN_SEGMENT_GAMES:
+                continue
+            for bucket in PLACAR_EXATO_BUCKETS_ORDER:
+                hits = counts.get(bucket, 0)
+                base = baseline_rate.get(bucket, 0.0)
+                if base <= 0:
+                    continue
+                segment_rate = hits / segment_games
+                lift = segment_rate / base
+                row = {
+                    "variable": "+".join(var_combo),
+                    "variable_label": variable_label,
+                    "segment": combo_label,
+                    "segment_label": combo_label,
+                    "bucket": bucket,
+                    "segment_games": segment_games,
+                    "segment_hits": hits,
+                    "segment_rate": round(segment_rate, 4),
+                    "baseline_rate": round(base, 4),
+                    "lift": round(lift, 3),
+                    "combined": True,
+                    "combo_size": len(var_combo),
+                }
+                if hits >= _BTCS_COMBO_MIN_SEGMENT_HITS and lift >= _BTCS_PATTERN_MIN_LIFT:
                     patterns.append(row)
                 elif lift <= _BTCS_PATTERN_MAX_LIFT_AVOID:
                     patterns_avoid.append(row)
