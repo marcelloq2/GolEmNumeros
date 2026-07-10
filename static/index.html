@@ -5843,6 +5843,16 @@ function _live2ToggleStats(matchId, btn) {
   btn.textContent = hidden ? '🔼 Ocultar estatísticas' : '📊 Mostrar estatísticas + odds';
 }
 
+// Oculta só o bloco de estatísticas detalhadas (Destaques/Finalizações/Ataque/...),
+// deixando xG e odds visíveis — botão separado do de cima, que esconde tudo
+function _live2ToggleStatsDetail(matchId, btn) {
+  const wrap = document.getElementById(`live2StatsDetailWrap_${matchId}`);
+  if (!wrap) return;
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? '🔼 Ocultar estatísticas detalhadas' : '🔽 Mostrar estatísticas detalhadas';
+}
+
 // Widget "Estatísticas Pré" — placares corretos (Geral/Casa/Fora) de cada time, mesma
 // fonte e cálculo já usados na aba "Placares Corretos" do Hoje 2 (h2h + _csBucketFrequency)
 let _live2PreStatsCache = {};  // { [matchId]: { _h2hTabs } }
@@ -6460,6 +6470,54 @@ async function _live2MaybeAddFavoriteMarker(matchId, m, oddsData, h2hData) {
 // ── Estatísticas + odds do Flashscore/Soccerway (experimento novo) — busca sob demanda,
 // só quando o usuário clica no botão do card, pra não sobrecarregar com jogos que
 // ninguém está olhando ──
+// xG duplo (estimado por big chances/chutes + por zona dos chutes mapeados) — mesmo
+// bloco já mostrado no Ao Vivo original, portado usando os dados que o Ao Vivo 2 já
+// tem em cache (_uniCache via /api/uniscore/live-all, _live2ShotsCache via shotmap)
+async function _live2XgRowsHtml(m) {
+  const d  = _uniCache[`${m.casa}|${m.fora}`];
+  const st = d && d.statistics;
+  if (!st) return '';
+
+  const gv = (key, fallH, fallA) => {
+    const it = st[key];
+    return it ? [it.homeValue ?? fallH, it.awayValue ?? fallA] : [fallH, fallA];
+  };
+  const [bigH, bigA] = gv('big_chances', 0, 0);
+  const [boxH, boxA] = gv('shots_inside_box', 0, 0);
+  const [outH, outA] = gv('shots_outside_box', 0, 0);
+  const calcXg = (big, boxIn, boxOut) => {
+    const bc        = Number(big)   || 0;
+    const insideReg = Math.max(0, (Number(boxIn) || 0) - bc);
+    const outside   = Number(boxOut) || 0;
+    return Math.round((bc * 0.40 + insideReg * 0.12 + outside * 0.04) * 100) / 100;
+  };
+  const xgH = calcXg(bigH, boxH, outH);
+  const xgA = calcXg(bigA, boxA, outA);
+  const xgHColor = xgH > xgA ? '#22c55e' : 'var(--text)';
+  const xgAColor = xgA > xgH ? '#22c55e' : 'var(--text)';
+  const xgHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0">
+      <span style="width:42px;text-align:right;font-weight:700;color:${xgHColor};font-size:16px">${xgH.toFixed(2)}</span>
+      <span style="flex:1;text-align:center;color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.3px">xG</span>
+      <span style="width:42px;text-align:left;font-weight:700;color:${xgAColor};font-size:16px">${xgA.toFixed(2)}</span>
+    </div>`;
+
+  await _fetchSmPatLive(); // garante o cache de conversão por zona pro xG (chutes) abaixo
+  let xgzHtml = '';
+  const xgzPair = _calcXgzPair(_live2ShotsCache[m.id] || []);
+  if (xgzPair) {
+    const xgzHColor = xgzPair.xgzCasa > xgzPair.xgzFora ? '#22c55e' : 'var(--text)';
+    const xgzAColor = xgzPair.xgzFora > xgzPair.xgzCasa ? '#22c55e' : 'var(--text)';
+    xgzHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;margin-bottom:8px">
+        <span style="width:42px;text-align:right;font-weight:700;color:${xgzHColor};font-size:13px">${xgzPair.xgzCasa.toFixed(2)}</span>
+        <span style="flex:1;text-align:center;color:var(--text2);font-size:9px;text-transform:uppercase;letter-spacing:.3px">xG (chutes)</span>
+        <span style="width:42px;text-align:left;font-weight:700;color:${xgzAColor};font-size:13px">${xgzPair.xgzFora.toFixed(2)}</span>
+      </div>`;
+  }
+  return xgHtml + xgzHtml;
+}
+
 async function loadLive2Flashscore(matchId, btn) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
   if (!m) return;
@@ -6549,7 +6607,19 @@ async function loadLive2Flashscore(matchId, btn) {
         ${_live2StatsSectionsHtml(sections)}
       </div>`).join('');
 
-    const finalHtml = oddsHtml + tabsHtml + periodsHtml;
+    // Botão próprio pra ocultar só o bloco de estatísticas detalhadas (Destaques/
+    // Finalizações/Ataque/...), sem esconder junto as odds — separado do botão de
+    // cima que oculta tudo
+    const statsDetailHtml = periodsHtml ? `
+      <button onclick="_live2ToggleStatsDetail('${matchId}', this)"
+        style="width:100%;background:none;border:1px dashed var(--border);color:var(--text2);
+               font-size:10px;font-weight:700;padding:5px;border-radius:6px;cursor:pointer;margin:4px 0">
+        🔼 Ocultar estatísticas detalhadas
+      </button>
+      <div id="live2StatsDetailWrap_${matchId}">${tabsHtml}${periodsHtml}</div>` : '';
+
+    const xgRowsHtml = await _live2XgRowsHtml(m);
+    const finalHtml = xgRowsHtml + oddsHtml + statsDetailHtml;
     wrap.innerHTML = finalHtml;
     _live2FsCache[matchId] = finalHtml;
     _live2FsFormCache[matchId] = formWrap ? formWrap.innerHTML : '';
@@ -10335,58 +10405,6 @@ function buildShotMapHtml(shots, homeName, awayName) {
     <circle cx="${(W*0.105).toFixed(1)}" cy="${(H/2).toFixed(1)}" r="2" fill="#ffffff30"/>
     <!-- Ponto pênalti direito -->
     <circle cx="${(W*0.895).toFixed(1)}" cy="${(H/2).toFixed(1)}" r="2" fill="#ffffff30"/>
-
-    <!-- ── Faixas de zona de chute ─────────────────────────────────────── -->
-    <!-- HOME · Área Pequena (0–12%) verde -->
-    <rect x="2" y="4" width="${(W*0.12-2).toFixed(1)}" height="${H-8}"
-          fill="#22c55e" opacity="0.09" rx="3"/>
-    <!-- HOME · Área Grande (12–32%) azul -->
-    <rect x="${(W*0.12).toFixed(1)}" y="4" width="${(W*0.20).toFixed(1)}" height="${H-8}"
-          fill="#3b82f6" opacity="0.07"/>
-    <!-- HOME · Meia Distância (32–45%) âmbar -->
-    <rect x="${(W*0.32).toFixed(1)}" y="4" width="${(W*0.13).toFixed(1)}" height="${H-8}"
-          fill="#f59e0b" opacity="0.06"/>
-    <!-- Centro · Longa Distância (45–55%) vermelho -->
-    <rect x="${(W*0.45).toFixed(1)}" y="4" width="${(W*0.10).toFixed(1)}" height="${H-8}"
-          fill="#ef4444" opacity="0.05"/>
-    <!-- AWAY · Meia Distância (55–68%) âmbar -->
-    <rect x="${(W*0.55).toFixed(1)}" y="4" width="${(W*0.13).toFixed(1)}" height="${H-8}"
-          fill="#f59e0b" opacity="0.06"/>
-    <!-- AWAY · Área Grande (68–88%) azul -->
-    <rect x="${(W*0.68).toFixed(1)}" y="4" width="${(W*0.20).toFixed(1)}" height="${H-8}"
-          fill="#3b82f6" opacity="0.07"/>
-    <!-- AWAY · Área Pequena (88–100%) verde -->
-    <rect x="${(W*0.88).toFixed(1)}" y="4" width="${(W*0.12-2).toFixed(1)}" height="${H-8}"
-          fill="#22c55e" opacity="0.09" rx="3"/>
-
-    <!-- ── Linhas divisórias de zona ───────────────────────────────────── -->
-    <!-- Verde — AP/AG -->
-    <line x1="${(W*0.12).toFixed(1)}" y1="4"  x2="${(W*0.12).toFixed(1)}" y2="${H-4}"
-          stroke="#22c55e" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <line x1="${(W*0.88).toFixed(1)}" y1="4"  x2="${(W*0.88).toFixed(1)}" y2="${H-4}"
-          stroke="#22c55e" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <!-- Azul — AG/MD -->
-    <line x1="${(W*0.32).toFixed(1)}" y1="4"  x2="${(W*0.32).toFixed(1)}" y2="${H-4}"
-          stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <line x1="${(W*0.68).toFixed(1)}" y1="4"  x2="${(W*0.68).toFixed(1)}" y2="${H-4}"
-          stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <!-- Âmbar — MD/LD -->
-    <line x1="${(W*0.45).toFixed(1)}" y1="4"  x2="${(W*0.45).toFixed(1)}" y2="${H-4}"
-          stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <line x1="${(W*0.55).toFixed(1)}" y1="4"  x2="${(W*0.55).toFixed(1)}" y2="${H-4}"
-          stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-
-    <!-- ── Labels de zona (fundo para legibilidade) ────────────────────── -->
-    <!-- HOME labels -->
-    <text x="${(W*0.06).toFixed(1)}"  y="${H-5}" font-size="7" fill="#22c55e" opacity="0.85" text-anchor="middle">AP</text>
-    <text x="${(W*0.22).toFixed(1)}"  y="${H-5}" font-size="7" fill="#3b82f6" opacity="0.85" text-anchor="middle">AG</text>
-    <text x="${(W*0.385).toFixed(1)}" y="${H-5}" font-size="7" fill="#f59e0b" opacity="0.85" text-anchor="middle">MD</text>
-    <!-- Centro -->
-    <text x="${(W*0.50).toFixed(1)}"  y="${H-5}" font-size="7" fill="#ef4444" opacity="0.85" text-anchor="middle">LD</text>
-    <!-- AWAY labels -->
-    <text x="${(W*0.615).toFixed(1)}" y="${H-5}" font-size="7" fill="#f59e0b" opacity="0.85" text-anchor="middle">MD</text>
-    <text x="${(W*0.78).toFixed(1)}"  y="${H-5}" font-size="7" fill="#3b82f6" opacity="0.85" text-anchor="middle">AG</text>
-    <text x="${(W*0.94).toFixed(1)}"  y="${H-5}" font-size="7" fill="#22c55e" opacity="0.85" text-anchor="middle">AP</text>
 
     <!-- Chutes HOME (azul) — ataca gol ESQUERDO -->
     ${homeShots.map(s => shotIcon(s)).join('\n    ')}
