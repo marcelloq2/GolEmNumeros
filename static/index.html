@@ -2303,13 +2303,7 @@ function _today2RefreshDetailHeader(id) {
       </div>
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>
-    ${m.status === '3' ? `<div id="today2GoalEventsBox_${id}" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:12px;color:var(--text2)"></div>` : ''}
-    <div style="margin-top:8px">
-      <button id="today2Live2AddBtn" onclick="toggleLive2Added('${id}', this)"
-        style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2)">
-        ${_isLive2Added(m.home, m.away) ? '✅ Adicionado ao Ao Vivo 2' : '➕ Adicionar ao Ao Vivo 2'}
-      </button>
-    </div>`;
+    ${m.status === '3' ? `<div id="today2GoalEventsBox_${id}" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:12px;color:var(--text2)"></div>` : ''}`;
   if (m.status === '3') _today2LoadGoalEvents(id, m);
 }
 
@@ -5647,16 +5641,6 @@ let _live2AutoRefresh = null;
 function _normLive2(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
-function _live2LoadAddedPairs() {
-  try { return JSON.parse(localStorage.getItem('live2AddedPairs') || '[]'); }
-  catch (e) { return []; }
-}
-let _live2AddedPairs = _live2LoadAddedPairs();
-
-function _live2SavePairs() {
-  localStorage.setItem('live2AddedPairs', JSON.stringify(_live2AddedPairs));
-}
-
 function _live2SideScore(a, b) {
   // Comparação aproximada (não exata) — o Hoje 2 usa nomes do Flashscore
   // ("Dayton") e o radar do Ao Vivo 2 usa nomes do Uniscore ("Dayton Dutch
@@ -5667,31 +5651,6 @@ function _live2SideScore(a, b) {
   if (a.length >= 4 && a.slice(0, 5) === b.slice(0, 5)) score += 2;
   if (a.slice(0, 6) && (b.includes(a.slice(0, 6)) || a.includes(b.slice(0, 6)))) score += 1;
   return score;
-}
-
-function _isLive2Added(home, away) {
-  const h = _normLive2(home), a = _normLive2(away);
-  return _live2AddedPairs.some(p => {
-    const sh = _live2SideScore(p.home, h), sa = _live2SideScore(p.away, a);
-    // Exige alguma confiança dos DOIS lados (não só um nome parecido de um só
-    // time) — mesmo cuidado do backend pra não casar o jogo errado.
-    return sh > 0 && sa > 0 && (sh + sa) >= 4;
-  });
-}
-
-function toggleLive2Added(matchId, btn) {
-  const m = today2MatchesCache.find(x => String(x.id) === String(matchId));
-  if (!m) return;
-  const h = _normLive2(m.home), a = _normLive2(m.away);
-  const idx = _live2AddedPairs.findIndex(p => p.home === h && p.away === a);
-  if (idx >= 0) {
-    _live2AddedPairs.splice(idx, 1);
-  } else {
-    _live2AddedPairs.push({ home: h, away: a });
-  }
-  _live2SavePairs();
-  btn.innerHTML = _isLive2Added(m.home, m.away) ? '✅ Adicionado ao Ao Vivo 2' : '➕ Adicionar ao Ao Vivo 2';
-  if (document.getElementById('live2Panel')?.classList.contains('active')) loadLive2Matches();
 }
 
 // Favoritos do Ao Vivo 2 — mesmo padrão do "fixar no topo" (⭐) já usado no Ao Vivo
