@@ -3523,7 +3523,7 @@ function _profitVariance(profits) {
   return { variance, stddev, cv };
 }
 
-function _profitTeamRowsFromSection(tabs, tabIdx, teamHome) {
+function _profitTeamRowsFromSection(tabs, tabIdx, teamHome, limit) {
   // pega a seção "Últimos jogos: <time>" (não confrontos) do time casa(true)/fora(false)
   // dentro da aba tabIdx, e extrai {id,h,a} de cada jogo com placar válido
   const tab = tabs[tabIdx];
@@ -3532,7 +3532,7 @@ function _profitTeamRowsFromSection(tabs, tabIdx, teamHome) {
   const sec = teamHome ? sections[0] : (sections[1] || sections[0]);
   if (!sec) return { teamName: '', rows: [] };
   const teamName = (sec.title || '').replace(/^.*:\s*/, '');
-  const rows = sec.rows.slice(0, 30).map(r => {
+  const rows = sec.rows.slice(0, limit || 30).map(r => {
     const sc = _profitParseScore(r.score);
     return sc ? { id: r.id, h: sc.h, a: sc.a, date: r.date } : null;
   }).filter(Boolean);
@@ -4876,7 +4876,7 @@ async function _renderToday2Profit(matchId) {
 
   content.innerHTML = `
     <div style="display:flex;gap:4px;margin-bottom:4px">
-      ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `<button onclick="_setToday2ProfitScope('${matchId}',${i},this)" style="font-size:15px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:${i===scope?'var(--accent)':'transparent'};color:${i===scope?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`).join('')}
+      ${['Geral', 'Casa', 'Fora', 'Últimas 5 (Geral)'].map((lbl, i) => `<button onclick="_setToday2ProfitScope('${matchId}',${i},this)" style="font-size:15px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:${i===scope?'var(--accent)':'transparent'};color:${i===scope?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`).join('')}
     </div>
     <div id="today2ProfitBody_${matchId}">⏳ Calculando profit com odds históricas...</div>`;
 
@@ -4885,8 +4885,13 @@ async function _renderToday2Profit(matchId) {
     blocks = [_profitTeamRowsFromSection(tabs, 0, true), _profitTeamRowsFromSection(tabs, 0, false)];
   } else if (scope === 1) {
     blocks = [_profitTeamRowsFromSection(tabs, 1, true)];
-  } else {
+  } else if (scope === 2) {
     blocks = [_profitTeamRowsFromSection(tabs, 2, false)];
+  } else {
+    // "Últimas 5 (Geral)" — mesma aba Total usada no Geral, só que olhando
+    // apenas os 5 jogos mais recentes de cada time (amostra menor, mais
+    // sensível ao momento atual do time em vez da tendência de longo prazo)
+    blocks = [_profitTeamRowsFromSection(tabs, 0, true, 5), _profitTeamRowsFromSection(tabs, 0, false, 5)];
   }
 
   const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
