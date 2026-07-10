@@ -5750,12 +5750,15 @@ async function _loadLive2Momentum(matches) {
         const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
         const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
         if (!unchanged) {
-          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas>`;
+          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div>`;
           const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
           drawMiniMomentum(canvasEl, points, data.goals || []);
           _live2AttachMomentumTooltip(canvasEl, points);
           _live2RenderMomentumMarkers(m.id, points);
         }
+        // Selo de pressão é barato de atualizar — refaz sempre, mesmo sem redesenhar o canvas
+        const badgeEl = document.getElementById(`live2PressureBadge_${m.id}`);
+        if (badgeEl) badgeEl.innerHTML = buildPressureBadgeHtml(points, m);
         _live2PointsCache[m.id] = points;
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
