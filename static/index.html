@@ -4831,6 +4831,39 @@ function _profitTableHtml(agg, marketLabels, currentMarkets) {
     </div>`).join('');
 }
 
+// Mesma tabela de _profitTableHtml, mas só com Apostas/Acertos/Taxa de Acerto (sem
+// Profit/ROI) — usada no widget "Estatísticas Pré" do Ao Vivo 2
+function _profitTableHtmlAcerto(agg, marketLabels) {
+  marketLabels = marketLabels || PROFIT_MARKET_LABELS;
+  const marketKeys = Object.keys(agg);
+  if (!marketKeys.length) return '<div style="color:var(--text2);font-size:10px">sem odds históricas suficientes</div>';
+  return marketKeys.map(mk => `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.4px;padding:7px 10px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)">
+        ${marketLabels[mk]}
+      </div>
+      <table style="width:100%;font-size:10px;text-align:center;border-collapse:collapse;table-layout:fixed">
+        <colgroup><col style="width:44%"><col style="width:18%"><col style="width:18%"><col style="width:20%"></colgroup>
+        <thead><tr style="color:var(--text2)">
+          <th style="text-align:left;padding:5px 8px">Seleção</th><th style="padding:5px 3px">Apostas</th>
+          <th style="padding:5px 3px">Acertos</th><th style="padding:5px 3px">Taxa</th>
+        </tr></thead>
+        <tbody>
+          ${Object.entries(agg[mk]).map(([label, r], i) => {
+            const taxa = r.bets ? (r.wins / r.bets * 100) : 0;
+            const color = taxa >= 60 ? '#22c55e' : taxa >= 40 ? '#f59e0b' : 'var(--text2)';
+            return `<tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">
+              <td style="text-align:left;padding:5px 8px;color:var(--text)">${label}</td>
+              <td style="padding:5px 3px;color:var(--text2)">${r.bets}</td>
+              <td style="padding:5px 3px;color:var(--text2)">${r.wins}</td>
+              <td style="padding:5px 3px;color:${color};font-weight:700">${taxa.toFixed(0)}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+}
+
 async function _ensureToday2Odds(ids) {
   const missing = [...new Set(ids)].filter(id => id && _profitOddsCache[id] === undefined);
   if (!missing.length) return;
@@ -5798,7 +5831,7 @@ async function _live2LoadPreStats(matchId, m) {
   _live2RenderPreStats(matchId);
 }
 
-function _live2RenderPreStats(matchId) {
+async function _live2RenderPreStats(matchId) {
   const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
   if (!wrap) return;
   const cache = _live2PreStatsCache[matchId] || {};
@@ -5823,7 +5856,24 @@ function _live2RenderPreStats(matchId) {
     </div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${blocks.map((b, i) => blockHtml(b, i)).join('')}
+    </div>
+    <div id="live2PreStatsMarketsWrap_${matchId}" style="margin-top:10px;font-size:10px;color:var(--text2);text-align:center">
+      ⏳ Calculando taxa de acerto dos mercados tradicionais...
     </div>`;
+
+  // Mercados tradicionais (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap
+  // Asiático) — mesma fonte/cálculo da aba "Profit Mercados Tradicionais" do Hoje 2,
+  // só que mostrando taxa de acerto em vez de profit/ROI
+  const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
+  await _ensureToday2Odds(allIds);
+  if ((_live2PreStatsScope[matchId] ?? 0) !== scope) return; // trocou de escopo enquanto buscava
+  const marketsWrap = document.getElementById(`live2PreStatsMarketsWrap_${matchId}`);
+  if (!marketsWrap) return;
+  const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
+  marketsWrap.style.textAlign = '';
+  marketsWrap.innerHTML = blocks.map((b, i) => `
+    <div style="font-size:11px;font-weight:700;margin:8px 0 4px">⚽ ${b.teamName || '—'}</div>
+    ${_profitTableHtmlAcerto(aggs[i], PROFIT_MARKET_LABELS_TRADICIONAL)}`).join('');
 }
 
 function _live2SetPreStatsScope(matchId, idx) {
