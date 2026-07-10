@@ -210,6 +210,10 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # (force=True garante que o Railway nunca fique com dados velhos após redeploy)
         for fname in ("predictions_full.json", "predictions.json"):
             pull_file(fname, os.path.join(data_dir, fname), force=True)
+        # backtest2.db (SQLite do Backtest 2/CS acumulado): igual predictions, sempre
+        # baixa a versão mais recente — sem isso, cada redeploy no Railway apagava o
+        # disco local e o histórico acumulado voltava a zero.
+        pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
         print("[github] Restauração concluída.")
     except Exception as e:
         print(f"[github] Erro na restauração: {e}")

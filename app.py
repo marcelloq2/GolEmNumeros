@@ -4730,6 +4730,14 @@ _BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
 _bt2_db_lock = threading.Lock()
 
 
+def _bt2_push_db_bg():
+    """Envia o backtest2.db pro GitHub (branch 'data') em segundo plano — sem isso,
+    o histórico acumulado (Backtest 2 e Backtest CS, que moram no mesmo arquivo)
+    se perdia a cada redeploy no Railway, porque o disco local não sobrevive entre
+    deploys. Restaurado de volta em github_storage.sync_on_startup."""
+    github_storage.push_file_bg(_BT2_DB_PATH, "backtest2.db")
+
+
 def _bt2_db_conn():
     conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
     conn.execute("""
@@ -4767,6 +4775,7 @@ def _bt2_persist_bets(rows):
             conn.commit()
         finally:
             conn.close()
+    _bt2_push_db_bg()
 
 
 def _bt2_compute_variance(profits):
@@ -5168,6 +5177,7 @@ def _btcs_persist_results(rows):
             conn.commit()
         finally:
             conn.close()
+    _bt2_push_db_bg()
 
 
 def _btcs_persist_pattern_rows(rows):
@@ -5189,6 +5199,7 @@ def _btcs_persist_pattern_rows(rows):
             conn.commit()
         finally:
             conn.close()
+    _bt2_push_db_bg()
 
 
 def _btcs_build_methodologies(bucket_dates):
