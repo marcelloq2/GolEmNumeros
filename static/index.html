@@ -4831,39 +4831,6 @@ function _profitTableHtml(agg, marketLabels, currentMarkets) {
     </div>`).join('');
 }
 
-// Mesma tabela de _profitTableHtml, mas só com Apostas/Acertos/Taxa de Acerto (sem
-// Profit/ROI) — usada no widget "Estatísticas Pré" do Ao Vivo 2
-function _profitTableHtmlAcerto(agg, marketLabels) {
-  marketLabels = marketLabels || PROFIT_MARKET_LABELS;
-  const marketKeys = Object.keys(agg);
-  if (!marketKeys.length) return '<div style="color:var(--text2);font-size:10px">sem odds históricas suficientes</div>';
-  return marketKeys.map(mk => `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.4px;padding:7px 10px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)">
-        ${marketLabels[mk]}
-      </div>
-      <table style="width:100%;font-size:10px;text-align:center;border-collapse:collapse;table-layout:fixed">
-        <colgroup><col style="width:44%"><col style="width:18%"><col style="width:18%"><col style="width:20%"></colgroup>
-        <thead><tr style="color:var(--text2)">
-          <th style="text-align:left;padding:5px 8px">Seleção</th><th style="padding:5px 3px">Apostas</th>
-          <th style="padding:5px 3px">Acertos</th><th style="padding:5px 3px">Taxa</th>
-        </tr></thead>
-        <tbody>
-          ${Object.entries(agg[mk]).map(([label, r], i) => {
-            const taxa = r.bets ? (r.wins / r.bets * 100) : 0;
-            const color = taxa >= 60 ? '#22c55e' : taxa >= 40 ? '#f59e0b' : 'var(--text2)';
-            return `<tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">
-              <td style="text-align:left;padding:5px 8px;color:var(--text)">${label}</td>
-              <td style="padding:5px 3px;color:var(--text2)">${r.bets}</td>
-              <td style="padding:5px 3px;color:var(--text2)">${r.wins}</td>
-              <td style="padding:5px 3px;color:${color};font-weight:700">${taxa.toFixed(0)}%</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`).join('');
-}
-
 async function _ensureToday2Odds(ids) {
   const missing = [...new Set(ids)].filter(id => id && _profitOddsCache[id] === undefined);
   if (!missing.length) return;
@@ -5690,8 +5657,13 @@ async function loadLive2Matches() {
   try {
     const res  = await fetch('/api/radar/live');
     const data = await res.json();
-    const matches = _live2SortByPin(data.live || []);
-    live2MatchesCache = matches;
+    const allMatches = _live2SortByPin(data.live || []);
+    live2MatchesCache = allMatches;
+
+    // Só mostra partidas com mapa de chutes confirmado — as demais continuam sendo
+    // buscadas em segundo plano (_loadLive2Shotmap roda pra TODAS, não só as visíveis)
+    // pra ir alimentando a base, e aparecem sozinhas assim que o 1º chute rolar.
+    const matches = allMatches.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
 
     const badge = document.getElementById('live2CountBadge');
     if (badge) badge.textContent = matches.length;
@@ -5699,29 +5671,31 @@ async function loadLive2Matches() {
     if (!matches.length) {
       wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
         <div style="font-size:36px">😴</div>
-        <div style="font-size:13px;font-weight:600">Nenhuma partida ao vivo agora</div>
+        <div style="font-size:13px;font-weight:600">Nenhuma partida com mapa de chutes disponível agora</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Os dados continuam sendo coletados em segundo plano — assim que algum jogo tiver o 1º chute registrado, ele aparece aqui</div>
       </div>`;
       _live2RenderedIds = [];
-      return;
-    }
-
-    const newIds = matches.map(m => m.id);
-    const samePartidas = newIds.length === _live2RenderedIds.length
-      && newIds.every((id, i) => id === _live2RenderedIds[i]);
-
-    if (samePartidas) {
-      // Mesmas partidas já desenhadas: só atualiza placar/minuto no lugar, sem
-      // recriar os cards — evita o "piscar" (reload de imagens, perda de scroll etc.)
-      matches.forEach(m => _live2UpdateCardNumbers(m));
     } else {
-      wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
-      _live2RenderedIds = newIds;
+      const newIds = matches.map(m => m.id);
+      const samePartidas = newIds.length === _live2RenderedIds.length
+        && newIds.every((id, i) => id === _live2RenderedIds[i]);
+
+      if (samePartidas) {
+        // Mesmas partidas já desenhadas: só atualiza placar/minuto no lugar, sem
+        // recriar os cards — evita o "piscar" (reload de imagens, perda de scroll etc.)
+        matches.forEach(m => _live2UpdateCardNumbers(m));
+      } else {
+        wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
+        _live2RenderedIds = newIds;
+      }
+      _loadLive2Momentum(matches);
+      _loadLive2Lineups(matches);
+      _loadLive2Standings(matches);
+      _loadLive2GoalEvents(matches);
     }
-    _loadLive2Momentum(matches);
-    _loadLive2Shotmap(matches);
-    _loadLive2Lineups(matches);
-    _loadLive2Standings(matches);
-    _loadLive2GoalEvents(matches);
+    // Roda pra TODAS as partidas (visíveis ou não) — é o que descobre quando uma
+    // partida escondida passa a ter mapa de chutes e dispara a reexibição dela
+    _loadLive2Shotmap(allMatches);
   } catch (e) {
     wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
       <div style="font-size:13px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div>
@@ -5851,7 +5825,6 @@ function _live2GeralTabHtml(m) {
 // Widget "Estatísticas Pré" — placares corretos (Geral/Casa/Fora) de cada time, mesma
 // fonte e cálculo já usados na aba "Placares Corretos" do Hoje 2 (h2h + _csBucketFrequency)
 let _live2PreStatsCache = {};  // { [matchId]: { _h2hTabs } }
-let _live2PreStatsScope = {};  // { [matchId]: 0|1|2 } — Geral/Casa/Fora
 let _live2PreStatsLoaded = {}; // evita recarregar toda vez que a aba é reaberta
 
 async function _live2LoadPreStats(matchId, m) {
@@ -5922,42 +5895,9 @@ async function _live2RenderPreStats(matchId) {
       ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
       ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
     </div>
-    <div style="display:flex;gap:4px;margin:10px 0 8px">
-      ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `
-        <button onclick="_live2SetPreStatsScope('${matchId}',${i})"
-          style="flex:1;font-size:10px;font-weight:700;padding:4px;border-radius:5px;cursor:pointer;
-                 border:1px solid var(--border);background:${i === (_live2PreStatsScope[matchId] ?? 0) ? 'var(--accent)' : 'var(--bg3)'};
-                 color:${i === (_live2PreStatsScope[matchId] ?? 0) ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
-    </div>
-    <div id="live2PreStatsMarketsWrap_${matchId}" style="font-size:10px;color:var(--text2);text-align:center">
-      ⏳ Calculando taxa de acerto dos mercados tradicionais...
-    </div>
     <div id="live2InsightsWrap_${matchId}" style="margin-top:12px;font-size:10px;color:var(--text2);text-align:center">
       ⏳ Gerando leitura da partida...
     </div>`;
-
-  // Mercados tradicionais (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap
-  // Asiático) — mesma fonte/cálculo da aba "Profit Mercados Tradicionais" do Hoje 2,
-  // só que mostrando taxa de acerto em vez de profit/ROI. Continua usando o toggle
-  // Geral/Casa/Fora (esse mercado se beneficia do recorte, diferente da tabela de
-  // placares 0% acima, que já combina os dois recortes fixos por natureza)
-  const scope = _live2PreStatsScope[matchId] ?? 0;
-  let blocks; // [{teamName, rows}]
-  if (scope === 0) blocks = [homeGeneral, awayGeneral];
-  else if (scope === 1) blocks = [homeCasa];
-  else blocks = [awayFora];
-
-  const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
-  await _ensureToday2Odds(allIds);
-  if ((_live2PreStatsScope[matchId] ?? 0) !== scope) return; // trocou de escopo enquanto buscava
-  const marketsWrap = document.getElementById(`live2PreStatsMarketsWrap_${matchId}`);
-  if (marketsWrap) {
-    const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
-    marketsWrap.style.textAlign = '';
-    marketsWrap.innerHTML = blocks.map((b, i) => `
-      <div style="font-size:11px;font-weight:700;margin:8px 0 4px">⚽ ${b.teamName || '—'}</div>
-      ${_profitTableHtmlAcerto(aggs[i], PROFIT_MARKET_LABELS_TRADICIONAL)}`).join('');
-  }
 
   // Leitura da Partida — só carrega 1x por partida (não depende do escopo
   // Geral/Casa/Fora, usa seus próprios recortes fixos casa-em-casa/fora-fora)
@@ -6021,11 +5961,6 @@ async function _live2LoadInsights(matchId) {
 
   freshWrap.style.textAlign = '';
   freshWrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">🧠 Leitura da Partida</div>${_today2InsightsGridHtml(cards)}`;
-}
-
-function _live2SetPreStatsScope(matchId, idx) {
-  _live2PreStatsScope[matchId] = idx;
-  _live2RenderPreStats(matchId);
 }
 
 // Posição na tabela — reaproveita o mesmo endpoint usado no Hoje 2 (/api/flashscore/standings),
@@ -6114,23 +6049,32 @@ async function _loadLive2Lineups(matches) {
 // (buildShotMapHtml) do Ao Vivo original, só carregando em cada card do Ao Vivo 2
 let _live2ShotsCountCache = {};
 async function _loadLive2Shotmap(matches) {
+  // Roda pra TODAS as partidas passadas (mesmo as escondidas, sem card no DOM ainda)
+  // — é assim que uma partida sem chutes "aparece" sozinha no grid quando o 1º
+  // chute rolar (ver filtro em loadLive2Matches). Por isso não pula quando !wrap.
+  let newlyVisible = false;
   for (const m of matches) {
-    const wrap = document.getElementById(`live2ShotmapWrap_${m.id}`);
-    if (!wrap) continue;
     try {
       const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
       const res    = await fetch(`/api/radar/shotmap/${m.id}?${params}`);
       const data   = await res.json();
       const shots  = data.shots || [];
+      const wasVisible = (_live2ShotsCountCache[m.id] || 0) > 0;
+      const isVisible  = shots.length > 0;
+      if (!wasVisible && isVisible) newlyVisible = true;
+
+      const wrap = document.getElementById(`live2ShotmapWrap_${m.id}`);
       // Só redesenha se a quantidade de chutes mudou — evita "piscar" o SVG
       // do zero a cada ciclo de refresh quando nada de novo aconteceu
-      if (_live2ShotsCountCache[m.id] === shots.length && wrap.innerHTML.trim()) continue;
+      if (wrap && !(_live2ShotsCountCache[m.id] === shots.length && wrap.innerHTML.trim())) {
+        wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora) : '';
+      }
       _live2ShotsCountCache[m.id] = shots.length;
-      wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora) : '';
-    } catch (e) {
-      wrap.innerHTML = '';
-    }
+    } catch (e) {}
   }
+  // Alguma partida escondida acabou de ganhar o 1º chute — reexibe ela agora,
+  // sem esperar o próximo ciclo de refresh de 20s
+  if (newlyVisible) loadLive2Matches();
 }
 
 // Guarda o HTML das estatísticas/odds já carregadas por partida — o grid do Ao Vivo 2
