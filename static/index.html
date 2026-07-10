@@ -6321,8 +6321,11 @@ function _live2DetectPressureMarkers(points) {
   if (!points || points.length < 4) return [];
   // mesmo cálculo de maxVal usado em drawMiniMomentum, pra usar a mesma escala
   const maxVal = Math.max(...points.map(d => Math.abs(d.value || 0)), 1);
-  const overThresh   = maxVal * 0.6;   // limiar de janela sustentada
-  const chanceThresh = maxVal * 0.8;   // limiar de pico pontual
+  const overThresh = maxVal * 0.6;   // limiar de janela sustentada (Momento Over — não calibrado)
+  // Limiar de pico pontual (Grande Chance) — vem calibrado da base (grid search em
+  // /api/momentum/chance_pattern_stats); 0.8 é só o fallback antes da 1ª resposta chegar
+  const chancePct     = (_live2ChancePatternStats && _live2ChancePatternStats.chance_pct) || 0.8;
+  const chanceThresh  = maxVal * chancePct;
 
   const markers = [];
   const overWindows = [];
