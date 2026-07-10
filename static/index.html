@@ -4798,15 +4798,19 @@ function _profitTableHtml(agg, marketLabels, currentMarkets) {
   const marketKeys = Object.keys(agg);
   if (!marketKeys.length) return '<div style="color:var(--text2);font-size:15px">sem odds históricas suficientes</div>';
   return marketKeys.map(mk => `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:520px;margin-bottom:12px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow-x:auto;margin-bottom:12px">
       <div style="font-size:15px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)">
         ${marketLabels[mk]}
       </div>
-      <table style="width:100%;font-size:15px;text-align:center;border-collapse:collapse;table-layout:fixed">
-        <colgroup><col style="width:38%"><col style="width:15%"><col style="width:15%"><col style="width:17%"><col style="width:15%"></colgroup>
+      <table style="width:100%;min-width:700px;font-size:15px;text-align:center;border-collapse:collapse;table-layout:fixed">
+        <colgroup><col style="width:26%"><col style="width:9%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:11%"><col style="width:11%"><col style="width:7%"><col style="width:11%"></colgroup>
         <thead><tr style="color:var(--text2)">
           <th style="text-align:left;padding:6px 10px">Seleção</th><th style="padding:6px 4px">Apostas</th>
           <th style="padding:6px 4px">Acertos</th><th style="padding:6px 4px">Profit</th><th style="padding:6px 4px">ROI</th>
+          <th style="padding:6px 4px" title="Variância do profit por aposta — quanto maior, mais inconsistente/arriscado o sinal">Variância</th>
+          <th style="padding:6px 4px" title="Desvio padrão (mesma unidade do profit)">Desv. Pad.</th>
+          <th style="padding:6px 4px" title="Coeficiente de variação (desvio padrão / média) — risco normalizado pelo retorno">CV</th>
+          <th style="padding:6px 4px" title="Odd que o mercado está oferecendo agora pra essa seleção">Odd Atual</th>
         </tr></thead>
         <tbody>
           ${Object.entries(agg[mk]).map(([label, r], i) => {
@@ -4815,6 +4819,9 @@ function _profitTableHtml(agg, marketLabels, currentMarkets) {
             // Amostra pequena engana fácil — só sinaliza "possível ineficiência" com
             // ROI bem positivo E uma quantidade mínima de apostas por trás do número
             const destaque = roi >= 20 && r.bets >= 8;
+            const { variance, stddev, cv } = _profitVariance(r.profits);
+            const oddRaw = currentMarkets ? parseFloat(_currentOddForSelection(mk, label, currentMarkets)) : NaN;
+            const oddAtual = (oddRaw && !isNaN(oddRaw)) ? oddRaw : null;
             return `<tr style="background:${destaque ? 'rgba(34,197,94,.14)' : (i % 2 ? 'rgba(255,255,255,.02)' : 'transparent')};${destaque ? 'box-shadow:inset 3px 0 0 #22c55e' : ''}">
               <td style="text-align:left;padding:6px 10px;color:var(--text)">
                 ${label}${destaque ? ' <span title="ROI alto (≥20%) com amostra de 8+ jogos — pode indicar precificação menos eficiente da casa nesse mercado, não é garantia de lucro futuro" style="cursor:help;font-size:15px">⚡</span>' : ''}
@@ -4824,6 +4831,10 @@ function _profitTableHtml(agg, marketLabels, currentMarkets) {
               <td style="padding:6px 4px;color:var(--text2)">${r.wins}</td>
               <td style="padding:6px 4px;color:${color};font-weight:700">${r.profit >= 0 ? '+' : ''}${r.profit.toFixed(2)}u</td>
               <td style="padding:6px 4px;color:${color};font-weight:600">${roi >= 0 ? '+' : ''}${roi.toFixed(0)}%</td>
+              <td style="padding:6px 4px;color:var(--text2)">${variance.toFixed(2)}</td>
+              <td style="padding:6px 4px;color:var(--text2)">${stddev.toFixed(2)}</td>
+              <td style="padding:6px 4px;color:var(--text2)">${cv !== null ? cv.toFixed(2) : '—'}</td>
+              <td style="padding:6px 4px;color:var(--text);font-weight:700">${oddAtual !== null ? oddAtual.toFixed(2) : '—'}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -6058,6 +6069,7 @@ async function _loadLive2Lineups(matches) {
 // Mapa de chutes — reaproveita o mesmo endpoint e a mesma função de desenho
 // (buildShotMapHtml) do Ao Vivo original, só carregando em cada card do Ao Vivo 2
 let _live2ShotsCountCache = {};
+let _live2ShotsCache = {}; // { [matchId]: shots[] } — array completo, usado pelos selos de zona/xG/combinado
 async function _loadLive2Shotmap(matches) {
   // Roda pra TODAS as partidas passadas (mesmo as escondidas, sem card no DOM ainda)
   // — é assim que uma partida sem chutes "aparece" sozinha no grid quando o 1º
@@ -6080,11 +6092,112 @@ async function _loadLive2Shotmap(matches) {
         wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora) : '';
       }
       _live2ShotsCountCache[m.id] = shots.length;
+      _live2ShotsCache[m.id] = shots;
+      _live2RefreshBadges(m.id);
     } catch (e) {}
   }
   // Alguma partida escondida acabou de ganhar o 1º chute — reexibe ela agora,
   // sem esperar o próximo ciclo de refresh de 20s
   if (newlyVisible) loadLive2Matches();
+}
+
+// ── Selos do Ao Vivo original, portados pro Ao Vivo 2: reaproveita buildXgBadgeHtml e
+// buildIndicatorXgBadgeHtml direto (não dependem de nada exclusivo do grid original), e
+// reimplementa buildShotsBadgeHtml/buildCombinedSignalBadgeHtml trocando a dependência de
+// _gridTempos[m.id] (só existe no Ao Vivo original) pelo m.minuto que o Ao Vivo 2 já tem ──
+function _live2ShotsBadgeHtml(shots, m) {
+  if (!shots || !shots.length) return '';
+  const lastMin = Math.max(...shots.map(s => s.minute || 0), 0);
+  const curMin = Number.isFinite(m.minuto) ? m.minuto : null;
+  if (curMin !== null && Math.abs(curMin - lastMin) > 1) return '';
+
+  const recent = shots.filter(s => (s.minute || 0) === lastMin);
+  if (!recent.length) return '';
+
+  const classZ = (x) => {
+    const xv = x ?? 50;
+    if (xv < 12) return 'area_pequena';
+    if (xv < 32) return 'area_grande';
+    if (xv < 55) return 'meia_distancia';
+    return 'longa_distancia';
+  };
+  const ZONE_LABEL = { area_pequena: 'Área Pequena', area_grande: 'Área Grande', meia_distancia: 'Meia Distância', longa_distancia: 'Longa Distância' };
+
+  const homeCount = recent.filter(s => s.isHome).length;
+  const awayCount = recent.length - homeCount;
+  const isHome = homeCount >= awayCount;
+  const time   = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  const doTime = recent.filter(s => !!s.isHome === isHome);
+  const counts = {};
+  doTime.forEach(s => { const z = classZ(s.x); counts[z] = (counts[z] || 0) + 1; });
+  const [zonaTop] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;
+    color:${color};background:${color}22;border:1px solid ${color}44;border-radius:10px;padding:2px 8px">
+    🗺️ ${time} · ${ZONE_LABEL[zonaTop]} (chute aos ${lastMin}')
+  </span>`;
+}
+
+function _live2CombinedSignalBadgeHtml(points, shots, m) {
+  let pressaoTeam = null;
+  const N = Math.min(8, points.length);
+  if (N) {
+    const recent = points.slice(-N).map(p => p.value || 0);
+    const avg = recent.reduce((a, b) => a + b, 0) / N;
+    if (Math.abs(avg) >= 20) pressaoTeam = avg > 0 ? 'casa' : 'fora';
+  }
+  if (!pressaoTeam) return '';
+
+  let chuteTeam = null;
+  if (shots && shots.length) {
+    const lastMin = Math.max(...shots.map(s => s.minute || 0), 0);
+    const curMin = Number.isFinite(m.minuto) ? m.minuto : null;
+    if (curMin === null || Math.abs(curMin - lastMin) <= 1) {
+      const recent = shots.filter(s => (s.minute || 0) === lastMin);
+      if (recent.length) {
+        const homeCount = recent.filter(s => s.isHome).length;
+        const awayCount = recent.length - homeCount;
+        chuteTeam = homeCount >= awayCount ? 'casa' : 'fora';
+      }
+    }
+  }
+  if (!chuteTeam || chuteTeam !== pressaoTeam) return '';
+
+  const isHome = pressaoTeam === 'casa';
+  const who    = isHome ? 'Casa' : 'Visitante';
+  const color  = isHome ? '#3b82f6' : '#ef4444';
+
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;
+    color:${color};background:${color}22;border:1px solid ${color}66;border-radius:10px;padding:2px 8px">
+    🔥 ${who} pressionando e finalizando
+  </span>`;
+}
+
+// Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
+// oficial, xG por chutes) sempre que momentum OU shotmap terminam de carregar
+async function _live2RefreshBadges(matchId) {
+  const badgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
+  if (!badgeEl) return;
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  if (!m) return;
+  const points = _live2PointsCache[matchId] || [];
+  const shots  = _live2ShotsCache[matchId] || [];
+
+  const pressureHtml = buildPressureBadgeHtml(points, m);
+  const shotsHtml    = _live2ShotsBadgeHtml(shots, m);
+  const xgHtml       = buildXgBadgeHtml(m);
+  const xgzHtml      = await buildIndicatorXgBadgeHtml(shots, m);
+  const comboHtml    = _live2CombinedSignalBadgeHtml(points, shots, m);
+
+  const freshBadgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
+  if (!freshBadgeEl) return;
+  const html = comboHtml + pressureHtml + shotsHtml + xgHtml + xgzHtml;
+  freshBadgeEl.style.cssText = html
+    ? 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px'
+    : 'text-align:center;margin-top:4px';
+  freshBadgeEl.innerHTML = html;
 }
 
 // Guarda o HTML das estatísticas/odds já carregadas por partida — o grid do Ao Vivo 2
@@ -6118,10 +6231,8 @@ async function _loadLive2Momentum(matches) {
           _live2AttachMomentumTooltip(canvasEl, points);
           _live2RenderMomentumMarkers(m.id, points);
         }
-        // Selo de pressão é barato de atualizar — refaz sempre, mesmo sem redesenhar o canvas
-        const badgeEl = document.getElementById(`live2PressureBadge_${m.id}`);
-        if (badgeEl) badgeEl.innerHTML = buildPressureBadgeHtml(points, m);
         _live2PointsCache[m.id] = points;
+        _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
       }
