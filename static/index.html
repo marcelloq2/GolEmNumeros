@@ -5647,6 +5647,9 @@ async function loadLive2Matches() {
     }
     _loadLive2Momentum(matches);
     _loadLive2Shotmap(matches);
+    _loadLive2Lineups(matches);
+    _loadLive2Standings(matches);
+    _loadLive2GoalEvents(matches);
   } catch (e) {
     wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
       <div style="font-size:13px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div>
@@ -5655,13 +5658,38 @@ async function loadLive2Matches() {
   }
 }
 
+// Guarda o último placar visto de cada partida — usado só pra detectar gol novo
+// e disparar o mesmo efeito visual (goal-flash/goal-banner) do Ao Vivo original
+let _live2PrevScore = {};
+
 function _live2UpdateCardNumbers(m) {
   const scoreEl  = document.getElementById(`live2Score_${m.id}`);
   const htEl     = document.getElementById(`live2HT_${m.id}`);
   const minuteEl = document.getElementById(`live2Minute_${m.id}`);
-  if (scoreEl)  scoreEl.textContent  = `${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}`;
+
+  const prev    = _live2PrevScore[m.id] || { casa: m.golCasaFt ?? 0, fora: m.golForaFt ?? 0 };
+  const curCasa = m.golCasaFt ?? 0, curFora = m.golForaFt ?? 0;
+  const golNovo = curCasa > prev.casa || curFora > prev.fora;
+  _live2PrevScore[m.id] = { casa: curCasa, fora: curFora };
+
+  if (scoreEl)  scoreEl.textContent  = `${curCasa} - ${curFora}`;
   if (htEl)     htEl.textContent     = `HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}`;
   if (minuteEl) minuteEl.textContent = `⏱ ${m.minuto || '--'}`;
+
+  if (golNovo && scoreEl) {
+    const who = (curCasa > prev.casa && curFora > prev.fora) ? '⚽ GOL!'
+              : (curCasa > prev.casa) ? `⚽ GOL! ${m.casa}`
+              : `⚽ GOL! ${m.fora}`;
+    const banner = document.createElement('div');
+    banner.className = 'goal-banner';
+    banner.textContent = who;
+    scoreEl.parentElement.style.position = 'relative';
+    scoreEl.parentElement.appendChild(banner);
+    scoreEl.classList.remove('goal-flash');
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add('goal-flash');
+    setTimeout(() => { scoreEl.classList.remove('goal-flash'); banner.remove(); }, 2400);
+  }
 }
 
 // Card básico de partida — ponto de partida pra ir plugando os experimentos novos
@@ -5674,32 +5702,215 @@ function renderLive2Card(m) {
       </div>
       <div class="live-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div class="live-card-team" style="flex:1;justify-content:flex-start"><span class="tname">${m.casa}</span></div>
+          <div class="live-card-team" style="flex:1;justify-content:flex-start">
+            <span class="tname">${m.casa}</span>
+            <span id="live2PosCasa_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
+          </div>
           <div style="text-align:center;flex-shrink:0;padding:0 10px">
             <div id="live2Score_${m.id}" style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
             <div id="live2HT_${m.id}" style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
           </div>
-          <div class="live-card-team" style="flex:1;justify-content:flex-end;text-align:right"><span class="tname">${m.fora}</span></div>
+          <div class="live-card-team" style="flex:1;justify-content:flex-end;text-align:right">
+            <span id="live2PosFora_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
+            <span class="tname">${m.fora}</span>
+          </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
+        <div id="live2GoalEventsBox_${m.id}" style="display:flex;gap:8px;font-size:10px;margin-top:4px">${_live2GoalEventsCache[m.id] ? _today2GoalEventsHtml(_live2GoalEventsCache[m.id]) : ''}</div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
-      <div style="padding:8px 12px;border-top:1px dashed var(--border)">
-        <button onclick="loadLive2Flashscore('${m.id}', this)"
-          style="width:100%;background:none;border:1px solid #a855f766;color:#a855f7;
-                 font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;
-                 ${_live2FsCache[m.id] ? 'display:none' : ''}">
-          📊 Carregar estatísticas + odds (Flashscore)
-        </button>
-        <div id="live2FsWrap_${m.id}">${_live2FsCache[m.id] || ''}</div>
+      <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
+        <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
+        <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
+        <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','prestats',this)">Estatísticas Pré</button>
       </div>
+      <div id="live2TabBody_${m.id}">${_live2GeralTabHtml(m)}</div>
     </div>`;
+}
+
+// ── Controle da aba ativa (Geral / Escalações / Estatísticas Pré) de cada card,
+// mesmo padrão visual (.live-card-tabs) já usado no Ao Vivo original ──
+let _live2Tab = {};
+function setLive2Tab(matchId, tab, btn) {
+  _live2Tab[matchId] = tab;
+  document.querySelectorAll(`#live2Tabs_${matchId} .live-card-tab-btn`).forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const body = document.getElementById(`live2TabBody_${matchId}`);
+  if (!body) return;
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  if (tab === 'geral') {
+    body.innerHTML = _live2GeralTabHtml(m);
+  } else if (tab === 'escalacoes') {
+    body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+  } else if (tab === 'prestats') {
+    body.innerHTML = `<div id="live2PreStatsWrap_${matchId}">⏳ Buscando histórico...</div>`;
+    if (!_live2PreStatsLoaded[matchId]) {
+      _live2PreStatsLoaded[matchId] = true;
+      if (m) _live2LoadPreStats(matchId, m);
+    } else {
+      _live2RenderPreStats(matchId);
+    }
+  }
+}
+
+function _live2GeralTabHtml(m) {
+  if (!m) return '';
+  return `
+    <div style="padding:8px 12px">
+      <button onclick="loadLive2Flashscore('${m.id}', this)"
+        style="width:100%;background:none;border:1px solid #a855f766;color:#a855f7;
+               font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;
+               ${_live2FsCache[m.id] ? 'display:none' : ''}">
+        📊 Carregar estatísticas + odds (Flashscore)
+      </button>
+      <div id="live2FsWrap_${m.id}">${_live2FsCache[m.id] || ''}</div>
+    </div>`;
+}
+
+// Widget "Estatísticas Pré" — placares corretos (Geral/Casa/Fora) de cada time, mesma
+// fonte e cálculo já usados na aba "Placares Corretos" do Hoje 2 (h2h + _csBucketFrequency)
+let _live2PreStatsCache = {};  // { [matchId]: { _h2hTabs } }
+let _live2PreStatsScope = {};  // { [matchId]: 0|1|2 } — Geral/Casa/Fora
+let _live2PreStatsLoaded = {}; // evita recarregar toda vez que a aba é reaberta
+
+async function _live2LoadPreStats(matchId, m) {
+  const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
+  if (!wrap) return;
+  wrap.innerHTML = '⏳ Buscando histórico...';
+  const cache = _live2PreStatsCache[matchId] || (_live2PreStatsCache[matchId] = {});
+  const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+  try {
+    if (!cache._h2hTabs) {
+      const r = await fetch(`/api/flashscore/h2h?${params}`);
+      const d = await r.json();
+      cache._h2hTabs = d.tabs || [];
+    }
+  } catch (e) {
+    wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar histórico</div>';
+    return;
+  }
+  _live2RenderPreStats(matchId);
+}
+
+function _live2RenderPreStats(matchId) {
+  const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
+  if (!wrap) return;
+  const cache = _live2PreStatsCache[matchId] || {};
+  const tabs = cache._h2hTabs || [];
+  if (!tabs.length) { wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem histórico disponível</div>'; return; }
+  const scope = _live2PreStatsScope[matchId] ?? 0;
+  let blocks; // [{teamName, rows}]
+  if (scope === 0) blocks = [_profitTeamRowsFromSection(tabs, 0, true), _profitTeamRowsFromSection(tabs, 0, false)];
+  else if (scope === 1) blocks = [_profitTeamRowsFromSection(tabs, 1, true)];
+  else blocks = [_profitTeamRowsFromSection(tabs, 2, false)];
+
+  const freqs = blocks.map(b => _csBucketFrequency(b.rows));
+  const blockHtml = (b, i) => _csFrequencyTableHtml(freqs[i], b.teamName);
+
+  wrap.innerHTML = `
+    <div style="display:flex;gap:4px;margin-bottom:8px">
+      ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `
+        <button onclick="_live2SetPreStatsScope('${matchId}',${i})"
+          style="flex:1;font-size:10px;font-weight:700;padding:4px;border-radius:5px;cursor:pointer;
+                 border:1px solid var(--border);background:${i === scope ? 'var(--accent)' : 'var(--bg3)'};
+                 color:${i === scope ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${blocks.map((b, i) => blockHtml(b, i)).join('')}
+    </div>`;
+}
+
+function _live2SetPreStatsScope(matchId, idx) {
+  _live2PreStatsScope[matchId] = idx;
+  _live2RenderPreStats(matchId);
+}
+
+// Posição na tabela — reaproveita o mesmo endpoint usado no Hoje 2 (/api/flashscore/standings),
+// mostrando um número ao lado do nome de cada time
+let _live2PosCache = {};
+async function _loadLive2Standings(matches) {
+  for (const m of matches) {
+    const casaEl = document.getElementById(`live2PosCasa_${m.id}`);
+    const foraEl = document.getElementById(`live2PosFora_${m.id}`);
+    if (!casaEl && !foraEl) continue;
+    if (_live2PosCache[m.id]) {
+      if (casaEl) casaEl.textContent = _live2PosCache[m.id].casa || '';
+      if (foraEl) foraEl.textContent = _live2PosCache[m.id].fora || '';
+      continue;
+    }
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/standings?${params}`);
+      const d = await r.json();
+      const rows = d.rows || [];
+      const norm = s => (s || '').trim().toLowerCase();
+      const rowCasa = rows.find(row => norm(row.team) === norm(m.casa));
+      const rowFora = rows.find(row => norm(row.team) === norm(m.fora));
+      const posCasa = rowCasa?.pos ? `${rowCasa.pos}º` : '';
+      const posFora = rowFora?.pos ? `${rowFora.pos}º` : '';
+      _live2PosCache[m.id] = { casa: posCasa, fora: posFora };
+      if (casaEl) casaEl.textContent = posCasa;
+      if (foraEl) foraEl.textContent = posFora;
+    } catch (e) {}
+  }
+}
+
+// Goleadores + minutos — reaproveita o mesmo endpoint e desenho já usados no Hoje 2
+// (/api/flashscore/goal_events + _today2GoalEventsHtml), agora também no Ao Vivo 2
+let _live2GoalEventsCache = {};
+async function _loadLive2GoalEvents(matches) {
+  for (const m of matches) {
+    const box = document.getElementById(`live2GoalEventsBox_${m.id}`);
+    if (!box) continue;
+    if (_live2GoalEventsCache[m.id]) { box.innerHTML = _today2GoalEventsHtml(_live2GoalEventsCache[m.id]); continue; }
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/goal_events?${params}`);
+      const d = await r.json();
+      _live2GoalEventsCache[m.id] = d.events || [];
+    } catch (e) {
+      _live2GoalEventsCache[m.id] = [];
+    }
+    const freshBox = document.getElementById(`live2GoalEventsBox_${m.id}`);
+    if (freshBox) freshBox.innerHTML = _today2GoalEventsHtml(_live2GoalEventsCache[m.id]);
+  }
+}
+
+// Escalações — reaproveita o mesmo endpoint (uniscore/live-all, em lote) e a mesma
+// função de desenho (buildLineupHtml) do Ao Vivo original
+let _live2LineupCache = {};
+async function _loadLive2Lineups(matches) {
+  try {
+    const partidas = matches.map(m => ({ casa: m.casa, fora: m.fora }));
+    const res  = await fetch('/api/uniscore/live-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partidas })
+    });
+    const results = await res.json();
+    results.forEach((d, i) => {
+      const m = matches[i];
+      if (!m) return;
+      _uniCache[`${m.casa}|${m.fora}`] = d;
+      if (d && d.casa) _uniCache[`${d.casa}|${d.fora}`] = d;
+      const hasLineup = d?.lineup_casa?.titulares?.length || d?.lineup_fora?.titulares?.length;
+      const html = hasLineup ? buildLineupHtml(m) : '';
+      if (html !== _live2LineupCache[m.id]) {
+        _live2LineupCache[m.id] = html;
+        // Só atualiza a tela se a aba "Escalações" desse card estiver aberta agora
+        if (_live2Tab[m.id] === 'escalacoes') {
+          const body = document.getElementById(`live2TabBody_${m.id}`);
+          if (body) body.innerHTML = html || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+        }
+      }
+    });
+  } catch (e) {}
 }
 
 // Mapa de chutes — reaproveita o mesmo endpoint e a mesma função de desenho
