@@ -2477,7 +2477,8 @@ async function _loadToday2MetodologiasPanel() {
       btcsTop.forEach(p => {
         const key = `btcs::${p.bucket}`;
         _today2MetodCatalog[key] = { source: 'btcs', bucket: p.bucket };
-        const label = `${p.variable_label}: ${p.segment_label} → placar ${p.bucket} raramente sai (lift ${p.lift}x)`;
+        const taxaAcerto = Math.round((1 - p.segment_rate) * 1000) / 10;
+        const label = `Placar ${p.bucket} → taxa de acerto ${taxaAcerto}%`;
         html += _today2MetodCheckboxHtml(key, label);
       });
     }
@@ -5609,21 +5610,10 @@ async function loadLive2Matches() {
       <div style="font-size:13px;font-weight:600">Carregando jogos ao vivo...</div>
     </div>`;
   }
-  if (!_live2AddedPairs.length) {
-    wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
-      <div style="font-size:32px">🧪</div>
-      <div style="font-size:13px;font-weight:600">Nenhuma partida adicionada ainda</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">Vá em 🧪 Hoje 2, abra uma partida e clique em "➕ Adicionar ao Ao Vivo 2"</div>
-    </div>`;
-    const badge = document.getElementById('live2CountBadge');
-    if (badge) badge.textContent = 0;
-    return;
-  }
   try {
     const res  = await fetch('/api/radar/live');
     const data = await res.json();
-    const todasAoVivo = data.live || [];
-    const matches = todasAoVivo.filter(m => _isLive2Added(m.casa, m.fora));
+    const matches = data.live || [];
     live2MatchesCache = matches;
 
     const badge = document.getElementById('live2CountBadge');
@@ -5632,7 +5622,7 @@ async function loadLive2Matches() {
     if (!matches.length) {
       wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
         <div style="font-size:36px">😴</div>
-        <div style="font-size:13px;font-weight:600">Nenhuma das partidas adicionadas está ao vivo agora</div>
+        <div style="font-size:13px;font-weight:600">Nenhuma partida ao vivo agora</div>
       </div>`;
       return;
     }
