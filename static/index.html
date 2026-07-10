@@ -5601,6 +5601,11 @@ function toggleLive2Added(matchId, btn) {
   if (document.getElementById('live2Panel')?.classList.contains('active')) loadLive2Matches();
 }
 
+// IDs das partidas atualmente desenhadas no grid — permite detectar se o refresh
+// automático pode só atualizar os números (placar/minuto) e o gráfico de pressão
+// em vez de reconstruir todos os cards do zero (o que causava o "piscar" da tela)
+let _live2RenderedIds = [];
+
 async function loadLive2Matches() {
   const wrap = document.getElementById('live2GridWrap');
   if (!wrap) return;
@@ -5624,17 +5629,39 @@ async function loadLive2Matches() {
         <div style="font-size:36px">😴</div>
         <div style="font-size:13px;font-weight:600">Nenhuma partida ao vivo agora</div>
       </div>`;
+      _live2RenderedIds = [];
       return;
     }
 
-    wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
+    const newIds = matches.map(m => m.id);
+    const samePartidas = newIds.length === _live2RenderedIds.length
+      && newIds.every((id, i) => id === _live2RenderedIds[i]);
+
+    if (samePartidas) {
+      // Mesmas partidas já desenhadas: só atualiza placar/minuto no lugar, sem
+      // recriar os cards — evita o "piscar" (reload de imagens, perda de scroll etc.)
+      matches.forEach(m => _live2UpdateCardNumbers(m));
+    } else {
+      wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
+      _live2RenderedIds = newIds;
+    }
     _loadLive2Momentum(matches);
     _loadLive2Shotmap(matches);
   } catch (e) {
     wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
       <div style="font-size:13px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div>
     </div>`;
+    _live2RenderedIds = [];
   }
+}
+
+function _live2UpdateCardNumbers(m) {
+  const scoreEl  = document.getElementById(`live2Score_${m.id}`);
+  const htEl     = document.getElementById(`live2HT_${m.id}`);
+  const minuteEl = document.getElementById(`live2Minute_${m.id}`);
+  if (scoreEl)  scoreEl.textContent  = `${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}`;
+  if (htEl)     htEl.textContent     = `HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}`;
+  if (minuteEl) minuteEl.textContent = `⏱ ${m.minuto || '--'}`;
 }
 
 // Card básico de partida — ponto de partida pra ir plugando os experimentos novos
@@ -5649,13 +5676,13 @@ function renderLive2Card(m) {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div class="live-card-team" style="flex:1;justify-content:flex-start"><span class="tname">${m.casa}</span></div>
           <div style="text-align:center;flex-shrink:0;padding:0 10px">
-            <div style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
-            <div style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
+            <div id="live2Score_${m.id}" style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
+            <div id="live2HT_${m.id}" style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
           </div>
           <div class="live-card-team" style="flex:1;justify-content:flex-end;text-align:right"><span class="tname">${m.fora}</span></div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
-          <div class="live-card-meta">⏱ ${m.minuto || '--'}</div>
+          <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
@@ -5677,6 +5704,7 @@ function renderLive2Card(m) {
 
 // Mapa de chutes — reaproveita o mesmo endpoint e a mesma função de desenho
 // (buildShotMapHtml) do Ao Vivo original, só carregando em cada card do Ao Vivo 2
+let _live2ShotsCountCache = {};
 async function _loadLive2Shotmap(matches) {
   for (const m of matches) {
     const wrap = document.getElementById(`live2ShotmapWrap_${m.id}`);
@@ -5686,11 +5714,11 @@ async function _loadLive2Shotmap(matches) {
       const res    = await fetch(`/api/radar/shotmap/${m.id}?${params}`);
       const data   = await res.json();
       const shots  = data.shots || [];
-      if (shots.length) {
-        wrap.innerHTML = buildShotMapHtml(shots, m.casa, m.fora);
-      } else {
-        wrap.innerHTML = '';
-      }
+      // Só redesenha se a quantidade de chutes mudou — evita "piscar" o SVG
+      // do zero a cada ciclo de refresh quando nada de novo aconteceu
+      if (_live2ShotsCountCache[m.id] === shots.length && wrap.innerHTML.trim()) continue;
+      _live2ShotsCountCache[m.id] = shots.length;
+      wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora) : '';
     } catch (e) {
       wrap.innerHTML = '';
     }
@@ -5715,12 +5743,20 @@ async function _loadLive2Momentum(matches) {
       const data   = await res.json();
       const points = data.graphPoints || [];
       if (points.length) {
-        wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas>`;
-        const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
-        drawMiniMomentum(canvasEl, points, data.goals || []);
-        _live2AttachMomentumTooltip(canvasEl, points);
+        // Só recria o canvas se o número de pontos mudou (novo dado de fato) —
+        // redesenhar o mesmo gráfico do zero a cada ciclo de 20s causava um
+        // "piscar" visível mesmo sem nenhuma mudança real nos dados.
+        const prevPoints = _live2PointsCache[m.id];
+        const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
+        const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
+        if (!unchanged) {
+          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas>`;
+          const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
+          drawMiniMomentum(canvasEl, points, data.goals || []);
+          _live2AttachMomentumTooltip(canvasEl, points);
+          _live2RenderMomentumMarkers(m.id, points);
+        }
         _live2PointsCache[m.id] = points;
-        _live2RenderMomentumMarkers(m.id, points);
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
       }
