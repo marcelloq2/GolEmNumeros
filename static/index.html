@@ -6296,6 +6296,27 @@ function _live2AttachMomentumTooltip(canvas, points) {
 let _live2MarkersCache = {};   // { [matchId]: marker[] } — marcadores já calculados
 let _live2PointsCache  = {};   // { [matchId]: graphPoints[] } — pra poder re-renderizar
 
+// Valida o padrão "Grande Chance" contra a base de jogos salvos (momentum_history)
+// antes de decidir se ele deve continuar aparecendo — busca 1x e cacheia (mesmo TTL
+// de 30min do backend, não faz sentido rebuscar mais rápido que isso)
+let _live2ChancePatternStats = null;
+let _live2ChancePatternFetchedAt = 0;
+async function _live2GetChancePatternStats() {
+  const now = Date.now();
+  if (_live2ChancePatternStats && (now - _live2ChancePatternFetchedAt) < 30 * 60 * 1000) {
+    return _live2ChancePatternStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/chance_pattern_stats');
+    _live2ChancePatternStats = await r.json();
+    _live2ChancePatternFetchedAt = now;
+  } catch (e) {
+    // Se a validação falhar, não assume que o padrão é real — mantém suprimido
+    _live2ChancePatternStats = { valido: false };
+  }
+  return _live2ChancePatternStats;
+}
+
 function _live2DetectPressureMarkers(points) {
   if (!points || points.length < 4) return [];
   // mesmo cálculo de maxVal usado em drawMiniMomentum, pra usar a mesma escala
@@ -6349,7 +6370,11 @@ function _live2DetectPressureMarkers(points) {
     }
   }
 
-  // 2) Picos pontuais (1-2 pontos), fora de qualquer janela de Momento Over
+  // 2) Picos pontuais (1-2 pontos), fora de qualquer janela de Momento Over — só
+  // entra na lista se a base de ~2.500 jogos salvos (momentum_history) validou que
+  // esse formato de pico realmente costuma virar gol logo depois (ver
+  // /api/momentum/chance_pattern_stats e _live2GetChancePatternStats)
+  const chanceValidado = !!(_live2ChancePatternStats && _live2ChancePatternStats.valido);
   const isInOverWindow = (idx) => overWindows.some(w => idx >= w.startIdx && idx <= w.endIdx);
   i = 0;
   while (i < points.length) {
@@ -6357,12 +6382,12 @@ function _live2DetectPressureMarkers(points) {
     if (v >= chanceThresh && !isInOverWindow(i)) {
       let j = i;
       while (j < points.length && Math.abs(points[j].value || 0) >= chanceThresh && !isInOverWindow(j)) j++;
-      if (j - i <= 2) {
+      if (j - i <= 2 && chanceValidado) {
         const minute = Math.floor(points[i].minute);
         const isHome = (points[i].value || 0) >= 0;
         markers.push({
           type: 'chance', icon: '⚡', minute, isHome,
-          label: `${minute}' — Grande Chance (${isHome ? 'Casa' : 'Fora'})`,
+          label: `${minute}' — Grande Chance (${isHome ? 'Casa' : 'Fora'}) · validado na base (lift ${_live2ChancePatternStats.lift}x)`,
         });
       }
       i = j;
@@ -6380,6 +6405,12 @@ function _live2RenderMomentumMarkers(matchId, points, extraMarkers) {
   const wrap = document.getElementById(`live2MomentumWrap_${matchId}`);
   const canvasEl = document.getElementById(`live2MomentumCanvas_${matchId}`);
   if (!wrap || !canvasEl || !points || !points.length) return;
+
+  // Ainda não validamos o padrão "Grande Chance" contra a base — busca em segundo
+  // plano (cacheado por 30min) e re-renderiza os marcadores assim que chegar
+  if (!_live2ChancePatternStats) {
+    _live2GetChancePatternStats().then(() => _live2RenderMomentumMarkers(matchId, points, extraMarkers));
+  }
 
   const detected = _live2DetectPressureMarkers(points);
   const all = [...detected, ...(extraMarkers || [])];

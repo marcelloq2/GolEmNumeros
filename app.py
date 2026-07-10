@@ -1650,6 +1650,127 @@ def api_momentum_history():
     return jsonify({"matches": matches, "total": len(matches)})
 
 
+def _momentum_detect_chance_spikes(points):
+    """Porta exata da parte 'Grande Chance' de _live2DetectPressureMarkers (JS) —
+    pico pontual (1-2 pontos) de pressão >= 80% do máximo daquele jogo, fora de
+    qualquer janela sustentada (Momento Over, >=4 pontos >= 60% do máximo)."""
+    n = len(points)
+    if n < 4:
+        return []
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    over_thresh    = max_val * 0.6
+    chance_thresh  = max_val * 0.8
+
+    over_windows = []
+    i = 0
+    while i < n:
+        if abs(points[i].get("value") or 0) >= over_thresh:
+            j = i
+            while j < n and abs(points[j].get("value") or 0) >= over_thresh:
+                j += 1
+            if j - i >= 4:
+                over_windows.append((i, j - 1))
+            i = j
+        else:
+            i += 1
+
+    def in_over_window(idx):
+        return any(s <= idx <= e for s, e in over_windows)
+
+    spikes = []
+    i = 0
+    while i < n:
+        v = abs(points[i].get("value") or 0)
+        if v >= chance_thresh and not in_over_window(i):
+            j = i
+            while j < n and abs(points[j].get("value") or 0) >= chance_thresh and not in_over_window(j):
+                j += 1
+            if j - i <= 2:
+                spikes.append({
+                    "minute": int(points[i].get("minute") or 0),
+                    "is_home": (points[i].get("value") or 0) >= 0,
+                })
+            i = j
+        else:
+            i += 1
+    return spikes
+
+
+_CHANCE_PATTERN_CACHE = {"ts": 0, "data": None}
+_CHANCE_PATTERN_TTL = 30 * 60  # 30 minutos — reescanear a base inteira a cada request seria lento
+_CHANCE_PATTERN_WINDOW = 10    # minutos após o pico pra considerar "virou gol"
+
+@app.route("/api/momentum/chance_pattern_stats")
+def api_momentum_chance_pattern_stats():
+    """Valida o indicador 'Grande Chance' (Ao Vivo 2) contra toda a base de jogos
+    salvos em momentum_history: pra cada pico detectado pelo mesmo algoritmo usado
+    ao vivo, verifica se saiu gol do MESMO time nos N minutos seguintes. Compara a
+    taxa de acerto com uma taxa-base (chance de sair gol de um time qualquer numa
+    janela aleatória do mesmo tamanho) pra saber se o padrão tem sinal real."""
+    now = time.time()
+    if _CHANCE_PATTERN_CACHE["data"] and (now - _CHANCE_PATTERN_CACHE["ts"]) < _CHANCE_PATTERN_TTL:
+        return jsonify(_CHANCE_PATTERN_CACHE["data"])
+
+    files = glob.glob(os.path.join(MOMENTUM_DIR, "*.json"))
+    total_spikes = 0
+    hits = 0
+    total_goals = 0
+    total_minutes = 0
+    matches_used = 0
+
+    for fpath in files:
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        points = d.get("graphPoints") or []
+        goals  = d.get("goals") or []
+        if len(points) < 4:
+            continue
+        matches_used += 1
+        total_minutes += max((p.get("minute") or 0) for p in points)
+        total_goals   += len(goals)
+
+        spikes = _momentum_detect_chance_spikes(points)
+        for sp in spikes:
+            total_spikes += 1
+            team = "home" if sp["is_home"] else "away"
+            saiu_gol = any(
+                g.get("team") == team
+                and 0 <= (g.get("minute") or 0) - sp["minute"] <= _CHANCE_PATTERN_WINDOW
+                for g in goals
+            )
+            if saiu_gol:
+                hits += 1
+
+    hit_rate = (hits / total_spikes) if total_spikes else 0.0
+    # Taxa-base: probabilidade de sair gol de UM time específico numa janela aleatória
+    # do mesmo tamanho — aproximação a partir da taxa média de gols/minuto da base,
+    # dividida por 2 (metade das vezes o gol é do time "certo" por acaso)
+    gols_por_minuto = (total_goals / total_minutes) if total_minutes else 0.0
+    baseline_rate = (gols_por_minuto * _CHANCE_PATTERN_WINDOW) / 2
+    lift = (hit_rate / baseline_rate) if baseline_rate else 0.0
+
+    # Só considera o padrão validado com amostra mínima e lift real sobre o acaso
+    MIN_SAMPLE = 30
+    valido = total_spikes >= MIN_SAMPLE and lift >= 1.3
+
+    data = {
+        "matches_used":  matches_used,
+        "total_spikes":  total_spikes,
+        "hits":          hits,
+        "hit_rate":      round(hit_rate, 4),
+        "baseline_rate": round(baseline_rate, 4),
+        "lift":          round(lift, 3),
+        "window_min":    _CHANCE_PATTERN_WINDOW,
+        "valido":        valido,
+    }
+    _CHANCE_PATTERN_CACHE["data"] = data
+    _CHANCE_PATTERN_CACHE["ts"]   = now
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
