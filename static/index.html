@@ -5634,6 +5634,45 @@ function toggleLive2Added(matchId, btn) {
   if (document.getElementById('live2Panel')?.classList.contains('active')) loadLive2Matches();
 }
 
+// Favoritos do Ao Vivo 2 — mesmo padrão do "fixar no topo" (⭐) já usado no Ao Vivo
+// original, guardado à parte (chave própria) pra não misturar os dois grids
+let _pinnedLive2 = new Set(JSON.parse(localStorage.getItem('pinnedLive2Matches') || '[]'));
+function toggleLive2Pin(id) {
+  id = String(id);
+  if (_pinnedLive2.has(id)) _pinnedLive2.delete(id);
+  else _pinnedLive2.add(id);
+  localStorage.setItem('pinnedLive2Matches', JSON.stringify([..._pinnedLive2]));
+  const pinEl = document.getElementById(`live2Pin_${id}`);
+  if (pinEl) {
+    const isPinned = _pinnedLive2.has(id);
+    pinEl.textContent = isPinned ? '⭐' : '☆';
+    pinEl.title = isPinned ? 'Remover dos favoritos' : 'Favoritar partida';
+  }
+  // Re-renderiza o grid pra reordenar (favoritos primeiro), reaproveitando o
+  // último resultado buscado — não precisa esperar o próximo refresh de 20s
+  if (live2MatchesCache.length) {
+    const wrap = document.getElementById('live2GridWrap');
+    if (wrap) {
+      const sorted = _live2SortByPin(live2MatchesCache);
+      wrap.innerHTML = sorted.map(m => renderLive2Card(m)).join('');
+      _live2RenderedIds = sorted.map(m => m.id);
+      _loadLive2Momentum(sorted);
+      _loadLive2Shotmap(sorted);
+      _loadLive2Lineups(sorted);
+      _loadLive2Standings(sorted);
+      _loadLive2GoalEvents(sorted);
+    }
+  }
+}
+
+function _live2SortByPin(matches) {
+  return [...matches].sort((a, b) => {
+    const pa = _pinnedLive2.has(String(a.id)) ? 0 : 1;
+    const pb = _pinnedLive2.has(String(b.id)) ? 0 : 1;
+    return pa - pb;
+  });
+}
+
 // IDs das partidas atualmente desenhadas no grid — permite detectar se o refresh
 // automático pode só atualizar os números (placar/minuto) e o gráfico de pressão
 // em vez de reconstruir todos os cards do zero (o que causava o "piscar" da tela)
@@ -5651,7 +5690,7 @@ async function loadLive2Matches() {
   try {
     const res  = await fetch('/api/radar/live');
     const data = await res.json();
-    const matches = data.live || [];
+    const matches = _live2SortByPin(data.live || []);
     live2MatchesCache = matches;
 
     const badge = document.getElementById('live2CountBadge');
@@ -5730,8 +5769,11 @@ function _live2UpdateCardNumbers(m) {
 function renderLive2Card(m) {
   return `
     <div class="live-card" style="border-color:#a855f766">
-      <div class="live-card-top" style="justify-content:center;text-align:center">
+      <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
+        <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
+          title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
+          style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
       </div>
       <div class="live-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -5831,49 +5873,154 @@ async function _live2LoadPreStats(matchId, m) {
   _live2RenderPreStats(matchId);
 }
 
+// Só lista os placares que NUNCA saíram (0%) tanto no recorte Geral do time quanto no
+// recorte específico (Casa pro mandante, Fora pro visitante) — é isso que o usuário
+// pediu: "ex: placar 0x1 geral 0% casa 0% visitante 0%"
+function _live2ZeroBucketsTableHtml(teamName, generalFreq, splitFreq, splitLabel) {
+  const titulo = `<div style="font-size:12px;font-weight:700;text-align:left;margin:6px 0 6px">⚽ ${teamName || '—'} <span style="font-weight:400;color:var(--text2)">— placares 0% (Geral e ${splitLabel})</span></div>`;
+  if (!generalFreq.n || !splitFreq.n) return titulo + '<div style="color:var(--text2);font-size:11px">sem jogos suficientes</div>';
+  const zeroBuckets = PLACAR_EXATO_BUCKETS_ORDER.filter(key =>
+    (generalFreq.counts[key] || 0) === 0 && (splitFreq.counts[key] || 0) === 0);
+  if (!zeroBuckets.length) return titulo + '<div style="color:var(--text2);font-size:11px">nenhum placar com 0% nos dois recortes</div>';
+  return titulo + `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <table style="width:100%;font-size:11px;text-align:center;border-collapse:collapse;table-layout:fixed">
+        <colgroup><col style="width:46%"><col style="width:27%"><col style="width:27%"></colgroup>
+        <thead><tr style="color:var(--text2)">
+          <th style="text-align:left;padding:5px 8px">Placar</th><th>Geral</th><th>${splitLabel}</th>
+        </tr></thead>
+        <tbody>
+          ${zeroBuckets.map((key, i) => `<tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">
+            <td style="text-align:left;padding:5px 8px;color:var(--text)">${key}</td>
+            <td style="color:var(--text2)">0%</td>
+            <td style="color:var(--text2)">0%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 async function _live2RenderPreStats(matchId) {
   const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
   if (!wrap) return;
   const cache = _live2PreStatsCache[matchId] || {};
   const tabs = cache._h2hTabs || [];
   if (!tabs.length) { wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem histórico disponível</div>'; return; }
-  const scope = _live2PreStatsScope[matchId] ?? 0;
-  let blocks; // [{teamName, rows}]
-  if (scope === 0) blocks = [_profitTeamRowsFromSection(tabs, 0, true), _profitTeamRowsFromSection(tabs, 0, false)];
-  else if (scope === 1) blocks = [_profitTeamRowsFromSection(tabs, 1, true)];
-  else blocks = [_profitTeamRowsFromSection(tabs, 2, false)];
 
-  const freqs = blocks.map(b => _csBucketFrequency(b.rows));
-  const blockHtml = (b, i) => _csFrequencyTableHtml(freqs[i], b.teamName);
+  const homeGeneral = _profitTeamRowsFromSection(tabs, 0, true);
+  const homeCasa     = _profitTeamRowsFromSection(tabs, 1, true);
+  const awayGeneral = _profitTeamRowsFromSection(tabs, 0, false);
+  const awayFora     = _profitTeamRowsFromSection(tabs, 2, false);
+
+  const freqHomeGeneral = _csBucketFrequency(homeGeneral.rows);
+  const freqHomeCasa    = _csBucketFrequency(homeCasa.rows);
+  const freqAwayGeneral = _csBucketFrequency(awayGeneral.rows);
+  const freqAwayFora    = _csBucketFrequency(awayFora.rows);
 
   wrap.innerHTML = `
-    <div style="display:flex;gap:4px;margin-bottom:8px">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
+      ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
+    </div>
+    <div style="display:flex;gap:4px;margin:10px 0 8px">
       ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `
         <button onclick="_live2SetPreStatsScope('${matchId}',${i})"
           style="flex:1;font-size:10px;font-weight:700;padding:4px;border-radius:5px;cursor:pointer;
-                 border:1px solid var(--border);background:${i === scope ? 'var(--accent)' : 'var(--bg3)'};
-                 color:${i === scope ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
+                 border:1px solid var(--border);background:${i === (_live2PreStatsScope[matchId] ?? 0) ? 'var(--accent)' : 'var(--bg3)'};
+                 color:${i === (_live2PreStatsScope[matchId] ?? 0) ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${blocks.map((b, i) => blockHtml(b, i)).join('')}
-    </div>
-    <div id="live2PreStatsMarketsWrap_${matchId}" style="margin-top:10px;font-size:10px;color:var(--text2);text-align:center">
+    <div id="live2PreStatsMarketsWrap_${matchId}" style="font-size:10px;color:var(--text2);text-align:center">
       ⏳ Calculando taxa de acerto dos mercados tradicionais...
+    </div>
+    <div id="live2InsightsWrap_${matchId}" style="margin-top:12px;font-size:10px;color:var(--text2);text-align:center">
+      ⏳ Gerando leitura da partida...
     </div>`;
 
   // Mercados tradicionais (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap
   // Asiático) — mesma fonte/cálculo da aba "Profit Mercados Tradicionais" do Hoje 2,
-  // só que mostrando taxa de acerto em vez de profit/ROI
+  // só que mostrando taxa de acerto em vez de profit/ROI. Continua usando o toggle
+  // Geral/Casa/Fora (esse mercado se beneficia do recorte, diferente da tabela de
+  // placares 0% acima, que já combina os dois recortes fixos por natureza)
+  const scope = _live2PreStatsScope[matchId] ?? 0;
+  let blocks; // [{teamName, rows}]
+  if (scope === 0) blocks = [homeGeneral, awayGeneral];
+  else if (scope === 1) blocks = [homeCasa];
+  else blocks = [awayFora];
+
   const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
   await _ensureToday2Odds(allIds);
   if ((_live2PreStatsScope[matchId] ?? 0) !== scope) return; // trocou de escopo enquanto buscava
   const marketsWrap = document.getElementById(`live2PreStatsMarketsWrap_${matchId}`);
-  if (!marketsWrap) return;
-  const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
-  marketsWrap.style.textAlign = '';
-  marketsWrap.innerHTML = blocks.map((b, i) => `
-    <div style="font-size:11px;font-weight:700;margin:8px 0 4px">⚽ ${b.teamName || '—'}</div>
-    ${_profitTableHtmlAcerto(aggs[i], PROFIT_MARKET_LABELS_TRADICIONAL)}`).join('');
+  if (marketsWrap) {
+    const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
+    marketsWrap.style.textAlign = '';
+    marketsWrap.innerHTML = blocks.map((b, i) => `
+      <div style="font-size:11px;font-weight:700;margin:8px 0 4px">⚽ ${b.teamName || '—'}</div>
+      ${_profitTableHtmlAcerto(aggs[i], PROFIT_MARKET_LABELS_TRADICIONAL)}`).join('');
+  }
+
+  // Leitura da Partida — só carrega 1x por partida (não depende do escopo
+  // Geral/Casa/Fora, usa seus próprios recortes fixos casa-em-casa/fora-fora)
+  if (!_live2InsightsLoaded[matchId]) {
+    _live2InsightsLoaded[matchId] = true;
+    _live2LoadInsights(matchId);
+  }
+}
+
+let _live2InsightsLoaded = {};
+
+async function _live2LoadInsights(matchId) {
+  const wrap = document.getElementById(`live2InsightsWrap_${matchId}`);
+  if (!wrap) return;
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  const cache = _live2PreStatsCache[matchId] || (_live2PreStatsCache[matchId] = {});
+  if (!m || !cache._h2hTabs || !cache._h2hTabs.length) { wrap.innerHTML = ''; return; }
+
+  const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+  try {
+    const fetches = [];
+    if (!cache._standingsRows) fetches.push(fetch(`/api/flashscore/standings?${params}`).then(r => r.json()).then(d => { cache._standingsRows = d.rows || []; }));
+    if (!cache._oddsMarkets) fetches.push(fetch(`/api/flashscore/odds_all?${params}`).then(r => r.json()).then(d => { cache._oddsMarkets = d.markets || {}; }));
+    await Promise.all(fetches);
+  } catch (e) {
+    wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar dados pra leitura da partida</div>';
+    return;
+  }
+
+  const tabs = cache._h2hTabs;
+  const homeHomeBlock    = _jogoStatsRowsFromSection(tabs, 1, true);
+  const awayAwayBlock    = _jogoStatsRowsFromSection(tabs, 2, false);
+  const homeGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, true);
+  const awayGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, false);
+
+  await Promise.all([homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock]
+    .map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
+
+  const profitHomeRows = _profitTeamRowsFromSection(tabs, 0, true);
+  const profitAwayRows = _profitTeamRowsFromSection(tabs, 0, false);
+  await _ensureToday2Odds([...profitHomeRows.rows, ...profitAwayRows.rows].map(r => r.id));
+  const profitAggHome = _profitAggregate(profitHomeRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
+  const profitAggAway = _profitAggregate(profitAwayRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
+
+  const csFreqHome = _csBucketFrequency(homeGeneralBlock.rows);
+  const csFreqAway = _csBucketFrequency(awayGeneralBlock.rows);
+
+  const freshWrap = document.getElementById(`live2InsightsWrap_${matchId}`);
+  if (!freshWrap) return;
+
+  // _today2InsightsCards espera m.home/m.away (nomenclatura do Hoje 2) — o Ao Vivo 2
+  // usa m.casa/m.fora, então passamos um objeto adaptado sem mexer na função original
+  const cards = _today2InsightsCards({
+    m: { ...m, home: m.casa, away: m.fora },
+    homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
+    standingsRows: cache._standingsRows || [],
+    oddsMarkets: cache._oddsMarkets || {},
+    profitHomeTeam: profitHomeRows.teamName, profitAwayTeam: profitAwayRows.teamName,
+    profitAggHome, profitAggAway, csFreqHome, csFreqAway,
+  });
+
+  freshWrap.style.textAlign = '';
+  freshWrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">🧠 Leitura da Partida</div>${_today2InsightsGridHtml(cards)}`;
 }
 
 function _live2SetPreStatsScope(matchId, idx) {
@@ -6303,13 +6450,13 @@ async function loadLive2Flashscore(matchId, btn) {
       const o = oddsData.odds;
       oddsHtml = `
         <div style="background:var(--bg3);border-radius:8px;padding:8px;margin-bottom:8px">
-          <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:5px">
             💰 Odds 1X2 — ${oddsData.bookmaker}
           </div>
           <div style="display:flex;gap:8px;text-align:center">
-            <div style="flex:1"><div style="font-size:15px;font-weight:800">${o.home?.value ?? '-'}</div><div style="font-size:9px;color:var(--text2)">Casa</div></div>
-            <div style="flex:1"><div style="font-size:15px;font-weight:800">${o.draw?.value ?? '-'}</div><div style="font-size:9px;color:var(--text2)">Empate</div></div>
-            <div style="flex:1"><div style="font-size:15px;font-weight:800">${o.away?.value ?? '-'}</div><div style="font-size:9px;color:var(--text2)">Fora</div></div>
+            <div style="flex:1"><div style="font-size:18px;font-weight:800">${o.home?.value ?? '-'}</div><div style="font-size:11px;color:var(--text2)">Casa</div></div>
+            <div style="flex:1"><div style="font-size:18px;font-weight:800">${o.draw?.value ?? '-'}</div><div style="font-size:11px;color:var(--text2)">Empate</div></div>
+            <div style="flex:1"><div style="font-size:18px;font-weight:800">${o.away?.value ?? '-'}</div><div style="font-size:11px;color:var(--text2)">Fora</div></div>
           </div>
         </div>`;
     }
@@ -6445,13 +6592,13 @@ function _live2StatBarRowHtml(r) {
     homePct = 0; awayPct = 0;
   }
   return `
-    <div style="margin:6px 0">
-      <div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--text2);margin-bottom:2px">
-        <span style="font-weight:700;font-size:10px;color:var(--text)">${r.home}</span>
+    <div style="margin:8px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:3px">
+        <span style="font-weight:700;font-size:13px;color:var(--text)">${r.home}</span>
         ${_live2StatLabelHtml(r.label)}
-        <span style="font-weight:700;font-size:10px;color:var(--text)">${r.away}</span>
+        <span style="font-weight:700;font-size:13px;color:var(--text)">${r.away}</span>
       </div>
-      <div style="display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--bg3)">
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bg3)">
         <div style="width:${homePct}%;background:#3b82f6"></div>
         <div style="width:${awayPct}%;background:#dc5050"></div>
       </div>
@@ -6460,7 +6607,7 @@ function _live2StatBarRowHtml(r) {
 
 function _live2StatsSectionsHtml(sections) {
   return sections.map(sec => `
-    <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 4px">${sec.title}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:10px 0 5px">${sec.title}</div>
     ${sec.rows.map(r => _live2StatBarRowHtml(r)).join('')}
   `).join('');
 }
