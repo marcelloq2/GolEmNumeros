@@ -5791,6 +5791,28 @@ function _live2DetectPressureMarkers(points) {
     });
   });
 
+  // Janelas sustentadas de pressão BAIXA dos dois lados (jogo "morno", sem
+  // pressão de nenhum time) — sinal oposto do Momento Over.
+  const underThresh = maxVal * 0.15;
+  i = 0;
+  while (i < points.length) {
+    if (Math.abs(points[i].value || 0) <= underThresh) {
+      let j = i;
+      while (j < points.length && Math.abs(points[j].value || 0) <= underThresh) j++;
+      if (j - i >= 4) {
+        const mStart = Math.floor(points[i].minute);
+        const mEnd   = Math.floor(points[j - 1].minute);
+        markers.push({
+          type: 'under', icon: '❄️', minute: (mStart + mEnd) / 2,
+          label: `${mStart}' à ${mEnd}' — Momento Under`,
+        });
+      }
+      i = j;
+    } else {
+      i++;
+    }
+  }
+
   // 2) Picos pontuais (1-2 pontos), fora de qualquer janela de Momento Over
   const isInOverWindow = (idx) => overWindows.some(w => idx >= w.startIdx && idx <= w.endIdx);
   i = 0;
