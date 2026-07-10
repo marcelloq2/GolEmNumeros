@@ -5629,6 +5629,7 @@ async function loadLive2Matches() {
 
     wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
     _loadLive2Momentum(matches);
+    _loadLive2Shotmap(matches);
   } catch (e) {
     wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
       <div style="font-size:13px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div>
@@ -5660,6 +5661,7 @@ function renderLive2Card(m) {
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
+      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
       <div style="padding:8px 12px;border-top:1px dashed var(--border)">
         <button onclick="loadLive2Flashscore('${m.id}', this)"
@@ -5671,6 +5673,28 @@ function renderLive2Card(m) {
         <div id="live2FsWrap_${m.id}">${_live2FsCache[m.id] || ''}</div>
       </div>
     </div>`;
+}
+
+// Mapa de chutes — reaproveita o mesmo endpoint e a mesma função de desenho
+// (buildShotMapHtml) do Ao Vivo original, só carregando em cada card do Ao Vivo 2
+async function _loadLive2Shotmap(matches) {
+  for (const m of matches) {
+    const wrap = document.getElementById(`live2ShotmapWrap_${m.id}`);
+    if (!wrap) continue;
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const res    = await fetch(`/api/radar/shotmap/${m.id}?${params}`);
+      const data   = await res.json();
+      const shots  = data.shots || [];
+      if (shots.length) {
+        wrap.innerHTML = buildShotMapHtml(shots, m.casa, m.fora);
+      } else {
+        wrap.innerHTML = '';
+      }
+    } catch (e) {
+      wrap.innerHTML = '';
+    }
+  }
 }
 
 // Guarda o HTML das estatísticas/odds já carregadas por partida — o grid do Ao Vivo 2
