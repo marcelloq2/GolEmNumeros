@@ -1080,8 +1080,7 @@
     <span><div class="status-dot"></div>Carregando...</span>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="switchView('today', this)">📅 Hoje</button>
-    <button class="nav-tab" onclick="switchView('today2', this)">🧪 Hoje 2</button>
+    <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">🧪 Hoje 2</button>
     <button class="nav-tab" onclick="switchView('live', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🧪 Ao Vivo 2</button>
     <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest 2</button>
@@ -1091,8 +1090,10 @@
 
 <div class="container">
 
-  <!-- HOJE wrapper (sidebar + detail) -->
-  <div id="todayWrapper" style="display:flex;flex:1;position:relative;overflow:hidden">
+  <!-- HOJE wrapper (sidebar + detail) — aba removida da navegação (substituída pelo
+       Hoje 2), mas o wrapper e o carregamento de allMatches/btPatterns continuam
+       existindo porque o Hoje 2 depende deles (score badges, Leitura da Partida) -->
+  <div id="todayWrapper" style="display:none;flex:1;position:relative;overflow:hidden">
 
     <!-- SIDEBAR -->
     <div class="sidebar" id="todayView">
@@ -1328,7 +1329,7 @@
   <!-- HOJE 2 — cópia independente do Hoje pra experimentos, sem nenhum código
        compartilhado com a aba "Hoje" original. Usa o mesmo endpoint (/api/matches).
        Layout lista (sidebar) + painel de detalhes, igual ao Hoje original. -->
-  <div id="today2Wrapper" style="display:none;flex:1;overflow:hidden">
+  <div id="today2Wrapper" style="display:flex;flex:1;overflow:hidden">
     <div class="sidebar" id="today2Sidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
       <div style="padding:12px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
@@ -13288,12 +13289,15 @@ function gerarBlocoHistorico(m) {
 // ── (ABA HISTÓRICO REMOVIDA) ──────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Garante estado inicial correto (aba Hoje visível)
-  document.getElementById('todayWrapper').style.display = 'flex';
+  // Garante estado inicial correto (aba Hoje 2 visível — a aba Hoje original foi
+  // removida da navegação, mas continua carregando em segundo plano porque o
+  // Hoje 2 depende de allMatches/btPatterns pros score badges e Leitura da Partida)
+  document.getElementById('todayWrapper').style.display = 'none';
   document.getElementById('favsPanel').classList.remove('active');
   updateFavCount();
   loadMatches();
   loadPatterns();
+  switchView('today2', document.getElementById('navTabToday2'));
 });
 </script>
 <style>.hidden { display: none !important; }</style>
