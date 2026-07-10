@@ -3066,7 +3066,7 @@ const TODAY2_ODDS_MARKET_LABELS = {
 let _today2OddsSubTab = {}; // { [matchId]: marketKey }
 
 function _buildToday2OddsHtml(d, matchId) {
-  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado no Flashscore</div>';
+  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>';
   const markets = d.markets || {};
   const keys = Object.keys(markets).filter(k => TODAY2_ODDS_MARKET_LABELS[k]);
   if (!keys.length) return '<div style="color:var(--text2)">sem odds disponíveis</div>';
@@ -3401,7 +3401,7 @@ function _setToday2H2hTab(matchId, idx, btn) {
 }
 
 function _buildToday2H2hHtml(d, matchId) {
-  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado no Flashscore</div>';
+  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>';
   const tabs = d.tabs || [];
   if (!tabs.length) return '<div style="color:var(--text2)">sem histórico disponível</div>';
   return _renderToday2H2hTab(matchId, tabs);
@@ -5253,12 +5253,12 @@ function _today2PowerRankingHtml(rows) {
       </table>
     </div>
     <div style="font-size:12px;color:var(--text2);margin-top:6px;padding-left:2px">
-      Calculado em cima dos gols marcados/sofridos por jogo de cada time nessa liga, comparados com a média da liga — não é um dado oficial do Flashscore.
+      Calculado em cima dos gols marcados/sofridos por jogo de cada time nessa liga, comparados com a média da liga — não é um dado oficial da fonte.
     </div>`;
 }
 
 function _buildToday2StandingsHtml(d, matchId) {
-  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado no Flashscore</div>';
+  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>';
   const rows = d.rows || [];
   if (!rows.length) return '<div style="color:var(--text2)">sem classificação disponível pra essa liga</div>';
   const view = _today2StandingsView[matchId] || 'tabela';
@@ -5810,16 +5810,26 @@ function setLive2Tab(matchId, tab, btn) {
 
 function _live2GeralTabHtml(m) {
   if (!m) return '';
+  const loaded = !!_live2FsCache[m.id];
   return `
     <div style="padding:8px 12px">
-      <button onclick="loadLive2Flashscore('${m.id}', this)"
+      <button onclick="${loaded ? `_live2ToggleStats('${m.id}', this)` : `loadLive2Flashscore('${m.id}', this)`}"
         style="width:100%;background:none;border:1px solid #a855f766;color:#a855f7;
-               font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;
-               ${_live2FsCache[m.id] ? 'display:none' : ''}">
-        📊 Carregar estatísticas + odds (Flashscore)
+               font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer">
+        ${loaded ? '🔼 Ocultar estatísticas' : '📊 Carregar estatísticas + odds'}
       </button>
       <div id="live2FsWrap_${m.id}">${_live2FsCache[m.id] || ''}</div>
     </div>`;
+}
+
+// Alterna mostrar/ocultar as estatísticas já carregadas (sem refazer o fetch) —
+// antes o botão sumia pra sempre depois de carregado, sem forma de recolher de volta
+function _live2ToggleStats(matchId, btn) {
+  const wrap = document.getElementById(`live2FsWrap_${matchId}`);
+  if (!wrap) return;
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? '🔼 Ocultar estatísticas' : '📊 Mostrar estatísticas + odds';
 }
 
 // Widget "Estatísticas Pré" — placares corretos (Geral/Casa/Fora) de cada time, mesma
@@ -6366,7 +6376,7 @@ async function loadLive2Flashscore(matchId, btn) {
     _live2MaybeAddFavoriteMarker(matchId, m, oddsData, h2hData);
 
     if (!statsData.found) {
-      wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">jogo não encontrado no Flashscore/Soccerway</div>`;
+      wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">jogo não encontrado na base de dados</div>`;
       btn.style.display = 'none';
       return;
     }
@@ -6432,11 +6442,15 @@ async function loadLive2Flashscore(matchId, btn) {
     wrap.innerHTML = finalHtml;
     _live2FsCache[matchId] = finalHtml;
     _live2FsFormCache[matchId] = formWrap ? formWrap.innerHTML : '';
-    btn.style.display = 'none';
-  } catch (e) {
-    wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">erro ao buscar dados do Flashscore</div>`;
+    // Mantém o botão visível (em vez de escondê-lo) pra dar a opção de ocultar de
+    // novo depois de expandido, sem precisar buscar tudo outra vez
     btn.disabled = false;
-    btn.textContent = '📊 Carregar estatísticas + odds (Flashscore)';
+    btn.textContent = '🔼 Ocultar estatísticas';
+    btn.onclick = () => _live2ToggleStats(matchId, btn);
+  } catch (e) {
+    wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">erro ao buscar dados</div>`;
+    btn.disabled = false;
+    btn.textContent = '📊 Carregar estatísticas + odds';
   }
 }
 
