@@ -1379,6 +1379,17 @@
             <div style="color:var(--text2)">carregando...</div>
           </div>
         </div>
+
+        <div class="today2-filter-box collapsed" id="today2AnaliseBox" style="margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <div class="today2-filter-box-header" onclick="toggleToday2FilterBox('today2AnaliseBox')"
+            style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);cursor:pointer">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text2)">🔍 FILTRAR POR ANÁLISE <span id="today2AnaliseChevron" style="display:inline-block;transition:transform .15s">⌄</span></span>
+            <span title="Limpar" onclick="event.stopPropagation();clearToday2Analise()" style="cursor:pointer;font-size:12px">🗑</span>
+          </div>
+          <div class="today2-filter-box-body" id="today2AnaliseBody" style="padding:8px 10px;max-height:300px;overflow-y:auto;font-size:11px">
+            <div style="color:var(--text2)">carregando...</div>
+          </div>
+        </div>
       </div>
       <div id="today2Wrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -2392,7 +2403,8 @@ function filterToday2() {
       const bateStatus = !_today2StatusFiltro || m.status === _today2StatusFiltro;
       const bateMetodologia = _today2QualifyingMatchIds.size === 0 || _today2QualifyingMatchIds.has(String(m.id));
       const bateParametro = _today2MatchePassaParametros(m);
-      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateMetodologia && bateParametro;
+      const bateAnalise = _today2AnaliseQualifyingIds.size === 0 || _today2AnaliseQualifyingIds.has(String(m.id));
+      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateMetodologia && bateParametro && bateAnalise;
       card.style.display = visivel ? '' : 'none';
       if (visivel) algumVisivel = true;
     });
@@ -2424,6 +2436,10 @@ function toggleToday2FilterBox(boxId) {
   if (boxId === 'today2ParamBox' && !_today2ParamPanelLoaded) {
     _today2ParamPanelLoaded = true;
     _loadToday2ParamPanel();
+  }
+  if (boxId === 'today2AnaliseBox' && !_today2AnalisePanelLoaded) {
+    _today2AnalisePanelLoaded = true;
+    _loadToday2AnalisePanel();
   }
 }
 
@@ -2651,6 +2667,320 @@ function _today2MatchePassaParametros(m) {
     if (!_today2OperadorBate(valor === Infinity ? null : valor, f.oddOp, f.oddVal, f.oddVal2)) return false;
   }
   return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🔍 Filtrar por Análise — cerca de 16 categorias de leitura estatística
+// (agrupadas em GOLS / PADRÃO DE GOLS / DESEMPENHO / PESO DA CAMISA / EXTRA),
+// avaliadas por partida a partir do MESMO H2H que já alimenta a aba "Leitura
+// da Partida" (_today2InsightsCards) — aqui em vez de gerar cards de texto,
+// cada regra vira só um booleano (bateu/não bateu) por partida, guardado num
+// Set por regra. O toggle E/OU controla se o jogo precisa bater TODAS as
+// regras marcadas (E) ou QUALQUER UMA (OU, padrão).
+// ═══════════════════════════════════════════════════════════════════════
+// Testado com 25 candidatos: ainda passava de 2 minutos, mesmo consolidando os
+// lotes de minutos de gol — o gargalo real é o feed do Flashscore respondendo
+// devagar pra cada H2H individual (não dá pra paralelizar mais no navegador nem
+// no servidor sem reescrever pra um endpoint batch dedicado). 12 fica num tempo
+// mais tolerável pra um filtro que o usuário abre toda vez que usa a aba.
+const TODAY2_ANALISE_MAX_CANDIDATOS = 12;
+
+const TODAY2_ANALISE_RULE_GROUPS = [
+  { header: 'Gols', rules: [
+    ['gols_over', 'Valor em Gols (tendência de Over)'],
+    ['gols_under', 'Valor em Gols (tendência de Under)'],
+  ]},
+  { header: 'Padrão de Gols', rules: [
+    ['primeiro_gol_favorito', 'Favorito costuma abrir o placar'],
+    ['zebra_toma_primeiro', 'Zebra costuma tomar o 1º gol'],
+    ['correcao_favorito', 'Favorito sai na frente mas não segura'],
+    ['recuperacao_favorito', 'Favorito busca o resultado depois de sair atrás'],
+    ['favorito_fecha_bem', 'Favorito fecha bem o final do jogo'],
+    ['zebra_toma_final', 'Zebra costuma tomar gol no final'],
+  ]},
+  { header: 'Desempenho', rules: [
+    ['bom_mandante', 'Bom desempenho como mandante'],
+    ['bom_visitante', 'Bom desempenho como visitante'],
+    ['mau_mandante', 'Mau desempenho como mandante'],
+    ['mau_visitante', 'Mau desempenho como visitante'],
+  ]},
+  { header: 'Peso da Camisa', rules: [
+    ['peso_camisa_mandante', 'Peso da Camisa (mandante favorito)'],
+    ['peso_camisa_visitante', 'Peso da Camisa (visitante favorito)'],
+    ['peso_camisa_ambos', 'Peso da Camisa (qualquer lado favorito)'],
+  ]},
+  { header: 'Extra', rules: [
+    ['jogo_complexo', 'Jogo complexo de se trabalhar (sem sinal claro)'],
+  ]},
+];
+const TODAY2_ANALISE_RULE_KEYS = TODAY2_ANALISE_RULE_GROUPS.flatMap(g => g.rules.map(r => r[0]));
+
+let _today2AnalisePanelLoaded = false;
+let _today2AnaliseRuleSets = null;              // { ruleKey: Set<matchId> } — null enquanto não calculado
+let _today2SelectedAnaliseRules = new Set();
+let _today2AnaliseMode = 'OU';                  // 'E' | 'OU'
+let _today2AnaliseQualifyingIds = new Set();    // vazio = filtro de análise inativo
+let _today2AnaliseLoading = false;
+
+// Helper novo: correlaciona "quem marcou primeiro" com o resultado final do
+// PRÓPRIO jogo (não é uma média separada como em _jogoGoalPatternStats) —
+// precisamos disso pra "Correção Contra o Favorito" (saiu na frente mas não
+// venceu) e "Recuperação do Favorito" (saiu atrás mas venceu mesmo assim).
+function _jogoFirstGoalCorrelationStats(rows) {
+  const withGm = rows.filter(r => _goalMinutesCache[r.id]);
+  let scoredFirstN = 0, scoredFirstNotWin = 0, concededFirstN = 0, concededFirstWin = 0;
+  withGm.forEach(r => {
+    const gm = _goalMinutesCache[r.id];
+    const pro = r.isHome ? gm.home : gm.away;
+    const contra = r.isHome ? gm.away : gm.home;
+    const firstPro = pro.length ? Math.min(...pro) : Infinity;
+    const firstContra = contra.length ? Math.min(...contra) : Infinity;
+    if (firstPro === Infinity && firstContra === Infinity) return; // jogo sem gols
+    if (firstPro < firstContra) {
+      scoredFirstN++;
+      if (r.result !== 'V') scoredFirstNotWin++;
+    } else if (firstContra < firstPro) {
+      concededFirstN++;
+      if (r.result === 'V') concededFirstWin++;
+    }
+  });
+  return { scoredFirstN, scoredFirstNotWin, concededFirstN, concededFirstWin };
+}
+
+// Helper novo: % dos gols SOFRIDOS que saem nos últimos ~15 min (76-90) — usado
+// só pra "Zebra Pode Tomar no Final". É uma aproximação simples (conta gols, não
+// jogos) porque não temos odds históricas jogo a jogo pra medir isso de forma
+// mais rigorosa; o mínimo de amostra (8 gols sofridos) é intencionalmente baixo
+// nesse ponto e serve só de sinal complementar, não de conclusão estatística forte.
+function _jogoLateConcedeRate(rows) {
+  const withGm = rows.filter(r => _goalMinutesCache[r.id]);
+  let concededTotal = 0, concededLate = 0;
+  withGm.forEach(r => {
+    const gm = _goalMinutesCache[r.id];
+    const contra = r.isHome ? gm.away : gm.home;
+    contra.forEach(min => { concededTotal++; if (min > 75) concededLate++; });
+  });
+  return concededTotal >= 8 ? { pct: concededLate / concededTotal * 100, n: concededTotal } : null;
+}
+
+// Avalia as ~16 regras pra UMA partida. ctx = { m, homeHomeBlock, awayAwayBlock,
+// favoritoLado }. homeHomeBlock/awayAwayBlock já devem ter passado por
+// _jogoEnsureGoalMinutes (não precisa de HT aqui, só minutos de gol).
+// favoritoLado vem de /api/today2/match_classification ('casa'|'fora'|null).
+function _today2AnaliseRulesForMatch(ctx) {
+  const { m, homeHomeBlock, awayAwayBlock, favoritoLado } = ctx;
+  const MIN_N = 8;
+  const out = {};
+
+  const gpHome = _jogoGoalPatternStats(homeHomeBlock.rows);
+  const gpAway = _jogoGoalPatternStats(awayAwayBlock.rows);
+  const statsHome = _jogoComputeStats(homeHomeBlock.rows);
+  const statsAway = _jogoComputeStats(awayAwayBlock.rows);
+  const winnerHome = _jogoWinnerAtMinuteStats(homeHomeBlock.rows);
+  const winnerAway = _jogoWinnerAtMinuteStats(awayAwayBlock.rows);
+
+  // ── GOLS (mesma lógica da regra #4 de _today2InsightsCards, só separada por lado over/under) ──
+  const ouCands = [];
+  if (gpHome && gpHome.n >= MIN_N) ouCands.push(gpHome.ou.l25);
+  if (gpAway && gpAway.n >= MIN_N) ouCands.push(gpAway.ou.l25);
+  out.gols_over = ouCands.some(ou => ou.sobre >= 70);
+  out.gols_under = ouCands.some(ou => ou.sob >= 70);
+
+  // ── PADRÃO DE GOLS (dependem de saber quem é o favorito de hoje pelas odds) ──
+  const favBlock = favoritoLado === 'casa' ? { gp: gpHome, rows: homeHomeBlock.rows, winner: winnerHome }
+    : favoritoLado === 'fora' ? { gp: gpAway, rows: awayAwayBlock.rows, winner: winnerAway } : null;
+  const zebraBlock = favoritoLado === 'casa' ? { gp: gpAway, rows: awayAwayBlock.rows }
+    : favoritoLado === 'fora' ? { gp: gpHome, rows: homeHomeBlock.rows } : null;
+
+  out.primeiro_gol_favorito = !!(favBlock && favBlock.gp && favBlock.gp.totalComGm >= MIN_N &&
+    (favBlock.gp.timeMarcouPrimeiroCount / favBlock.gp.totalComGm) >= 0.6);
+
+  out.zebra_toma_primeiro = !!(zebraBlock && zebraBlock.gp && zebraBlock.gp.totalComGm >= MIN_N &&
+    (zebraBlock.gp.adversarioMarcouPrimeiroCount / zebraBlock.gp.totalComGm) >= 0.6);
+
+  if (favBlock) {
+    const corr = _jogoFirstGoalCorrelationStats(favBlock.rows);
+    out.correcao_favorito = corr.scoredFirstN >= MIN_N && (corr.scoredFirstNotWin / corr.scoredFirstN) >= 0.4;
+    out.recuperacao_favorito = corr.concededFirstN >= MIN_N && (corr.concededFirstWin / corr.concededFirstN) >= 0.4;
+  } else {
+    out.correcao_favorito = false;
+    out.recuperacao_favorito = false;
+  }
+
+  out.favorito_fecha_bem = !!(favBlock && favBlock.winner && favBlock.winner.n >= MIN_N && favBlock.winner.out[75].time >= 55);
+
+  if (zebraBlock) {
+    const late = _jogoLateConcedeRate(zebraBlock.rows);
+    out.zebra_toma_final = !!(late && late.pct >= 30); // baseline "esperado" seria ~16.7% (15 de 90 min) se fosse uniforme
+  } else {
+    out.zebra_toma_final = false;
+  }
+
+  // ── DESEMPENHO (taxas de vitória isoladas, sem exigir dado de tabela/classificação) ──
+  const taxaVitoriaCasa = statsHome && statsHome.n >= MIN_N ? (homeHomeBlock.rows.filter(r => r.result === 'V').length / statsHome.n) * 100 : null;
+  const taxaVitoriaFora = statsAway && statsAway.n >= MIN_N ? (awayAwayBlock.rows.filter(r => r.result === 'V').length / statsAway.n) * 100 : null;
+  out.bom_mandante = taxaVitoriaCasa !== null && taxaVitoriaCasa >= 60;
+  // Visitante: taxa de vitória fora é naturalmente mais baixa que em casa (vantagem de mando
+  // de campo), então usamos um piso menor (50%) pra considerar "bom desempenho fora".
+  out.bom_visitante = taxaVitoriaFora !== null && taxaVitoriaFora >= 50;
+  out.mau_mandante = taxaVitoriaCasa !== null && taxaVitoriaCasa <= 25;
+  out.mau_visitante = taxaVitoriaFora !== null && taxaVitoriaFora <= 25;
+
+  // ── PESO DA CAMISA — aproximação: comparamos a taxa de vitória própria do favorito
+  // (H2H) com um patamar "esperado de quem é favorito" (50% em casa, 40% fora — o piso
+  // fora é menor porque taxas de vitória como visitante são estruturalmente mais baixas
+  // no futebol). Não é uma comparação contra a probabilidade implícita real da odd de
+  // hoje (não temos odds históricas por jogo do H2H pra isso), só um sinal aproximado.
+  out.peso_camisa_mandante = favoritoLado === 'casa' && taxaVitoriaCasa !== null && taxaVitoriaCasa < 50;
+  out.peso_camisa_visitante = favoritoLado === 'fora' && taxaVitoriaFora !== null && taxaVitoriaFora < 40;
+  out.peso_camisa_ambos = out.peso_camisa_mandante || out.peso_camisa_visitante;
+
+  // ── EXTRA — calculado por último: se quase nenhuma das outras regras bateu pra esse
+  // jogo, é um jogo "sem leitura clara" (complexo de trabalhar).
+  const outrasBateram = TODAY2_ANALISE_RULE_KEYS.filter(k => k !== 'jogo_complexo' && out[k]).length;
+  out.jogo_complexo = outrasBateram <= 1;
+
+  return out;
+}
+
+async function _loadToday2AnalisePanel() {
+  const body = document.getElementById('today2AnaliseBody');
+  if (!body) return;
+  _today2AnaliseLoading = true;
+  body.innerHTML = '<div style="color:var(--text2)">⏳ calculando leitura estatística dos jogos de hoje (H2H de cada partida)... pode levar um tempo</div>';
+
+  const candidatos = today2MatchesCache
+    .filter(m => m.status === '1')
+    .slice()
+    .sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0))
+    .slice(0, TODAY2_ANALISE_MAX_CANDIDATOS);
+
+  if (!_today2MatchClassification) {
+    try {
+      const r = await fetch('/api/today2/match_classification');
+      _today2MatchClassification = await r.json();
+    } catch (e) {
+      _today2MatchClassification = { classifications: {} };
+    }
+  }
+
+  const sets = {};
+  TODAY2_ANALISE_RULE_KEYS.forEach(k => sets[k] = new Set());
+
+  // 1ª passada: busca todos os H2H em paralelo e monta os blocos de cada partida,
+  // SEM ainda buscar os minutos de gol — isso deixa a gente juntar as linhas de
+  // TODOS os candidatos numa lista só antes de chamar goal_minutes_batch, em vez
+  // de uma chamada separada por bloco por partida (era isso que gerava as
+  // centenas de requisições pequenas e travava no limite de conexões do navegador).
+  const perMatch = [];
+  await Promise.all(candidatos.map(async m => {
+    try {
+      const cache = _today2TabCache[m.id] || (_today2TabCache[m.id] = {});
+      if (!cache._h2hTabs) {
+        const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+        const r = await fetch(`/api/flashscore/h2h?${params}`);
+        const d = await r.json();
+        cache._h2hTabs = d.tabs || [];
+      }
+      const tabs = cache._h2hTabs || [];
+      if (!tabs.length) return;
+      const homeHomeBlock = _jogoStatsRowsFromSection(tabs, 1, true);
+      const awayAwayBlock = _jogoStatsRowsFromSection(tabs, 2, false);
+      // Corta pra 10 jogos por bloco (a Leitura da Partida de um jogo só usa os
+      // 30 completos, mas aqui são N candidatos de uma vez — com 30 cada, o total
+      // de ids únicos pra buscar minuto de gol passava de 700 e o filtro levava
+      // minutos pra abrir; 10 ainda fica acima do limiar mínimo (n>=8) da maioria
+      // das regras e deixa o filtro utilizável).
+      homeHomeBlock.rows = homeHomeBlock.rows.slice(0, 10);
+      awayAwayBlock.rows = awayAwayBlock.rows.slice(0, 10);
+      perMatch.push({ m, homeHomeBlock, awayAwayBlock });
+    } catch (e) { /* ignora essa partida, segue as demais */ }
+  }));
+
+  // 2ª passada: uma lista só com as linhas de TODOS os candidatos, então
+  // _jogoEnsureGoalMinutes faz seus lotes de 20 ids em cima do total (com dedup
+  // automático via _goalMinutesCache), em vez de repetir lote por partida.
+  const todasAsLinhas = perMatch.flatMap(p => [...p.homeHomeBlock.rows, ...p.awayAwayBlock.rows]);
+  await _jogoEnsureGoalMinutes(todasAsLinhas);
+
+  perMatch.forEach(({ m, homeHomeBlock, awayAwayBlock }) => {
+    const c = _today2MatchClassification?.classifications?.[String(m.id)];
+    const favoritoLado = c?.favorito_lado || null;
+    const rules = _today2AnaliseRulesForMatch({ m, homeHomeBlock, awayAwayBlock, favoritoLado });
+    TODAY2_ANALISE_RULE_KEYS.forEach(k => { if (rules[k]) sets[k].add(String(m.id)); });
+  });
+
+  _today2AnaliseRuleSets = sets;
+  _today2AnaliseLoading = false;
+  _renderToday2AnalisePanel();
+  _recomputeToday2AnaliseQualifyingIds();
+}
+
+function _renderToday2AnalisePanel() {
+  const body = document.getElementById('today2AnaliseBody');
+  if (!body) return;
+  if (_today2AnaliseLoading) return; // ainda carregando, o innerHTML de loading já está lá
+
+  const chk = (key, label) => `<label class="today2-check-row">
+    <input type="checkbox" ${_today2SelectedAnaliseRules.has(key) ? 'checked' : ''} onchange="toggleToday2AnaliseCheck('${key}',this.checked)">
+    <span>${label}${_today2AnaliseRuleSets ? ` (${_today2AnaliseRuleSets[key]?.size || 0})` : ''}</span>
+  </label>`;
+
+  const modoHtml = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="color:var(--text2)">Combinar regras marcadas:</span>
+      <button class="filter-btn ${_today2AnaliseMode === 'OU' ? 'active' : ''}" onclick="setToday2AnaliseMode('OU')">OU</button>
+      <button class="filter-btn ${_today2AnaliseMode === 'E' ? 'active' : ''}" onclick="setToday2AnaliseMode('E')">E</button>
+    </div>`;
+
+  const gruposHtml = TODAY2_ANALISE_RULE_GROUPS.map(g => `
+    <div class="today2-param-label">${g.header}</div>
+    ${g.rules.map(([key, label]) => chk(key, label)).join('')}
+  `).join('');
+
+  body.innerHTML = modoHtml + gruposHtml;
+}
+
+function toggleToday2AnaliseCheck(key, checked) {
+  if (checked) _today2SelectedAnaliseRules.add(key);
+  else _today2SelectedAnaliseRules.delete(key);
+  _recomputeToday2AnaliseQualifyingIds();
+}
+
+function setToday2AnaliseMode(mode) {
+  _today2AnaliseMode = mode;
+  _renderToday2AnalisePanel();
+  _recomputeToday2AnaliseQualifyingIds();
+}
+
+function _recomputeToday2AnaliseQualifyingIds() {
+  if (!_today2AnaliseRuleSets || _today2SelectedAnaliseRules.size === 0) {
+    _today2AnaliseQualifyingIds = new Set();
+    filterToday2();
+    return;
+  }
+  const keys = [..._today2SelectedAnaliseRules];
+  let result;
+  if (_today2AnaliseMode === 'E') {
+    result = null;
+    keys.forEach(k => {
+      const s = _today2AnaliseRuleSets[k] || new Set();
+      result = result === null ? new Set(s) : new Set([...result].filter(id => s.has(id)));
+    });
+    result = result || new Set();
+  } else {
+    result = new Set();
+    keys.forEach(k => (_today2AnaliseRuleSets[k] || new Set()).forEach(id => result.add(id)));
+  }
+  _today2AnaliseQualifyingIds = result;
+  filterToday2();
+}
+
+function clearToday2Analise() {
+  _today2SelectedAnaliseRules.clear();
+  _today2AnaliseQualifyingIds = new Set();
+  if (_today2AnaliseRuleSets) _renderToday2AnalisePanel();
+  filterToday2();
 }
 
 // ── Abas do painel de detalhes (Jogo/Odds/H2H/Classificações/Profit) — carrega sob
