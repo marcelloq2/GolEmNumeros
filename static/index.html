@@ -2232,9 +2232,37 @@ async function loadToday2Matches() {
 
 const STATUS_LABEL_TODAY2 = { '1': '🕐 Agendado', '2': '🔴 Ao vivo', '3': '✅ Encerrado' };
 
+// Acha a mesma partida na base do Hoje (StatArea, allMatches) por nome fuzzy — é de lá
+// que vem o "score" (calcBtTeamScore) e os blocos de Leitura/Padrões Históricos que o
+// Hoje 2 não tem fonte própria pra calcular (dependem de dados que só o StatArea traz:
+// tip/odds/momento/histórico). Cacheado por partida pra não refazer a busca toda hora.
+let _today2StatAreaMatchCache = {};
+function _today2FindStatAreaMatch(m) {
+  if (_today2StatAreaMatchCache[m.id] !== undefined) return _today2StatAreaMatchCache[m.id];
+  let found = null;
+  if (typeof allMatches !== 'undefined' && allMatches && allMatches.length) {
+    const h = _normLive2(m.home), a = _normLive2(m.away);
+    let bestScore = 0;
+    for (const ref of allMatches) {
+      const sh = _live2SideScore(_normLive2(ref.casa), h);
+      const sa = _live2SideScore(_normLive2(ref.fora), a);
+      if (sh > 0 && sa > 0 && (sh + sa) > bestScore) {
+        bestScore = sh + sa;
+        found = ref;
+      }
+    }
+    if (bestScore < 4) found = null;
+  }
+  _today2StatAreaMatchCache[m.id] = found;
+  return found;
+}
+
 function renderToday2Row(m) {
   const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
+  const ref = _today2FindStatAreaMatch(m);
+  const scoreCasa = ref ? btScoreBadge(calcBtTeamScore(ref, true), 'Score Casa') : '';
+  const scoreFora = ref ? btScoreBadge(calcBtTeamScore(ref, false), 'Score Visitante') : '';
   return `
     <div class="today2-match-row" data-id="${m.id}" onclick="selectToday2Match('${m.id}', this)">
       <div style="text-align:center">
@@ -2242,11 +2270,19 @@ function renderToday2Row(m) {
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
       </div>
       <div>
-        <div style="font-size:14px;padding:2px 0">${m.home}</div>
-        <div style="font-size:14px;padding:2px 0">${m.away}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}${scoreCasa}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}${scoreFora}</div>
       </div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
     </div>`;
+}
+
+// Escudo do time — link direto pro CDN de imagens da fonte, sem baixar/armazenar
+// nada aqui. onerror esconde o <img> se a imagem não existir (nem todo time tem escudo).
+function _today2EscudoImg(url, size) {
+  if (!url) return '';
+  size = size || 16;
+  return `<img src="${url}" width="${size}" height="${size}" style="border-radius:2px;flex-shrink:0" onerror="this.style.display='none'" loading="lazy">`;
 }
 
 let _today2SelectedId = null;
@@ -2260,12 +2296,12 @@ function _today2RefreshDetailHeader(id) {
       style="display:none;margin-bottom:8px">← Voltar à lista</button>
     <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div style="font-size:18px;font-weight:700;flex:1">${m.home}</div>
+      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
       <div style="text-align:center">
         ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
         <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
       </div>
-      <div style="font-size:18px;font-weight:700;flex:1;text-align:right">${m.away}</div>
+      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>
     ${m.status === '3' ? `<div id="today2GoalEventsBox_${id}" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:12px;color:var(--text2)"></div>` : ''}
     <div style="margin-top:8px">
@@ -5358,6 +5394,30 @@ async function _renderToday2Insights(matchId) {
   });
 
   body.innerHTML = _today2InsightsGridHtml(cards);
+
+  // Blocos extras (Desempenho Ofensivo, Cenário de Gols, Momento dos Times, Histórico
+  // H2H, Tendência de Apostas, Padrões Históricos) — vêm do motor de análise da aba
+  // Hoje original (gerarAnalise/gerarBlocoHistorico), que só funciona com dados do
+  // StatArea (tip/odds/momento/histórico). Achamos a mesma partida lá por nome fuzzy
+  // e reaproveitamos as MESMAS funções, sem duplicar a lógica.
+  const ref = _today2FindStatAreaMatch(m);
+  if (ref) {
+    const extraWrap = document.createElement('div');
+    extraWrap.id = `today2StatAreaAnaliseWrap_${matchId}`;
+    extraWrap.style.marginTop = '12px';
+    extraWrap.innerHTML = '⏳ Buscando análise adicional (histórico do Hoje)...';
+    body.appendChild(extraWrap);
+    try {
+      if (!ref.detalhes) ref.detalhes = await _fetchMatchDetalhes(ref.url_detalhes);
+    } catch (e) {
+      ref.detalhes = ref.detalhes || {};
+    }
+    if (_today2Tab[matchId] !== 'insights') return;
+    const freshExtraWrap = document.getElementById(`today2StatAreaAnaliseWrap_${matchId}`);
+    if (!freshExtraWrap) return;
+    const analiseHtml = gerarAnalise(ref) + gerarBlocoHistorico(ref);
+    freshExtraWrap.innerHTML = analiseHtml || '';
+  }
 }
 
 const INSIGHT_TONE_COLOR = { green: '#22c55e', red: '#ef4444', amber: '#f59e0b' };
@@ -5639,6 +5699,7 @@ function toggleLive2Pin(id) {
       _loadLive2Lineups(sorted);
       _loadLive2Standings(sorted);
       _loadLive2GoalEvents(sorted);
+      _loadLive2Escudos(sorted);
     }
   }
 }
@@ -5703,6 +5764,7 @@ async function loadLive2Matches() {
       _loadLive2Lineups(matches);
       _loadLive2Standings(matches);
       _loadLive2GoalEvents(matches);
+      _loadLive2Escudos(matches);
     }
     // Roda pra TODAS as partidas (visíveis ou não) — é o que descobre quando uma
     // partida escondida passa a ter mapa de chutes e dispara a reexibição dela
@@ -5763,6 +5825,7 @@ function renderLive2Card(m) {
       <div class="live-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div class="live-card-team" style="flex:1;justify-content:flex-start">
+            <span id="live2EscudoCasa_${m.id}"></span>
             <span class="tname">${m.casa}</span>
             <span id="live2PosCasa_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
           </div>
@@ -5773,6 +5836,7 @@ function renderLive2Card(m) {
           <div class="live-card-team" style="flex:1;justify-content:flex-end;text-align:right">
             <span id="live2PosFora_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
             <span class="tname">${m.fora}</span>
+            <span id="live2EscudoFora_${m.id}"></span>
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
@@ -5992,6 +6056,35 @@ async function _live2LoadInsights(matchId) {
 
   freshWrap.style.textAlign = '';
   freshWrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">🧠 Leitura da Partida</div>${_today2InsightsGridHtml(cards)}`;
+}
+
+// Escudos — link direto pro CDN de imagens da fonte (/api/flashscore/match já traz
+// escudo_casa/escudo_fora), sem baixar/armazenar nada aqui
+let _live2EscudoCache = {};
+async function _loadLive2Escudos(matches) {
+  for (const m of matches) {
+    if (_live2EscudoCache[m.id] !== undefined) {
+      _live2ApplyEscudo(m.id, _live2EscudoCache[m.id]);
+      continue;
+    }
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/match?${params}`);
+      const d = await r.json();
+      const escudos = d.found ? { casa: d.escudo_casa, fora: d.escudo_fora } : null;
+      _live2EscudoCache[m.id] = escudos;
+      _live2ApplyEscudo(m.id, escudos);
+    } catch (e) {
+      _live2EscudoCache[m.id] = null;
+    }
+  }
+}
+
+function _live2ApplyEscudo(matchId, escudos) {
+  const casaEl = document.getElementById(`live2EscudoCasa_${matchId}`);
+  const foraEl = document.getElementById(`live2EscudoFora_${matchId}`);
+  if (casaEl) casaEl.innerHTML = _today2EscudoImg(escudos && escudos.casa);
+  if (foraEl) foraEl.innerHTML = _today2EscudoImg(escudos && escudos.fora);
 }
 
 // Posição na tabela — reaproveita o mesmo endpoint usado no Hoje 2 (/api/flashscore/standings),

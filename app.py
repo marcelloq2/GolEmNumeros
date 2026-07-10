@@ -4271,6 +4271,11 @@ def _fs_all_matches():
         d = _fs_kv(block)
         if not d.get("AE") or not d.get("AF"):
             continue
+        # Escudos: link direto pro CDN de imagens da própria fonte (campos "OA"/"OB" do
+        # feed) — não baixa/armazena nada aqui, só monta a URL e o navegador do usuário
+        # carrega direto de lá quando renderizar o <img>
+        escudo_casa = f"https://www.flashscore.com/res/image/data/{d['OA']}" if d.get("OA") else None
+        escudo_fora = f"https://www.flashscore.com/res/image/data/{d['OB']}" if d.get("OB") else None
         matches.append({
             "id":          d.get("AA"),
             "home":        d.get("AE"),
@@ -4281,6 +4286,8 @@ def _fs_all_matches():
             "kickoff_ts":  d.get("AD"),
             "liga":        liga_atual,
             "pais":        pais_atual,
+            "escudo_casa": escudo_casa,
+            "escudo_fora": escudo_fora,
         })
     _fs_live_cache = {"ts": time.time(), "data": matches}
     return matches
