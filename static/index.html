@@ -5962,6 +5962,42 @@ function _live2ShowPeriod(matchId, idx) {
   });
 }
 
+// Explicação das métricas mais técnicas (as demais, tipo Posse de Bola ou
+// Escanteios, são autoexplicativas e não precisam de tooltip)
+const LIVE2_STAT_TOOLTIPS = {
+  'Gols esperados (xG)': 'xG é uma métrica que representa a qualidade das oportunidades de gol de uma equipe. Cada finalização recebe um valor entre 0 e 1 conforme a probabilidade de virar gol (posição, distância, ângulo etc.) — o valor final é a soma de todas as oportunidades.',
+  'xG das finalizações no alvo (xGOT)': 'xGOT mede a probabilidade de uma finalização QUE FOI NO ALVO virar gol, já considerando onde a bola foi colocada, a posição do goleiro e outros fatores — diferente do xG, que avalia a chance antes da finalização acontecer.',
+  'Assistências esperadas (xA)': 'xA representa a probabilidade de um passe se tornar assistência para gol, avaliando a qualidade do passe conforme a posição, trajetória e contexto da jogada.',
+  'xGOT enfrentado': 'Soma do xGOT de todas as finalizações que o goleiro/equipe sofreu — quanto maior, mais perigosas (e prováveis de virar gol) foram as finalizações sofridas.',
+  'Gols evitados': 'Diferença entre o xGOT enfrentado (gols que se esperava sofrer) e os gols realmente sofridos. Valor positivo = o goleiro defendeu mais do que o esperado; negativo = sofreu mais do que o esperado.',
+};
+
+function _live2StatLabelHtml(label) {
+  const tip = LIVE2_STAT_TOOLTIPS[label];
+  if (!tip) return `<span style="text-transform:uppercase">${label}</span>`;
+  return `<span style="text-transform:uppercase;cursor:help;border-bottom:1px dotted var(--text2)"
+    onmouseenter="_live2ShowStatTooltip(event,'${label.replace(/'/g, "\\'")}')"
+    onmouseleave="if(_live2MomentumTooltipEl)_live2MomentumTooltipEl.style.display='none'">${label} ⓘ</span>`;
+}
+
+function _live2ShowStatTooltip(ev, label) {
+  if (!_live2MomentumTooltipEl) {
+    _live2MomentumTooltipEl = document.createElement('div');
+    _live2MomentumTooltipEl.style.cssText = `position:fixed;z-index:9999;pointer-events:none;
+      background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;
+      font-size:10px;font-weight:600;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.4);display:none;white-space:nowrap`;
+    document.body.appendChild(_live2MomentumTooltipEl);
+  }
+  const tip = _live2MomentumTooltipEl;
+  const texto = LIVE2_STAT_TOOLTIPS[label] || '';
+  tip.style.maxWidth = '260px';
+  tip.style.whiteSpace = 'normal';
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:3px">${label}</div><div style="font-weight:400">${texto}</div>`;
+  tip.style.left = Math.min(ev.clientX + 12, window.innerWidth - 270) + 'px';
+  tip.style.top = (ev.clientY + 12) + 'px';
+  tip.style.display = 'block';
+}
+
 function _live2StatBarRowHtml(r) {
   // Valores já em % (ex: Posse de Bola) somam ~100 sozinhos; valores de contagem
   // (chutes, escanteios etc.) viram proporção home/(home+away) pra desenhar a barra
@@ -5982,7 +6018,7 @@ function _live2StatBarRowHtml(r) {
     <div style="margin:6px 0">
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--text2);margin-bottom:2px">
         <span style="font-weight:700;font-size:10px;color:var(--text)">${r.home}</span>
-        <span style="text-transform:uppercase">${r.label}</span>
+        ${_live2StatLabelHtml(r.label)}
         <span style="font-weight:700;font-size:10px;color:var(--text)">${r.away}</span>
       </div>
       <div style="display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--bg3)">
