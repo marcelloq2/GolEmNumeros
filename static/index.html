@@ -3041,7 +3041,7 @@ async function _renderToday2Content(matchId) {
       const r = await fetch(`/api/flashscore/standings?${params}`);
       const d = await r.json();
       cache._standingsRows = d.rows || [];
-      cache.standings = _buildToday2StandingsHtml(d);
+      cache.standings = _buildToday2StandingsHtml(d, matchId);
     }
     // Só aplica se o usuário ainda estiver nessa mesma aba (evita sobrescrever se ele já trocou)
     if (_today2Tab[matchId] === tab) {
@@ -5133,10 +5133,18 @@ function _setToday2ProfitCsScope(matchId, idx, btn) {
   _renderToday2ProfitCs(matchId);
 }
 
-function _buildToday2StandingsHtml(d) {
-  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado no Flashscore</div>';
-  const rows = d.rows || [];
-  if (!rows.length) return '<div style="color:var(--text2)">sem classificação disponível pra essa liga</div>';
+let _today2StandingsView = {}; // { [matchId]: 'tabela'|'power' }
+
+function _setToday2StandingsView(matchId, view) {
+  _today2StandingsView[matchId] = view;
+  const cache = _today2TabCache[matchId];
+  const content = document.getElementById('today2DetailBody');
+  if (content && cache && cache._standingsRows && _today2Tab[matchId] === 'standings') {
+    content.innerHTML = _buildToday2StandingsHtml({ found: true, rows: cache._standingsRows }, matchId);
+  }
+}
+
+function _today2StandingsTableHtml(rows) {
   const n = rows.length;
   const zoneColor = (pos) => {
     if (pos <= Math.min(4, Math.ceil(n * 0.2))) return '#22c55e';   // acesso/classificação
@@ -5180,6 +5188,87 @@ function _buildToday2StandingsHtml(d) {
       <span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;margin-right:4px"></span>Classificação</span>
       <span><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:2px;margin-right:4px"></span>Rebaixamento</span>
     </div>`;
+}
+
+// Power Ranking — calculado inteiramente em cima dos dados de classificação já
+// buscados (campo "gols" vem como "GF:GA"), sem nenhuma requisição nova. Índice
+// de Ataque/Defesa = gols marcados/sofridos por jogo do time, dividido pela
+// média da liga (1.0 = exatamente a média); Índice Geral = Ataque − Defesa.
+function _today2PowerRankingRows(rows) {
+  const parsed = rows.map(r => {
+    const [gf, ga] = String(r.gols || '0:0').split(':').map(Number);
+    const jogos = parseInt(r.jogos) || 0;
+    return { team: r.team, destacado: r.destacado, jogos, gf: gf || 0, ga: ga || 0 };
+  }).filter(r => r.jogos > 0);
+  if (!parsed.length) return [];
+  const mediaGf = parsed.reduce((s, r) => s + r.gf / r.jogos, 0) / parsed.length;
+  const mediaGa = parsed.reduce((s, r) => s + r.ga / r.jogos, 0) / parsed.length;
+  const ranked = parsed.map(r => {
+    const ataque = mediaGf > 0 ? (r.gf / r.jogos) / mediaGf : 0;
+    const defesa = mediaGa > 0 ? (r.ga / r.jogos) / mediaGa : 0;
+    return { ...r, ataque, defesa, geral: ataque - defesa };
+  });
+  ranked.sort((a, b) => b.geral - a.geral);
+  return ranked;
+}
+
+function _today2PowerIcon(value, higherIsBetter, thresholds) {
+  // thresholds = [limiarBom, limiarRuim] já orientados na direção "maior valor bruto"
+  const [bom, ruim] = thresholds;
+  const bomCond = higherIsBetter ? value >= bom : value <= bom;
+  const ruimCond = higherIsBetter ? value <= ruim : value >= ruim;
+  if (bomCond) return `<span style="color:#22c55e">✓</span>`;
+  if (ruimCond) return `<span style="color:#ef4444">▽</span>`;
+  return `<span style="color:#f59e0b">△</span>`;
+}
+
+function _today2PowerRankingHtml(rows) {
+  const ranked = _today2PowerRankingRows(rows);
+  if (!ranked.length) return '<div style="color:var(--text2)">sem dados suficientes pra calcular o Power Ranking dessa liga</div>';
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="background:#22c55e;color:#062e17;font-weight:700;text-align:center;padding:6px;font-size:14px;text-transform:uppercase;letter-spacing:.4px">Power Ranking</div>
+      <table style="width:100%;font-size:14px;text-align:center;border-collapse:collapse">
+        <thead>
+          <tr style="color:var(--text2);background:rgba(255,255,255,.03)">
+            <th style="padding:8px 4px">Power Ranking</th><th style="padding:8px 4px;text-align:left">Time</th>
+            <th style="padding:8px 6px">Partidas Jogadas</th>
+            <th style="padding:8px 6px" title="Gols marcados por jogo ÷ média da liga — maior é melhor">Índice de Ataque</th>
+            <th style="padding:8px 6px" title="Gols sofridos por jogo ÷ média da liga — menor é melhor">Índice de Defesa</th>
+            <th style="padding:8px 6px" title="Índice de Ataque − Índice de Defesa">Índice Geral</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranked.map((r, i) => `
+            <tr style="background:${r.destacado ? 'rgba(79,110,247,.12)' : (i % 2 ? 'rgba(255,255,255,.02)' : 'transparent')}">
+              <td style="padding:6px 4px;font-weight:700">${i + 1}º</td>
+              <td style="padding:6px 4px;text-align:left;font-weight:${r.destacado ? 700 : 400};color:${r.destacado ? 'var(--accent)' : 'var(--text)'}">${r.team}</td>
+              <td style="padding:6px;color:var(--text2)">${r.jogos}</td>
+              <td style="padding:6px;color:var(--text)">${_today2PowerIcon(r.ataque, true, [1.05, 0.90])} ${r.ataque.toFixed(2)}</td>
+              <td style="padding:6px;color:var(--text)">${_today2PowerIcon(r.defesa, false, [0.95, 1.10])} ${r.defesa.toFixed(2)}</td>
+              <td style="padding:6px;font-weight:700;color:${r.geral >= 0 ? '#22c55e' : '#ef4444'}">${_today2PowerIcon(r.geral, true, [0.15, -0.15])} ${r.geral >= 0 ? '+' : ''}${r.geral.toFixed(2)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-top:6px;padding-left:2px">
+      Calculado em cima dos gols marcados/sofridos por jogo de cada time nessa liga, comparados com a média da liga — não é um dado oficial do Flashscore.
+    </div>`;
+}
+
+function _buildToday2StandingsHtml(d, matchId) {
+  if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado no Flashscore</div>';
+  const rows = d.rows || [];
+  if (!rows.length) return '<div style="color:var(--text2)">sem classificação disponível pra essa liga</div>';
+  const view = _today2StandingsView[matchId] || 'tabela';
+  const btn = (v, lbl) => `<button onclick="_setToday2StandingsView('${matchId}','${v}')" style="font-size:14px;font-weight:600;padding:5px 12px;border-radius:6px;
+    border:1px solid ${view===v?'var(--accent)':'var(--border)'};background:${view===v?'var(--accent)':'var(--bg2)'};color:${view===v?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`;
+  return `
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      ${btn('tabela', 'Tabela')}
+      ${btn('power', '⚡ Power Ranking')}
+    </div>
+    ${view === 'power' ? _today2PowerRankingHtml(rows) : _today2StandingsTableHtml(rows)}`;
 }
 
 // ── 🧠 LEITURA DA PARTIDA — aba de insights (Hoje 2) ────────────────────────
