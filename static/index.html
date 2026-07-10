@@ -3637,10 +3637,19 @@ function _btcsPatternsRenderBox(loading) {
   const modeBtn = (m, label) => `<button onclick="_btcsPatternsSetMode('${m}')" style="font-size:13px;font-weight:600;padding:6px 14px;
     border-radius:8px;border:1px solid ${_btcsPatternsMode===m?'var(--accent)':'var(--border)'};
     background:${_btcsPatternsMode===m?'var(--accent)':'var(--bg2)'};color:${_btcsPatternsMode===m?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
+  const viewBtn = (v, label) => `<button onclick="_btcsPatternsSetView('${v}')" style="font-size:13px;font-weight:600;padding:6px 14px;
+    border-radius:8px;border:1px solid ${_btcsPatternsView===v?'var(--accent)':'var(--border)'};
+    background:${_btcsPatternsView===v?'var(--accent)':'var(--bg2)'};color:${_btcsPatternsView===v?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
+  const bestByBucket = d.patterns_avoid_best_by_bucket || _btcsBestPerBucket(d.patterns_avoid || []);
+  const lista = _btcsPatternsView === 'melhor' ? bestByBucket : (d.patterns_avoid || []);
   box.innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:10px">
       ${modeBtn('recente', 'Últimos 30 jogos')}
       ${modeBtn('acumulado', '📈 Acumulado (histórico)')}
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      ${viewBtn('todos', 'Todos os padrões')}
+      ${viewBtn('melhor', `🏆 Melhor combinação por placar (${bestByBucket.length}/19)`)}
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2)">
       <span>gerado em ${generatedAt}</span>
@@ -3648,11 +3657,32 @@ function _btcsPatternsRenderBox(loading) {
       <button onclick="_btcsPatternsRefresh()" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 8px">🚫 Padrões que REDUZEM a chance — sinal de que esse placar NÃO vai sair</div>
-    ${_btcsPatternsTableHtml(d.patterns_avoid, {
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 8px">
+      🚫 Padrões que REDUZEM a chance — sinal de que esse placar NÃO vai sair
+      ${_btcsPatternsView === 'melhor' ? ' — um por placar, o de lift mais baixo (sinal mais forte)' : ''}
+    </div>
+    ${_btcsPatternsTableHtml(lista, {
       emptyMsg: 'nenhum padrão de "reduz a chance" encontrado ainda com amostra suficiente (lift ≤ 0.7x, amostra ≥ 30 jogos)',
       liftColorFn: _btcsAvoidLiftColor,
     })}`;
+}
+
+let _btcsPatternsView = 'todos'; // 'todos' | 'melhor' — melhor combinação por placar
+
+function _btcsPatternsSetView(v) {
+  _btcsPatternsView = v;
+  _btcsPatternsRenderBox();
+}
+
+function _btcsBestPerBucket(patterns) {
+  // Um padrão por placar (lift mais baixo = sinal mais forte de "não sai"),
+  // ordenado do mais forte pro mais fraco.
+  const byBucket = {};
+  for (const p of patterns || []) {
+    const cur = byBucket[p.bucket];
+    if (!cur || p.lift < cur.lift) byBucket[p.bucket] = p;
+  }
+  return Object.values(byBucket).sort((a, b) => a.lift - b.lift);
 }
 
 function _btcsRender() {
@@ -4786,9 +4816,26 @@ function _live2SavePairs() {
   localStorage.setItem('live2AddedPairs', JSON.stringify(_live2AddedPairs));
 }
 
+function _live2SideScore(a, b) {
+  // Comparação aproximada (não exata) — o Hoje 2 usa nomes do Flashscore
+  // ("Dayton") e o radar do Ao Vivo 2 usa nomes do Uniscore ("Dayton Dutch
+  // Lions"), então uma igualdade estrita nunca casava. Mesma técnica de
+  // "prefixo em comum" já usada no backend (_fs_find_match/side_score).
+  a = a || ''; b = b || '';
+  let score = 0;
+  if (a.length >= 4 && a.slice(0, 5) === b.slice(0, 5)) score += 2;
+  if (a.slice(0, 6) && (b.includes(a.slice(0, 6)) || a.includes(b.slice(0, 6)))) score += 1;
+  return score;
+}
+
 function _isLive2Added(home, away) {
   const h = _normLive2(home), a = _normLive2(away);
-  return _live2AddedPairs.some(p => p.home === h && p.away === a);
+  return _live2AddedPairs.some(p => {
+    const sh = _live2SideScore(p.home, h), sa = _live2SideScore(p.away, a);
+    // Exige alguma confiança dos DOIS lados (não só um nome parecido de um só
+    // time) — mesmo cuidado do backend pra não casar o jogo errado.
+    return sh > 0 && sa > 0 && (sh + sa) >= 4;
+  });
 }
 
 function toggleLive2Added(matchId, btn) {
@@ -4911,6 +4958,8 @@ async function _loadLive2Momentum(matches) {
         const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
         drawMiniMomentum(canvasEl, points, data.goals || []);
         _live2AttachMomentumTooltip(canvasEl, points);
+        _live2PointsCache[m.id] = points;
+        _live2RenderMomentumMarkers(m.id, points);
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
       }
@@ -4952,6 +5001,167 @@ function _live2AttachMomentumTooltip(canvas, points) {
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 }
 
+// ── Marcadores de eventos sobre o gráfico de pressão (Ao Vivo 2) ──────────────
+// 3 tipos, isolados com prefixo live2 (não mexe no gráfico/aba Ao Vivo original):
+//  1) "Momento Over"  — janela sustentada de pressão alta, só matemática local
+//  2) "Grande Chance" — ver nota dentro de _live2DetectPressureMarkers: o feed de
+//     incidents do UniScore, testado ao vivo, só trouxe type "goal"/"period" (sem
+//     nenhum evento de "big chance" com minuto), então aqui é fallback por pico
+//     de pressão pontual, deixado bem documentado (não é dado real de evento).
+//  3) "Possível 1º Gol do Favorito" — reaproveita a régua de 1º gol do Hoje 2
+//     (_jogoStatsRowsFromSection + _jogoEnsureGoalMinutes + _jogoGoalPatternStats)
+let _live2MarkersCache = {};   // { [matchId]: marker[] } — marcadores já calculados
+let _live2PointsCache  = {};   // { [matchId]: graphPoints[] } — pra poder re-renderizar
+
+function _live2DetectPressureMarkers(points) {
+  if (!points || points.length < 4) return [];
+  // mesmo cálculo de maxVal usado em drawMiniMomentum, pra usar a mesma escala
+  const maxVal = Math.max(...points.map(d => Math.abs(d.value || 0)), 1);
+  const overThresh   = maxVal * 0.6;   // limiar de janela sustentada
+  const chanceThresh = maxVal * 0.8;   // limiar de pico pontual
+
+  const markers = [];
+  const overWindows = [];
+
+  // 1) Janelas sustentadas: >=4 pontos consecutivos com |valor| acima do limiar
+  let i = 0;
+  while (i < points.length) {
+    if (Math.abs(points[i].value || 0) >= overThresh) {
+      let j = i;
+      while (j < points.length && Math.abs(points[j].value || 0) >= overThresh) j++;
+      if (j - i >= 4) overWindows.push({ startIdx: i, endIdx: j - 1 });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  overWindows.forEach(w => {
+    const mStart = Math.floor(points[w.startIdx].minute);
+    const mEnd   = Math.floor(points[w.endIdx].minute);
+    markers.push({
+      type: 'over', icon: '🔥', minute: (mStart + mEnd) / 2,
+      label: `${mStart}' à ${mEnd}' — Momento Over`,
+    });
+  });
+
+  // 2) Picos pontuais (1-2 pontos), fora de qualquer janela de Momento Over
+  const isInOverWindow = (idx) => overWindows.some(w => idx >= w.startIdx && idx <= w.endIdx);
+  i = 0;
+  while (i < points.length) {
+    const v = Math.abs(points[i].value || 0);
+    if (v >= chanceThresh && !isInOverWindow(i)) {
+      let j = i;
+      while (j < points.length && Math.abs(points[j].value || 0) >= chanceThresh && !isInOverWindow(j)) j++;
+      if (j - i <= 2) {
+        const minute = Math.floor(points[i].minute);
+        const isHome = (points[i].value || 0) >= 0;
+        markers.push({
+          type: 'chance', icon: '⚡', minute, isHome,
+          label: `${minute}' — Grande Chance (${isHome ? 'Casa' : 'Fora'})`,
+        });
+      }
+      i = j;
+    } else {
+      i++;
+    }
+  }
+
+  return markers;
+}
+
+// Desenha os ícones de marcador por cima do canvas (overlay absoluto), com
+// tooltip reaproveitando o mesmo elemento de _live2AttachMomentumTooltip.
+function _live2RenderMomentumMarkers(matchId, points, extraMarkers) {
+  const wrap = document.getElementById(`live2MomentumWrap_${matchId}`);
+  const canvasEl = document.getElementById(`live2MomentumCanvas_${matchId}`);
+  if (!wrap || !canvasEl || !points || !points.length) return;
+
+  const detected = _live2DetectPressureMarkers(points);
+  const all = [...detected, ...(extraMarkers || [])];
+  _live2MarkersCache[matchId] = all;
+
+  const prev = document.getElementById(`live2MarkersOverlay_${matchId}`);
+  if (prev) prev.remove();
+  if (!all.length) return;
+
+  wrap.style.position = wrap.style.position || 'relative';
+
+  const minMinute = points[0].minute || 0;
+  const maxMinute = points[points.length - 1].minute || 90;
+  const span = Math.max(1, maxMinute - minMinute);
+
+  const overlay = document.createElement('div');
+  overlay.id = `live2MarkersOverlay_${matchId}`;
+  overlay.style.cssText = 'position:absolute;left:16px;right:16px;top:10px;height:90px;pointer-events:none';
+  overlay.innerHTML = all.map((mk, idx) => {
+    const pct = Math.min(97, Math.max(1, ((mk.minute - minMinute) / span) * 100));
+    let topPx = 2;
+    if (mk.type === 'chance') topPx = mk.isHome ? 2 : 74;
+    return `<span class="live2-marker-icon" data-mid="${matchId}" data-idx="${idx}"
+      style="position:absolute;left:${pct}%;top:${topPx}px;transform:translateX(-50%);
+      cursor:pointer;font-size:13px;line-height:1;user-select:none;pointer-events:auto">${mk.icon}</span>`;
+  }).join('');
+  wrap.appendChild(overlay);
+
+  overlay.querySelectorAll('.live2-marker-icon').forEach(el => {
+    const idx = Number(el.dataset.idx);
+    const mk = all[idx];
+    const showTip = (ev) => {
+      if (!_live2MomentumTooltipEl) return;
+      const tip = _live2MomentumTooltipEl;
+      tip.innerHTML = `<div>${mk.label}</div>`;
+      tip.style.left = (ev.clientX + 12) + 'px';
+      tip.style.top = (ev.clientY - 36) + 'px';
+      tip.style.display = 'block';
+    };
+    el.addEventListener('mouseenter', showTip);
+    el.addEventListener('mousemove', showTip);
+    el.addEventListener('mouseleave', () => { if (_live2MomentumTooltipEl) _live2MomentumTooltipEl.style.display = 'none'; });
+    el.addEventListener('click', showTip); // tap em mobile
+  });
+}
+
+// "Possível 1º Gol do Favorito" — reaproveita a régua de 1º gol já usada no
+// Hoje 2 (aba 🧠 Leitura da Partida), aplicada só ao recorte do time favorito
+// (casa em casa / fora fora), com o mesmo limiar n>=8 jogos e taxa>=60%.
+// Reaproveita o h2hData e oddsData JÁ buscados em loadLive2Flashscore — não
+// dispara fetch novo de odds/h2h, só o batch de minutos de gol (endpoint já
+// existente, usado pelo Hoje 2) pros ~15 jogos do recorte do favorito.
+async function _live2MaybeAddFavoriteMarker(matchId, m, oddsData, h2hData) {
+  try {
+    const o = oddsData && oddsData.odds;
+    if (!o || !o.home || !o.away) return;
+    const homeOdd = parseFloat(o.home.value), awayOdd = parseFloat(o.away.value);
+    if (!homeOdd || !awayOdd) return;
+    const favoritoHome = homeOdd < awayOdd;
+
+    const tabs = (h2hData && h2hData.tabs) || [];
+    // teamHome=true pega o recorte "casa jogando em casa"; false pega "fora jogando fora"
+    const block = favoritoHome
+      ? _jogoStatsRowsFromSection(tabs, 1, true)
+      : _jogoStatsRowsFromSection(tabs, 2, false);
+    if (!block || !block.rows.length) return;
+
+    await _jogoEnsureGoalMinutes(block.rows);
+    const gp = _jogoGoalPatternStats(block.rows);
+    if (!gp || gp.totalComGm < 8) return;
+    const pct = gp.timeMarcouPrimeiroCount / gp.totalComGm * 100;
+    if (pct < 60) return;
+
+    const favName = block.teamName || (favoritoHome ? m.casa : m.fora);
+    const marker = {
+      type: 'favorito', icon: '⭐', minute: 2,
+      label: `Possível 1º gol do favorito: ${favName} (${pct.toFixed(0)}% em ${gp.totalComGm} jogos)`,
+    };
+    const points = _live2PointsCache[matchId];
+    if (points && points.length) {
+      _live2RenderMomentumMarkers(matchId, points, [marker]);
+    }
+  } catch (e) {
+    // silencioso — marcador é só um bônus, não pode quebrar o fluxo principal
+  }
+}
+
 // ── Estatísticas + odds do Flashscore/Soccerway (experimento novo) — busca sob demanda,
 // só quando o usuário clica no botão do card, pra não sobrecarregar com jogos que
 // ninguém está olhando ──
@@ -4977,6 +5187,9 @@ async function loadLive2Flashscore(matchId, btn) {
     const statsData = await statsRes.json();
     const oddsData  = await oddsRes.json();
     const h2hData   = await h2hRes.json();
+
+    // Marcador "Possível 1º gol do favorito" — não bloqueia o resto do carregamento
+    _live2MaybeAddFavoriteMarker(matchId, m, oddsData, h2hData);
 
     if (!statsData.found) {
       wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">jogo não encontrado no Flashscore/Soccerway</div>`;

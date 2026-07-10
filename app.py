@@ -5459,6 +5459,17 @@ def _btcs_build_patterns_from_teams(teams):
     # o sinal de que aquele placar não vai sair), segment_games como desempate
     # (entre lifts iguais, prefere o padrão com amostra maior/mais confiável).
     patterns_avoid.sort(key=lambda p: (p["lift"], -p["segment_games"]))
+
+    # Melhor padrão (menor lift) de CADA um dos 19 placares, calculado sobre a
+    # lista COMPLETA (antes do corte de top-30 abaixo) — assim cobre todo
+    # placar que tiver algum padrão qualificado, não só os que entram no top-30.
+    best_avoid_by_bucket = {}
+    for p in patterns_avoid:
+        cur = best_avoid_by_bucket.get(p["bucket"])
+        if cur is None or p["lift"] < cur["lift"]:
+            best_avoid_by_bucket[p["bucket"]] = p
+    patterns_avoid_best_by_bucket = sorted(best_avoid_by_bucket.values(), key=lambda p: p["lift"])
+
     patterns_avoid = patterns_avoid[:_BTCS_PATTERN_AVOID_TOP_N]
 
     return {
@@ -5467,6 +5478,7 @@ def _btcs_build_patterns_from_teams(teams):
         "sample_matches_used": total_games,
         "patterns": patterns,
         "patterns_avoid": patterns_avoid,
+        "patterns_avoid_best_by_bucket": patterns_avoid_best_by_bucket,
     }
 
 
