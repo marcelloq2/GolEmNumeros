@@ -4275,6 +4275,62 @@ def _fs_goal_minutes(event_id):
         prev_home, prev_away = cur_home, cur_away
     return {"home": home_minutes, "away": away_minutes}
 
+def _fs_goal_events(event_id):
+    """Igual a _fs_goal_minutes, mas guarda também quem marcou/tomou cartão — o feed
+    já traz o nome do jogador em 'IF' (ex: 'Loupatty E.') em cada bloco de evento, só
+    não era usado até agora. 'ICT' indica pênalti/gol contra quando presente (testado
+    em jogos reais — normalmente vem vazio, então não força uma tag quando não vier).
+    Pra gol, o lado (casa/fora) é derivado comparando INX/IOX com o placar anterior;
+    pra cartão não tem placar pra comparar, então usa 'IA' direto (1=casa, 2=fora,
+    confirmado testando contra gols onde os dois métodos batem)."""
+    text = _fs_get(f"df_sui_1_{event_id}")
+
+    def _parse_minute(raw):
+        raw = (raw or "").rstrip("'")
+        if "+" in raw:
+            try:
+                base, extra = raw.split("+")
+                return int(base) + int(extra)
+            except ValueError:
+                return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    events = []
+    prev_home, prev_away = 0, 0
+    for block in _fs_blocks(text):
+        d = _fs_kv(block)
+        ik = d.get("IK")
+        minute = _parse_minute(d.get("IB"))
+        if ik == "Gol":
+            try:
+                cur_home, cur_away = int(d.get("INX", prev_home)), int(d.get("IOX", prev_away))
+            except ValueError:
+                continue
+            is_home = cur_home > prev_home
+            if minute is not None and (is_home or cur_away > prev_away):
+                events.append({
+                    "type": "gol",
+                    "minute": minute,
+                    "minute_label": d.get("IB", ""),
+                    "player": d.get("IF", ""),
+                    "isHome": is_home,
+                    "note": d.get("ICT", ""),  # ex: pênalti/gol contra, quando o feed manda
+                })
+            prev_home, prev_away = cur_home, cur_away
+        elif ik in ("Cartão Vermelho", "Cartão Amarelo") and minute is not None:
+            events.append({
+                "type": "cartao_vermelho" if ik == "Cartão Vermelho" else "cartao_amarelo",
+                "minute": minute,
+                "minute_label": d.get("IB", ""),
+                "player": d.get("IF", ""),
+                "isHome": d.get("IA") == "1",
+                "note": "",
+            })
+    return events
+
 def _fs_standings(event_id, home_name="", away_name=""):
     """Tabela de classificação da liga da partida (posição, pontos, V/E/D, saldo)."""
     text = _fs_get(f"df_tl_1_{event_id}")
@@ -4533,6 +4589,22 @@ def api_flashscore_goal_minutes_batch():
         if gm is not None:
             result[event_id] = gm
     return jsonify({"results": result})
+
+@app.route("/api/flashscore/goal_events")
+def api_flashscore_goal_events():
+    """Quem marcou cada gol (e cartões vermelho/amarelo) e em que minuto, pra
+    partidas já encerradas — usado no Hoje 2 pra mostrar os artilheiros/cartões
+    (nome + minuto) igual ao placar final."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    m = _fs_find_match(casa, fora)
+    if not m:
+        return jsonify({"found": False}), 404
+    try:
+        events = _fs_goal_events(m["id"])
+    except Exception as e:
+        return jsonify({"found": True, "match": m, "error": str(e)}), 503
+    return jsonify({"found": True, "match": m, "events": events})
 
 @app.route("/api/flashscore/standings")
 def api_flashscore_standings():
@@ -5689,6 +5761,124 @@ def api_backtestcs_matches_for_bucket():
             })
     resultado.sort(key=lambda x: x.get("kickoff_ts") or "")
     return jsonify({"matches": resultado})
+
+
+# ── Classificação de jogos de hoje pelas odds atuais (Resultado Final / Gols /
+# Ambas Marcam) — usado só pelo painel "Filtrar por Parâmetros" da aba experimental
+# 'Hoje 2'. Cacheado 5min (mesmo padrão do _btcs_bucket_odds_cache) pra não
+# reconsultar odds a cada clique de checkbox do usuário. ──
+_TODAY2_CLASSIFICATION_CACHE_TTL = 300  # 5min — odds mudam pouco em poucos minutos
+_today2_classification_cache = {"ts": 0, "data": None}
+
+
+def _today2_classify_match(markets):
+    """Classifica um jogo pelas odds atuais em Resultado Final / Gols / Ambas Marcam.
+    Limiares de favoritismo (odd baixa = mais provável): <1.35 super favorito,
+    1.35–1.80 favorito, ambos os lados entre 1.80–2.60 sem favorito claro = parelho.
+    Fora dessas faixas (ex: um lado <1.80 e outro >2.60) não classifica resultado
+    (fica None) pra não forçar rótulo em jogo sem padrão claro."""
+    out = {"resultado": None, "favorito_lado": None, "gols": None, "ambas": None,
+           "odd_casa": None, "odd_fora": None}
+
+    m1x2 = markets.get("1x2") or {}
+    odd_casa = (m1x2.get("home") or {}).get("value")
+    odd_fora = (m1x2.get("away") or {}).get("value")
+    try:
+        odd_casa = float(odd_casa) if odd_casa is not None else None
+    except (TypeError, ValueError):
+        odd_casa = None
+    try:
+        odd_fora = float(odd_fora) if odd_fora is not None else None
+    except (TypeError, ValueError):
+        odd_fora = None
+    out["odd_casa"] = odd_casa
+    out["odd_fora"] = odd_fora
+
+    if odd_casa and odd_fora:
+        menor = min(odd_casa, odd_fora)
+        lado = "casa" if odd_casa <= odd_fora else "fora"
+        if menor < 1.35:
+            out["resultado"] = "super_favorito"
+            out["favorito_lado"] = lado
+        elif menor <= 1.80:
+            out["resultado"] = "favorito"
+            out["favorito_lado"] = lado
+        elif 1.80 <= odd_casa <= 2.60 and 1.80 <= odd_fora <= 2.60:
+            out["resultado"] = "parelho"
+
+    over_under = markets.get("over_under") or {}
+    melhor_op = None
+    melhor_dist = None
+    for op in over_under.get("opportunities") or []:
+        try:
+            line = float((op.get("handicap") or {}).get("value"))
+        except (TypeError, ValueError):
+            continue
+        dist = abs(line - 2.5)
+        if melhor_dist is None or dist < melhor_dist:
+            melhor_dist = dist
+            melhor_op = op
+    if melhor_op:
+        try:
+            odd_over = float((melhor_op.get("over") or {}).get("value"))
+        except (TypeError, ValueError):
+            odd_over = None
+        try:
+            odd_under = float((melhor_op.get("under") or {}).get("value"))
+        except (TypeError, ValueError):
+            odd_under = None
+        if odd_over and odd_under:
+            out["gols"] = "over" if odd_over <= odd_under else "under"
+
+    ambos = markets.get("ambos_marcam") or {}
+    try:
+        odd_sim = float((ambos.get("yes") or {}).get("value"))
+    except (TypeError, ValueError):
+        odd_sim = None
+    try:
+        odd_nao = float((ambos.get("no") or {}).get("value"))
+    except (TypeError, ValueError):
+        odd_nao = None
+    if odd_sim and odd_nao:
+        out["ambas"] = "sim" if odd_sim <= odd_nao else "nao"
+
+    return out
+
+
+@app.route("/api/today2/match_classification")
+def api_today2_match_classification():
+    """Classifica os jogos de HOJE (ainda não iniciados, limitados aos próximos
+    _BT2_MATCHES_MAX_CANDIDATOS) pelas odds atuais — Resultado Final, Gols e Ambas
+    Marcam — pra alimentar o painel 'Filtrar por Parâmetros' da aba 'Hoje 2'.
+    Reaproveita os pools isolados do Backtest 2 (_bt2_matches_pool /
+    _bt2_matches_market_pool), não os pools pesados de ranking, pro filtro
+    continuar rápido mesmo com um recálculo de ranking rodando."""
+    force = request.args.get("refresh") == "1"
+    if not force and _today2_classification_cache["data"] is not None and \
+            (time.time() - _today2_classification_cache["ts"]) < _TODAY2_CLASSIFICATION_CACHE_TTL:
+        return jsonify(_today2_classification_cache["data"])
+
+    candidatos = _bt2_matches_candidatos()
+
+    def _fetch_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+        except Exception:
+            markets = {}
+        return m, markets
+
+    classifications = {}
+    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+        if not markets:
+            continue
+        c = _today2_classify_match(markets)
+        if c["resultado"] or c["gols"] or c["ambas"]:
+            classifications[str(m["id"])] = c
+
+    data = {"classifications": classifications}
+    _today2_classification_cache["ts"] = time.time()
+    _today2_classification_cache["data"] = data
+    return jsonify(data)
 
 
 @app.route("/api/match/live/<path:match_id>")

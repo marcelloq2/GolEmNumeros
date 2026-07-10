@@ -161,6 +161,14 @@
   .league-group.collapsed .league-toggle { transform: rotate(-90deg); }
   .league-group.collapsed .league-body { display: none; }
   .league-group.collapsed .today2-league-body { display: none; }
+  .today2-filter-box.collapsed .today2-filter-box-body { display: none; }
+  .today2-filter-box.collapsed [id$="Chevron"] { transform: rotate(-90deg); }
+  .today2-param-label { display:block;font-weight:700;color:var(--text2);margin:6px 0 4px;font-size:10px;letter-spacing:.03em;text-transform:uppercase }
+  .today2-param-label:first-child { margin-top:0 }
+  .today2-check-row { display:flex;align-items:flex-start;gap:6px;padding:3px 0;cursor:pointer;font-size:11px;color:var(--text) }
+  .today2-check-row:hover { color:var(--accent) }
+  .today2-op-select { background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:3px 5px }
+  .today2-op-input { background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:3px 5px;width:56px }
   .today2-match-row {
     padding: 8px 12px; border-bottom: 1px solid #1e2235; cursor: pointer;
     display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center;
@@ -1349,6 +1357,28 @@
             <button class="filter-btn" id="today2ProximosBtn" onclick="toggleToday2Status('1', this)">Próximos</button>
           </div>
         </div>
+
+        <div class="today2-filter-box collapsed" id="today2MetodBox" style="margin-top:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <div class="today2-filter-box-header" onclick="toggleToday2FilterBox('today2MetodBox')"
+            style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);cursor:pointer">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text2)">🎯 FILTRO DE METODOLOGIAS <span id="today2MetodChevron" style="display:inline-block;transition:transform .15s">⌄</span></span>
+            <span title="Limpar" onclick="event.stopPropagation();clearToday2Metodologias()" style="cursor:pointer;font-size:12px">🗑</span>
+          </div>
+          <div class="today2-filter-box-body" id="today2MetodBody" style="padding:8px 10px;max-height:220px;overflow-y:auto;font-size:11px">
+            <div style="color:var(--text2)">carregando...</div>
+          </div>
+        </div>
+
+        <div class="today2-filter-box collapsed" id="today2ParamBox" style="margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <div class="today2-filter-box-header" onclick="toggleToday2FilterBox('today2ParamBox')"
+            style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);cursor:pointer">
+            <span style="font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text2)">⚙️ FILTRAR POR PARÂMETROS <span id="today2ParamChevron" style="display:inline-block;transition:transform .15s">⌄</span></span>
+            <span title="Limpar" onclick="event.stopPropagation();clearToday2Parametros()" style="cursor:pointer;font-size:12px">🗑</span>
+          </div>
+          <div class="today2-filter-box-body" id="today2ParamBody" style="padding:8px 10px;max-height:260px;overflow-y:auto;font-size:11px">
+            <div style="color:var(--text2)">carregando...</div>
+          </div>
+        </div>
       </div>
       <div id="today2Wrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -2226,12 +2256,50 @@ function _today2RefreshDetailHeader(id) {
       </div>
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right">${m.away}</div>
     </div>
+    ${m.status === '3' ? `<div id="today2GoalEventsBox_${id}" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:12px;color:var(--text2)"></div>` : ''}
     <div style="margin-top:8px">
       <button id="today2Live2AddBtn" onclick="toggleLive2Added('${id}', this)"
         style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2)">
         ${_isLive2Added(m.home, m.away) ? '✅ Adicionado ao Ao Vivo 2' : '➕ Adicionar ao Ao Vivo 2'}
       </button>
     </div>`;
+  if (m.status === '3') _today2LoadGoalEvents(id, m);
+}
+
+// Artilheiros + cartões das partidas ENCERRADAS — o feed do Flashscore já traz
+// nome do jogador e minuto em cada evento (gol/cartão), só não era usado até
+// agora. Cacheado por partida (placar/eventos de jogo encerrado não mudam mais).
+let _today2GoalEventsCache = {};
+
+async function _today2LoadGoalEvents(id, m) {
+  const box = document.getElementById(`today2GoalEventsBox_${id}`);
+  if (!box) return;
+  if (_today2GoalEventsCache[id]) { box.innerHTML = _today2GoalEventsHtml(_today2GoalEventsCache[id]); return; }
+  try {
+    const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+    const r = await fetch(`/api/flashscore/goal_events?${params}`);
+    const d = await r.json();
+    _today2GoalEventsCache[id] = d.events || [];
+  } catch (e) {
+    _today2GoalEventsCache[id] = [];
+  }
+  const freshBox = document.getElementById(`today2GoalEventsBox_${id}`);
+  if (freshBox) freshBox.innerHTML = _today2GoalEventsHtml(_today2GoalEventsCache[id]);
+}
+
+const _TODAY2_EVENT_ICON = { gol: '⚽', cartao_amarelo: '🟨', cartao_vermelho: '🟥' };
+
+function _today2GoalEventsHtml(events) {
+  if (!events.length) return '';
+  const line = (e) => {
+    const icon = _TODAY2_EVENT_ICON[e.type] || '⚽';
+    const nome = e.player ? _bt2EscXml(e.player) : (e.type === 'gol' ? 'Gol' : (e.type === 'cartao_vermelho' ? 'Cartão vermelho' : 'Cartão amarelo'));
+    const nota = e.note ? ` (${_bt2EscXml(e.note)})` : '';
+    return `<div>${icon} ${nome}${nota} <b style="color:var(--text)">${_bt2EscXml(e.minute_label)}</b></div>`;
+  };
+  const home = events.filter(e => e.isHome).map(line).join('');
+  const away = events.filter(e => !e.isHome).map(line).join('');
+  return `<div style="flex:1;text-align:left">${home}</div><div style="flex:1;text-align:right">${away}</div>`;
 }
 
 function selectToday2Match(id, rowEl) {
@@ -2322,12 +2390,267 @@ function filterToday2() {
       const bateTurno = _today2TurnoAtivo === 'all' || _calcToday2Turno(m) === _today2TurnoAtivo;
       const bateAoVivo = !_today2SoAoVivo || m.status === '2';
       const bateStatus = !_today2StatusFiltro || m.status === _today2StatusFiltro;
-      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus;
+      const bateMetodologia = _today2QualifyingMatchIds.size === 0 || _today2QualifyingMatchIds.has(String(m.id));
+      const bateParametro = _today2MatchePassaParametros(m);
+      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateMetodologia && bateParametro;
       card.style.display = visivel ? '' : 'none';
       if (visivel) algumVisivel = true;
     });
     grupo.style.display = algumVisivel ? '' : 'none';
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🎯 Filtro de Metodologias — puxa metodologias de valor já rankeadas no
+// Backtest 2 (mercado+seleção com ROI alto) e no Backtest CS (padrões de
+// placar "raramente sai") e filtra a lista de Hoje 2 aos jogos onde essas
+// metodologias estão disponíveis nas odds atuais. Semântica OR: um jogo
+// aparece se qualificar em QUALQUER metodologia marcada.
+// ═══════════════════════════════════════════════════════════════════════
+let _today2SelectedMetodologias = new Set(); // chaves compostas "bt2::market::selection" | "btcs::bucket"
+let _today2QualifyingMatchIds = new Set();   // vazio = sem filtro de metodologia ativo
+let _today2MetodPanelLoaded = false;
+
+function toggleToday2FilterBox(boxId) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  const wasCollapsed = box.classList.contains('collapsed');
+  box.classList.toggle('collapsed');
+  if (!wasCollapsed) return; // estava aberto, só fechou
+  if (boxId === 'today2MetodBox' && !_today2MetodPanelLoaded) {
+    _today2MetodPanelLoaded = true;
+    _loadToday2MetodologiasPanel();
+  }
+  if (boxId === 'today2ParamBox' && !_today2ParamPanelLoaded) {
+    _today2ParamPanelLoaded = true;
+    _loadToday2ParamPanel();
+  }
+}
+
+async function _loadToday2MetodologiasPanel() {
+  const body = document.getElementById('today2MetodBody');
+  if (!body) return;
+  try {
+    const [bt2Res, btcsRes] = await Promise.all([
+      fetch('/api/backtest2/ranking?mode=acumulado').then(r => r.json()),
+      fetch('/api/backtestcs/patterns?mode=acumulado').then(r => r.json()),
+    ]);
+
+    // Mesmo critério de "valor" já usado no resto do app (ROI >= 20%, amostra >= 8 jogos)
+    const bt2Top = (bt2Res.methodologies || [])
+      .filter(m => m.roi >= 20 && m.bets >= 8)
+      .sort((a, b) => b.roi - a.roi)
+      .slice(0, 20);
+
+    const btcsTop = (btcsRes.patterns_avoid_best_by_bucket || []).slice(0, 20);
+
+    _today2MetodCatalog = {}; // chave -> objeto original, usado no fetch de jogos qualificados
+    let html = '';
+
+    if (bt2Top.length) {
+      html += '<div class="today2-param-label">Backtest 2 — mercado/seleção</div>';
+      bt2Top.forEach(m => {
+        const key = `bt2::${m.market}::${m.selection}`;
+        _today2MetodCatalog[key] = { source: 'bt2', market: m.market, selection: m.selection };
+        const label = `${m.market_label} → ${m.selection} (ROI ${m.roi}%, ${m.bets} jogos)`;
+        html += _today2MetodCheckboxHtml(key, label);
+      });
+    }
+    if (btcsTop.length) {
+      html += '<div class="today2-param-label">Backtest CS — placares que raramente saem</div>';
+      btcsTop.forEach(p => {
+        const key = `btcs::${p.bucket}`;
+        _today2MetodCatalog[key] = { source: 'btcs', bucket: p.bucket };
+        const label = `${p.variable_label}: ${p.segment_label} → placar ${p.bucket} raramente sai (lift ${p.lift}x)`;
+        html += _today2MetodCheckboxHtml(key, label);
+      });
+    }
+    if (!html) html = '<div style="color:var(--text2)">nenhuma metodologia de valor disponível ainda</div>';
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div style="color:var(--text2)">erro ao carregar metodologias</div>';
+  }
+}
+
+function _today2MetodCheckboxHtml(key, label) {
+  const checked = _today2SelectedMetodologias.has(key) ? 'checked' : '';
+  return `<label class="today2-check-row">
+    <input type="checkbox" ${checked} onchange="toggleToday2Metodologia('${key.replace(/'/g, "\\'")}', this.checked)">
+    <span>${label}</span>
+  </label>`;
+}
+
+let _today2MetodCatalog = {};
+
+function toggleToday2Metodologia(key, checked) {
+  if (checked) _today2SelectedMetodologias.add(key);
+  else _today2SelectedMetodologias.delete(key);
+  _recomputeToday2QualifyingIds();
+}
+
+async function _recomputeToday2QualifyingIds() {
+  if (_today2SelectedMetodologias.size === 0) {
+    _today2QualifyingMatchIds = new Set();
+    filterToday2();
+    return;
+  }
+  const keys = [..._today2SelectedMetodologias];
+  const results = await Promise.all(keys.map(async key => {
+    const info = _today2MetodCatalog[key];
+    if (!info) return [];
+    try {
+      let url;
+      if (info.source === 'bt2') {
+        url = `/api/backtest2/matches_for_methodology?market=${encodeURIComponent(info.market)}&selection=${encodeURIComponent(info.selection)}`;
+      } else {
+        url = `/api/backtestcs/matches_for_bucket?bucket=${encodeURIComponent(info.bucket)}`;
+      }
+      const r = await fetch(url);
+      const d = await r.json();
+      return (d.matches || []).map(m => String(m.id));
+    } catch (e) {
+      return [];
+    }
+  }));
+  const union = new Set();
+  results.forEach(ids => ids.forEach(id => union.add(id)));
+  _today2QualifyingMatchIds = union;
+  filterToday2();
+}
+
+function clearToday2Metodologias() {
+  _today2SelectedMetodologias.clear();
+  _today2QualifyingMatchIds = new Set();
+  const body = document.getElementById('today2MetodBody');
+  body?.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+  filterToday2();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ⚙️ Filtrar por Parâmetros — classifica os jogos de hoje pelas odds atuais
+// (Resultado Final, Gols, Ambas Marcam, Odds Casa/Fora) via
+// /api/today2/match_classification, buscado só quando o usuário abre o
+// painel pela 1ª vez (evita sobrecarregar o feed de odds sem necessidade).
+// ═══════════════════════════════════════════════════════════════════════
+let _today2MatchClassification = null; // { classifications: { [id]: {...} } }
+let _today2ParamPanelLoaded = false;
+let _today2ParamFilters = {
+  resultado: new Set(),   // 'super_favorito' | 'favorito' | 'parelho' | 'casa' | 'fora'
+  gols: new Set(),        // 'over' | 'under'
+  ambas: new Set(),       // 'sim' | 'nao'
+  oddLado: '',            // '' | 'casa' | 'fora'
+  oddOp: '—',             // '—','>','≥','<','≤','↔'
+  oddVal: null,
+  oddVal2: null,          // usado só no operador '↔' (entre)
+};
+
+async function _loadToday2ParamPanel() {
+  const body = document.getElementById('today2ParamBody');
+  if (!body) return;
+  body.innerHTML = '<div style="color:var(--text2)">⏳ buscando odds dos jogos de hoje...</div>';
+  try {
+    const r = await fetch('/api/today2/match_classification');
+    _today2MatchClassification = await r.json();
+  } catch (e) {
+    _today2MatchClassification = { classifications: {} };
+  }
+  _renderToday2ParamPanel();
+}
+
+function _renderToday2ParamPanel() {
+  const body = document.getElementById('today2ParamBody');
+  if (!body) return;
+  const f = _today2ParamFilters;
+  const chk = (grupo, val, label) => `<label class="today2-check-row">
+    <input type="checkbox" ${f[grupo].has(val) ? 'checked' : ''} onchange="toggleToday2ParamCheck('${grupo}','${val}',this.checked)">
+    <span>${label}</span>
+  </label>`;
+
+  body.innerHTML = `
+    <div class="today2-param-label">Resultado Final</div>
+    ${chk('resultado', 'super_favorito', 'Super Favorito')}
+    ${chk('resultado', 'favorito', 'Favorito')}
+    ${chk('resultado', 'parelho', 'Parelho')}
+    ${chk('resultado', 'casa', 'Favorito é a Casa')}
+    ${chk('resultado', 'fora', 'Favorito é o Visitante')}
+
+    <div class="today2-param-label">Gols</div>
+    ${chk('gols', 'over', 'Tendência Over 2.5')}
+    ${chk('gols', 'under', 'Tendência Under 2.5')}
+
+    <div class="today2-param-label">Ambas Marcam</div>
+    ${chk('ambas', 'sim', 'Tendência Sim')}
+    ${chk('ambas', 'nao', 'Tendência Não')}
+
+    <div class="today2-param-label">Odds</div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <select class="today2-op-select" onchange="setToday2OddLado(this.value)">
+        <option value="" ${f.oddLado === '' ? 'selected' : ''}>Casa/Fora</option>
+        <option value="casa" ${f.oddLado === 'casa' ? 'selected' : ''}>Casa</option>
+        <option value="fora" ${f.oddLado === 'fora' ? 'selected' : ''}>Fora</option>
+      </select>
+      <select class="today2-op-select" onchange="setToday2OddOp(this.value)">
+        ${['—', '>', '≥', '<', '≤', '↔'].map(op => `<option value="${op}" ${f.oddOp === op ? 'selected' : ''}>${op}</option>`).join('')}
+      </select>
+      <input class="today2-op-input" type="number" step="0.01" placeholder="odd" value="${f.oddVal ?? ''}" oninput="setToday2OddVal(this.value)">
+      ${f.oddOp === '↔' ? `<input class="today2-op-input" type="number" step="0.01" placeholder="até" value="${f.oddVal2 ?? ''}" oninput="setToday2OddVal2(this.value)">` : ''}
+    </div>
+  `;
+}
+
+function toggleToday2ParamCheck(grupo, val, checked) {
+  if (checked) _today2ParamFilters[grupo].add(val);
+  else _today2ParamFilters[grupo].delete(val);
+  filterToday2();
+}
+
+function setToday2OddLado(v) { _today2ParamFilters.oddLado = v; filterToday2(); }
+function setToday2OddOp(v) {
+  _today2ParamFilters.oddOp = v;
+  _renderToday2ParamPanel(); // precisa re-renderizar pra mostrar/esconder o 2º campo do '↔'
+  filterToday2();
+}
+function setToday2OddVal(v) { _today2ParamFilters.oddVal = v === '' ? null : parseFloat(v); filterToday2(); }
+function setToday2OddVal2(v) { _today2ParamFilters.oddVal2 = v === '' ? null : parseFloat(v); filterToday2(); }
+
+function clearToday2Parametros() {
+  _today2ParamFilters = { resultado: new Set(), gols: new Set(), ambas: new Set(), oddLado: '', oddOp: '—', oddVal: null, oddVal2: null };
+  if (_today2ParamPanelLoaded) _renderToday2ParamPanel();
+  filterToday2();
+}
+
+function _today2OperadorBate(valor, op, alvo, alvo2) {
+  if (op === '—' || alvo === null || alvo === undefined || isNaN(alvo)) return true;
+  if (valor === null || valor === undefined) return false;
+  if (op === '>') return valor > alvo;
+  if (op === '≥') return valor >= alvo;
+  if (op === '<') return valor < alvo;
+  if (op === '≤') return valor <= alvo;
+  if (op === '↔') return alvo2 !== null && alvo2 !== undefined && !isNaN(alvo2) && valor >= Math.min(alvo, alvo2) && valor <= Math.max(alvo, alvo2);
+  return true;
+}
+
+function _today2MatchePassaParametros(m) {
+  const f = _today2ParamFilters;
+  const semFiltroAtivo = f.resultado.size === 0 && f.gols.size === 0 && f.ambas.size === 0 && f.oddOp === '—';
+  if (semFiltroAtivo) return true;
+
+  const c = _today2MatchClassification?.classifications?.[String(m.id)];
+  if (!c) return false; // jogo sem classificação de odds não passa quando há filtro de parâmetro ativo
+
+  if (f.resultado.size > 0) {
+    const bateResultadoTipo = c.resultado && f.resultado.has(c.resultado);
+    const bateLado = c.favorito_lado && f.resultado.has(c.favorito_lado);
+    if (!bateResultadoTipo && !bateLado) return false;
+  }
+  if (f.gols.size > 0 && !(c.gols && f.gols.has(c.gols))) return false;
+  if (f.ambas.size > 0 && !(c.ambas && f.ambas.has(c.ambas))) return false;
+
+  if (f.oddOp !== '—') {
+    const valor = f.oddLado === 'fora' ? c.odd_fora : (f.oddLado === 'casa' ? c.odd_casa : Math.min(c.odd_casa ?? Infinity, c.odd_fora ?? Infinity));
+    if (!_today2OperadorBate(valor === Infinity ? null : valor, f.oddOp, f.oddVal, f.oddVal2)) return false;
+  }
+  return true;
 }
 
 // ── Abas do painel de detalhes (Jogo/Odds/H2H/Classificações/Profit) — carrega sob
