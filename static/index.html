@@ -6373,12 +6373,28 @@ function _live2DetectPressureMarkers(points) {
     }
   }
 
-  // 2) Picos pontuais (1-2 pontos), fora de qualquer janela de Momento Over — só
-  // entra na lista se a base de ~2.500 jogos salvos (momentum_history) validou que
-  // esse formato de pico realmente costuma virar gol logo depois (ver
-  // /api/momentum/chance_pattern_stats e _live2GetChancePatternStats)
+  // 2) Picos pontuais (1-2 pontos), fora de qualquer janela sustentada — só entra
+  // na lista se a base de ~2.500 jogos salvos (momentum_history) validou que esse
+  // formato de pico realmente costuma virar gol logo depois (ver
+  // /api/momentum/chance_pattern_stats e _live2GetChancePatternStats). A janela
+  // sustentada usada aqui pra EXCLUIR picos é a calibrada (chanceOverThresh), não a
+  // fixa de 0.6 do marcador "Momento Over" acima — são propósitos diferentes.
   const chanceValidado = !!(_live2ChancePatternStats && _live2ChancePatternStats.valido);
-  const isInOverWindow = (idx) => overWindows.some(w => idx >= w.startIdx && idx <= w.endIdx);
+  const overPctCalibrado = (_live2ChancePatternStats && _live2ChancePatternStats.over_pct) || 0.6;
+  const chanceOverThresh = maxVal * overPctCalibrado;
+  const chanceOverWindows = [];
+  i = 0;
+  while (i < points.length) {
+    if (Math.abs(points[i].value || 0) >= chanceOverThresh) {
+      let j = i;
+      while (j < points.length && Math.abs(points[j].value || 0) >= chanceOverThresh) j++;
+      if (j - i >= 4) chanceOverWindows.push({ startIdx: i, endIdx: j - 1 });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  const isInOverWindow = (idx) => chanceOverWindows.some(w => idx >= w.startIdx && idx <= w.endIdx);
   i = 0;
   while (i < points.length) {
     const v = Math.abs(points[i].value || 0);

@@ -1743,6 +1743,7 @@ def _momentum_eval_pattern(matches, chance_pct, over_pct, window_min):
 
     return {
         "chance_pct":    chance_pct,
+        "over_pct":      over_pct,
         "window_min":    window_min,
         "total_spikes":  total_spikes,
         "hits":          hits,
@@ -1759,18 +1760,23 @@ _CHANCE_PATTERN_MIN_LIFT = 1.3
 # Grid de combinações testadas — quanto mais a base cresce, mais confiável fica a
 # escolha da melhor combinação (thresholds mais "esquisitos"/específicos só ganham
 # quando o tamanho da amostra sustenta, senão MIN_SAMPLE já descarta)
-_CHANCE_PATTERN_THRESH_GRID  = [0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
-_CHANCE_PATTERN_WINDOW_GRID  = [5, 8, 10, 12, 15]
-_CHANCE_PATTERN_OVER_PCT     = 0.6  # mantém fixo — é o limiar de outro indicador (Momento Over)
+_CHANCE_PATTERN_THRESH_GRID = [0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
+_CHANCE_PATTERN_WINDOW_GRID = [5, 8, 10, 12, 15]
+# Limiar do "Momento Over" (janela sustentada) que delimita o que NÃO conta como pico
+# pontual — antes ficava fixo em 0.6; agora também entra na busca, só descartando
+# combinações onde over_pct >= chance_pct (não faria sentido: a janela sustentada
+# "engoliria" o próprio pico antes dele contar como Grande Chance)
+_CHANCE_PATTERN_OVER_GRID = [0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
 
 @app.route("/api/momentum/chance_pattern_stats")
 def api_momentum_chance_pattern_stats():
     """Calibra dinamicamente o indicador 'Grande Chance' (Ao Vivo 2) contra toda a
     base de jogos salvos em momentum_history: testa uma grade de combinações de
-    limiar de pico (60%-90% do máximo) e janela pós-pico (5-15min), e escolhe a
-    combinação com o maior lift real (taxa de acerto vs taxa-base) entre as que têm
-    amostra suficiente. Conforme mais jogos vão sendo salvos, essa escolha muda
-    sozinha — não é um limiar fixo, é recalculado a cada 30min em cima da base atual."""
+    limiar de pico (60%-90% do máximo), limiar da janela sustentada que separa o pico
+    (45%-70%) e janela pós-pico (5-15min), e escolhe a combinação com o maior lift
+    real (taxa de acerto vs taxa-base) entre as que têm amostra suficiente. Conforme
+    mais jogos vão sendo salvos, essa escolha muda sozinha — não é um limiar fixo,
+    é recalculado a cada 30min em cima da base atual."""
     now = time.time()
     if _CHANCE_PATTERN_CACHE["data"] and (now - _CHANCE_PATTERN_CACHE["ts"]) < _CHANCE_PATTERN_TTL:
         return jsonify(_CHANCE_PATTERN_CACHE["data"])
@@ -1778,9 +1784,11 @@ def api_momentum_chance_pattern_stats():
     matches = _momentum_load_all_matches()
 
     resultados = [
-        _momentum_eval_pattern(matches, chance_pct, _CHANCE_PATTERN_OVER_PCT, window_min)
+        _momentum_eval_pattern(matches, chance_pct, over_pct, window_min)
         for chance_pct in _CHANCE_PATTERN_THRESH_GRID
+        for over_pct in _CHANCE_PATTERN_OVER_GRID
         for window_min in _CHANCE_PATTERN_WINDOW_GRID
+        if over_pct < chance_pct
     ]
 
     candidatos = [r for r in resultados if r["total_spikes"] >= _CHANCE_PATTERN_MIN_SAMPLE]
@@ -1794,6 +1802,7 @@ def api_momentum_chance_pattern_stats():
         "valido":        valido,
         # Campos usados pelo frontend pra desenhar o marcador com o limiar calibrado
         "chance_pct":    melhor["chance_pct"] if valido else 0.8,
+        "over_pct":      melhor["over_pct"] if valido else 0.6,
         "window_min":    melhor["window_min"] if valido else 10,
         "lift":          melhor["lift"] if melhor else 0.0,
     }
