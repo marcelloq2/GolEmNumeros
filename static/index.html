@@ -5415,9 +5415,31 @@ async function _renderToday2Insights(matchId) {
     if (_today2Tab[matchId] !== 'insights') return;
     const freshExtraWrap = document.getElementById(`today2StatAreaAnaliseWrap_${matchId}`);
     if (!freshExtraWrap) return;
-    const analiseHtml = gerarAnalise(ref) + gerarBlocoHistorico(ref);
+    // gerarAnalise(ref) já inclui os Padrões Históricos internamente (não precisa
+    // chamar gerarBlocoHistorico de novo, senão duplica) — e no Hoje 2 filtramos
+    // Convergência de Sinais, Cenário Principal, Alertas de Inconsistência e as
+    // tabelas de Placar FT/HT, a pedido do usuário (ficam só no Hoje original)
+    const analiseHtml = _today2FilterAnaliseHtml(gerarAnalise(ref));
     freshExtraWrap.innerHTML = analiseHtml || '';
   }
+}
+
+// Remove do HTML de gerarAnalise as seções que não fazem sentido no Hoje 2 (Convergência
+// de Sinais, Cenário Principal, Alertas de Inconsistência, Placar FT/HT) — sem tocar na
+// função original (compartilhada com a aba Hoje), só filtra o resultado depois de gerado.
+function _today2FilterAnaliseHtml(html) {
+  if (!html) return html;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  const REMOVE_LABELS = ['Cenário Principal', 'Alertas de Inconsistência'];
+  wrap.querySelectorAll('.cenario-block').forEach(block => {
+    const label = block.querySelector('.cenario-label');
+    if (label && REMOVE_LABELS.some(l => label.textContent.trim().startsWith(l))) {
+      block.remove();
+    }
+  });
+  wrap.querySelectorAll('.conv-block, .placares-block').forEach(el => el.remove());
+  return wrap.innerHTML;
 }
 
 const INSIGHT_TONE_COLOR = { green: '#22c55e', red: '#ef4444', amber: '#f59e0b' };
