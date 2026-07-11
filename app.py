@@ -2147,17 +2147,29 @@ def _lay_final_score(goals):
     return _under_score_at_minute(goals, 10_000)
 
 
-def _lay_is_goleada(goals):
+def _lay_goleada_side(goals):
+    """Quem golea no final, se algum ('home', 'away' ou None) — precisa pra apontar
+    especificamente qual lado apostar contra (Lay Goleada Casa/Visitante são
+    seleções separadas no mercado, não dá pra recomendar 'goleada' genérico)."""
     home, away = _lay_final_score(goals)
-    return abs(home - away) >= 4
+    if home - away >= 4:
+        return "home"
+    if away - home >= 4:
+        return "away"
+    return None
 
 
 def _lay_eval(matches, min_minute, max_diff):
     """Separa os jogos em dois grupos no minuto de entrada: 'controlado' (diferença
     de placar até max_diff — cenário em que faria sentido entrar no Lay Goleada) vs
     'já elástico' (diferença maior — não entraria), e compara a taxa de cada grupo
-    terminar em goleada (4+ gols de diferença no final)."""
+    terminar em goleada (4+ gols de diferença no final). Dentro do grupo seguro,
+    também quebra por lado (casa vs visitante) condicionado a quem tava na frente
+    no minuto de entrada, pra saber contra qual seleção específica apostar."""
     safe_total = safe_goleada = risky_total = risky_goleada = 0
+    # dentro do grupo seguro, só faz sentido "lay" contra quem tá NA FRENTE (ou
+    # empatado) naquele minuto — quem tá atrás não vai golear a própria desvantagem
+    leader_safe_total = leader_safe_goleada = 0
     for points, goals in matches:
         if not points:
             continue
@@ -2166,11 +2178,18 @@ def _lay_eval(matches, min_minute, max_diff):
             continue
         home, away = _under_score_at_minute(goals, min_minute)
         diff = abs(home - away)
-        goleada = _lay_is_goleada(goals)
+        side = _lay_goleada_side(goals)
+        goleada = side is not None
         if diff <= max_diff:
             safe_total += 1
             if goleada:
                 safe_goleada += 1
+            # com o placar no minuto de entrada em mãos, dá pra checar: quem
+            # terminou goleando era quem já tava na frente (ou empatado) ali?
+            leader_safe_total += 1
+            leader = "home" if home >= away else "away"
+            if goleada and side == leader:
+                leader_safe_goleada += 1
         else:
             risky_total += 1
             if goleada:
@@ -2179,11 +2198,13 @@ def _lay_eval(matches, min_minute, max_diff):
     safe_rate = (safe_goleada / safe_total) if safe_total else 0.0
     risky_rate = (risky_goleada / risky_total) if risky_total else 0.0
     lift = (risky_rate / safe_rate) if safe_rate else 0.0
+    leader_goleada_rate = (leader_safe_goleada / leader_safe_total) if leader_safe_total else 0.0
     return {
         "min_minute": min_minute, "max_diff": max_diff,
         "safe_total": safe_total, "safe_rate": round(safe_rate, 4),
         "risky_total": risky_total, "risky_rate": round(risky_rate, 4),
         "lift": round(lift, 3),
+        "leader_goleada_rate": round(leader_goleada_rate, 4),
     }
 
 
