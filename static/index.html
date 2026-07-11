@@ -2260,9 +2260,6 @@ function _today2FindStatAreaMatch(m) {
 function renderToday2Row(m) {
   const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
-  const ref = _today2FindStatAreaMatch(m);
-  const scoreCasa = ref ? btScoreBadge(calcBtTeamScore(ref, true), 'Score Casa') : '';
-  const scoreFora = ref ? btScoreBadge(calcBtTeamScore(ref, false), 'Score Visitante') : '';
   return `
     <div class="today2-match-row" data-id="${m.id}" onclick="selectToday2Match('${m.id}', this)">
       <div style="text-align:center">
@@ -2270,8 +2267,8 @@ function renderToday2Row(m) {
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
       </div>
       <div>
-        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}${scoreCasa}</div>
-        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}${scoreFora}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
       </div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
     </div>`;
