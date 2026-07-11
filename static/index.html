@@ -6631,21 +6631,26 @@ async function _live2GetLayStats() {
 // limite calibrado — mesma lógica do backend (_lay_eval). Como Lay Goleada Casa e
 // Lay Goleada Visitante são seleções separadas no mercado, aponta especificamente
 // qual lado apostar contra: quem tá na frente (ou os dois, se empatado)
-function _live2LaySignalNow(points, m, stats) {
-  if (!stats || !stats.valido || !stats.best || !points.length) return null;
+function _live2LaySignalsNow(points, m, stats) {
+  if (!stats || !stats.valido || !stats.best || !points.length) return [];
   const b = stats.best;
   const last = points[points.length - 1];
   const minute = last.minute || 0;
-  if (minute < b.min_minute) return null;
+  if (minute < b.min_minute) return [];
   const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
   const diff = Math.abs(golCasa - golFora);
-  if (diff > b.max_diff) return null;
-  const sideLabel = golCasa > golFora ? 'Casa' : golFora > golCasa ? 'Visitante' : 'Casa + Visitante';
-  const ladoTxt = golCasa > golFora ? `Casa (${m.casa})`
-                 : golFora > golCasa ? `Visitante (${m.fora})`
-                 : `Casa (${m.casa}) e Visitante (${m.fora}) — empate, os dois lados valem`;
-  const title = `Lay Goleada ${sideLabel} — MOMENTO SEGURO: aposte contra a goleada de ${ladoTxt}, placar ainda controlado (diferença de ${diff}) a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de quem tava na frente terminar goleando ${(b.leader_goleada_rate*100).toFixed(1)}%) — lembre-se: a responsabilidade da operação é bem maior que a stake`;
-  return { title, sideLabel };
+  if (diff > b.max_diff) return [];
+
+  // Empate = os dois lados batem a condição de "quem tá na frente (ou empatado)" —
+  // gera um selo PRA CADA lado, já que Lay Goleada Casa e Lay Goleada Visitante
+  // são seleções (e operações) completamente separadas no mercado
+  const sides = golCasa === golFora ? ['home', 'away'] : (golCasa > golFora ? ['home'] : ['away']);
+  return sides.map(side => {
+    const sideLabel = side === 'home' ? 'Casa' : 'Visitante';
+    const teamName = side === 'home' ? m.casa : m.fora;
+    const title = `Lay Goleada ${sideLabel} — MOMENTO SEGURO: aposte contra a goleada de ${sideLabel} (${teamName}), placar ainda controlado (diferença de ${diff}) a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de quem tava na frente terminar goleando ${(b.leader_goleada_rate*100).toFixed(1)}%) — lembre-se: a responsabilidade da operação é bem maior que a stake`;
+    return { title, sideLabel };
+  });
 }
 
 // Monta/atualiza os selos de estratégia (Vovô + Under Limite + Lay Goleada) no
@@ -6699,8 +6704,9 @@ async function _live2RenderVovoBadge(matchId) {
     const underTitle = _live2UnderSignalNow(points, m, underStats);
     if (underTitle) badges.push({ icon: '🧊', label: 'Under Limite', title: underTitle });
 
-    const laySignal = _live2LaySignalNow(points, m, layStats);
-    if (laySignal) badges.push({ icon: '🛡️', label: `Lay Goleada ${laySignal.sideLabel}`, title: laySignal.title });
+    _live2LaySignalsNow(points, m, layStats).forEach(sig => {
+      badges.push({ icon: '🛡️', label: `Lay Goleada ${sig.sideLabel}`, title: sig.title });
+    });
   }
 
   freshWrap.innerHTML = badges.length
