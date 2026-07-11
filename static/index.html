@@ -6090,35 +6090,22 @@ async function _live2RenderPreStats(matchId) {
   const freqAwayGeneral = _csBucketFrequency(awayGeneral.rows);
   const freqAwayFora    = _csBucketFrequency(awayFora.rows);
 
-  const scope = _live2ProfitScope[matchId] ?? 0;
   wrap.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:6px">
       ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
       ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Profit Mercados Tradicionais</div>
-    <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
-      ${['Geral', 'Casa', 'Fora', 'Últimas 5 (Geral)'].map((lbl, i) => `
-        <button onclick="_live2SetProfitScope('${matchId}',${i})"
-          style="font-size:10px;font-weight:700;padding:4px 8px;border-radius:5px;cursor:pointer;
-                 border:1px solid var(--border);background:${i === scope ? 'var(--accent)' : 'var(--bg3)'};
-                 color:${i === scope ? '#fff' : 'var(--text2)'}">${lbl}</button>`).join('')}
-    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Profit Mercados Tradicionais — Últimas 5 (Geral)</div>
     <div id="live2ProfitBody_${matchId}">⏳ Calculando profit com odds históricas...</div>`;
 
   await _live2RenderProfitMarkets(matchId, { homeGeneral, homeCasa, awayGeneral, awayFora, tabs });
 }
 
-let _live2ProfitScope = {};
-
-function _live2SetProfitScope(matchId, idx) {
-  _live2ProfitScope[matchId] = idx;
-  _live2RenderPreStats(matchId);
-}
-
 async function _live2RenderProfitMarkets(matchId, ctx) {
   const { homeGeneral, homeCasa, awayGeneral, awayFora, tabs } = ctx;
-  const scope = _live2ProfitScope[matchId] ?? 0;
+  // Só o recorte "Últimas 5 (Geral)" — os outros (Geral/Casa/Fora) foram removidos
+  // a pedido do usuário, esse é o único que importa aqui
+  const scope = 3;
   let blocks;
   if (scope === 0) blocks = [homeGeneral, awayGeneral];
   else if (scope === 1) blocks = [homeCasa];
@@ -6127,7 +6114,6 @@ async function _live2RenderProfitMarkets(matchId, ctx) {
 
   const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
   await _ensureToday2Odds(allIds);
-  if ((_live2ProfitScope[matchId] ?? 0) !== scope) return; // trocou de escopo enquanto buscava
 
   const cache = _live2PreStatsCache[matchId] || {};
   if (!cache._oddsMarkets) {
@@ -6143,7 +6129,6 @@ async function _live2RenderProfitMarkets(matchId, ctx) {
       }
     }
   }
-  if ((_live2ProfitScope[matchId] ?? 0) !== scope) return;
 
   const body = document.getElementById(`live2ProfitBody_${matchId}`);
   if (!body) return;
