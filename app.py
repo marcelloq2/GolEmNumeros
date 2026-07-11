@@ -2028,6 +2028,180 @@ def api_momentum_vovo_pattern_stats():
     return jsonify(data)
 
 
+# ── ESTRATÉGIA "BACK A FAVOR DO TEMPO" — irmã mais cedo do Vovô: o time abre 1 gol
+# de vantagem (não 2) e, depois de um tempo mínimo desde esse gol (pra dar leitura
+# de jogo confiável), se ele seguir pressionando, o passar do tempo já derrete a
+# odd a favor — o risco central aqui é justamente tomar o gol de empate ──
+def _tempo_one_goal_lead_events(goals):
+    """Acha o(s) momento(s) em que um time abre exatamente 1 gol de vantagem pela
+    primeira vez — mesma lógica do _vovo_two_goal_lead_events, só que no diff==1."""
+    goals_sorted = sorted(goals, key=lambda g: (g.get("minute") or 0))
+    home_score = away_score = 0
+    seen = {"home": False, "away": False}
+    events = []
+    for g in goals_sorted:
+        if g.get("ownGoal"):
+            if g.get("team") == "home":
+                away_score += 1
+            else:
+                home_score += 1
+        elif g.get("team") == "home":
+            home_score += 1
+        else:
+            away_score += 1
+        diff = home_score - away_score
+        minute = g.get("minute") or 0
+        if diff == 1 and not seen["home"]:
+            seen["home"] = True
+            events.append({"minute": minute, "leader": "home"})
+        elif diff == -1 and not seen["away"]:
+            seen["away"] = True
+            events.append({"minute": minute, "leader": "away"})
+    return events
+
+
+def _tempo_eval_entry(matches, min_since_goal, window_min, mag_pct):
+    """Mesma ideia do _vovo_eval_entry: compara quem seguiu pressionando (a favor)
+    vs quem não, depois de um tempo mínimo desde o gol que abriu a vantagem de 1 —
+    e mede a taxa de NÃO sofrer o empate em cada grupo. Só considera o evento se a
+    vantagem de exatamente 1 gol ainda estiver de pé no momento da entrada (não
+    ampliou pra 2, nem foi anulada antes)."""
+    fav_total = fav_no_concede = unfav_total = unfav_no_concede = 0
+    for points, goals in matches:
+        for ev in _tempo_one_goal_lead_events(goals):
+            minute, leader = ev["minute"], ev["leader"]
+            entry_minute = minute + min_since_goal
+            if entry_minute > 90:
+                continue
+            home, away = _under_score_at_minute(goals, entry_minute)
+            diff = (home - away) if leader == "home" else (away - home)
+            if diff != 1:
+                continue
+            avg = _vovo_avg_pressure(points, entry_minute, entry_minute + window_min)
+            if avg is None:
+                continue
+            avg_a_favor = avg if leader == "home" else -avg
+            conceded = _vovo_conceded_after(goals, entry_minute, leader)
+            thresh = _vovo_max_val(points) * mag_pct
+            if avg_a_favor > thresh:
+                fav_total += 1
+                if not conceded:
+                    fav_no_concede += 1
+            else:
+                unfav_total += 1
+                if not conceded:
+                    unfav_no_concede += 1
+
+    fav_rate = (fav_no_concede / fav_total) if fav_total else 0.0
+    unfav_rate = (unfav_no_concede / unfav_total) if unfav_total else 0.0
+    lift = (fav_rate / unfav_rate) if unfav_rate else 0.0
+    return {
+        "min_since_goal": min_since_goal, "window_min": window_min, "mag_pct": mag_pct,
+        "fav_total": fav_total, "fav_rate": round(fav_rate, 4),
+        "unfav_total": unfav_total, "unfav_rate": round(unfav_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+def _tempo_eval_exit(matches, min_since_goal, over_pct, min_streak, goal_window):
+    """Mesma ideia do _vovo_eval_exit: pressão reversa sustentada do time que tá
+    atrás, depois da entrada, prediz o gol de empate melhor que só esperar."""
+    sinal_total = sinal_confirmado = 0
+    sem_sinal_total = sem_sinal_concedeu = 0
+    for points, goals in matches:
+        for ev in _tempo_one_goal_lead_events(goals):
+            minute, leader = ev["minute"], ev["leader"]
+            entry_minute = minute + min_since_goal
+            if entry_minute > 90:
+                continue
+            home, away = _under_score_at_minute(goals, entry_minute)
+            diff = (home - away) if leader == "home" else (away - home)
+            if diff != 1:
+                continue
+            trailing = "away" if leader == "home" else "home"
+            signal_minute = _vovo_detect_reverse_pressure(points, leader, entry_minute, over_pct, min_streak)
+            if signal_minute is not None:
+                sinal_total += 1
+                confirmado = any(
+                    g.get("team") == trailing and not g.get("ownGoal")
+                    and 0 <= (g.get("minute") or 0) - signal_minute <= goal_window
+                    for g in goals
+                )
+                if confirmado:
+                    sinal_confirmado += 1
+            else:
+                sem_sinal_total += 1
+                if _vovo_conceded_after(goals, entry_minute, leader):
+                    sem_sinal_concedeu += 1
+
+    sinal_rate = (sinal_confirmado / sinal_total) if sinal_total else 0.0
+    baseline_rate = (sem_sinal_concedeu / sem_sinal_total) if sem_sinal_total else 0.0
+    lift = (sinal_rate / baseline_rate) if baseline_rate else 0.0
+    return {
+        "over_pct": over_pct, "min_streak": min_streak, "goal_window": goal_window,
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": sem_sinal_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_TEMPO_PATTERN_CACHE = {"ts": 0, "data": None}
+_TEMPO_PATTERN_TTL = 30 * 60
+_TEMPO_MIN_SAMPLE = 30
+_TEMPO_MIN_LIFT = 1.3
+_TEMPO_ENTRY_SINCE_GRID = [15, 20, 25, 30]
+_TEMPO_ENTRY_WINDOW_GRID = [5, 8, 10, 15]
+_TEMPO_ENTRY_MAG_GRID = [0.0, 0.1, 0.2, 0.3]
+_TEMPO_EXIT_OVER_GRID = [0.4, 0.5, 0.6, 0.7]
+_TEMPO_EXIT_STREAK_GRID = [2, 3, 4]
+_TEMPO_EXIT_WINDOW_GRID = [15, 20, 25, 30]
+
+@app.route("/api/momentum/tempo_pattern_stats")
+def api_momentum_tempo_pattern_stats():
+    """Calibra os sinais de entrada e saída do 'Back a Favor do Tempo' contra a
+    base de jogos salvos, mesma lógica de grid-search do Vovô — só que pro gatilho
+    de 1 gol de vantagem em vez de 2, com tempo mínimo desde o gol em vez de minuto
+    absoluto da partida. Cacheado 30min."""
+    now = time.time()
+    if _TEMPO_PATTERN_CACHE["data"] and (now - _TEMPO_PATTERN_CACHE["ts"]) < _TEMPO_PATTERN_TTL:
+        return jsonify(_TEMPO_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+
+    entry_resultados = [
+        _tempo_eval_entry(matches, ms, w, mag)
+        for ms in _TEMPO_ENTRY_SINCE_GRID
+        for w in _TEMPO_ENTRY_WINDOW_GRID
+        for mag in _TEMPO_ENTRY_MAG_GRID
+    ]
+    entry_candidatos = [r for r in entry_resultados if r["fav_total"] >= _TEMPO_MIN_SAMPLE and r["unfav_total"] >= _TEMPO_MIN_SAMPLE]
+    entry_melhor = max(entry_candidatos, key=lambda r: r["lift"]) if entry_candidatos else None
+    entry_valido = bool(entry_melhor and entry_melhor["lift"] >= _TEMPO_MIN_LIFT)
+
+    exit_melhor = exit_valido = None
+    if entry_melhor:
+        exit_resultados = [
+            _tempo_eval_exit(matches, entry_melhor["min_since_goal"], op, ms, gw)
+            for op in _TEMPO_EXIT_OVER_GRID
+            for ms in _TEMPO_EXIT_STREAK_GRID
+            for gw in _TEMPO_EXIT_WINDOW_GRID
+        ]
+        exit_candidatos = [r for r in exit_resultados if r["sinal_total"] >= _TEMPO_MIN_SAMPLE]
+        exit_melhor = max(exit_candidatos, key=lambda r: r["lift"]) if exit_candidatos else None
+        exit_valido = bool(exit_melhor and exit_melhor["lift"] >= _TEMPO_MIN_LIFT)
+
+    data = {
+        "matches_used": len(matches),
+        "entry": entry_melhor,
+        "entry_valido": entry_valido,
+        "exit": exit_melhor,
+        "exit_valido": bool(exit_valido),
+    }
+    _TEMPO_PATTERN_CACHE["data"] = data
+    _TEMPO_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
 # ── ESTRATÉGIA "UNDER LIMITE" — acha momentos de baixo risco pra operar contra gol
 # (jogo "morto": placar já decidido + pouca pressão dos dois lados, geralmente perto
 # do fim), calibrando via grid-search contra a base de jogos salvos igual ao Vovô ──

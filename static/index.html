@@ -6631,6 +6631,91 @@ function _live2VovoReversePressure(points, leader, afterMinute, overPct, minStre
   return null;
 }
 
+// Valida o padrão "Back a Favor do Tempo" (1 gol de vantagem, entrada só depois de
+// um tempo mínimo desde o gol pra ter leitura confiável) contra a base de jogos
+// salvos — mesmo padrão de cache do Vovô, reaproveitando seus helpers genéricos
+let _live2TempoStats = null;
+let _live2TempoFetchedAt = 0;
+async function _live2GetTempoStats() {
+  const now = Date.now();
+  if (_live2TempoStats && (now - _live2TempoFetchedAt) < 30 * 60 * 1000) {
+    return _live2TempoStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/tempo_pattern_stats');
+    _live2TempoStats = await r.json();
+    _live2TempoFetchedAt = now;
+  } catch (e) {
+    _live2TempoStats = { entry_valido: false, exit_valido: false };
+  }
+  return _live2TempoStats;
+}
+
+// Acha o momento em que um time abriu exatamente 1 gol de vantagem pela 1ª vez —
+// mesma lógica do backend (_tempo_one_goal_lead_events)
+function _live2TempoLeadEvent(goals) {
+  const sorted = [...(goals || [])].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  let homeScore = 0, awayScore = 0;
+  const seen = { home: false, away: false };
+  let event = null;
+  for (const g of sorted) {
+    if (g.ownGoal) {
+      if (g.team === 'home') awayScore++; else homeScore++;
+    } else if (g.team === 'home') homeScore++; else awayScore++;
+    const diff = homeScore - awayScore;
+    const minute = g.minute || 0;
+    if (diff === 1 && !seen.home) {
+      seen.home = true;
+      event = { minute, leader: 'home' };
+    } else if (diff === -1 && !seen.away) {
+      seen.away = true;
+      event = { minute, leader: 'away' };
+    }
+  }
+  return event;
+}
+
+// Checa a situação AGORA pro Back a Favor do Tempo: se a vantagem de 1 gol ainda
+// tá de pé no momento de entrada (goal_minute + min_since_goal calibrado), se tá
+// pressionando reverso (saída) ou seguindo a favor (entrada)
+function _live2TempoSignalNow(points, goals, m, stats) {
+  if (!stats || (!stats.entry_valido && !stats.exit_valido) || !points.length) return null;
+  const ev = _live2TempoLeadEvent(goals);
+  if (!ev) return null;
+
+  const minSinceGoal = (stats.entry && stats.entry.min_since_goal) || 20;
+  const entryMinute = ev.minute + minSinceGoal;
+  const last = points[points.length - 1];
+  const nowMinute = last.minute || 0;
+  if (nowMinute < entryMinute) return null; // ainda não chegou no tempo mínimo de leitura
+
+  const curDiff = (m.golCasaFt ?? 0) - (m.golForaFt ?? 0);
+  const stillLeadingByOne = ev.leader === 'home' ? curDiff === 1 : curDiff === -1;
+  if (!stillLeadingByOne) return null; // ampliou pra 2 (aí é Vovô) ou já empatou
+
+  if (stats.exit_valido) {
+    const { over_pct, min_streak, lift } = stats.exit;
+    const signalMinute = _live2VovoReversePressure(points, ev.leader, entryMinute, over_pct, min_streak);
+    if (signalMinute !== null) {
+      return { icon: '🔴', label: 'Back Tempo', title: `Back a Favor do Tempo — ALERTA DE SAÍDA: time que tá atrás entrou em pressão sustentada desde o ${signalMinute}' — risco de empate (validado na base, lift ${lift}x)` };
+    }
+  }
+
+  if (stats.entry_valido) {
+    const { window_min, mag_pct, lift } = stats.entry;
+    const avg = _live2VovoAvgPressure(points, entryMinute, entryMinute + window_min);
+    if (avg !== null) {
+      const avgAFavor = ev.leader === 'home' ? avg : -avg;
+      const thresh = _live2VovoMaxVal(points) * mag_pct;
+      if (avgAFavor > thresh) {
+        const teamName = ev.leader === 'home' ? m.casa : m.fora;
+        return { icon: '⏳', label: 'Back Tempo', title: `Back a Favor do Tempo — ENTRADA FAVORÁVEL: ${teamName} abriu 1 gol de vantagem no ${ev.minute}' e seguiu pressionando (validado na base, lift ${lift}x) — o tempo passando já joga a favor` };
+      }
+    }
+  }
+  return null;
+}
+
 // Valida o padrão "Under Limite" (mercado contra gol — jogo morto/placar decidido
 // perto do fim) contra a base de jogos salvos — mesmo padrão de cache do Vovô/Grande Chance
 let _live2UnderStats = null;
@@ -6815,12 +6900,39 @@ function _live2DaroncoSignalNow(points, stats) {
   return { icon: '🟠', label: 'Over Daronco', title: `Over Daronco — JOGO ABERTO: pressão sustentada desde o ${entryMinute}' (até o 68', regra da estratégia) — validado na base, lift ${b.lift}x de chance de sair gol vs jogo fechado. Sem gol contra: qualquer time que marcar, ganha` };
 }
 
-// Monta/atualiza os selos de estratégia (Vovô + Under Limite + Over Daronco) no
-// card — fica entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
+// Valida o padrão "Back Favorito" (entrar a favor do time que criou uma chance
+// clara — leitura de jogo, não cronômetro) reaproveitando o MESMO marcador
+// "Grande Chance" já calibrado (_live2DetectPressureMarkers/_live2ChancePatternStats)
+// — a lógica de entrada (pico validado de pressão -> gol logo depois) é idêntica,
+// só muda o rótulo/contexto de exibição. Fecha sozinho quando sai o gol (objetivo
+// da estratégia atingido) ou quando a janela de validade (window_min) expira
+function _live2BackFavoritoSignalNow(points, m) {
+  if (!_live2ChancePatternStats || !_live2ChancePatternStats.valido || !points.length) return null;
+  const markers = _live2DetectPressureMarkers(points);
+  const chanceMarkers = markers.filter(mk => mk.type === 'chance');
+  if (!chanceMarkers.length) return null;
+  const last = chanceMarkers[chanceMarkers.length - 1];
+  const nowMinute = points[points.length - 1].minute || 0;
+  const windowMin = _live2ChancePatternStats.window_min || 10;
+  if (nowMinute - last.minute > windowMin) return null; // janela de validade expirou
+
+  const goals = _live2GoalsCache[m.id] || [];
+  const team = last.isHome ? 'home' : 'away';
+  const jaSaiuGol = goals.some(g => g.team === team && !g.ownGoal && (g.minute || 0) >= last.minute && (g.minute || 0) <= last.minute + windowMin);
+  if (jaSaiuGol) return null; // objetivo já atingido — a estratégia manda fechar, não faz mais sentido mostrar o selo
+
+  const teamName = last.isHome ? m.casa : m.fora;
+  return { icon: '🎯', label: 'Back Favorito', title: `Back Favorito — ${teamName} criou uma chance clara no ${last.minute}' (validado na base, lift ${_live2ChancePatternStats.lift}x) — se ainda não entrou, essa é a janela; se o gol sair, feche a posição na hora` };
+}
+
+// Monta/atualiza os selos de estratégia (Vovô + Under Limite + Over Daronco +
+// Back Favorito) no card — fica entre o mapa de chutes e as abas
+// Geral/Escalações/Estatísticas Pré
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats, daroncoStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats()]);
+  const [vovoStats, underStats, daroncoStats, tempoStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats(), _live2GetTempoStats()]);
+  if (!_live2ChancePatternStats) await _live2GetChancePatternStats();
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
 
@@ -6868,6 +6980,12 @@ async function _live2RenderVovoBadge(matchId) {
 
     const daroncoSignal = _live2DaroncoSignalNow(points, daroncoStats);
     if (daroncoSignal) badges.push(daroncoSignal);
+
+    const backFavoritoSignal = _live2BackFavoritoSignalNow(points, m);
+    if (backFavoritoSignal) badges.push(backFavoritoSignal);
+
+    const tempoSignal = _live2TempoSignalNow(points, goals, m, tempoStats);
+    if (tempoSignal) badges.push(tempoSignal);
   }
 
   freshWrap.innerHTML = badges.length
