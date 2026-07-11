@@ -5380,6 +5380,13 @@ def _btcs_db_conn():
             PRIMARY KEY (event_id, team_key)
         )
     """)
+    # Migração pra bases já criadas antes da coluna "odd" existir — a odd 1X2 do
+    # próprio time naquele jogo histórico, usada como variável de padrão (força do
+    # time conforme o mercado precificava, não só o resultado em si)
+    try:
+        conn.execute("ALTER TABLE btcs_pattern_rows ADD COLUMN odd REAL")
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
     return conn
 
 
@@ -5406,7 +5413,7 @@ def _btcs_persist_results(rows):
 
 
 def _btcs_persist_pattern_rows(rows):
-    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date), ...]
+    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date, odd), ...]
     via INSERT OR IGNORE — chave é (event_id, team_key), então o mesmo jogo
     reaparecendo em janelas futuras de 'últimos 30' não duplica pro mesmo time."""
     if not rows:
@@ -5417,9 +5424,9 @@ def _btcs_persist_pattern_rows(rows):
         try:
             conn.executemany(
                 """INSERT OR IGNORE INTO btcs_pattern_rows
-                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at)
-                   VALUES (?,?,?,?,?,?,?,?)""",
-                [(eid, tk, tn, h, a, home, date, now) for (eid, tk, tn, h, a, home, date) in rows],
+                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at, odd)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                [(eid, tk, tn, h, a, home, date, now, odd) for (eid, tk, tn, h, a, home, date, odd) in rows],
             )
             conn.commit()
         finally:
@@ -5538,6 +5545,7 @@ _BTCS_PATTERN_VARIABLES = {
     "pct_conceded": "Chance de sofrer gol",
     "pct_over25": "Over/Under 2.5",
     "mandante": "Mandante",
+    "odd": "Odd 1X2 (força do time)",
 }
 
 _BTCS_PATTERN_MIN_SEGMENT_GAMES = 30
@@ -5621,7 +5629,7 @@ def _btcs_build_patterns_from_teams(teams):
         entry[bucket] = entry.get(bucket, 0) + 1
 
     _TEAM_LEVEL_VARS = ("avg_scored", "avg_conceded", "pct_scored", "pct_conceded", "pct_over25")
-    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante",)
+    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante", "odd")
     # Combinações de 2 a 4 variáveis ao mesmo tempo (ex: média de gols marcados
     # + chance de sofrer gol + mandante) — quanto mais variáveis, menor a
     # amostra de cada combinação específica, por isso o limite de tamanho em 4.
@@ -5667,23 +5675,32 @@ def _btcs_build_patterns_from_teams(teams):
             for v in _TEAM_LEVEL_VARS:
                 _accum(v, team_segs[v], bucket)
 
-        # Mandante é row-level: os jogos de um time podem se dividir entre os
-        # dois segmentos (casa/fora), diferente das variáveis acima que
-        # atribuem o time inteiro a UM segmento.
+        # Mandante e Odd são row-level: os jogos de um time podem se dividir entre
+        # os dois segmentos (casa/fora) ou entre faixas de odd diferentes,
+        # diferente das variáveis acima que atribuem o time inteiro a UM segmento.
         for row, is_home in zip(rows, row_is_home):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             segment = "Jogando em casa" if is_home else "Jogando fora"
             _accum("mandante", segment, bucket)
+            odd_label = _bt2_odd_range_label(row.get("odd"))
+            if odd_label:
+                _accum("odd", odd_label, bucket)
 
         # Combinações de 2 a 4 variáveis: monta o "perfil" completo de CADA
         # jogo (segmento de todas as variáveis team-level, que são as mesmas
-        # em todos os jogos do time, + o mandante daquele jogo específico) e
-        # acumula em cada combinação de variáveis que existir.
+        # em todos os jogos do time, + o mandante e a odd daquele jogo
+        # específico) e acumula em cada combinação de variáveis que existir.
+        # Jogos sem odd conhecida só ficam de fora das combinações que incluem "odd".
         for row, is_home in zip(rows, row_is_home):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             row_segs = dict(team_segs)
             row_segs["mandante"] = "Jogando em casa" if is_home else "Jogando fora"
+            odd_label = _bt2_odd_range_label(row.get("odd"))
+            if odd_label:
+                row_segs["odd"] = odd_label
             for var_combo in _VAR_COMBOS:
+                if "odd" in var_combo and "odd" not in row_segs:
+                    continue
                 _accum_combo(var_combo, [row_segs[v] for v in var_combo], bucket)
 
     patterns = []
@@ -5829,8 +5846,37 @@ def _btcs_compute_patterns():
                 if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
                     break
 
+    # Busca a odd 1X2 de cada jogo histórico único (mesmo pool/endpoint já usado
+    # no Backtest Tradicional) e anexa a odd do PRÓPRIO time (Casa se ele jogou em
+    # casa naquele jogo, Fora se jogou fora) em cada linha — alimenta a variável
+    # de padrão "odd" (força do time conforme o mercado precificava).
+    def _fetch_odds_btcs(event_id):
+        try:
+            return event_id, _fs_odds_all_markets_any_bookmaker(event_id)
+        except Exception:
+            return event_id, (None, {})
+
+    odds_by_id = {}
+    for event_id, (bookmaker_name, markets) in _fs_event_pool.map(_fetch_odds_btcs, list(all_ids_seen)):
+        if markets:
+            odds_by_id[event_id] = markets
+
+    for key, entry in teams.items():
+        for row in entry["rows"]:
+            row_home_key = _btcs_norm_name(row.get("home"))
+            is_home = (row_home_key == key) if row_home_key and key else True
+            markets = odds_by_id.get(row["id"])
+            row["odd"] = None
+            if markets:
+                sels = _bt2_market_selections("1x2", markets.get("1x2"), row["h"], row["a"])
+                target_label = "Casa" if is_home else "Fora"
+                for sel in sels:
+                    if sel["label"] == target_label:
+                        row["odd"] = sel["odd"]
+                        break
+
     persist_rows = [
-        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"))
+        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"), row.get("odd"))
         for key, entry in teams.items()
         for row in entry["rows"]
     ]
@@ -5851,16 +5897,16 @@ def _btcs_compute_patterns_acumulado():
         conn = _btcs_db_conn()
         try:
             cur = conn.execute(
-                "SELECT event_id, team_key, team_name, h, a, home_name, match_date FROM btcs_pattern_rows"
+                "SELECT event_id, team_key, team_name, h, a, home_name, match_date, odd FROM btcs_pattern_rows"
             )
             all_rows = cur.fetchall()
         finally:
             conn.close()
 
     teams = {}
-    for event_id, team_key, team_name, h, a, home_name, match_date in all_rows:
+    for event_id, team_key, team_name, h, a, home_name, match_date, odd in all_rows:
         entry = teams.setdefault(team_key, {"name": team_name, "rows": []})
-        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date})
+        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date, "odd": odd})
 
     return _btcs_build_patterns_from_teams(teams)
 
