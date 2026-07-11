@@ -9107,17 +9107,31 @@ function drawMiniMomentum(canvas, points, goals) {
     else ctx.fillRect(x, mid, barNet, barH);
   });
 
+  // Agrupa gols que caem no mesmo ponto/time — sem isso, 2 gols do mesmo time perto
+  // um do outro no tempo desenhavam a bolinha exatamente empilhada na mesma posição,
+  // e visualmente só dava pra ver 1 (placar não batia com a quantidade de bolinhas)
+  const goalBuckets = {};
   (goals || []).forEach(g => {
     let closest = 0, bestDiff = Infinity;
     points.forEach((d, i) => {
       const dif = Math.abs(Math.floor(d.minute) - g.minute);
       if (dif < bestDiff) { bestDiff = dif; closest = i; }
     });
-    const gx = closest * barW + barW / 2;
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⚽', gx, g.team === 'home' ? 10 : H - 10);
+    const key = `${closest}_${g.team}`;
+    (goalBuckets[key] = goalBuckets[key] || []).push(g);
+  });
+  ctx.font = '14px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  Object.keys(goalBuckets).forEach(key => {
+    const [closestStr, team] = key.split('_');
+    const closest = parseInt(closestStr, 10);
+    const list = goalBuckets[key];
+    const baseX = closest * barW + barW / 2;
+    list.forEach((g, idx) => {
+      const gx = baseX + (idx - (list.length - 1) / 2) * 11;
+      ctx.fillText('⚽', gx, team === 'home' ? 10 : H - 10);
+    });
   });
 }
 
