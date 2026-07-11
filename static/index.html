@@ -6807,6 +6807,83 @@ function _live2UnderSignalNow(points, m, stats) {
   return { icon: '🧊', label: 'Under Limite', title: `Under Limite — MOMENTO DE BAIXO RISCO: placar decidido (diferença de ${diff}) e jogo parado agora, a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de gol logo em seguida ${(b.calm_rate*100).toFixed(1)}%) — ainda assim, um gol contra zera a stake` };
 }
 
+// Valida o padrão "Lay Goleada" (apostar contra vitória com 4+ gols de diferença)
+// contra a base de jogos salvos — mesmo padrão de cache dos outros selos
+let _live2LayStats = null;
+let _live2LayFetchedAt = 0;
+async function _live2GetLayStats() {
+  const now = Date.now();
+  if (_live2LayStats && (now - _live2LayFetchedAt) < 30 * 60 * 1000) {
+    return _live2LayStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/lay_goleada_pattern_stats');
+    _live2LayStats = await r.json();
+    _live2LayFetchedAt = now;
+  } catch (e) {
+    _live2LayStats = { valido: false };
+  }
+  return _live2LayStats;
+}
+
+// Primeiro gol do MESMO lado que já era líder no minuto de entrada, depois desse
+// minuto — mesma lógica do backend (_lay_next_leader_goal)
+function _live2LayNextLeaderGoal(goals, minMinute, leader) {
+  const sorted = [...(goals || [])].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  for (const g of sorted) {
+    const minute = g.minute || 0;
+    if (minute <= minMinute) continue;
+    const scorer = g.ownGoal ? (g.team === 'home' ? 'away' : 'home') : g.team;
+    if (scorer === leader) return minute;
+  }
+  return null;
+}
+
+// Checa a situação AGORA pro Lay Goleada, por lado (Casa/Visitante são seleções
+// separadas no mercado): se quem já era líder no minuto de entrada marcou de novo,
+// alerta de SAÍDA — mais urgente (🔴🔴) se esse gol extra veio ainda no 1º tempo,
+// normal (🔴) se veio no 2º — validado com a base real que mostra 21.2% de chance
+// de goleada no 1T vs 9.0% no 2T. Senão, se o placar segue controlado, entrada (🛡️)
+function _live2LaySignalsNow(points, m, stats) {
+  if (!stats || !stats.valido || !stats.best || !points.length) return [];
+  const b = stats.best;
+  const last = points[points.length - 1];
+  const minute = last.minute || 0;
+  if (minute < b.min_minute) return [];
+  const goals = _live2GoalsCache[m.id] || [];
+  const [homeAtEntry, awayAtEntry] = _live2ScoreAtMinute(goals, b.min_minute);
+  if (Math.abs(homeAtEntry - awayAtEntry) > b.max_diff) return [];
+
+  const leadersAtEntry = homeAtEntry === awayAtEntry ? ['home', 'away'] : [homeAtEntry > awayAtEntry ? 'home' : 'away'];
+  const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
+  const diffNow = Math.abs(golCasa - golFora);
+
+  return leadersAtEntry.map(leader => {
+    const sideLabel = leader === 'home' ? 'Casa' : 'Visitante';
+    const teamName = leader === 'home' ? m.casa : m.fora;
+
+    const extraGoalMinute = _live2LayNextLeaderGoal(goals, b.min_minute, leader);
+    if (extraGoalMinute !== null) {
+      const no1T = extraGoalMinute <= 45;
+      const tier = no1T ? stats.exit && stats.exit.exit_1t : stats.exit && stats.exit.exit_2t;
+      const tierValido = no1T ? stats.exit_1t_valido : stats.exit_2t_valido;
+      if (tierValido && tier) {
+        return {
+          icon: no1T ? '🔴🔴' : '🔴', sideLabel,
+          title: `Lay Goleada ${sideLabel} — ${no1T ? 'ALERTA URGENTE' : 'ALERTA'} DE SAÍDA: ${teamName} (que já tava na frente) marcou de novo no ${extraGoalMinute}'${no1T ? ' (ainda no 1º tempo — bem mais perigoso)' : ' (2º tempo)'} — taxa histórica de goleada nesses casos ${(tier.rate*100).toFixed(1)}% — considere fechar a posição`,
+        };
+      }
+      return null;
+    }
+
+    if (diffNow > b.max_diff) return null;
+    return {
+      icon: '🛡️', sideLabel,
+      title: `Lay Goleada ${sideLabel} — MOMENTO SEGURO: aposte contra a goleada de ${sideLabel} (${teamName}), placar ainda controlado (diferença de ${diffNow}) a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de quem tava na frente terminar goleando ${(b.leader_goleada_rate*100).toFixed(1)}%) — lembre-se: a responsabilidade da operação é bem maior que a stake`,
+    };
+  }).filter(Boolean);
+}
+
 // Valida o padrão "Over Daronco" (entrar no Over Limite quando o jogo mostra
 // janela sustentada de pressão alta — de qualquer lado — até o minuto 68, e sair
 // se o jogo 'fechar' de novo antes de sair gol) contra a base de jogos salvos
@@ -6931,7 +7008,7 @@ function _live2BackFavoritoSignalNow(points, m) {
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats, daroncoStats, tempoStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats(), _live2GetTempoStats()]);
+  const [vovoStats, underStats, daroncoStats, tempoStats, layStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats(), _live2GetTempoStats(), _live2GetLayStats()]);
   if (!_live2ChancePatternStats) await _live2GetChancePatternStats();
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
@@ -6986,6 +7063,10 @@ async function _live2RenderVovoBadge(matchId) {
 
     const tempoSignal = _live2TempoSignalNow(points, goals, m, tempoStats);
     if (tempoSignal) badges.push(tempoSignal);
+
+    _live2LaySignalsNow(points, m, layStats).forEach(sig => {
+      badges.push({ icon: sig.icon, label: `Lay Goleada ${sig.sideLabel}`, title: sig.title });
+    });
   }
 
   freshWrap.innerHTML = badges.length

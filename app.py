@@ -2606,6 +2606,183 @@ def _daronco_calibrate_exit(matches, entry_best):
     return melhor, valido
 
 
+# ── ESTRATÉGIA "LAY GOLEADA" — acha momentos seguros pra apostar CONTRA a goleada
+# (vitória com 4+ gols de diferença), comparando jogos que estavam com placar ainda
+# "controlado" (diferença pequena) num minuto de entrada vs os que já estavam
+# elásticos naquele minuto. Saída refinada: o vídeo "Lay Goleada na Prática" defende
+# que um gol extra do favorito ainda no 1º tempo é bem mais perigoso que no 2º —
+# validado com a base real (21.2% de goleada no 1T vs 9.0% no 2T vs 0.5% sem gol extra) ──
+def _lay_final_score(goals):
+    """Placar final reconstruído a partir de todos os gols do jogo (mesmo cálculo
+    de _under_score_at_minute, só que sem limite de minuto)."""
+    return _under_score_at_minute(goals, 10_000)
+
+
+def _lay_goleada_side(goals):
+    """Quem golea no final, se algum ('home', 'away' ou None) — precisa pra apontar
+    especificamente qual lado apostar contra (Lay Goleada Casa/Visitante são
+    seleções separadas no mercado, não dá pra recomendar 'goleada' genérico)."""
+    home, away = _lay_final_score(goals)
+    if home - away >= 4:
+        return "home"
+    if away - home >= 4:
+        return "away"
+    return None
+
+
+def _lay_eval(matches, min_minute, max_diff):
+    """Separa os jogos em dois grupos no minuto de entrada: 'controlado' (diferença
+    de placar até max_diff) vs 'já elástico', e compara a taxa de cada grupo
+    terminar em goleada. Dentro do grupo seguro, quebra por lado (casa vs
+    visitante) condicionado a quem tava na frente no minuto de entrada."""
+    safe_total = safe_goleada = risky_total = risky_goleada = 0
+    leader_safe_total = leader_safe_goleada = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, min_minute)
+        diff = abs(home - away)
+        side = _lay_goleada_side(goals)
+        goleada = side is not None
+        if diff <= max_diff:
+            safe_total += 1
+            if goleada:
+                safe_goleada += 1
+            leader_safe_total += 1
+            leader = "home" if home >= away else "away"
+            if goleada and side == leader:
+                leader_safe_goleada += 1
+        else:
+            risky_total += 1
+            if goleada:
+                risky_goleada += 1
+
+    safe_rate = (safe_goleada / safe_total) if safe_total else 0.0
+    risky_rate = (risky_goleada / risky_total) if risky_total else 0.0
+    lift = (risky_rate / safe_rate) if safe_rate else 0.0
+    leader_goleada_rate = (leader_safe_goleada / leader_safe_total) if leader_safe_total else 0.0
+    return {
+        "min_minute": min_minute, "max_diff": max_diff,
+        "safe_total": safe_total, "safe_rate": round(safe_rate, 4),
+        "risky_total": risky_total, "risky_rate": round(risky_rate, 4),
+        "lift": round(lift, 3),
+        "leader_goleada_rate": round(leader_goleada_rate, 4),
+    }
+
+
+_LAY_PATTERN_CACHE = {"ts": 0, "data": None}
+_LAY_PATTERN_TTL = 30 * 60
+_LAY_MIN_SAMPLE = 30
+_LAY_MIN_LIFT = 1.3
+_LAY_MAX_SAFE_RATE = 0.15
+_LAY_MIN_MINUTE_GRID = [10, 15, 20, 25, 30, 35, 40]
+_LAY_MAX_DIFF_GRID = [0, 1]
+
+@app.route("/api/momentum/lay_goleada_pattern_stats")
+def api_momentum_lay_goleada_pattern_stats():
+    """Calibra o sinal de 'momento seguro pra Lay Goleada' contra a base de jogos
+    salvos, e a saída refinada por 1º/2º tempo. Cacheado 30min."""
+    now = time.time()
+    if _LAY_PATTERN_CACHE["data"] and (now - _LAY_PATTERN_CACHE["ts"]) < _LAY_PATTERN_TTL:
+        return jsonify(_LAY_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+    resultados = [
+        _lay_eval(matches, mm, md)
+        for mm in _LAY_MIN_MINUTE_GRID
+        for md in _LAY_MAX_DIFF_GRID
+    ]
+    candidatos = [
+        r for r in resultados
+        if r["safe_total"] >= _LAY_MIN_SAMPLE and r["safe_rate"] <= _LAY_MAX_SAFE_RATE
+    ]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _LAY_MIN_LIFT)
+
+    exit_stats = _lay_eval_exit(matches, melhor["min_minute"], melhor["max_diff"]) if melhor else None
+    exit_1t_valido = bool(exit_stats and exit_stats["exit_1t"]["total"] >= _LAY_MIN_SAMPLE and exit_stats["exit_1t"]["lift"] >= _LAY_MIN_LIFT)
+    exit_2t_valido = bool(exit_stats and exit_stats["exit_2t"]["total"] >= _LAY_MIN_SAMPLE and exit_stats["exit_2t"]["lift"] >= _LAY_MIN_LIFT)
+
+    data = {
+        "matches_used": len(matches),
+        "best": melhor,
+        "valido": valido,
+        "exit": exit_stats,
+        "exit_1t_valido": exit_1t_valido,
+        "exit_2t_valido": exit_2t_valido,
+    }
+    _LAY_PATTERN_CACHE["data"] = data
+    _LAY_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
+def _lay_next_leader_goal(goals, min_minute, leader):
+    """Primeiro gol do time que JÁ estava na frente (o próprio líder marcando de
+    novo), depois do minuto de entrada."""
+    for g in sorted(goals, key=lambda g: (g.get("minute") or 0)):
+        minute = g.get("minute") or 0
+        if minute <= min_minute:
+            continue
+        scorer = ("away" if g.get("team") == "home" else "home") if g.get("ownGoal") else g.get("team")
+        if scorer == leader:
+            return minute
+    return None
+
+
+def _lay_eval_exit(matches, min_minute, max_diff):
+    """Compara três grupos dentro da entrada calibrada: sem gol extra do líder,
+    gol extra ainda no 1º tempo (<=45'), ou gol extra no 2º tempo — mede a taxa de
+    goleada em cada um pra validar a intuição do vídeo (gol extra no 1T é bem mais
+    perigoso que no 2T, e ambos são bem mais perigosos que não levar gol extra)."""
+    baseline_total = baseline_goleada = 0
+    t1_total = t1_goleada = 0
+    t2_total = t2_goleada = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, min_minute)
+        diff = abs(home - away)
+        if diff > max_diff or home == away:
+            continue
+        leader = "home" if home > away else "away"
+        goleada = _lay_goleada_side(goals) == leader
+        extra_minute = _lay_next_leader_goal(goals, min_minute, leader)
+        if extra_minute is None:
+            baseline_total += 1
+            if goleada:
+                baseline_goleada += 1
+        elif extra_minute <= 45:
+            t1_total += 1
+            if goleada:
+                t1_goleada += 1
+        else:
+            t2_total += 1
+            if goleada:
+                t2_goleada += 1
+
+    baseline_rate = (baseline_goleada / baseline_total) if baseline_total else 0.0
+
+    def _mk(total, goleada_n):
+        rate = (goleada_n / total) if total else 0.0
+        if baseline_rate:
+            lift = rate / baseline_rate
+        else:
+            lift = 99.0 if rate > 0 else 0.0
+        return {"total": total, "rate": round(rate, 4), "lift": round(lift, 3)}
+
+    return {
+        "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
+        "exit_1t": _mk(t1_total, t1_goleada),
+        "exit_2t": _mk(t2_total, t2_goleada),
+    }
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
