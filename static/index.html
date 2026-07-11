@@ -3825,6 +3825,60 @@ function _bt2OddRangesHtml(selected) {
     </div>`;
 }
 
+// ── LAY ZEBRA (pré-jogo) — apostar contra o azarão (odd mais alta no 1x2) vencer.
+// Reaproveita as odds já coletadas em bt2_bets (endpoint /api/backtest2/lay_zebra),
+// sem depender de dados ao vivo — carrega 1x só e cacheia no cliente
+let _bt2LayZebraData = null;
+async function _bt2LoadLayZebra() {
+  const box = document.getElementById('bt2LayZebraBox');
+  if (!box) return;
+  if (_bt2LayZebraData) { _bt2RenderLayZebra(); return; }
+  box.innerHTML = `<div style="color:var(--text2);font-size:12px;padding:10px 0">⏳ Calculando Lay Zebra...</div>`;
+  try {
+    const r = await fetch('/api/backtest2/lay_zebra');
+    _bt2LayZebraData = await r.json();
+    _bt2RenderLayZebra();
+  } catch (e) {
+    box.innerHTML = `<div style="color:#ef4444;font-size:12px">erro ao calcular Lay Zebra: ${e}</div>`;
+  }
+}
+
+function _bt2RenderLayZebra() {
+  const box = document.getElementById('bt2LayZebraBox');
+  if (!box || !_bt2LayZebraData) return;
+  const ranges = _bt2LayZebraData.odd_ranges || [];
+  if (!ranges.length) {
+    box.innerHTML = `<div style="color:var(--text2);font-size:12px">ainda sem amostra suficiente</div>`;
+    return;
+  }
+  const rows = ranges.map(r => {
+    const color = r.roi >= 0 ? '#22c55e' : '#ef4444';
+    return `<tr>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text)">${r.faixa}</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${r.bets}</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${(r.winrate * 100).toFixed(1)}%</td>
+      <td style="padding:6px 10px;font-size:12px;font-weight:700;color:${color}">${r.profit >= 0 ? '+' : ''}${r.profit.toFixed(2)}</td>
+      <td style="padding:6px 10px;font-size:12px;color:${color}">${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">
+      amostra: ${_bt2LayZebraData.sample_matches_used ?? 0} jogos · odd da faixa = odd da zebra (lado com odd mais alta no 1x2) · Lay ganha se a zebra perde ou empata
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Faixa de Odd (Zebra)</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Apostas</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Taxa de Acerto</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Profit</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">ROI</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 function _bt2BarChartSvg(sorted) {
   const top = sorted.slice(0, 15);
   if (!top.length) return '';
@@ -3998,8 +4052,13 @@ function _bt2Render() {
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin:18px 0 8px">
       ${_bt2Filter==='valor' ? '⚡ Só metodologias com ROI ≥20% (mesmo critério de "valor" usado em Profit Mercados Tradicionais)' : 'Todas as metodologias (clique numa linha pra ver o gráfico)'}
     </div>
-    ${_bt2TableHtml(sorted)}`;
+    ${_bt2TableHtml(sorted)}
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:22px 0 8px">
+      🦓 Lay Zebra (pré-jogo) — apostar contra o azarão vencer, por faixa de odd
+    </div>
+    <div id="bt2LayZebraBox"></div>`;
   _bt2LoadMatchesForSelected();
+  _bt2LoadLayZebra();
 }
 
 // ── BACKTEST CS — irmã do Backtest 2, mas rankeia os 19 buckets fixos de

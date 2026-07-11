@@ -5432,6 +5432,58 @@ def _bt2_odd_ranges_breakdown(odds, wons, profits):
     return out
 
 
+# ── ESTRATÉGIA "LAY ZEBRA" (pré-jogo) — apostar CONTRA o azarão (o lado com odd
+# mais alta no 1x2) vencer, reaproveitando as odds já coletadas em bt2_bets (não
+# precisa buscar nada novo). Simula o P/L de Lay: ganha o stake se o azarão perde
+# ou empata, perde a responsabilidade (odd-1) se o azarão vence ──
+def _bt2_lay_zebra_breakdown():
+    """Agrupa as apostas 1x2 já persistidas por evento, identifica o lado com odd
+    mais alta (a 'zebra') em cada jogo, e calcula o resultado de um Lay nela —
+    devolve a quebra por faixa de odd, igual ao _bt2_odd_ranges_breakdown."""
+    with _bt2_db_lock:
+        conn = _bt2_db_conn()
+        try:
+            cur = conn.execute(
+                "SELECT event_id, selection, odd, won FROM bt2_bets WHERE market_key = '1x2'"
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    by_event = {}
+    for event_id, selection, odd, won in rows:
+        if selection not in ("Casa", "Fora") or odd is None:
+            continue
+        by_event.setdefault(event_id, {})[selection] = (odd, won)
+
+    lay_odds, lay_wons, lay_profits = [], [], []
+    for event_id, sides in by_event.items():
+        casa = sides.get("Casa")
+        fora = sides.get("Fora")
+        if not casa or not fora:
+            continue
+        odd_casa, won_casa = casa
+        odd_fora, won_fora = fora
+        if odd_casa == odd_fora:
+            continue  # sem favorito/zebra clara
+        zebra_odd, zebra_won = (odd_fora, won_fora) if odd_fora > odd_casa else (odd_casa, won_casa)
+        lay_won = not zebra_won  # o Lay ganha quando a zebra NÃO vence (perde ou empata)
+        lay_profit = 1.0 if lay_won else -(zebra_odd - 1.0)
+        lay_odds.append(zebra_odd)
+        lay_wons.append(lay_won)
+        lay_profits.append(lay_profit)
+
+    return _bt2_odd_ranges_breakdown(lay_odds, lay_wons, lay_profits), len(lay_odds)
+
+
+@app.route("/api/backtest2/lay_zebra")
+def api_backtest2_lay_zebra():
+    """Análise pré-jogo do 'Lay Zebra': ROI/winrate de apostar contra o azarão do
+    1x2 vencer, por faixa de odd, usando a base já coletada em bt2_bets."""
+    breakdown, sample = _bt2_lay_zebra_breakdown()
+    return jsonify({"odd_ranges": breakdown, "sample_matches_used": sample})
+
+
 def _bt2_compute_ranking_acumulado():
     """Ranking acumulado: lê TODAS as apostas já persistidas em bt2_bets (não só as
     dos jogos de hoje) e agrega por mercado+seleção, com timeline cumulativa por
