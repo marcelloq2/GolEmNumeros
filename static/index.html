@@ -1085,7 +1085,27 @@
     <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest Tradicional</button>
     <button class="nav-tab" onclick="switchView('backtestcs', this)">🎯 Backtest CS</button>
   </div>
+  <button onclick="openAppGuia()" title="Como usar cada aba"
+    style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+           background:var(--bg2);color:var(--text2);font-size:14px;font-weight:800;cursor:pointer;
+           display:flex;align-items:center;justify-content:center;flex-shrink:0">?</button>
 </header>
+
+<!-- ── GUIA GERAL DO APP — explica as 4 abas atuais (Hoje/Ao Vivo/Backtest Tradicional/Backtest CS) ── -->
+<div id="appGuiaOverlay" onclick="if(event.target===this) closeAppGuia()"
+  style="display:none;position:fixed;inset:0;z-index:10000;background:#000a;align-items:center;justify-content:center;padding:16px">
+  <div style="max-width:640px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
+              border:1px solid var(--border);border-radius:12px;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:16px;font-weight:800">📖 Como usar cada aba</span>
+      <button onclick="closeAppGuia()"
+        style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
+               width:28px;height:28px;cursor:pointer">×</button>
+    </div>
+    <div id="appGuiaTabs" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <div id="appGuiaBody" style="font-size:13px;color:var(--text);line-height:1.65"></div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -1825,6 +1845,78 @@ let btAllDates = [];          // todas as datas disponíveis
 let btAllMatchesCache = null; // cache de todos os jogos carregados
 let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
+
+// ── GUIA GERAL DO APP — explica as 4 abas atuais na íntegra ──────────────────
+const APP_GUIA_SECTIONS = {
+  hoje: {
+    label: '✏️ Hoje',
+    html: `
+      <p><b>O que é:</b> lista de todas as partidas do dia (agendadas, ao vivo e encerradas), com dados cruzados de várias fontes.</p>
+      <p><b>🔍 Busca e filtros no topo:</b> filtre por nome de time/liga, escolha uma liga específica, filtre por turno (manhã/tarde/noite), status "Ao Vivo"/"Encerrados"/"Próximos".</p>
+      <p><b>🎯 Filtro de Metodologias:</b> mostra só os jogos onde alguma metodologia de valor (ranqueada no Backtest Tradicional ou Backtest CS) está disponível nas odds de hoje.</p>
+      <p><b>⚙️ Filtrar por Parâmetros:</b> filtra pelos resultados possíveis (Super Favorito, Favorito, Parelho, etc.) e pelas odds atuais de cada jogo.</p>
+      <p><b>🔍 Filtrar por Análise:</b> ~15 regras de leitura automática (padrão de gols, desempenho, peso da camisa, jogo complexo...) combinadas em E/OU — só mostra os jogos que batem com as regras marcadas.</p>
+      <p><b>Ao clicar numa partida</b>, o painel de detalhe mostra abas: Jogo, Odds, H2H, Classificações, Profit Mercados Tradicionais (ROI histórico por mercado/seleção), Placares Corretos (taxa de acerto por placar) e 🧠 Leitura da Partida (cruza tudo isso em cards de texto automático, incluindo Cenário de Gols, Momento dos Times, Histórico H2H, Desempenho Ofensivo, Tendência de Apostas e Padrões Históricos).</p>
+      <p><b>Escudos</b> dos times aparecem direto na lista e no cabeçalho de detalhe quando disponíveis na fonte.</p>`,
+  },
+  aovivo: {
+    label: '🔴 Ao Vivo',
+    html: `
+      <p><b>O que é:</b> grade de jogos ao vivo agora, atualizada a cada 20s, mostrando só partidas com mapa de chutes já confirmado (as demais continuam sendo buscadas em segundo plano e aparecem sozinhas assim que o 1º chute é registrado).</p>
+      <p><b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade.</p>
+      <p><b>Gráfico de pressão:</b> mostra quem está "empurrando" o jogo minuto a minuto, com até 5 selos automáticos: 🔥 pressão+chute no mesmo time (o sinal mais forte), ▲/▼ pressão sustentada, 🗺️ zona do último chute, 🧠 xG em dobro (oficial), 🗺️🧮 xG em dobro (calculado pelos chutes mapeados).</p>
+      <p><b>Mapa de chutes:</b> campo com a posição de cada finalização da partida.</p>
+      <p><b>Abas do card — Geral:</b> estatísticas detalhadas (Destaques, Finalizações, Ataque, Passes, Defesa...), xG estimado + xG por chutes, odds 1X2 atuais — com botão pra ocultar/mostrar sem precisar buscar de novo.</p>
+      <p><b>Abas do card — Escalações:</b> os 11 titulares de cada time quando disponível.</p>
+      <p><b>Abas do card — Estatísticas Pré:</b> placares que nunca saíram (0%) no histórico geral e no recorte casa/fora de cada time, + 🧠 Leitura da Partida (mesmo motor de análise da aba Hoje).</p>
+      <p><b>Efeito de gol:</b> quando o placar muda, o número pisca e aparece um banner "⚽ GOL!".</p>`,
+  },
+  backtestt: {
+    label: '🧪 Backtest Tradicional',
+    label2: 'Backtest T.',
+    html: `
+      <p><b>O que é:</b> ranking global de metodologias — cada combinação de mercado (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap Asiático) + seleção é testada contra odds históricas reais de todos os jogos do dia.</p>
+      <p><b>Colunas do ranking:</b> Apostas (tamanho da amostra), Taxa de Acerto, Profit (em unidades), ROI, Variância, Desvio Padrão e CV (coeficiente de variação — risco normalizado pelo retorno), e a Odd Atual disponível pra aquela seleção.</p>
+      <p><b>Como usar:</b> metodologias com ROI alto (≥20%) e amostra de pelo menos 8 jogos são destacadas com ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado, não garantia de lucro futuro.</p>
+      <p>Essas mesmas metodologias de valor alimentam o 🎯 Filtro de Metodologias da aba Hoje.</p>`,
+  },
+  backtestcs: {
+    label: '🎯 Backtest CS',
+    html: `
+      <p><b>O que é:</b> irmã do Backtest Tradicional, mas focada em <b>placar exato</b> — rankeia os 19 buckets fixos de placar (0-0, 0-1, ..., 3-3 + "qualquer outra vitória em casa/fora" + "qualquer outro empate") pela frequência real com que cada um ocorre.</p>
+      <p><b>Ranking:</b> mostra os placares que mais se repetem historicamente (pra apostar a favor) e os que quase nunca saem (pra apostar contra, com lift = quantas vezes mais raro que a média o placar é).</p>
+      <p><b>Padrões:</b> combina até 4 variáveis (média de gols/jogo de cada time, mandante, etc.) pra achar segmentos onde um placar específico fica ainda mais/menos provável do que o normal.</p>
+      <p><b>⚡ Placares mais improváveis:</b> filtro que mostra só os buckets que praticamente nunca ocorrem — útil pra apostar contra um placar específico com alta confiança.</p>`,
+  },
+};
+
+function openAppGuia() {
+  const overlay = document.getElementById('appGuiaOverlay');
+  const tabsEl = document.getElementById('appGuiaTabs');
+  if (!overlay || !tabsEl) return;
+  tabsEl.innerHTML = Object.entries(APP_GUIA_SECTIONS).map(([key, s]) => `
+    <button onclick="_setAppGuiaTab('${key}', this)" data-guia-tab="${key}"
+      style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;
+             border:1px solid var(--border);background:var(--bg3);color:var(--text2)">${s.label2 || s.label}</button>`).join('');
+  _setAppGuiaTab('hoje', tabsEl.querySelector('[data-guia-tab="hoje"]'));
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function _setAppGuiaTab(key, btn) {
+  document.querySelectorAll('#appGuiaTabs button').forEach(b => {
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--text2)';
+  });
+  if (btn) { btn.style.background = 'var(--accent)'; btn.style.color = '#fff'; }
+  const body = document.getElementById('appGuiaBody');
+  if (body) body.innerHTML = APP_GUIA_SECTIONS[key]?.html || '';
+}
+
+function closeAppGuia() {
+  const overlay = document.getElementById('appGuiaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
 
 // ── GUIA ABA HOJE ─────────────────────────────────────────────────────────────
 function openHojeGuia() {
