@@ -2028,6 +2028,115 @@ def api_momentum_vovo_pattern_stats():
     return jsonify(data)
 
 
+# ── ESTRATÉGIA "UNDER LIMITE" — acha momentos de baixo risco pra operar contra gol
+# (jogo "morto": placar já decidido + pouca pressão dos dois lados, geralmente perto
+# do fim), calibrando via grid-search contra a base de jogos salvos igual ao Vovô ──
+def _under_score_at_minute(goals, minute):
+    """Reconstrói o placar (gols reais, sem contra) até um minuto — pra saber se o
+    jogo já tinha vantagem decidida naquele instante."""
+    home = away = 0
+    for g in goals:
+        if (g.get("minute") or 0) > minute:
+            continue
+        scorer = ("away" if g.get("team") == "home" else "home") if g.get("ownGoal") else g.get("team")
+        if scorer == "home":
+            home += 1
+        else:
+            away += 1
+    return home, away
+
+
+def _under_goal_soon(goals, minute, window):
+    """Saiu algum gol (qualquer time, contra conta como gol de verdade pro efeito
+    do mercado — bola na rede é bola na rede) dentro da janela após esse minuto?"""
+    return any(minute < (g.get("minute") or 0) <= minute + window for g in goals)
+
+
+def _under_eval(matches, min_minute, min_diff, calm_pct, goal_window):
+    """Compara, entre os pontos que já têm placar decidido e estão depois do minuto
+    mínimo, a taxa de sair gol logo em seguida quando o jogo está 'morto' (pressão
+    baixa nos dois lados) vs quando não está — quanto menor a taxa no grupo 'morto'
+    e maior o lift, mais seguro é operar Under nesses momentos."""
+    calm_total = calm_goal = notcalm_total = notcalm_goal = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+        thresh = max_val * calm_pct
+        for p in points:
+            minute = p.get("minute") or 0
+            if minute < min_minute:
+                continue
+            home, away = _under_score_at_minute(goals, minute)
+            if abs(home - away) < min_diff:
+                continue
+            val = abs(p.get("value") or 0)
+            goal_soon = _under_goal_soon(goals, minute, goal_window)
+            if val <= thresh:
+                calm_total += 1
+                if goal_soon:
+                    calm_goal += 1
+            else:
+                notcalm_total += 1
+                if goal_soon:
+                    notcalm_goal += 1
+
+    calm_rate = (calm_goal / calm_total) if calm_total else 0.0
+    notcalm_rate = (notcalm_goal / notcalm_total) if notcalm_total else 0.0
+    lift = (notcalm_rate / calm_rate) if calm_rate else 0.0
+    return {
+        "min_minute": min_minute, "min_diff": min_diff, "calm_pct": calm_pct, "goal_window": goal_window,
+        "calm_total": calm_total, "calm_rate": round(calm_rate, 4),
+        "notcalm_total": notcalm_total, "notcalm_rate": round(notcalm_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_UNDER_PATTERN_CACHE = {"ts": 0, "data": None}
+_UNDER_PATTERN_TTL = 30 * 60
+_UNDER_MIN_SAMPLE = 30
+_UNDER_MIN_LIFT = 1.3
+_UNDER_MAX_CALM_RATE = 0.15  # mercado é de risco máximo — só considera "seguro" se a taxa de gol no grupo calmo for baixa de verdade
+_UNDER_MIN_MINUTE_GRID = [70, 75, 80]
+_UNDER_MIN_DIFF_GRID = [2, 3]
+_UNDER_CALM_PCT_GRID = [0.1, 0.15, 0.2]
+_UNDER_GOAL_WINDOW_GRID = [2, 3, 5]
+
+@app.route("/api/momentum/under_limite_pattern_stats")
+def api_momentum_under_limite_pattern_stats():
+    """Calibra o sinal de 'momento seguro pra Under Limite' (placar decidido + jogo
+    morto) contra a base de jogos salvos, testando uma grade de combinações e
+    escolhendo a de maior lift entre as que têm amostra suficiente E taxa de gol no
+    grupo calmo abaixo do teto de segurança. Cacheado 30min."""
+    now = time.time()
+    if _UNDER_PATTERN_CACHE["data"] and (now - _UNDER_PATTERN_CACHE["ts"]) < _UNDER_PATTERN_TTL:
+        return jsonify(_UNDER_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+    resultados = [
+        _under_eval(matches, mm, md, cp, gw)
+        for mm in _UNDER_MIN_MINUTE_GRID
+        for md in _UNDER_MIN_DIFF_GRID
+        for cp in _UNDER_CALM_PCT_GRID
+        for gw in _UNDER_GOAL_WINDOW_GRID
+    ]
+    candidatos = [
+        r for r in resultados
+        if r["calm_total"] >= _UNDER_MIN_SAMPLE and r["calm_rate"] <= _UNDER_MAX_CALM_RATE
+    ]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _UNDER_MIN_LIFT)
+
+    data = {
+        "matches_used": len(matches),
+        "best": melhor,
+        "valido": valido,
+    }
+    _UNDER_PATTERN_CACHE["data"] = data
+    _UNDER_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""

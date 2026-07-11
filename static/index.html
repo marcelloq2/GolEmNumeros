@@ -6572,56 +6572,97 @@ function _live2VovoReversePressure(points, leader, afterMinute, overPct, minStre
   return null;
 }
 
-// Monta/atualiza o ícone da "Estratégia do Vovô" no card — fica entre o mapa de
-// chutes e as abas Geral/Escalações/Estatísticas Pré, só mostra tooltip quando o
-// jogo atual está numa situação de 2 gols de vantagem (a partir do min. 65)
+// Valida o padrão "Under Limite" (mercado contra gol — jogo morto/placar decidido
+// perto do fim) contra a base de jogos salvos — mesmo padrão de cache do Vovô/Grande Chance
+let _live2UnderStats = null;
+let _live2UnderFetchedAt = 0;
+async function _live2GetUnderStats() {
+  const now = Date.now();
+  if (_live2UnderStats && (now - _live2UnderFetchedAt) < 30 * 60 * 1000) {
+    return _live2UnderStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/under_limite_pattern_stats');
+    _live2UnderStats = await r.json();
+    _live2UnderFetchedAt = now;
+  } catch (e) {
+    _live2UnderStats = { valido: false };
+  }
+  return _live2UnderStats;
+}
+
+// Checa se o momento AGORA bate com o padrão calibrado de "jogo morto" pro Under
+// Limite: minuto mínimo, placar já decidido (diferença mínima) e pressão baixa dos
+// dois lados no ponto mais recente do gráfico — mesma lógica do backend (_under_eval)
+function _live2UnderSignalNow(points, m, stats) {
+  if (!stats || !stats.valido || !stats.best || !points.length) return null;
+  const b = stats.best;
+  const last = points[points.length - 1];
+  const minute = last.minute || 0;
+  if (minute < b.min_minute) return null;
+  const diff = Math.abs((m.golCasaFt ?? 0) - (m.golForaFt ?? 0));
+  if (diff < b.min_diff) return null;
+  const thresh = _live2VovoMaxVal(points) * b.calm_pct;
+  if (Math.abs(last.value || 0) > thresh) return null;
+  return `Under Limite — MOMENTO DE BAIXO RISCO: placar decidido (diferença de ${diff}) e jogo parado agora, a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de gol logo em seguida ${(b.calm_rate*100).toFixed(1)}%) — ainda assim, um gol contra zera a stake`;
+}
+
+// Monta/atualiza os selos de estratégia (Vovô + Under Limite) no card — fica entre
+// o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const stats = await _live2GetVovoStats();
+  const [vovoStats, underStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats()]);
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
-  if (!stats || (!stats.entry_valido && !stats.exit_valido)) { freshWrap.innerHTML = ''; return; }
 
   const points = _live2PointsCache[matchId] || [];
   const goals  = _live2GoalsCache[matchId] || [];
-  const minMinute = stats.min_minute || 65;
-  const ev = _live2VovoLeadEvent(goals, minMinute);
-  if (!ev) { freshWrap.innerHTML = ''; return; }
-
-  // Ainda tem que valer AGORA — se o time que tinha 2 gols de vantagem já sofreu
-  // gol e a diferença mudou, o ícone não faz mais sentido pra essa janela
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  const curDiff = m ? (m.golCasaFt ?? 0) - (m.golForaFt ?? 0) : 0;
-  const stillLeading = ev.leader === 'home' ? curDiff === 2 : curDiff === -2;
-  if (!stillLeading) { freshWrap.innerHTML = ''; return; }
+  const badges = [];
 
-  let icon = '', title = '';
-
-  if (stats.exit_valido) {
-    const { over_pct, min_streak, goal_window, lift } = stats.exit;
-    const signalMinute = _live2VovoReversePressure(points, ev.leader, ev.minute, over_pct, min_streak);
-    if (signalMinute !== null) {
-      icon = '🔴';
-      title = `Vovô — ALERTA DE SAÍDA: time que tá perdendo entrou em pressão sustentada desde o ${signalMinute}' (validado na base, lift ${lift}x) — considere sair da operação`;
-    }
-  }
-
-  if (!icon && stats.entry_valido) {
-    const { window_min, mag_pct, lift } = stats.entry;
-    const avg = _live2VovoAvgPressure(points, ev.minute, ev.minute + window_min);
-    if (avg !== null) {
-      const avgAFavor = ev.leader === 'home' ? avg : -avg;
-      const thresh = _live2VovoMaxVal(points) * mag_pct;
-      if (avgAFavor > thresh) {
-        icon = '👴';
-        title = `Vovô — ENTRADA FAVORÁVEL: ${ev.leader === 'home' ? m.casa : m.fora} abriu 2 gols de vantagem no ${ev.minute}' e seguiu pressionando (validado na base, lift ${lift}x)`;
+  if (vovoStats && (vovoStats.entry_valido || vovoStats.exit_valido) && m) {
+    const minMinute = vovoStats.min_minute || 65;
+    const ev = _live2VovoLeadEvent(goals, minMinute);
+    if (ev) {
+      const curDiff = (m.golCasaFt ?? 0) - (m.golForaFt ?? 0);
+      const stillLeading = ev.leader === 'home' ? curDiff === 2 : curDiff === -2;
+      if (stillLeading) {
+        let icon = '', title = '';
+        if (vovoStats.exit_valido) {
+          const { over_pct, min_streak, lift } = vovoStats.exit;
+          const signalMinute = _live2VovoReversePressure(points, ev.leader, ev.minute, over_pct, min_streak);
+          if (signalMinute !== null) {
+            icon = '🔴';
+            title = `Vovô — ALERTA DE SAÍDA: time que tá perdendo entrou em pressão sustentada desde o ${signalMinute}' (validado na base, lift ${lift}x) — considere sair da operação`;
+          }
+        }
+        if (!icon && vovoStats.entry_valido) {
+          const { window_min, mag_pct, lift } = vovoStats.entry;
+          const avg = _live2VovoAvgPressure(points, ev.minute, ev.minute + window_min);
+          if (avg !== null) {
+            const avgAFavor = ev.leader === 'home' ? avg : -avg;
+            const thresh = _live2VovoMaxVal(points) * mag_pct;
+            if (avgAFavor > thresh) {
+              icon = '👴';
+              title = `Vovô — ENTRADA FAVORÁVEL: ${ev.leader === 'home' ? m.casa : m.fora} abriu 2 gols de vantagem no ${ev.minute}' e seguiu pressionando (validado na base, lift ${lift}x)`;
+            }
+          }
+        }
+        if (icon) badges.push({ icon, label: 'Vovô', title });
       }
     }
   }
 
-  freshWrap.innerHTML = icon
-    ? `<span title="${title}" style="cursor:help;font-size:15px" onclick="event.stopPropagation()">${icon} <span style="font-size:9px;color:var(--text2);vertical-align:middle">Vovô</span></span>`
+  if (m) {
+    const underTitle = _live2UnderSignalNow(points, m, underStats);
+    if (underTitle) badges.push({ icon: '🧊', label: 'Under Limite', title: underTitle });
+  }
+
+  freshWrap.innerHTML = badges.length
+    ? `<div style="display:flex;gap:10px;justify-content:center">${badges.map(b =>
+        `<span title="${b.title}" style="cursor:help;font-size:15px" onclick="event.stopPropagation()">${b.icon} <span style="font-size:9px;color:var(--text2);vertical-align:middle">${b.label}</span></span>`
+      ).join('')}</div>`
     : '';
 }
 
