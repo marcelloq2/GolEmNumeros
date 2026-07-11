@@ -4804,6 +4804,27 @@ _BT2_MARKET_LABELS = {
 _BT2_MIN_SAMPLE = 15
 _BT2_MAX_HISTORICAL_IDS = 400
 
+# Faixas de odd — usadas pra segmentar o ranking por odd em vez de só juntar tudo
+# (ex: "Casa" no 1X2 pode ter ROI bem diferente com odd 1.50 vs odd 3.50). A odd de
+# cada aposta já é gravada em bt2_bets, então isso é calculado na hora da leitura,
+# sem precisar de coluna nova nem migração de schema.
+_BT2_ODD_RANGES = [
+    (0.0, 1.5,  "1.01–1.50"),
+    (1.5, 2.0,  "1.51–2.00"),
+    (2.0, 3.0,  "2.01–3.00"),
+    (3.0, 5.0,  "3.01–5.00"),
+    (5.0, 9e9,  "5.01+"),
+]
+_BT2_MIN_SAMPLE_ODD_RANGE = 8  # amostra menor exigida pra cada faixa (o corte reparte a amostra total)
+
+def _bt2_odd_range_label(odd):
+    if not odd:
+        return None
+    for lo, hi, label in _BT2_ODD_RANGES:
+        if lo < odd <= hi:
+            return label
+    return None
+
 
 def _bt2_parse_score(s):
     m = re.match(r"^(\d+):(\d+)$", s or "")
@@ -4954,6 +4975,38 @@ def _bt2_compute_variance(profits):
     return variance, stddev, cv
 
 
+def _bt2_odd_ranges_breakdown(odds, wons, profits):
+    """A partir das odds/won/profit de cada aposta de uma seleção, agrupa por faixa
+    de odd (ver _BT2_ODD_RANGES) e devolve a lista de faixas com amostra suficiente,
+    ordenada na mesma ordem das faixas (menor odd primeiro)."""
+    by_range = {}
+    for odd, won, profit in zip(odds, wons, profits):
+        label = _bt2_odd_range_label(odd)
+        if not label:
+            continue
+        r = by_range.setdefault(label, {"bets": 0, "wins": 0, "profit": 0.0})
+        r["bets"] += 1
+        if won:
+            r["wins"] += 1
+        r["profit"] += profit
+
+    order = [label for _, _, label in _BT2_ODD_RANGES]
+    out = []
+    for label in order:
+        r = by_range.get(label)
+        if not r or r["bets"] < _BT2_MIN_SAMPLE_ODD_RANGE:
+            continue
+        out.append({
+            "faixa":   label,
+            "bets":    r["bets"],
+            "wins":    r["wins"],
+            "winrate": round(r["wins"] / r["bets"], 4),
+            "profit":  round(r["profit"], 4),
+            "roi":     round(r["profit"] / r["bets"] * 100, 2),
+        })
+    return out
+
+
 def _bt2_compute_ranking_acumulado():
     """Ranking acumulado: lê TODAS as apostas já persistidas em bt2_bets (não só as
     dos jogos de hoje) e agrega por mercado+seleção, com timeline cumulativa por
@@ -4972,7 +5025,7 @@ def _bt2_compute_ranking_acumulado():
     agg = {}
     for market_key, selection, odd, won, profit, match_date in all_rows:
         bucket = agg.setdefault(market_key, {})
-        r = bucket.setdefault(selection, {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": []})
+        r = bucket.setdefault(selection, {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": [], "wons": []})
         r["bets"] += 1
         if won:
             r["wins"] += 1
@@ -4980,6 +5033,7 @@ def _bt2_compute_ranking_acumulado():
         r["profits"].append(profit)
         r["dates"].append(match_date or "")
         r["odds"].append(odd)
+        r["wons"].append(won)
 
     methodologies = []
     for market_key, bucket in agg.items():
@@ -5006,6 +5060,7 @@ def _bt2_compute_ranking_acumulado():
                 "winrate": round(r["wins"] / r["bets"], 4),
                 "profit": round(r["profit"], 4),
                 "roi": round(r["profit"] / r["bets"] * 100, 2),
+                "odd_ranges": _bt2_odd_ranges_breakdown(r["odds"], r["wons"], profits),
                 "variance": round(variance, 4),
                 "stddev": round(stddev, 4),
                 "cv": round(cv, 4) if cv is not None else None,
@@ -5073,7 +5128,7 @@ def _bt2_compute_ranking():
                 if not sel["odd"]:
                     continue
                 bucket = agg.setdefault(market_key, {})
-                r = bucket.setdefault(sel["label"], {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": []})
+                r = bucket.setdefault(sel["label"], {"bets": 0, "wins": 0, "profit": 0.0, "profits": [], "dates": [], "odds": [], "wons": []})
                 p = (sel["odd"] - 1) if sel["won"] else -1
                 r["bets"] += 1
                 if sel["won"]:
@@ -5082,6 +5137,7 @@ def _bt2_compute_ranking():
                 r["profits"].append(p)
                 r["dates"].append(row.get("date") or "")
                 r["odds"].append(sel["odd"])
+                r["wons"].append(sel["won"])
                 persist_rows.append((str(event_id), market_key, sel["label"], sel["odd"], sel["won"], p, row.get("date") or ""))
 
     # Persiste cada aposta individual no SQLite (modo acumulado), sem afetar o
@@ -5122,6 +5178,7 @@ def _bt2_compute_ranking():
                 "winrate": round(r["wins"] / r["bets"], 4),
                 "profit": round(r["profit"], 4),
                 "roi": round(r["profit"] / r["bets"] * 100, 2),
+                "odd_ranges": _bt2_odd_ranges_breakdown(r["odds"], r["wons"], profits),
                 "variance": round(variance, 4),
                 "stddev": round(stddev, 4),
                 "cv": round(cv, 4) if cv is not None else None,

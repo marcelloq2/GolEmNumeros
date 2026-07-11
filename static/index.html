@@ -3791,6 +3791,40 @@ function _bt2TableHtml(sorted) {
     </div>`;
 }
 
+// Segmenta a metodologia selecionada por faixa de odd (ex: "Casa" no 1X2 pode ter
+// ROI bem diferente com odd 1.50 vs odd 3.50) — mesma amostra da tabela geral, só
+// que cortada por faixa em vez de somar tudo junto
+function _bt2OddRangesHtml(selected) {
+  const ranges = selected?.odd_ranges;
+  if (!ranges || !ranges.length) return '';
+  const rows = ranges.map(r => {
+    const color = r.roi >= 0 ? '#22c55e' : '#ef4444';
+    return `<tr>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text)">${r.faixa}</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${r.bets}</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${(r.winrate * 100).toFixed(1)}%</td>
+      <td style="padding:6px 10px;font-size:12px;font-weight:700;color:${color}">${r.profit >= 0 ? '+' : ''}${r.profit.toFixed(2)}</td>
+      <td style="padding:6px 10px;font-size:12px;color:${color}">${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:18px 0 8px">
+      Por faixa de odd — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Faixa de Odd</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Apostas</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Taxa de Acerto</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Profit</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">ROI</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 function _bt2BarChartSvg(sorted) {
   const top = sorted.slice(0, 15);
   if (!top.length) return '';
@@ -3959,6 +3993,7 @@ function _bt2Render() {
       Lucro acumulado — ${selected ? _bt2EscXml(selected.market_label + ' → ' + selected.selection) : ''}
     </div>
     ${_bt2LineChartSvg(selected)}
+    ${_bt2OddRangesHtml(selected)}
     <div id="bt2MatchesBox"></div>
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin:18px 0 8px">
       ${_bt2Filter==='valor' ? '⚡ Só metodologias com ROI ≥20% (mesmo critério de "valor" usado em Profit Mercados Tradicionais)' : 'Todas as metodologias (clique numa linha pra ver o gráfico)'}
