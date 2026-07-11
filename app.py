@@ -2312,7 +2312,7 @@ _LAY_MIN_SAMPLE = 30
 _LAY_MIN_LIFT = 1.3
 _LAY_MAX_SAFE_RATE = 0.15  # mesmo espírito do Under — só considera "seguro" se a chance de goleada nesse grupo for baixa de verdade
 _LAY_MIN_MINUTE_GRID = [10, 15, 20, 25, 30, 35, 40]
-_LAY_MAX_DIFF_GRID = [0, 1, 2]
+_LAY_MAX_DIFF_GRID = [0, 1]
 
 @app.route("/api/momentum/lay_goleada_pattern_stats")
 def api_momentum_lay_goleada_pattern_stats():
@@ -2339,6 +2339,7 @@ def api_momentum_lay_goleada_pattern_stats():
 
     exit_stats = _lay_eval_exit(matches, melhor["min_minute"], melhor["max_diff"]) if melhor else None
     exit_valido = bool(exit_stats and exit_stats["sinal_total"] >= _LAY_MIN_SAMPLE and exit_stats["lift"] >= _LAY_MIN_LIFT)
+    pressure_exit, pressure_exit_valido = _lay_calibrate_pressure_exit(matches, melhor) if melhor else (None, False)
 
     data = {
         "matches_used": len(matches),
@@ -2346,6 +2347,8 @@ def api_momentum_lay_goleada_pattern_stats():
         "valido": valido,
         "exit": exit_stats,
         "exit_valido": exit_valido,
+        "exit_pressure": pressure_exit,
+        "exit_pressure_valido": pressure_exit_valido,
     }
     _LAY_PATTERN_CACHE["data"] = data
     _LAY_PATTERN_CACHE["ts"] = now
@@ -2412,6 +2415,95 @@ def _lay_eval_exit(matches, min_minute, max_diff):
         "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
         "lift": round(lift, 3),
     }
+
+
+def _lay_detect_leader_pressure(points, leader, after_minute, over_pct, min_streak):
+    """Acha o primeiro instante, depois da entrada, em que o time que JÁ tá na
+    frente entra numa janela sustentada de pressão a favor dele mesmo — sinal de
+    que ele pode marcar de novo, ANTES do gol acontecer de fato (diferente do
+    _lay_next_leader_goal, que só confirma depois que já era tarde pra sair)."""
+    sub = [p for p in points if (p.get("minute") or 0) > after_minute]
+    if not sub:
+        return None
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    thresh = max_val * over_pct
+    n = len(sub)
+    i = 0
+    while i < n:
+        v = sub[i].get("value") or 0
+        is_leader_pressure = (v > thresh) if leader == "home" else (v < -thresh)
+        if is_leader_pressure:
+            j = i
+            while j < n:
+                vv = sub[j].get("value") or 0
+                cond = (vv > thresh) if leader == "home" else (vv < -thresh)
+                if not cond:
+                    break
+                j += 1
+            if j - i >= min_streak:
+                return sub[i].get("minute") or 0
+            i = j
+        else:
+            i += 1
+    return None
+
+
+def _lay_eval_pressure_exit(matches, min_minute, max_diff, over_pct, min_streak, goal_window):
+    """Valida o alerta ANTECIPADO de saída: dos jogos que bateram a entrada, separa
+    quem teve pressão sustentada do líder depois vs quem não teve, e mede a taxa de
+    o líder realmente marcar de novo em seguida em cada grupo — quanto mais cedo
+    detectar o risco, menos chance de 'levar o gol contra a posição' sem aviso."""
+    sinal_total = sinal_confirmado = 0
+    baseline_total = baseline_goal = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, min_minute)
+        diff = abs(home - away)
+        if diff > max_diff or home == away:
+            continue
+        leader = "home" if home > away else "away"
+        signal_minute = _lay_detect_leader_pressure(points, leader, min_minute, over_pct, min_streak)
+        if signal_minute is not None:
+            sinal_total += 1
+            goal_minute = _lay_next_leader_goal(goals, signal_minute, leader)
+            if goal_minute is not None and goal_minute - signal_minute <= goal_window:
+                sinal_confirmado += 1
+        else:
+            baseline_total += 1
+            if _lay_next_leader_goal(goals, min_minute, leader) is not None:
+                baseline_goal += 1
+
+    sinal_rate = (sinal_confirmado / sinal_total) if sinal_total else 0.0
+    baseline_rate = (baseline_goal / baseline_total) if baseline_total else 0.0
+    lift = (sinal_rate / baseline_rate) if baseline_rate else (99.0 if sinal_rate > 0 else 0.0)
+    return {
+        "over_pct": over_pct, "min_streak": min_streak, "goal_window": goal_window,
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_LAY_EXIT_OVER_GRID = [0.3, 0.4, 0.5, 0.6]
+_LAY_EXIT_STREAK_GRID = [2, 3, 4]
+_LAY_EXIT_WINDOW_GRID = [10, 15, 20]
+
+def _lay_calibrate_pressure_exit(matches, entry_best):
+    """Roda a grade do alerta antecipado condicionada à entrada já calibrada."""
+    resultados = [
+        _lay_eval_pressure_exit(matches, entry_best["min_minute"], entry_best["max_diff"], op, ms, gw)
+        for op in _LAY_EXIT_OVER_GRID
+        for ms in _LAY_EXIT_STREAK_GRID
+        for gw in _LAY_EXIT_WINDOW_GRID
+    ]
+    candidatos = [r for r in resultados if r["sinal_total"] >= _LAY_MIN_SAMPLE]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _LAY_MIN_LIFT)
+    return melhor, valido
 
 
 @app.route("/api/momentum/history/<event_id>")
