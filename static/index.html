@@ -6094,73 +6094,7 @@ async function _live2RenderPreStats(matchId) {
     <div style="display:flex;flex-direction:column;gap:6px">
       ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
       ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
-    </div>
-    <div id="live2InsightsWrap_${matchId}" style="margin-top:12px;font-size:10px;color:var(--text2);text-align:center">
-      ⏳ Gerando leitura da partida...
     </div>`;
-
-  // Leitura da Partida — só carrega 1x por partida (não depende do escopo
-  // Geral/Casa/Fora, usa seus próprios recortes fixos casa-em-casa/fora-fora)
-  if (!_live2InsightsLoaded[matchId]) {
-    _live2InsightsLoaded[matchId] = true;
-    _live2LoadInsights(matchId);
-  }
-}
-
-let _live2InsightsLoaded = {};
-
-async function _live2LoadInsights(matchId) {
-  const wrap = document.getElementById(`live2InsightsWrap_${matchId}`);
-  if (!wrap) return;
-  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  const cache = _live2PreStatsCache[matchId] || (_live2PreStatsCache[matchId] = {});
-  if (!m || !cache._h2hTabs || !cache._h2hTabs.length) { wrap.innerHTML = ''; return; }
-
-  const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-  try {
-    const fetches = [];
-    if (!cache._standingsRows) fetches.push(fetch(`/api/flashscore/standings?${params}`).then(r => r.json()).then(d => { cache._standingsRows = d.rows || []; }));
-    if (!cache._oddsMarkets) fetches.push(fetch(`/api/flashscore/odds_all?${params}`).then(r => r.json()).then(d => { cache._oddsMarkets = d.markets || {}; }));
-    await Promise.all(fetches);
-  } catch (e) {
-    wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar dados pra leitura da partida</div>';
-    return;
-  }
-
-  const tabs = cache._h2hTabs;
-  const homeHomeBlock    = _jogoStatsRowsFromSection(tabs, 1, true);
-  const awayAwayBlock    = _jogoStatsRowsFromSection(tabs, 2, false);
-  const homeGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, true);
-  const awayGeneralBlock = _jogoStatsRowsFromSection(tabs, 0, false);
-
-  await Promise.all([homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock]
-    .map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
-
-  const profitHomeRows = _profitTeamRowsFromSection(tabs, 0, true);
-  const profitAwayRows = _profitTeamRowsFromSection(tabs, 0, false);
-  await _ensureToday2Odds([...profitHomeRows.rows, ...profitAwayRows.rows].map(r => r.id));
-  const profitAggHome = _profitAggregate(profitHomeRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
-  const profitAggAway = _profitAggregate(profitAwayRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
-
-  const csFreqHome = _csBucketFrequency(homeGeneralBlock.rows);
-  const csFreqAway = _csBucketFrequency(awayGeneralBlock.rows);
-
-  const freshWrap = document.getElementById(`live2InsightsWrap_${matchId}`);
-  if (!freshWrap) return;
-
-  // _today2InsightsCards espera m.home/m.away (nomenclatura do Hoje 2) — o Ao Vivo 2
-  // usa m.casa/m.fora, então passamos um objeto adaptado sem mexer na função original
-  const cards = _today2InsightsCards({
-    m: { ...m, home: m.casa, away: m.fora },
-    homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
-    standingsRows: cache._standingsRows || [],
-    oddsMarkets: cache._oddsMarkets || {},
-    profitHomeTeam: profitHomeRows.teamName, profitAwayTeam: profitAwayRows.teamName,
-    profitAggHome, profitAggAway, csFreqHome, csFreqAway,
-  });
-
-  freshWrap.style.textAlign = '';
-  freshWrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">🧠 Leitura da Partida</div>${_today2InsightsGridHtml(cards)}`;
 }
 
 // Escudos — link direto pro CDN de imagens da fonte (/api/flashscore/match já traz
