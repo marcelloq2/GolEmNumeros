@@ -6614,7 +6614,7 @@ async function _live2RenderVovoBadge(matchId) {
       const avgAFavor = ev.leader === 'home' ? avg : -avg;
       const thresh = _live2VovoMaxVal(points) * mag_pct;
       if (avgAFavor > thresh) {
-        icon = '🟢';
+        icon = '👴';
         title = `Vovô — ENTRADA FAVORÁVEL: ${ev.leader === 'home' ? m.casa : m.fora} abriu 2 gols de vantagem no ${ev.minute}' e seguiu pressionando (validado na base, lift ${lift}x)`;
       }
     }
