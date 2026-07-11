@@ -5953,8 +5953,8 @@ function renderLive2Card(m) {
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
-      <div id="live2VovoWrap_${m.id}" style="text-align:center;margin-top:2px"></div>
       <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
+      <div id="live2VovoWrap_${m.id}" style="text-align:center;margin:6px 12px 2px"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
         <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
@@ -6704,9 +6704,12 @@ async function _live2RenderVovoBadge(matchId) {
   }
 
   freshWrap.innerHTML = badges.length
-    ? `<div style="display:flex;gap:10px;justify-content:center">${badges.map(b =>
-        `<span title="${b.title}" style="cursor:help;font-size:15px" onclick="event.stopPropagation()">${b.icon} <span style="font-size:9px;color:var(--text2);vertical-align:middle">${b.label}</span></span>`
-      ).join('')}</div>`
+    ? `<div style="display:flex;gap:14px;justify-content:center;align-items:center;
+                   border:1px solid #a855f766;border-radius:8px;background:#a855f712;padding:6px 10px">
+        ${badges.map(b =>
+          `<span title="${b.title}" style="cursor:help;font-size:15px" onclick="event.stopPropagation()">${b.icon} <span style="font-size:9px;color:var(--text2);vertical-align:middle">${b.label}</span></span>`
+        ).join('')}
+      </div>`
     : '';
 }
 
