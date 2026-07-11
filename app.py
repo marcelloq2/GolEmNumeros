@@ -1811,6 +1811,223 @@ def api_momentum_chance_pattern_stats():
     return jsonify(data)
 
 
+# ── ESTRATÉGIA DO VOVÔ — sinal de entrada (2 gols de vantagem, a partir do minuto
+# 65, + pressão a favor do favorito) e sinal de saída (pressão reversa sustentada
+# do time que tá perdendo), os dois calibrados e validados contra a base de jogos
+# salvos (momentum_history), no mesmo espírito do "Grande Chance" ──
+_VOVO_MIN_MINUTE = 65  # só conta vantagem de 2 gols a partir daqui — regra da própria estratégia (menos tempo restante = menos risco)
+
+def _vovo_two_goal_lead_events(goals, min_minute=_VOVO_MIN_MINUTE):
+    """Acha o(s) momento(s) em que um time abre exatamente 2 gols de vantagem pela
+    primeira vez, a partir do minuto mínimo — se sofrer gol e abrir de novo
+    depois, não conta 2x (só o primeiro instante interessa pra decidir 'entrar')."""
+    goals_sorted = sorted(goals, key=lambda g: (g.get("minute") or 0))
+    home_score = away_score = 0
+    seen = {"home": False, "away": False}
+    events = []
+    for g in goals_sorted:
+        if g.get("ownGoal"):
+            # gol contra do time X beneficia o adversário — inverte quem "marcou"
+            if g.get("team") == "home":
+                away_score += 1
+            else:
+                home_score += 1
+        elif g.get("team") == "home":
+            home_score += 1
+        else:
+            away_score += 1
+        diff = home_score - away_score
+        minute = g.get("minute") or 0
+        if diff == 2 and not seen["home"]:
+            seen["home"] = True
+            if minute >= min_minute:
+                events.append({"minute": minute, "leader": "home"})
+        elif diff == -2 and not seen["away"]:
+            seen["away"] = True
+            if minute >= min_minute:
+                events.append({"minute": minute, "leader": "away"})
+    return events
+
+
+def _vovo_avg_pressure(points, start_minute, end_minute):
+    """Média do valor de pressão (sinal cru, >=0 favorece casa) numa janela de
+    minutos — usada tanto pra checar o momento da entrada quanto qualquer outra
+    janela de interesse."""
+    vals = [p.get("value") or 0 for p in points if start_minute <= (p.get("minute") or 0) <= end_minute]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def _vovo_max_val(points):
+    return max((abs(p.get("value") or 0) for p in points), default=1) or 1
+
+
+def _vovo_conceded_after(goals, minute, leader):
+    """O time que tava na frente (leader) sofreu gol depois desse minuto?"""
+    trailing = "away" if leader == "home" else "home"
+    return any(
+        g.get("team") == trailing and not g.get("ownGoal") and (g.get("minute") or 0) > minute
+        for g in goals
+    )
+
+
+def _vovo_eval_entry(matches, window_min, mag_pct):
+    """Roda a avaliação de ENTRADA com um limiar/janela específicos: separa os
+    casos em 'pressão a favor acima do limiar' vs 'pressão contra acima do
+    limiar' (descarta os que ficam no meio) e compara a taxa de NÃO sofrer gol
+    depois entre os dois grupos."""
+    fav_total = fav_no_concede = unfav_total = unfav_no_concede = 0
+    for points, goals in matches:
+        thresh = _vovo_max_val(points) * mag_pct
+        for ev in _vovo_two_goal_lead_events(goals):
+            minute, leader = ev["minute"], ev["leader"]
+            avg = _vovo_avg_pressure(points, minute, minute + window_min)
+            if avg is None:
+                continue
+            avg_a_favor = avg if leader == "home" else -avg
+            conceded = _vovo_conceded_after(goals, minute, leader)
+            if avg_a_favor > thresh:
+                fav_total += 1
+                if not conceded:
+                    fav_no_concede += 1
+            elif avg_a_favor < -thresh:
+                unfav_total += 1
+                if not conceded:
+                    unfav_no_concede += 1
+
+    fav_rate = (fav_no_concede / fav_total) if fav_total else 0.0
+    unfav_rate = (unfav_no_concede / unfav_total) if unfav_total else 0.0
+    lift = (fav_rate / unfav_rate) if unfav_rate else 0.0
+    return {
+        "window_min": window_min, "mag_pct": mag_pct,
+        "fav_total": fav_total, "fav_rate": round(fav_rate, 4),
+        "unfav_total": unfav_total, "unfav_rate": round(unfav_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+def _vovo_detect_reverse_pressure(points, leader, after_minute, over_pct, min_streak):
+    """Acha o primeiro instante, depois de 'after_minute', em que o time que tá
+    PERDENDO entra numa janela sustentada de pressão (mesmo critério do selo
+    'Momento Over', só que olhando pro lado contrário ao líder)."""
+    sub = [p for p in points if (p.get("minute") or 0) > after_minute]
+    if not sub:
+        return None
+    thresh = _vovo_max_val(points) * over_pct
+    n = len(sub)
+    i = 0
+    while i < n:
+        v = sub[i].get("value") or 0
+        is_trailing_pressure = (v < -thresh) if leader == "home" else (v > thresh)
+        if is_trailing_pressure:
+            j = i
+            while j < n:
+                vv = sub[j].get("value") or 0
+                cond = (vv < -thresh) if leader == "home" else (vv > thresh)
+                if not cond:
+                    break
+                j += 1
+            if j - i >= min_streak:
+                return sub[i].get("minute") or 0
+            i = j
+        else:
+            i += 1
+    return None
+
+
+def _vovo_eval_exit(matches, over_pct, min_streak, goal_window):
+    """Roda a avaliação de SAÍDA com limiar/streak/janela específicos: mede quantas
+    vezes um sinal de pressão reversa foi seguido de gol dentro da janela — vs a
+    taxa-base de sofrer gol depois da vantagem SEM esse sinal aparecer."""
+    sinal_total = sinal_confirmado = 0
+    sem_sinal_total = sem_sinal_concedeu = 0
+    for points, goals in matches:
+        for ev in _vovo_two_goal_lead_events(goals):
+            minute, leader = ev["minute"], ev["leader"]
+            trailing = "away" if leader == "home" else "home"
+            signal_minute = _vovo_detect_reverse_pressure(points, leader, minute, over_pct, min_streak)
+            if signal_minute is not None:
+                sinal_total += 1
+                confirmado = any(
+                    g.get("team") == trailing and not g.get("ownGoal")
+                    and 0 <= (g.get("minute") or 0) - signal_minute <= goal_window
+                    for g in goals
+                )
+                if confirmado:
+                    sinal_confirmado += 1
+            else:
+                sem_sinal_total += 1
+                if _vovo_conceded_after(goals, minute, leader):
+                    sem_sinal_concedeu += 1
+
+    sinal_rate = (sinal_confirmado / sinal_total) if sinal_total else 0.0
+    baseline_rate = (sem_sinal_concedeu / sem_sinal_total) if sem_sinal_total else 0.0
+    lift = (sinal_rate / baseline_rate) if baseline_rate else 0.0
+    return {
+        "over_pct": over_pct, "min_streak": min_streak, "goal_window": goal_window,
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": sem_sinal_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_VOVO_PATTERN_CACHE = {"ts": 0, "data": None}
+_VOVO_PATTERN_TTL = 30 * 60
+_VOVO_MIN_SAMPLE = 20
+_VOVO_MIN_LIFT = 1.3
+_VOVO_ENTRY_WINDOW_GRID = [5, 8, 10, 12, 15]
+_VOVO_ENTRY_MAG_GRID = [0.0, 0.1, 0.2, 0.3]
+_VOVO_EXIT_OVER_GRID = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
+_VOVO_EXIT_STREAK_GRID = [2, 3, 4, 5]
+_VOVO_EXIT_WINDOW_GRID = [15, 20, 25, 30]
+
+@app.route("/api/momentum/vovo_pattern_stats")
+def api_momentum_vovo_pattern_stats():
+    """Calibra e valida os dois sinais da 'Estratégia do Vovô' (Ao Vivo) contra a
+    base de jogos salvos: ENTRADA (2 gols de vantagem a partir do min. 65 + pressão
+    a favor do favorito logo depois) e SAÍDA (pressão reversa sustentada do time
+    que tá perdendo). Testa uma grade de combinações pra cada um e escolhe a de
+    maior lift com amostra suficiente — mesma lógica de calibração do 'Grande
+    Chance'. Cacheado 30min."""
+    now = time.time()
+    if _VOVO_PATTERN_CACHE["data"] and (now - _VOVO_PATTERN_CACHE["ts"]) < _VOVO_PATTERN_TTL:
+        return jsonify(_VOVO_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+
+    entry_resultados = [
+        _vovo_eval_entry(matches, w, m)
+        for w in _VOVO_ENTRY_WINDOW_GRID
+        for m in _VOVO_ENTRY_MAG_GRID
+    ]
+    entry_candidatos = [r for r in entry_resultados if r["fav_total"] >= _VOVO_MIN_SAMPLE and r["unfav_total"] >= _VOVO_MIN_SAMPLE]
+    entry_melhor = max(entry_candidatos, key=lambda r: r["lift"]) if entry_candidatos else None
+    entry_valido = bool(entry_melhor and entry_melhor["lift"] >= _VOVO_MIN_LIFT)
+
+    exit_resultados = [
+        _vovo_eval_exit(matches, o, s, w)
+        for o in _VOVO_EXIT_OVER_GRID
+        for s in _VOVO_EXIT_STREAK_GRID
+        for w in _VOVO_EXIT_WINDOW_GRID
+    ]
+    exit_candidatos = [r for r in exit_resultados if r["sinal_total"] >= _VOVO_MIN_SAMPLE]
+    exit_melhor = max(exit_candidatos, key=lambda r: r["lift"]) if exit_candidatos else None
+    exit_valido = bool(exit_melhor and exit_melhor["lift"] >= _VOVO_MIN_LIFT)
+
+    data = {
+        "matches_used": len(matches),
+        "min_minute": _VOVO_MIN_MINUTE,
+        "entry": entry_melhor,
+        "entry_valido": entry_valido,
+        "exit": exit_melhor,
+        "exit_valido": exit_valido,
+    }
+    _VOVO_PATTERN_CACHE["data"] = data
+    _VOVO_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""

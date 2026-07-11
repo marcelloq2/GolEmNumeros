@@ -5953,6 +5953,7 @@ function renderLive2Card(m) {
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
+      <div id="live2VovoWrap_${m.id}" style="text-align:center;margin-top:2px"></div>
       <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
@@ -6432,7 +6433,9 @@ async function _loadLive2Momentum(matches) {
           _live2RenderMomentumMarkers(m.id, points);
         }
         _live2PointsCache[m.id] = points;
+        _live2GoalsCache[m.id] = data.goals || [];
         _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
+        _live2RenderVovoBadge(m.id);
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
       }
@@ -6485,6 +6488,142 @@ function _live2AttachMomentumTooltip(canvas, points) {
 //     (_jogoStatsRowsFromSection + _jogoEnsureGoalMinutes + _jogoGoalPatternStats)
 let _live2MarkersCache = {};   // { [matchId]: marker[] } — marcadores já calculados
 let _live2PointsCache  = {};   // { [matchId]: graphPoints[] } — pra poder re-renderizar
+let _live2GoalsCache   = {};   // { [matchId]: goals[] } — pra "Estratégia do Vovô" (2 gols de vantagem)
+
+// ── Estratégia do Vovô — sinal de entrada (2 gols de vantagem a partir do min. 65
+// + pressão a favor logo depois) e sinal de saída (pressão reversa sustentada do
+// time que tá perdendo), com os parâmetros calibrados vindos do backend
+// (/api/momentum/vovo_pattern_stats — mesmo padrão de cache do "Grande Chance") ──
+let _live2VovoStats = null;
+let _live2VovoFetchedAt = 0;
+async function _live2GetVovoStats() {
+  const now = Date.now();
+  if (_live2VovoStats && (now - _live2VovoFetchedAt) < 30 * 60 * 1000) {
+    return _live2VovoStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/vovo_pattern_stats');
+    _live2VovoStats = await r.json();
+    _live2VovoFetchedAt = now;
+  } catch (e) {
+    _live2VovoStats = { entry_valido: false, exit_valido: false };
+  }
+  return _live2VovoStats;
+}
+
+// Acha o momento em que um time abriu 2 gols de vantagem pela 1ª vez, a partir do
+// minuto mínimo calibrado — mesma lógica do backend (_vovo_two_goal_lead_events)
+function _live2VovoLeadEvent(goals, minMinute) {
+  const sorted = [...(goals || [])].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+  let homeScore = 0, awayScore = 0;
+  const seen = { home: false, away: false };
+  let event = null;
+  for (const g of sorted) {
+    if (g.ownGoal) {
+      if (g.team === 'home') awayScore++; else homeScore++;
+    } else if (g.team === 'home') homeScore++; else awayScore++;
+    const diff = homeScore - awayScore;
+    const minute = g.minute || 0;
+    if (diff === 2 && !seen.home) {
+      seen.home = true;
+      if (minute >= minMinute) event = { minute, leader: 'home' };
+    } else if (diff === -2 && !seen.away) {
+      seen.away = true;
+      if (minute >= minMinute) event = { minute, leader: 'away' };
+    }
+  }
+  return event;
+}
+
+function _live2VovoAvgPressure(points, start, end) {
+  const vals = (points || []).filter(p => (p.minute || 0) >= start && (p.minute || 0) <= end).map(p => p.value || 0);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function _live2VovoMaxVal(points) {
+  return Math.max(...(points || []).map(p => Math.abs(p.value || 0)), 1) || 1;
+}
+
+// Detecta pressão sustentada do time que tá PERDENDO, depois do minuto do evento —
+// mesma lógica do backend (_vovo_detect_reverse_pressure)
+function _live2VovoReversePressure(points, leader, afterMinute, overPct, minStreak) {
+  const sub = (points || []).filter(p => (p.minute || 0) > afterMinute);
+  if (!sub.length) return null;
+  const thresh = _live2VovoMaxVal(points) * overPct;
+  let i = 0;
+  while (i < sub.length) {
+    const v = sub[i].value || 0;
+    const isTrailingPressure = leader === 'home' ? (v < -thresh) : (v > thresh);
+    if (isTrailingPressure) {
+      let j = i;
+      while (j < sub.length) {
+        const vv = sub[j].value || 0;
+        const cond = leader === 'home' ? (vv < -thresh) : (vv > thresh);
+        if (!cond) break;
+        j++;
+      }
+      if (j - i >= minStreak) return sub[i].minute || 0;
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+// Monta/atualiza o ícone da "Estratégia do Vovô" no card — fica entre o mapa de
+// chutes e as abas Geral/Escalações/Estatísticas Pré, só mostra tooltip quando o
+// jogo atual está numa situação de 2 gols de vantagem (a partir do min. 65)
+async function _live2RenderVovoBadge(matchId) {
+  const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
+  if (!wrap) return;
+  const stats = await _live2GetVovoStats();
+  const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
+  if (!freshWrap) return;
+  if (!stats || (!stats.entry_valido && !stats.exit_valido)) { freshWrap.innerHTML = ''; return; }
+
+  const points = _live2PointsCache[matchId] || [];
+  const goals  = _live2GoalsCache[matchId] || [];
+  const minMinute = stats.min_minute || 65;
+  const ev = _live2VovoLeadEvent(goals, minMinute);
+  if (!ev) { freshWrap.innerHTML = ''; return; }
+
+  // Ainda tem que valer AGORA — se o time que tinha 2 gols de vantagem já sofreu
+  // gol e a diferença mudou, o ícone não faz mais sentido pra essa janela
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  const curDiff = m ? (m.golCasaFt ?? 0) - (m.golForaFt ?? 0) : 0;
+  const stillLeading = ev.leader === 'home' ? curDiff === 2 : curDiff === -2;
+  if (!stillLeading) { freshWrap.innerHTML = ''; return; }
+
+  let icon = '', title = '';
+
+  if (stats.exit_valido) {
+    const { over_pct, min_streak, goal_window, lift } = stats.exit;
+    const signalMinute = _live2VovoReversePressure(points, ev.leader, ev.minute, over_pct, min_streak);
+    if (signalMinute !== null) {
+      icon = '🔴';
+      title = `Vovô — ALERTA DE SAÍDA: time que tá perdendo entrou em pressão sustentada desde o ${signalMinute}' (validado na base, lift ${lift}x) — considere sair da operação`;
+    }
+  }
+
+  if (!icon && stats.entry_valido) {
+    const { window_min, mag_pct, lift } = stats.entry;
+    const avg = _live2VovoAvgPressure(points, ev.minute, ev.minute + window_min);
+    if (avg !== null) {
+      const avgAFavor = ev.leader === 'home' ? avg : -avg;
+      const thresh = _live2VovoMaxVal(points) * mag_pct;
+      if (avgAFavor > thresh) {
+        icon = '🟢';
+        title = `Vovô — ENTRADA FAVORÁVEL: ${ev.leader === 'home' ? m.casa : m.fora} abriu 2 gols de vantagem no ${ev.minute}' e seguiu pressionando (validado na base, lift ${lift}x)`;
+      }
+    }
+  }
+
+  freshWrap.innerHTML = icon
+    ? `<span title="${title}" style="cursor:help;font-size:15px" onclick="event.stopPropagation()">${icon} <span style="font-size:9px;color:var(--text2);vertical-align:middle">Vovô</span></span>`
+    : '';
+}
 
 // Valida o padrão "Grande Chance" contra a base de jogos salvos (momentum_history)
 // antes de decidir se ele deve continuar aparecendo — busca 1x e cacheia (mesmo TTL
