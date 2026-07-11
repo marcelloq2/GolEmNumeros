@@ -2127,14 +2127,112 @@ def api_momentum_under_limite_pattern_stats():
     melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
     valido = bool(melhor and melhor["lift"] >= _UNDER_MIN_LIFT)
 
+    exit_melhor, exit_valido = _under_calibrate_exit(matches, melhor) if melhor else (None, False)
+
     data = {
         "matches_used": len(matches),
         "best": melhor,
         "valido": valido,
+        "exit": exit_melhor,
+        "exit_valido": exit_valido,
     }
     _UNDER_PATTERN_CACHE["data"] = data
     _UNDER_PATTERN_CACHE["ts"] = now
     return jsonify(data)
+
+
+def _under_find_entry_point(points, goals, min_minute, min_diff, calm_pct):
+    """Primeiro instante que satisfaz o sinal de ENTRADA já calibrado (minuto,
+    diferença de placar e jogo calmo) — ponto de partida pra avaliar a saída."""
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    thresh = max_val * calm_pct
+    for p in points:
+        minute = p.get("minute") or 0
+        if minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, minute)
+        if abs(home - away) < min_diff:
+            continue
+        if abs(p.get("value") or 0) <= thresh:
+            return minute
+    return None
+
+
+def _under_detect_spike(points, after_minute, over_pct, min_streak):
+    """Acha o primeiro instante, depois da entrada, em que a pressão (de QUALQUER
+    lado — no Under um gol de qualquer time zera a operação) sai do 'calmo' e entra
+    numa janela sustentada acima do limiar — sinal de contra-ataque perigoso."""
+    sub = [p for p in points if (p.get("minute") or 0) > after_minute]
+    if not sub:
+        return None
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    thresh = max_val * over_pct
+    n = len(sub)
+    i = 0
+    while i < n:
+        if abs(sub[i].get("value") or 0) > thresh:
+            j = i
+            while j < n and abs(sub[j].get("value") or 0) > thresh:
+                j += 1
+            if j - i >= min_streak:
+                return sub[i].get("minute") or 0
+            i = j
+        else:
+            i += 1
+    return None
+
+
+def _under_eval_exit(matches, min_minute, min_diff, calm_pct, over_pct, min_streak, goal_window):
+    """Dos jogos que bateram o sinal de entrada calibrado, separa em 'teve pico de
+    pressão depois' vs 'seguiu calmo' e compara a taxa de sair gol logo após cada
+    cenário — se o pico realmente antecede gol com mais frequência, é um sinal de
+    saída válido."""
+    sinal_total = sinal_confirmado = 0
+    baseline_total = baseline_goal = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        entry_minute = _under_find_entry_point(points, goals, min_minute, min_diff, calm_pct)
+        if entry_minute is None:
+            continue
+        spike_minute = _under_detect_spike(points, entry_minute, over_pct, min_streak)
+        if spike_minute is not None:
+            sinal_total += 1
+            if _under_goal_soon(goals, spike_minute, goal_window):
+                sinal_confirmado += 1
+        else:
+            baseline_total += 1
+            if _under_goal_soon(goals, entry_minute, 90):
+                baseline_goal += 1
+
+    sinal_rate = (sinal_confirmado / sinal_total) if sinal_total else 0.0
+    baseline_rate = (baseline_goal / baseline_total) if baseline_total else 0.0
+    lift = (sinal_rate / baseline_rate) if baseline_rate else 0.0
+    return {
+        "over_pct": over_pct, "min_streak": min_streak, "goal_window": goal_window,
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_UNDER_EXIT_OVER_GRID = [0.4, 0.5, 0.6, 0.7]
+_UNDER_EXIT_STREAK_GRID = [2, 3, 4]
+_UNDER_EXIT_WINDOW_GRID = [2, 3, 5, 8]
+
+def _under_calibrate_exit(matches, entry_best):
+    """Roda a grade de saída condicionada aos parâmetros de entrada já escolhidos —
+    o sinal de saída só faz sentido depois que a entrada calibrada foi acionada."""
+    resultados = [
+        _under_eval_exit(matches, entry_best["min_minute"], entry_best["min_diff"], entry_best["calm_pct"], op, ms, gw)
+        for op in _UNDER_EXIT_OVER_GRID
+        for ms in _UNDER_EXIT_STREAK_GRID
+        for gw in _UNDER_EXIT_WINDOW_GRID
+    ]
+    candidatos = [r for r in resultados if r["sinal_total"] >= _UNDER_MIN_SAMPLE]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _UNDER_MIN_LIFT)
+    return melhor, valido
 
 
 # ── ESTRATÉGIA "LAY GOLEADA" — acha momentos seguros pra apostar CONTRA a goleada
@@ -2239,14 +2337,81 @@ def api_momentum_lay_goleada_pattern_stats():
     melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
     valido = bool(melhor and melhor["lift"] >= _LAY_MIN_LIFT)
 
+    exit_stats = _lay_eval_exit(matches, melhor["min_minute"], melhor["max_diff"]) if melhor else None
+    exit_valido = bool(exit_stats and exit_stats["sinal_total"] >= _LAY_MIN_SAMPLE and exit_stats["lift"] >= _LAY_MIN_LIFT)
+
     data = {
         "matches_used": len(matches),
         "best": melhor,
         "valido": valido,
+        "exit": exit_stats,
+        "exit_valido": exit_valido,
     }
     _LAY_PATTERN_CACHE["data"] = data
     _LAY_PATTERN_CACHE["ts"] = now
     return jsonify(data)
+
+
+def _lay_next_leader_goal(goals, min_minute, leader):
+    """Primeiro gol do time que JÁ estava na frente (o próprio líder marcando de
+    novo), depois do minuto de entrada — é isso que empurra o placar de vez pra
+    perto da goleada e deveria disparar o alerta de saída."""
+    for g in sorted(goals, key=lambda g: (g.get("minute") or 0)):
+        minute = g.get("minute") or 0
+        if minute <= min_minute:
+            continue
+        scorer = ("away" if g.get("team") == "home" else "home") if g.get("ownGoal") else g.get("team")
+        if scorer == leader:
+            return minute
+    return None
+
+
+def _lay_eval_exit(matches, min_minute, max_diff):
+    """Dentro do grupo que bateu a entrada (placar controlado no minuto calibrado),
+    compara quem levou mais um gol do próprio líder depois disso vs quem não levou
+    — mede a taxa de terminar em goleada em cada grupo, pra validar se esse gol
+    extra é mesmo um bom gatilho de saída (sem precisar de nenhum limiar, é um
+    evento discreto: gol aconteceu ou não)."""
+    sinal_total = sinal_confirmado = 0
+    baseline_total = baseline_goleada = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, min_minute)
+        diff = abs(home - away)
+        if diff > max_diff:
+            continue
+        if home == away:
+            continue  # empate não tem "líder" único pra avaliar o gatilho de saída
+        leader = "home" if home > away else "away"
+        goleada = _lay_goleada_side(goals) == leader
+        extra_goal_minute = _lay_next_leader_goal(goals, min_minute, leader)
+        if extra_goal_minute is not None:
+            sinal_total += 1
+            if goleada:
+                sinal_confirmado += 1
+        else:
+            baseline_total += 1
+            if goleada:
+                baseline_goleada += 1
+
+    sinal_rate = (sinal_confirmado / sinal_total) if sinal_total else 0.0
+    baseline_rate = (baseline_goleada / baseline_total) if baseline_total else 0.0
+    # baseline_rate = 0 não é ausência de sinal, é o sinal mais forte possível (0
+    # casos de goleada sem esse gol extra) — trata como lift "estourado" em vez de
+    # zerar a divisão, senão o filtro de validade descartaria o melhor resultado
+    if baseline_rate:
+        lift = sinal_rate / baseline_rate
+    else:
+        lift = 99.0 if sinal_rate > 0 else 0.0
+    return {
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
 
 
 @app.route("/api/momentum/history/<event_id>")
