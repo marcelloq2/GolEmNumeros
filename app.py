@@ -5434,8 +5434,12 @@ def _bt2_odd_ranges_breakdown(odds, wons, profits):
 
 # ── ESTRATÉGIA "LAY ZEBRA" (pré-jogo) — apostar CONTRA o azarão (o lado com odd
 # mais alta no 1x2) vencer, reaproveitando as odds já coletadas em bt2_bets (não
-# precisa buscar nada novo). Simula o P/L de Lay: ganha o stake se o azarão perde
-# ou empata, perde a responsabilidade (odd-1) se o azarão vence ──
+# precisa buscar nada novo). Simula o P/L de Lay: ganha o stake menos a comissão da
+# Betfair se o azarão perde ou empata, perde a responsabilidade (odd-1) se vence —
+# não são odds reais de exchange (só temos a odd tradicional de back), então isso
+# é uma aproximação: assume odd de Lay = odd de Back, sem o spread da exchange ──
+_BETFAIR_COMMISSION = 0.06  # 6% sobre o lucro líquido de cada operação vencedora
+
 def _bt2_lay_zebra_breakdown():
     """Agrupa as apostas 1x2 já persistidas por evento, identifica o lado com odd
     mais alta (a 'zebra') em cada jogo, e calcula o resultado de um Lay nela —
@@ -5468,7 +5472,7 @@ def _bt2_lay_zebra_breakdown():
             continue  # sem favorito/zebra clara
         zebra_odd, zebra_won = (odd_fora, won_fora) if odd_fora > odd_casa else (odd_casa, won_casa)
         lay_won = not zebra_won  # o Lay ganha quando a zebra NÃO vence (perde ou empata)
-        lay_profit = 1.0 if lay_won else -(zebra_odd - 1.0)
+        lay_profit = (1.0 * (1 - _BETFAIR_COMMISSION)) if lay_won else -(zebra_odd - 1.0)
         lay_odds.append(zebra_odd)
         lay_wons.append(lay_won)
         lay_profits.append(lay_profit)
