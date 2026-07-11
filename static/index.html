@@ -5080,7 +5080,22 @@ async function _renderToday2Profit(matchId) {
 
   const body = document.getElementById(`today2ProfitBody_${matchId}`);
   if (!body) return;
-  const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
+  let aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
+  if (scope === 3) {
+    // "Últimas 5 (Geral)" só faz sentido mostrar quando o time acertou TODAS as 5
+    // apostas daquele mercado/seleção (5/5) — qualquer coisa abaixo disso não é um
+    // padrão perfeito recente, é só ruído de amostra pequena
+    aggs = aggs.map(agg => {
+      const filtered = {};
+      for (const [mk, sels] of Object.entries(agg)) {
+        const keptSels = Object.fromEntries(
+          Object.entries(sels).filter(([, r]) => r.bets === 5 && r.wins === 5)
+        );
+        if (Object.keys(keptSels).length) filtered[mk] = keptSels;
+      }
+      return filtered;
+    });
+  }
   const highlightsSummary = _profitHighlightsSummaryHtml(blocks, aggs, PROFIT_MARKET_LABELS_TRADICIONAL, cache._oddsMarkets);
   const blockHtml = (b, agg) => `
     <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 2px">⚽ ${b.teamName || '—'} <span style="font-weight:400;color:var(--text2)">(${b.rows.length} jogos c/ odds encontradas: ${b.rows.filter(r => _profitOddsCache[r.id]?.markets).length})</span></div>
