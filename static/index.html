@@ -6663,87 +6663,12 @@ function _live2UnderSignalNow(points, m, stats) {
   return { icon: '🧊', label: 'Under Limite', title: `Under Limite — MOMENTO DE BAIXO RISCO: placar decidido (diferença de ${diff}) e jogo parado agora, a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de gol logo em seguida ${(b.calm_rate*100).toFixed(1)}%) — ainda assim, um gol contra zera a stake` };
 }
 
-// Valida o padrão "Lay Goleada" (apostar contra vitória com 4+ gols de diferença)
-// contra a base de jogos salvos — mesmo padrão de cache dos outros selos
-let _live2LayStats = null;
-let _live2LayFetchedAt = 0;
-async function _live2GetLayStats() {
-  const now = Date.now();
-  if (_live2LayStats && (now - _live2LayFetchedAt) < 30 * 60 * 1000) {
-    return _live2LayStats;
-  }
-  try {
-    const r = await fetch('/api/momentum/lay_goleada_pattern_stats');
-    _live2LayStats = await r.json();
-    _live2LayFetchedAt = now;
-  } catch (e) {
-    _live2LayStats = { valido: false };
-  }
-  return _live2LayStats;
-}
-
-// Primeiro gol do MESMO lado que já era líder no minuto de entrada, depois desse
-// minuto — mesma lógica do backend (_lay_next_leader_goal), usada pro alerta de saída
-function _live2LayNextLeaderGoal(goals, minMinute, leader) {
-  const sorted = [...(goals || [])].sort((a, b) => (a.minute || 0) - (b.minute || 0));
-  for (const g of sorted) {
-    const minute = g.minute || 0;
-    if (minute <= minMinute) continue;
-    const scorer = g.ownGoal ? (g.team === 'home' ? 'away' : 'home') : g.team;
-    if (scorer === leader) return minute;
-  }
-  return null;
-}
-
-// Checa a situação AGORA pro Lay Goleada, por lado (Casa/Visitante são seleções
-// separadas no mercado, cada uma com seu próprio ciclo entrada→saída): se quem já
-// era líder no minuto de entrada marcou de novo, alerta de SAÍDA; senão, se o
-// placar segue controlado, mostra o selo de entrada — mesma lógica do backend
-// (_lay_eval / _lay_eval_exit)
-function _live2LaySignalsNow(points, m, stats) {
-  if (!stats || !stats.valido || !stats.best || !points.length) return [];
-  const b = stats.best;
-  const last = points[points.length - 1];
-  const minute = last.minute || 0;
-  if (minute < b.min_minute) return [];
-  const goals = _live2GoalsCache[m.id] || [];
-  const [homeAtEntry, awayAtEntry] = _live2ScoreAtMinute(goals, b.min_minute);
-  if (Math.abs(homeAtEntry - awayAtEntry) > b.max_diff) return [];
-
-  // no minuto de entrada empatado, os dois lados "eram líder" — gera um ciclo
-  // entrada/saída independente pra cada um
-  const leadersAtEntry = homeAtEntry === awayAtEntry ? ['home', 'away'] : [homeAtEntry > awayAtEntry ? 'home' : 'away'];
-  const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
-  const diffNow = Math.abs(golCasa - golFora);
-
-  return leadersAtEntry.map(leader => {
-    const sideLabel = leader === 'home' ? 'Casa' : 'Visitante';
-    const teamName = leader === 'home' ? m.casa : m.fora;
-
-    if (stats.exit_valido && stats.exit) {
-      const extraGoalMinute = _live2LayNextLeaderGoal(goals, b.min_minute, leader);
-      if (extraGoalMinute !== null) {
-        return {
-          icon: '🔴', sideLabel,
-          title: `Lay Goleada ${sideLabel} — ALERTA DE SAÍDA: ${teamName} (que já tava na frente) marcou de novo no ${extraGoalMinute}' — o placar tá cada vez mais perto da goleada, considere fechar a posição (validado na base, lift ${stats.exit.lift}x)`,
-        };
-      }
-    }
-
-    if (diffNow > b.max_diff) return null;
-    return {
-      icon: '🛡️', sideLabel,
-      title: `Lay Goleada ${sideLabel} — MOMENTO SEGURO: aposte contra a goleada de ${sideLabel} (${teamName}), placar ainda controlado (diferença de ${diffNow}) a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de quem tava na frente terminar goleando ${(b.leader_goleada_rate*100).toFixed(1)}%) — lembre-se: a responsabilidade da operação é bem maior que a stake`,
-    };
-  }).filter(Boolean);
-}
-
-// Monta/atualiza os selos de estratégia (Vovô + Under Limite + Lay Goleada) no
-// card — fica entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
+// Monta/atualiza os selos de estratégia (Vovô + Under Limite) no card — fica
+// entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats, layStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetLayStats()]);
+  const [vovoStats, underStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats()]);
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
 
@@ -6788,10 +6713,6 @@ async function _live2RenderVovoBadge(matchId) {
   if (m) {
     const underSignal = _live2UnderSignalNow(points, m, underStats);
     if (underSignal) badges.push(underSignal);
-
-    _live2LaySignalsNow(points, m, layStats).forEach(sig => {
-      badges.push({ icon: sig.icon, label: `Lay Goleada ${sig.sideLabel}`, title: sig.title });
-    });
   }
 
   freshWrap.innerHTML = badges.length
