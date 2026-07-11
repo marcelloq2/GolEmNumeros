@@ -6607,12 +6607,45 @@ function _live2UnderSignalNow(points, m, stats) {
   return `Under Limite — MOMENTO DE BAIXO RISCO: placar decidido (diferença de ${diff}) e jogo parado agora, a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de gol logo em seguida ${(b.calm_rate*100).toFixed(1)}%) — ainda assim, um gol contra zera a stake`;
 }
 
-// Monta/atualiza os selos de estratégia (Vovô + Under Limite) no card — fica entre
-// o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
+// Valida o padrão "Lay Goleada" (apostar contra vitória com 4+ gols de diferença)
+// contra a base de jogos salvos — mesmo padrão de cache dos outros selos
+let _live2LayStats = null;
+let _live2LayFetchedAt = 0;
+async function _live2GetLayStats() {
+  const now = Date.now();
+  if (_live2LayStats && (now - _live2LayFetchedAt) < 30 * 60 * 1000) {
+    return _live2LayStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/lay_goleada_pattern_stats');
+    _live2LayStats = await r.json();
+    _live2LayFetchedAt = now;
+  } catch (e) {
+    _live2LayStats = { valido: false };
+  }
+  return _live2LayStats;
+}
+
+// Checa se o momento AGORA bate com o padrão calibrado de "placar ainda controlado"
+// pro Lay Goleada: minuto de entrada já alcançado e diferença de placar dentro do
+// limite calibrado — mesma lógica do backend (_lay_eval)
+function _live2LaySignalNow(points, m, stats) {
+  if (!stats || !stats.valido || !stats.best || !points.length) return null;
+  const b = stats.best;
+  const last = points[points.length - 1];
+  const minute = last.minute || 0;
+  if (minute < b.min_minute) return null;
+  const diff = Math.abs((m.golCasaFt ?? 0) - (m.golForaFt ?? 0));
+  if (diff > b.max_diff) return null;
+  return `Lay Goleada — MOMENTO SEGURO: placar ainda controlado (diferença de ${diff}) a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de terminar em goleada nesses casos ${(b.safe_rate*100).toFixed(1)}%) — lembre-se: a responsabilidade da operação é bem maior que a stake`;
+}
+
+// Monta/atualiza os selos de estratégia (Vovô + Under Limite + Lay Goleada) no
+// card — fica entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats()]);
+  const [vovoStats, underStats, layStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetLayStats()]);
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
 
@@ -6657,6 +6690,9 @@ async function _live2RenderVovoBadge(matchId) {
   if (m) {
     const underTitle = _live2UnderSignalNow(points, m, underStats);
     if (underTitle) badges.push({ icon: '🧊', label: 'Under Limite', title: underTitle });
+
+    const layTitle = _live2LaySignalNow(points, m, layStats);
+    if (layTitle) badges.push({ icon: '🛡️', label: 'Lay Goleada', title: layTitle });
   }
 
   freshWrap.innerHTML = badges.length

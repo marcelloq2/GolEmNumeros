@@ -2137,6 +2137,97 @@ def api_momentum_under_limite_pattern_stats():
     return jsonify(data)
 
 
+# ── ESTRATÉGIA "LAY GOLEADA" — acha momentos seguros pra apostar CONTRA a goleada
+# (vitória com 4+ gols de diferença), comparando jogos que estavam com placar ainda
+# "controlado" (diferença pequena) num minuto de entrada vs os que já estavam
+# elásticos naquele minuto, e medindo a taxa de terminar em goleada em cada grupo ──
+def _lay_final_score(goals):
+    """Placar final reconstruído a partir de todos os gols do jogo (mesmo cálculo
+    de _under_score_at_minute, só que sem limite de minuto)."""
+    return _under_score_at_minute(goals, 10_000)
+
+
+def _lay_is_goleada(goals):
+    home, away = _lay_final_score(goals)
+    return abs(home - away) >= 4
+
+
+def _lay_eval(matches, min_minute, max_diff):
+    """Separa os jogos em dois grupos no minuto de entrada: 'controlado' (diferença
+    de placar até max_diff — cenário em que faria sentido entrar no Lay Goleada) vs
+    'já elástico' (diferença maior — não entraria), e compara a taxa de cada grupo
+    terminar em goleada (4+ gols de diferença no final)."""
+    safe_total = safe_goleada = risky_total = risky_goleada = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < min_minute:
+            continue
+        home, away = _under_score_at_minute(goals, min_minute)
+        diff = abs(home - away)
+        goleada = _lay_is_goleada(goals)
+        if diff <= max_diff:
+            safe_total += 1
+            if goleada:
+                safe_goleada += 1
+        else:
+            risky_total += 1
+            if goleada:
+                risky_goleada += 1
+
+    safe_rate = (safe_goleada / safe_total) if safe_total else 0.0
+    risky_rate = (risky_goleada / risky_total) if risky_total else 0.0
+    lift = (risky_rate / safe_rate) if safe_rate else 0.0
+    return {
+        "min_minute": min_minute, "max_diff": max_diff,
+        "safe_total": safe_total, "safe_rate": round(safe_rate, 4),
+        "risky_total": risky_total, "risky_rate": round(risky_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_LAY_PATTERN_CACHE = {"ts": 0, "data": None}
+_LAY_PATTERN_TTL = 30 * 60
+_LAY_MIN_SAMPLE = 30
+_LAY_MIN_LIFT = 1.3
+_LAY_MAX_SAFE_RATE = 0.15  # mesmo espírito do Under — só considera "seguro" se a chance de goleada nesse grupo for baixa de verdade
+_LAY_MIN_MINUTE_GRID = [10, 15, 20, 25, 30, 35, 40]
+_LAY_MAX_DIFF_GRID = [0, 1, 2]
+
+@app.route("/api/momentum/lay_goleada_pattern_stats")
+def api_momentum_lay_goleada_pattern_stats():
+    """Calibra o sinal de 'momento seguro pra Lay Goleada' (placar ainda controlado
+    num minuto de entrada) contra a base de jogos salvos, testando uma grade de
+    combinações e escolhendo a de maior lift entre as que têm amostra suficiente E
+    taxa de goleada no grupo seguro abaixo do teto. Cacheado 30min."""
+    now = time.time()
+    if _LAY_PATTERN_CACHE["data"] and (now - _LAY_PATTERN_CACHE["ts"]) < _LAY_PATTERN_TTL:
+        return jsonify(_LAY_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+    resultados = [
+        _lay_eval(matches, mm, md)
+        for mm in _LAY_MIN_MINUTE_GRID
+        for md in _LAY_MAX_DIFF_GRID
+    ]
+    candidatos = [
+        r for r in resultados
+        if r["safe_total"] >= _LAY_MIN_SAMPLE and r["safe_rate"] <= _LAY_MAX_SAFE_RATE
+    ]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _LAY_MIN_LIFT)
+
+    data = {
+        "matches_used": len(matches),
+        "best": melhor,
+        "valido": valido,
+    }
+    _LAY_PATTERN_CACHE["data"] = data
+    _LAY_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
