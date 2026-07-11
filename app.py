@@ -2235,6 +2235,202 @@ def _under_calibrate_exit(matches, entry_best):
     return melhor, valido
 
 
+# ── ESTRATÉGIA "OVER DARONCO" — entra no Over Limite (próximo gol, de qualquer
+# time, não tem "gol contra") quando o jogo mostra sinal de estar aberto (pressão
+# alta de qualquer lado), até o minuto 68 (regra fixa da própria estratégia), e
+# sai (stop loss) se o jogo "fechar" de novo antes de sair gol ──
+_DARONCO_MAX_MINUTE = 68  # regra fixa da estratégia — depois disso não entra mais
+
+def _daronco_open_window_flags(points, over_pct, min_streak):
+    """Marca quais pontos fazem parte de uma janela SUSTENTADA de pressão alta (de
+    qualquer lado, >=min_streak pontos seguidos acima do limiar) — um pico isolado
+    de 1-2 pontos não conta como 'jogo aberto', precisa ser um trecho de verdade."""
+    n = len(points)
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    thresh = max_val * over_pct
+    flags = [False] * n
+    i = 0
+    while i < n:
+        if abs(points[i].get("value") or 0) >= thresh:
+            j = i
+            while j < n and abs(points[j].get("value") or 0) >= thresh:
+                j += 1
+            if j - i >= min_streak:
+                for k in range(i, j):
+                    flags[k] = True
+            i = j
+        else:
+            i += 1
+    return flags
+
+
+def _daronco_eval_entry(matches, over_pct, min_streak, goal_window):
+    """Compara, entre os pontos até o minuto 68, a taxa de sair gol (de QUALQUER
+    time) logo em seguida quando o jogo tá numa janela sustentada de pressão alta
+    ('aberto') vs quando não tá — quanto maior a taxa no grupo aberto e maior o
+    lift, melhor o sinal de entrada."""
+    aberto_total = aberto_gol = fechado_total = fechado_gol = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        flags = _daronco_open_window_flags(points, over_pct, min_streak)
+        for idx, p in enumerate(points):
+            minute = p.get("minute") or 0
+            if minute < 5 or minute > _DARONCO_MAX_MINUTE:
+                continue
+            gol_logo = _under_goal_soon(goals, minute, goal_window)
+            if flags[idx]:
+                aberto_total += 1
+                if gol_logo:
+                    aberto_gol += 1
+            else:
+                fechado_total += 1
+                if gol_logo:
+                    fechado_gol += 1
+
+    aberto_rate = (aberto_gol / aberto_total) if aberto_total else 0.0
+    fechado_rate = (fechado_gol / fechado_total) if fechado_total else 0.0
+    lift = (aberto_rate / fechado_rate) if fechado_rate else 0.0
+    return {
+        "over_pct": over_pct, "min_streak": min_streak, "goal_window": goal_window, "max_minute": _DARONCO_MAX_MINUTE,
+        "aberto_total": aberto_total, "aberto_rate": round(aberto_rate, 4),
+        "fechado_total": fechado_total, "fechado_rate": round(fechado_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_DARONCO_PATTERN_CACHE = {"ts": 0, "data": None}
+_DARONCO_PATTERN_TTL = 30 * 60
+_DARONCO_MIN_SAMPLE = 30
+_DARONCO_MIN_LIFT = 1.3
+_DARONCO_ENTRY_OVER_GRID = [0.4, 0.5, 0.6, 0.7]
+_DARONCO_ENTRY_STREAK_GRID = [3, 4, 5]
+_DARONCO_ENTRY_WINDOW_GRID = [5, 8, 10]
+
+@app.route("/api/momentum/daronco_pattern_stats")
+def api_momentum_daronco_pattern_stats():
+    """Calibra o sinal de entrada do Over Daronco ('jogo aberto') e o de saída
+    ('jogo fechou de novo, sem gol ainda') contra a base de jogos salvos, mesma
+    lógica de grid-search + validação dos outros selos. Cacheado 30min."""
+    now = time.time()
+    if _DARONCO_PATTERN_CACHE["data"] and (now - _DARONCO_PATTERN_CACHE["ts"]) < _DARONCO_PATTERN_TTL:
+        return jsonify(_DARONCO_PATTERN_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+    resultados = [
+        _daronco_eval_entry(matches, op, ms, gw)
+        for op in _DARONCO_ENTRY_OVER_GRID
+        for ms in _DARONCO_ENTRY_STREAK_GRID
+        for gw in _DARONCO_ENTRY_WINDOW_GRID
+    ]
+    candidatos = [
+        r for r in resultados
+        if r["aberto_total"] >= _DARONCO_MIN_SAMPLE and r["fechado_total"] >= _DARONCO_MIN_SAMPLE
+    ]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _DARONCO_MIN_LIFT)
+
+    exit_melhor, exit_valido = _daronco_calibrate_exit(matches, melhor) if melhor else (None, False)
+
+    data = {
+        "matches_used": len(matches),
+        "best": melhor,
+        "valido": valido,
+        "exit": exit_melhor,
+        "exit_valido": exit_valido,
+    }
+    _DARONCO_PATTERN_CACHE["data"] = data
+    _DARONCO_PATTERN_CACHE["ts"] = now
+    return jsonify(data)
+
+
+def _daronco_find_entry_point(points, over_pct, min_streak):
+    """Primeiro instante (minuto 5-68) que bate o sinal de entrada calibrado
+    ('jogo aberto', janela sustentada) — ponto de partida pra avaliar a saída."""
+    flags = _daronco_open_window_flags(points, over_pct, min_streak)
+    for idx, p in enumerate(points):
+        minute = p.get("minute") or 0
+        if minute < 5 or minute > _DARONCO_MAX_MINUTE:
+            continue
+        if flags[idx]:
+            return minute
+    return None
+
+
+def _daronco_detect_close(points, after_minute, under_pct, min_streak):
+    """Acha o primeiro instante, depois da entrada, em que o jogo 'fecha' de novo —
+    janela sustentada com pressão baixa dos dois lados (perdeu o padrão de jogo
+    aberto que justificou a entrada)."""
+    sub = [p for p in points if (p.get("minute") or 0) > after_minute]
+    if not sub:
+        return None
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    thresh = max_val * under_pct
+    n = len(sub)
+    i = 0
+    while i < n:
+        if abs(sub[i].get("value") or 0) < thresh:
+            j = i
+            while j < n and abs(sub[j].get("value") or 0) < thresh:
+                j += 1
+            if j - i >= min_streak:
+                return sub[i].get("minute") or 0
+            i = j
+        else:
+            i += 1
+    return None
+
+
+def _daronco_eval_exit(matches, entry_over_pct, entry_min_streak, under_pct, close_min_streak, goal_window):
+    """Dos jogos que bateram a entrada, compara quem teve o jogo 'fechando' de novo
+    (sinal de saída) vs quem seguiu aberto — mede a taxa de NÃO sair gol logo depois
+    em cada grupo. Se o sinal de fechamento realmente prediz ausência de gol melhor
+    que só ficar esperando, é um bom motivo pra sair (stop loss)."""
+    sinal_total = sinal_sem_gol = 0
+    baseline_total = baseline_sem_gol = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        entry_minute = _daronco_find_entry_point(points, entry_over_pct, entry_min_streak)
+        if entry_minute is None:
+            continue
+        close_minute = _daronco_detect_close(points, entry_minute, under_pct, close_min_streak)
+        if close_minute is not None:
+            sinal_total += 1
+            if not _under_goal_soon(goals, close_minute, goal_window):
+                sinal_sem_gol += 1
+        else:
+            baseline_total += 1
+            if not _under_goal_soon(goals, entry_minute, 90):
+                baseline_sem_gol += 1
+
+    sinal_rate = (sinal_sem_gol / sinal_total) if sinal_total else 0.0
+    baseline_rate = (baseline_sem_gol / baseline_total) if baseline_total else 0.0
+    lift = (sinal_rate / baseline_rate) if baseline_rate else 0.0
+    return {
+        "under_pct": under_pct, "min_streak": close_min_streak, "goal_window": goal_window,
+        "sinal_total": sinal_total, "sinal_rate": round(sinal_rate, 4),
+        "baseline_total": baseline_total, "baseline_rate": round(baseline_rate, 4),
+        "lift": round(lift, 3),
+    }
+
+
+_DARONCO_EXIT_UNDER_GRID = [0.15, 0.2, 0.25, 0.3]
+_DARONCO_EXIT_STREAK_GRID = [3, 4, 5, 6]
+_DARONCO_EXIT_WINDOW_GRID = [10, 15, 20]
+
+def _daronco_calibrate_exit(matches, entry_best):
+    resultados = [
+        _daronco_eval_exit(matches, entry_best["over_pct"], entry_best["min_streak"], up, ms, gw)
+        for up in _DARONCO_EXIT_UNDER_GRID
+        for ms in _DARONCO_EXIT_STREAK_GRID
+        for gw in _DARONCO_EXIT_WINDOW_GRID
+    ]
+    candidatos = [r for r in resultados if r["sinal_total"] >= _DARONCO_MIN_SAMPLE]
+    melhor = max(candidatos, key=lambda r: r["lift"]) if candidatos else None
+    valido = bool(melhor and melhor["lift"] >= _DARONCO_MIN_LIFT)
+    return melhor, valido
+
 
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):

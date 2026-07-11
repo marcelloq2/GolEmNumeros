@@ -6722,12 +6722,105 @@ function _live2UnderSignalNow(points, m, stats) {
   return { icon: '🧊', label: 'Under Limite', title: `Under Limite — MOMENTO DE BAIXO RISCO: placar decidido (diferença de ${diff}) e jogo parado agora, a partir do ${b.min_minute}' (validado na base, lift ${b.lift}x, taxa histórica de gol logo em seguida ${(b.calm_rate*100).toFixed(1)}%) — ainda assim, um gol contra zera a stake` };
 }
 
-// Monta/atualiza os selos de estratégia (Vovô + Under Limite) no card — fica
-// entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
+// Valida o padrão "Over Daronco" (entrar no Over Limite quando o jogo mostra
+// janela sustentada de pressão alta — de qualquer lado — até o minuto 68, e sair
+// se o jogo 'fechar' de novo antes de sair gol) contra a base de jogos salvos
+let _live2DaroncoStats = null;
+let _live2DaroncoFetchedAt = 0;
+async function _live2GetDaroncoStats() {
+  const now = Date.now();
+  if (_live2DaroncoStats && (now - _live2DaroncoFetchedAt) < 30 * 60 * 1000) {
+    return _live2DaroncoStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/daronco_pattern_stats');
+    _live2DaroncoStats = await r.json();
+    _live2DaroncoFetchedAt = now;
+  } catch (e) {
+    _live2DaroncoStats = { valido: false };
+  }
+  return _live2DaroncoStats;
+}
+
+// Marca os pontos dentro de uma janela sustentada de pressão alta (qualquer lado)
+// — mesma lógica do backend (_daronco_open_window_flags)
+function _live2DaroncoOpenWindowFlags(points, overPct, minStreak) {
+  const maxVal = _live2VovoMaxVal(points);
+  const thresh = maxVal * overPct;
+  const n = points.length;
+  const flags = new Array(n).fill(false);
+  let i = 0;
+  while (i < n) {
+    if (Math.abs(points[i].value || 0) >= thresh) {
+      let j = i;
+      while (j < n && Math.abs(points[j].value || 0) >= thresh) j++;
+      if (j - i >= minStreak) {
+        for (let k = i; k < j; k++) flags[k] = true;
+      }
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return flags;
+}
+
+function _live2DaroncoFindEntryMinute(points, overPct, minStreak) {
+  const flags = _live2DaroncoOpenWindowFlags(points, overPct, minStreak);
+  for (let idx = 0; idx < points.length; idx++) {
+    const minute = points[idx].minute || 0;
+    if (minute < 5 || minute > 68) continue;
+    if (flags[idx]) return minute;
+  }
+  return null;
+}
+
+// Detecta o jogo "fechando" de novo (janela sustentada de pressão baixa) depois
+// da entrada — mesma lógica do backend (_daronco_detect_close)
+function _live2DaroncoDetectClose(points, afterMinute, underPct, minStreak) {
+  const sub = points.filter(p => (p.minute || 0) > afterMinute);
+  if (!sub.length) return null;
+  const thresh = _live2VovoMaxVal(points) * underPct;
+  let i = 0;
+  while (i < sub.length) {
+    if (Math.abs(sub[i].value || 0) < thresh) {
+      let j = i;
+      while (j < sub.length && Math.abs(sub[j].value || 0) < thresh) j++;
+      if (j - i >= minStreak) return sub[i].minute || 0;
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+// Checa a situação AGORA pro Over Daronco: se já entrou (janela de jogo aberto
+// bateu em algum momento) e depois o jogo fechou de novo, alerta de SAÍDA
+// (stop loss); senão, se ainda tá na janela aberta, mostra o selo de entrada
+function _live2DaroncoSignalNow(points, stats) {
+  if (!stats || !stats.valido || !stats.best || !points.length) return null;
+  const b = stats.best;
+  const entryMinute = _live2DaroncoFindEntryMinute(points, b.over_pct, b.min_streak);
+  if (entryMinute === null) return null;
+
+  if (stats.exit_valido && stats.exit) {
+    const { under_pct, min_streak, lift } = stats.exit;
+    const closeMinute = _live2DaroncoDetectClose(points, entryMinute, under_pct, min_streak);
+    if (closeMinute !== null) {
+      return { icon: '🔴', label: 'Over Daronco', title: `Over Daronco — STOP LOSS: o jogo fechou de novo desde o ${closeMinute}' depois da entrada no ${entryMinute}' sem sair gol (validado na base, lift ${lift}x) — considere fechar a posição, mantendo a proporção 1:1 green/red` };
+    }
+  }
+
+  return { icon: '🟠', label: 'Over Daronco', title: `Over Daronco — JOGO ABERTO: pressão sustentada desde o ${entryMinute}' (até o 68', regra da estratégia) — validado na base, lift ${b.lift}x de chance de sair gol vs jogo fechado. Sem gol contra: qualquer time que marcar, ganha` };
+}
+
+// Monta/atualiza os selos de estratégia (Vovô + Under Limite + Over Daronco) no
+// card — fica entre o mapa de chutes e as abas Geral/Escalações/Estatísticas Pré
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats()]);
+  const [vovoStats, underStats, daroncoStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats()]);
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
 
@@ -6772,6 +6865,9 @@ async function _live2RenderVovoBadge(matchId) {
   if (m) {
     const underSignal = _live2UnderSignalNow(points, m, underStats);
     if (underSignal) badges.push(underSignal);
+
+    const daroncoSignal = _live2DaroncoSignalNow(points, daroncoStats);
+    if (daroncoSignal) badges.push(daroncoSignal);
   }
 
   freshWrap.innerHTML = badges.length
