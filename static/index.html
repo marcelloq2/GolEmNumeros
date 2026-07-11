@@ -6548,6 +6548,7 @@ function _live2AttachMomentumTooltip(canvas, points) {
 let _live2MarkersCache = {};   // { [matchId]: marker[] } — marcadores já calculados
 let _live2PointsCache  = {};   // { [matchId]: graphPoints[] } — pra poder re-renderizar
 let _live2GoalsCache   = {};   // { [matchId]: goals[] } — pra "Estratégia do Vovô" (2 gols de vantagem)
+let _live2OddsCache    = {};   // { [matchId]: oddsData } — só populado depois que o usuário clica "Carregar estatísticas + odds"
 
 // ── Estratégia do Vovô — sinal de entrada (2 gols de vantagem a partir do min. 65
 // + pressão a favor logo depois) e sinal de saída (pressão reversa sustentada do
@@ -6981,25 +6982,39 @@ function _live2DaroncoSignalNow(points, stats) {
 // clara — leitura de jogo, não cronômetro) reaproveitando o MESMO marcador
 // "Grande Chance" já calibrado (_live2DetectPressureMarkers/_live2ChancePatternStats)
 // — a lógica de entrada (pico validado de pressão -> gol logo depois) é idêntica,
-// só muda o rótulo/contexto de exibição. Fecha sozinho quando sai o gol (objetivo
-// da estratégia atingido) ou quando a janela de validade (window_min) expira
+// só muda o rótulo/contexto de exibição. Só mostra se: (1) as odds já foram
+// carregadas (senão não dá pra saber quem é o favorito de verdade), (2) o pico foi
+// do lado que É o favorito pela odd (não qualquer time), e (3) o favorito ainda
+// não tá perdendo (se já tomou gol e tá atrás, não faz sentido "Back Favorito").
+// Fecha sozinho quando sai o gol dele ou quando a janela de validade expira
 function _live2BackFavoritoSignalNow(points, m) {
   if (!_live2ChancePatternStats || !_live2ChancePatternStats.valido || !points.length) return null;
+
+  const odds = _live2OddsCache[m.id] && _live2OddsCache[m.id].odds;
+  if (!odds || !odds.home || !odds.away) return null; // sem odds carregadas, não dá pra confirmar quem é o favorito
+  const homeOdd = parseFloat(odds.home.value), awayOdd = parseFloat(odds.away.value);
+  if (!homeOdd || !awayOdd || homeOdd === awayOdd) return null;
+  const favoritoHome = homeOdd < awayOdd;
+
+  const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
+  const favoritoPerdendo = favoritoHome ? golCasa < golFora : golFora < golCasa;
+  if (favoritoPerdendo) return null; // o favorito já tá atrás no placar — não faz mais sentido entrar a favor dele
+
   const markers = _live2DetectPressureMarkers(points);
-  const chanceMarkers = markers.filter(mk => mk.type === 'chance');
-  if (!chanceMarkers.length) return null;
+  const chanceMarkers = markers.filter(mk => mk.type === 'chance' && mk.isHome === favoritoHome);
+  if (!chanceMarkers.length) return null; // só conta pico do lado que É o favorito
   const last = chanceMarkers[chanceMarkers.length - 1];
   const nowMinute = points[points.length - 1].minute || 0;
   const windowMin = _live2ChancePatternStats.window_min || 10;
   if (nowMinute - last.minute > windowMin) return null; // janela de validade expirou
 
   const goals = _live2GoalsCache[m.id] || [];
-  const team = last.isHome ? 'home' : 'away';
+  const team = favoritoHome ? 'home' : 'away';
   const jaSaiuGol = goals.some(g => g.team === team && !g.ownGoal && (g.minute || 0) >= last.minute && (g.minute || 0) <= last.minute + windowMin);
   if (jaSaiuGol) return null; // objetivo já atingido — a estratégia manda fechar, não faz mais sentido mostrar o selo
 
-  const teamName = last.isHome ? m.casa : m.fora;
-  return { icon: '🎯', label: 'Back Favorito', title: `Back Favorito — ${teamName} criou uma chance clara no ${last.minute}' (validado na base, lift ${_live2ChancePatternStats.lift}x) — se ainda não entrou, essa é a janela; se o gol sair, feche a posição na hora` };
+  const teamName = favoritoHome ? m.casa : m.fora;
+  return { icon: '🎯', label: 'Back Favorito', title: `Back Favorito — ${teamName} (favorito, odd ${favoritoHome ? homeOdd : awayOdd}) criou uma chance clara no ${last.minute}' (validado na base, lift ${_live2ChancePatternStats.lift}x) — se ainda não entrou, essa é a janela; se o gol sair, feche a posição na hora` };
 }
 
 // Monta/atualiza os selos de estratégia (Vovô + Under Limite + Over Daronco +
@@ -7376,6 +7391,7 @@ async function loadLive2Flashscore(matchId, btn) {
 
     // Marcador "Possível 1º gol do favorito" — não bloqueia o resto do carregamento
     _live2MaybeAddFavoriteMarker(matchId, m, oddsData, h2hData);
+    _live2OddsCache[matchId] = oddsData; // pro selo "Back Favorito" saber quem é o favorito de verdade (por odd)
 
     if (!statsData.found) {
       wrap.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:10px 0">jogo não encontrado na base de dados</div>`;
