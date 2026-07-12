@@ -1082,8 +1082,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
-    <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest Tradicional</button>
-    <button class="nav-tab" onclick="switchView('backtestcs', this)">🎯 Backtest CS</button>
+    <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest</button>
   </div>
   <button onclick="openAppGuia()" title="Como usar cada aba"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -1470,18 +1469,23 @@
     </div>
   </div>
 
-  <!-- BACKTEST 2 — cópia independente do Backtest pra experimentos, sem nenhum código
-       compartilhado com a aba "Backtest" original. -->
+  <!-- BACKTEST — fusão do antigo "Backtest Tradicional" (mercado+seleção por ROI) com
+       o antigo "Backtest CS" (19 buckets de placar exato por taxa de acerto) numa aba
+       só, com sub-abas internas — os dois rankings continuam com lógica própria (ROI
+       não é comparável com taxa de acerto), só a navegação foi unificada. -->
   <div id="backtest2Wrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
-    <div id="bt2Content"></div>
-  </div>
-
-  <!-- BACKTEST CS — irmã do Backtest 2, mas rankeia os 19 buckets de placar exato
-       por taxa de acerto em vez de mercado+seleção por lucro. -->
-  <div id="backtestCsWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🎯 Backtest CS — ranking global de placares exatos por taxa de acerto</div>
-    <div id="btcsContent"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button class="filter-btn active" id="backtestSubTabTradicional" onclick="_setBacktestSubTab('tradicional')">🧪 Mercados Tradicionais</button>
+      <button class="filter-btn" id="backtestSubTabCs" onclick="_setBacktestSubTab('cs')">🎯 Placar Exato</button>
+    </div>
+    <div id="backtestSubTradicional" style="display:flex;flex-direction:column">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
+      <div id="bt2Content"></div>
+    </div>
+    <div id="backtestSubCs" style="display:none;flex-direction:column">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🎯 Backtest CS — ranking global de placares exatos por taxa de acerto</div>
+      <div id="btcsContent"></div>
+    </div>
   </div>
 
   <!-- ── HISTÓRICO ── -->
@@ -2196,7 +2200,6 @@ function switchView(view, btn) {
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
   const backtest2Wrapper = document.getElementById('backtest2Wrapper');
-  const backtestCsWrapper = document.getElementById('backtestCsWrapper');
   const passadasWrapper = document.getElementById('passadasWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
@@ -2205,7 +2208,6 @@ function switchView(view, btn) {
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
   backtest2Wrapper.style.display = 'none';
-  backtestCsWrapper.style.display = 'none';
   passadasWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -2231,10 +2233,31 @@ function switchView(view, btn) {
     _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
   } else if (view === 'backtest2') {
     backtest2Wrapper.style.display = 'flex';
-    _bt2LoadRanking(); // já respeita o _bt2Mode atual internamente (recente/acumulado)
-  } else if (view === 'backtestcs') {
-    backtestCsWrapper.style.display = 'flex';
-    _btcsLoadRanking(); // já respeita o _btcsMode atual internamente (recente/acumulado)
+    // carrega só a sub-aba ativa no momento (padrão: Mercados Tradicionais) — a
+    // outra carrega sob demanda quando o usuário clicar em _setBacktestSubTab
+    if (_backtestSubTab === 'cs') {
+      _btcsLoadRanking(); // já respeita o _btcsMode atual internamente (recente/acumulado)
+    } else {
+      _bt2LoadRanking(); // já respeita o _bt2Mode atual internamente (recente/acumulado)
+    }
+  }
+}
+
+// Sub-abas internas da aba Backtest (Mercados Tradicionais / Placar Exato) —
+// substituem os antigos botões de nav separados "Backtest Tradicional"/"Backtest
+// CS", fundidos numa aba só a pedido do usuário. Cada ranking mantém sua própria
+// lógica (ROI vs taxa de acerto não são comparáveis diretamente).
+let _backtestSubTab = 'tradicional';
+function _setBacktestSubTab(tab) {
+  _backtestSubTab = tab;
+  document.getElementById('backtestSubTabTradicional').classList.toggle('active', tab === 'tradicional');
+  document.getElementById('backtestSubTabCs').classList.toggle('active', tab === 'cs');
+  document.getElementById('backtestSubTradicional').style.display = tab === 'tradicional' ? 'flex' : 'none';
+  document.getElementById('backtestSubCs').style.display = tab === 'cs' ? 'flex' : 'none';
+  if (tab === 'cs') {
+    _btcsLoadRanking();
+  } else {
+    _bt2LoadRanking();
   }
 }
 
