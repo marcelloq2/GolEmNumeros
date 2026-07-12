@@ -6033,6 +6033,37 @@ function _today2InsightsCards(ctx) {
     });
   }
 
+  // ── 9) Estatística de maior probabilidade da aba Jogo — varre as % da aba Jogo
+  // dos dois times (marcar, sofrer, ambas marcam, over/under 2.5, clean sheet,
+  // vencer/empatar/perder) e destaca a maior de todas, mesmo que já apareça
+  // espalhada em outros cards acima — funciona como um resumo do dado mais forte.
+  const jogoStatCandidates = [];
+  const addJogoStats = (block, stats, lado) => {
+    if (!stats || stats.n < MIN_N) return;
+    const team = block.teamName || (lado === 'jogando em casa' ? m.home : m.away);
+    const push = (label, pct) => jogoStatCandidates.push({ team, lado, label, pct, n: stats.n });
+    push('marcar gol', stats.pctMarcar);
+    push('sofrer gol', stats.pctSofrer);
+    push('ambas as equipes marcarem', stats.pctAmbasMarcam);
+    push('a partida ter mais de 2,5 gols', stats.over25 / stats.n * 100);
+    push('a partida ter menos de 2,5 gols', stats.under25 / stats.n * 100);
+    push('não sofrer gols', stats.semSofrer / stats.n * 100);
+    push('não marcar gols', stats.semMarcar / stats.n * 100);
+    push('vencer', stats.vitFT / stats.n * 100);
+    push('empatar', stats.empFT / stats.n * 100);
+    push('perder', stats.derFT / stats.n * 100);
+  };
+  addJogoStats(homeHomeBlock, statsHome, 'jogando em casa');
+  addJogoStats(awayAwayBlock, statsAway, 'jogando fora');
+  const melhorJogoStat = jogoStatCandidates.filter(c => c.pct >= 70).sort((a, b) => b.pct - a.pct)[0];
+  if (melhorJogoStat) {
+    cards.push({
+      tone: 'green',
+      headline: `Estatística de maior probabilidade (aba Jogo): ${melhorJogoStat.team} tende a ${melhorJogoStat.label}!`,
+      detail: `${melhorJogoStat.pct.toFixed(0)}% de chance nos últimos ${melhorJogoStat.n} jogos ${melhorJogoStat.lado}.`,
+    });
+  }
+
   return cards;
 }
 
