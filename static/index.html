@@ -1411,6 +1411,7 @@
           </div>
         </div>
       </div>
+      <div id="today2FilterStatusWarning" style="display:none;margin:8px 10px 0;padding:8px 10px;border:1px solid #f59e0b55;background:#f59e0b14;border-radius:6px;font-size:11px;color:#f59e0b"></div>
       <div id="today2Wrap" style="flex:1;overflow-y:auto"></div>
     </div>
     <div class="detail-panel" id="today2Detail" style="flex:1;overflow-y:auto;padding:20px">
@@ -2509,6 +2510,21 @@ function filterToday2() {
   const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   const termo = norm(document.getElementById('today2SearchInput')?.value || '');
   const ligaSelecionada = document.getElementById('today2LigaSelect')?.value || '';
+
+  // Metodologias/Parâmetros/Análise só avaliam jogos AINDA NÃO INICIADOS (odds
+  // pré-jogo) — combinados com "Encerrados" o resultado seria sempre vazio sem
+  // nenhuma explicação, então avisa em vez de simplesmente sumir com tudo
+  const filtroConteudoAtivo = _today2QualifyingMatchIds.size > 0 || _today2AnaliseQualifyingIds.size > 0
+    || _today2ParamFilters.resultado.size > 0 || _today2ParamFilters.gols.size > 0
+    || _today2ParamFilters.ambas.size > 0 || _today2ParamFilters.oddOp !== '—';
+  const warningEl = document.getElementById('today2FilterStatusWarning');
+  if (warningEl) {
+    const mostrarAviso = _today2StatusFiltro === '3' && filtroConteudoAtivo;
+    warningEl.style.display = mostrarAviso ? '' : 'none';
+    if (mostrarAviso) {
+      warningEl.innerHTML = '⚠️ Os filtros de Metodologias/Parâmetros/Análise só avaliam jogos que ainda não começaram (odds pré-jogo) — combinados com "Encerrados" o resultado fica sempre vazio. Desative "Encerrados" ou limpe esses filtros pra ver as partidas.';
+    }
+  }
 
   document.querySelectorAll('#today2Wrap [data-liga-key]').forEach(grupo => {
     let algumVisivel = false;
