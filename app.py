@@ -4647,6 +4647,39 @@ def _bt2_matches_candidatos(include_finished=False):
     candidatos.sort(key=lambda m: m.get("kickoff_ts") or "")
     return candidatos[:_BT2_MATCHES_MAX_CANDIDATOS]
 
+
+_TODAY2_ODDS_SNAPSHOT_TTL = 300  # 5min — odds mudam pouco em poucos minutos
+_today2_odds_snapshot_cache = {"ts": 0, "data": None}
+
+
+def _today2_odds_snapshot(force=False):
+    """Busca as odds de TODOS os mercados de cada jogo candidato de hoje (agendado
+    ou encerrado) UMA VEZ SÓ, cacheada 5min — usada por vários consumidores (Filtro
+    de Metodologias, Filtro de Parâmetros, odd média por bucket do Backtest CS).
+    Sem esse cache compartilhado, cada checkbox marcado no Filtro de Metodologias
+    disparava seu PRÓPRIO fetch completo (~70s, casa de aposta x mercado x jogo) —
+    com várias metodologias marcadas ao mesmo tempo, elas competiam pelo mesmo pool
+    de threads e o filtro parecia simplesmente não funcionar (ainda calculando
+    minutos depois, sem indicação de carregamento)."""
+    now = time.time()
+    if not force and _today2_odds_snapshot_cache["data"] is not None and \
+            (now - _today2_odds_snapshot_cache["ts"]) < _TODAY2_ODDS_SNAPSHOT_TTL:
+        return _today2_odds_snapshot_cache["data"]
+
+    candidatos = _bt2_matches_candidatos(include_finished=True)
+
+    def _fetch_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+        except Exception:
+            markets = {}
+        return m, markets
+
+    snapshot = list(_bt2_matches_pool.map(_fetch_one, candidatos))
+    _today2_odds_snapshot_cache["ts"] = now
+    _today2_odds_snapshot_cache["data"] = snapshot
+    return snapshot
+
 def _fs_odds_has_data(key, odds):
     """A API às vezes retorna um objeto 'válido' mas vazio (ex: Placar Exato com
     items:[] quando essa casa não tem esse mercado pra esse jogo) — sem isso, o código
@@ -5319,17 +5352,8 @@ def api_backtest2_matches_for_methodology():
     if not market_key or not selection:
         return jsonify({"matches": []}), 400
 
-    candidatos = _bt2_matches_candidatos(include_finished=True)
-
-    def _fetch_one(m):
-        try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
-        except Exception:
-            markets = {}
-        return m, markets
-
     resultado = []
-    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+    for m, markets in _today2_odds_snapshot():
         sels = _bt2_market_selection_labels(market_key, markets.get(market_key))
         for sel in sels:
             if sel["label"] == selection and sel["odd"]:
@@ -6291,18 +6315,10 @@ def api_backtestcs_bucket_odds_today():
             (time.time() - _btcs_bucket_odds_cache["ts"]) < _BTCS_BUCKET_ODDS_CACHE_TTL:
         return jsonify(_btcs_bucket_odds_cache["data"])
 
-    candidatos = _bt2_matches_candidatos(include_finished=True)
-
-    def _fetch_one(m):
-        try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
-        except Exception:
-            markets = {}
-        return _btcs_bucket_odds((markets.get("placar_exato") or {}).get("items"))
-
     odds_sum = {}
     odds_n = {}
-    for odds_by_bucket in _bt2_matches_pool.map(_fetch_one, candidatos):
+    for m, markets in _today2_odds_snapshot(force=force):
+        odds_by_bucket = _btcs_bucket_odds((markets.get("placar_exato") or {}).get("items"))
         for bucket, odd in odds_by_bucket.items():
             odds_sum[bucket] = odds_sum.get(bucket, 0.0) + odd
             odds_n[bucket] = odds_n.get(bucket, 0) + 1
@@ -6322,17 +6338,8 @@ def api_backtestcs_matches_for_bucket():
     if not bucket:
         return jsonify({"matches": []}), 400
 
-    candidatos = _bt2_matches_candidatos(include_finished=True)
-
-    def _fetch_one(m):
-        try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
-        except Exception:
-            markets = {}
-        return m, markets
-
     resultado = []
-    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+    for m, markets in _today2_odds_snapshot():
         odds_by_bucket = _btcs_bucket_odds((markets.get("placar_exato") or {}).get("items"))
         odd = odds_by_bucket.get(bucket)
         if odd:
@@ -6440,17 +6447,8 @@ def api_today2_match_classification():
             (time.time() - _today2_classification_cache["ts"]) < _TODAY2_CLASSIFICATION_CACHE_TTL:
         return jsonify(_today2_classification_cache["data"])
 
-    candidatos = _bt2_matches_candidatos(include_finished=True)
-
-    def _fetch_one(m):
-        try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
-        except Exception:
-            markets = {}
-        return m, markets
-
     classifications = {}
-    for m, markets in _bt2_matches_pool.map(_fetch_one, candidatos):
+    for m, markets in _today2_odds_snapshot(force=force):
         if not markets:
             continue
         c = _today2_classify_match(markets)
