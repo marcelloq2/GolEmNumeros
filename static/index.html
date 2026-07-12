@@ -6948,6 +6948,32 @@ function _live2LayCsSignalNow(points, m, stats) {
   return null;
 }
 
+// "Lay Zebra 1T-FT" — SEM validação estatística (os critérios reais do método são
+// táticos: posse de bola no último terço, marcação pressão, construção de jogo,
+// bola parada perigosa — nada disso existe no momentum_history, que só guarda um
+// valor agregado de pressão por minuto, sem zona do campo). Mostra só um LEMBRETE
+// de que a odd da zebra tá na faixa do método (3.50-9.90) durante o 1º tempo —
+// a leitura tática de verdade fica por conta do usuário assistindo a partida
+function _live2LayZebra1tSignalNow(m) {
+  const odds = _live2OddsCache[m.id] && _live2OddsCache[m.id].odds;
+  if (!odds || !odds.home || !odds.away) return null;
+  const homeOdd = parseFloat(odds.home.value), awayOdd = parseFloat(odds.away.value);
+  if (!homeOdd || !awayOdd || homeOdd === awayOdd) return null;
+  const zebraHome = homeOdd > awayOdd;
+  const zebraOdd = zebraHome ? homeOdd : awayOdd;
+  if (zebraOdd < 3.50 || zebraOdd > 9.90) return null;
+
+  const minuteNum = parseInt(m.minuto, 10) || 0;
+  if (minuteNum > 45) return null; // método é aplicado só no 1º tempo
+
+  const teamName = zebraHome ? m.casa : m.fora;
+  const sideLabel = zebraHome ? 'Casa' : 'Visitante';
+  return {
+    icon: '🦓', label: `Lay Zebra 1T ${sideLabel}`,
+    title: `Lay Zebra 1T-FT — ${teamName} (zebra, odd ${zebraOdd}) tá na faixa de odd do método (3.50-9.90). ⚠️ NÃO validado estatisticamente aqui: os critérios reais são táticos (posse no último terço, marcação pressão, construção de jogo, bola parada perigosa) e não existem nos dados que uso pros outros selos — isso é só um lembrete de que a odd bate, a leitura de jogo é por sua conta.`,
+  };
+}
+
 // Valida o padrão "Over Daronco" (entrar no Over Limite quando o jogo mostra
 // janela sustentada de pressão alta — de qualquer lado — até o minuto 68, e sair
 // se o jogo 'fechar' de novo antes de sair gol) contra a base de jogos salvos
@@ -7148,6 +7174,9 @@ async function _live2RenderVovoBadge(matchId) {
 
     const layCsSignal = _live2LayCsSignalNow(points, m, layCsStats);
     if (layCsSignal) badges.push(layCsSignal);
+
+    const layZebra1tSignal = _live2LayZebra1tSignalNow(m);
+    if (layZebra1tSignal) badges.push(layZebra1tSignal);
   }
 
   freshWrap.innerHTML = badges.length
