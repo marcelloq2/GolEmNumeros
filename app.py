@@ -6127,6 +6127,38 @@ def _laycasa_compute():
                     "baseline_rate": round(baseline_rate, 4), "lift": round(lift, 3),
                 }
 
+    # gráfico comparativo: taxa de acerto acumulada (geral vs com o filtro
+    # validado acima) ao longo de todas as entradas históricas coletadas,
+    # ordenadas por data — mesmo padrão do timeline de cumulative_hits usado
+    # no Backtest CS, só que aqui é % de acerto acumulado, não contagem bruta
+    comparativo = None
+    if melhor:
+        baseline_entries = []
+        filtro_entries = []
+        for key, entry in teams.items():
+            profile = team_profile.get(key)
+            in_segment = bool(profile) and profile["segs"].get(melhor["variable"]) == melhor["segment"]
+            for row in entry["rows"]:
+                hit = row["h"] <= row["a"]
+                baseline_entries.append((row.get("date") or "", hit))
+                if in_segment:
+                    filtro_entries.append((row.get("date") or "", hit))
+
+        def _cum_hitrate_timeline(entries):
+            entries = sorted(entries, key=lambda e: e[0])
+            timeline = []
+            hits = 0
+            for i, (date, hit) in enumerate(entries, start=1):
+                if hit:
+                    hits += 1
+                timeline.append({"n": i, "date": date, "taxa_acerto": round(hits / i, 4)})
+            return timeline
+
+        comparativo = {
+            "geral": _cum_hitrate_timeline(baseline_entries),
+            "com_filtro": _cum_hitrate_timeline(filtro_entries),
+        }
+
     # aplica o padrão validado às partidas de hoje: quais mandantes têm o
     # PRÓPRIO segmento igual ao segmento validado acima?
     sugestoes = []
@@ -6162,6 +6194,7 @@ def _laycasa_compute():
         "matches_used": total_ids,
         "melhor_padrao": melhor,
         "valido": melhor is not None,
+        "comparativo": comparativo,
         "sugestoes": sugestoes,
     }
     _LAYCASA_CACHE["data"] = data

@@ -2307,6 +2307,36 @@ async function _mapaLoad(refresh) {
   }
 }
 
+function _mapaComparativoSvg(comparativo) {
+  if (!comparativo || !comparativo.geral || !comparativo.geral.length) return '';
+  const geral = comparativo.geral, filtro = comparativo.com_filtro || [];
+  const W = 720, H = 240, padL = 34, padR = 16, padT = 16, padB = 24;
+  const maxN = Math.max(geral.length, filtro.length, 1);
+  const allVals = geral.map(p => p.taxa_acerto).concat(filtro.map(p => p.taxa_acerto));
+  const minY = Math.min(0.3, ...allVals), maxY = Math.max(0.7, ...allVals);
+  const spanY = (maxY - minY) || 1;
+  const xAt = n => padL + (W - padL - padR) * ((n - 1) / Math.max(1, maxN - 1));
+  const yAt = v => padT + (H - padT - padB) * (1 - (v - minY) / spanY);
+  const pathOf = pts => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(p.n).toFixed(1)} ${yAt(p.taxa_acerto).toFixed(1)}`).join(' ');
+  const lastGeral = geral[geral.length - 1];
+  const lastFiltro = filtro.length ? filtro[filtro.length - 1] : null;
+  return `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">
+      <path d="${pathOf(geral)}" fill="none" stroke="#9ca3af" stroke-width="2"></path>
+      ${filtro.length ? `<path d="${pathOf(filtro)}" fill="none" stroke="#22c55e" stroke-width="2"></path>` : ''}
+      <text x="${padL}" y="${padT}" font-size="11" fill="var(--text2)">${(maxY*100).toFixed(0)}%</text>
+      <text x="${padL}" y="${H - padB + 2}" font-size="11" fill="var(--text2)">${(minY*100).toFixed(0)}%</text>
+      <text x="${padL}" y="${H - 6}" font-size="11" fill="var(--text2)">1</text>
+      <text x="${W - padR}" y="${H - 6}" text-anchor="end" font-size="11" fill="var(--text2)">${maxN} entradas</text>
+      <text x="${W - padR}" y="${padT}" text-anchor="end" font-size="12" fill="#9ca3af" font-weight="700">geral ${(lastGeral.taxa_acerto*100).toFixed(1)}%</text>
+      ${lastFiltro ? `<text x="${W - padR}" y="${padT + 16}" text-anchor="end" font-size="12" fill="#22c55e" font-weight="700">com filtro ${(lastFiltro.taxa_acerto*100).toFixed(1)}%</text>` : ''}
+    </svg>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:11px;color:var(--text2)">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#9ca3af;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Geral (sem filtro)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Com filtro (padrão validado)</span>
+    </div>`;
+}
+
 function _mapaFmtHora(ts) {
   if (!ts) return '';
   const d = new Date(parseInt(ts) * 1000);
@@ -2364,6 +2394,10 @@ function _mapaRender(metodologia) {
         <span style="color:#22c55e;font-weight:700">lift ${p.lift}x</span>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px">amostra: ${p.total} jogos · ${d.matches_used} jogos históricos coletados no total · gerado em ${new Date(d.generated_at).toLocaleString('pt-BR')}</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Taxa de acerto acumulada — geral vs com filtro</div>
+      ${_mapaComparativoSvg(d.comparativo) || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">sem dados suficientes pro gráfico ainda</div>'}
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">${sugestoes.length} ${sugestoes.length===1?'sugestão':'sugestões'} pra hoje</div>
     ${sugestoes.length ? cardsHtml : '<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Nenhuma partida de hoje se encaixa no padrão validado (só é analisado um recorte dos próximos jogos por horário).</div>'}`;
