@@ -1697,10 +1697,22 @@ def _momentum_detect_chance_spikes(points, chance_pct=0.8, over_pct=0.6):
     return spikes
 
 
+_MOMENTUM_ALL_MATCHES_CACHE = {"ts": 0, "data": None}
+_MOMENTUM_ALL_MATCHES_TTL = 10 * 60  # 10min — bem menor que o TTL de 30min de cada
+# padrão, só existe pra evitar reler ~2500 arquivos do disco toda vez que os
+# caches dos 6 padrões (Vovô/Under/Daronco/Tempo/Lay/Grande Chance) expiram perto
+# um do outro e uma única visita à aba Ao Vivo dispara todos de uma vez
+
 def _momentum_load_all_matches():
-    """Carrega (graphPoints, goals) de todo o momentum_history uma única vez — o
-    grid search testa várias combinações de limiar/janela em cima dos MESMOS dados
-    já em memória, em vez de reler os arquivos do disco a cada combinação."""
+    """Carrega (graphPoints, goals) de todo o momentum_history — cacheado por
+    10min e compartilhado entre TODOS os padrões calibrados, pra não reler os
+    ~2500 arquivos do disco várias vezes seguidas quando os caches de 30min de
+    cada padrão expiram próximos um do outro (isso já derrubou o worker do
+    Railway por estourar o timeout de 120s do gunicorn com 1 worker só)."""
+    now = time.time()
+    if _MOMENTUM_ALL_MATCHES_CACHE["data"] is not None and (now - _MOMENTUM_ALL_MATCHES_CACHE["ts"]) < _MOMENTUM_ALL_MATCHES_TTL:
+        return _MOMENTUM_ALL_MATCHES_CACHE["data"]
+
     matches = []
     for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
         try:
@@ -1712,6 +1724,9 @@ def _momentum_load_all_matches():
         goals  = d.get("goals") or []
         if len(points) >= 4:
             matches.append((points, goals))
+
+    _MOMENTUM_ALL_MATCHES_CACHE["data"] = matches
+    _MOMENTUM_ALL_MATCHES_CACHE["ts"] = now
     return matches
 
 
