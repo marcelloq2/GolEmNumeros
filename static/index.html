@@ -4602,13 +4602,23 @@ async function _jogoEnsureGoalMinutes(rows) {
 // (Custo 2.0 substitui o antigo Custo 1.0 — pesa metade gol real, metade odd, em
 // vez de só dividir probabilidade pelos gols; o professor no vídeo mostrou que é
 // mais eficiente dependendo do mercado/liga)
+//
+// "Saldo de Gols" e "Valor do Saldo" (Aula 10): saldo é só a diferença de gols
+// da partida na perspectiva do meu time (positivo = venci por esse tanto,
+// negativo = perdi) — não precisa de odds, o jogo só precisa ter terminado.
+// Valor do Saldo pondera esse saldo pela probabilidade do ADVERSÁRIO (mesma
+// lógica do Valor do Gol: saldo grande contra favorito vale mais que goleada
+// num azarão):
+//   Saldo de Gols = meus gols − gols que sofri
+//   Valor do Saldo = Saldo de Gols × probabilidade do ADVERSÁRIO
 async function _jogoEnsureGolValor(rows) {
+  rows.forEach(r => { r.saldo = r.golsPro - r.golsContra; });
   await _ensureToday2Odds(rows.map(r => r.id));
   rows.forEach(r => {
     const odds = _profitOddsCache[r.id];
     const o1x2 = odds && odds.markets && odds.markets['1x2'];
     if (!o1x2 || !o1x2.home || !o1x2.away) {
-      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = null;
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = null;
       return;
     }
     const ownOddRaw = r.isHome ? o1x2.home : o1x2.away;
@@ -4616,7 +4626,7 @@ async function _jogoEnsureGolValor(rows) {
     const ownOdd = parseFloat(ownOddRaw.opening || ownOddRaw.value);
     const oppOdd = parseFloat(oppOddRaw.opening || oppOddRaw.value);
     if (!ownOdd || !oppOdd) {
-      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = null;
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = null;
       return;
     }
     const probOwn = 1 / ownOdd;
@@ -4625,19 +4635,24 @@ async function _jogoEnsureGolValor(rows) {
     r.valorGolSofrido = r.golsContra * probOwn;
     r.custoGol2Marcado = (r.golsPro / 2) + (probOwn / 2);
     r.custoGol2Sofrido = (r.golsContra / 2) + (probOwn / 2);
+    r.valorSaldo = r.saldo * probOpp;
   });
 }
 
 function _jogoGolValorStats(rows) {
+  const comSaldo = rows.filter(r => r.saldo !== undefined);
   const valid = rows.filter(r => r.valorGolMarcado !== null && r.valorGolMarcado !== undefined);
-  if (!valid.length) return null;
-  const avg = key => valid.reduce((a, r) => a + r[key], 0) / valid.length;
+  if (!comSaldo.length && !valid.length) return null;
+  const avg = (arr, key) => arr.reduce((a, r) => a + r[key], 0) / arr.length;
   return {
     n: valid.length,
-    avgValorGolMarcado: avg('valorGolMarcado'),
-    avgValorGolSofrido: avg('valorGolSofrido'),
-    avgCustoGol2Marcado: avg('custoGol2Marcado'),
-    avgCustoGol2Sofrido: avg('custoGol2Sofrido'),
+    avgValorGolMarcado: valid.length ? avg(valid, 'valorGolMarcado') : undefined,
+    avgValorGolSofrido: valid.length ? avg(valid, 'valorGolSofrido') : undefined,
+    avgCustoGol2Marcado: valid.length ? avg(valid, 'custoGol2Marcado') : undefined,
+    avgCustoGol2Sofrido: valid.length ? avg(valid, 'custoGol2Sofrido') : undefined,
+    nSaldo: comSaldo.length,
+    avgSaldo: comSaldo.length ? avg(comSaldo, 'saldo') : undefined,
+    avgValorSaldo: valid.length ? avg(valid, 'valorSaldo') : undefined,
   };
 }
 
@@ -4704,6 +4719,8 @@ function _jogoStatsCardHtml(teamName, s) {
       ${s.avgValorGolSofrido !== undefined ? row('Valor do Gol (Sofrido)', s.avgValorGolSofrido.toFixed(3), `média de (gols sofridos × probabilidade do meu time) em ${s.nGolValor} jogos com odds encontradas`) : ''}
       ${s.avgCustoGol2Marcado !== undefined ? row('Custo do Gol 2.0 (Marcado)', s.avgCustoGol2Marcado.toFixed(3), `média de ((meus gols ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`) : ''}
       ${s.avgCustoGol2Sofrido !== undefined ? row('Custo do Gol 2.0 (Sofrido)', s.avgCustoGol2Sofrido.toFixed(3), `média de ((gols sofridos ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgSaldo !== undefined ? row('Saldo de Gols', s.avgSaldo >= 0 ? `+${s.avgSaldo.toFixed(2)}` : s.avgSaldo.toFixed(2), `média de (meus gols − gols sofridos) em ${s.nSaldo} jogos`) : ''}
+      ${s.avgValorSaldo !== undefined ? row('Valor do Saldo', s.avgValorSaldo.toFixed(3), `média de (saldo de gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
     </div>`;
 }
 
@@ -4943,6 +4960,9 @@ async function _renderToday2Jogo(matchId) {
       s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
       s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
       s.nGolValor = gv.n;
+      s.avgSaldo = gv.avgSaldo;
+      s.nSaldo = gv.nSaldo;
+      s.avgValorSaldo = gv.avgValorSaldo;
     }
     return _jogoStatsCardHtml(b.teamName, s) + _jogoGoalPatternHtml(b.teamName, gp);
   });
