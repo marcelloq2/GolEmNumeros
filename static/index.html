@@ -6901,6 +6901,69 @@ function _live2LaySignalsNow(points, m, stats) {
   }).filter(Boolean);
 }
 
+// Valida o método "Lay 1x0 ou 0x1" (Correct Score) contra a base de jogos salvos
+// — regras FIXAS (entrada até o 30' com 0x0, fecha aos 60'/70'), sem grid-search
+let _live2LayCsStats = null;
+let _live2LayCsFetchedAt = 0;
+async function _live2GetLayCsStats() {
+  const now = Date.now();
+  if (_live2LayCsStats && (now - _live2LayCsFetchedAt) < 30 * 60 * 1000) {
+    return _live2LayCsStats;
+  }
+  try {
+    const r = await fetch('/api/momentum/laycs_pattern_stats');
+    _live2LayCsStats = await r.json();
+    _live2LayCsFetchedAt = now;
+  } catch (e) {
+    _live2LayCsStats = { valido: false };
+  }
+  return _live2LayCsStats;
+}
+
+// Checa a situação AGORA pro Lay 1x0/0x1: precisa das odds carregadas (favorito
+// com odd < 2.30) pra saber contra qual placar específico apostar. Segue as
+// regras fixas do método: entrada até o 30' com 0x0, aviso de fechamento aos 60'
+// se seguir 0x0, alerta de risco entre 60'-70' se tá exatamente no placar contra
+// o qual apostou, e confirmação de red aos 70' se ainda não resolveu
+function _live2LayCsSignalNow(points, m, stats) {
+  if (!stats || !stats.valido || !stats.stats || !points.length) return null;
+  const s = stats.stats;
+  const odds = _live2OddsCache[m.id] && _live2OddsCache[m.id].odds;
+  if (!odds || !odds.home || !odds.away) return null; // sem odds carregadas, não dá pra confirmar o favorito
+  const homeOdd = parseFloat(odds.home.value), awayOdd = parseFloat(odds.away.value);
+  if (!homeOdd || !awayOdd) return null;
+  const favoritoHome = homeOdd < awayOdd;
+  const oddFavorito = favoritoHome ? homeOdd : awayOdd;
+  if (oddFavorito >= 2.30) return null; // não é um "favorito" forte o suficiente pro critério do método
+
+  const last = points[points.length - 1];
+  const minute = last.minute || 0;
+  const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
+  const placarRisco = favoritoHome ? '1x0' : '0x1';
+  const naoBateuEntrada = minute < s.entry_minute ? null : (() => {
+    const [h0, a0] = _live2ScoreAtMinute(_live2GoalsCache[m.id] || [], s.entry_minute);
+    return !(h0 === 0 && a0 === 0);
+  })();
+  if (naoBateuEntrada) return null; // já tinha saído gol antes do minuto de entrada — critério não bate
+
+  const is00 = golCasa === 0 && golFora === 0;
+  const isRisco = favoritoHome ? (golCasa === 1 && golFora === 0) : (golCasa === 0 && golFora === 1);
+
+  if (minute >= s.close2_minute && isRisco) {
+    return { icon: '🔴', label: 'Lay CS', title: `Lay ${placarRisco} — FECHE AGORA (RED): ainda no placar de risco (${placarRisco}) aos ${s.close2_minute}' — assuma o prejuízo conforme o método (taxa histórica de acerto geral ${(s.win_rate*100).toFixed(1)}%)` };
+  }
+  if (minute >= s.close1_minute && isRisco) {
+    return { icon: '🟠', label: 'Lay CS', title: `Lay ${placarRisco} — NO LIMITE: placar em ${placarRisco} aos ${minute}' — espera até os ${s.close2_minute}' por um gol extra; se seguir assim, fecha no red` };
+  }
+  if (minute >= s.close1_minute && is00) {
+    return { icon: '💚', label: 'Lay CS', title: `Lay ${placarRisco} — FECHE AGORA: ainda 0x0 aos ${s.close1_minute}' (ou depois), lucro garantido conforme o método` };
+  }
+  if (minute < s.close1_minute && (is00 || !isRisco)) {
+    return { icon: '🎲', label: 'Lay CS', title: `Lay ${placarRisco} — operação em andamento contra o favorito (${favoritoHome ? m.casa : m.fora}, odd ${oddFavorito}) terminar exatamente ${placarRisco} (validado na base, taxa de acerto ${(s.win_rate*100).toFixed(1)}%, amostra ${s.eligible} jogos) — não feche antecipado, siga até os ${s.close1_minute}'/${s.close2_minute}'` };
+  }
+  return null;
+}
+
 // Valida o padrão "Over Daronco" (entrar no Over Limite quando o jogo mostra
 // janela sustentada de pressão alta — de qualquer lado — até o minuto 68, e sair
 // se o jogo 'fechar' de novo antes de sair gol) contra a base de jogos salvos
@@ -7039,7 +7102,7 @@ function _live2BackFavoritoSignalNow(points, m) {
 async function _live2RenderVovoBadge(matchId) {
   const wrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!wrap) return;
-  const [vovoStats, underStats, daroncoStats, tempoStats, layStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats(), _live2GetTempoStats(), _live2GetLayStats()]);
+  const [vovoStats, underStats, daroncoStats, tempoStats, layStats, layCsStats] = await Promise.all([_live2GetVovoStats(), _live2GetUnderStats(), _live2GetDaroncoStats(), _live2GetTempoStats(), _live2GetLayStats(), _live2GetLayCsStats()]);
   if (!_live2ChancePatternStats) await _live2GetChancePatternStats();
   const freshWrap = document.getElementById(`live2VovoWrap_${matchId}`);
   if (!freshWrap) return;
@@ -7098,6 +7161,9 @@ async function _live2RenderVovoBadge(matchId) {
     _live2LaySignalsNow(points, m, layStats).forEach(sig => {
       badges.push({ icon: sig.icon, label: `Lay Goleada ${sig.sideLabel}`, title: sig.title });
     });
+
+    const layCsSignal = _live2LayCsSignalNow(points, m, layCsStats);
+    if (layCsSignal) badges.push(layCsSignal);
   }
 
   freshWrap.innerHTML = badges.length

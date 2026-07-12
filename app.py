@@ -2798,6 +2798,91 @@ def _lay_eval_exit(matches, min_minute, max_diff):
     }
 
 
+# ── ESTRATÉGIA "LAY 1X0 OU 0X1" (Correct Score) — aposta contra o placar exato de
+# 1 gol de vantagem do favorito. Regras FIXAS (não calibradas por grid-search — o
+# próprio método é enfático que fugir delas é "usar outra metodologia"): entra até
+# o minuto 30 com o jogo ainda 0x0; fecha aos 60' se seguir 0x0; se estiver
+# exatamente no placar de risco (1x0 ou 0x1) aos 60', espera até os 70' — some o
+# gol extra até lá e já ganhou, senão fecha assumindo o red ──
+_LAYCS_ENTRY_MINUTE = 30
+_LAYCS_CLOSE1_MINUTE = 60
+_LAYCS_CLOSE2_MINUTE = 70
+
+def _laycs_eval(matches):
+    """Roda a simulação exata das regras do método (sem nenhum parâmetro
+    calibrável) contra a base de jogos salvos e devolve a taxa de acerto real."""
+    eligible = 0
+    safe_60 = already_won_60 = risk_60 = resolved_before_70 = still_risk_70 = 0
+    end_1x0 = end_0x1 = 0
+    for points, goals in matches:
+        if not points:
+            continue
+        max_minute = max((p.get("minute") or 0) for p in points)
+        if max_minute < _LAYCS_CLOSE2_MINUTE:
+            continue
+        h0, a0 = _under_score_at_minute(goals, _LAYCS_ENTRY_MINUTE)
+        if h0 != 0 or a0 != 0:
+            continue  # já saiu gol antes da entrada — não bateria o critério
+        eligible += 1
+
+        fh, fa = _under_score_at_minute(goals, 500)
+        if fh == 1 and fa == 0:
+            end_1x0 += 1
+        elif fh == 0 and fa == 1:
+            end_0x1 += 1
+
+        h60, a60 = _under_score_at_minute(goals, _LAYCS_CLOSE1_MINUTE)
+        is00 = h60 == 0 and a60 == 0
+        is_risco = (h60 == 1 and a60 == 0) or (h60 == 0 and a60 == 1)
+        if is00:
+            safe_60 += 1
+        elif is_risco:
+            risk_60 += 1
+            h70, a70 = _under_score_at_minute(goals, _LAYCS_CLOSE2_MINUTE)
+            if h70 == h60 and a70 == a60:
+                still_risk_70 += 1
+            else:
+                resolved_before_70 += 1
+        else:
+            already_won_60 += 1
+
+    win_total = safe_60 + already_won_60 + resolved_before_70
+    win_rate = (win_total / eligible) if eligible else 0.0
+    loss_rate = (still_risk_70 / eligible) if eligible else 0.0
+    return {
+        "entry_minute": _LAYCS_ENTRY_MINUTE, "close1_minute": _LAYCS_CLOSE1_MINUTE, "close2_minute": _LAYCS_CLOSE2_MINUTE,
+        "eligible": eligible,
+        "safe_60": safe_60, "already_won_60": already_won_60,
+        "risk_60": risk_60, "resolved_before_70": resolved_before_70, "still_risk_70": still_risk_70,
+        "win_rate": round(win_rate, 4), "loss_rate": round(loss_rate, 4),
+        "final_1x0_rate": round((end_1x0 / eligible) if eligible else 0.0, 4),
+        "final_0x1_rate": round((end_0x1 / eligible) if eligible else 0.0, 4),
+    }
+
+
+_LAYCS_CACHE = {"ts": 0, "data": None}
+_LAYCS_CACHE_TTL = 30 * 60
+_LAYCS_MIN_SAMPLE = 30
+_LAYCS_MIN_WIN_RATE = 0.7  # o método promete odd média ~9.8x — precisa de uma taxa de acerto alta pra compensar
+
+@app.route("/api/momentum/laycs_pattern_stats")
+def api_momentum_laycs_pattern_stats():
+    """Valida o método 'Lay 1x0 ou 0x1' (regras fixas, sem grid-search) contra a
+    base de jogos salvos. Cacheado 30min."""
+    now = time.time()
+    if _LAYCS_CACHE["data"] and (now - _LAYCS_CACHE["ts"]) < _LAYCS_CACHE_TTL:
+        return jsonify(_LAYCS_CACHE["data"])
+
+    matches = _momentum_load_all_matches()
+    stats = _laycs_eval(matches)
+    valido = bool(stats["eligible"] >= _LAYCS_MIN_SAMPLE and stats["win_rate"] >= _LAYCS_MIN_WIN_RATE)
+
+    data = {"matches_used": len(matches), "stats": stats, "valido": valido}
+    _LAYCS_CACHE["data"] = data
+    _LAYCS_CACHE["ts"] = now
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
