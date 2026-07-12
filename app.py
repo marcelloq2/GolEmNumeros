@@ -4685,13 +4685,28 @@ def _fs_odds_all_markets(event_id, bookmaker_id=16, pool=None):
     return markets
 
 def _fs_odds_all_markets_any_bookmaker(event_id, pool=None):
-    """Tenta bet365/Betano/Tipsport nessa ordem até achar uma casa com dados. Retorna
-    (bookmaker_name, markets_dict)."""
+    """Tenta bet365/Betano/Tipsport nessa ordem, MISTURANDO casas por mercado — a
+    Betano.br, por exemplo, não expõe 'Ambos Marcam' nessa API pra praticamente
+    nenhuma partida (testado e confirmado, não é bug de parsing: a API retorna
+    null mesmo), então usar só a 1ª casa que respondeu deixava esse mercado
+    faltando toda vez que o bet365 não tinha dados e caía pro Betano. Agora
+    completa os mercados que faltarem com a próxima casa da lista. O nome
+    retornado é da 1ª casa que contribuiu com algo (a mais completa via de
+    regra), pros mercados que vieram de outra casa não tem atribuição individual
+    no retorno — é uma simplificação aceitável já que o objetivo é preencher
+    lacunas, não misturar odds de mercados que uma mesma casa já tem."""
+    bookmaker_name = None
+    markets = {}
     for bid, name in FS_ODDS_BOOKMAKERS:
-        markets = _fs_odds_all_markets(event_id, bookmaker_id=bid, pool=pool)
-        if markets:
-            return name, markets
-    return None, {}
+        faltando = [k for k, _ in FS_ODDS_MARKETS if k not in markets]
+        if not faltando:
+            break
+        casa_markets = _fs_odds_all_markets(event_id, bookmaker_id=bid, pool=pool)
+        if casa_markets and bookmaker_name is None:
+            bookmaker_name = name
+        for k, v in casa_markets.items():
+            markets.setdefault(k, v)
+    return bookmaker_name, markets
 
 @app.route("/api/flashscore/odds_all")
 def api_flashscore_odds_all():
