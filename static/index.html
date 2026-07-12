@@ -4589,6 +4589,41 @@ async function _jogoEnsureGoalMinutes(rows) {
   });
 }
 
+// "Valor do Gol" e "Custo do Gol 1.0" — reaproveita o mesmo lote de odds já usado
+// na aba Profit (_ensureToday2Odds/_profitOddsCache, busca odds de cada jogo do
+// H2H pelo event_id, funciona mesmo pra jogos já encerrados porque a Flashscore
+// mantém a odd de abertura). Fórmulas (mesma lógica de uma planilha do usuário):
+//   Valor do Gol = meus gols na partida × probabilidade implícita do ADVERSÁRIO
+//   Custo do Gol 1.0 = probabilidade implícita do MEU time ÷ meus gols na partida
+//   (se não marquei gol nenhum, custo cai pro valor-teto 1 — mesmo fallback da planilha)
+async function _jogoEnsureGolValor(rows) {
+  await _ensureToday2Odds(rows.map(r => r.id));
+  rows.forEach(r => {
+    const odds = _profitOddsCache[r.id];
+    const o1x2 = odds && odds.markets && odds.markets['1x2'];
+    if (!o1x2 || !o1x2.home || !o1x2.away) { r.valorGol = null; r.custoGol1 = null; return; }
+    const ownOddRaw = r.isHome ? o1x2.home : o1x2.away;
+    const oppOddRaw = r.isHome ? o1x2.away : o1x2.home;
+    const ownOdd = parseFloat(ownOddRaw.opening || ownOddRaw.value);
+    const oppOdd = parseFloat(oppOddRaw.opening || oppOddRaw.value);
+    if (!ownOdd || !oppOdd) { r.valorGol = null; r.custoGol1 = null; return; }
+    const probOwn = 1 / ownOdd;
+    const probOpp = 1 / oppOdd;
+    r.valorGol = r.golsPro * probOpp;
+    r.custoGol1 = r.golsPro > 0 ? probOwn / r.golsPro : 1;
+  });
+}
+
+function _jogoGolValorStats(rows) {
+  const valid = rows.filter(r => r.valorGol !== null && r.valorGol !== undefined);
+  if (!valid.length) return null;
+  return {
+    n: valid.length,
+    avgValorGol: valid.reduce((a, r) => a + r.valorGol, 0) / valid.length,
+    avgCustoGol: valid.reduce((a, r) => a + r.custoGol1, 0) / valid.length,
+  };
+}
+
 function _jogoComputeStats(rows) {
   const n = rows.length;
   if (!n) return null;
@@ -4648,6 +4683,8 @@ function _jogoStatsCardHtml(teamName, s) {
       ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`)}
       ${row('Tempo sem gol marcado', s.tempoSemMarcar !== null ? `${s.tempoSemMarcar.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol marcado (ou 90 se não marcou) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
       ${row('Tempo sem sofrer gols', s.tempoSemSofrer !== null ? `${s.tempoSemSofrer.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol sofrido (ou 90 se não sofreu) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
+      ${s.avgValorGol !== undefined ? row('Valor do Gol', s.avgValorGol.toFixed(3), `média de (meus gols × probabilidade implícita do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgCustoGol !== undefined ? row('Custo do Gol 1.0', s.avgCustoGol.toFixed(3), `média de (probabilidade implícita do meu time ÷ meus gols na partida) em ${s.nGolValor} jogos com odds encontradas`) : ''}
     </div>`;
 }
 
@@ -4871,7 +4908,7 @@ async function _renderToday2Jogo(matchId) {
     blocks = [_jogoStatsRowsFromSection(tabs, 2, false)];
   }
 
-  await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
+  await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
   if ((_today2Tab[matchId] || 'jogo') !== 'jogo') return;
 
   const body = document.getElementById(`today2JogoBody_${matchId}`);
@@ -4879,7 +4916,10 @@ async function _renderToday2Jogo(matchId) {
   const cardsHtml = blocks.map(b => {
     const gp = _jogoGoalPatternStats(b.rows);
     if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
-    return _jogoStatsCardHtml(b.teamName, _jogoComputeStats(b.rows)) + _jogoGoalPatternHtml(b.teamName, gp);
+    const s = _jogoComputeStats(b.rows);
+    const gv = _jogoGolValorStats(b.rows);
+    if (s && gv) { s.avgValorGol = gv.avgValorGol; s.avgCustoGol = gv.avgCustoGol; s.nGolValor = gv.n; }
+    return _jogoStatsCardHtml(b.teamName, s) + _jogoGoalPatternHtml(b.teamName, gp);
   });
   body.innerHTML = blocks.length > 1
     ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
