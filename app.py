@@ -5695,8 +5695,14 @@ _bt2_matches_market_pool = ThreadPoolExecutor(max_workers=20)
 _BT2_MATCHES_MAX_CANDIDATOS = 60
 
 
-def _bt2_matches_candidatos():
-    candidatos = [m for m in _fs_all_matches() if m.get("status") == "1"]
+def _bt2_matches_candidatos(include_finished=False):
+    """Jogos de hoje candidatos pros filtros (Metodologias/Parâmetros/Análise) —
+    por padrão só agendados ("1"), já que os filtros dependem de odds. Passando
+    include_finished=True, também inclui encerrados ("3") — as odds continuam
+    disponíveis na Flashscore mesmo depois do jogo acabar (campo "opening" é a
+    odd de abertura, "value" fica com o último valor antes do jogo travar)."""
+    statuses = ("1", "3") if include_finished else ("1",)
+    candidatos = [m for m in _fs_all_matches() if m.get("status") in statuses]
     candidatos.sort(key=lambda m: m.get("kickoff_ts") or "")
     return candidatos[:_BT2_MATCHES_MAX_CANDIDATOS]
 
@@ -6404,15 +6410,16 @@ def _bt2_market_selection_labels(market_key, o):
 
 @app.route("/api/backtest2/matches_for_methodology")
 def api_backtest2_matches_for_methodology():
-    """Jogos de HOJE que ainda não começaram (status agendado) onde a metodologia
-    selecionada (mercado+seleção) está disponível nas odds atuais — pra saber em
-    quais partidas reais dá pra aplicar aquele sinal hoje."""
+    """Jogos de HOJE (agendados ou já encerrados) onde a metodologia selecionada
+    (mercado+seleção) está disponível nas odds — pra saber em quais partidas reais
+    dá pra aplicar aquele sinal hoje, incluindo jogos que já encerraram (útil pra
+    conferir quais bateram a metodologia mesmo depois do apito final)."""
     market_key = request.args.get("market", "")
     selection = request.args.get("selection", "")
     if not market_key or not selection:
         return jsonify({"matches": []}), 400
 
-    candidatos = _bt2_matches_candidatos()
+    candidatos = _bt2_matches_candidatos(include_finished=True)
 
     def _fetch_one(m):
         try:
@@ -7119,7 +7126,7 @@ def api_backtestcs_bucket_odds_today():
             (time.time() - _btcs_bucket_odds_cache["ts"]) < _BTCS_BUCKET_ODDS_CACHE_TTL:
         return jsonify(_btcs_bucket_odds_cache["data"])
 
-    candidatos = _bt2_matches_candidatos()
+    candidatos = _bt2_matches_candidatos(include_finished=True)
 
     def _fetch_one(m):
         try:
@@ -7150,7 +7157,7 @@ def api_backtestcs_matches_for_bucket():
     if not bucket:
         return jsonify({"matches": []}), 400
 
-    candidatos = _bt2_matches_candidatos()
+    candidatos = _bt2_matches_candidatos(include_finished=True)
 
     def _fetch_one(m):
         try:
@@ -7268,7 +7275,7 @@ def api_today2_match_classification():
             (time.time() - _today2_classification_cache["ts"]) < _TODAY2_CLASSIFICATION_CACHE_TTL:
         return jsonify(_today2_classification_cache["data"])
 
-    candidatos = _bt2_matches_candidatos()
+    candidatos = _bt2_matches_candidatos(include_finished=True)
 
     def _fetch_one(m):
         try:
