@@ -5980,49 +5980,72 @@ def _btcs_compute_patterns_acumulado():
     return _btcs_build_patterns_from_teams(teams)
 
 
-# ── MAPA DE SUGESTÕES — "Lay Casa" (apostar contra o mandante vencer) — acha
-# DINAMICAMENTE qual variável (das mesmas usadas na aba Jogo + Backtest CS:
-# média/chance de gols, over/under, ambas marcam, saldo, valor do ponto/gol,
-# custo do gol 2.0) melhor prediz "casa não vence" (empate ou derrota),
-# testando cada uma isoladamente contra o histórico de jogos EM CASA de cada
-# mandante de hoje — sem limiar fixo escolhido por mim, o sistema escolhe
-# sozinho a variável+faixa com maior lift e amostra suficiente, e aplica esse
-# padrão validado às partidas de hoje pra gerar as sugestões ──
+# ── MAPA DE SUGESTÕES — motor genérico de metodologias — pra cada metodologia
+# (Lay Casa, Lay Visitante, Casa Vence, Over/Under, Ambas Marcam, Lay Placar X,
+# etc.) acha DINAMICAMENTE qual variável (das mesmas usadas na aba Jogo +
+# Backtest CS: média/chance de gols, over/under, ambas marcam, saldo) melhor
+# prediz o evento-alvo daquela metodologia, testando cada uma isoladamente
+# contra o histórico do time relevante (mandante jogando em casa, ou
+# visitante jogando fora) — sem limiar fixo escolhido por mim, o sistema
+# escolhe sozinho a variável+faixa com maior lift e amostra suficiente, e
+# aplica esse padrão validado às partidas de hoje pra gerar as sugestões.
+# Cada metodologia tem seu próprio padrão (congelado 1x por dia) e sua
+# própria lista de sugestões acumulada — ver notas em _mapa_compute().
 _LAYCASA_MIN_SEGMENT_GAMES = 30
 _LAYCASA_MIN_LIFT = 1.15
-_LAYCASA_CACHE = {"ts": 0, "data": None}
 _LAYCASA_TTL = 30 * 60
-
-# Congela o padrão (variável+faixa) escolhido e acumula as sugestões do dia —
-# ver nota em _laycasa_compute(). Zerado quando a data muda.
-_LAYCASA_DAY_CACHE = {"date": None, "melhor": None, "comparativo": None, "sugestoes_by_id": {}}
-
-_LAYCASA_VALOR_PONTO_RANGES = [(0.3, "<0.3"), (0.6, "0.3–0.6"), (1.0, "0.6–1.0"), (None, "≥1.0")]
-_LAYCASA_VALOR_GOL_RANGES = [(0.15, "<0.15"), (0.3, "0.15–0.3"), (0.5, "0.3–0.5"), (None, "≥0.5")]
-_LAYCASA_CUSTO_GOL2_RANGES = [(0.5, "<0.5"), (0.7, "0.5–0.7"), (0.9, "0.7–0.9"), (None, "≥0.9")]
 _LAYCASA_SALDO_RANGES = [(-0.3, "<-0.3"), (0.3, "-0.3–0.3"), (None, "≥0.3")]
-_LAYCASA_VALOR_SALDO_RANGES = [(-0.05, "<-0.05"), (0.05, "-0.05–0.05"), (None, "≥0.05")]
 
-# Valor do Gol/Ponto/Saldo e Custo do Gol 2.0 (que dependem de odds por jogo
-# histórico) ficaram de FORA por enquanto — testei e buscar odds de até 400
-# partidas históricas pra cada cálculo leva 15-20min (a API de odds é lenta e
-# compete com a thread de monitoramento ao vivo do próprio app), inviável pra
-# uma requisição síncrona. Precisaria de um job em segundo plano pré-calculando
-# isso com antecedência — fica como próximo passo se fizer sentido.
-_LAYCASA_PATTERN_VARIABLES = {
-    "avg_scored": "Média de gols marcados (em casa)",
-    "avg_conceded": "Média de gols sofridos (em casa)",
-    "pct_scored": "Chance de marcar (em casa)",
-    "pct_conceded": "Chance de sofrer gol (em casa)",
-    "pct_over25": "Over/Under 2.5 (em casa)",
-    "pct_ambas_marcam": "Ambas Marcam (em casa)",
-    "saldo": "Saldo de Gols (em casa)",
-}
+# cache de dados (30min) e cache do padrão do dia — ambos keyed por metodologia
+_MAPA_CACHE = {}      # metodologia -> {"ts":..., "data":...}
+_MAPA_DAY_CACHE = {}  # metodologia -> {"date":..., "melhor":..., "comparativo":..., "sugestoes_by_id":...}
+
+
+def _mapa_slug(s):
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
+
+
+def _mapa_variable_labels(side):
+    suf = "em casa" if side == "casa" else "fora"
+    return {
+        "avg_scored": f"Média de gols marcados ({suf})",
+        "avg_conceded": f"Média de gols sofridos ({suf})",
+        "pct_scored": f"Chance de marcar ({suf})",
+        "pct_conceded": f"Chance de sofrer gol ({suf})",
+        "pct_over25": f"Over/Under 2.5 ({suf})",
+        "pct_ambas_marcam": f"Ambas Marcam ({suf})",
+        "saldo": f"Saldo de Gols ({suf})",
+    }
+
+
+_MAPA_METODOLOGIAS = {}
+
+
+def _mapa_add(key, label, side, target_fn):
+    _MAPA_METODOLOGIAS[key] = {"label": label, "side": side, "target_fn": target_fn}
+
+
+_mapa_add("lay_casa", "Lay Casa (contra o mandante vencer)", "casa", lambda r: r["own"] <= r["opp"])
+_mapa_add("lay_visitante", "Lay Visitante (contra o visitante vencer)", "visitante", lambda r: r["own"] <= r["opp"])
+_mapa_add("casa_vence", "Casa Vence", "casa", lambda r: r["own"] > r["opp"])
+_mapa_add("visitante_vence", "Visitante Vence", "visitante", lambda r: r["own"] > r["opp"])
+_mapa_add("empate", "Empate", "casa", lambda r: r["own"] == r["opp"])
+_mapa_add("over_15", "Over 1.5 FT", "casa", lambda r: (r["own"] + r["opp"]) >= 2)
+_mapa_add("over_25", "Over 2.5 FT", "casa", lambda r: (r["own"] + r["opp"]) >= 3)
+_mapa_add("under_15", "Under 1.5 FT", "casa", lambda r: (r["own"] + r["opp"]) <= 1)
+_mapa_add("under_25", "Under 2.5 FT", "casa", lambda r: (r["own"] + r["opp"]) <= 2)
+_mapa_add("ambas_sim", "Ambas Marcam Sim", "casa", lambda r: r["own"] >= 1 and r["opp"] >= 1)
+_mapa_add("ambas_nao", "Ambas Marcam Não", "casa", lambda r: not (r["own"] >= 1 and r["opp"] >= 1))
+for _bucket in PLACAR_EXATO_BUCKETS_ORDER:
+    _mapa_add(f"lay_placar_{_mapa_slug(_bucket)}", f"Lay Placar {_bucket}", "casa",
+              (lambda bucket: (lambda r: _btcs_bucket_key(r["own"], r["opp"]) != bucket))(_bucket))
 
 
 def _laycasa_home_rows(tabs):
     """Jogos do mandante jogando EM CASA (aba 'Casa' do H2H, índice 1) — mesma
-    lógica de _jogoStatsRowsFromSection(tabs, 1, true) no frontend (aba Jogo)."""
+    lógica de _jogoStatsRowsFromSection(tabs, 1, true) no frontend (aba Jogo).
+    'own'/'opp' = gols do próprio mandante / do adversário nesse jogo passado."""
     if not tabs or len(tabs) < 2:
         return []
     tab = tabs[1]
@@ -6035,25 +6058,47 @@ def _laycasa_home_rows(tabs):
         sc = _bt2_parse_score(r.get("score"))
         if not sc:
             continue
-        rows.append({"id": r.get("id"), "h": sc[0], "a": sc[1], "date": r.get("date"),
+        rows.append({"id": r.get("id"), "own": sc[0], "opp": sc[1], "date": r.get("date"),
+                     "home": r.get("home"), "away": r.get("away")})
+    return rows
+
+
+def _laycasa_away_rows(tabs):
+    """Jogos do visitante jogando FORA (aba 'Fora' do H2H, índice 2) — mesma
+    lógica de _jogoStatsRowsFromSection(tabs, 2, false) no frontend (aba Jogo).
+    'own'/'opp' = gols do próprio visitante / do adversário (mandante) nesse
+    jogo passado — por isso invertido em relação ao placar h:a literal."""
+    if not tabs or len(tabs) < 3:
+        return []
+    tab = tabs[2]
+    sections = [s for s in tab.get("sections", []) if "confront" not in (s.get("title") or "").lower()]
+    sec = sections[0] if sections else None
+    if not sec:
+        return []
+    rows = []
+    for r in sec["rows"][:30]:
+        sc = _bt2_parse_score(r.get("score"))
+        if not sc:
+            continue
+        rows.append({"id": r.get("id"), "own": sc[1], "opp": sc[0], "date": r.get("date"),
                      "home": r.get("home"), "away": r.get("away")})
     return rows
 
 
 def _laycasa_team_metrics(rows):
-    """Calcula as variáveis (sem depender de odds — ver nota acima em
-    _LAYCASA_PATTERN_VARIABLES) pra UM mandante, só com os jogos em que ele
-    jogou em casa. Retorna (segments_dict, n) ou (None, 0) se não tiver amostra
-    suficiente pra confiar na média."""
+    """Calcula as variáveis descritivas (sem depender de odds) pra UM time, só
+    com os jogos em que ele jogou no papel relevante (casa ou fora). Retorna
+    (segments_dict, n) ou (None, 0) se não tiver amostra suficiente pra
+    confiar na média."""
     n = len(rows)
     if n < 5:
         return None, 0
-    scored = sum(r["h"] for r in rows)
-    conceded = sum(r["a"] for r in rows)
-    games_scored = sum(1 for r in rows if r["h"] >= 1)
-    games_conceded = sum(1 for r in rows if r["a"] >= 1)
-    games_over25 = sum(1 for r in rows if r["h"] + r["a"] >= 3)
-    ambas_marcaram = sum(1 for r in rows if r["h"] >= 1 and r["a"] >= 1)
+    scored = sum(r["own"] for r in rows)
+    conceded = sum(r["opp"] for r in rows)
+    games_scored = sum(1 for r in rows if r["own"] >= 1)
+    games_conceded = sum(1 for r in rows if r["opp"] >= 1)
+    games_over25 = sum(1 for r in rows if r["own"] + r["opp"] >= 3)
+    ambas_marcaram = sum(1 for r in rows if r["own"] >= 1 and r["opp"] >= 1)
 
     segs = {
         "avg_scored": _btcs_segment_range(scored / n, _BTCS_AVG_RANGES),
@@ -6067,19 +6112,30 @@ def _laycasa_team_metrics(rows):
     return segs, n
 
 
-def _laycasa_compute():
+def _mapa_compute(metodologia_key):
+    cfg = _MAPA_METODOLOGIAS.get(metodologia_key)
+    if not cfg:
+        return None
+    side = cfg["side"]
+    target_fn = cfg["target_fn"]
+    rows_fn = _laycasa_home_rows if side == "casa" else _laycasa_away_rows
+    team_field = "home" if side == "casa" else "away"
+    var_labels = _mapa_variable_labels(side)
+
+    cache = _MAPA_CACHE.setdefault(metodologia_key, {"ts": 0, "data": None})
     now = time.time()
-    if _LAYCASA_CACHE["data"] and (now - _LAYCASA_CACHE["ts"]) < _LAYCASA_TTL:
-        return _LAYCASA_CACHE["data"]
+    if cache["data"] and (now - cache["ts"]) < _LAYCASA_TTL:
+        return cache["data"]
 
     today_str = datetime.now().strftime("%Y-%m-%d")
-    if _LAYCASA_DAY_CACHE["date"] != today_str:
+    day_cache = _MAPA_DAY_CACHE.setdefault(metodologia_key, {"date": None, "melhor": None, "comparativo": None, "sugestoes_by_id": {}})
+    if day_cache["date"] != today_str:
         # virou o dia (ou primeira execução) — libera escolher um padrão novo e
         # zera a lista acumulada de sugestões
-        _LAYCASA_DAY_CACHE["date"] = today_str
-        _LAYCASA_DAY_CACHE["melhor"] = None
-        _LAYCASA_DAY_CACHE["comparativo"] = None
-        _LAYCASA_DAY_CACHE["sugestoes_by_id"] = {}
+        day_cache["date"] = today_str
+        day_cache["melhor"] = None
+        day_cache["comparativo"] = None
+        day_cache["sugestoes_by_id"] = {}
 
     # Agendados (pra sugerir) + já encerrados hoje (pra mostrar o placar final e
     # se a sugestão teria acertado) — pools separados e cada um com seu próprio
@@ -6092,23 +6148,23 @@ def _laycasa_compute():
 
     def _fetch_h2h(m):
         try:
-            return m["id"], _laycasa_home_rows(_fs_h2h(m["id"]))
+            return m["id"], rows_fn(_fs_h2h(m["id"]))
         except Exception:
             return m["id"], []
 
     rows_by_match = dict(_fs_event_pool.map(_fetch_h2h, candidatos))
 
-    teams = {}  # norm(nome do mandante) -> {"name":..., "rows":[...]}
+    teams = {}  # norm(nome do time relevante) -> {"name":..., "rows":[...]}
     all_ids_seen = set()
     total_ids = 0
     for m in candidatos:
         if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
             break
         rows = rows_by_match.get(m["id"]) or []
-        key = _btcs_norm_name(m["home"])
+        key = _btcs_norm_name(m[team_field])
         if not key or not rows:
             continue
-        entry = teams.setdefault(key, {"name": m["home"], "rows": []})
+        entry = teams.setdefault(key, {"name": m[team_field], "rows": []})
         existing_ids = {r["id"] for r in entry["rows"]}
         for row in rows:
             if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
@@ -6120,17 +6176,17 @@ def _laycasa_compute():
             all_ids_seen.add(row["id"])
             total_ids += 1
 
-    # baseline: taxa de "casa não vence" (empate ou derrota) sobre TODOS os
-    # jogos coletados — é contra isso que o lift de cada segmento é medido
-    baseline_total = baseline_naovenceu = 0
+    # baseline: taxa do evento-alvo sobre TODOS os jogos coletados — é contra
+    # isso que o lift de cada segmento é medido
+    baseline_total = baseline_hits = 0
     for entry in teams.values():
         for row in entry["rows"]:
             baseline_total += 1
-            if row["h"] <= row["a"]:
-                baseline_naovenceu += 1
-    baseline_rate = (baseline_naovenceu / baseline_total) if baseline_total else 0.0
+            if target_fn(row):
+                baseline_hits += 1
+    baseline_rate = (baseline_hits / baseline_total) if baseline_total else 0.0
 
-    seg_data = {}       # variável -> faixa -> {"total":n, "naovenceu":n}
+    seg_data = {}       # variável -> faixa -> {"total":n, "hits":n}
     team_profile = {}   # chave normalizada -> {"name":..., "segs":..., "n":...}
     for key, entry in teams.items():
         segs, n = _laycasa_team_metrics(entry["rows"])
@@ -6138,23 +6194,21 @@ def _laycasa_compute():
             continue
         team_profile[key] = {"name": entry["name"], "segs": segs, "n": n}
         for var, seg in segs.items():
-            bucket = seg_data.setdefault(var, {}).setdefault(seg, {"total": 0, "naovenceu": 0})
+            bucket = seg_data.setdefault(var, {}).setdefault(seg, {"total": 0, "hits": 0})
             for row in entry["rows"]:
                 bucket["total"] += 1
-                if row["h"] <= row["a"]:
-                    bucket["naovenceu"] += 1
+                if target_fn(row):
+                    bucket["hits"] += 1
 
     # acha a MELHOR combinação variável+faixa (maior lift, com amostra
     # suficiente) — é isso que faz o sistema ser dinâmico em vez de eu fixar
-    # manualmente "time fraco em casa = média de gols < X". Só é escolhida UMA
-    # VEZ POR DIA (fica congelada em _LAYCASA_DAY_CACHE) — sem isso, cada
-    # recálculo (a cada 30min) podia escolher uma variável+faixa diferente
-    # (a amostra coletada muda um pouco a cada vez) e a grade de sugestões
-    # ficava trocando de jogos o dia todo, o que não faz sentido pro usuário
-    # acompanhar um padrão ao longo do dia.
-    if _LAYCASA_DAY_CACHE["melhor"] is not None:
-        melhor = _LAYCASA_DAY_CACHE["melhor"]
-        comparativo = _LAYCASA_DAY_CACHE["comparativo"]
+    # manualmente um limiar. Só é escolhida UMA VEZ POR DIA (fica congelada em
+    # day_cache) — sem isso, cada recálculo (a cada 30min) podia escolher uma
+    # variável+faixa diferente e a grade de sugestões ficava trocando de jogos
+    # o dia todo, o que não faz sentido pro usuário acompanhar ao longo do dia.
+    if day_cache["melhor"] is not None:
+        melhor = day_cache["melhor"]
+        comparativo = day_cache["comparativo"]
     else:
         melhor = None
         for var, segs in seg_data.items():
@@ -6162,13 +6216,13 @@ def _laycasa_compute():
                 total = counts["total"]
                 if total < _LAYCASA_MIN_SEGMENT_GAMES:
                     continue
-                rate = counts["naovenceu"] / total
+                rate = counts["hits"] / total
                 lift = (rate / baseline_rate) if baseline_rate else 0.0
                 if lift < _LAYCASA_MIN_LIFT:
                     continue
                 if melhor is None or lift > melhor["lift"]:
                     melhor = {
-                        "variable": var, "variable_label": _LAYCASA_PATTERN_VARIABLES.get(var, var),
+                        "variable": var, "variable_label": var_labels.get(var, var),
                         "segment": seg_label, "total": total, "rate": round(rate, 4),
                         "baseline_rate": round(baseline_rate, 4), "lift": round(lift, 3),
                     }
@@ -6185,7 +6239,7 @@ def _laycasa_compute():
                 profile = team_profile.get(key)
                 in_segment = bool(profile) and profile["segs"].get(melhor["variable"]) == melhor["segment"]
                 for row in entry["rows"]:
-                    hit = row["h"] <= row["a"]
+                    hit = target_fn(row)
                     baseline_entries.append((row.get("date") or "", hit))
                     if in_segment:
                         filtro_entries.append((row.get("date") or "", hit))
@@ -6205,19 +6259,19 @@ def _laycasa_compute():
                 "com_filtro": _cum_hitrate_timeline(filtro_entries),
             }
 
-        _LAYCASA_DAY_CACHE["melhor"] = melhor
-        _LAYCASA_DAY_CACHE["comparativo"] = comparativo
+        day_cache["melhor"] = melhor
+        day_cache["comparativo"] = comparativo
 
-    # aplica o padrão validado às partidas de hoje: quais mandantes têm o
-    # PRÓPRIO segmento igual ao segmento validado acima? Os resultados são
-    # ACUMULADOS no dia (_LAYCASA_DAY_CACHE["sugestoes_by_id"]) — uma vez que
-    # um jogo entra na lista, ele nunca some (só atualiza o placar quando
-    # encerra), mesmo que numa rodada seguinte ele não apareça mais na amostra
-    # de candidatos (que é limitada por hora/quantidade).
-    sugestoes_by_id = _LAYCASA_DAY_CACHE["sugestoes_by_id"]
+    # aplica o padrão validado às partidas de hoje: quais times relevantes têm
+    # o PRÓPRIO segmento igual ao segmento validado acima? Os resultados são
+    # ACUMULADOS no dia (day_cache["sugestoes_by_id"]) — uma vez que um jogo
+    # entra na lista, ele nunca some (só atualiza o placar quando encerra),
+    # mesmo que numa rodada seguinte ele não apareça mais na amostra de
+    # candidatos (que é limitada por hora/quantidade).
+    sugestoes_by_id = day_cache["sugestoes_by_id"]
     if melhor:
         for m in today_matches:
-            key = _btcs_norm_name(m["home"])
+            key = _btcs_norm_name(m[team_field])
             profile = team_profile.get(key)
             if not profile:
                 continue
@@ -6236,13 +6290,19 @@ def _laycasa_compute():
                     item["away_score"] = as_
                     if hs is not None and as_ is not None:
                         try:
-                            item["acertou"] = int(hs) <= int(as_)
+                            hs_i, as_i = int(hs), int(as_)
+                            own_final = hs_i if side == "casa" else as_i
+                            opp_final = as_i if side == "casa" else hs_i
+                            item["acertou"] = target_fn({"own": own_final, "opp": opp_final})
                         except (TypeError, ValueError):
                             pass
                 sugestoes_by_id[str(m["id"])] = item
     sugestoes = sorted(sugestoes_by_id.values(), key=lambda x: x.get("kickoff_ts") or "")
 
     data = {
+        "metodologia": metodologia_key,
+        "metodologia_label": cfg["label"],
+        "side": side,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "matches_used": total_ids,
         "melhor_padrao": melhor,
@@ -6250,18 +6310,28 @@ def _laycasa_compute():
         "comparativo": comparativo,
         "sugestoes": sugestoes,
     }
-    _LAYCASA_CACHE["data"] = data
-    _LAYCASA_CACHE["ts"] = now
+    cache["data"] = data
+    cache["ts"] = now
     return data
 
 
-@app.route("/api/masterlist/lay_casa")
-def api_masterlist_lay_casa():
-    """'Mapa de Sugestões' — metodologia Lay Casa: acha dinamicamente qual
-    variável (das usadas na aba Jogo + Backtest CS) melhor prediz 'casa não
-    vence', valida contra o histórico, e aplica às partidas de hoje. Cacheado
-    30min (mesmo TTL do Backtest CS)."""
-    return jsonify(_laycasa_compute())
+@app.route("/api/masterlist/metodologias")
+def api_masterlist_metodologias():
+    """Lista as metodologias disponíveis no Mapa de Sugestões, pra popular o
+    dropdown do frontend."""
+    return jsonify({"metodologias": [{"key": k, "label": v["label"]} for k, v in _MAPA_METODOLOGIAS.items()]})
+
+
+@app.route("/api/masterlist/<metodologia>")
+def api_masterlist_generic(metodologia):
+    """'Mapa de Sugestões' — acha dinamicamente qual variável (das usadas na
+    aba Jogo + Backtest CS) melhor prediz o evento-alvo da metodologia
+    escolhida, valida contra o histórico, e aplica às partidas de hoje.
+    Cacheado 30min (mesmo TTL do Backtest CS)."""
+    data = _mapa_compute(metodologia)
+    if data is None:
+        return jsonify({"error": "metodologia desconhecida"}), 404
+    return jsonify(data)
 
 
 @app.route("/api/backtestcs/ranking")

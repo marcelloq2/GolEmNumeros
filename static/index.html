@@ -2286,19 +2286,36 @@ function _setBacktestSubTab(tab) {
 // ── MAPA DE SUGESTÕES ────────────────────────────────────────────────────────
 // Lista de partidas de hoje que se encaixam numa metodologia validada
 // dinamicamente contra o histórico (endpoint escolhe sozinho qual variável +
-// faixa tem o melhor lift, sem eu fixar limiar manual). Endpoints ficam em
-// /api/masterlist/<metodologia> — hoje só "lay_casa" existe.
-let _mapaCache = {};       // { [metodologia]: data }
-const _MAPA_ENDPOINTS = { lay_casa: '/api/masterlist/lay_casa' };
+// faixa tem o melhor lift, sem eu fixar limiar manual). Catálogo de
+// metodologias vem de /api/masterlist/metodologias; cada uma tem seu próprio
+// endpoint em /api/masterlist/<metodologia>.
+let _mapaCache = {};          // { [metodologia]: data }
+let _mapaCatalogLoaded = false;
+
+async function _mapaEnsureCatalog() {
+  if (_mapaCatalogLoaded) return;
+  const select = document.getElementById('mapaMetodologiaSelect');
+  try {
+    const r = await fetch('/api/masterlist/metodologias');
+    const d = await r.json();
+    const metodologias = d.metodologias || [];
+    if (metodologias.length) {
+      select.innerHTML = metodologias.map(m => `<option value="${m.key}">${_bt2EscXml(m.label)}</option>`).join('');
+    }
+    _mapaCatalogLoaded = true;
+  } catch (e) {
+    // mantém a option fixa que já vem no HTML (lay_casa) como fallback
+  }
+}
 
 async function _mapaLoad(refresh) {
+  await _mapaEnsureCatalog();
   const metodologia = document.getElementById('mapaMetodologiaSelect').value;
   const content = document.getElementById('mapaContent');
   if (!refresh && _mapaCache[metodologia]) { _mapaRender(metodologia); return; }
   content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando... testando cada variável contra o histórico</div>`;
   try {
-    const url = _MAPA_ENDPOINTS[metodologia];
-    const r = await fetch(url);
+    const r = await fetch(`/api/masterlist/${encodeURIComponent(metodologia)}`);
     const d = await r.json();
     _mapaCache[metodologia] = d;
     _mapaRender(metodologia);
@@ -2357,6 +2374,8 @@ function _mapaRender(metodologia) {
 
   const p = d.melhor_padrao;
   const sugestoes = d.sugestoes || [];
+  const metodLabel = d.metodologia_label || 'Mapa de Sugestões';
+  const amostraLado = d.side === 'visitante' ? 'jogos fora' : 'jogos em casa';
 
   const cardsHtml = sugestoes.map(m => {
     let placarHtml = '';
@@ -2378,9 +2397,9 @@ function _mapaRender(metodologia) {
         <div style="font-size:13px;font-weight:700;color:var(--text)">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
       </div>
       <div style="font-size:11px;color:var(--text2)">🕐 ${_mapaFmtHora(m.kickoff_ts)}</div>
-      <div style="font-size:11px;color:var(--text2)">amostra do mandante: ${m.amostra_time} jogos em casa</div>
+      <div style="font-size:11px;color:var(--text2)">amostra do time: ${m.amostra_time} ${amostraLado}</div>
       ${placarHtml}
-      <span title="Segmento validado: ${p.variable_label} = ${p.segment}" style="cursor:help;font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">🛡️ Lay Casa</span>
+      <span title="Segmento validado: ${p.variable_label} = ${p.segment}" style="cursor:help;font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">🛡️ ${_bt2EscXml(metodLabel)}</span>
     </div>`;
   }).join('');
 
@@ -2389,7 +2408,7 @@ function _mapaRender(metodologia) {
       <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Padrão validado hoje (escolhido dinamicamente)</div>
       <div style="font-size:14px;color:var(--text)">
         <b>${_bt2EscXml(p.variable_label)}</b> na faixa <b>${_bt2EscXml(p.segment)}</b> →
-        <span style="color:#f59e0b;font-weight:700">${(p.rate*100).toFixed(1)}%</span> dos mandantes nesse perfil NÃO venceram em casa
+        <span style="color:#f59e0b;font-weight:700">${(p.rate*100).toFixed(1)}%</span> dos times nesse perfil bateram "${_bt2EscXml(metodLabel)}"
         (vs <span style="color:var(--text2)">${(p.baseline_rate*100).toFixed(1)}%</span> da base geral) —
         <span style="color:#22c55e;font-weight:700">lift ${p.lift}x</span>
       </div>
