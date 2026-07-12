@@ -1,7 +1,7 @@
 {
   "event_id": "b1ta1ll5g1a0vff",
   "date": "2026-07-11",
-  "saved_at": "2026-07-11T22:06:13.531480",
+  "saved_at": "2026-07-11T19:06:32.471374",
   "source": "uniscore",
   "casa": "Resende",
   "fora": "Maricá RJ",
@@ -397,7 +397,11 @@
     },
     {
       "minute": 98,
-      "value": -8
+      "value": -28
+    },
+    {
+      "minute": 99,
+      "value": -34
     }
   ],
   "goals": [
@@ -581,14 +585,14 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 16.367,
+    "overall_avg": 15.657,
     "h1_avg": 24.612,
-    "h2_avg": 8.122,
-    "home_dominance_pct": 66.3,
+    "h2_avg": 6.88,
+    "home_dominance_pct": 65.7,
     "max_home": 100,
     "max_away": 100,
     "momentum_swings": 35,
-    "total_points": 98
+    "total_points": 99
   },
   "xg": {
     "home": 2.92,
