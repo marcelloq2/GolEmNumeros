@@ -4589,38 +4589,55 @@ async function _jogoEnsureGoalMinutes(rows) {
   });
 }
 
-// "Valor do Gol" e "Custo do Gol 1.0" — reaproveita o mesmo lote de odds já usado
+// "Valor do Gol" e "Custo do Gol 2.0" — reaproveita o mesmo lote de odds já usado
 // na aba Profit (_ensureToday2Odds/_profitOddsCache, busca odds de cada jogo do
 // H2H pelo event_id, funciona mesmo pra jogos já encerrados porque a Flashscore
-// mantém a odd de abertura). Fórmulas (mesma lógica de uma planilha do usuário):
-//   Valor do Gol = meus gols na partida × probabilidade implícita do ADVERSÁRIO
-//   Custo do Gol 1.0 = probabilidade implícita do MEU time ÷ meus gols na partida
-//   (se não marquei gol nenhum, custo cai pro valor-teto 1 — mesmo fallback da planilha)
+// mantém a odd de abertura). Cada métrica tem versão Marcado (meus gols) e
+// Sofrido (gols do adversário contra mim) — a probabilidade usada é SEMPRE a do
+// meu próprio time nos dois casos (é "o custo/valor pra mim", não pro adversário):
+//   Valor do Gol Marcado = meus gols na partida × probabilidade do ADVERSÁRIO
+//   Valor do Gol Sofrido = gols que sofri na partida × probabilidade do MEU time
+//   Custo do Gol 2.0 Marcado = (meus gols ÷ 2) + (probabilidade do meu time ÷ 2)
+//   Custo do Gol 2.0 Sofrido = (gols que sofri ÷ 2) + (probabilidade do meu time ÷ 2)
+// (Custo 2.0 substitui o antigo Custo 1.0 — pesa metade gol real, metade odd, em
+// vez de só dividir probabilidade pelos gols; o professor no vídeo mostrou que é
+// mais eficiente dependendo do mercado/liga)
 async function _jogoEnsureGolValor(rows) {
   await _ensureToday2Odds(rows.map(r => r.id));
   rows.forEach(r => {
     const odds = _profitOddsCache[r.id];
     const o1x2 = odds && odds.markets && odds.markets['1x2'];
-    if (!o1x2 || !o1x2.home || !o1x2.away) { r.valorGol = null; r.custoGol1 = null; return; }
+    if (!o1x2 || !o1x2.home || !o1x2.away) {
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = null;
+      return;
+    }
     const ownOddRaw = r.isHome ? o1x2.home : o1x2.away;
     const oppOddRaw = r.isHome ? o1x2.away : o1x2.home;
     const ownOdd = parseFloat(ownOddRaw.opening || ownOddRaw.value);
     const oppOdd = parseFloat(oppOddRaw.opening || oppOddRaw.value);
-    if (!ownOdd || !oppOdd) { r.valorGol = null; r.custoGol1 = null; return; }
+    if (!ownOdd || !oppOdd) {
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = null;
+      return;
+    }
     const probOwn = 1 / ownOdd;
     const probOpp = 1 / oppOdd;
-    r.valorGol = r.golsPro * probOpp;
-    r.custoGol1 = r.golsPro > 0 ? probOwn / r.golsPro : 1;
+    r.valorGolMarcado = r.golsPro * probOpp;
+    r.valorGolSofrido = r.golsContra * probOwn;
+    r.custoGol2Marcado = (r.golsPro / 2) + (probOwn / 2);
+    r.custoGol2Sofrido = (r.golsContra / 2) + (probOwn / 2);
   });
 }
 
 function _jogoGolValorStats(rows) {
-  const valid = rows.filter(r => r.valorGol !== null && r.valorGol !== undefined);
+  const valid = rows.filter(r => r.valorGolMarcado !== null && r.valorGolMarcado !== undefined);
   if (!valid.length) return null;
+  const avg = key => valid.reduce((a, r) => a + r[key], 0) / valid.length;
   return {
     n: valid.length,
-    avgValorGol: valid.reduce((a, r) => a + r.valorGol, 0) / valid.length,
-    avgCustoGol: valid.reduce((a, r) => a + r.custoGol1, 0) / valid.length,
+    avgValorGolMarcado: avg('valorGolMarcado'),
+    avgValorGolSofrido: avg('valorGolSofrido'),
+    avgCustoGol2Marcado: avg('custoGol2Marcado'),
+    avgCustoGol2Sofrido: avg('custoGol2Sofrido'),
   };
 }
 
@@ -4683,8 +4700,10 @@ function _jogoStatsCardHtml(teamName, s) {
       ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`)}
       ${row('Tempo sem gol marcado', s.tempoSemMarcar !== null ? `${s.tempoSemMarcar.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol marcado (ou 90 se não marcou) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
       ${row('Tempo sem sofrer gols', s.tempoSemSofrer !== null ? `${s.tempoSemSofrer.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol sofrido (ou 90 se não sofreu) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
-      ${s.avgValorGol !== undefined ? row('Valor do Gol', s.avgValorGol.toFixed(3), `média de (meus gols × probabilidade implícita do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
-      ${s.avgCustoGol !== undefined ? row('Custo do Gol 1.0', s.avgCustoGol.toFixed(3), `média de (probabilidade implícita do meu time ÷ meus gols na partida) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgValorGolMarcado !== undefined ? row('Valor do Gol (Marcado)', s.avgValorGolMarcado.toFixed(3), `média de (meus gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgValorGolSofrido !== undefined ? row('Valor do Gol (Sofrido)', s.avgValorGolSofrido.toFixed(3), `média de (gols sofridos × probabilidade do meu time) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgCustoGol2Marcado !== undefined ? row('Custo do Gol 2.0 (Marcado)', s.avgCustoGol2Marcado.toFixed(3), `média de ((meus gols ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgCustoGol2Sofrido !== undefined ? row('Custo do Gol 2.0 (Sofrido)', s.avgCustoGol2Sofrido.toFixed(3), `média de ((gols sofridos ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`) : ''}
     </div>`;
 }
 
@@ -4918,7 +4937,13 @@ async function _renderToday2Jogo(matchId) {
     if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
     const s = _jogoComputeStats(b.rows);
     const gv = _jogoGolValorStats(b.rows);
-    if (s && gv) { s.avgValorGol = gv.avgValorGol; s.avgCustoGol = gv.avgCustoGol; s.nGolValor = gv.n; }
+    if (s && gv) {
+      s.avgValorGolMarcado = gv.avgValorGolMarcado;
+      s.avgValorGolSofrido = gv.avgValorGolSofrido;
+      s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+      s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+      s.nGolValor = gv.n;
+    }
     return _jogoStatsCardHtml(b.teamName, s) + _jogoGoalPatternHtml(b.teamName, gp);
   });
   body.innerHTML = blocks.length > 1
