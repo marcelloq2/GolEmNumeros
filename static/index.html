@@ -1082,6 +1082,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
+    <button class="nav-tab" onclick="switchView('mapa', this)">🗺️ Mapa de Sugestões</button>
     <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest</button>
   </div>
   <button onclick="openAppGuia()" title="Como usar cada aba"
@@ -1467,6 +1468,22 @@
       </div>
       <div id="liveGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
     </div>
+  </div>
+
+  <!-- MAPA DE SUGESTÕES — lista dinâmica de partidas de hoje que se encaixam numa
+       metodologia validada contra o histórico (ex: Lay Casa). O sistema testa
+       cada variável (aba Jogo + Backtest CS) isoladamente e escolhe sozinho a que
+       melhor prediz o resultado da metodologia — sem limiar fixo escolhido à mão. -->
+  <div id="mapaWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Mapa de Sugestões</span>
+      <select id="mapaMetodologiaSelect" onchange="_mapaLoad()" style="font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="lay_casa">Lay Casa (contra o mandante vencer)</option>
+      </select>
+      <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
+        border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
+    </div>
+    <div id="mapaContent"></div>
   </div>
 
   <!-- BACKTEST — fusão do antigo "Backtest Tradicional" (mercado+seleção por ROI) com
@@ -2200,6 +2217,7 @@ function switchView(view, btn) {
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
   const backtest2Wrapper = document.getElementById('backtest2Wrapper');
+  const mapaWrapper = document.getElementById('mapaWrapper');
   const passadasWrapper = document.getElementById('passadasWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
@@ -2208,6 +2226,7 @@ function switchView(view, btn) {
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
   backtest2Wrapper.style.display = 'none';
+  mapaWrapper.style.display = 'none';
   passadasWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -2240,6 +2259,9 @@ function switchView(view, btn) {
     } else {
       _bt2LoadRanking(); // já respeita o _bt2Mode atual internamente (recente/acumulado)
     }
+  } else if (view === 'mapa') {
+    mapaWrapper.style.display = 'flex';
+    _mapaLoad();
   }
 }
 
@@ -2259,6 +2281,92 @@ function _setBacktestSubTab(tab) {
   } else {
     _bt2LoadRanking();
   }
+}
+
+// ── MAPA DE SUGESTÕES ────────────────────────────────────────────────────────
+// Lista de partidas de hoje que se encaixam numa metodologia validada
+// dinamicamente contra o histórico (endpoint escolhe sozinho qual variável +
+// faixa tem o melhor lift, sem eu fixar limiar manual). Endpoints ficam em
+// /api/masterlist/<metodologia> — hoje só "lay_casa" existe.
+let _mapaCache = {};       // { [metodologia]: data }
+const _MAPA_ENDPOINTS = { lay_casa: '/api/masterlist/lay_casa' };
+
+async function _mapaLoad(refresh) {
+  const metodologia = document.getElementById('mapaMetodologiaSelect').value;
+  const content = document.getElementById('mapaContent');
+  if (!refresh && _mapaCache[metodologia]) { _mapaRender(metodologia); return; }
+  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando... testando cada variável contra o histórico</div>`;
+  try {
+    const url = _MAPA_ENDPOINTS[metodologia];
+    const r = await fetch(url);
+    const d = await r.json();
+    _mapaCache[metodologia] = d;
+    _mapaRender(metodologia);
+  } catch (e) {
+    content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao calcular: ${e}</div>`;
+  }
+}
+
+function _mapaFmtHora(ts) {
+  if (!ts) return '';
+  const d = new Date(parseInt(ts) * 1000);
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function _mapaRender(metodologia) {
+  const content = document.getElementById('mapaContent');
+  const d = _mapaCache[metodologia];
+  if (!d) return;
+
+  if (!d.valido || !d.melhor_padrao) {
+    content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">
+      Nenhum padrão passou no critério de validade hoje (amostra insuficiente ou lift baixo) — tente recalcular mais tarde, quando mais jogos de hoje tiverem H2H disponível.
+    </div>`;
+    return;
+  }
+
+  const p = d.melhor_padrao;
+  const sugestoes = d.sugestoes || [];
+
+  const cardsHtml = sugestoes.map(m => {
+    let placarHtml = '';
+    if (m.encerrado) {
+      const temPlacar = m.home_score !== null && m.home_score !== undefined && m.away_score !== null && m.away_score !== undefined;
+      const placarTxt = temPlacar ? `${m.home_score} - ${m.away_score}` : 'encerrado';
+      let badge = '';
+      if (m.acertou === true) {
+        badge = `<span style="font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">✅ acertou</span>`;
+      } else if (m.acertou === false) {
+        badge = `<span style="font-size:11px;font-weight:700;color:#ef4444;background:#ef444418;border:1px solid #ef444444;border-radius:6px;padding:3px 8px">❌ errou</span>`;
+      }
+      placarHtml = `<span style="font-size:12px;font-weight:700;color:var(--text)">🏁 ${placarTxt}</span>${badge}`;
+    }
+    return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px">${_bt2EscXml(m.pais)} · ${_bt2EscXml(m.liga)}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text2)">🕐 ${_mapaFmtHora(m.kickoff_ts)}</div>
+      <div style="font-size:11px;color:var(--text2)">amostra do mandante: ${m.amostra_time} jogos em casa</div>
+      ${placarHtml}
+      <span title="Segmento validado: ${p.variable_label} = ${p.segment}" style="cursor:help;font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">🛡️ Lay Casa</span>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Padrão validado hoje (escolhido dinamicamente)</div>
+      <div style="font-size:14px;color:var(--text)">
+        <b>${_bt2EscXml(p.variable_label)}</b> na faixa <b>${_bt2EscXml(p.segment)}</b> →
+        <span style="color:#f59e0b;font-weight:700">${(p.rate*100).toFixed(1)}%</span> dos mandantes nesse perfil NÃO venceram em casa
+        (vs <span style="color:var(--text2)">${(p.baseline_rate*100).toFixed(1)}%</span> da base geral) —
+        <span style="color:#22c55e;font-weight:700">lift ${p.lift}x</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px">amostra: ${p.total} jogos · ${d.matches_used} jogos históricos coletados no total · gerado em ${new Date(d.generated_at).toLocaleString('pt-BR')}</div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">${sugestoes.length} ${sugestoes.length===1?'sugestão':'sugestões'} pra hoje</div>
+    ${sugestoes.length ? cardsHtml : '<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Nenhuma partida de hoje se encaixa no padrão validado (só é analisado um recorte dos próximos jogos por horário).</div>'}`;
 }
 
 // ── HOJE 2 (laboratório) ─────────────────────────────────────────────────────

@@ -5422,6 +5422,13 @@ def _btcs_db_conn():
         conn.execute("ALTER TABLE btcs_pattern_rows ADD COLUMN odd REAL")
     except sqlite3.OperationalError:
         pass  # coluna já existe
+    # Migração pra base de "opp_odd" (odd do ADVERSÁRIO naquele jogo histórico) —
+    # precisa das duas odds (própria + adversário) pra replicar as métricas da
+    # aba Jogo (Valor do Gol/Ponto/Saldo, Custo do Gol 2.0) como variáveis de padrão
+    try:
+        conn.execute("ALTER TABLE btcs_pattern_rows ADD COLUMN opp_odd REAL")
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
     return conn
 
 
@@ -5448,7 +5455,7 @@ def _btcs_persist_results(rows):
 
 
 def _btcs_persist_pattern_rows(rows):
-    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date, odd), ...]
+    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd), ...]
     via INSERT OR IGNORE — chave é (event_id, team_key), então o mesmo jogo
     reaparecendo em janelas futuras de 'últimos 30' não duplica pro mesmo time."""
     if not rows:
@@ -5459,9 +5466,9 @@ def _btcs_persist_pattern_rows(rows):
         try:
             conn.executemany(
                 """INSERT OR IGNORE INTO btcs_pattern_rows
-                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at, odd)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
-                [(eid, tk, tn, h, a, home, date, now, odd) for (eid, tk, tn, h, a, home, date, odd) in rows],
+                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at, odd, opp_odd)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                [(eid, tk, tn, h, a, home, date, now, odd, opp_odd) for (eid, tk, tn, h, a, home, date, odd, opp_odd) in rows],
             )
             conn.commit()
         finally:
@@ -5902,16 +5909,19 @@ def _btcs_compute_patterns():
             is_home = (row_home_key == key) if row_home_key and key else True
             markets = odds_by_id.get(row["id"])
             row["odd"] = None
+            row["opp_odd"] = None
             if markets:
                 sels = _bt2_market_selections("1x2", markets.get("1x2"), row["h"], row["a"])
                 target_label = "Casa" if is_home else "Fora"
+                opp_label = "Fora" if is_home else "Casa"
                 for sel in sels:
                     if sel["label"] == target_label:
                         row["odd"] = sel["odd"]
-                        break
+                    elif sel["label"] == opp_label:
+                        row["opp_odd"] = sel["odd"]
 
     persist_rows = [
-        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"), row.get("odd"))
+        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"), row.get("odd"), row.get("opp_odd"))
         for key, entry in teams.items()
         for row in entry["rows"]
     ]
@@ -5944,6 +5954,228 @@ def _btcs_compute_patterns_acumulado():
         entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date, "odd": odd})
 
     return _btcs_build_patterns_from_teams(teams)
+
+
+# ── MAPA DE SUGESTÕES — "Lay Casa" (apostar contra o mandante vencer) — acha
+# DINAMICAMENTE qual variável (das mesmas usadas na aba Jogo + Backtest CS:
+# média/chance de gols, over/under, ambas marcam, saldo, valor do ponto/gol,
+# custo do gol 2.0) melhor prediz "casa não vence" (empate ou derrota),
+# testando cada uma isoladamente contra o histórico de jogos EM CASA de cada
+# mandante de hoje — sem limiar fixo escolhido por mim, o sistema escolhe
+# sozinho a variável+faixa com maior lift e amostra suficiente, e aplica esse
+# padrão validado às partidas de hoje pra gerar as sugestões ──
+_LAYCASA_MIN_SEGMENT_GAMES = 30
+_LAYCASA_MIN_LIFT = 1.15
+_LAYCASA_CACHE = {"ts": 0, "data": None}
+_LAYCASA_TTL = 30 * 60
+
+_LAYCASA_VALOR_PONTO_RANGES = [(0.3, "<0.3"), (0.6, "0.3–0.6"), (1.0, "0.6–1.0"), (None, "≥1.0")]
+_LAYCASA_VALOR_GOL_RANGES = [(0.15, "<0.15"), (0.3, "0.15–0.3"), (0.5, "0.3–0.5"), (None, "≥0.5")]
+_LAYCASA_CUSTO_GOL2_RANGES = [(0.5, "<0.5"), (0.7, "0.5–0.7"), (0.9, "0.7–0.9"), (None, "≥0.9")]
+_LAYCASA_SALDO_RANGES = [(-0.3, "<-0.3"), (0.3, "-0.3–0.3"), (None, "≥0.3")]
+_LAYCASA_VALOR_SALDO_RANGES = [(-0.05, "<-0.05"), (0.05, "-0.05–0.05"), (None, "≥0.05")]
+
+# Valor do Gol/Ponto/Saldo e Custo do Gol 2.0 (que dependem de odds por jogo
+# histórico) ficaram de FORA por enquanto — testei e buscar odds de até 400
+# partidas históricas pra cada cálculo leva 15-20min (a API de odds é lenta e
+# compete com a thread de monitoramento ao vivo do próprio app), inviável pra
+# uma requisição síncrona. Precisaria de um job em segundo plano pré-calculando
+# isso com antecedência — fica como próximo passo se fizer sentido.
+_LAYCASA_PATTERN_VARIABLES = {
+    "avg_scored": "Média de gols marcados (em casa)",
+    "avg_conceded": "Média de gols sofridos (em casa)",
+    "pct_scored": "Chance de marcar (em casa)",
+    "pct_conceded": "Chance de sofrer gol (em casa)",
+    "pct_over25": "Over/Under 2.5 (em casa)",
+    "pct_ambas_marcam": "Ambas Marcam (em casa)",
+    "saldo": "Saldo de Gols (em casa)",
+}
+
+
+def _laycasa_home_rows(tabs):
+    """Jogos do mandante jogando EM CASA (aba 'Casa' do H2H, índice 1) — mesma
+    lógica de _jogoStatsRowsFromSection(tabs, 1, true) no frontend (aba Jogo)."""
+    if not tabs or len(tabs) < 2:
+        return []
+    tab = tabs[1]
+    sections = [s for s in tab.get("sections", []) if "confront" not in (s.get("title") or "").lower()]
+    sec = sections[0] if sections else None
+    if not sec:
+        return []
+    rows = []
+    for r in sec["rows"][:30]:
+        sc = _bt2_parse_score(r.get("score"))
+        if not sc:
+            continue
+        rows.append({"id": r.get("id"), "h": sc[0], "a": sc[1], "date": r.get("date"),
+                     "home": r.get("home"), "away": r.get("away")})
+    return rows
+
+
+def _laycasa_team_metrics(rows):
+    """Calcula as variáveis (sem depender de odds — ver nota acima em
+    _LAYCASA_PATTERN_VARIABLES) pra UM mandante, só com os jogos em que ele
+    jogou em casa. Retorna (segments_dict, n) ou (None, 0) se não tiver amostra
+    suficiente pra confiar na média."""
+    n = len(rows)
+    if n < 5:
+        return None, 0
+    scored = sum(r["h"] for r in rows)
+    conceded = sum(r["a"] for r in rows)
+    games_scored = sum(1 for r in rows if r["h"] >= 1)
+    games_conceded = sum(1 for r in rows if r["a"] >= 1)
+    games_over25 = sum(1 for r in rows if r["h"] + r["a"] >= 3)
+    ambas_marcaram = sum(1 for r in rows if r["h"] >= 1 and r["a"] >= 1)
+
+    segs = {
+        "avg_scored": _btcs_segment_range(scored / n, _BTCS_AVG_RANGES),
+        "avg_conceded": _btcs_segment_range(conceded / n, _BTCS_AVG_RANGES),
+        "pct_scored": _btcs_segment_range(games_scored / n, _BTCS_PCT_RANGES),
+        "pct_conceded": _btcs_segment_range(games_conceded / n, _BTCS_PCT_RANGES),
+        "pct_over25": _btcs_segment_range(games_over25 / n, _BTCS_OVER_RANGES),
+        "pct_ambas_marcam": _btcs_segment_range(ambas_marcaram / n, _BTCS_PCT_RANGES),
+        "saldo": _btcs_segment_range((scored - conceded) / n, _LAYCASA_SALDO_RANGES),
+    }
+    return segs, n
+
+
+def _laycasa_compute():
+    now = time.time()
+    if _LAYCASA_CACHE["data"] and (now - _LAYCASA_CACHE["ts"]) < _LAYCASA_TTL:
+        return _LAYCASA_CACHE["data"]
+
+    # Agendados (pra sugerir) + já encerrados hoje (pra mostrar o placar final e
+    # se a sugestão teria acertado) — pools separados e cada um com seu próprio
+    # teto, senão um dia com muitos jogos já encerrados "engoliria" as vagas dos
+    # próximos jogos ainda por vir na lista de candidatos.
+    scheduled = sorted((m for m in _fs_all_matches() if m.get("status") == "1"), key=lambda m: m.get("kickoff_ts") or "")
+    finished_today = sorted((m for m in _fs_all_matches() if m.get("status") == "3"), key=lambda m: m.get("kickoff_ts") or "")
+    candidatos = scheduled[:_BT2_MATCHES_MAX_CANDIDATOS] + finished_today[:_BT2_MATCHES_MAX_CANDIDATOS]
+    today_matches = candidatos
+
+    def _fetch_h2h(m):
+        try:
+            return m["id"], _laycasa_home_rows(_fs_h2h(m["id"]))
+        except Exception:
+            return m["id"], []
+
+    rows_by_match = dict(_fs_event_pool.map(_fetch_h2h, candidatos))
+
+    teams = {}  # norm(nome do mandante) -> {"name":..., "rows":[...]}
+    all_ids_seen = set()
+    total_ids = 0
+    for m in candidatos:
+        if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+            break
+        rows = rows_by_match.get(m["id"]) or []
+        key = _btcs_norm_name(m["home"])
+        if not key or not rows:
+            continue
+        entry = teams.setdefault(key, {"name": m["home"], "rows": []})
+        existing_ids = {r["id"] for r in entry["rows"]}
+        for row in rows:
+            if total_ids >= _BTCS_MAX_HISTORICAL_IDS:
+                break
+            if not row["id"] or row["id"] in existing_ids or row["id"] in all_ids_seen:
+                continue
+            entry["rows"].append(row)
+            existing_ids.add(row["id"])
+            all_ids_seen.add(row["id"])
+            total_ids += 1
+
+    # baseline: taxa de "casa não vence" (empate ou derrota) sobre TODOS os
+    # jogos coletados — é contra isso que o lift de cada segmento é medido
+    baseline_total = baseline_naovenceu = 0
+    for entry in teams.values():
+        for row in entry["rows"]:
+            baseline_total += 1
+            if row["h"] <= row["a"]:
+                baseline_naovenceu += 1
+    baseline_rate = (baseline_naovenceu / baseline_total) if baseline_total else 0.0
+
+    seg_data = {}       # variável -> faixa -> {"total":n, "naovenceu":n}
+    team_profile = {}   # chave normalizada -> {"name":..., "segs":..., "n":...}
+    for key, entry in teams.items():
+        segs, n = _laycasa_team_metrics(entry["rows"])
+        if not segs:
+            continue
+        team_profile[key] = {"name": entry["name"], "segs": segs, "n": n}
+        for var, seg in segs.items():
+            bucket = seg_data.setdefault(var, {}).setdefault(seg, {"total": 0, "naovenceu": 0})
+            for row in entry["rows"]:
+                bucket["total"] += 1
+                if row["h"] <= row["a"]:
+                    bucket["naovenceu"] += 1
+
+    # acha a MELHOR combinação variável+faixa (maior lift, com amostra
+    # suficiente) — é isso que faz o sistema ser dinâmico em vez de eu fixar
+    # manualmente "time fraco em casa = média de gols < X"
+    melhor = None
+    for var, segs in seg_data.items():
+        for seg_label, counts in segs.items():
+            total = counts["total"]
+            if total < _LAYCASA_MIN_SEGMENT_GAMES:
+                continue
+            rate = counts["naovenceu"] / total
+            lift = (rate / baseline_rate) if baseline_rate else 0.0
+            if lift < _LAYCASA_MIN_LIFT:
+                continue
+            if melhor is None or lift > melhor["lift"]:
+                melhor = {
+                    "variable": var, "variable_label": _LAYCASA_PATTERN_VARIABLES.get(var, var),
+                    "segment": seg_label, "total": total, "rate": round(rate, 4),
+                    "baseline_rate": round(baseline_rate, 4), "lift": round(lift, 3),
+                }
+
+    # aplica o padrão validado às partidas de hoje: quais mandantes têm o
+    # PRÓPRIO segmento igual ao segmento validado acima?
+    sugestoes = []
+    if melhor:
+        for m in today_matches:
+            key = _btcs_norm_name(m["home"])
+            profile = team_profile.get(key)
+            if not profile:
+                continue
+            if profile["segs"].get(melhor["variable"]) == melhor["segment"]:
+                status = m.get("status")
+                item = {
+                    "id": m["id"], "home": m["home"], "away": m["away"],
+                    "liga": m.get("liga", ""), "pais": m.get("pais", ""),
+                    "kickoff_ts": m.get("kickoff_ts"),
+                    "amostra_time": profile["n"],
+                    "encerrado": status == "3",
+                }
+                if status == "3":
+                    hs, as_ = m.get("home_score"), m.get("away_score")
+                    item["home_score"] = hs
+                    item["away_score"] = as_
+                    if hs is not None and as_ is not None:
+                        try:
+                            item["acertou"] = int(hs) <= int(as_)
+                        except (TypeError, ValueError):
+                            pass
+                sugestoes.append(item)
+    sugestoes.sort(key=lambda x: x.get("kickoff_ts") or "")
+
+    data = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "matches_used": total_ids,
+        "melhor_padrao": melhor,
+        "valido": melhor is not None,
+        "sugestoes": sugestoes,
+    }
+    _LAYCASA_CACHE["data"] = data
+    _LAYCASA_CACHE["ts"] = now
+    return data
+
+
+@app.route("/api/masterlist/lay_casa")
+def api_masterlist_lay_casa():
+    """'Mapa de Sugestões' — metodologia Lay Casa: acha dinamicamente qual
+    variável (das usadas na aba Jogo + Backtest CS) melhor prediz 'casa não
+    vence', valida contra o histórico, e aplica às partidas de hoje. Cacheado
+    30min (mesmo TTL do Backtest CS)."""
+    return jsonify(_laycasa_compute())
 
 
 @app.route("/api/backtestcs/ranking")
