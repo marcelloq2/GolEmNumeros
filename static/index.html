@@ -4603,6 +4603,7 @@ function _jogoComputeStats(rows) {
   const golsContra = rows.reduce((a, r) => a + r.golsContra, 0);
   const marcou = rows.filter(r => r.golsPro >= 1).length;
   const sofreu = rows.filter(r => r.golsContra >= 1).length;
+  const ambasMarcaram = rows.filter(r => r.golsPro >= 1 && r.golsContra >= 1).length;
   const semSofrer = rows.filter(r => r.golsContra === 0).length;
   const semMarcar = rows.filter(r => r.golsPro === 0).length;
   const over25 = rows.filter(r => (r.golsPro + r.golsContra) > 2.5).length;
@@ -4614,6 +4615,7 @@ function _jogoComputeStats(rows) {
     n, nHt: withHt.length, vitFT, empFT, derFT, vitHT, empHT, derHT,
     mediaMarcados: golsPro / n, mediaSofridos: golsContra / n,
     pctMarcar: marcou / n * 100, pctSofrer: sofreu / n * 100,
+    pctAmbasMarcam: ambasMarcaram / n * 100,
     semSofrer, semMarcar, over25, under25,
     nGoalMin: withGoalMin.length, tempoSemMarcar, tempoSemSofrer,
   };
@@ -4639,6 +4641,7 @@ function _jogoStatsCardHtml(teamName, s) {
       ${row('Média de gols sofridos por partida', s.mediaSofridos.toFixed(2))}
       ${row('Chance de marcar um gol na próxima partida', s.pctMarcar.toFixed(0) + '%')}
       ${row('Chance de sofrer um gol na próxima partida', s.pctSofrer.toFixed(0) + '%')}
+      ${row('Ambas Marcam', s.pctAmbasMarcam.toFixed(0) + '%')}
       ${row('Número de partidas sem sofrer gols', s.semSofrer)}
       ${row('Número de partidas sem marcar', s.semMarcar)}
       ${row('Partidas com mais de 2,5 gols', `${s.over25} (${(s.over25/s.n*100).toFixed(0)}%)`)}
