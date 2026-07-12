@@ -6022,8 +6022,8 @@ def _mapa_variable_labels(side):
 _MAPA_METODOLOGIAS = {}
 
 
-def _mapa_add(key, label, side, target_fn):
-    _MAPA_METODOLOGIAS[key] = {"label": label, "side": side, "target_fn": target_fn}
+def _mapa_add(key, label, side, target_fn, needs_ht=False):
+    _MAPA_METODOLOGIAS[key] = {"label": label, "side": side, "target_fn": target_fn, "needs_ht": needs_ht}
 
 
 _mapa_add("lay_casa", "Lay Casa (contra o mandante vencer)", "casa", lambda r: r["own"] <= r["opp"])
@@ -6035,6 +6035,13 @@ _mapa_add("over_15", "Over 1.5 FT", "casa", lambda r: (r["own"] + r["opp"]) >= 2
 _mapa_add("over_25", "Over 2.5 FT", "casa", lambda r: (r["own"] + r["opp"]) >= 3)
 _mapa_add("under_15", "Under 1.5 FT", "casa", lambda r: (r["own"] + r["opp"]) <= 1)
 _mapa_add("under_25", "Under 2.5 FT", "casa", lambda r: (r["own"] + r["opp"]) <= 2)
+# HT precisa de um fetch extra por jogo histórico (placar do intervalo não vem
+# junto do H2H) — o target_fn retorna None quando não achou esse dado, e
+# _mapa_compute() ignora linhas com None nas contagens (ver needs_ht abaixo).
+_mapa_add("over_05ht", "Over 0.5 HT", "casa",
+          lambda r: ((r["own_ht"] + r["opp_ht"]) >= 1) if "own_ht" in r else None, needs_ht=True)
+_mapa_add("over_15ht", "Over 1.5 HT", "casa",
+          lambda r: ((r["own_ht"] + r["opp_ht"]) >= 2) if "own_ht" in r else None, needs_ht=True)
 _mapa_add("ambas_sim", "Ambas Marcam Sim", "casa", lambda r: r["own"] >= 1 and r["opp"] >= 1)
 _mapa_add("ambas_nao", "Ambas Marcam Não", "casa", lambda r: not (r["own"] >= 1 and r["opp"] >= 1))
 for _bucket in PLACAR_EXATO_BUCKETS_ORDER:
@@ -6176,13 +6183,34 @@ def _mapa_compute(metodologia_key):
             all_ids_seen.add(row["id"])
             total_ids += 1
 
+    # Metodologias de 1º tempo (needs_ht) precisam do placar do intervalo de
+    # cada jogo histórico, que NÃO vem junto do H2H — busca extra, um feed por
+    # jogo, mas rápida em paralelo (~1s pra 20 jogos testado manualmente,
+    # bem mais barato que o fetch de odds que trava com centenas de jogos).
+    if cfg["needs_ht"] and all_ids_seen:
+        ht_by_id = dict(_fs_event_pool.map(lambda eid: (eid, _fs_half_time(eid)), all_ids_seen))
+        for entry in teams.values():
+            for row in entry["rows"]:
+                ht = ht_by_id.get(row["id"])
+                if not ht:
+                    continue
+                try:
+                    hs, as_ = int(ht["home"]), int(ht["away"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                row["own_ht"] = hs if side == "casa" else as_
+                row["opp_ht"] = as_ if side == "casa" else hs
+
     # baseline: taxa do evento-alvo sobre TODOS os jogos coletados — é contra
     # isso que o lift de cada segmento é medido
     baseline_total = baseline_hits = 0
     for entry in teams.values():
         for row in entry["rows"]:
+            hit = target_fn(row)
+            if hit is None:  # sem dado de HT pra essa linha (needs_ht) — ignora
+                continue
             baseline_total += 1
-            if target_fn(row):
+            if hit:
                 baseline_hits += 1
     baseline_rate = (baseline_hits / baseline_total) if baseline_total else 0.0
 
@@ -6196,8 +6224,11 @@ def _mapa_compute(metodologia_key):
         for var, seg in segs.items():
             bucket = seg_data.setdefault(var, {}).setdefault(seg, {"total": 0, "hits": 0})
             for row in entry["rows"]:
+                hit = target_fn(row)
+                if hit is None:
+                    continue
                 bucket["total"] += 1
-                if target_fn(row):
+                if hit:
                     bucket["hits"] += 1
 
     # acha a MELHOR combinação variável+faixa (maior lift, com amostra
@@ -6240,6 +6271,8 @@ def _mapa_compute(metodologia_key):
                 in_segment = bool(profile) and profile["segs"].get(melhor["variable"]) == melhor["segment"]
                 for row in entry["rows"]:
                     hit = target_fn(row)
+                    if hit is None:
+                        continue
                     baseline_entries.append((row.get("date") or "", hit))
                     if in_segment:
                         filtro_entries.append((row.get("date") or "", hit))
@@ -6291,9 +6324,17 @@ def _mapa_compute(metodologia_key):
                     if hs is not None and as_ is not None:
                         try:
                             hs_i, as_i = int(hs), int(as_)
-                            own_final = hs_i if side == "casa" else as_i
-                            opp_final = as_i if side == "casa" else hs_i
-                            item["acertou"] = target_fn({"own": own_final, "opp": opp_final})
+                            final_row = {
+                                "own": hs_i if side == "casa" else as_i,
+                                "opp": as_i if side == "casa" else hs_i,
+                            }
+                            if cfg["needs_ht"]:
+                                ht = _fs_half_time(m["id"])
+                                if ht:
+                                    hs_ht, as_ht = int(ht["home"]), int(ht["away"])
+                                    final_row["own_ht"] = hs_ht if side == "casa" else as_ht
+                                    final_row["opp_ht"] = as_ht if side == "casa" else hs_ht
+                            item["acertou"] = target_fn(final_row)
                         except (TypeError, ValueError):
                             pass
                 sugestoes_by_id[str(m["id"])] = item
