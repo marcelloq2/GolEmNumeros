@@ -5610,9 +5610,24 @@ _BTCS_PATTERN_VARIABLES = {
     "pct_scored": "Chance de marcar gol",
     "pct_conceded": "Chance de sofrer gol",
     "pct_over25": "Over/Under 2.5",
+    "pct_ambas_marcam": "Ambas Marcam",
+    "saldo": "Saldo de Gols",
     "mandante": "Mandante",
     "odd": "Odd 1X2 (força do time)",
+    # Row-level, só contam nos jogos com odd PRÓPRIA e do ADVERSÁRIO conhecidas
+    # (opp_odd) — mesmas fórmulas da aba Jogo (Aulas 09/10 do curso: pondera o
+    # resultado bruto pela força do adversário, medida pela odd dele).
+    "valor_ponto": "Valor do Ponto",
+    "valor_gol": "Valor do Gol",
+    "valor_saldo": "Valor do Saldo",
+    "custo_gol2": "Custo do Gol 2.0",
 }
+
+_BTCS_SALDO_RANGES = [(-0.3, "<-0.3"), (0.3, "-0.3–0.3"), (None, "≥0.3")]
+_BTCS_VALOR_PONTO_RANGES = [(0.3, "<0.3"), (0.6, "0.3–0.6"), (1.0, "0.6–1.0"), (None, "≥1.0")]
+_BTCS_VALOR_GOL_RANGES = [(0.15, "<0.15"), (0.3, "0.15–0.3"), (0.5, "0.3–0.5"), (None, "≥0.5")]
+_BTCS_VALOR_SALDO_RANGES = [(-0.05, "<-0.05"), (0.05, "-0.05–0.05"), (None, "≥0.05")]
+_BTCS_CUSTO_GOL2_RANGES = [(0.5, "<0.5"), (0.7, "0.5–0.7"), (0.9, "0.7–0.9"), (None, "≥0.9")]
 
 _BTCS_PATTERN_MIN_SEGMENT_GAMES = 30
 _BTCS_PATTERN_MIN_SEGMENT_HITS = 3
@@ -5694,13 +5709,36 @@ def _btcs_build_patterns_from_teams(teams):
         entry["_total"] += 1
         entry[bucket] = entry.get(bucket, 0) + 1
 
-    _TEAM_LEVEL_VARS = ("avg_scored", "avg_conceded", "pct_scored", "pct_conceded", "pct_over25")
-    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante", "odd")
-    # Combinações de 2 a 4 variáveis ao mesmo tempo (ex: média de gols marcados
-    # + chance de sofrer gol + mandante) — quanto mais variáveis, menor a
-    # amostra de cada combinação específica, por isso o limite de tamanho em 4.
-    _COMBO_SIZES = (2, 3, 4)
+    _TEAM_LEVEL_VARS = ("avg_scored", "avg_conceded", "pct_scored", "pct_conceded", "pct_over25",
+                         "pct_ambas_marcam", "saldo")
+    # valor_ponto/valor_gol/valor_saldo/custo_gol2 são row-level como "odd" (só
+    # contam nos jogos com odd própria E do adversário conhecidas — ver
+    # _btcs_row_valor_segs) — mesmas fórmulas da aba Jogo (Aulas 09/10).
+    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante", "odd", "valor_ponto", "valor_gol", "valor_saldo", "custo_gol2")
+    # Combinações de 2 a 3 variáveis ao mesmo tempo (ex: média de gols marcados
+    # + chance de sofrer gol + mandante). Com 11 variáveis disponíveis agora
+    # (dobrou desde a versão original de 7), combos de tamanho 4 explodiriam o
+    # tempo de cálculo (C(11,4) = 330 vs C(11,3) = 165) sem ganho relevante de
+    # sinal — cortado por segurança de performance (mesma lição aprendida com o
+    # travamento do fetch de odds do Mapa de Sugestões).
+    _COMBO_SIZES = (2, 3)
     _VAR_COMBOS = [c for size in _COMBO_SIZES for c in itertools.combinations(_ALL_PATTERN_VARS, size)]
+
+    def _btcs_row_valor_segs(own, opp, own_odd, opp_odd):
+        """Segmentos das 4 variáveis dependentes de odd, ou None se faltar
+        odd própria ou do adversário nesse jogo específico."""
+        if not own_odd or not opp_odd:
+            return None
+        own_prob = 1.0 / own_odd
+        opp_prob = 1.0 / opp_odd
+        pontos = 3 if own > opp else (1 if own == opp else 0)
+        saldo_row = own - opp
+        return {
+            "valor_ponto": _btcs_segment_range(pontos * opp_prob, _BTCS_VALOR_PONTO_RANGES),
+            "valor_gol": _btcs_segment_range(own * opp_prob, _BTCS_VALOR_GOL_RANGES),
+            "valor_saldo": _btcs_segment_range(saldo_row * opp_prob, _BTCS_VALOR_SALDO_RANGES),
+            "custo_gol2": _btcs_segment_range((own / 2) + (own_prob / 2), _BTCS_CUSTO_GOL2_RANGES),
+        }
 
     for entry in teams.values():
         rows = entry["rows"]
@@ -5709,7 +5747,7 @@ def _btcs_build_patterns_from_teams(teams):
             continue
         team_key = _btcs_norm_name(entry["name"])
         scored_total = conceded_total = 0
-        games_scored = games_conceded = games_over25 = 0
+        games_scored = games_conceded = games_over25 = games_ambas = 0
         row_is_home = []
         for row in rows:
             row_home_key = _btcs_norm_name(row.get("home"))
@@ -5726,6 +5764,8 @@ def _btcs_build_patterns_from_teams(teams):
                 games_conceded += 1
             if row["h"] + row["a"] >= 3:
                 games_over25 += 1
+            if own >= 1 and opp >= 1:
+                games_ambas += 1
             row_is_home.append(is_home)
 
         team_segs = {
@@ -5734,6 +5774,8 @@ def _btcs_build_patterns_from_teams(teams):
             "pct_scored": _btcs_segment_range(games_scored / n, _BTCS_PCT_RANGES),
             "pct_conceded": _btcs_segment_range(games_conceded / n, _BTCS_PCT_RANGES),
             "pct_over25": _btcs_segment_range(games_over25 / n, _BTCS_OVER_RANGES),
+            "pct_ambas_marcam": _btcs_segment_range(games_ambas / n, _BTCS_PCT_RANGES),
+            "saldo": _btcs_segment_range((scored_total - conceded_total) / n, _BTCS_SALDO_RANGES),
         }
 
         for row in rows:
@@ -5741,9 +5783,12 @@ def _btcs_build_patterns_from_teams(teams):
             for v in _TEAM_LEVEL_VARS:
                 _accum(v, team_segs[v], bucket)
 
-        # Mandante e Odd são row-level: os jogos de um time podem se dividir entre
-        # os dois segmentos (casa/fora) ou entre faixas de odd diferentes,
-        # diferente das variáveis acima que atribuem o time inteiro a UM segmento.
+        # Mandante, Odd e as 4 variáveis de "valor" são row-level: os jogos de
+        # um time podem se dividir entre segmentos diferentes jogo a jogo,
+        # diferente das variáveis acima que atribuem o time inteiro a UM
+        # segmento. Monta o perfil row-level UMA VEZ e reaproveita tanto pro
+        # acúmulo individual quanto pras combinações abaixo.
+        row_valor_segs = []
         for row, is_home in zip(rows, row_is_home):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             segment = "Jogando em casa" if is_home else "Jogando fora"
@@ -5751,21 +5796,31 @@ def _btcs_build_patterns_from_teams(teams):
             odd_label = _bt2_odd_range_label(row.get("odd"))
             if odd_label:
                 _accum("odd", odd_label, bucket)
+            own = row["h"] if is_home else row["a"]
+            opp = row["a"] if is_home else row["h"]
+            valor_segs = _btcs_row_valor_segs(own, opp, row.get("odd"), row.get("opp_odd"))
+            if valor_segs:
+                for v, seg in valor_segs.items():
+                    _accum(v, seg, bucket)
+            row_valor_segs.append(valor_segs)
 
-        # Combinações de 2 a 4 variáveis: monta o "perfil" completo de CADA
-        # jogo (segmento de todas as variáveis team-level, que são as mesmas
-        # em todos os jogos do time, + o mandante e a odd daquele jogo
-        # específico) e acumula em cada combinação de variáveis que existir.
-        # Jogos sem odd conhecida só ficam de fora das combinações que incluem "odd".
-        for row, is_home in zip(rows, row_is_home):
+        # Combinações de 2-3 variáveis: monta o "perfil" completo de CADA jogo
+        # (segmento de todas as variáveis team-level, que são as mesmas em
+        # todos os jogos do time, + mandante/odd/valor daquele jogo específico)
+        # e acumula em cada combinação de variáveis que existir. Jogos sem odd
+        # (própria ou do adversário) só ficam de fora das combinações que
+        # incluem essas variáveis.
+        for row, is_home, valor_segs in zip(rows, row_is_home, row_valor_segs):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             row_segs = dict(team_segs)
             row_segs["mandante"] = "Jogando em casa" if is_home else "Jogando fora"
             odd_label = _bt2_odd_range_label(row.get("odd"))
             if odd_label:
                 row_segs["odd"] = odd_label
+            if valor_segs:
+                row_segs.update(valor_segs)
             for var_combo in _VAR_COMBOS:
-                if "odd" in var_combo and "odd" not in row_segs:
+                if any(v not in row_segs for v in var_combo):
                     continue
                 _accum_combo(var_combo, [row_segs[v] for v in var_combo], bucket)
 
@@ -5966,16 +6021,16 @@ def _btcs_compute_patterns_acumulado():
         conn = _btcs_db_conn()
         try:
             cur = conn.execute(
-                "SELECT event_id, team_key, team_name, h, a, home_name, match_date, odd FROM btcs_pattern_rows"
+                "SELECT event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd FROM btcs_pattern_rows"
             )
             all_rows = cur.fetchall()
         finally:
             conn.close()
 
     teams = {}
-    for event_id, team_key, team_name, h, a, home_name, match_date, odd in all_rows:
+    for event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd in all_rows:
         entry = teams.setdefault(team_key, {"name": team_name, "rows": []})
-        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date, "odd": odd})
+        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date, "odd": odd, "opp_odd": opp_odd})
 
     return _btcs_build_patterns_from_teams(teams)
 
