@@ -5993,6 +5993,10 @@ _LAYCASA_MIN_LIFT = 1.15
 _LAYCASA_CACHE = {"ts": 0, "data": None}
 _LAYCASA_TTL = 30 * 60
 
+# Congela o padrão (variável+faixa) escolhido e acumula as sugestões do dia —
+# ver nota em _laycasa_compute(). Zerado quando a data muda.
+_LAYCASA_DAY_CACHE = {"date": None, "melhor": None, "comparativo": None, "sugestoes_by_id": {}}
+
 _LAYCASA_VALOR_PONTO_RANGES = [(0.3, "<0.3"), (0.6, "0.3–0.6"), (1.0, "0.6–1.0"), (None, "≥1.0")]
 _LAYCASA_VALOR_GOL_RANGES = [(0.15, "<0.15"), (0.3, "0.15–0.3"), (0.5, "0.3–0.5"), (None, "≥0.5")]
 _LAYCASA_CUSTO_GOL2_RANGES = [(0.5, "<0.5"), (0.7, "0.5–0.7"), (0.9, "0.7–0.9"), (None, "≥0.9")]
@@ -6068,6 +6072,15 @@ def _laycasa_compute():
     if _LAYCASA_CACHE["data"] and (now - _LAYCASA_CACHE["ts"]) < _LAYCASA_TTL:
         return _LAYCASA_CACHE["data"]
 
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if _LAYCASA_DAY_CACHE["date"] != today_str:
+        # virou o dia (ou primeira execução) — libera escolher um padrão novo e
+        # zera a lista acumulada de sugestões
+        _LAYCASA_DAY_CACHE["date"] = today_str
+        _LAYCASA_DAY_CACHE["melhor"] = None
+        _LAYCASA_DAY_CACHE["comparativo"] = None
+        _LAYCASA_DAY_CACHE["sugestoes_by_id"] = {}
+
     # Agendados (pra sugerir) + já encerrados hoje (pra mostrar o placar final e
     # se a sugestão teria acertado) — pools separados e cada um com seu próprio
     # teto, senão um dia com muitos jogos já encerrados "engoliria" as vagas dos
@@ -6133,59 +6146,75 @@ def _laycasa_compute():
 
     # acha a MELHOR combinação variável+faixa (maior lift, com amostra
     # suficiente) — é isso que faz o sistema ser dinâmico em vez de eu fixar
-    # manualmente "time fraco em casa = média de gols < X"
-    melhor = None
-    for var, segs in seg_data.items():
-        for seg_label, counts in segs.items():
-            total = counts["total"]
-            if total < _LAYCASA_MIN_SEGMENT_GAMES:
-                continue
-            rate = counts["naovenceu"] / total
-            lift = (rate / baseline_rate) if baseline_rate else 0.0
-            if lift < _LAYCASA_MIN_LIFT:
-                continue
-            if melhor is None or lift > melhor["lift"]:
-                melhor = {
-                    "variable": var, "variable_label": _LAYCASA_PATTERN_VARIABLES.get(var, var),
-                    "segment": seg_label, "total": total, "rate": round(rate, 4),
-                    "baseline_rate": round(baseline_rate, 4), "lift": round(lift, 3),
-                }
+    # manualmente "time fraco em casa = média de gols < X". Só é escolhida UMA
+    # VEZ POR DIA (fica congelada em _LAYCASA_DAY_CACHE) — sem isso, cada
+    # recálculo (a cada 30min) podia escolher uma variável+faixa diferente
+    # (a amostra coletada muda um pouco a cada vez) e a grade de sugestões
+    # ficava trocando de jogos o dia todo, o que não faz sentido pro usuário
+    # acompanhar um padrão ao longo do dia.
+    if _LAYCASA_DAY_CACHE["melhor"] is not None:
+        melhor = _LAYCASA_DAY_CACHE["melhor"]
+        comparativo = _LAYCASA_DAY_CACHE["comparativo"]
+    else:
+        melhor = None
+        for var, segs in seg_data.items():
+            for seg_label, counts in segs.items():
+                total = counts["total"]
+                if total < _LAYCASA_MIN_SEGMENT_GAMES:
+                    continue
+                rate = counts["naovenceu"] / total
+                lift = (rate / baseline_rate) if baseline_rate else 0.0
+                if lift < _LAYCASA_MIN_LIFT:
+                    continue
+                if melhor is None or lift > melhor["lift"]:
+                    melhor = {
+                        "variable": var, "variable_label": _LAYCASA_PATTERN_VARIABLES.get(var, var),
+                        "segment": seg_label, "total": total, "rate": round(rate, 4),
+                        "baseline_rate": round(baseline_rate, 4), "lift": round(lift, 3),
+                    }
 
-    # gráfico comparativo: taxa de acerto acumulada (geral vs com o filtro
-    # validado acima) ao longo de todas as entradas históricas coletadas,
-    # ordenadas por data — mesmo padrão do timeline de cumulative_hits usado
-    # no Backtest CS, só que aqui é % de acerto acumulado, não contagem bruta
-    comparativo = None
-    if melhor:
-        baseline_entries = []
-        filtro_entries = []
-        for key, entry in teams.items():
-            profile = team_profile.get(key)
-            in_segment = bool(profile) and profile["segs"].get(melhor["variable"]) == melhor["segment"]
-            for row in entry["rows"]:
-                hit = row["h"] <= row["a"]
-                baseline_entries.append((row.get("date") or "", hit))
-                if in_segment:
-                    filtro_entries.append((row.get("date") or "", hit))
+        # gráfico comparativo: taxa de acerto acumulada (geral vs com o filtro
+        # validado acima) ao longo de todas as entradas históricas coletadas,
+        # ordenadas por data — mesmo padrão do timeline de cumulative_hits usado
+        # no Backtest CS, só que aqui é % de acerto acumulado, não contagem bruta
+        comparativo = None
+        if melhor:
+            baseline_entries = []
+            filtro_entries = []
+            for key, entry in teams.items():
+                profile = team_profile.get(key)
+                in_segment = bool(profile) and profile["segs"].get(melhor["variable"]) == melhor["segment"]
+                for row in entry["rows"]:
+                    hit = row["h"] <= row["a"]
+                    baseline_entries.append((row.get("date") or "", hit))
+                    if in_segment:
+                        filtro_entries.append((row.get("date") or "", hit))
 
-        def _cum_hitrate_timeline(entries):
-            entries = sorted(entries, key=lambda e: e[0])
-            timeline = []
-            hits = 0
-            for i, (date, hit) in enumerate(entries, start=1):
-                if hit:
-                    hits += 1
-                timeline.append({"n": i, "date": date, "taxa_acerto": round(hits / i, 4)})
-            return timeline
+            def _cum_hitrate_timeline(entries):
+                entries = sorted(entries, key=lambda e: e[0])
+                timeline = []
+                hits = 0
+                for i, (date, hit) in enumerate(entries, start=1):
+                    if hit:
+                        hits += 1
+                    timeline.append({"n": i, "date": date, "taxa_acerto": round(hits / i, 4)})
+                return timeline
 
-        comparativo = {
-            "geral": _cum_hitrate_timeline(baseline_entries),
-            "com_filtro": _cum_hitrate_timeline(filtro_entries),
-        }
+            comparativo = {
+                "geral": _cum_hitrate_timeline(baseline_entries),
+                "com_filtro": _cum_hitrate_timeline(filtro_entries),
+            }
+
+        _LAYCASA_DAY_CACHE["melhor"] = melhor
+        _LAYCASA_DAY_CACHE["comparativo"] = comparativo
 
     # aplica o padrão validado às partidas de hoje: quais mandantes têm o
-    # PRÓPRIO segmento igual ao segmento validado acima?
-    sugestoes = []
+    # PRÓPRIO segmento igual ao segmento validado acima? Os resultados são
+    # ACUMULADOS no dia (_LAYCASA_DAY_CACHE["sugestoes_by_id"]) — uma vez que
+    # um jogo entra na lista, ele nunca some (só atualiza o placar quando
+    # encerra), mesmo que numa rodada seguinte ele não apareça mais na amostra
+    # de candidatos (que é limitada por hora/quantidade).
+    sugestoes_by_id = _LAYCASA_DAY_CACHE["sugestoes_by_id"]
     if melhor:
         for m in today_matches:
             key = _btcs_norm_name(m["home"])
@@ -6210,8 +6239,8 @@ def _laycasa_compute():
                             item["acertou"] = int(hs) <= int(as_)
                         except (TypeError, ValueError):
                             pass
-                sugestoes.append(item)
-    sugestoes.sort(key=lambda x: x.get("kickoff_ts") or "")
+                sugestoes_by_id[str(m["id"])] = item
+    sugestoes = sorted(sugestoes_by_id.values(), key=lambda x: x.get("kickoff_ts") or "")
 
     data = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
