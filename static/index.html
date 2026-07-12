@@ -4611,14 +4611,23 @@ async function _jogoEnsureGoalMinutes(rows) {
 // num azarão):
 //   Saldo de Gols = meus gols − gols que sofri
 //   Valor do Saldo = Saldo de Gols × probabilidade do ADVERSÁRIO
+//
+// "Valor do Ponto" (Aula 09): os 3 pontos de uma vitória não valem o mesmo
+// dependendo de quem era o adversário — vencer um super favorito "custa menos
+// energia" que vencer um jogo parelho, então pondera os pontos conquistados
+// (V=3/E=1/D=0) pela probabilidade do ADVERSÁRIO, igual Valor do Gol/Saldo:
+//   Valor do Ponto = pontos conquistados × probabilidade do ADVERSÁRIO
 async function _jogoEnsureGolValor(rows) {
-  rows.forEach(r => { r.saldo = r.golsPro - r.golsContra; });
+  rows.forEach(r => {
+    r.saldo = r.golsPro - r.golsContra;
+    r.pontos = r.result === 'V' ? 3 : r.result === 'E' ? 1 : 0;
+  });
   await _ensureToday2Odds(rows.map(r => r.id));
   rows.forEach(r => {
     const odds = _profitOddsCache[r.id];
     const o1x2 = odds && odds.markets && odds.markets['1x2'];
     if (!o1x2 || !o1x2.home || !o1x2.away) {
-      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = null;
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = r.valorPonto = null;
       return;
     }
     const ownOddRaw = r.isHome ? o1x2.home : o1x2.away;
@@ -4626,7 +4635,7 @@ async function _jogoEnsureGolValor(rows) {
     const ownOdd = parseFloat(ownOddRaw.opening || ownOddRaw.value);
     const oppOdd = parseFloat(oppOddRaw.opening || oppOddRaw.value);
     if (!ownOdd || !oppOdd) {
-      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = null;
+      r.valorGolMarcado = r.valorGolSofrido = r.custoGol2Marcado = r.custoGol2Sofrido = r.valorSaldo = r.valorPonto = null;
       return;
     }
     const probOwn = 1 / ownOdd;
@@ -4636,6 +4645,7 @@ async function _jogoEnsureGolValor(rows) {
     r.custoGol2Marcado = (r.golsPro / 2) + (probOwn / 2);
     r.custoGol2Sofrido = (r.golsContra / 2) + (probOwn / 2);
     r.valorSaldo = r.saldo * probOpp;
+    r.valorPonto = r.pontos * probOpp;
   });
 }
 
@@ -4653,6 +4663,7 @@ function _jogoGolValorStats(rows) {
     nSaldo: comSaldo.length,
     avgSaldo: comSaldo.length ? avg(comSaldo, 'saldo') : undefined,
     avgValorSaldo: valid.length ? avg(valid, 'valorSaldo') : undefined,
+    avgValorPonto: valid.length ? avg(valid, 'valorPonto') : undefined,
   };
 }
 
@@ -4721,6 +4732,7 @@ function _jogoStatsCardHtml(teamName, s) {
       ${s.avgCustoGol2Sofrido !== undefined ? row('Custo do Gol 2.0 (Sofrido)', s.avgCustoGol2Sofrido.toFixed(3), `média de ((gols sofridos ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`) : ''}
       ${s.avgSaldo !== undefined ? row('Saldo de Gols', s.avgSaldo >= 0 ? `+${s.avgSaldo.toFixed(2)}` : s.avgSaldo.toFixed(2), `média de (meus gols − gols sofridos) em ${s.nSaldo} jogos`) : ''}
       ${s.avgValorSaldo !== undefined ? row('Valor do Saldo', s.avgValorSaldo.toFixed(3), `média de (saldo de gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
+      ${s.avgValorPonto !== undefined ? row('Valor do Ponto', s.avgValorPonto.toFixed(3), `média de (pontos conquistados [V=3/E=1/D=0] × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`) : ''}
     </div>`;
 }
 
@@ -4963,6 +4975,7 @@ async function _renderToday2Jogo(matchId) {
       s.avgSaldo = gv.avgSaldo;
       s.nSaldo = gv.nSaldo;
       s.avgValorSaldo = gv.avgValorSaldo;
+      s.avgValorPonto = gv.avgValorPonto;
     }
     return _jogoStatsCardHtml(b.teamName, s) + _jogoGoalPatternHtml(b.teamName, gp);
   });
