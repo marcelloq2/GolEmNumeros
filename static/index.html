@@ -6948,12 +6948,30 @@ function _live2LayCsSignalNow(points, m, stats) {
   return null;
 }
 
-// "Lay Zebra 1T-FT" — SEM validação estatística (os critérios reais do método são
-// táticos: posse de bola no último terço, marcação pressão, construção de jogo,
-// bola parada perigosa — nada disso existe no momentum_history, que só guarda um
-// valor agregado de pressão por minuto, sem zona do campo). Mostra só um LEMBRETE
-// de que a odd da zebra tá na faixa do método (3.50-9.90) durante o 1º tempo —
-// a leitura tática de verdade fica por conta do usuário assistindo a partida
+// Extrai xG casa/fora do mesmo jeito que buildXgBadgeHtml: prioriza o xG oficial
+// do Uniscore, com fallback pra fórmula simplificada (big chances + chutes dentro/
+// fora da área) quando o Uniscore não manda "Expected Goals" pronto
+function _live2ExtractXg(stats) {
+  if (!stats) return null;
+  const xg = stats.expected_goals;
+  if (xg && (xg.homeValue || xg.awayValue)) {
+    return { xgH: parseFloat(xg.homeValue) || 0, xgA: parseFloat(xg.awayValue) || 0 };
+  }
+  const gv = key => { const it = stats[key]; return it ? [Number(it.homeValue) || 0, Number(it.awayValue) || 0] : [0, 0]; };
+  const [bigH, bigA] = gv('big_chances');
+  const [boxH, boxA] = gv('shots_inside_box');
+  const [outH, outA] = gv('shots_outside_box');
+  const calcXg = (big, boxIn, boxOut) => Math.round((big * 0.40 + Math.max(0, boxIn - big) * 0.12 + boxOut * 0.04) * 100) / 100;
+  return { xgH: calcXg(bigH, boxH, outH), xgA: calcXg(bigA, boxA, outA) };
+}
+
+// "Lay Zebra 1T-FT" — os critérios "de verdade" do método são táticos (posse de
+// bola no último terço, marcação pressão, construção de jogo, bola parada
+// perigosa) e não existem no momentum_history (só guarda pressão agregada, sem
+// zona do campo). Mas o xG (já carregado em segundo plano via Uniscore/shotmap
+// pra cada partida ao vivo) é um bom proxy pra "zebra sem criar perigo real" —
+// usa quando disponível pra reforçar ou DESCARTAR o selo, e cai pro lembrete
+// simples (só a faixa de odd) quando o xG ainda não carregou
 function _live2LayZebra1tSignalNow(m) {
   const odds = _live2OddsCache[m.id] && _live2OddsCache[m.id].odds;
   if (!odds || !odds.home || !odds.away) return null;
@@ -6968,9 +6986,22 @@ function _live2LayZebra1tSignalNow(m) {
 
   const teamName = zebraHome ? m.casa : m.fora;
   const sideLabel = zebraHome ? 'Casa' : 'Visitante';
+
+  const uni = _uniCache[`${m.casa}|${m.fora}`];
+  const xgPair = _live2ExtractXg(uni && uni.statistics);
+  let xgTxt = ' xG ainda não carregou — leitura tática (posse no último terço, marcação pressão, bola parada) fica por sua conta.';
+  if (xgPair) {
+    const xgZebra = zebraHome ? xgPair.xgH : xgPair.xgA;
+    const xgFavorito = zebraHome ? xgPair.xgA : xgPair.xgH;
+    // zebra já criando perigo de verdade (xG relevante e perto do favorito) —
+    // contraria o critério de entrada ("zebra sem criação"), não faz sentido mostrar
+    if (xgZebra > 0.5 && xgZebra >= xgFavorito * 0.6) return null;
+    xgTxt = ` xG atual: ${teamName} ${xgZebra.toFixed(2)} x favorito ${xgFavorito.toFixed(2)} — zebra sem perigo real, reforça o critério de entrada. Ainda assim, posse no último terço/marcação pressão/bola parada não são checados automaticamente.`;
+  }
+
   return {
     icon: '🦓', label: `Lay Zebra 1T ${sideLabel}`,
-    title: `Lay Zebra 1T-FT — ${teamName} (zebra, odd ${zebraOdd}) tá na faixa de odd do método (3.50-9.90). ⚠️ NÃO validado estatisticamente aqui: os critérios reais são táticos (posse no último terço, marcação pressão, construção de jogo, bola parada perigosa) e não existem nos dados que uso pros outros selos — isso é só um lembrete de que a odd bate, a leitura de jogo é por sua conta.`,
+    title: `Lay Zebra 1T-FT — ${teamName} (zebra, odd ${zebraOdd}) tá na faixa de odd do método (3.50-9.90).${xgTxt}`,
   };
 }
 
