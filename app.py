@@ -4698,12 +4698,15 @@ def _fs_odds_has_data(key, odds):
         return bool(odds.get("homeOrDraw") and odds.get("homeOrAway") and odds.get("drawOrAway"))
     return True
 
-def _fs_odds_all_markets(event_id, bookmaker_id=16, pool=None):
-    """Busca os 6 mercados confirmados pra um event_id numa casa específica, em paralelo
+def _fs_odds_all_markets(event_id, bookmaker_id=16, pool=None, markets_wanted=None):
+    """Busca os mercados confirmados pra um event_id numa casa específica, em paralelo
     (uma requisição por mercado ao mesmo tempo). Retorna markets_dict (pode vir vazio).
     Aceita um pool alternativo (default: _fs_market_pool) pra isolar chamadas que não
-    podem ficar presas atrás de cálculos pesados que também usam o pool padrão."""
+    podem ficar presas atrás de cálculos pesados que também usam o pool padrão.
+    markets_wanted (lista de keys, ex: ["1x2"]) restringe aos mercados pedidos em vez
+    dos 6 confirmados — usado por quem só precisa de 1, evita chamadas à toa."""
     pool = pool or _fs_market_pool
+    items = FS_ODDS_MARKETS if markets_wanted is None else [i for i in FS_ODDS_MARKETS if i[0] in markets_wanted]
 
     def _fetch_one(item):
         key, bet_type = item
@@ -4712,12 +4715,12 @@ def _fs_odds_all_markets(event_id, bookmaker_id=16, pool=None):
         except Exception:
             return key, None
     markets = {}
-    for key, odds in pool.map(_fetch_one, FS_ODDS_MARKETS):
+    for key, odds in pool.map(_fetch_one, items):
         if _fs_odds_has_data(key, odds):
             markets[key] = odds
     return markets
 
-def _fs_odds_all_markets_any_bookmaker(event_id, pool=None):
+def _fs_odds_all_markets_any_bookmaker(event_id, pool=None, markets_wanted=None):
     """Tenta bet365/Betano/Tipsport nessa ordem, MISTURANDO casas por mercado — a
     Betano.br, por exemplo, não expõe 'Ambos Marcam' nessa API pra praticamente
     nenhuma partida (testado e confirmado, não é bug de parsing: a API retorna
@@ -4727,14 +4730,17 @@ def _fs_odds_all_markets_any_bookmaker(event_id, pool=None):
     retornado é da 1ª casa que contribuiu com algo (a mais completa via de
     regra), pros mercados que vieram de outra casa não tem atribuição individual
     no retorno — é uma simplificação aceitável já que o objetivo é preencher
-    lacunas, não misturar odds de mercados que uma mesma casa já tem."""
+    lacunas, não misturar odds de mercados que uma mesma casa já tem.
+    markets_wanted restringe quais dos 6 mercados são buscados (default: todos) —
+    quem só precisa de "1x2" (ex: Backtest CS) evita 5/6 das chamadas à toa."""
     bookmaker_name = None
     markets = {}
+    wanted_keys = markets_wanted if markets_wanted is not None else [k for k, _ in FS_ODDS_MARKETS]
     for bid, name in FS_ODDS_BOOKMAKERS:
-        faltando = [k for k, _ in FS_ODDS_MARKETS if k not in markets]
+        faltando = [k for k in wanted_keys if k not in markets]
         if not faltando:
             break
-        casa_markets = _fs_odds_all_markets(event_id, bookmaker_id=bid, pool=pool)
+        casa_markets = _fs_odds_all_markets(event_id, bookmaker_id=bid, pool=pool, markets_wanted=faltando)
         if casa_markets and bookmaker_name is None:
             bookmaker_name = name
         for k, v in casa_markets.items():
@@ -5480,8 +5486,12 @@ def _btcs_persist_results(rows):
 
 def _btcs_persist_pattern_rows(rows):
     """Grava [(event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd), ...]
-    via INSERT OR IGNORE — chave é (event_id, team_key), então o mesmo jogo
-    reaparecendo em janelas futuras de 'últimos 30' não duplica pro mesmo time."""
+    via upsert — chave é (event_id, team_key), então o mesmo jogo reaparecendo em
+    janelas futuras de 'últimos 30' não duplica pro mesmo time. Em conflito,
+    COALESCE mantém a odd/opp_odd já salva se a nova vier vazia (ex: rodada em
+    que a busca de odds falhou), mas PREENCHE se a linha antiga não tinha esse
+    dado ainda — sem isso, linhas salvas antes do opp_odd existir ficavam pra
+    sempre sem esse dado (INSERT OR IGNORE nunca atualiza linha já existente)."""
     if not rows:
         return
     now = datetime.utcnow().isoformat() + "Z"
@@ -5489,9 +5499,12 @@ def _btcs_persist_pattern_rows(rows):
         conn = _btcs_db_conn()
         try:
             conn.executemany(
-                """INSERT OR IGNORE INTO btcs_pattern_rows
+                """INSERT INTO btcs_pattern_rows
                    (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at, odd, opp_odd)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                   VALUES (?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(event_id, team_key) DO UPDATE SET
+                     odd = COALESCE(btcs_pattern_rows.odd, excluded.odd),
+                     opp_odd = COALESCE(btcs_pattern_rows.opp_odd, excluded.opp_odd)""",
                 [(eid, tk, tn, h, a, home, date, now, odd, opp_odd) for (eid, tk, tn, h, a, home, date, odd, opp_odd) in rows],
             )
             conn.commit()
@@ -5970,10 +5983,14 @@ def _btcs_compute_patterns():
     # Busca a odd 1X2 de cada jogo histórico único (mesmo pool/endpoint já usado
     # no Backtest Tradicional) e anexa a odd do PRÓPRIO time (Casa se ele jogou em
     # casa naquele jogo, Fora se jogou fora) em cada linha — alimenta a variável
-    # de padrão "odd" (força do time conforme o mercado precificava).
+    # de padrão "odd" (força do time conforme o mercado precificava). Só pede o
+    # mercado "1x2" (markets_wanted) — é o único que essa função usa, e pedir os
+    # outros 5 à toa (o padrão de _fs_odds_all_markets_any_bookmaker) foi o que
+    # deixava isso ~700s pra 400 jogos: medido e confirmado que o gargalo real
+    # era aqui, não no fetch de H2H (que sozinho leva só alguns segundos).
     def _fetch_odds_btcs(event_id):
         try:
-            return event_id, _fs_odds_all_markets_any_bookmaker(event_id)
+            return event_id, _fs_odds_all_markets_any_bookmaker(event_id, markets_wanted=["1x2"])
         except Exception:
             return event_id, (None, {})
 
