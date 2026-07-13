@@ -4523,7 +4523,11 @@ function _btcsMatchesHtml(m, matches) {
 let _btcsPatternsData = null;
 let _btcsPatternsLoading = false;
 let _btcsBucketOdds = null; // { [bucket]: odd_media_hoje } — carregado à parte, não bloqueia os padrões
-let _btcsPatternsMode = 'recente'; // 'recente' (últimos 30 jogos) | 'acumulado' (histórico persistido, cresce com o tempo)
+// 'recente' (últimos 30 jogos, calcula odds na hora — pode levar dezenas de
+// segundos e prende 1 dos poucos workers do servidor) | 'acumulado' (histórico
+// persistido, só lê SQLite, rápido). Default é 'acumulado' pra abrir a aba
+// nunca disparar sozinho o cálculo pesado — foi o gatilho de uma queda do site.
+let _btcsPatternsMode = 'acumulado';
 let _btcsPatternsDataByMode = { recente: null, acumulado: null };
 
 async function _btcsLoadPatterns(refresh) {
