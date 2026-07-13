@@ -1403,18 +1403,7 @@
           </div>
         </div>
 
-        <div class="today2-filter-box collapsed" id="today2MetodBox" style="margin-top:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-          <div class="today2-filter-box-header" onclick="toggleToday2FilterBox('today2MetodBox')"
-            style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);cursor:pointer">
-            <span style="font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text2)">🎯 FILTRO DE METODOLOGIAS <span id="today2MetodChevron" style="display:inline-block;transition:transform .15s">⌄</span></span>
-            <span title="Limpar" onclick="event.stopPropagation();clearToday2Metodologias()" style="cursor:pointer;font-size:12px">🗑</span>
-          </div>
-          <div class="today2-filter-box-body" id="today2MetodBody" style="padding:8px 10px;max-height:220px;overflow-y:auto;font-size:11px">
-            <div style="color:var(--text2)">carregando...</div>
-          </div>
-        </div>
-
-        <div class="today2-filter-box collapsed" id="today2ParamBox" style="margin-top:6px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <div class="today2-filter-box collapsed" id="today2ParamBox" style="margin-top:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
           <div class="today2-filter-box-header" onclick="toggleToday2FilterBox('today2ParamBox')"
             style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg);cursor:pointer">
             <span style="font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--text2)">⚙️ FILTRAR POR PARÂMETROS <span id="today2ParamChevron" style="display:inline-block;transition:transform .15s">⌄</span></span>
@@ -1917,7 +1906,6 @@ const APP_GUIA_SECTIONS = {
     html: `
       <p><b>O que é:</b> lista de todas as partidas do dia (agendadas, ao vivo e encerradas), com dados cruzados de várias fontes.</p>
       <p><b>🔍 Busca e filtros no topo:</b> filtre por nome de time/liga, escolha uma liga específica, filtre por turno (manhã/tarde/noite), status "Ao Vivo"/"Encerrados"/"Próximos".</p>
-      <p><b>🎯 Filtro de Metodologias:</b> mostra só os jogos onde alguma metodologia de valor (ranqueada no Backtest Tradicional ou Backtest CS) está disponível nas odds de hoje.</p>
       <p><b>⚙️ Filtrar por Parâmetros:</b> filtra pelos resultados possíveis (Super Favorito, Favorito, Parelho, etc.) e pelas odds atuais de cada jogo.</p>
       <p><b>🔍 Filtrar por Análise:</b> ~15 regras de leitura automática (padrão de gols, desempenho, peso da camisa, jogo complexo...) combinadas em E/OU — só mostra os jogos que batem com as regras marcadas.</p>
       <p><b>Ao clicar numa partida</b>, o painel de detalhe mostra abas: Jogo, Odds, H2H, Classificações, Profit Mercados Tradicionais (ROI histórico por mercado/seleção), Placares Corretos (taxa de acerto por placar) e 🧠 Leitura da Partida (cruza tudo isso em cards de texto automático, incluindo Cenário de Gols, Momento dos Times, Histórico H2H, Desempenho Ofensivo, Tendência de Apostas e Padrões Históricos).</p>
@@ -1941,8 +1929,7 @@ const APP_GUIA_SECTIONS = {
     html: `
       <p><b>O que é:</b> ranking global de metodologias — cada combinação de mercado (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap Asiático) + seleção é testada contra odds históricas reais de todos os jogos do dia.</p>
       <p><b>Colunas do ranking:</b> Apostas (tamanho da amostra), Taxa de Acerto, Profit (em unidades), ROI, Variância, Desvio Padrão e CV (coeficiente de variação — risco normalizado pelo retorno), e a Odd Atual disponível pra aquela seleção.</p>
-      <p><b>Como usar:</b> metodologias com ROI alto (≥20%) e amostra de pelo menos 8 jogos são destacadas com ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado, não garantia de lucro futuro.</p>
-      <p>Essas mesmas metodologias de valor alimentam o 🎯 Filtro de Metodologias da aba Hoje.</p>`,
+      <p><b>Como usar:</b> metodologias com ROI alto (≥20%) e amostra de pelo menos 8 jogos são destacadas com ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado, não garantia de lucro futuro.</p>`,
   },
   backtestcs: {
     label: '🎯 Backtest CS',
@@ -2747,10 +2734,9 @@ function filterToday2() {
       const bateTurno = _today2TurnoAtivo === 'all' || _calcToday2Turno(m) === _today2TurnoAtivo;
       const bateAoVivo = !_today2SoAoVivo || m.status === '2';
       const bateStatus = !_today2StatusFiltro || m.status === _today2StatusFiltro;
-      const bateMetodologia = _today2QualifyingMatchIds.size === 0 || _today2QualifyingMatchIds.has(String(m.id));
       const bateParametro = _today2MatchePassaParametros(m);
       const bateAnalise = _today2AnaliseQualifyingIds.size === 0 || _today2AnaliseQualifyingIds.has(String(m.id));
-      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateMetodologia && bateParametro && bateAnalise;
+      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateParametro && bateAnalise;
       card.style.display = visivel ? '' : 'none';
       if (visivel) algumVisivel = true;
     });
@@ -2758,27 +2744,12 @@ function filterToday2() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// 🎯 Filtro de Metodologias — puxa metodologias de valor já rankeadas no
-// Backtest 2 (mercado+seleção com ROI alto) e no Backtest CS (padrões de
-// placar "raramente sai") e filtra a lista de Hoje 2 aos jogos onde essas
-// metodologias estão disponíveis nas odds atuais. Semântica OR: um jogo
-// aparece se qualificar em QUALQUER metodologia marcada.
-// ═══════════════════════════════════════════════════════════════════════
-let _today2SelectedMetodologias = new Set(); // chaves compostas "bt2::market::selection" | "btcs::bucket"
-let _today2QualifyingMatchIds = new Set();   // vazio = sem filtro de metodologia ativo
-let _today2MetodPanelLoaded = false;
-
 function toggleToday2FilterBox(boxId) {
   const box = document.getElementById(boxId);
   if (!box) return;
   const wasCollapsed = box.classList.contains('collapsed');
   box.classList.toggle('collapsed');
   if (!wasCollapsed) return; // estava aberto, só fechou
-  if (boxId === 'today2MetodBox' && !_today2MetodPanelLoaded) {
-    _today2MetodPanelLoaded = true;
-    _loadToday2MetodologiasPanel();
-  }
   if (boxId === 'today2ParamBox' && !_today2ParamPanelLoaded) {
     _today2ParamPanelLoaded = true;
     _loadToday2ParamPanel();
@@ -2787,106 +2758,6 @@ function toggleToday2FilterBox(boxId) {
     _today2AnalisePanelLoaded = true;
     _loadToday2AnalisePanel();
   }
-}
-
-async function _loadToday2MetodologiasPanel() {
-  const body = document.getElementById('today2MetodBody');
-  if (!body) return;
-  try {
-    const [bt2Res, btcsRes] = await Promise.all([
-      fetch('/api/backtest2/ranking?mode=acumulado').then(r => r.json()),
-      fetch('/api/backtestcs/patterns?mode=acumulado').then(r => r.json()),
-    ]);
-
-    // Mesmo critério de "valor" já usado no resto do app (ROI >= 20%, amostra >= 8 jogos)
-    const bt2Top = (bt2Res.methodologies || [])
-      .filter(m => m.roi >= 20 && m.bets >= 8)
-      .sort((a, b) => b.roi - a.roi)
-      .slice(0, 20);
-
-    const btcsTop = (btcsRes.patterns_avoid_best_by_bucket || []).slice(0, 20);
-
-    _today2MetodCatalog = {}; // chave -> objeto original, usado no fetch de jogos qualificados
-    let html = '';
-
-    if (bt2Top.length) {
-      html += '<div class="today2-param-label">Backtest 2 — mercado/seleção</div>';
-      bt2Top.forEach(m => {
-        const key = `bt2::${m.market}::${m.selection}`;
-        _today2MetodCatalog[key] = { source: 'bt2', market: m.market, selection: m.selection };
-        const label = `${m.market_label} → ${m.selection} (ROI ${m.roi}%, ${m.bets} jogos)`;
-        html += _today2MetodCheckboxHtml(key, label);
-      });
-    }
-    if (btcsTop.length) {
-      html += '<div class="today2-param-label">Backtest CS — placares que raramente saem</div>';
-      btcsTop.forEach(p => {
-        const key = `btcs::${p.bucket}`;
-        _today2MetodCatalog[key] = { source: 'btcs', bucket: p.bucket };
-        const taxaAcerto = Math.round((1 - p.segment_rate) * 1000) / 10;
-        const label = `Placar ${p.bucket} → taxa de acerto ${taxaAcerto}%`;
-        html += _today2MetodCheckboxHtml(key, label);
-      });
-    }
-    if (!html) html = '<div style="color:var(--text2)">nenhuma metodologia de valor disponível ainda</div>';
-    body.innerHTML = html;
-  } catch (e) {
-    body.innerHTML = '<div style="color:var(--text2)">erro ao carregar metodologias</div>';
-  }
-}
-
-function _today2MetodCheckboxHtml(key, label) {
-  const checked = _today2SelectedMetodologias.has(key) ? 'checked' : '';
-  return `<label class="today2-check-row">
-    <input type="checkbox" ${checked} onchange="toggleToday2Metodologia('${key.replace(/'/g, "\\'")}', this.checked)">
-    <span>${label}</span>
-  </label>`;
-}
-
-let _today2MetodCatalog = {};
-
-function toggleToday2Metodologia(key, checked) {
-  if (checked) _today2SelectedMetodologias.add(key);
-  else _today2SelectedMetodologias.delete(key);
-  _recomputeToday2QualifyingIds();
-}
-
-async function _recomputeToday2QualifyingIds() {
-  if (_today2SelectedMetodologias.size === 0) {
-    _today2QualifyingMatchIds = new Set();
-    filterToday2();
-    return;
-  }
-  const keys = [..._today2SelectedMetodologias];
-  const results = await Promise.all(keys.map(async key => {
-    const info = _today2MetodCatalog[key];
-    if (!info) return [];
-    try {
-      let url;
-      if (info.source === 'bt2') {
-        url = `/api/backtest2/matches_for_methodology?market=${encodeURIComponent(info.market)}&selection=${encodeURIComponent(info.selection)}`;
-      } else {
-        url = `/api/backtestcs/matches_for_bucket?bucket=${encodeURIComponent(info.bucket)}`;
-      }
-      const r = await fetch(url);
-      const d = await r.json();
-      return (d.matches || []).map(m => String(m.id));
-    } catch (e) {
-      return [];
-    }
-  }));
-  const union = new Set();
-  results.forEach(ids => ids.forEach(id => union.add(id)));
-  _today2QualifyingMatchIds = union;
-  filterToday2();
-}
-
-function clearToday2Metodologias() {
-  _today2SelectedMetodologias.clear();
-  _today2QualifyingMatchIds = new Set();
-  const body = document.getElementById('today2MetodBody');
-  body?.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
-  filterToday2();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
