@@ -4783,10 +4783,16 @@ function _jogoStatsCardHtml(teamName, s, media) {
     </div>`;
 }
 
-function _pctBarRow(label, pct) {
+function _pctBarRow(label, pct, mediaPct) {
   return `
     <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2);margin-bottom:3px"><span>${label}</span><span style="color:var(--text);font-weight:700">${pct.toFixed(0)}%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2);margin-bottom:3px">
+        <span>${label}</span>
+        <span style="display:flex;align-items:baseline;gap:8px">
+          ${mediaPct !== undefined && mediaPct !== null ? `<span style="font-size:11px;color:var(--text2)" title="média entre todos os times de hoje, recalculada 1x por dia">méd: ${mediaPct.toFixed(0)}%</span>` : ''}
+          <span style="color:var(--text);font-weight:700">${pct.toFixed(0)}%</span>
+        </span>
+      </div>
       <div style="background:var(--bg);border-radius:4px;height:7px;overflow:hidden"><div style="background:#f59e0b;height:100%;width:${Math.min(100,Math.max(0,pct))}%"></div></div>
     </div>`;
 }
@@ -4904,21 +4910,21 @@ function _jogoGoalDiffStats(rows) {
   };
 }
 
-function _jogoGoalPatternHtml(teamName, gp) {
+function _jogoGoalPatternHtml(teamName, gp, media) {
   if (!gp || !gp.totalComGm) return '';
   const sectionHeader = t => `<div style="font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;padding:9px 10px;background:rgba(255,255,255,.04);border-bottom:1px solid var(--border)">${t}</div>`;
   const subHeader = t => `<div style="font-size:13px;font-weight:600;color:var(--text2);padding:7px 10px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)">${t}</div>`;
-  const ouBlock = (title, ou) => `${subHeader(title)}${_pctBarRow('sobre', ou.sobre)}${_pctBarRow('sob', ou.sob)}`;
+  const ouBlock = (title, ou, mediaOu) => `${subHeader(title)}${_pctBarRow('sobre', ou.sobre, mediaOu?.sobre)}${_pctBarRow('sob', ou.sob, mediaOu?.sob)}`;
   const minutosBlock = (title, buckets, labels, total) => `${subHeader(title)}${labels.map((lbl, i) => _pctBarRow(lbl, total ? buckets[i] / total * 100 : 0)).join('')}`;
   const wrap = t => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:420px;margin-bottom:16px">${t}</div>`;
 
   return wrap(`
       ${sectionHeader('Mais/Menos gols nas partidas')}
-      ${ouBlock('Mais/menos de 1,5 gols para todos os jogos', gp.ou.l15)}
-      ${ouBlock(`Mais/menos de 1,5 gols apenas para o ${teamName}`, gp.ouTeam.l15)}
-      ${ouBlock('Mais/menos de 2,5 gols para todos os jogos', gp.ou.l25)}
-      ${ouBlock(`Mais/menos de 2,5 gols apenas para o ${teamName}`, gp.ouTeam.l25)}
-      ${ouBlock(`Mais/menos de 3,5 gols apenas para o ${teamName}`, gp.ouTeam.l35)}`)
+      ${ouBlock('Mais/menos de 1,5 gols para todos os jogos', gp.ou.l15, media?.ou15_total)}
+      ${ouBlock(`Mais/menos de 1,5 gols apenas para o ${teamName}`, gp.ouTeam.l15, media?.ou15_team)}
+      ${ouBlock('Mais/menos de 2,5 gols para todos os jogos', gp.ou.l25, media?.ou25_total)}
+      ${ouBlock(`Mais/menos de 2,5 gols apenas para o ${teamName}`, gp.ouTeam.l25, media?.ou25_team)}
+      ${ouBlock(`Mais/menos de 3,5 gols apenas para o ${teamName}`, gp.ouTeam.l35, media?.ou35_team)}`)
     + wrap(`
       ${sectionHeader('Características gerais do gol')}
       ${subHeader('Faixas de gols')}
@@ -5028,7 +5034,7 @@ async function _renderToday2Jogo(matchId) {
       s.avgValorSaldo = gv.avgValorSaldo;
       s.avgValorPonto = gv.avgValorPonto;
     }
-    return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp);
+    return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
   });
   body.innerHTML = blocks.length > 1
     ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">

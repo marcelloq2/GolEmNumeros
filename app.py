@@ -6494,6 +6494,15 @@ def _jogo_stats_from_rows(rows):
     sem_sofrer = sum(1 for r in rows if r["opp"] == 0)
     sem_marcar = sum(1 for r in rows if r["own"] == 0)
     over25 = sum(1 for r in rows if (r["own"] + r["opp"]) > 2.5)
+
+    def _ou_total(line):
+        over = sum(1 for r in rows if (r["own"] + r["opp"]) > line)
+        return {"sobre": round(over / n * 100, 1), "sob": round((n - over) / n * 100, 1)}
+
+    def _ou_team(line):
+        over = sum(1 for r in rows if r["own"] > line)
+        return {"sobre": round(over / n * 100, 1), "sob": round((n - over) / n * 100, 1)}
+
     return {
         "n": n,
         "vitFT_pct": round(vit / n * 100, 1),
@@ -6508,6 +6517,11 @@ def _jogo_stats_from_rows(rows):
         "semMarcar_pct": round(sem_marcar / n * 100, 1),
         "over25_pct": round(over25 / n * 100, 1),
         "under25_pct": round((n - over25) / n * 100, 1),
+        "ou15_total": _ou_total(1.5),
+        "ou25_total": _ou_total(2.5),
+        "ou15_team": _ou_team(1.5),
+        "ou25_team": _ou_team(2.5),
+        "ou35_team": _ou_team(3.5),
     }
 
 
