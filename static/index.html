@@ -4983,7 +4983,7 @@ function _jogoGoalPatternHtml(teamName, gp, media) {
   if (!gp || !gp.totalComGm) return '';
   const sectionHeader = t => `<div style="font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;padding:9px 10px;background:rgba(255,255,255,.04);border-bottom:1px solid var(--border)">${t}</div>`;
   const subHeader = t => `<div style="font-size:13px;font-weight:600;color:var(--text2);padding:7px 10px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)">${t}</div>`;
-  const ouBlock = (title, ou, mediaOu) => `${subHeader(title)}${_pctBarRow('sobre', ou.sobre, mediaOu?.sobre)}${_pctBarRow('sob', ou.sob, mediaOu?.sob)}`;
+  const ouBlock = (title, ou, mediaOu) => `${subHeader(title)}${_pctBarRow('acima', ou.sobre, mediaOu?.sobre)}${_pctBarRow('abaixo', ou.sob, mediaOu?.sob)}`;
   const minutosBlock = (title, buckets, labels, total, mediaBuckets) => `${subHeader(title)}${labels.map((lbl, i) => _pctBarRow(lbl, total ? buckets[i] / total * 100 : 0, mediaBuckets?.[i])).join('')}`;
   const wrap = t => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:420px;margin-bottom:16px">${t}</div>`;
 
