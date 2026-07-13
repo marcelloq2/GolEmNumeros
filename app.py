@@ -5048,6 +5048,24 @@ def _bt2_compute_variance(profits):
     return variance, stddev, cv
 
 
+def _bt2_max_streaks(dates, wons):
+    """Maior sequência de vitórias seguidas (max green) e maior sequência de
+    derrotas seguidas (max red), na ordem cronológica das apostas (por
+    match_date) — não é drawdown em unidades, é contagem de apostas."""
+    pairs = sorted(zip(dates, wons), key=lambda x: (x[0] or ""))
+    max_win = max_loss = cur_win = cur_loss = 0
+    for _, won in pairs:
+        if won:
+            cur_win += 1
+            cur_loss = 0
+        else:
+            cur_loss += 1
+            cur_win = 0
+        max_win = max(max_win, cur_win)
+        max_loss = max(max_loss, cur_loss)
+    return max_win, max_loss
+
+
 def _bt2_odd_ranges_breakdown(odds, wons, profits):
     """A partir das odds/won/profit de cada aposta de uma seleção, agrupa por faixa
     de odd (ver _BT2_ODD_RANGES) e devolve a lista de faixas com amostra suficiente,
@@ -5116,6 +5134,7 @@ def _bt2_compute_ranking_acumulado():
                 continue
             profits = r["profits"]
             variance, stddev, cv = _bt2_compute_variance(profits)
+            max_win_streak, max_loss_streak = _bt2_max_streaks(r["dates"], r["wons"])
 
             pairs = sorted(zip(r["dates"], profits), key=lambda x: (x[0] or ""))
             cum = 0.0
@@ -5138,6 +5157,8 @@ def _bt2_compute_ranking_acumulado():
                 "stddev": round(stddev, 4),
                 "cv": round(cv, 4) if cv is not None else None,
                 "avg_odd": round(sum(r["odds"]) / len(r["odds"]), 2) if r["odds"] else None,
+                "max_win_streak": max_win_streak,
+                "max_loss_streak": max_loss_streak,
                 "timeline": timeline,
             })
 
@@ -5232,6 +5253,7 @@ def _bt2_compute_ranking():
             variance = sum((p - mean) ** 2 for p in profits) / len(profits)
             stddev = variance ** 0.5
             cv = (stddev / abs(mean)) if mean != 0 else None
+            max_win_streak, max_loss_streak = _bt2_max_streaks(r["dates"], r["wons"])
 
             # timeline: cumulativo ordenado por data ascendente (data no formato timestamp
             # unix em string, mesmo campo "KC" usado no resto do H2H)
@@ -5256,6 +5278,8 @@ def _bt2_compute_ranking():
                 "stddev": round(stddev, 4),
                 "cv": round(cv, 4) if cv is not None else None,
                 "avg_odd": round(sum(r["odds"]) / len(r["odds"]), 2) if r["odds"] else None,
+                "max_win_streak": max_win_streak,
+                "max_loss_streak": max_loss_streak,
                 "timeline": timeline,
             })
 

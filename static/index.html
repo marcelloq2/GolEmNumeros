@@ -3852,6 +3852,8 @@ const _BT2_COLUMNS = [
   { key: 'roi', label: 'ROI %' },
   { key: 'stddev', label: 'Desvio Padrão' },
   { key: 'cv', label: 'CV' },
+  { key: 'max_loss_streak', label: 'DD Máx (RED)' },
+  { key: 'max_win_streak', label: 'DD Máx (GREEN)' },
 ];
 
 function _bt2TableHtml(sorted) {
@@ -3878,13 +3880,15 @@ function _bt2TableHtml(sorted) {
       <td style="padding:7px 10px;font-size:13px;color:${profitColor}">${m.roi >= 0 ? '+' : ''}${m.roi.toFixed(1)}%</td>
       <td style="padding:7px 10px;font-size:13px;color:var(--text2)">${m.stddev.toFixed(2)}</td>
       <td style="padding:7px 10px;font-size:13px;color:var(--text2)">${m.cv != null ? m.cv.toFixed(2) : '-'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:#ef4444" title="Maior sequência de derrotas seguidas">${m.max_loss_streak ?? '-'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:#22c55e" title="Maior sequência de vitórias seguidas">${m.max_win_streak ?? '-'}</td>
     </tr>`;
   }).join('');
   return `
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
       <table style="width:100%;border-collapse:collapse">
         <thead><tr>${headHtml}</tr></thead>
-        <tbody>${rowsHtml || `<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--text2);font-size:13px">nenhuma metodologia com amostra suficiente ainda</td></tr>`}</tbody>
+        <tbody>${rowsHtml || `<tr><td colspan="11" style="padding:20px;text-align:center;color:var(--text2);font-size:13px">nenhuma metodologia com amostra suficiente ainda</td></tr>`}</tbody>
       </table>
     </div>`;
 }
