@@ -3914,25 +3914,35 @@ function _bt2OddRangesHtml(selected) {
     </div>`;
 }
 
-// Barras horizontais de "unidades a cada 100 jogos" (profit/apostas×100) por
-// faixa de odd — mesma conta do ROI, só que expressa em unidades de aposta em
-// vez de %, mais intuitivo pra projetar "se eu apostasse 100 vezes nisso".
-function _bt2OddRangesBarChartSvg(ranges) {
-  const data = ranges.map(r => ({ label: r.faixa, val: r.profit / r.bets * 100, bets: r.bets }));
+// Barras horizontais do profit da metodologia SELECIONADA, dividido em blocos
+// de 100 apostas consecutivas (ordem cronológica) — cada barra mostra quanto
+// de lucro (em unidades) veio SÓ daquele bloco de 100 jogos, não acumulado.
+// Reaproveita o timeline (cumulative_profit) que a metodologia já traz —
+// profit do bloco = cumulative no fim do bloco menos cumulative no fim do
+// bloco anterior.
+function _bt2ProfitPer100BarChartSvg(timeline) {
+  const bins = [];
+  let prevCum = 0;
+  for (let i = 0; i < timeline.length; i += 100) {
+    const chunk = timeline.slice(i, i + 100);
+    const endCum = chunk[chunk.length - 1].cumulative_profit;
+    bins.push({ label: `${i + 1}–${i + chunk.length}`, val: endCum - prevCum, n: chunk.length });
+    prevCum = endCum;
+  }
   const W = 640, rowH = 34, padL = 90, padR = 80;
-  const H = data.length * rowH + 20;
-  const maxAbs = Math.max(1, ...data.map(d => Math.abs(d.val)));
+  const H = bins.length * rowH + 20;
+  const maxAbs = Math.max(1, ...bins.map(d => Math.abs(d.val)));
   const scale = (W - padL - padR) / (maxAbs * 2);
   const zeroX = padL + maxAbs * scale;
-  const bars = data.map((d, i) => {
+  const bars = bins.map((d, i) => {
     const y = i * rowH + 10;
     const w = Math.abs(d.val) * scale;
     const x = d.val >= 0 ? zeroX : zeroX - w;
     const color = d.val >= 0 ? '#22c55e' : '#ef4444';
     return `
-      <text x="${padL - 8}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="12" fill="var(--text2)">${_bt2EscXml(d.label)}</text>
+      <text x="${padL - 8}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="12" fill="var(--text2)">jogos ${d.label}</text>
       <rect x="${x.toFixed(1)}" y="${y + 4}" width="${w.toFixed(1)}" height="${rowH - 14}" rx="3" fill="${color}"></rect>
-      <text x="${d.val >= 0 ? x + w + 5 : x - 5}" y="${y + rowH / 2 + 4}" text-anchor="${d.val >= 0 ? 'start' : 'end'}" font-size="11" fill="${color}" font-weight="700">${d.val >= 0 ? '+' : ''}${d.val.toFixed(1)}u <tspan fill="var(--text2)" font-weight="400">(${d.bets})</tspan></text>`;
+      <text x="${d.val >= 0 ? x + w + 5 : x - 5}" y="${y + rowH / 2 + 4}" text-anchor="${d.val >= 0 ? 'start' : 'end'}" font-size="11" fill="${color}" font-weight="700">${d.val >= 0 ? '+' : ''}${d.val.toFixed(2)}u</text>`;
   }).join('');
   return `
     <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">
@@ -3943,8 +3953,8 @@ function _bt2OddRangesBarChartSvg(ranges) {
 
 function _bt2OpenOddRangesWidget() {
   const selected = (_bt2Data?.methodologies || [])[_bt2SelectedIdx];
-  const ranges = selected?.odd_ranges;
-  if (!ranges || !ranges.length) return;
+  const timeline = selected?.timeline;
+  if (!timeline || !timeline.length) return;
   const oldOverlay = document.getElementById('bt2OddRangesOverlay');
   if (oldOverlay) oldOverlay.remove();
   const overlay = document.createElement('div');
@@ -3955,13 +3965,13 @@ function _bt2OpenOddRangesWidget() {
     <div style="max-width:700px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
                 border:1px solid var(--border);border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px">
-        <span style="font-size:14px;font-weight:800">📊 Unidades a cada 100 jogos — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}</span>
+        <span style="font-size:14px;font-weight:800">📊 Profit a cada 100 jogos — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}</span>
         <button onclick="document.getElementById('bt2OddRangesOverlay').remove()"
           style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
                  width:26px;height:26px;cursor:pointer;flex-shrink:0">×</button>
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Lucro esperado em unidades a cada 100 apostas, por faixa de odd — o número entre parênteses é a amostra real de apostas usada.</div>
-      ${_bt2OddRangesBarChartSvg(ranges)}
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Lucro em unidades dentro de cada bloco de 100 apostas consecutivas (ordem cronológica) dessa metodologia — não acumulado, só o que veio naquele bloco.</div>
+      ${_bt2ProfitPer100BarChartSvg(timeline)}
     </div>`;
   document.body.appendChild(overlay);
 }
