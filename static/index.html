@@ -3876,22 +3876,45 @@ function _bt2TableHtml(sorted) {
 // Segmenta a metodologia selecionada por faixa de odd (ex: "Casa" no 1X2 pode ter
 // ROI bem diferente com odd 1.50 vs odd 3.50) — mesma amostra da tabela geral, só
 // que cortada por faixa em vez de somar tudo junto
+// Alterna o exibido na última coluna entre ROI % e "unidades a cada 100
+// jogos" — mesma conta (profit/apostas*100), só que como unidades de aposta
+// em vez de %, mais intuitivo pra imaginar "se eu apostasse 100 vezes nisso".
+let _bt2OddRangesUnitMode = false;
+
+function _bt2ToggleOddRangesUnit() {
+  _bt2OddRangesUnitMode = !_bt2OddRangesUnitMode;
+  _bt2Render();
+}
+
 function _bt2OddRangesHtml(selected) {
   const ranges = selected?.odd_ranges;
   if (!ranges || !ranges.length) return '';
+  const unitMode = _bt2OddRangesUnitMode;
   const rows = ranges.map(r => {
     const color = r.roi >= 0 ? '#22c55e' : '#ef4444';
+    const per100 = r.profit / r.bets * 100;
+    const lastCol = unitMode
+      ? `${per100 >= 0 ? '+' : ''}${per100.toFixed(2)}u`
+      : `${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%`;
     return `<tr>
       <td style="padding:6px 10px;font-size:12px;color:var(--text)">${r.faixa}</td>
       <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${r.bets}</td>
       <td style="padding:6px 10px;font-size:12px;color:var(--text2)">${(r.winrate * 100).toFixed(1)}%</td>
       <td style="padding:6px 10px;font-size:12px;font-weight:700;color:${color}">${r.profit >= 0 ? '+' : ''}${r.profit.toFixed(2)}</td>
-      <td style="padding:6px 10px;font-size:12px;color:${color}">${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%</td>
+      <td style="padding:6px 10px;font-size:12px;color:${color}">${lastCol}</td>
     </tr>`;
   }).join('');
   return `
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:18px 0 8px">
-      Por faixa de odd — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2)">
+        Por faixa de odd — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}
+      </div>
+      <button onclick="_bt2ToggleOddRangesUnit()" title="Alterna entre ROI % e unidades de lucro esperadas a cada 100 apostas"
+        style="margin-left:auto;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;
+        border:1px solid ${unitMode ? 'var(--accent)' : 'var(--border)'};
+        background:${unitMode ? 'var(--accent)' : 'var(--bg2)'};color:${unitMode ? '#fff' : 'var(--text2)'};cursor:pointer">
+        📊 ${unitMode ? 'Mostrando: u/100 jogos' : 'Unidades a cada 100 jogos'}
+      </button>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
       <table style="width:100%;border-collapse:collapse">
@@ -3900,7 +3923,7 @@ function _bt2OddRangesHtml(selected) {
           <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Apostas</th>
           <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Taxa de Acerto</th>
           <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">Profit</th>
-          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">ROI</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">${unitMode ? 'Un./100 jogos' : 'ROI'}</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
