@@ -1,7 +1,7 @@
 {
   "event_id": "6hqac9lu0zmqvme",
   "date": "2026-07-12",
-  "saved_at": "2026-07-12T22:08:56.270553",
+  "saved_at": "2026-07-12T20:01:33.904573",
   "source": "uniscore",
   "casa": "W Seattle Junction",
   "fora": "Portland Bangers",
@@ -9,35 +9,35 @@
   "graphPoints": [
     {
       "minute": 1,
-      "value": -68
+      "value": -50
     },
     {
       "minute": 2,
-      "value": -64
+      "value": -20
     },
     {
       "minute": 3,
-      "value": -8
+      "value": -20
     },
     {
       "minute": 4,
-      "value": -100
+      "value": -8
     },
     {
       "minute": 5,
-      "value": 32
+      "value": -100
     },
     {
       "minute": 6,
-      "value": 78
+      "value": -100
     },
     {
       "minute": 7,
-      "value": -18
+      "value": -68
     },
     {
       "minute": 8,
-      "value": 100
+      "value": -78
     },
     {
       "minute": 9,
@@ -45,7 +45,7 @@
     },
     {
       "minute": 10,
-      "value": -72
+      "value": 4
     },
     {
       "minute": 11,
@@ -53,983 +53,567 @@
     },
     {
       "minute": 12,
-      "value": -52
+      "value": -100
     },
     {
       "minute": 13,
-      "value": -4
+      "value": 22
     },
     {
       "minute": 14,
-      "value": -6
+      "value": -100
     },
     {
       "minute": 15,
-      "value": 36
-    },
-    {
-      "minute": 16,
-      "value": 8
-    },
-    {
-      "minute": 17,
-      "value": -58
-    },
-    {
-      "minute": 18,
-      "value": -100
-    },
-    {
-      "minute": 19,
-      "value": -30
-    },
-    {
-      "minute": 20,
-      "value": -50
-    },
-    {
-      "minute": 21,
-      "value": -18
-    },
-    {
-      "minute": 22,
-      "value": -22
-    },
-    {
-      "minute": 23,
-      "value": 100
-    },
-    {
-      "minute": 24,
-      "value": 2
-    },
-    {
-      "minute": 25,
-      "value": -48
-    },
-    {
-      "minute": 26,
-      "value": -100
-    },
-    {
-      "minute": 27,
-      "value": -100
-    },
-    {
-      "minute": 28,
-      "value": 32
-    },
-    {
-      "minute": 29,
-      "value": -40
-    },
-    {
-      "minute": 30,
-      "value": 0
-    },
-    {
-      "minute": 31,
-      "value": 66
-    },
-    {
-      "minute": 32,
-      "value": 84
-    },
-    {
-      "minute": 33,
-      "value": 0
-    },
-    {
-      "minute": 34,
-      "value": -100
-    },
-    {
-      "minute": 35,
-      "value": 100
-    },
-    {
-      "minute": 36,
-      "value": 100
-    },
-    {
-      "minute": 37,
-      "value": 100
-    },
-    {
-      "minute": 38,
-      "value": 38
-    },
-    {
-      "minute": 39,
-      "value": 2
-    },
-    {
-      "minute": 40,
-      "value": 16
-    },
-    {
-      "minute": 41,
-      "value": 64
-    },
-    {
-      "minute": 42,
-      "value": 42
-    },
-    {
-      "minute": 43,
-      "value": 50
-    },
-    {
-      "minute": 44,
-      "value": 100
-    },
-    {
-      "minute": 45,
-      "value": 76
-    },
-    {
-      "minute": 46,
-      "value": 0
-    },
-    {
-      "minute": 47,
-      "value": 56
-    },
-    {
-      "minute": 48,
-      "value": 100
-    },
-    {
-      "minute": 49,
-      "value": 66
-    },
-    {
-      "minute": 50,
-      "value": 66
-    },
-    {
-      "minute": 51,
-      "value": 40
-    },
-    {
-      "minute": 52,
-      "value": -90
-    },
-    {
-      "minute": 53,
-      "value": -68
-    },
-    {
-      "minute": 54,
-      "value": -6
-    },
-    {
-      "minute": 55,
-      "value": -18
-    },
-    {
-      "minute": 56,
-      "value": -54
-    },
-    {
-      "minute": 57,
-      "value": -20
-    },
-    {
-      "minute": 58,
-      "value": -26
-    },
-    {
-      "minute": 59,
-      "value": 40
-    },
-    {
-      "minute": 60,
-      "value": -80
-    },
-    {
-      "minute": 61,
-      "value": -36
-    },
-    {
-      "minute": 62,
-      "value": -70
-    },
-    {
-      "minute": 63,
-      "value": 80
-    },
-    {
-      "minute": 64,
-      "value": 4
-    },
-    {
-      "minute": 65,
-      "value": -40
-    },
-    {
-      "minute": 66,
-      "value": 68
-    },
-    {
-      "minute": 67,
-      "value": 4
-    },
-    {
-      "minute": 68,
-      "value": -100
-    },
-    {
-      "minute": 69,
-      "value": -64
-    },
-    {
-      "minute": 70,
-      "value": 0
-    },
-    {
-      "minute": 71,
-      "value": 0
-    },
-    {
-      "minute": 72,
-      "value": -72
-    },
-    {
-      "minute": 73,
-      "value": 2
-    },
-    {
-      "minute": 74,
-      "value": 70
-    },
-    {
-      "minute": 75,
-      "value": -10
-    },
-    {
-      "minute": 76,
-      "value": 20
-    },
-    {
-      "minute": 77,
-      "value": -78
-    },
-    {
-      "minute": 78,
-      "value": 0
-    },
-    {
-      "minute": 79,
-      "value": -100
-    },
-    {
-      "minute": 80,
-      "value": 16
-    },
-    {
-      "minute": 81,
-      "value": 34
-    },
-    {
-      "minute": 82,
       "value": 44
     },
     {
-      "minute": 83,
-      "value": -48
+      "minute": 16,
+      "value": 32
     },
     {
-      "minute": 84,
-      "value": -80
-    },
-    {
-      "minute": 85,
-      "value": -100
-    },
-    {
-      "minute": 86,
-      "value": -20
-    },
-    {
-      "minute": 87,
-      "value": -8
-    },
-    {
-      "minute": 88,
-      "value": -100
-    },
-    {
-      "minute": 89,
-      "value": 0
-    },
-    {
-      "minute": 90,
+      "minute": 17,
       "value": 100
     },
     {
-      "minute": 91,
-      "value": -38
+      "minute": 18,
+      "value": 36
     },
     {
-      "minute": 92,
-      "value": -34
+      "minute": 19,
+      "value": -4
     },
     {
-      "minute": 93,
+      "minute": 20,
       "value": -24
     },
     {
-      "minute": 94,
-      "value": 6
+      "minute": 21,
+      "value": 100
     },
     {
-      "minute": 95,
-      "value": 100
-    }
-  ],
-  "goals": [
+      "minute": 22,
+      "value": 0
+    },
+    {
+      "minute": 23,
+      "value": 52
+    },
+    {
+      "minute": 24,
+      "value": 32
+    },
+    {
+      "minute": 25,
+      "value": 80
+    },
+    {
+      "minute": 26,
+      "value": 22
+    },
+    {
+      "minute": 27,
+      "value": 4
+    },
+    {
+      "minute": 28,
+      "value": -16
+    },
+    {
+      "minute": 29,
+      "value": -24
+    },
+    {
+      "minute": 30,
+      "value": 66
+    },
+    {
+      "minute": 31,
+      "value": 34
+    },
+    {
+      "minute": 32,
+      "value": -100
+    },
+    {
+      "minute": 33,
+      "value": -44
+    },
+    {
+      "minute": 34,
+      "value": 0
+    },
+    {
+      "minute": 35,
+      "value": -60
+    },
+    {
+      "minute": 36,
+      "value": -40
+    },
+    {
+      "minute": 37,
+      "value": 32
+    },
+    {
+      "minute": 38,
+      "value": 36
+    },
+    {
+      "minute": 39,
+      "value": -6
+    },
+    {
+      "minute": 40,
+      "value": -26
+    },
+    {
+      "minute": 41,
+      "value": 30
+    },
+    {
+      "minute": 42,
+      "value": -26
+    },
     {
       "minute": 43,
-      "addedTime": 0,
-      "team": "home",
-      "player": "M. Mercado",
-      "ownGoal": false
+      "value": -100
     },
     {
-      "minute": 8,
-      "addedTime": 0,
-      "team": "home",
-      "player": "R.Brown",
-      "ownGoal": false
+      "minute": 44,
+      "value": 80
+    },
+    {
+      "minute": 45,
+      "value": 24
+    },
+    {
+      "minute": 46,
+      "value": 46
+    },
+    {
+      "minute": 47,
+      "value": -30
+    },
+    {
+      "minute": 48,
+      "value": -12
+    },
+    {
+      "minute": 49,
+      "value": 70
+    },
+    {
+      "minute": 50,
+      "value": 22
+    },
+    {
+      "minute": 51,
+      "value": 14
+    },
+    {
+      "minute": 52,
+      "value": 100
+    },
+    {
+      "minute": 53,
+      "value": 52
+    },
+    {
+      "minute": 54,
+      "value": 10
+    },
+    {
+      "minute": 55,
+      "value": -80
+    },
+    {
+      "minute": 56,
+      "value": -52
+    },
+    {
+      "minute": 57,
+      "value": 52
+    },
+    {
+      "minute": 58,
+      "value": -100
+    },
+    {
+      "minute": 59,
+      "value": -78
+    },
+    {
+      "minute": 60,
+      "value": -42
+    },
+    {
+      "minute": 61,
+      "value": 100
+    },
+    {
+      "minute": 62,
+      "value": -100
+    },
+    {
+      "minute": 63,
+      "value": -18
+    },
+    {
+      "minute": 64,
+      "value": 0
+    },
+    {
+      "minute": 65,
+      "value": -50
+    },
+    {
+      "minute": 66,
+      "value": 72
+    },
+    {
+      "minute": 67,
+      "value": 26
+    },
+    {
+      "minute": 68,
+      "value": 0
+    },
+    {
+      "minute": 69,
+      "value": 0
+    },
+    {
+      "minute": 70,
+      "value": 14
+    },
+    {
+      "minute": 71,
+      "value": 50
+    },
+    {
+      "minute": 72,
+      "value": 12
+    },
+    {
+      "minute": 73,
+      "value": 80
+    },
+    {
+      "minute": 74,
+      "value": 0
+    },
+    {
+      "minute": 75,
+      "value": 60
+    },
+    {
+      "minute": 76,
+      "value": 80
+    },
+    {
+      "minute": 77,
+      "value": 88
+    },
+    {
+      "minute": 78,
+      "value": 10
+    },
+    {
+      "minute": 79,
+      "value": -68
+    },
+    {
+      "minute": 80,
+      "value": 76
+    },
+    {
+      "minute": 81,
+      "value": 4
+    },
+    {
+      "minute": 82,
+      "value": 10
+    },
+    {
+      "minute": 83,
+      "value": 2
+    },
+    {
+      "minute": 84,
+      "value": 4
+    },
+    {
+      "minute": 85,
+      "value": 100
+    },
+    {
+      "minute": 86,
+      "value": 100
+    },
+    {
+      "minute": 87,
+      "value": 38
+    },
+    {
+      "minute": 88,
+      "value": 64
+    },
+    {
+      "minute": 89,
+      "value": -60
+    },
+    {
+      "minute": 90,
+      "value": 44
+    },
+    {
+      "minute": 91,
+      "value": 4
+    },
+    {
+      "minute": 92,
+      "value": 60
+    },
+    {
+      "minute": 93,
+      "value": 84
+    },
+    {
+      "minute": 94,
+      "value": 16
     }
   ],
+  "goals": [],
   "score": {
-    "home": 2,
+    "home": 0,
     "away": 0
   },
   "shotmap": [],
   "statistics": {
     "shots": {
-      "home": "17",
-      "away": "26",
-      "homeValue": 17,
-      "awayValue": 26
+      "home": "15",
+      "away": "15",
+      "homeValue": 15,
+      "awayValue": 15
     },
     "shots_on_target": {
-      "home": "6",
-      "away": "10",
-      "homeValue": 6,
-      "awayValue": 10
-    },
-    "blocked_shots": {
-      "home": "5",
-      "away": "10",
-      "homeValue": 5,
-      "awayValue": 10
+      "home": "4",
+      "away": "9",
+      "homeValue": 4,
+      "awayValue": 9
     },
     "corner_kicks": {
-      "home": "3",
-      "away": "8",
-      "homeValue": 3,
-      "awayValue": 8
-    },
-    "freekicks": {
-      "home": "10",
-      "away": "14",
-      "homeValue": 10,
-      "awayValue": 14
-    },
-    "saves": {
-      "home": "9",
-      "away": "4",
-      "homeValue": 9,
-      "awayValue": 4
-    },
-    "offsides": {
-      "home": "2",
-      "away": "1",
-      "homeValue": 2,
-      "awayValue": 1
-    },
-    "passes": {
-      "home": "377",
-      "away": "382",
-      "homeValue": 377,
-      "awayValue": 382
+      "home": "5",
+      "away": "3",
+      "homeValue": 5,
+      "awayValue": 3
     },
     "yellow_cards": {
-      "home": "1",
-      "away": "1",
-      "homeValue": 1,
-      "awayValue": 1
+      "home": "2",
+      "away": "2",
+      "homeValue": 2,
+      "awayValue": 2
     },
     "attacks": {
-      "home": "88",
-      "away": "89",
-      "homeValue": 88,
-      "awayValue": 89
+      "home": "138",
+      "away": "95",
+      "homeValue": 138,
+      "awayValue": 95
     },
     "dangerous_attacks": {
-      "home": "62",
-      "away": "77",
-      "homeValue": 62,
-      "awayValue": 77
+      "home": "73",
+      "away": "51",
+      "homeValue": 73,
+      "awayValue": 51
     },
-    "hit_woodwork": {
+    "ball_possession": {
+      "home": "57%",
+      "away": "43%",
+      "homeValue": 57,
+      "awayValue": 43
+    },
+    "penalty": {
       "home": "0",
       "away": "1",
       "homeValue": 0,
       "awayValue": 1
-    },
-    "throw_in": {
-      "home": "20",
-      "away": "26",
-      "homeValue": 20,
-      "awayValue": 26
-    },
-    "long_balls_accuracy": {
-      "home": "16/63",
-      "away": "19/41",
-      "homeValue": 25,
-      "awayValue": 46
-    },
-    "crosses_accuracy": {
-      "home": "7/13",
-      "away": "2/18",
-      "homeValue": 54,
-      "awayValue": 11
-    },
-    "dribble": {
-      "home": "14",
-      "away": "25",
-      "homeValue": 14,
-      "awayValue": 25
-    },
-    "dribble_succ": {
-      "home": "9/14",
-      "away": "10/25",
-      "homeValue": 64,
-      "awayValue": 40
-    },
-    "tackles": {
-      "home": "23",
-      "away": "17",
-      "homeValue": 23,
-      "awayValue": 17
-    },
-    "interceptions": {
-      "home": "9",
-      "away": "8",
-      "homeValue": 9,
-      "awayValue": 8
-    },
-    "clearances": {
-      "home": "32",
-      "away": "21",
-      "homeValue": 32,
-      "awayValue": 21
-    },
-    "goal_kicks": {
-      "home": "7",
-      "away": "9",
-      "homeValue": 7,
-      "awayValue": 9
-    },
-    "poss_losts": {
-      "home": "138",
-      "away": "141",
-      "homeValue": 138,
-      "awayValue": 141
-    },
-    "ball_possession": {
-      "home": "46%",
-      "away": "54%",
-      "homeValue": 46,
-      "awayValue": 54
-    },
-    "key_passes": {
-      "home": "12",
-      "away": "17",
-      "homeValue": 12,
-      "awayValue": 17
-    },
-    "passes_accuracy": {
-      "home": "283/377",
-      "away": "310/382",
-      "homeValue": 75,
-      "awayValue": 81
     }
   },
   "statistics_periods": {
     "ALL": {
       "shots": {
-        "home": "17",
-        "away": "26",
-        "homeValue": 17,
-        "awayValue": 26
+        "home": "15",
+        "away": "15",
+        "homeValue": 15,
+        "awayValue": 15
       },
       "shots_on_target": {
-        "home": "6",
-        "away": "10",
-        "homeValue": 6,
-        "awayValue": 10
-      },
-      "blocked_shots": {
-        "home": "5",
-        "away": "10",
-        "homeValue": 5,
-        "awayValue": 10
+        "home": "4",
+        "away": "9",
+        "homeValue": 4,
+        "awayValue": 9
       },
       "corner_kicks": {
-        "home": "3",
-        "away": "8",
-        "homeValue": 3,
-        "awayValue": 8
-      },
-      "freekicks": {
-        "home": "10",
-        "away": "14",
-        "homeValue": 10,
-        "awayValue": 14
-      },
-      "saves": {
-        "home": "9",
-        "away": "4",
-        "homeValue": 9,
-        "awayValue": 4
-      },
-      "offsides": {
-        "home": "2",
-        "away": "1",
-        "homeValue": 2,
-        "awayValue": 1
-      },
-      "passes": {
-        "home": "377",
-        "away": "382",
-        "homeValue": 377,
-        "awayValue": 382
+        "home": "5",
+        "away": "3",
+        "homeValue": 5,
+        "awayValue": 3
       },
       "yellow_cards": {
-        "home": "1",
-        "away": "1",
-        "homeValue": 1,
-        "awayValue": 1
+        "home": "2",
+        "away": "2",
+        "homeValue": 2,
+        "awayValue": 2
       },
       "attacks": {
-        "home": "88",
-        "away": "89",
-        "homeValue": 88,
-        "awayValue": 89
+        "home": "138",
+        "away": "95",
+        "homeValue": 138,
+        "awayValue": 95
       },
       "dangerous_attacks": {
-        "home": "62",
-        "away": "77",
-        "homeValue": 62,
-        "awayValue": 77
+        "home": "73",
+        "away": "51",
+        "homeValue": 73,
+        "awayValue": 51
       },
-      "hit_woodwork": {
+      "ball_possession": {
+        "home": "57%",
+        "away": "43%",
+        "homeValue": 57,
+        "awayValue": 43
+      },
+      "penalty": {
         "home": "0",
         "away": "1",
         "homeValue": 0,
         "awayValue": 1
-      },
-      "throw_in": {
-        "home": "20",
-        "away": "26",
-        "homeValue": 20,
-        "awayValue": 26
-      },
-      "long_balls_accuracy": {
-        "home": "16/63",
-        "away": "19/41",
-        "homeValue": 25,
-        "awayValue": 46
-      },
-      "crosses_accuracy": {
-        "home": "7/13",
-        "away": "2/18",
-        "homeValue": 54,
-        "awayValue": 11
-      },
-      "dribble": {
-        "home": "14",
-        "away": "25",
-        "homeValue": 14,
-        "awayValue": 25
-      },
-      "dribble_succ": {
-        "home": "9/14",
-        "away": "10/25",
-        "homeValue": 64,
-        "awayValue": 40
-      },
-      "tackles": {
-        "home": "23",
-        "away": "17",
-        "homeValue": 23,
-        "awayValue": 17
-      },
-      "interceptions": {
-        "home": "9",
-        "away": "8",
-        "homeValue": 9,
-        "awayValue": 8
-      },
-      "clearances": {
-        "home": "32",
-        "away": "21",
-        "homeValue": 32,
-        "awayValue": 21
-      },
-      "goal_kicks": {
-        "home": "7",
-        "away": "9",
-        "homeValue": 7,
-        "awayValue": 9
-      },
-      "poss_losts": {
-        "home": "138",
-        "away": "141",
-        "homeValue": 138,
-        "awayValue": 141
-      },
-      "ball_possession": {
-        "home": "46%",
-        "away": "54%",
-        "homeValue": 46,
-        "awayValue": 54
-      },
-      "key_passes": {
-        "home": "12",
-        "away": "17",
-        "homeValue": 12,
-        "awayValue": 17
-      },
-      "passes_accuracy": {
-        "home": "283/377",
-        "away": "310/382",
-        "homeValue": 75,
-        "awayValue": 81
       }
     },
     "1ST": {
       "shots": {
-        "home": "8",
-        "away": "11",
-        "homeValue": 8,
-        "awayValue": 11
-      },
-      "shots_on_target": {
         "home": "3",
-        "away": "5",
-        "homeValue": 3,
-        "awayValue": 5
-      },
-      "blocked_shots": {
-        "home": "2",
-        "away": "5",
-        "homeValue": 2,
-        "awayValue": 5
-      },
-      "corner_kicks": {
-        "home": "0",
-        "away": "4",
-        "homeValue": 0,
-        "awayValue": 4
-      },
-      "freekicks": {
-        "home": "5",
-        "away": "6",
-        "homeValue": 5,
-        "awayValue": 6
-      },
-      "saves": {
-        "home": "5",
-        "away": "1",
-        "homeValue": 5,
-        "awayValue": 1
-      },
-      "passes": {
-        "home": "244",
-        "away": "191",
-        "homeValue": 244,
-        "awayValue": 191
-      },
-      "attacks": {
-        "home": "42",
-        "away": "44",
-        "homeValue": 42,
-        "awayValue": 44
-      },
-      "dangerous_attacks": {
-        "home": "25",
-        "away": "40",
-        "homeValue": 25,
-        "awayValue": 40
-      },
-      "throw_in": {
-        "home": "7",
-        "away": "15",
-        "homeValue": 7,
-        "awayValue": 15
-      },
-      "long_balls_accuracy": {
-        "home": "8/27",
-        "away": "8/19",
-        "homeValue": 30,
-        "awayValue": 42
-      },
-      "crosses_accuracy": {
-        "home": "2/5",
-        "away": "2/8",
-        "homeValue": 40,
-        "awayValue": 25
-      },
-      "dribble": {
-        "home": "10",
-        "away": "11",
-        "homeValue": 10,
-        "awayValue": 11
-      },
-      "dribble_succ": {
-        "home": "7/10",
-        "away": "3/11",
-        "homeValue": 70,
-        "awayValue": 27
-      },
-      "tackles": {
-        "home": "13",
-        "away": "7",
-        "homeValue": 13,
-        "awayValue": 7
-      },
-      "interceptions": {
-        "home": "5",
-        "away": "5",
-        "homeValue": 5,
-        "awayValue": 5
-      },
-      "clearances": {
-        "home": "16",
-        "away": "5",
-        "homeValue": 16,
-        "awayValue": 5
-      },
-      "goal_kicks": {
-        "home": "4",
-        "away": "4",
-        "homeValue": 4,
-        "awayValue": 4
-      },
-      "poss_losts": {
-        "home": "61",
-        "away": "73",
-        "homeValue": 61,
-        "awayValue": 73
-      },
-      "ball_possession": {
-        "home": "55%",
-        "away": "45%",
-        "homeValue": 55,
-        "awayValue": 45
-      },
-      "key_passes": {
-        "home": "6",
         "away": "9",
-        "homeValue": 6,
+        "homeValue": 3,
         "awayValue": 9
       },
-      "passes_accuracy": {
-        "home": "197/244",
-        "away": "151/191",
-        "homeValue": 81,
-        "awayValue": 79
+      "shots_on_target": {
+        "home": "2",
+        "away": "6",
+        "homeValue": 2,
+        "awayValue": 6
+      },
+      "corner_kicks": {
+        "home": "2",
+        "away": "2",
+        "homeValue": 2,
+        "awayValue": 2
+      },
+      "yellow_cards": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "attacks": {
+        "home": "60",
+        "away": "52",
+        "homeValue": 60,
+        "awayValue": 52
+      },
+      "dangerous_attacks": {
+        "home": "22",
+        "away": "28",
+        "homeValue": 22,
+        "awayValue": 28
+      },
+      "ball_possession": {
+        "home": "52%",
+        "away": "48%",
+        "homeValue": 52,
+        "awayValue": 48
+      },
+      "penalty": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
       }
     },
     "2ND": {
       "shots": {
-        "home": "9",
-        "away": "15",
-        "homeValue": 9,
-        "awayValue": 15
+        "home": "12",
+        "away": "6",
+        "homeValue": 12,
+        "awayValue": 6
       },
       "shots_on_target": {
-        "home": "3",
-        "away": "5",
-        "homeValue": 3,
-        "awayValue": 5
-      },
-      "blocked_shots": {
-        "home": "3",
-        "away": "5",
-        "homeValue": 3,
-        "awayValue": 5
+        "home": "2",
+        "away": "3",
+        "homeValue": 2,
+        "awayValue": 3
       },
       "corner_kicks": {
         "home": "3",
-        "away": "4",
-        "homeValue": 3,
-        "awayValue": 4
-      },
-      "freekicks": {
-        "home": "5",
-        "away": "7",
-        "homeValue": 5,
-        "awayValue": 7
-      },
-      "saves": {
-        "home": "4",
-        "away": "3",
-        "homeValue": 4,
-        "awayValue": 3
-      },
-      "offsides": {
-        "home": "2",
         "away": "1",
-        "homeValue": 2,
+        "homeValue": 3,
         "awayValue": 1
-      },
-      "passes": {
-        "home": "132",
-        "away": "184",
-        "homeValue": 132,
-        "awayValue": 184
       },
       "yellow_cards": {
         "home": "1",
-        "away": "1",
+        "away": "2",
         "homeValue": 1,
-        "awayValue": 1
+        "awayValue": 2
       },
       "attacks": {
-        "home": "46",
-        "away": "45",
-        "homeValue": 46,
-        "awayValue": 45
+        "home": "78",
+        "away": "43",
+        "homeValue": 78,
+        "awayValue": 43
       },
       "dangerous_attacks": {
-        "home": "37",
-        "away": "37",
-        "homeValue": 37,
-        "awayValue": 37
-      },
-      "hit_woodwork": {
-        "home": "0",
-        "away": "1",
-        "homeValue": 0,
-        "awayValue": 1
-      },
-      "throw_in": {
-        "home": "12",
-        "away": "11",
-        "homeValue": 12,
-        "awayValue": 11
-      },
-      "long_balls_accuracy": {
-        "home": "8/36",
-        "away": "11/22",
-        "homeValue": 22,
-        "awayValue": 50
-      },
-      "crosses_accuracy": {
-        "home": "5/8",
-        "away": "0/10",
-        "homeValue": 63,
-        "awayValue": 0
-      },
-      "dribble": {
-        "home": "4",
-        "away": "14",
-        "homeValue": 4,
-        "awayValue": 14
-      },
-      "dribble_succ": {
-        "home": "2/4",
-        "away": "7/14",
-        "homeValue": 50,
-        "awayValue": 50
-      },
-      "tackles": {
-        "home": "10",
-        "away": "10",
-        "homeValue": 10,
-        "awayValue": 10
-      },
-      "interceptions": {
-        "home": "4",
-        "away": "3",
-        "homeValue": 4,
-        "awayValue": 3
-      },
-      "clearances": {
-        "home": "16",
-        "away": "16",
-        "homeValue": 16,
-        "awayValue": 16
-      },
-      "goal_kicks": {
-        "home": "3",
-        "away": "5",
-        "homeValue": 3,
-        "awayValue": 5
-      },
-      "poss_losts": {
-        "home": "77",
-        "away": "68",
-        "homeValue": 77,
-        "awayValue": 68
+        "home": "51",
+        "away": "23",
+        "homeValue": 51,
+        "awayValue": 23
       },
       "ball_possession": {
-        "home": "37%",
-        "away": "63%",
-        "homeValue": 37,
-        "awayValue": 63
-      },
-      "key_passes": {
-        "home": "6",
-        "away": "8",
-        "homeValue": 6,
-        "awayValue": 8
-      },
-      "passes_accuracy": {
-        "home": "85/132",
-        "away": "153/184",
-        "homeValue": 64,
-        "awayValue": 83
+        "home": "62%",
+        "away": "38%",
+        "homeValue": 62,
+        "awayValue": 38
       }
     }
   },
   "pressure_summary": {
-    "overall_avg": -4.168,
-    "h1_avg": 2.723,
-    "h2_avg": -10.917,
-    "home_dominance_pct": 43.2,
+    "overall_avg": 5.255,
+    "h1_avg": -7.745,
+    "h2_avg": 18.255,
+    "home_dominance_pct": 56.4,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 31,
-    "total_points": 95
+    "momentum_swings": 33,
+    "total_points": 94
   },
   "xg": {
-    "home": 3.27,
-    "away": 5.34,
+    "home": 2.41,
+    "away": 4.01,
     "source": "estimated",
     "fields_used": [
       "shots_on_target",
       "shots_inside_box",
       "shots_outside_box",
-      "corners",
-      "freekicks"
+      "corners"
     ],
-    "n_fields": 5
+    "n_fields": 4
   },
   "opening_odds": {
-    "h": "2.75",
-    "x": "3.50",
-    "a": "2.15",
-    "ou_line": "2.5",
-    "ou_over": "1.8",
-    "ou_under": "1.00"
+    "h": "2.40",
+    "x": "4.00",
+    "a": "2.20",
+    "ou_line": "3.75",
+    "ou_over": "1.98",
+    "ou_under": "1.83"
   }
 }
