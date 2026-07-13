@@ -4813,53 +4813,62 @@ function _jogoComputeStats(rows) {
 
 function _jogoStatsCardHtml(teamName, s, media) {
   if (!s) return `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName || '—'}</div><div style="color:var(--text2);font-size:15px">sem jogos suficientes</div>`;
-  const row = (label, value, tip, mediaVal) => `
+  // cmpVal/cmpMedia são os números CRUS (não formatados) usados só pra decidir
+  // a cor do valor do time (verde se maior que a média, vermelho se menor) —
+  // value/mediaVal continuam sendo o texto já formatado pra exibir.
+  const row = (label, value, tip, mediaVal, cmpVal, cmpMedia) => {
+    const hasCmp = cmpVal !== undefined && cmpVal !== null && cmpMedia !== undefined && cmpMedia !== null;
+    const valColor = hasCmp ? (cmpVal > cmpMedia ? '#22c55e' : (cmpVal < cmpMedia ? '#ef4444' : 'var(--text)')) : 'var(--text)';
+    return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)" ${tip ? `title="${tip}"` : ''}>
       <span style="font-size:14px;color:var(--text2)">${label}</span>
       <span style="display:flex;align-items:baseline;gap:8px">
         ${mediaVal !== undefined && mediaVal !== null ? `<span style="font-size:11px;color:var(--text2)" title="média entre todos os times de hoje, recalculada 1x por dia">méd: ${mediaVal}</span>` : ''}
-        <span style="font-size:14px;font-weight:700;color:var(--text)">${value}</span>
+        <span style="font-size:14px;font-weight:700;color:${valColor}">${value}</span>
       </span>
     </div>`;
+  };
   return `
     <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName} <span style="font-weight:400;color:var(--text2)">(${s.n} jogos)</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:420px;margin-bottom:16px">
-      ${row('Número de vitórias FT', `${s.vitFT} (${(s.vitFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.vitFT_pct}%` : null)}
+      ${row('Número de vitórias FT', `${s.vitFT} (${(s.vitFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.vitFT_pct}%` : null, s.vitFT/s.n*100, media?.vitFT_pct)}
       ${row('Número de vitórias HT', s.nHt ? s.vitHT : '—', s.nHt ? `de ${s.nHt} jogos com dado de 1º tempo` : 'placar do intervalo não encontrado')}
-      ${row('Número de empates FT', `${s.empFT} (${(s.empFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.empFT_pct}%` : null)}
+      ${row('Número de empates FT', `${s.empFT} (${(s.empFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.empFT_pct}%` : null, s.empFT/s.n*100, media?.empFT_pct)}
       ${row('Número de empates HT', s.nHt ? s.empHT : '—')}
-      ${row('Número de derrotas FT', `${s.derFT} (${(s.derFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.derFT_pct}%` : null)}
+      ${row('Número de derrotas FT', `${s.derFT} (${(s.derFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.derFT_pct}%` : null, s.derFT/s.n*100, media?.derFT_pct)}
       ${row('Número de derrotas HT', s.nHt ? s.derHT : '—')}
-      ${row('Média de gols marcados por partida', s.mediaMarcados.toFixed(2), null, media ? media.mediaMarcados : null)}
-      ${row('Média de gols sofridos por partida', s.mediaSofridos.toFixed(2), null, media ? media.mediaSofridos : null)}
-      ${row('Chance de marcar um gol na próxima partida', s.pctMarcar.toFixed(0) + '%', null, media ? `${media.pctMarcar}%` : null)}
-      ${row('Chance de sofrer um gol na próxima partida', s.pctSofrer.toFixed(0) + '%', null, media ? `${media.pctSofrer}%` : null)}
-      ${row('Ambas Marcam', s.pctAmbasMarcam.toFixed(0) + '%', null, media ? `${media.pctAmbasMarcam}%` : null)}
-      ${row('Número de partidas sem sofrer gols', `${s.semSofrer} (${(s.semSofrer/s.n*100).toFixed(0)}%)`, null, media ? `${media.semSofrer_pct}%` : null)}
-      ${row('Número de partidas sem marcar', `${s.semMarcar} (${(s.semMarcar/s.n*100).toFixed(0)}%)`, null, media ? `${media.semMarcar_pct}%` : null)}
-      ${row('Partidas com mais de 2,5 gols', `${s.over25} (${(s.over25/s.n*100).toFixed(0)}%)`, null, media ? `${media.over25_pct}%` : null)}
-      ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`, null, media ? `${media.under25_pct}%` : null)}
-      ${row('Minuto médio do 1º gol marcado (equipe)', s.tempoSemMarcar !== null ? `${s.tempoSemMarcar.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol marcado pela própria equipe (ou 90 se não marcou) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolMarcado != null ? `${media.tempoPrimeiroGolMarcado.toFixed(0)} min` : null)}
-      ${row('Minuto médio do 1º gol sofrido (equipe)', s.tempoSemSofrer !== null ? `${s.tempoSemSofrer.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol sofrido pela própria equipe (ou 90 se não sofreu) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolSofrido != null ? `${media.tempoPrimeiroGolSofrido.toFixed(0)} min` : null)}
-      ${row('Minuto médio do 1º gol da partida', s.tempoPrimeiroGolPartida !== null ? `${s.tempoPrimeiroGolPartida.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol de QUALQUER um dos dois times (ou 90 se 0x0) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolPartida != null ? `${media.tempoPrimeiroGolPartida.toFixed(0)} min` : null)}
-      ${s.avgValorGolMarcado !== undefined ? row('Valor do Gol (Marcado)', s.avgValorGolMarcado.toFixed(3), `média de (meus gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorGolMarcado != null ? media.valorGolMarcado.toFixed(3) : null) : ''}
-      ${s.avgValorGolSofrido !== undefined ? row('Valor do Gol (Sofrido)', s.avgValorGolSofrido.toFixed(3), `média de (gols sofridos × probabilidade do meu time) em ${s.nGolValor} jogos com odds encontradas`, media?.valorGolSofrido != null ? media.valorGolSofrido.toFixed(3) : null) : ''}
-      ${s.avgCustoGol2Marcado !== undefined ? row('Custo do Gol 2.0 (Marcado)', s.avgCustoGol2Marcado.toFixed(3), `média de ((meus gols ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`, media?.custoGol2Marcado != null ? media.custoGol2Marcado.toFixed(3) : null) : ''}
-      ${s.avgCustoGol2Sofrido !== undefined ? row('Custo do Gol 2.0 (Sofrido)', s.avgCustoGol2Sofrido.toFixed(3), `média de ((gols sofridos ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`, media?.custoGol2Sofrido != null ? media.custoGol2Sofrido.toFixed(3) : null) : ''}
-      ${s.avgSaldo !== undefined ? row('Saldo de Gols', s.avgSaldo >= 0 ? `+${s.avgSaldo.toFixed(2)}` : s.avgSaldo.toFixed(2), `média de (meus gols − gols sofridos) em ${s.nSaldo} jogos`, media?.saldo != null ? (media.saldo >= 0 ? `+${media.saldo.toFixed(2)}` : media.saldo.toFixed(2)) : null) : ''}
-      ${s.avgValorSaldo !== undefined ? row('Valor do Saldo', s.avgValorSaldo.toFixed(3), `média de (saldo de gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorSaldo != null ? media.valorSaldo.toFixed(3) : null) : ''}
-      ${s.avgValorPonto !== undefined ? row('Valor do Ponto', s.avgValorPonto.toFixed(3), `média de (pontos conquistados [V=3/E=1/D=0] × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorPonto != null ? media.valorPonto.toFixed(3) : null) : ''}
+      ${row('Média de gols marcados por partida', s.mediaMarcados.toFixed(2), null, media ? media.mediaMarcados : null, s.mediaMarcados, media?.mediaMarcados)}
+      ${row('Média de gols sofridos por partida', s.mediaSofridos.toFixed(2), null, media ? media.mediaSofridos : null, s.mediaSofridos, media?.mediaSofridos)}
+      ${row('Chance de marcar um gol na próxima partida', s.pctMarcar.toFixed(0) + '%', null, media ? `${media.pctMarcar}%` : null, s.pctMarcar, media?.pctMarcar)}
+      ${row('Chance de sofrer um gol na próxima partida', s.pctSofrer.toFixed(0) + '%', null, media ? `${media.pctSofrer}%` : null, s.pctSofrer, media?.pctSofrer)}
+      ${row('Ambas Marcam', s.pctAmbasMarcam.toFixed(0) + '%', null, media ? `${media.pctAmbasMarcam}%` : null, s.pctAmbasMarcam, media?.pctAmbasMarcam)}
+      ${row('Número de partidas sem sofrer gols', `${s.semSofrer} (${(s.semSofrer/s.n*100).toFixed(0)}%)`, null, media ? `${media.semSofrer_pct}%` : null, s.semSofrer/s.n*100, media?.semSofrer_pct)}
+      ${row('Número de partidas sem marcar', `${s.semMarcar} (${(s.semMarcar/s.n*100).toFixed(0)}%)`, null, media ? `${media.semMarcar_pct}%` : null, s.semMarcar/s.n*100, media?.semMarcar_pct)}
+      ${row('Partidas com mais de 2,5 gols', `${s.over25} (${(s.over25/s.n*100).toFixed(0)}%)`, null, media ? `${media.over25_pct}%` : null, s.over25/s.n*100, media?.over25_pct)}
+      ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`, null, media ? `${media.under25_pct}%` : null, s.under25/s.n*100, media?.under25_pct)}
+      ${row('Minuto médio do 1º gol marcado (equipe)', s.tempoSemMarcar !== null ? `${s.tempoSemMarcar.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol marcado pela própria equipe (ou 90 se não marcou) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolMarcado != null ? `${media.tempoPrimeiroGolMarcado.toFixed(0)} min` : null, s.tempoSemMarcar, media?.tempoPrimeiroGolMarcado)}
+      ${row('Minuto médio do 1º gol sofrido (equipe)', s.tempoSemSofrer !== null ? `${s.tempoSemSofrer.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol sofrido pela própria equipe (ou 90 se não sofreu) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolSofrido != null ? `${media.tempoPrimeiroGolSofrido.toFixed(0)} min` : null, s.tempoSemSofrer, media?.tempoPrimeiroGolSofrido)}
+      ${row('Minuto médio do 1º gol da partida', s.tempoPrimeiroGolPartida !== null ? `${s.tempoPrimeiroGolPartida.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol de QUALQUER um dos dois times (ou 90 se 0x0) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol', media?.tempoPrimeiroGolPartida != null ? `${media.tempoPrimeiroGolPartida.toFixed(0)} min` : null, s.tempoPrimeiroGolPartida, media?.tempoPrimeiroGolPartida)}
+      ${s.avgValorGolMarcado !== undefined ? row('Valor do Gol (Marcado)', s.avgValorGolMarcado.toFixed(3), `média de (meus gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorGolMarcado != null ? media.valorGolMarcado.toFixed(3) : null, s.avgValorGolMarcado, media?.valorGolMarcado) : ''}
+      ${s.avgValorGolSofrido !== undefined ? row('Valor do Gol (Sofrido)', s.avgValorGolSofrido.toFixed(3), `média de (gols sofridos × probabilidade do meu time) em ${s.nGolValor} jogos com odds encontradas`, media?.valorGolSofrido != null ? media.valorGolSofrido.toFixed(3) : null, s.avgValorGolSofrido, media?.valorGolSofrido) : ''}
+      ${s.avgCustoGol2Marcado !== undefined ? row('Custo do Gol 2.0 (Marcado)', s.avgCustoGol2Marcado.toFixed(3), `média de ((meus gols ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`, media?.custoGol2Marcado != null ? media.custoGol2Marcado.toFixed(3) : null, s.avgCustoGol2Marcado, media?.custoGol2Marcado) : ''}
+      ${s.avgCustoGol2Sofrido !== undefined ? row('Custo do Gol 2.0 (Sofrido)', s.avgCustoGol2Sofrido.toFixed(3), `média de ((gols sofridos ÷ 2) + (probabilidade do meu time ÷ 2)) em ${s.nGolValor} jogos com odds encontradas`, media?.custoGol2Sofrido != null ? media.custoGol2Sofrido.toFixed(3) : null, s.avgCustoGol2Sofrido, media?.custoGol2Sofrido) : ''}
+      ${s.avgSaldo !== undefined ? row('Saldo de Gols', s.avgSaldo >= 0 ? `+${s.avgSaldo.toFixed(2)}` : s.avgSaldo.toFixed(2), `média de (meus gols − gols sofridos) em ${s.nSaldo} jogos`, media?.saldo != null ? (media.saldo >= 0 ? `+${media.saldo.toFixed(2)}` : media.saldo.toFixed(2)) : null, s.avgSaldo, media?.saldo) : ''}
+      ${s.avgValorSaldo !== undefined ? row('Valor do Saldo', s.avgValorSaldo.toFixed(3), `média de (saldo de gols × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorSaldo != null ? media.valorSaldo.toFixed(3) : null, s.avgValorSaldo, media?.valorSaldo) : ''}
+      ${s.avgValorPonto !== undefined ? row('Valor do Ponto', s.avgValorPonto.toFixed(3), `média de (pontos conquistados [V=3/E=1/D=0] × probabilidade do adversário) em ${s.nGolValor} jogos com odds encontradas`, media?.valorPonto != null ? media.valorPonto.toFixed(3) : null, s.avgValorPonto, media?.valorPonto) : ''}
     </div>`;
 }
 
 function _pctBarRow(label, pct, mediaPct) {
+  const hasMedia = mediaPct !== undefined && mediaPct !== null;
+  const valColor = hasMedia ? (pct > mediaPct ? '#22c55e' : (pct < mediaPct ? '#ef4444' : 'var(--text)')) : 'var(--text)';
   return `
     <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2);margin-bottom:3px">
         <span>${label}</span>
         <span style="display:flex;align-items:baseline;gap:8px">
-          ${mediaPct !== undefined && mediaPct !== null ? `<span style="font-size:11px;color:var(--text2)" title="média entre todos os times de hoje, recalculada 1x por dia">méd: ${mediaPct.toFixed(0)}%</span>` : ''}
-          <span style="color:var(--text);font-weight:700">${pct.toFixed(0)}%</span>
+          ${hasMedia ? `<span style="font-size:11px;color:var(--text2)" title="média entre todos os times de hoje, recalculada 1x por dia">méd: ${mediaPct.toFixed(0)}%</span>` : ''}
+          <span style="color:${valColor};font-weight:700">${pct.toFixed(0)}%</span>
         </span>
       </div>
       <div style="background:var(--bg);border-radius:4px;height:7px;overflow:hidden"><div style="background:#f59e0b;height:100%;width:${Math.min(100,Math.max(0,pct))}%"></div></div>
