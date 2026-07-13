@@ -6481,6 +6481,53 @@ def api_masterlist_generic(metodologia):
 _JOGO_MEDIAS_CACHE = {"date": None, "data": None}
 
 
+def _jogo_fetch_extra(rows, side):
+    """Busca minuto dos gols (pra 'minuto médio do 1º gol', gols por faixa de
+    minuto e vencedor a cada checkpoint), placar do intervalo (pra 'metade com
+    mais gols') e odd 1x2 própria/adversário (pra Valor do Gol/Ponto/Saldo,
+    Custo do Gol 2.0) de cada linha, tudo numa passada só em paralelo. Só pede
+    o mercado "1x2" (markets_wanted) — mesmo truque que já derrubou o tempo do
+    Backtest CS de 706s pra 48s, evitando buscar os outros 5 mercados à toa.
+    Sem esses dados a linha simplesmente não entra nas médias que dependem
+    deles (ver _jogo_stats_from_rows / _jogo_goal_pattern_from_rows /
+    _jogo_goal_diff_from_rows)."""
+    def _fetch(row):
+        eid = row["id"]
+        if not eid:
+            return row
+        try:
+            gm = _fs_goal_minutes(eid)
+        except Exception:
+            gm = None
+        if gm:
+            if side == "casa":
+                row["gm_own"], row["gm_opp"] = gm.get("home", []), gm.get("away", [])
+            else:
+                row["gm_own"], row["gm_opp"] = gm.get("away", []), gm.get("home", [])
+        try:
+            ht = _fs_half_time(eid)
+            hs, as_ = int(ht["home"]), int(ht["away"])
+            row["ht_own"], row["ht_opp"] = (hs, as_) if side == "casa" else (as_, hs)
+        except Exception:
+            pass
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(eid, markets_wanted=["1x2"])
+            h, a = (row["own"], row["opp"]) if side == "casa" else (row["opp"], row["own"])
+            sels = _bt2_market_selections("1x2", markets.get("1x2"), h, a)
+            target_label = "Casa" if side == "casa" else "Fora"
+            opp_label = "Fora" if side == "casa" else "Casa"
+            for sel in sels:
+                if sel["label"] == target_label and sel["odd"]:
+                    row["odd"] = sel["odd"]
+                elif sel["label"] == opp_label and sel["odd"]:
+                    row["opp_odd"] = sel["odd"]
+        except Exception:
+            pass
+        return row
+
+    return list(_fs_event_pool.map(_fetch, rows))
+
+
 def _jogo_stats_from_rows(rows):
     n = len(rows)
     if n == 0:
@@ -6503,6 +6550,38 @@ def _jogo_stats_from_rows(rows):
         over = sum(1 for r in rows if r["own"] > line)
         return {"sobre": round(over / n * 100, 1), "sob": round((n - over) / n * 100, 1)}
 
+    # Minuto médio do 1º gol — só nas linhas com dado de minutos de gol
+    gm_rows = [r for r in rows if "gm_own" in r]
+    tempo_marcado = tempo_sofrido = tempo_partida = None
+    if gm_rows:
+        def _first_min(mins):
+            return min(mins) if mins else 90
+        tempo_marcado = round(sum(_first_min(r["gm_own"]) for r in gm_rows) / len(gm_rows), 1)
+        tempo_sofrido = round(sum(_first_min(r["gm_opp"]) for r in gm_rows) / len(gm_rows), 1)
+        tempo_partida = round(sum(min(_first_min(r["gm_own"]), _first_min(r["gm_opp"])) for r in gm_rows) / len(gm_rows), 1)
+
+    # Valor do Gol/Ponto/Saldo e Custo do Gol 2.0 — só nas linhas com odd
+    # própria E do adversário conhecidas, mesmas fórmulas da aba Jogo
+    odd_rows = [r for r in rows if r.get("odd") and r.get("opp_odd")]
+    valor_gol_marcado = valor_gol_sofrido = custo_gol_marcado = custo_gol_sofrido = valor_saldo = valor_ponto = None
+    if odd_rows:
+        nn = len(odd_rows)
+        vgm = vgs = cgm = cgs = vs = vp = 0.0
+        for r in odd_rows:
+            own_prob = 1.0 / r["odd"]
+            opp_prob = 1.0 / r["opp_odd"]
+            pontos = 3 if r["own"] > r["opp"] else (1 if r["own"] == r["opp"] else 0)
+            saldo_row = r["own"] - r["opp"]
+            vgm += r["own"] * opp_prob
+            vgs += r["opp"] * own_prob
+            cgm += (r["own"] / 2) + (own_prob / 2)
+            cgs += (r["opp"] / 2) + (own_prob / 2)
+            vs += saldo_row * opp_prob
+            vp += pontos * opp_prob
+        valor_gol_marcado, valor_gol_sofrido = round(vgm / nn, 3), round(vgs / nn, 3)
+        custo_gol_marcado, custo_gol_sofrido = round(cgm / nn, 3), round(cgs / nn, 3)
+        valor_saldo, valor_ponto = round(vs / nn, 3), round(vp / nn, 3)
+
     return {
         "n": n,
         "vitFT_pct": round(vit / n * 100, 1),
@@ -6522,6 +6601,177 @@ def _jogo_stats_from_rows(rows):
         "ou15_team": _ou_team(1.5),
         "ou25_team": _ou_team(2.5),
         "ou35_team": _ou_team(3.5),
+        "saldo": round(sum(r["own"] - r["opp"] for r in rows) / n, 2),
+        "tempoPrimeiroGolMarcado": tempo_marcado,
+        "tempoPrimeiroGolSofrido": tempo_sofrido,
+        "tempoPrimeiroGolPartida": tempo_partida,
+        "valorGolMarcado": valor_gol_marcado,
+        "valorGolSofrido": valor_gol_sofrido,
+        "custoGol2Marcado": custo_gol_marcado,
+        "custoGol2Sofrido": custo_gol_sofrido,
+        "valorSaldo": valor_saldo,
+        "valorPonto": valor_ponto,
+    }
+
+
+def _jogo_goal_pattern_from_rows(rows):
+    """Porta pra Python de _jogoGoalPatternStats (JS) — faixas de gols, ambas
+    marcam, par/ímpar, gols por faixa de 15min e minuto do 1º gol por faixa de
+    10min — pra alimentar as médias gerais da seção 'Características gerais
+    do gol' / 'Gols nos minutos entre' / 'Primeiro gol nas partidas'. Reusa o
+    gm_own/gm_opp já anexado por _jogo_fetch_extra, sem fetch adicional."""
+    n = len(rows)
+    if n == 0:
+        return None
+    total_goals = [r["own"] + r["opp"] for r in rows]
+    ambos = sum(1 for r in rows if r["own"] >= 1 and r["opp"] >= 1)
+    apenas_um = sum(1 for r in rows if (r["own"] >= 1) != (r["opp"] >= 1))
+    nenhum = sum(1 for r in rows if r["own"] == 0 and r["opp"] == 0)
+    impar = sum(1 for g in total_goals if g % 2 == 1)
+
+    gm_rows = [r for r in rows if "gm_own" in r]
+    total_com_gm = len(gm_rows)
+
+    def _bucket15(m):
+        if m <= 15:
+            return 0
+        if m <= 30:
+            return 1
+        if m <= 45:
+            return 2
+        if m <= 60:
+            return 3
+        if m <= 75:
+            return 4
+        return 5
+
+    def _bucket10(m):
+        return min(8, max(0, (m - 1) // 10))
+
+    all_buckets = [0] * 6
+    team_buckets = [0] * 6
+    all_count = team_count = 0
+    primeiro_buckets = [0] * 9
+    primeiro_team_buckets = [0] * 9
+    sem_gol = sem_gol_team = time_primeiro = adversario_primeiro = 0
+
+    for r in gm_rows:
+        pro, contra = r["gm_own"], r["gm_opp"]
+        for m in pro:
+            mm = min(m, 90)
+            all_buckets[_bucket15(mm)] += 1
+            all_count += 1
+            team_buckets[_bucket15(mm)] += 1
+            team_count += 1
+        for m in contra:
+            mm = min(m, 90)
+            all_buckets[_bucket15(mm)] += 1
+            all_count += 1
+
+        events = sorted([(m, True) for m in pro] + [(m, False) for m in contra])
+        if not events:
+            sem_gol += 1
+            sem_gol_team += 1
+            continue
+        first_m, first_is_team = events[0]
+        primeiro_buckets[_bucket10(min(first_m, 90))] += 1
+        if first_is_team:
+            time_primeiro += 1
+            primeiro_team_buckets[_bucket10(min(first_m, 90))] += 1
+        else:
+            adversario_primeiro += 1
+            sem_gol_team += 1
+
+    def _pct_list(buckets, total):
+        return [round(b / total * 100, 1) for b in buckets] if total else None
+
+    return {
+        "faixa01_pct": round(sum(1 for g in total_goals if g <= 1) / n * 100, 1),
+        "faixa23_pct": round(sum(1 for g in total_goals if 2 <= g <= 3) / n * 100, 1),
+        "faixa4mais_pct": round(sum(1 for g in total_goals if g >= 4) / n * 100, 1),
+        "ambosMarcam_pct": round(ambos / n * 100, 1),
+        "apenasUm_pct": round(apenas_um / n * 100, 1),
+        "nenhum_pct": round(nenhum / n * 100, 1),
+        "impar_pct": round(impar / n * 100, 1),
+        "par_pct": round((n - impar) / n * 100, 1),
+        "totalComGm": total_com_gm,
+        "allGoalsBuckets_pct": _pct_list(all_buckets, all_count),
+        "teamGoalsBuckets_pct": _pct_list(team_buckets, team_count),
+        "primeiroGolBuckets_pct": _pct_list(primeiro_buckets, total_com_gm),
+        "primeiroGolTeamBuckets_pct": _pct_list(primeiro_team_buckets, total_com_gm),
+        "semGol_pct": round(sem_gol / total_com_gm * 100, 1) if total_com_gm else None,
+        "semGolTeam_pct": round(sem_gol_team / total_com_gm * 100, 1) if total_com_gm else None,
+        "timeMarcouPrimeiro_pct": round(time_primeiro / total_com_gm * 100, 1) if total_com_gm else None,
+        "adversarioMarcouPrimeiro_pct": round(adversario_primeiro / total_com_gm * 100, 1) if total_com_gm else None,
+    }
+
+
+def _jogo_winner_at_minute_from_rows(rows):
+    """Porta de _jogoWinnerAtMinuteStats (JS) — quem está na frente no placar
+    a cada checkpoint (15/30/45/60/75/90min), usando gm_own/gm_opp já
+    anexados por _jogo_fetch_extra."""
+    gm_rows = [r for r in rows if "gm_own" in r]
+    n = len(gm_rows)
+    if n == 0:
+        return None
+    out = {}
+    for cp in (15, 30, 45, 60, 75, 90):
+        time_c = adv_c = emp_c = 0
+        for r in gm_rows:
+            gp = sum(1 for m in r["gm_own"] if m <= cp)
+            gc = sum(1 for m in r["gm_opp"] if m <= cp)
+            if gp > gc:
+                time_c += 1
+            elif gc > gp:
+                adv_c += 1
+            else:
+                emp_c += 1
+        out[str(cp)] = {
+            "time_pct": round(time_c / n * 100, 1),
+            "adversario_pct": round(adv_c / n * 100, 1),
+            "empate_pct": round(emp_c / n * 100, 1),
+        }
+    return {"n": n, "checkpoints": out}
+
+
+def _jogo_goal_diff_from_rows(rows):
+    """Porta de _jogoGoalDiffStats (JS) — diferença de gols na partida e qual
+    metade do jogo teve mais gols (usando ht_own/ht_opp já anexados por
+    _jogo_fetch_extra)."""
+    n = len(rows)
+    if n == 0:
+        return None
+    diff_arr = [abs(r["own"] - r["opp"]) for r in rows]
+    diff01 = sum(1 for d in diff_arr if d <= 1) / n * 100
+    diff23 = sum(1 for d in diff_arr if 2 <= d <= 3) / n * 100
+    diff4mais = sum(1 for d in diff_arr if d >= 4) / n * 100
+
+    ht_rows = [r for r in rows if "ht_own" in r]
+    n_ht = len(ht_rows)
+    primeiro_tempo = segunda_metade = gravata = None
+    if n_ht:
+        pt = sm = gv = 0
+        for r in ht_rows:
+            gols_ht = r["ht_own"] + r["ht_opp"]
+            gols_st = (r["own"] + r["opp"]) - gols_ht
+            if gols_ht > gols_st:
+                pt += 1
+            elif gols_st > gols_ht:
+                sm += 1
+            else:
+                gv += 1
+        primeiro_tempo = round(pt / n_ht * 100, 1)
+        segunda_metade = round(sm / n_ht * 100, 1)
+        gravata = round(gv / n_ht * 100, 1)
+
+    return {
+        "diff01_pct": round(diff01, 1),
+        "diff23_pct": round(diff23, 1),
+        "diff4mais_pct": round(diff4mais, 1),
+        "nHt": n_ht,
+        "primeiroTempo_pct": primeiro_tempo,
+        "segundaMetade_pct": segunda_metade,
+        "gravata_pct": gravata,
     }
 
 
@@ -6553,11 +6803,27 @@ def _jogo_medias_gerais_compute():
                 seen_fora.add(row["id"])
                 fora_rows.append(row)
 
+    casa_rows = _jogo_fetch_extra(casa_rows, "casa")
+    fora_rows = _jogo_fetch_extra(fora_rows, "fora")
+    geral_rows = casa_rows + fora_rows
+
+    def _scope_data(rows):
+        stats = _jogo_stats_from_rows(rows)
+        if stats is None:
+            return None
+        for extra in (_jogo_goal_pattern_from_rows(rows), _jogo_goal_diff_from_rows(rows)):
+            if extra:
+                stats.update(extra)
+        winner = _jogo_winner_at_minute_from_rows(rows)
+        if winner:
+            stats["vencedor"] = winner
+        return stats
+
     data = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
-        "casa": _jogo_stats_from_rows(casa_rows),
-        "fora": _jogo_stats_from_rows(fora_rows),
-        "geral": _jogo_stats_from_rows(casa_rows + fora_rows),
+        "casa": _scope_data(casa_rows),
+        "fora": _scope_data(fora_rows),
+        "geral": _scope_data(geral_rows),
     }
     _JOGO_MEDIAS_CACHE["date"] = today_str
     _JOGO_MEDIAS_CACHE["data"] = data
