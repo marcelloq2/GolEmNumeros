@@ -6471,6 +6471,94 @@ def api_masterlist_generic(metodologia):
     return jsonify(data)
 
 
+# ── ABA JOGO — MÉDIAS GERAIS — baseline pra comparação: qual a média de cada
+# estatística (vitórias, gols, ambas marcam, over/under...) entre TODOS os
+# times de hoje, não só o time que o usuário está olhando. Reaproveita
+# _laycasa_home_rows/_laycasa_away_rows (mesma extração de linhas do Mapa de
+# Sugestões) — um único fetch de H2H por jogo já dá tanto a amostra "casa"
+# quanto "fora". Recalculada 1x por dia (não faz sentido recalcular toda hora,
+# a média de centenas de times não muda de uma hora pra outra).
+_JOGO_MEDIAS_CACHE = {"date": None, "data": None}
+
+
+def _jogo_stats_from_rows(rows):
+    n = len(rows)
+    if n == 0:
+        return None
+    vit = sum(1 for r in rows if r["own"] > r["opp"])
+    emp = sum(1 for r in rows if r["own"] == r["opp"])
+    der = n - vit - emp
+    marcou = sum(1 for r in rows if r["own"] >= 1)
+    sofreu = sum(1 for r in rows if r["opp"] >= 1)
+    ambas = sum(1 for r in rows if r["own"] >= 1 and r["opp"] >= 1)
+    sem_sofrer = sum(1 for r in rows if r["opp"] == 0)
+    sem_marcar = sum(1 for r in rows if r["own"] == 0)
+    over25 = sum(1 for r in rows if (r["own"] + r["opp"]) > 2.5)
+    return {
+        "n": n,
+        "vitFT_pct": round(vit / n * 100, 1),
+        "empFT_pct": round(emp / n * 100, 1),
+        "derFT_pct": round(der / n * 100, 1),
+        "mediaMarcados": round(sum(r["own"] for r in rows) / n, 2),
+        "mediaSofridos": round(sum(r["opp"] for r in rows) / n, 2),
+        "pctMarcar": round(marcou / n * 100, 1),
+        "pctSofrer": round(sofreu / n * 100, 1),
+        "pctAmbasMarcam": round(ambas / n * 100, 1),
+        "semSofrer_pct": round(sem_sofrer / n * 100, 1),
+        "semMarcar_pct": round(sem_marcar / n * 100, 1),
+        "over25_pct": round(over25 / n * 100, 1),
+        "under25_pct": round((n - over25) / n * 100, 1),
+    }
+
+
+def _jogo_medias_gerais_compute():
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if _JOGO_MEDIAS_CACHE["date"] == today_str and _JOGO_MEDIAS_CACHE["data"] is not None:
+        return _JOGO_MEDIAS_CACHE["data"]
+
+    scheduled = sorted((m for m in _fs_all_matches() if m.get("status") == "1"), key=lambda m: m.get("kickoff_ts") or "")
+    finished_today = sorted((m for m in _fs_all_matches() if m.get("status") == "3"), key=lambda m: m.get("kickoff_ts") or "")
+    candidatos = scheduled[:_BT2_MATCHES_MAX_CANDIDATOS] + finished_today[:_BT2_MATCHES_MAX_CANDIDATOS]
+
+    def _fetch(m):
+        try:
+            tabs = _fs_h2h(m["id"])
+            return _laycasa_home_rows(tabs), _laycasa_away_rows(tabs)
+        except Exception:
+            return [], []
+
+    casa_rows, fora_rows = [], []
+    seen_casa, seen_fora = set(), set()
+    for home_rows, away_rows in _fs_event_pool.map(_fetch, candidatos):
+        for row in home_rows:
+            if row["id"] and row["id"] not in seen_casa and len(casa_rows) < _BTCS_MAX_HISTORICAL_IDS:
+                seen_casa.add(row["id"])
+                casa_rows.append(row)
+        for row in away_rows:
+            if row["id"] and row["id"] not in seen_fora and len(fora_rows) < _BTCS_MAX_HISTORICAL_IDS:
+                seen_fora.add(row["id"])
+                fora_rows.append(row)
+
+    data = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "casa": _jogo_stats_from_rows(casa_rows),
+        "fora": _jogo_stats_from_rows(fora_rows),
+        "geral": _jogo_stats_from_rows(casa_rows + fora_rows),
+    }
+    _JOGO_MEDIAS_CACHE["date"] = today_str
+    _JOGO_MEDIAS_CACHE["data"] = data
+    return data
+
+
+@app.route("/api/jogo/medias_gerais")
+def api_jogo_medias_gerais():
+    """Médias gerais (Geral/Casa/Fora) das estatísticas da aba Jogo, pra
+    comparação — mesmos números que aparecem no card de cada time, só que
+    calculados em cima de uma amostra ampla de times de hoje. Cacheado 1x por
+    dia."""
+    return jsonify(_jogo_medias_gerais_compute())
+
+
 @app.route("/api/backtestcs/ranking")
 def api_backtestcs_ranking():
     """Ranking global dos 19 buckets de placar exato por taxa de acerto,

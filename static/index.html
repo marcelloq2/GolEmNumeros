@@ -4537,6 +4537,20 @@ function _btcsRender() {
 // ── ABA JOGO — estatísticas dos últimos jogos de cada time (mesma fonte do H2H) ──────
 let _today2JogoScope = {}; // { [matchId]: 0|1|2 } — Geral/Casa/Fora, igual às outras abas
 
+// Médias gerais (Geral/Casa/Fora) pra comparação no card de cada time — vêm do
+// backend já cacheadas 1x por dia, então basta buscar uma vez por sessão aqui.
+let _jogoMediasGeraisCache = null;
+async function _jogoEnsureMediasGerais() {
+  if (_jogoMediasGeraisCache) return _jogoMediasGeraisCache;
+  try {
+    const r = await fetch('/api/jogo/medias_gerais');
+    _jogoMediasGeraisCache = await r.json();
+  } catch (e) {
+    _jogoMediasGeraisCache = {};
+  }
+  return _jogoMediasGeraisCache;
+}
+
 function _jogoStatsRowsFromSection(tabs, tabIdx, teamHome) {
   // igual a _profitTeamRowsFromSection, mas guarda gols marcados/sofridos da
   // PERSPECTIVA do time (não só placar cru), comparando o nome do time com home/away
@@ -4728,31 +4742,34 @@ function _jogoComputeStats(rows) {
   };
 }
 
-function _jogoStatsCardHtml(teamName, s) {
+function _jogoStatsCardHtml(teamName, s, media) {
   if (!s) return `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName || '—'}</div><div style="color:var(--text2);font-size:15px">sem jogos suficientes</div>`;
-  const row = (label, value, tip) => `
+  const row = (label, value, tip, mediaVal) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)" ${tip ? `title="${tip}"` : ''}>
       <span style="font-size:14px;color:var(--text2)">${label}</span>
-      <span style="font-size:14px;font-weight:700;color:var(--text)">${value}</span>
+      <span style="display:flex;align-items:baseline;gap:8px">
+        ${mediaVal !== undefined && mediaVal !== null ? `<span style="font-size:11px;color:var(--text2)" title="média entre todos os times de hoje, recalculada 1x por dia">méd: ${mediaVal}</span>` : ''}
+        <span style="font-size:14px;font-weight:700;color:var(--text)">${value}</span>
+      </span>
     </div>`;
   return `
     <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName} <span style="font-weight:400;color:var(--text2)">(${s.n} jogos)</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:420px;margin-bottom:16px">
-      ${row('Número de vitórias FT', s.vitFT)}
+      ${row('Número de vitórias FT', `${s.vitFT} (${(s.vitFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.vitFT_pct}%` : null)}
       ${row('Número de vitórias HT', s.nHt ? s.vitHT : '—', s.nHt ? `de ${s.nHt} jogos com dado de 1º tempo` : 'placar do intervalo não encontrado')}
-      ${row('Número de empates FT', s.empFT)}
+      ${row('Número de empates FT', `${s.empFT} (${(s.empFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.empFT_pct}%` : null)}
       ${row('Número de empates HT', s.nHt ? s.empHT : '—')}
-      ${row('Número de derrotas FT', s.derFT)}
+      ${row('Número de derrotas FT', `${s.derFT} (${(s.derFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.derFT_pct}%` : null)}
       ${row('Número de derrotas HT', s.nHt ? s.derHT : '—')}
-      ${row('Média de gols marcados por partida', s.mediaMarcados.toFixed(2))}
-      ${row('Média de gols sofridos por partida', s.mediaSofridos.toFixed(2))}
-      ${row('Chance de marcar um gol na próxima partida', s.pctMarcar.toFixed(0) + '%')}
-      ${row('Chance de sofrer um gol na próxima partida', s.pctSofrer.toFixed(0) + '%')}
-      ${row('Ambas Marcam', s.pctAmbasMarcam.toFixed(0) + '%')}
-      ${row('Número de partidas sem sofrer gols', s.semSofrer)}
-      ${row('Número de partidas sem marcar', s.semMarcar)}
-      ${row('Partidas com mais de 2,5 gols', `${s.over25} (${(s.over25/s.n*100).toFixed(0)}%)`)}
-      ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`)}
+      ${row('Média de gols marcados por partida', s.mediaMarcados.toFixed(2), null, media ? media.mediaMarcados : null)}
+      ${row('Média de gols sofridos por partida', s.mediaSofridos.toFixed(2), null, media ? media.mediaSofridos : null)}
+      ${row('Chance de marcar um gol na próxima partida', s.pctMarcar.toFixed(0) + '%', null, media ? `${media.pctMarcar}%` : null)}
+      ${row('Chance de sofrer um gol na próxima partida', s.pctSofrer.toFixed(0) + '%', null, media ? `${media.pctSofrer}%` : null)}
+      ${row('Ambas Marcam', s.pctAmbasMarcam.toFixed(0) + '%', null, media ? `${media.pctAmbasMarcam}%` : null)}
+      ${row('Número de partidas sem sofrer gols', `${s.semSofrer} (${(s.semSofrer/s.n*100).toFixed(0)}%)`, null, media ? `${media.semSofrer_pct}%` : null)}
+      ${row('Número de partidas sem marcar', `${s.semMarcar} (${(s.semMarcar/s.n*100).toFixed(0)}%)`, null, media ? `${media.semMarcar_pct}%` : null)}
+      ${row('Partidas com mais de 2,5 gols', `${s.over25} (${(s.over25/s.n*100).toFixed(0)}%)`, null, media ? `${media.over25_pct}%` : null)}
+      ${row('Partidas com menos de 2,5 gols', `${s.under25} (${(s.under25/s.n*100).toFixed(0)}%)`, null, media ? `${media.under25_pct}%` : null)}
       ${row('Minuto médio do 1º gol marcado (equipe)', s.tempoSemMarcar !== null ? `${s.tempoSemMarcar.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol marcado pela própria equipe (ou 90 se não marcou) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
       ${row('Minuto médio do 1º gol sofrido (equipe)', s.tempoSemSofrer !== null ? `${s.tempoSemSofrer.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol sofrido pela própria equipe (ou 90 se não sofreu) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
       ${row('Minuto médio do 1º gol da partida', s.tempoPrimeiroGolPartida !== null ? `${s.tempoPrimeiroGolPartida.toFixed(0)} min` : '—', s.nGoalMin ? `média do minuto do 1º gol de QUALQUER um dos dois times (ou 90 se 0x0) em ${s.nGoalMin} jogos` : 'sem dado de minutos de gol')}
@@ -4986,9 +5003,13 @@ async function _renderToday2Jogo(matchId) {
     blocks = [_jogoStatsRowsFromSection(tabs, 2, false)];
   }
 
-  await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
+  const [, mediasGerais] = await Promise.all([
+    Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)]))),
+    _jogoEnsureMediasGerais(),
+  ]);
   if ((_today2Tab[matchId] || 'jogo') !== 'jogo') return;
 
+  const mediaScope = mediasGerais?.[['geral', 'casa', 'fora'][scope]];
   const body = document.getElementById(`today2JogoBody_${matchId}`);
   if (!body) return;
   const cardsHtml = blocks.map(b => {
@@ -5007,7 +5028,7 @@ async function _renderToday2Jogo(matchId) {
       s.avgValorSaldo = gv.avgValorSaldo;
       s.avgValorPonto = gv.avgValorPonto;
     }
-    return _jogoStatsCardHtml(b.teamName, s) + _jogoGoalPatternHtml(b.teamName, gp);
+    return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp);
   });
   body.innerHTML = blocks.length > 1
     ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
