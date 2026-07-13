@@ -5087,38 +5087,56 @@ async function _renderToday2Jogo(matchId) {
     blocks = [_jogoStatsRowsFromSection(tabs, 2, false)];
   }
 
-  const [, mediasGerais] = await Promise.all([
-    Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)]))),
-    _jogoEnsureMediasGerais(),
-  ]);
+  // As médias gerais NÃO travam a renderização do card — no pior caso (1ª
+  // requisição do dia) esse cálculo no servidor leva minutos, e esperar por
+  // ele junto do resto deixava a aba inteira parecendo travada. Dispara a
+  // busca em paralelo mas só espera o cálculo do PRÓPRIO jogo (rápido); as
+  // médias, quando chegarem, re-renderizam o card só pra acrescentar os
+  // badges "méd:".
+  const mediasGeraisPromise = _jogoEnsureMediasGerais();
+
+  await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
   if ((_today2Tab[matchId] || 'jogo') !== 'jogo') return;
 
-  const mediaScope = mediasGerais?.[['geral', 'casa', 'fora'][scope]];
   const body = document.getElementById(`today2JogoBody_${matchId}`);
   if (!body) return;
-  const cardsHtml = blocks.map(b => {
-    const gp = _jogoGoalPatternStats(b.rows);
-    if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
-    const s = _jogoComputeStats(b.rows);
-    const gv = _jogoGolValorStats(b.rows);
-    if (s && gv) {
-      s.avgValorGolMarcado = gv.avgValorGolMarcado;
-      s.avgValorGolSofrido = gv.avgValorGolSofrido;
-      s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
-      s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
-      s.nGolValor = gv.n;
-      s.avgSaldo = gv.avgSaldo;
-      s.nSaldo = gv.nSaldo;
-      s.avgValorSaldo = gv.avgValorSaldo;
-      s.avgValorPonto = gv.avgValorPonto;
-    }
-    return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
+
+  const renderCards = (mediaScope) => {
+    const freshBody = document.getElementById(`today2JogoBody_${matchId}`);
+    if (!freshBody) return;
+    const cardsHtml = blocks.map(b => {
+      const gp = _jogoGoalPatternStats(b.rows);
+      if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
+      const s = _jogoComputeStats(b.rows);
+      const gv = _jogoGolValorStats(b.rows);
+      if (s && gv) {
+        s.avgValorGolMarcado = gv.avgValorGolMarcado;
+        s.avgValorGolSofrido = gv.avgValorGolSofrido;
+        s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+        s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+        s.nGolValor = gv.n;
+        s.avgSaldo = gv.avgSaldo;
+        s.nSaldo = gv.nSaldo;
+        s.avgValorSaldo = gv.avgValorSaldo;
+        s.avgValorPonto = gv.avgValorPonto;
+      }
+      return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
+    });
+    freshBody.innerHTML = blocks.length > 1
+      ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+           ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
+         </div>`
+      : cardsHtml.join('');
+  };
+
+  renderCards(null);
+
+  mediasGeraisPromise.then(mediasGerais => {
+    if ((_today2Tab[matchId] || 'jogo') !== 'jogo') return;
+    if ((_today2JogoScope[matchId] ?? 0) !== scope) return; // usuário já trocou de escopo
+    const mediaScope = mediasGerais?.[['geral', 'casa', 'fora'][scope]];
+    if (mediaScope) renderCards(mediaScope);
   });
-  body.innerHTML = blocks.length > 1
-    ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-         ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
-       </div>`
-    : cardsHtml.join('');
 }
 
 function _setToday2JogoScope(matchId, idx, btn) {
