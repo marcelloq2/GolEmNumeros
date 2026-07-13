@@ -3767,10 +3767,11 @@ let _bt2SortKey = 'profit';
 let _bt2SortDir = -1;        // -1 = desc, 1 = asc
 let _bt2SelectedIdx = 0;     // índice da metodologia selecionada pro gráfico de linha
 
-// modo 'recente' (últimos 30 jogos, snapshot em memória) vs 'acumulado' (histórico
-// persistido em SQLite, cresce com o tempo) — cada um com seu próprio cache local
-// pra não refetch toda vez que o usuário alterna entre os dois.
-let _bt2Mode = 'recente';
+// Modo travado em 'acumulado' (histórico persistido em SQLite, rápido, só lê o
+// banco) — o modo 'recente' (calcula odds de até 400 jogos na hora) já foi o
+// gatilho de uma queda do site (prendia o único worker do servidor), então o
+// botão de alternar foi removido e não sobra mais jeito de disparar isso pela UI.
+let _bt2Mode = 'acumulado';
 let _bt2DataByMode = { recente: null, acumulado: null };
 
 async function _bt2LoadRanking(refresh) {
@@ -3779,9 +3780,7 @@ async function _bt2LoadRanking(refresh) {
   content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">
     ⏳ Calculando... isso pode levar até 1 minuto na primeira vez</div>`;
   try {
-    const url = _bt2Mode === 'acumulado'
-      ? '/api/backtest2/ranking?mode=acumulado'
-      : `/api/backtest2/ranking${refresh ? '?refresh=1' : ''}`;
+    const url = '/api/backtest2/ranking?mode=acumulado';
     const r = await fetch(url);
     const d = await r.json();
     _bt2Data = d;
@@ -3795,19 +3794,6 @@ async function _bt2LoadRanking(refresh) {
 
 function _bt2Refresh() { _bt2LoadRanking(true); }
 
-async function _bt2SetMode(mode) {
-  if (_bt2Mode === mode) return;
-  _bt2Mode = mode;
-  _bt2SelectedIdx = 0;
-  if (_bt2DataByMode[mode]) {
-    _bt2Data = _bt2DataByMode[mode];
-    _bt2Render();
-  } else {
-    _bt2Data = null;
-    await _bt2LoadRanking(false);
-  }
-}
-
 function _bt2FmtDate(ts) {
   if (!ts) return '';
   const n = parseInt(ts);
@@ -3815,13 +3801,7 @@ function _bt2FmtDate(ts) {
   return new Date(n * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-let _bt2Filter = 'geral'; // 'geral' | 'valor' — 'valor' = só ROI ≥20% (mesmo critério do ⚡ em Profit Mercados Tradicionais)
-
-function _bt2SetFilter(f) {
-  _bt2Filter = f;
-  _bt2SelectedIdx = 0;
-  _bt2Render();
-}
+let _bt2Filter = 'geral'; // sempre 'geral' agora — o toggle "Só com valor" foi removido
 
 function _bt2SortedMethodologies() {
   let list = (_bt2Data?.methodologies || []).slice();
@@ -4067,27 +4047,12 @@ function _bt2Render() {
   const sorted = _bt2SortedMethodologies();
   const selected = (_bt2Data.methodologies || [])[_bt2SelectedIdx] || sorted[0];
   const generatedAt = _bt2Data.generated_at ? new Date(_bt2Data.generated_at).toLocaleString('pt-BR') : '-';
-  const totalValor = (_bt2Data.methodologies || []).filter(m => m.roi >= 20).length;
-  const tabBtn = (f, label) => `<button onclick="_bt2SetFilter('${f}')" style="font-size:13px;font-weight:600;padding:6px 14px;
-    border-radius:8px;border:1px solid ${_bt2Filter===f?'var(--accent)':'var(--border)'};
-    background:${_bt2Filter===f?'var(--accent)':'var(--bg2)'};color:${_bt2Filter===f?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
-  const modeBtn = (m, label) => `<button onclick="_bt2SetMode('${m}')" style="font-size:13px;font-weight:600;padding:6px 14px;
-    border-radius:8px;border:1px solid ${_bt2Mode===m?'var(--accent)':'var(--border)'};
-    background:${_bt2Mode===m?'var(--accent)':'var(--bg2)'};color:${_bt2Mode===m?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
   content.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--text2)">
       <span>gerado em ${generatedAt}</span>
-      <span>amostra: ${_bt2Data.sample_matches_used ?? 0} jogos históricos${_bt2Mode==='acumulado' ? ' (acumulado)' : ''}</span>
+      <span>amostra: ${_bt2Data.sample_matches_used ?? 0} jogos históricos (acumulado)</span>
       <button onclick="_bt2Refresh()" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      ${modeBtn('recente', 'Últimos 30 jogos')}
-      ${modeBtn('acumulado', '📈 Acumulado (histórico)')}
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:14px">
-      ${tabBtn('geral', 'Geral')}
-      ${tabBtn('valor', `⚡ Só com valor (${totalValor})`)}
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 8px">Ranking por ROI (top 15)</div>
     ${_bt2BarChartSvg(sorted)}
@@ -4098,7 +4063,7 @@ function _bt2Render() {
     ${_bt2OddRangesHtml(selected)}
     <div id="bt2MatchesBox"></div>
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin:18px 0 8px">
-      ${_bt2Filter==='valor' ? '⚡ Só metodologias com ROI ≥20% (mesmo critério de "valor" usado em Profit Mercados Tradicionais)' : 'Todas as metodologias (clique numa linha pra ver o gráfico)'}
+      Todas as metodologias (clique numa linha pra ver o gráfico)
     </div>
     ${_bt2TableHtml(sorted)}`;
   _bt2LoadMatchesForSelected();
@@ -4398,10 +4363,10 @@ function _btcsMatchesHtml(m, matches) {
 let _btcsPatternsData = null;
 let _btcsPatternsLoading = false;
 let _btcsBucketOdds = null; // { [bucket]: odd_media_hoje } — carregado à parte, não bloqueia os padrões
-// 'recente' (últimos 30 jogos, calcula odds na hora — pode levar dezenas de
-// segundos e prende 1 dos poucos workers do servidor) | 'acumulado' (histórico
-// persistido, só lê SQLite, rápido). Default é 'acumulado' pra abrir a aba
-// nunca disparar sozinho o cálculo pesado — foi o gatilho de uma queda do site.
+// Modo travado em 'acumulado' (histórico persistido, só lê SQLite, rápido) —
+// 'recente' (calcula odds de até 400 jogos na hora) foi o gatilho de uma
+// queda do site (prendia o único worker do servidor), então o botão de
+// alternar foi removido e não sobra mais jeito de disparar isso pela UI.
 let _btcsPatternsMode = 'acumulado';
 let _btcsPatternsDataByMode = { recente: null, acumulado: null };
 
@@ -4411,9 +4376,7 @@ async function _btcsLoadPatterns(refresh) {
   _btcsPatternsLoading = true;
   _btcsPatternsRenderBox(true);
   try {
-    const url = _btcsPatternsMode === 'acumulado'
-      ? '/api/backtestcs/patterns?mode=acumulado'
-      : `/api/backtestcs/patterns${refresh ? '?refresh=1' : ''}`;
+    const url = '/api/backtestcs/patterns?mode=acumulado';
     const r = await fetch(url);
     _btcsPatternsData = await r.json();
     _btcsPatternsDataByMode[_btcsPatternsMode] = _btcsPatternsData;
@@ -4423,19 +4386,6 @@ async function _btcsLoadPatterns(refresh) {
   _btcsPatternsLoading = false;
   _btcsPatternsRenderBox();
   _btcsLoadBucketOdds(refresh);
-}
-
-async function _btcsPatternsSetMode(mode) {
-  if (_btcsPatternsMode === mode) return;
-  _btcsPatternsMode = mode;
-  _btcsSelectedPattern = null;
-  if (_btcsPatternsDataByMode[mode]) {
-    _btcsPatternsData = _btcsPatternsDataByMode[mode];
-    _btcsPatternsRenderBox();
-  } else {
-    _btcsPatternsData = null;
-    await _btcsLoadPatterns(false);
-  }
 }
 
 async function _btcsLoadBucketOdds(refresh) {
@@ -4548,55 +4498,21 @@ function _btcsPatternsRenderBox(loading) {
   const d = _btcsPatternsData;
   if (!d) { box.innerHTML = ''; return; }
   const generatedAt = d.generated_at ? new Date(d.generated_at).toLocaleString('pt-BR') : '-';
-  const modeBtn = (m, label) => `<button onclick="_btcsPatternsSetMode('${m}')" style="font-size:13px;font-weight:600;padding:6px 14px;
-    border-radius:8px;border:1px solid ${_btcsPatternsMode===m?'var(--accent)':'var(--border)'};
-    background:${_btcsPatternsMode===m?'var(--accent)':'var(--bg2)'};color:${_btcsPatternsMode===m?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
-  const viewBtn = (v, label) => `<button onclick="_btcsPatternsSetView('${v}')" style="font-size:13px;font-weight:600;padding:6px 14px;
-    border-radius:8px;border:1px solid ${_btcsPatternsView===v?'var(--accent)':'var(--border)'};
-    background:${_btcsPatternsView===v?'var(--accent)':'var(--bg2)'};color:${_btcsPatternsView===v?'#fff':'var(--text2)'};cursor:pointer">${label}</button>`;
-  const bestByBucket = d.patterns_avoid_best_by_bucket || _btcsBestPerBucket(d.patterns_avoid || []);
-  const lista = _btcsPatternsView === 'melhor' ? bestByBucket : (d.patterns_avoid || []);
+  const lista = d.patterns_avoid || [];
   box.innerHTML = `
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      ${modeBtn('recente', 'Últimos 30 jogos')}
-      ${modeBtn('acumulado', '📈 Acumulado (histórico)')}
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      ${viewBtn('todos', 'Todos os padrões')}
-      ${viewBtn('melhor', `🏆 Melhor combinação por placar (${bestByBucket.length}/19)`)}
-    </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2)">
       <span>gerado em ${generatedAt}</span>
-      <span>amostra: ${d.sample_teams_used ?? 0} times, ${d.sample_matches_used ?? 0} jogos históricos${_btcsPatternsMode==='acumulado' ? ' (acumulado)' : ''}</span>
+      <span>amostra: ${d.sample_teams_used ?? 0} times, ${d.sample_matches_used ?? 0} jogos históricos (acumulado)</span>
       <button onclick="_btcsPatternsRefresh()" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 8px">
       🚫 Padrões que REDUZEM a chance — sinal de que esse placar NÃO vai sair
-      ${_btcsPatternsView === 'melhor' ? ' — um por placar, o de lift mais baixo (sinal mais forte)' : ''}
     </div>
     ${_btcsPatternsTableHtml(lista, {
       emptyMsg: 'nenhum padrão de "reduz a chance" encontrado ainda com amostra suficiente (lift ≤ 0.7x, amostra ≥ 30 jogos)',
       liftColorFn: _btcsAvoidLiftColor,
     })}`;
-}
-
-let _btcsPatternsView = 'todos'; // 'todos' | 'melhor' — melhor combinação por placar
-
-function _btcsPatternsSetView(v) {
-  _btcsPatternsView = v;
-  _btcsPatternsRenderBox();
-}
-
-function _btcsBestPerBucket(patterns) {
-  // Um padrão por placar (lift mais baixo = sinal mais forte de "não sai"),
-  // ordenado do mais forte pro mais fraco.
-  const byBucket = {};
-  for (const p of patterns || []) {
-    const cur = byBucket[p.bucket];
-    if (!cur || p.lift < cur.lift) byBucket[p.bucket] = p;
-  }
-  return Object.values(byBucket).sort((a, b) => a.lift - b.lift);
 }
 
 function _btcsRender() {
