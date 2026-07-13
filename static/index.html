@@ -5696,14 +5696,28 @@ function _today2InsightsGridHtml(cards) {
   return _today2InsightsGridInner(cards);
 }
 
+// Combina tamanho da amostra com a força do sinal (%) — amostra pequena ou
+// sinal fraco nunca vira "Alta confiança", mesmo passando no limiar mínimo
+// específico de cada card (que só decide SE o card aparece, não quão forte é).
+function _today2Confidence(n, pct) {
+  if (n >= 20 && pct >= 75) return { label: 'Alta confiança', color: '#22c55e' };
+  if (n >= 12 && pct >= 62) return { label: 'Média confiança', color: '#f59e0b' };
+  return { label: 'Baixa confiança', color: '#ef4444' };
+}
+
 function _today2InsightsGridInner(cards) {
   return `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
       ${cards.map(c => {
         const color = INSIGHT_TONE_COLOR[c.tone] || INSIGHT_TONE_COLOR.amber;
+        const conf = c.confianca;
+        const confBadge = conf ? `<span style="font-size:10px;font-weight:700;color:${conf.color};background:${conf.color}18;border:1px solid ${conf.color}44;border-radius:5px;padding:2px 7px;white-space:nowrap;margin-left:8px">${conf.label}</span>` : '';
         return `
         <div style="background:var(--bg2);border-left:4px solid ${color};border-radius:8px;padding:12px 14px">
-          <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:6px">${c.headline}</div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:6px">
+            <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.4">${c.headline}</div>
+            ${confBadge}
+          </div>
           <div style="font-size:13px;color:${color};line-height:1.4">${c.detail}</div>
         </div>`;
       }).join('')}
@@ -5738,6 +5752,7 @@ function _today2InsightsCards(ctx) {
       tone: 'green',
       headline: `${melhorPrimeiroGol.team} costuma sair na frente ${melhorPrimeiroGol.lado}!`,
       detail: `Abriu o placar em ${melhorPrimeiroGol.marcou} de ${melhorPrimeiroGol.n} jogos (${melhorPrimeiroGol.pct.toFixed(0)}%) nesse recorte.`,
+      confianca: _today2Confidence(melhorPrimeiroGol.n, melhorPrimeiroGol.pct),
     });
   }
 
@@ -5751,6 +5766,7 @@ function _today2InsightsCards(ctx) {
         tone: 'red',
         headline: `${awayAwayBlock.teamName || m.away} é ${posAway.pos}º colocado e rende pouco fora de casa!`,
         detail: `Venceu só ${taxaVitoriaFora.toFixed(0)}% dos últimos ${statsAway.n} jogos como visitante.`,
+        confianca: _today2Confidence(statsAway.n, 100 - taxaVitoriaFora),
       });
     }
   }
@@ -5765,6 +5781,7 @@ function _today2InsightsCards(ctx) {
         tone: 'green',
         headline: `${homeHomeBlock.teamName || m.home} manda bem em casa e ocupa a ${posHome.pos}ª colocação!`,
         detail: `Venceu ${taxaVitoriaCasa.toFixed(0)}% dos últimos ${statsHome.n} jogos como mandante.`,
+        confianca: _today2Confidence(statsHome.n, taxaVitoriaCasa),
       });
     }
   }
@@ -5786,6 +5803,7 @@ function _today2InsightsCards(ctx) {
       tone: 'amber',
       headline: `Jogos de ${melhorOu.team} ${melhorOu.lado} pendem forte pra "${rotulo}"!`,
       detail: `${melhorOu.pct_dom.toFixed(0)}% dos últimos ${melhorOu.n} jogos bateram esse padrão${oddLinha ? ` — a odd de hoje pra essa linha é ${oddLinha}` : ''}.`,
+      confianca: _today2Confidence(melhorOu.n, melhorOu.pct_dom),
     });
   }
 
@@ -5807,6 +5825,7 @@ function _today2InsightsCards(ctx) {
       tone: 'green',
       headline: `Padrão de valor encontrado: ${melhorValor.teamName} no mercado ${melhorValor.market}!`,
       detail: `Seleção "${melhorValor.label}" acertou ${melhorValor.r.wins} de ${melhorValor.r.bets} apostas simuladas (ROI de +${melhorValor.roi.toFixed(0)}%).`,
+      confianca: _today2Confidence(melhorValor.r.bets, melhorValor.r.wins / melhorValor.r.bets * 100),
     });
   }
 
@@ -5827,6 +5846,7 @@ function _today2InsightsCards(ctx) {
             tone: 'red',
             headline: `Cuidado com o placar ${suspeito.score} no mercado de hoje!`,
             detail: `Esse placar nunca ocorreu em ${csFreqHome.n}+ jogos de nenhum dos dois times, mas a odd oferecida hoje é de apenas ${suspeito.odd.toFixed(2)}.`,
+            confianca: _today2Confidence(Math.min(csFreqHome.n, csFreqAway.n), 100),
           });
         }
       }
@@ -5842,6 +5862,7 @@ function _today2InsightsCards(ctx) {
         tone: 'green',
         headline: `${homeHomeBlock.teamName || m.home} tem boas chances de sair sem sofrer gols em casa!`,
         detail: `Não sofreu gols em ${statsHome.semSofrer} de ${statsHome.n} jogos em casa (${cleanSheetHomePct.toFixed(0)}%), enquanto ${awayAwayBlock.teamName || m.away} só marcou fora em ${scoreAwayPct.toFixed(0)}% dos jogos.`,
+        confianca: _today2Confidence(Math.min(statsHome.n, statsAway.n), (cleanSheetHomePct + (100 - scoreAwayPct)) / 2),
       });
     } else {
       const cleanSheetAwayPct = statsAway.semSofrer / statsAway.n * 100;
@@ -5851,6 +5872,7 @@ function _today2InsightsCards(ctx) {
           tone: 'red',
           headline: `${awayAwayBlock.teamName || m.away} costuma segurar o resultado fora de casa!`,
           detail: `Não sofreu gols em ${statsAway.semSofrer} de ${statsAway.n} jogos fora (${cleanSheetAwayPct.toFixed(0)}%), enquanto ${homeHomeBlock.teamName || m.home} só marcou em casa em ${scoreHomePct.toFixed(0)}% dos jogos.`,
+          confianca: _today2Confidence(Math.min(statsHome.n, statsAway.n), (cleanSheetAwayPct + (100 - scoreHomePct)) / 2),
         });
       }
     }
@@ -5868,6 +5890,7 @@ function _today2InsightsCards(ctx) {
       tone: 'amber',
       headline: `${melhorMomentum.team} costuma já estar na frente aos 75 minutos ${melhorMomentum.lado}!`,
       detail: `Isso aconteceu em ${melhorMomentum.pct.toFixed(0)}% dos últimos ${melhorMomentum.n} jogos com dado de minutos de gol.`,
+      confianca: _today2Confidence(melhorMomentum.n, melhorMomentum.pct),
     });
   }
 
@@ -5899,6 +5922,7 @@ function _today2InsightsCards(ctx) {
       tone: 'green',
       headline: `Estatística de maior probabilidade (aba Jogo): ${melhorJogoStat.team} tende a ${melhorJogoStat.label}!`,
       detail: `${melhorJogoStat.pct.toFixed(0)}% de chance nos últimos ${melhorJogoStat.n} jogos ${melhorJogoStat.lado}.`,
+      confianca: _today2Confidence(melhorJogoStat.n, melhorJogoStat.pct),
     });
   }
 
