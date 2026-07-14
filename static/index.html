@@ -4772,6 +4772,27 @@ function _jogoGolValorStats(rows) {
   };
 }
 
+// _jogoComputeStats() + os campos de Valor do Gol/Saldo/Ponto (que vêm de
+// _jogoGolValorStats, calculados à parte porque dependem de odds) já
+// mesclados num único objeto — usado pela Leitura da Partida pra poder
+// comparar TODAS as estatísticas da aba Jogo (incluindo essas) com a média.
+function _jogoStatsWithValor(rows) {
+  const s = _jogoComputeStats(rows);
+  const gv = _jogoGolValorStats(rows);
+  if (s && gv) {
+    s.avgValorGolMarcado = gv.avgValorGolMarcado;
+    s.avgValorGolSofrido = gv.avgValorGolSofrido;
+    s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+    s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+    s.nGolValor = gv.n;
+    s.avgSaldo = gv.avgSaldo;
+    s.nSaldo = gv.nSaldo;
+    s.avgValorSaldo = gv.avgValorSaldo;
+    s.avgValorPonto = gv.avgValorPonto;
+  }
+  return s;
+}
+
 function _jogoComputeStats(rows) {
   const n = rows.length;
   if (!n) return null;
@@ -5741,6 +5762,12 @@ async function _renderToday2Insights(matchId) {
     .map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
   if (_today2Tab[matchId] !== 'insights') return;
 
+  // Médias gerais (pra seção "cenários acima da média") NÃO travam a
+  // renderização — mesmo padrão do _renderToday2Jogo: o cálculo no servidor
+  // pode levar minutos na 1ª requisição do dia. Dispara em paralelo e só
+  // acrescenta a seção quando/se chegar.
+  const mediasGeraisPromise = _jogoEnsureMediasGerais();
+
   // Profit (mesma lógica da aba Profit, mercados tradicionais) pra achar o melhor sinal ⚡
   const profitHomeRows = _profitTeamRowsFromSection(tabs, 0, true);
   const profitAwayRows = _profitTeamRowsFromSection(tabs, 0, false);
@@ -5765,7 +5792,22 @@ async function _renderToday2Insights(matchId) {
     csFreqHome, csFreqAway,
   });
 
-  body.innerHTML = _today2InsightsGridHtml(cards);
+  body.innerHTML = _today2InsightsGridHtml(cards) + `<div id="today2AcimaMediaWrap_${matchId}"></div>`;
+
+  mediasGeraisPromise.then(mediasGerais => {
+    if (_today2Tab[matchId] !== 'insights') return;
+    const wrap = document.getElementById(`today2AcimaMediaWrap_${matchId}`);
+    if (!wrap) return;
+    const mediaCasa = mediasGerais?.casa;
+    const mediaFora = mediasGerais?.fora;
+    if (!mediaCasa && !mediaFora) { wrap.innerHTML = '<div style="color:var(--text2)">médias gerais indisponíveis no momento</div>'; return; }
+    const grupos = _today2AcimaMediaPorTime({ m, homeHomeBlock, awayAwayBlock, mediaCasa, mediaFora });
+    if (!grupos.length) { wrap.innerHTML = '<div style="color:var(--text2)">nenhuma estatística acima da média com amostra suficiente</div>'; return; }
+    wrap.style.marginTop = '16px';
+    wrap.innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📈 Estatísticas acima da média (aba Jogo)</div>
+      ${_today2AcimaMediaCompactHtml(grupos)}`;
+  });
 
   // Blocos extras (Desempenho Ofensivo, Cenário de Gols, Momento dos Times, Histórico
   // H2H, Tendência de Apostas, Padrões Históricos) — vêm do motor de análise da aba
@@ -5888,7 +5930,7 @@ function _today2InsightsCards(ctx) {
   }
 
   // ── 2) Visitante com desempenho fraco fora + posição ruim na tabela ──
-  const statsAway = _jogoComputeStats(awayAwayBlock.rows);
+  const statsAway = _jogoStatsWithValor(awayAwayBlock.rows);
   if (statsAway && statsAway.n >= MIN_N && posAway && totalTimes >= 6) {
     const taxaVitoriaFora = (awayAwayBlock.rows.filter(r => r.result === 'V').length / statsAway.n) * 100;
     const posicaoRuim = parseInt(posAway.pos) > totalTimes / 2;
@@ -5903,7 +5945,7 @@ function _today2InsightsCards(ctx) {
   }
 
   // ── 3) Mandante forte em casa + posição boa na tabela ──
-  const statsHome = _jogoComputeStats(homeHomeBlock.rows);
+  const statsHome = _jogoStatsWithValor(homeHomeBlock.rows);
   if (statsHome && statsHome.n >= MIN_N && posHome && totalTimes >= 6) {
     const taxaVitoriaCasa = (homeHomeBlock.rows.filter(r => r.result === 'V').length / statsHome.n) * 100;
     const posicaoBoa = parseInt(posHome.pos) <= totalTimes / 2;
@@ -6058,6 +6100,101 @@ function _today2InsightsCards(ctx) {
   }
 
   return cards;
+}
+
+// Confiança só pelo tamanho da amostra — usada nos cenários "acima da média",
+// que não têm um "%" de força de sinal como os outros cards (é só um valor
+// comparado à média, incluindo métricas que não são percentual como Valor do
+// Gol ou minuto do 1º gol).
+function _today2ConfidenceBySample(n) {
+  if (n >= 20) return { label: 'Alta confiança', color: '#22c55e' };
+  if (n >= 12) return { label: 'Média confiança', color: '#f59e0b' };
+  return { label: 'Baixa confiança', color: '#ef4444' };
+}
+
+// Lista todas as estatísticas da aba Jogo (mesmas do card ⚽ de cada time,
+// incluindo Valor do Gol/Saldo/Ponto) num formato uniforme {val, media, n,
+// label, fmt}, pra poder varrer todas de uma vez e achar as que estão acima
+// da média — sem repetir manualmente o que já existe em _jogoStatsCardHtml.
+function _today2JogoStatDefs(s) {
+  const pct = v => `${v.toFixed(0)}%`;
+  // margem: quanto o valor precisa estar ACIMA da média pra contar (evita ruído
+  // tipo "24% vs média 24%" por arredondamento) — em pontos percentuais pras
+  // estatísticas de %, mas nas métricas de escala menor (Valor do Gol, Custo do
+  // Gol, Saldo, ~0-2) 1 ponto inteiro nunca seria batido, então usam margem própria.
+  const defs = [
+    { val: s.vitFT / s.n * 100, media: 'vitFT_pct', n: s.n, label: 'vitórias', fmt: pct, margem: 1 },
+    { val: s.empFT / s.n * 100, media: 'empFT_pct', n: s.n, label: 'empates', fmt: pct, margem: 1 },
+    { val: s.derFT / s.n * 100, media: 'derFT_pct', n: s.n, label: 'derrotas', fmt: pct, margem: 1 },
+    { val: s.mediaMarcados, media: 'mediaMarcados', n: s.n, label: 'média de gols marcados por partida', fmt: v => v.toFixed(2), margem: 0.05 },
+    { val: s.mediaSofridos, media: 'mediaSofridos', n: s.n, label: 'média de gols sofridos por partida', fmt: v => v.toFixed(2), margem: 0.05 },
+    { val: s.pctMarcar, media: 'pctMarcar', n: s.n, label: 'chance de marcar gol', fmt: pct, margem: 1 },
+    { val: s.pctSofrer, media: 'pctSofrer', n: s.n, label: 'chance de sofrer gol', fmt: pct, margem: 1 },
+    { val: s.pctAmbasMarcam, media: 'pctAmbasMarcam', n: s.n, label: 'chance de ambas equipes marcarem', fmt: pct, margem: 1 },
+    { val: s.semSofrer / s.n * 100, media: 'semSofrer_pct', n: s.n, label: 'partidas sem sofrer gols', fmt: pct, margem: 1 },
+    { val: s.semMarcar / s.n * 100, media: 'semMarcar_pct', n: s.n, label: 'partidas sem marcar gols', fmt: pct, margem: 1 },
+    { val: s.over25 / s.n * 100, media: 'over25_pct', n: s.n, label: 'partidas com mais de 2,5 gols', fmt: pct, margem: 1 },
+    { val: s.under25 / s.n * 100, media: 'under25_pct', n: s.n, label: 'partidas com menos de 2,5 gols', fmt: pct, margem: 1 },
+  ];
+  if (s.nGoalMin) {
+    defs.push(
+      { val: s.tempoSemMarcar, media: 'tempoPrimeiroGolMarcado', n: s.nGoalMin, label: 'minuto médio do 1º gol marcado', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
+      { val: s.tempoSemSofrer, media: 'tempoPrimeiroGolSofrido', n: s.nGoalMin, label: 'minuto médio do 1º gol sofrido', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
+      { val: s.tempoPrimeiroGolPartida, media: 'tempoPrimeiroGolPartida', n: s.nGoalMin, label: 'minuto médio do 1º gol da partida', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
+    );
+  }
+  // Valor do Gol/Custo do Gol/Saldo (Valor do Saldo/Ponto) ficaram de fora de
+  // propósito — dependem de buscar odds de cada jogo histórico do time, o que
+  // deixava a 1ª abertura do dia bem mais lenta. O resto da seção já não
+  // precisa de odds nenhuma, só do H2H que a aba já busca de qualquer forma.
+  return defs;
+}
+
+// Varre TODAS as estatísticas da aba Jogo dos dois times (recorte casa-em-casa
+// / fora-fora, igual ao resto da Leitura da Partida) e junta, por time, as que
+// estão acima da média do dia — sem julgar se é bom ou ruim pro time (puramente
+// descritivo). Margem mínima de 1 ponto evita ruído tipo "24% vs média 24%"
+// (arredondamento igual escondendo que o valor real é só uma fração maior).
+function _today2AcimaMediaPorTime({ m, homeHomeBlock, awayAwayBlock, mediaCasa, mediaFora }) {
+  const MIN_N = 8;
+  const grupos = [];
+  const scan = (block, media, teamFallback, lado) => {
+    if (!media) return;
+    const s = block.rows.length ? _jogoComputeStats(block.rows) : null;
+    if (!s || s.n < MIN_N) return;
+    const team = block.teamName || teamFallback;
+    const rows = [];
+    _today2JogoStatDefs(s).forEach(d => {
+      if (d.val === undefined || d.val === null || isNaN(d.val) || d.n < MIN_N) return;
+      const mediaVal = media[d.media];
+      if (mediaVal === undefined || mediaVal === null || isNaN(mediaVal)) return;
+      if (d.val < mediaVal + (d.margem ?? 1)) return; // só o que está ACIMA da média com folga
+      rows.push({ ...d, mediaVal, confianca: _today2ConfidenceBySample(d.n) });
+    });
+    if (rows.length) grupos.push({ team, lado, rows });
+  };
+  scan(homeHomeBlock, mediaCasa, m.home, 'jogando em casa');
+  scan(awayAwayBlock, mediaFora, m.away, 'jogando fora');
+  return grupos;
+}
+
+// Layout compacto (tabela de estatísticas, igual à aba Jogo) em vez de cards
+// grandes — a versão em card ficava com informação demais pra ler de uma vez.
+function _today2AcimaMediaCompactHtml(grupos) {
+  if (!grupos.length) return '';
+  return grupos.map(g => `
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin:10px 0 6px">⚽ ${_bt2EscXml(g.team)} <span style="font-weight:400;color:var(--text2)">(${g.lado})</span></div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:520px;margin-bottom:14px">
+      ${g.rows.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border)" ${r.explain ? `title="${_bt2EscXml(r.explain)}"` : ''}>
+          <span style="font-size:13px;color:var(--text2)">${_bt2EscXml(r.label)}</span>
+          <span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
+            <span style="font-size:10px;color:var(--text2)">méd: ${r.fmt(r.mediaVal)}</span>
+            <span style="font-size:13px;font-weight:700;color:#22c55e">${r.fmt(r.val)}</span>
+            <span style="font-size:9px;font-weight:700;color:${r.confianca.color};background:${r.confianca.color}18;border:1px solid ${r.confianca.color}44;border-radius:4px;padding:1px 5px">${r.confianca.label.replace(' confiança', '')}</span>
+          </span>
+        </div>`).join('')}
+    </div>`).join('');
 }
 
 // ── AO VIVO 2 (laboratório) ────────────────────────────────────────────────
