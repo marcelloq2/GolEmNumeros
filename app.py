@@ -4813,14 +4813,21 @@ def api_flashscore_h2h():
 def api_flashscore_half_time_batch():
     """Placar do 1º tempo de várias partidas já disputadas de uma vez (usado para
     mostrar 'gols no 1º tempo' nos jogos passados listados no H2H). Limitado a 15
-    ids por chamada pra não sobrecarregar o feed."""
+    ids por chamada pra não sobrecarregar o feed.
+    Buscado em PARALELO (_fs_event_pool), igual odds_all_batch/goal_minutes_batch —
+    antes era um `for` sequencial, um jogo de cada vez, e isso sozinho já explicava
+    boa parte da lentidão ao abrir qualquer partida (a aba Jogo depende desse
+    endpoint pra quase todo jogo do histórico)."""
     ids = [i for i in request.args.get("ids", "").split(",") if i][:15]
-    result = {}
-    for event_id in ids:
+
+    def _fetch_one(event_id):
         try:
-            ht = _fs_half_time(event_id)
+            return event_id, _fs_half_time(event_id)
         except Exception:
-            ht = None
+            return event_id, None
+
+    result = {}
+    for event_id, ht in _fs_event_pool.map(_fetch_one, ids):
         if ht:
             result[event_id] = ht
     return jsonify({"results": result})

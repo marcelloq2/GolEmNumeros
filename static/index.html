@@ -4857,8 +4857,14 @@ function _jogoStatsRowsFromSection(tabs, tabIdx, teamHome) {
 async function _jogoEnsureHt(rows) {
   const ids = rows.map(r => r.id).filter(id => id && _h2hHtCache[id] === undefined);
   const uniq = [...new Set(ids)];
-  for (let i = 0; i < uniq.length; i += 15) {
-    const chunk = uniq.slice(i, i + 15);
+  // Lotes de 15 buscados em PARALELO (Promise.all), não um de cada vez — mesmo
+  // padrão já usado em _ensureToday2Odds. Antes disso era um `for` com `await`
+  // dentro, esperando um lote terminar pra só então começar o próximo, o que
+  // multiplicava a espera por nada (era a mesma causa de lentidão em quase
+  // toda ação do site, não só na Leitura da Partida).
+  const chunks = [];
+  for (let i = 0; i < uniq.length; i += 15) chunks.push(uniq.slice(i, i + 15));
+  await Promise.all(chunks.map(async chunk => {
     try {
       const r = await fetch(`/api/flashscore/half_time_batch?ids=${chunk.join(',')}`);
       const d = await r.json();
@@ -4866,7 +4872,7 @@ async function _jogoEnsureHt(rows) {
     } catch (e) {
       chunk.forEach(id => { _h2hHtCache[id] = null; });
     }
-  }
+  }));
   rows.forEach(r => {
     const ht = _h2hHtCache[r.id];
     if (ht) {
@@ -4881,8 +4887,10 @@ let _goalMinutesCache = {}; // { [eventId]: {home:[minutos...], away:[minutos...
 async function _jogoEnsureGoalMinutes(rows) {
   const ids = rows.map(r => r.id).filter(id => id && _goalMinutesCache[id] === undefined);
   const uniq = [...new Set(ids)];
-  for (let i = 0; i < uniq.length; i += 20) {
-    const chunk = uniq.slice(i, i + 20);
+  // Mesma correção de _jogoEnsureHt: lotes em paralelo, não em série.
+  const chunks = [];
+  for (let i = 0; i < uniq.length; i += 20) chunks.push(uniq.slice(i, i + 20));
+  await Promise.all(chunks.map(async chunk => {
     try {
       const r = await fetch(`/api/flashscore/goal_minutes_batch?ids=${chunk.join(',')}`);
       const d = await r.json();
@@ -4890,7 +4898,7 @@ async function _jogoEnsureGoalMinutes(rows) {
     } catch (e) {
       chunk.forEach(id => { _goalMinutesCache[id] = null; });
     }
-  }
+  }));
   rows.forEach(r => {
     const gm = _goalMinutesCache[r.id];
     if (gm) {
