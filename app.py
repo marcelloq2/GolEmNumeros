@@ -17,8 +17,10 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DATA_DIR     = os.path.dirname(__file__)
 MOMENTUM_DIR = os.path.join(DATA_DIR, "momentum_history")
 SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
+MAPA_CACHE_DIR = os.path.join(DATA_DIR, "mapa_cache")
 os.makedirs(MOMENTUM_DIR, exist_ok=True)
 os.makedirs(SHOTMAP_DIR,  exist_ok=True)
+os.makedirs(MAPA_CACHE_DIR, exist_ok=True)
 
 # ── Cache em memória dos arquivos de momentum_history — evita reler e reparsear os
 # +2000 arquivos do disco a cada busca de padrão (aba Análise/CS do Ao Vivo).
@@ -1547,6 +1549,17 @@ threading.Thread(
     args=(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR),
     daemon=True,
     name="GitHubSync"
+).start()
+
+# Mapa de Sugestões: padrão do dia + lista de sugestões travada — sem isso, cada
+# redeploy no Railway apagava a memória e escolhia um padrão novo do zero no meio
+# do dia (mesmo problema do backtest2.db, resolvido do mesmo jeito: sempre baixa
+# a versão mais recente do GitHub, sobrescrevendo qualquer coisa local).
+threading.Thread(
+    target=github_storage.pull_directory,
+    args=("mapa_cache", MAPA_CACHE_DIR),
+    daemon=True,
+    name="GitHubSyncMapa"
 ).start()
 
 
@@ -6097,6 +6110,39 @@ _MAPA_CACHE = {}      # metodologia -> {"ts":..., "data":...}
 _MAPA_DAY_CACHE = {}  # metodologia -> {"date":..., "melhor":..., "comparativo":..., "sugestoes_by_id":...}
 
 
+def _mapa_cache_path(metodologia_key):
+    return os.path.join(MAPA_CACHE_DIR, f"{metodologia_key}.json")
+
+
+def _mapa_load_day_cache_from_disk(metodologia_key, today_str):
+    """Tenta restaurar o padrão do dia + lista de sugestões travada, salvos por
+    uma execução anterior (sobrevive a redeploy/reinício, que apaga a memória).
+    Só usa o arquivo se for do dia de hoje — de outra forma, ignora (vira o dia,
+    escolhe um padrão novo)."""
+    path = _mapa_cache_path(metodologia_key)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("date") != today_str:
+            return None
+        return data
+    except Exception as e:
+        print(f"[mapa] Erro lendo cache do disco ({metodologia_key}): {e}")
+        return None
+
+
+def _mapa_save_day_cache_to_disk(metodologia_key, day_cache):
+    path = _mapa_cache_path(metodologia_key)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(day_cache, f, ensure_ascii=False)
+        github_storage.push_file_bg(path, f"mapa_cache/{metodologia_key}.json")
+    except Exception as e:
+        print(f"[mapa] Erro salvando cache no disco ({metodologia_key}): {e}")
+
+
 def _mapa_slug(s):
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
@@ -6233,12 +6279,30 @@ def _mapa_compute(metodologia_key):
     today_str = datetime.now().strftime("%Y-%m-%d")
     day_cache = _MAPA_DAY_CACHE.setdefault(metodologia_key, {"date": None, "melhor": None, "comparativo": None, "sugestoes_by_id": {}})
     if day_cache["date"] != today_str:
-        # virou o dia (ou primeira execução) — libera escolher um padrão novo e
-        # zera a lista acumulada de sugestões
-        day_cache["date"] = today_str
-        day_cache["melhor"] = None
-        day_cache["comparativo"] = None
-        day_cache["sugestoes_by_id"] = {}
+        # virou o dia (ou 1ª execução deste processo) — antes de zerar tudo,
+        # tenta restaurar do disco o que uma execução anterior já tinha travado
+        # hoje (sobrevive a redeploy/reinício do Railway, que apaga a memória —
+        # sem isso, cada deploy escolhia um padrão novo do zero no meio do dia).
+        restored = _mapa_load_day_cache_from_disk(metodologia_key, today_str)
+        if restored:
+            day_cache["date"] = today_str
+            day_cache["melhor"] = restored.get("melhor")
+            day_cache["comparativo"] = restored.get("comparativo")
+            day_cache["sugestoes_by_id"] = restored.get("sugestoes_by_id") or {}
+        else:
+            # virou o dia (ou primeira execução) — libera escolher um padrão novo e
+            # zera a lista acumulada de sugestões
+            day_cache["date"] = today_str
+            day_cache["melhor"] = None
+            day_cache["comparativo"] = None
+            day_cache["sugestoes_by_id"] = {}
+
+    # só entra gente NOVA na lista de sugestões na hora em que o padrão do dia é
+    # escolhido pela primeira vez (nesta execução ou restaurado do disco já
+    # travado) — depois disso a lista trava: só atualiza placar/resultado de
+    # quem já está nela, nunca acrescenta partida nova (pedido do usuário, que
+    # achava estranho a lista mudar toda vez que clicava em "Recalcular").
+    pode_adicionar_novas = day_cache["melhor"] is None
 
     # Agendados (pra sugerir) + já encerrados hoje (pra mostrar o placar final e
     # se a sugestão teria acertado) — pools separados e cada um com seu próprio
@@ -6392,15 +6456,20 @@ def _mapa_compute(metodologia_key):
         day_cache["comparativo"] = comparativo
 
     # aplica o padrão validado às partidas de hoje: quais times relevantes têm
-    # o PRÓPRIO segmento igual ao segmento validado acima? Os resultados são
-    # ACUMULADOS no dia (day_cache["sugestoes_by_id"]) — uma vez que um jogo
-    # entra na lista, ele nunca some (só atualiza o placar quando encerra),
-    # mesmo que numa rodada seguinte ele não apareça mais na amostra de
-    # candidatos (que é limitada por hora/quantidade).
+    # o PRÓPRIO segmento igual ao segmento validado acima? A lista TRAVA na
+    # primeira vez que o padrão do dia é escolhido (pode_adicionar_novas) — só
+    # entram partidas novas nesse momento. Depois disso, cada recálculo só
+    # ATUALIZA placar/encerrado/acertou de quem já está na lista (nunca some,
+    # nunca ganha gente nova) — evita a lista mudando toda vez que o usuário
+    # clica em "Recalcular" ou o servidor reinicia no meio do dia.
     sugestoes_by_id = day_cache["sugestoes_by_id"]
     if melhor:
         for m in today_matches:
             key = _btcs_norm_name(m[team_field])
+            id_str = str(m["id"])
+            ja_esta_na_lista = id_str in sugestoes_by_id
+            if not ja_esta_na_lista and not pode_adicionar_novas:
+                continue
             profile = team_profile.get(key)
             if not profile:
                 continue
@@ -6433,7 +6502,8 @@ def _mapa_compute(metodologia_key):
                             item["acertou"] = target_fn(final_row)
                         except (TypeError, ValueError):
                             pass
-                sugestoes_by_id[str(m["id"])] = item
+                sugestoes_by_id[id_str] = item
+        _mapa_save_day_cache_to_disk(metodologia_key, day_cache)
     sugestoes = sorted(sugestoes_by_id.values(), key=lambda x: x.get("kickoff_ts") or "")
 
     data = {
