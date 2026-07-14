@@ -6458,13 +6458,18 @@ function _today2AcimaMediaCompactHtml(grupos) {
         const diffTxt = r.fmt === _today2FmtPct ? `+${diff.toFixed(0)}pp`
           : r.fmt === _today2FmtMin ? `+${diff.toFixed(0)} min`
           : `+${diff.toFixed(2)}`;
+        // Cor condicional pela "força" da diferença: quantas vezes ela passa da
+        // margem mínima exigida pra esse tipo de estatística (não um valor fixo
+        // de pp — assim funciona igual pra %, minutos, gols/jogo, saldo, etc.).
+        const forca = diff / (r.margem || 1);
+        const diffColor = forca >= 6 ? '#15803d' : forca >= 3 ? '#22c55e' : '#a3e635';
         return `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border)" ${r.explain ? `title="${_bt2EscXml(r.explain)}"` : ''}>
           <span style="font-size:13px;color:var(--text2)">${_bt2EscXml(r.label)}</span>
           <span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
             <span style="font-size:10px;color:var(--text2)">méd: ${r.fmt(r.mediaVal)}</span>
             <span style="font-size:13px;font-weight:700;color:#22c55e">${r.fmt(r.val)}</span>
-            <span style="font-size:10px;font-weight:700;color:#22c55e" title="diferença em relação à média">(${diffTxt})</span>
+            <span style="font-size:10px;font-weight:700;color:${diffColor}" title="diferença em relação à média">(${diffTxt})</span>
             <span style="font-size:9px;font-weight:700;color:${r.confianca.color};background:${r.confianca.color}18;border:1px solid ${r.confianca.color}44;border-radius:4px;padding:1px 5px">${r.confianca.label.replace(' confiança', '')}</span>
           </span>
         </div>`;
