@@ -1362,6 +1362,10 @@
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px">
         <span style="font-size:12px;font-weight:700;color:#a855f7">🔴 Ao Vivo</span>
         <span style="display:flex;align-items:center;gap:8px">
+          <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
+            style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
+                   color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                   white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
           <button class="live-refresh-btn" onclick="loadLive2Matches()" title="Atualizar">↻</button>
         </span>
@@ -1379,6 +1383,10 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
           <span style="font-size:12px;font-weight:700;color:var(--text2)">✏️ Hoje</span>
           <span style="display:flex;align-items:center;gap:8px">
+            <button onclick="openAppGuia('hoje')" title="Guia da aba Hoje"
+              style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
+                     color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                     white-space:nowrap;flex-shrink:0">📖 Guia</button>
             <span class="live-count-badge" id="today2CountBadge">0</span>
             <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar">↻</button>
           </span>
@@ -1494,6 +1502,10 @@
       <select id="mapaMetodologiaSelect" onchange="_mapaLoad()" style="font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
         <option value="lay_casa">Lay Casa (contra o mandante vencer)</option>
       </select>
+      <button onclick="openAppGuia('mapa')" title="Guia do Mapa de Sugestões"
+        style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
+               color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+               white-space:nowrap;flex-shrink:0">📖 Guia</button>
       <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
     </div>
@@ -1505,9 +1517,13 @@
        só, com sub-abas internas — os dois rankings continuam com lógica própria (ROI
        não é comparável com taxa de acerto), só a navegação foi unificada. -->
   <div id="backtest2Wrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="display:flex;gap:6px;margin-bottom:12px">
+    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
       <button class="filter-btn active" id="backtestSubTabTradicional" onclick="_setBacktestSubTab('tradicional')">🧪 Mercados Tradicionais</button>
       <button class="filter-btn" id="backtestSubTabCs" onclick="_setBacktestSubTab('cs')">🎯 Placar Exato</button>
+      <button onclick="openAppGuia(_backtestSubTab === 'cs' ? 'backtestcs' : 'backtestt')" title="Guia do Backtest"
+        style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
+               color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+               white-space:nowrap;flex-shrink:0;margin-left:4px">📖 Guia</button>
     </div>
     <div id="backtestSubTradicional" style="display:flex;flex-direction:column">
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
@@ -1923,6 +1939,17 @@ const APP_GUIA_SECTIONS = {
       <p><b>Abas do card — Estatísticas Pré:</b> placares que nunca saíram (0%) no histórico geral e no recorte casa/fora de cada time, + 🧠 Leitura da Partida (mesmo motor de análise da aba Hoje).</p>
       <p><b>Efeito de gol:</b> quando o placar muda, o número pisca e aparece um banner "⚽ GOL!".</p>`,
   },
+  mapa: {
+    label: '🗺️ Mapa de Sugestões',
+    label2: 'Mapa',
+    html: `
+      <p><b>O que é:</b> pra cada metodologia da lista (32 no total: Lay Casa/Visitante, Casa/Visitante Vence, Empate, Over/Under 1.5 e 2.5 FT, Over 0.5 e 1.5 HT, Ambas Marcam Sim/Não, e Lay pra cada um dos 19 placares exatos), o sistema testa sozinho várias variáveis do time (forma recente, médias de gols, etc.) e acha a combinação variável+faixa com a maior "vantagem" (lift) sobre a taxa geral — sem ninguém escolher esse limiar na mão.</p>
+      <p><b>Critério de validade:</b> só é considerado um padrão válido se tiver pelo menos 30 jogos de amostra nesse segmento <b>e</b> lift de pelo menos 1.15x sobre a base geral. Se nenhuma variável bater os dois critérios pra metodologia escolhida, aparece "Nenhum padrão passou no critério de validade hoje" — é normal acontecer, principalmente cedo no dia ou em placares raros.</p>
+      <p><b>Padrão travado no dia:</b> uma vez escolhido, o padrão (ex: "Média de gols acima de 2.0") fica congelado até virar o dia — assim as sugestões não ficam trocando de critério a cada recálculo.</p>
+      <p><b>Sugestões:</b> mostra as partidas de hoje cujo time relevante se encaixa no padrão validado. Elas se <b>acumulam</b> ao longo do dia (não somem quando saem da janela de horário) e, quando o jogo termina, mostram o placar final e um selo ✅ acertou / ❌ errou.</p>
+      <p><b>Gráfico comparativo:</b> compara a taxa de acerto acumulada histórica <i>com</i> o filtro validado vs <i>sem</i> filtro (geral) — se a linha verde (com filtro) ficar consistentemente acima da cinza (geral), é sinal de que o padrão realmente ajuda.</p>
+      <p><b>🔄 Recalcular:</b> força buscar dados novos de hoje (o padrão em si só muda no dia seguinte, mas a lista de jogos que se encaixam nele é atualizada).</p>`,
+  },
   backtestt: {
     label: '🧪 Backtest Tradicional',
     label2: 'Backtest T.',
@@ -1941,7 +1968,7 @@ const APP_GUIA_SECTIONS = {
   },
 };
 
-function openAppGuia() {
+function openAppGuia(startKey) {
   const overlay = document.getElementById('appGuiaOverlay');
   const tabsEl = document.getElementById('appGuiaTabs');
   if (!overlay || !tabsEl) return;
@@ -1949,7 +1976,8 @@ function openAppGuia() {
     <button onclick="_setAppGuiaTab('${key}', this)" data-guia-tab="${key}"
       style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;
              border:1px solid var(--border);background:var(--bg3);color:var(--text2)">${s.label2 || s.label}</button>`).join('');
-  _setAppGuiaTab('hoje', tabsEl.querySelector('[data-guia-tab="hoje"]'));
+  const key = (startKey && APP_GUIA_SECTIONS[startKey]) ? startKey : 'hoje';
+  _setAppGuiaTab(key, tabsEl.querySelector(`[data-guia-tab="${key}"]`));
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
