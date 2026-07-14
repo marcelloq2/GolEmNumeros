@@ -1916,56 +1916,235 @@ let btAllMatchesCache = null; // cache de todos os jogos carregados
 let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
 
-// ── GUIA GERAL DO APP — explica as 4 abas atuais na íntegra ──────────────────
+// ── GUIA GERAL DO APP — explica as 4 abas atuais na íntegra, no maior nível de
+// detalhe possível (o usuário pediu "bula": tudo escrito, sem imagem nenhuma).
+// Helpers de formatação reaproveitados em toda seção — mesmo padrão visual dos
+// guias antigos (openHojeGuia/openLiveGuia), só que descrevendo as abas ATUAIS.
+function _guiaSec(icon, title, body) {
+  return `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${title}</span>
+      </div>
+      <div style="padding:12px 14px;font-size:12px;color:var(--text);line-height:1.7">${body}</div>
+    </div>`;
+}
+function _guiaRow(left, right) {
+  return `<div style="display:flex;gap:8px;margin-bottom:6px;align-items:baseline">
+    <span style="min-width:150px;color:var(--text2);flex-shrink:0">${left}</span>
+    <span style="flex:1">${right}</span>
+  </div>`;
+}
+function _guiaPill(txt, color, bg) {
+  return `<span style="display:inline-block;padding:1px 7px;border-radius:20px;font-weight:700;
+    font-size:11px;background:${bg};color:${color}">${txt}</span>`;
+}
+
 const APP_GUIA_SECTIONS = {
   hoje: {
     label: '✏️ Hoje',
-    html: `
-      <p><b>O que é:</b> lista de todas as partidas do dia (agendadas, ao vivo e encerradas), com dados cruzados de várias fontes.</p>
-      <p><b>🔍 Busca e filtros no topo:</b> filtre por nome de time/liga, escolha uma liga específica, filtre por turno (manhã/tarde/noite), status "Ao Vivo"/"Encerrados"/"Próximos".</p>
-      <p><b>⚙️ Filtrar por Parâmetros:</b> filtra pelos resultados possíveis (Super Favorito, Favorito, Parelho, etc.) e pelas odds atuais de cada jogo.</p>
-      <p><b>🔍 Filtrar por Análise:</b> ~15 regras de leitura automática (padrão de gols, desempenho, peso da camisa, jogo complexo...) combinadas em E/OU — só mostra os jogos que batem com as regras marcadas.</p>
-      <p><b>Ao clicar numa partida</b>, o painel de detalhe mostra abas: Jogo, Odds, H2H, Classificações, Profit Mercados Tradicionais (ROI histórico por mercado/seleção), Placares Corretos (taxa de acerto por placar) e 🧠 Leitura da Partida (cruza tudo isso em cards de texto automático, incluindo Cenário de Gols, Momento dos Times, Histórico H2H, Desempenho Ofensivo, Tendência de Apostas e Padrões Históricos).</p>
-      <p><b>Escudos</b> dos times aparecem direto na lista e no cabeçalho de detalhe quando disponíveis na fonte.</p>`,
+    html: [
+      _guiaSec('🔍', 'Barra de busca e filtros rápidos', `
+        <b>Campo de busca:</b> digite qualquer parte do nome de um time ou liga — filtra a lista em tempo real, sem precisar apertar Enter.<br><br>
+        <b>Seletor de liga:</b> escolha uma liga específica pra ver só os jogos dela (o dropdown já vem populado com todas as ligas do dia, agrupadas por país).<br><br>
+        <b>Turno do dia:</b><br>
+        ${_guiaRow('Dia todo', 'Mostra tudo, sem filtro de horário')}
+        ${_guiaRow('🌅 Manhã', 'Só jogos que começam de madrugada/manhã')}
+        ${_guiaRow('☀️ Tarde', 'Só jogos da tarde')}
+        ${_guiaRow('🌙 Noite', 'Só jogos da noite')}
+        <br><b>Status:</b><br>
+        ${_guiaRow('🔴 Ao Vivo', 'Filtra só as partidas que estão rolando agora')}
+        ${_guiaRow('Encerrados', 'Só jogos que já terminaram hoje')}
+        ${_guiaRow('Próximos', 'Só jogos que ainda não começaram')}
+        (Esses 3 botões de status podem ser combinados com o turno e a liga ao mesmo tempo.)<br><br>
+        <b>77 / ↻:</b> o número mostra quantas partidas estão carregadas no total; o botão ↻ força atualizar a lista na hora, sem esperar o auto-refresh (que acontece sozinho a cada 20s).`),
+
+      _guiaSec('⚙️', 'Filtrar por Parâmetros', `
+        Painel recolhível — clique no cabeçalho pra abrir/fechar. Filtra os jogos de hoje pelas <b>odds atuais</b> (busca só é feita quando você abre esse painel pela 1ª vez, pra não sobrecarregar à toa).<br><br>
+        <b>Resultado Final:</b><br>
+        ${_guiaRow('Super Favorito', 'Um dos dois times tem probabilidade implícita muito alta na odd 1X2')}
+        ${_guiaRow('Favorito', 'Um dos dois times é favorito, mas não de forma esmagadora')}
+        ${_guiaRow('Parelho', 'Odds bem próximas entre os dois lados — jogo equilibrado no papel')}
+        ${_guiaRow('Casa / Fora', 'Filtra por qual lado é o favorito, casa ou visitante')}
+        <br><b>Gols:</b> Over (tendência de mais gols pela odd de mercado) ou Under (tendência de menos gols).<br><br>
+        <b>Ambas Marcam:</b> Sim ou Não, conforme a odd do mercado "Ambos Marcam" de hoje.<br><br>
+        <b>Odd Casa/Fora:</b> compara a odd atual de um lado (Casa ou Fora) contra um valor que você escolhe, usando os operadores <b>&gt;</b> maior que, <b>≥</b> maior ou igual, <b>&lt;</b> menor que, <b>≤</b> menor ou igual, ou <b>↔</b> entre dois valores.<br><br>
+        <b>🗑 (lixeira):</b> limpa todos os filtros desse painel de uma vez.`),
+
+      _guiaSec('🔎', 'Filtrar por Análise (as ~15 regras automáticas)', `
+        Painel recolhível igual ao de Parâmetros, mas em vez de odds, cada regra roda o mesmo motor de leitura automática usado na 🧠 Leitura da Partida contra o histórico dos dois times — e só mostra os jogos de hoje que batem com as regras que você marcar. Marcar várias regras combina em <b>E</b> (todas precisam bater) ou <b>OU</b> (qualquer uma serve) — tem uma chave pra escolher o modo.<br><br>
+        <b>Grupo Gols:</b><br>
+        ${_guiaRow('Valor em Gols (Over)', 'Algum dos dois times tem ≥70% dos jogos recentes (no recorte casa-em-casa/fora-fora) acima de 2,5 gols')}
+        ${_guiaRow('Valor em Gols (Under)', 'Mesma lógica, só que ≥70% abaixo de 2,5 gols')}
+        <br><b>Grupo Padrão de Gols</b> (usa qual time é o favorito pela odd de hoje):<br>
+        ${_guiaRow('Favorito abre o placar', 'O favorito marcou o 1º gol em ≥60% dos jogos recentes dele')}
+        ${_guiaRow('Zebra toma o 1º gol', 'O time não-favorito sofreu o 1º gol em ≥60% dos jogos recentes dele')}
+        ${_guiaRow('Favorito sai na frente mas não segura', 'Em ≥40% dos jogos em que o favorito marcou primeiro, ele não venceu')}
+        ${_guiaRow('Favorito busca depois de atrás', 'Em ≥40% dos jogos em que o favorito sofreu o 1º gol, ele conseguiu não perder')}
+        ${_guiaRow('Favorito fecha bem', 'O favorito estava na frente aos 75min em ≥55% dos jogos recentes dele')}
+        ${_guiaRow('Zebra toma no final', 'O não-favorito sofreu gol nos minutos finais em ≥30% dos jogos recentes dele (acima do esperado por acaso, ~16,7%)')}
+        <br><b>Grupo Desempenho</b> (taxa de vitória isolada, sem depender de tabela):<br>
+        ${_guiaRow('Bom mandante', '≥60% de vitórias como mandante nos últimos jogos em casa')}
+        ${_guiaRow('Bom visitante', '≥50% de vitórias como visitante (piso menor que o mandante, porque ganhar fora é estruturalmente mais raro no futebol)')}
+        ${_guiaRow('Mau mandante / visitante', '≤25% de vitórias no recorte correspondente')}
+        <br><b>Grupo Peso da Camisa</b> (o favorito de hoje historicamente não corresponde ao favoritismo):<br>
+        ${_guiaRow('Peso da Camisa (mandante)', 'O mandante é favorito hoje, mas venceu menos de 50% dos jogos em casa')}
+        ${_guiaRow('Peso da Camisa (visitante)', 'O visitante é favorito hoje, mas venceu menos de 40% dos jogos fora')}
+        ${_guiaRow('Peso da Camisa (qualquer lado)', 'Bate se qualquer uma das duas de cima bater')}
+        <br><b>Grupo Extra:</b><br>
+        ${_guiaRow('Jogo complexo', 'Sinaliza quando quase nenhuma outra regra bateu pra esse jogo (1 ou menos) — ou seja, não há leitura automática clara pra ele')}
+        <br><i>Todas as regras exigem amostra mínima de 8 jogos no recorte usado — sem isso, a regra simplesmente não é avaliada pra aquele time (nem conta como falsa nem como verdadeira).</i>`),
+
+      _guiaSec('📋', 'Lista de partidas', `
+        Agrupada por liga (com bandeira do país e nome do campeonato). Cada linha mostra os dois times, escudos (quando disponíveis na fonte), horário/placar e status (🕐 Agendado, 🔴 Ao vivo, ✅ Encerrado).<br><br>
+        Clique em qualquer partida pra abrir o painel de detalhe à direita, com as abas descritas abaixo.`),
+
+      _guiaSec('⚽', 'Aba "Jogo" — estatísticas dos últimos jogos de cada time', `
+        Alterna entre 3 recortes no topo: <b>Geral</b> (últimos jogos de cada time, casa+fora misturado), <b>Casa</b> (só os jogos do mandante jogando em casa) e <b>Fora</b> (só os jogos do visitante jogando fora) — o recorte Casa/Fora é o mais relevante pro jogo de hoje.<br><br>
+        <b>Cada estatística mostra "méd: X"</b> ao lado do valor do time — é a média entre TODOS os times que jogam hoje, recalculada 1x por dia. O valor do time fica <span style="color:#22c55e;font-weight:700">verde</span> se estiver acima dessa média, <span style="color:#ef4444;font-weight:700">vermelho</span> se estiver abaixo (comparação numérica pura, sem julgar se "acima" é bom ou ruim pra aquela estatística específica).<br><br>
+        <b>Estatísticas listadas:</b><br>
+        ${_guiaRow('Vitórias/Empates/Derrotas FT', 'Contagem e % no placar final, no recorte escolhido')}
+        ${_guiaRow('Vitórias/Empates/Derrotas HT', 'Mesma coisa, mas pelo placar do intervalo (1º tempo)')}
+        ${_guiaRow('Média de gols marcados/sofridos', 'Por partida, no recorte escolhido')}
+        ${_guiaRow('Chance de marcar/sofrer gol', '% dos jogos em que o time marcou pelo menos 1 / sofreu pelo menos 1')}
+        ${_guiaRow('Ambas Marcam', '% dos jogos em que os dois times marcaram')}
+        ${_guiaRow('Sem sofrer / sem marcar', 'Contagem e % de jogos com clean sheet própria ou do adversário')}
+        ${_guiaRow('Mais/menos de 2,5 gols', 'Contagem e % de partidas acima/abaixo dessa linha de gols')}
+        ${_guiaRow('Minuto médio do 1º gol', 'Marcado pelo próprio time, sofrido pelo próprio time, e da partida (qualquer um dos dois lados) — usa 90min como valor quando o time não marcou/sofreu naquele jogo')}
+        ${_guiaRow('Valor do Gol (Marcado)', 'Gols marcados × probabilidade do adversário vencer — marcar contra um favorito "vale mais" que marcar contra um azarão')}
+        ${_guiaRow('Valor do Gol (Sofrido)', 'Gols sofridos × probabilidade do PRÓPRIO time vencer — sofrer sendo favorito pesa mais contra o time')}
+        ${_guiaRow('Custo do Gol 2.0', 'Média entre (gols) e (o quanto o time era favorito) — número mais alto tende a indicar gols vindos com o time já em vantagem no papel')}
+        ${_guiaRow('Saldo de Gols', 'Gols marcados menos sofridos, cru, sem pesar pela força do adversário')}
+        ${_guiaRow('Valor do Saldo', 'Saldo × probabilidade do adversário vencer — mesmo saldo vale mais contra time forte')}
+        ${_guiaRow('Valor do Ponto', 'Pontos (V=3/E=1/D=0) × probabilidade do adversário vencer — 3 pontos contra o líder valem mais que 3 pontos contra o lanterna')}
+        <br>Passe o mouse sobre qualquer linha pra ver uma dica explicando exatamente como aquele número é calculado e com quantos jogos.`),
+
+      _guiaSec('💰', 'Aba "Odds"', `
+        Mostra as odds atuais oferecidas pra essa partida nos principais mercados: 1X2 (Casa/Empate/Fora), Over/Under em várias linhas de gols, Ambas Marcam, Placar Exato e Handicap Asiático — puxadas direto da Flashscore.`),
+
+      _guiaSec('📅', 'Aba "H2H"', `
+        Histórico dos confrontos diretos entre os dois times (quando existir), mais os últimos jogos de cada time separadamente — é a fonte de dados crua que alimenta as abas Jogo, Profit, Placares Corretos e Leitura da Partida.`),
+
+      _guiaSec('🏆', 'Aba "Classificações"', `
+        Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.`),
+
+      _guiaSec('📈', 'Aba "Profit Mercados Tradicionais"', `
+        Simula, pro histórico de cada time, quanto teria rendido apostar em cada seleção de cada mercado tradicional (1X2, Over/Under, Ambas Marcam, Dupla Chance, Handicap Asiático) toda vez que ela apareceu.<br><br>
+        Mostra apostas (amostra), acertos, e um selo comparando a <b>odd de hoje</b> com a <b>taxa histórica de acerto</b>: se a taxa histórica for maior que a probabilidade implícita da odd de hoje (com uma margem de 5% pra não marcar por ruído), aparece como "valor" — sinal de que a odd de hoje pode estar mais generosa do que o histórico desse time sugere.`),
+
+      _guiaSec('🎯', 'Aba "Placares Corretos — Taxa de Acerto"', `
+        Mesmos 3 recortes (Geral/Casa/Fora) de escopo. Pra cada um dos 19 buckets fixos de placar (0-0 até 3-3, + "qualquer outra vitória em casa", "qualquer outra vitória de visitante", "qualquer outro empate"), mostra quantas vezes esse placar exato já ocorreu no histórico de cada time, em número absoluto e %.<br><br>
+        <b>Resumo de improváveis:</b> lista os placares que tiveram ZERO ocorrências nos dois times ao mesmo tempo — só aparece quando os dois times têm pelo menos 30 jogos de amostra, pra não marcar como "improvável" algo que só não ocorreu por falta de dado.`),
+
+      _guiaSec('🧠', 'Aba "Leitura da Partida"', `
+        Cruza tudo que as outras abas já buscaram em cards de texto automático, cada um com um selo de confiança (<span style="color:#22c55e">Alta</span>/<span style="color:#f59e0b">Média</span>/<span style="color:#ef4444">Baixa</span>, combinando tamanho da amostra com força do sinal):<br><br>
+        ${_guiaRow('Mandante/visitante em forma', 'Time forte em casa/fora cruzado com a posição na tabela')}
+        ${_guiaRow('Tendência de gols', 'Over/Under muito unilateral cruzado com a linha de odd de hoje')}
+        ${_guiaRow('Placar raro com odd curta', 'Um placar que nunca ocorreu no histórico de nenhum dos dois times, mas a odd de hoje pra ele está baixa demais pra essa raridade')}
+        ${_guiaRow('Estatística de maior probabilidade', 'Varre todas as % da aba Jogo dos dois times e destaca a mais alta de todas')}
+        <br><b>📈 Estatísticas acima da média (aba Jogo):</b> logo abaixo dos cards, uma tabela compacta por time (separada em jogando em casa / jogando fora) listando TODAS as estatísticas da aba Jogo em que aquele time está acima da média do dia — vitórias, gols, chance de marcar, ambas marcam, over/under. É puramente descritivo (não julga se "acima" é bom ou ruim pra cada estatística específica), com uma margem mínima pra evitar ruído tipo "24% vs média 24%" aparecer como se fosse diferença real.`),
+
+      _guiaSec('🛡️', 'Escudos e outros detalhes', `
+        Escudos dos times aparecem direto na lista e no cabeçalho de detalhe quando a fonte disponibiliza a imagem.`),
+    ].join(''),
   },
+
   aovivo: {
     label: '🔴 Ao Vivo',
-    html: `
-      <p><b>O que é:</b> grade de jogos ao vivo agora, atualizada a cada 20s, mostrando só partidas com mapa de chutes já confirmado (as demais continuam sendo buscadas em segundo plano e aparecem sozinhas assim que o 1º chute é registrado).</p>
-      <p><b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade.</p>
-      <p><b>Gráfico de pressão:</b> mostra quem está "empurrando" o jogo minuto a minuto, com até 5 selos automáticos: 🔥 pressão+chute no mesmo time (o sinal mais forte), ▲/▼ pressão sustentada, 🗺️ zona do último chute, 🧠 xG em dobro (oficial), 🗺️🧮 xG em dobro (calculado pelos chutes mapeados).</p>
-      <p><b>Mapa de chutes:</b> campo com a posição de cada finalização da partida.</p>
-      <p><b>Abas do card — Geral:</b> estatísticas detalhadas (Destaques, Finalizações, Ataque, Passes, Defesa...), xG estimado + xG por chutes, odds 1X2 atuais — com botão pra ocultar/mostrar sem precisar buscar de novo.</p>
-      <p><b>Abas do card — Escalações:</b> os 11 titulares de cada time quando disponível.</p>
-      <p><b>Abas do card — Estatísticas Pré:</b> placares que nunca saíram (0%) no histórico geral e no recorte casa/fora de cada time, + 🧠 Leitura da Partida (mesmo motor de análise da aba Hoje).</p>
-      <p><b>Efeito de gol:</b> quando o placar muda, o número pisca e aparece um banner "⚽ GOL!".</p>`,
+    html: [
+      _guiaSec('🔴', 'Grade de jogos ao vivo', `
+        Mostra todas as partidas ao vivo agora, atualizando sozinha a cada 20 segundos. Só entram na grade partidas com <b>mapa de chutes já confirmado</b> — as demais continuam sendo buscadas em segundo plano e aparecem sozinhas assim que o 1º chute é registrado pela fonte de dados. Use "👁 Mostrar todos" pra ver também as que ainda não têm mapa de chutes.<br><br>
+        <b>🔍 Busca:</b> filtra a grade por nome de time, igual à aba Hoje.<br><br>
+        <b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade — favoritos marcados aqui são os mesmos usados/adicionados na aba Hoje.<br><br>
+        <b>Efeito de gol:</b> quando o placar muda, o número pisca em verde e aparece um banner "⚽ GOL!" no card correspondente.`),
+
+      _guiaSec('📈', 'Gráfico de pressão', `
+        Mostra, minuto a minuto, quem está "empurrando" o jogo (pressão de ataque de cada lado). Em cima do gráfico podem aparecer até 5 selos automáticos, cada um sinalizando um padrão diferente:<br><br>
+        ${_guiaRow('🔥 Pressão + chute', 'O sinal mais forte — o mesmo time que está pressionando também acabou de finalizar. Maior chance de o gol sair logo ali.')}
+        ${_guiaRow('▲ / ▼ Pressão sustentada', 'Um dos dois times vem empurrando o jogo de forma consistente por vários minutos seguidos (não é só um pico isolado).')}
+        ${_guiaRow('🗺️ Zona do último chute', 'Mostra em que zona do campo (perigosa ou não) saiu a última finalização.')}
+        ${_guiaRow('🧠 xG em dobro (oficial)', 'O xG (gol esperado) oficial da partida já está acima do dobro do que seria "normal" pro tempo de jogo até agora — sinal de jogo mais aberto que o esperado.')}
+        ${_guiaRow('🗺️🧮 xG em dobro (calculado)', 'Mesma leitura do selo acima, só que calculada por nós a partir da posição de cada chute no mapa, pra quando a fonte não traz o xG oficial.')}`),
+
+      _guiaSec('🗺️', 'Mapa de chutes', `
+        Campo de futebol desenhado com a posição exata de cada finalização da partida até agora — dá pra ver rapidamente se as chances estão vindo de dentro da área (mais perigosas) ou de longe.`),
+
+      _guiaSec('📊', 'Aba do card — Geral', `
+        Estatísticas detalhadas ao vivo: Destaques, Finalizações, Ataque, Passes, Defesa e mais. Também mostra o xG estimado da partida (oficial + calculado pelos chutes mapeados) e as odds 1X2 atuais. Tem um botão pra ocultar/mostrar essa aba sem precisar buscar os dados de novo (evita re-fetch desnecessário).`),
+
+      _guiaSec('👕', 'Aba do card — Escalações', `
+        Os 11 titulares de cada time, quando a fonte disponibiliza essa informação pra partida.`),
+
+      _guiaSec('📉', 'Aba do card — Estatísticas Pré', `
+        Placares que nunca saíram (0% de ocorrência) no histórico geral e no recorte casa/fora de cada time — mesma lógica da aba Placares Corretos do Hoje, só que focada em pré-jogo. Também traz a 🧠 Leitura da Partida, o mesmo motor de análise usado na aba Hoje, aplicado a essa partida ao vivo.`),
+    ].join(''),
   },
+
   mapa: {
     label: '🗺️ Mapa de Sugestões',
     label2: 'Mapa',
-    html: `
-      <p><b>O que é:</b> pra cada metodologia da lista (32 no total: Lay Casa/Visitante, Casa/Visitante Vence, Empate, Over/Under 1.5 e 2.5 FT, Over 0.5 e 1.5 HT, Ambas Marcam Sim/Não, e Lay pra cada um dos 19 placares exatos), o sistema testa sozinho várias variáveis do time (forma recente, médias de gols, etc.) e acha a combinação variável+faixa com a maior "vantagem" (lift) sobre a taxa geral — sem ninguém escolher esse limiar na mão.</p>
-      <p><b>Critério de validade:</b> só é considerado um padrão válido se tiver pelo menos 30 jogos de amostra nesse segmento <b>e</b> lift de pelo menos 1.15x sobre a base geral. Se nenhuma variável bater os dois critérios pra metodologia escolhida, aparece "Nenhum padrão passou no critério de validade hoje" — é normal acontecer, principalmente cedo no dia ou em placares raros.</p>
-      <p><b>Padrão travado no dia:</b> uma vez escolhido, o padrão (ex: "Média de gols acima de 2.0") fica congelado até virar o dia — assim as sugestões não ficam trocando de critério a cada recálculo.</p>
-      <p><b>Sugestões:</b> mostra as partidas de hoje cujo time relevante se encaixa no padrão validado. Elas se <b>acumulam</b> ao longo do dia (não somem quando saem da janela de horário) e, quando o jogo termina, mostram o placar final e um selo ✅ acertou / ❌ errou.</p>
-      <p><b>Gráfico comparativo:</b> compara a taxa de acerto acumulada histórica <i>com</i> o filtro validado vs <i>sem</i> filtro (geral) — se a linha verde (com filtro) ficar consistentemente acima da cinza (geral), é sinal de que o padrão realmente ajuda.</p>
-      <p><b>🔄 Recalcular:</b> força buscar dados novos de hoje (o padrão em si só muda no dia seguinte, mas a lista de jogos que se encaixam nele é atualizada).</p>`,
+    html: [
+      _guiaSec('🎛️', 'O que é e como escolhe o padrão', `
+        Pra cada metodologia da lista (32 no total — veja abaixo), o sistema testa sozinho várias variáveis do time (forma recente, médias de gols, etc.) e acha a combinação <b>variável + faixa</b> com a maior "vantagem" (lift) sobre a taxa geral — sem ninguém escolher esse limiar na mão. Isso é o que torna o Mapa "dinâmico": ele não usa um filtro fixo pré-definido, ele descobre qual filtro funciona melhor a cada dia, com os dados de hoje.<br><br>
+        <b>Critério de validade:</b> só é considerado um padrão válido se tiver pelo menos <b>30 jogos</b> de amostra nesse segmento <b>e</b> lift de pelo menos <b>1.15x</b> sobre a base geral. Se nenhuma variável bater os dois critérios pra metodologia escolhida, aparece "Nenhum padrão passou no critério de validade hoje" — normal de acontecer, principalmente cedo no dia ou em placares raros, onde a amostra é naturalmente menor.`),
+
+      _guiaSec('📜', 'As 32 metodologias disponíveis', `
+        ${_guiaRow('Lay Casa / Lay Visitante', 'Contra o mandante vencer / contra o visitante vencer')}
+        ${_guiaRow('Casa Vence / Visitante Vence', 'A favor da vitória do mandante / do visitante')}
+        ${_guiaRow('Empate', 'A favor do empate no placar final')}
+        ${_guiaRow('Over/Under 1.5 e 2.5 FT', 'Mais/menos gols que essas linhas no jogo todo')}
+        ${_guiaRow('Over 0.5 e 1.5 HT', 'Mais gols que essas linhas só no 1º tempo')}
+        ${_guiaRow('Ambas Marcam Sim/Não', 'A favor de ambos os times marcarem, ou de pelo menos um não marcar')}
+        ${_guiaRow('Lay Placar (×19)', 'Uma metodologia "contra" pra cada um dos 19 placares exatos — 0-0 até 3-3, + os 3 buckets "qualquer outro"')}`),
+
+      _guiaSec('🔒', 'Padrão travado no dia (e à prova de reinício)', `
+        Uma vez escolhido, o padrão (ex: "Média de gols marcados em casa &lt;1.5 gols/jogo") fica <b>congelado até virar o dia</b> — assim as sugestões não ficam trocando de critério a cada recálculo. Esse padrão e a lista de sugestões também são salvos em disco, então sobrevivem a reinícios/atualizações do servidor: mesmo que o app seja reiniciado no meio do dia, o Mapa continua com o mesmo padrão e as mesmas partidas de antes, sem resetar.`),
+
+      _guiaSec('📋', 'Lista de sugestões pra hoje', `
+        Mostra as partidas de hoje cujo time relevante se encaixa no padrão validado — cada card traz país/liga, os dois times, horário, tamanho da amostra do time nesse recorte, e o selo do padrão aplicado.<br><br>
+        <b>A lista trava:</b> partidas novas só entram nela no exato momento em que o padrão do dia é escolhido pela 1ª vez. Depois disso, os recálculos seguintes só <b>atualizam</b> o placar/resultado de quem já está na lista (mostrando 🏁 placar final + ✅ acertou / ❌ errou quando o jogo termina) — nunca acrescentam partida nova nem removem uma que já apareceu.`),
+
+      _guiaSec('📊', 'Gráfico comparativo', `
+        Compara a taxa de acerto acumulada histórica <b>com</b> o filtro validado (linha verde) vs <b>sem</b> filtro algum, ou seja, a taxa geral da metodologia (linha cinza) — se a linha verde ficar consistentemente acima da cinza ao longo de todas as entradas, é sinal de que o padrão encontrado realmente ajuda a prever aquele evento, e não é só ruído estatístico.`),
+
+      _guiaSec('🔄', 'Botão Recalcular', `
+        Busca dados novos de hoje pra atualizar o placar das partidas já sugeridas (e conferir se alguma encerrou). O padrão em si só muda quando vira o dia — clicar em Recalcular não troca o padrão nem adiciona jogos novos à lista.`),
+    ].join(''),
   },
+
   backtestt: {
     label: '🧪 Backtest Tradicional',
     label2: 'Backtest T.',
-    html: `
-      <p><b>O que é:</b> ranking global de metodologias — cada combinação de mercado (1X2, Acima/Abaixo, Ambos Marcam, Dupla Chance, Handicap Asiático) + seleção é testada contra odds históricas reais de todos os jogos do dia.</p>
-      <p><b>Colunas do ranking:</b> Apostas (tamanho da amostra), Taxa de Acerto, Profit (em unidades), ROI, Variância, Desvio Padrão e CV (coeficiente de variação — risco normalizado pelo retorno), e a Odd Atual disponível pra aquela seleção.</p>
-      <p><b>Como usar:</b> metodologias com ROI alto (≥20%) e amostra de pelo menos 8 jogos são destacadas com ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado, não garantia de lucro futuro.</p>`,
+    html: [
+      _guiaSec('🧪', 'O que é', `
+        Ranking global de metodologias — cada combinação de <b>mercado</b> (1X2, Acima/Abaixo de várias linhas de gols, Ambos Marcam, Dupla Chance, Handicap Asiático) + <b>seleção</b> dentro desse mercado é testada contra as odds históricas reais de todos os jogos do dia (não é simulação com odds genéricas — é a odd que realmente esteve disponível naquele jogo).`),
+      _guiaSec('📊', 'Colunas do ranking', `
+        ${_guiaRow('Apostas', 'Tamanho da amostra — quantas vezes essa seleção apareceu no período analisado')}
+        ${_guiaRow('Taxa de Acerto', '% de vezes que a aposta teria vencido')}
+        ${_guiaRow('Profit', 'Resultado acumulado em unidades, apostando 1 unidade fixa em cada ocorrência')}
+        ${_guiaRow('ROI', 'Retorno sobre o investimento — profit dividido pelo total apostado, em %')}
+        ${_guiaRow('Variância / Desvio Padrão', 'O quanto o resultado de cada aposta individual varia em torno da média — quanto maior, mais "instável" é a metodologia mesmo que o ROI final seja bom')}
+        ${_guiaRow('CV (coef. de variação)', 'Risco normalizado pelo retorno — ajuda a comparar metodologias com ROI parecido, mas risco bem diferente')}
+        ${_guiaRow('Odd Atual', 'A odd disponível agora pra essa mesma seleção, nos jogos de hoje que ainda vão acontecer')}`),
+      _guiaSec('⚡', 'Como usar', `
+        Metodologias com ROI alto (≥20%) <b>e</b> amostra de pelo menos 8 jogos são destacadas com o selo ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado ao longo do período estudado. Isso <b>não é garantia de lucro futuro</b>: é um indício histórico, não uma certeza — mercados eficientes tendem a corrigir esse tipo de ineficiência com o tempo, então vale acompanhar se o padrão continua se sustentando.`),
+    ].join(''),
   },
+
   backtestcs: {
     label: '🎯 Backtest CS',
-    html: `
-      <p><b>O que é:</b> irmã do Backtest Tradicional, mas focada em <b>placar exato</b> — rankeia os 19 buckets fixos de placar (0-0, 0-1, ..., 3-3 + "qualquer outra vitória em casa/fora" + "qualquer outro empate") pela frequência real com que cada um ocorre.</p>
-      <p><b>Ranking:</b> mostra os placares que mais se repetem historicamente (pra apostar a favor) e os que quase nunca saem (pra apostar contra, com lift = quantas vezes mais raro que a média o placar é).</p>
-      <p><b>Padrões:</b> combina até 4 variáveis (média de gols/jogo de cada time, mandante, etc.) pra achar segmentos onde um placar específico fica ainda mais/menos provável do que o normal.</p>
-      <p><b>⚡ Placares mais improváveis:</b> filtro que mostra só os buckets que praticamente nunca ocorrem — útil pra apostar contra um placar específico com alta confiança.</p>`,
+    html: [
+      _guiaSec('🎯', 'O que é', `
+        Irmã do Backtest Tradicional, mas focada em <b>placar exato</b> — rankeia os 19 buckets fixos de placar (0-0, 0-1, 0-2, 0-3, 1-0, 1-1, 1-2, 1-3, 2-0, 2-1, 2-2, 2-3, 3-0, 3-1, 3-2, 3-3, + "qualquer outra vitória em casa", "qualquer outra vitória de visitante" e "qualquer outro empate") pela frequência real com que cada um ocorre no histórico de jogos do dia.`),
+      _guiaSec('🏆', 'Ranking', `
+        Mostra os placares que mais se repetem historicamente (interessante pra apostar a favor desse placar) e os que quase nunca saem (interessante pra apostar contra, via mercado Lay) — cada um com o <b>lift</b>: quantas vezes mais raro (ou mais comum) que a média geral aquele placar específico é.`),
+      _guiaSec('🧩', 'Padrões', `
+        Combina até 4 variáveis diferentes (média de gols/jogo de cada time, se é mandante ou visitante, etc.) pra achar segmentos onde um placar específico fica ainda mais ou menos provável do que o normal — mesma ideia do Mapa de Sugestões, só que aplicada ao Backtest CS.`),
+      _guiaSec('⚡', 'Placares mais improváveis', `
+        Filtro que mostra só os buckets que praticamente nunca ocorrem no histórico — útil pra apostar contra um placar específico (Lay) com alta confiança, principalmente quando a odd oferecida hoje pra esse placar parece baixa demais considerando quão raro ele é.`),
+    ].join(''),
   },
 };
 
