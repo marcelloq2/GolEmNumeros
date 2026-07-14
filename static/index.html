@@ -6358,10 +6358,89 @@ function _today2JogoStatDefs(s) {
       { val: s.tempoPrimeiroGolPartida, media: 'tempoPrimeiroGolPartida', n: s.nGoalMin, label: 'minuto médio do 1º gol da partida', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
     );
   }
-  // Valor do Gol/Custo do Gol/Saldo (Valor do Saldo/Ponto) ficaram de fora de
+  // Valor do Gol/Custo do Gol/Valor do Saldo/Valor do Ponto ficaram de fora de
   // propósito — dependem de buscar odds de cada jogo histórico do time, o que
-  // deixava a 1ª abertura do dia bem mais lenta. O resto da seção já não
-  // precisa de odds nenhuma, só do H2H que a aba já busca de qualquer forma.
+  // deixava a 1ª abertura do dia bem mais lenta. Saldo de Gols "cru" (sem
+  // pesar pela odd) não tem esse problema — é calculado à parte, direto das
+  // rows, em _today2AcimaMediaPorTime (não precisa de odds nem de HT).
+  return defs;
+}
+
+// Segunda leva de estatísticas — as do bloco "Padrão de Gols" da aba Jogo
+// (over/under 1.5/2.5/3.5, faixas de gols, minuto dos gols, quem marca
+// primeiro, vencedor por checkpoint de minuto, diferença de gols). Ficaram de
+// fora da 1ª versão da Leitura da Partida; usuário pediu pra incluir tudo.
+// "ambosMarcam" fica de fora aqui de propósito — é a mesma coisa que "chance
+// de ambas equipes marcarem" já listada em _today2JogoStatDefs, só calculada
+// de novo por outro caminho; incluir os dois duplicaria a mesma informação.
+function _today2GoalPatternStatDefs(gp, media, teamName) {
+  if (!gp || !media) return [];
+  const pct = v => `${v.toFixed(0)}%`;
+  const defs = [];
+  const push = (label, val, mediaVal, n) => {
+    if (val === undefined || val === null || isNaN(val)) return;
+    if (mediaVal === undefined || mediaVal === null || isNaN(mediaVal)) return;
+    if (!n) return;
+    defs.push({ label, val, mediaVal, n, fmt: pct, margem: 1 });
+  };
+
+  push('mais de 1,5 gols na partida (total)', gp.ou.l15.sobre, media.ou15_total?.sobre, gp.n);
+  push('menos de 1,5 gols na partida (total)', gp.ou.l15.sob, media.ou15_total?.sob, gp.n);
+  push(`mais de 1,5 gols do ${teamName}`, gp.ouTeam.l15.sobre, media.ou15_team?.sobre, gp.n);
+  push(`menos de 1,5 gols do ${teamName}`, gp.ouTeam.l15.sob, media.ou15_team?.sob, gp.n);
+  push('mais de 2,5 gols na partida (total)', gp.ou.l25.sobre, media.ou25_total?.sobre, gp.n);
+  push('menos de 2,5 gols na partida (total)', gp.ou.l25.sob, media.ou25_total?.sob, gp.n);
+  push(`mais de 2,5 gols do ${teamName}`, gp.ouTeam.l25.sobre, media.ou25_team?.sobre, gp.n);
+  push(`menos de 2,5 gols do ${teamName}`, gp.ouTeam.l25.sob, media.ou25_team?.sob, gp.n);
+  push(`mais de 3,5 gols do ${teamName}`, gp.ouTeam.l35.sobre, media.ou35_team?.sobre, gp.n);
+  push(`menos de 3,5 gols do ${teamName}`, gp.ouTeam.l35.sob, media.ou35_team?.sob, gp.n);
+
+  push('partidas com 0-1 gols no total', gp.faixa01, media.faixa01_pct, gp.n);
+  push('partidas com 2-3 gols no total', gp.faixa23, media.faixa23_pct, gp.n);
+  push('partidas com 4+ gols no total', gp.faixa4mais, media.faixa4mais_pct, gp.n);
+
+  push('partidas em que só um dos dois marca', gp.apenasUm, media.apenasUm_pct, gp.n);
+  push('partidas em que nenhum dos dois marca', gp.nenhum, media.nenhum_pct, gp.n);
+
+  push('partidas com total de gols ímpar', gp.impar, media.impar_pct, gp.n);
+  push('partidas com total de gols par', gp.par, media.par_pct, gp.n);
+
+  if (gp.allGoalsCount) {
+    gp.labels15.forEach((lbl, i) => push(`gols da partida entre ${lbl}`, gp.allGoalsBuckets[i] / gp.allGoalsCount * 100, media.allGoalsBuckets_pct?.[i], gp.totalComGm));
+  }
+  if (gp.teamGoalsCount) {
+    gp.labels15.forEach((lbl, i) => push(`gols do ${teamName} entre ${lbl}`, gp.teamGoalsBuckets[i] / gp.teamGoalsCount * 100, media.teamGoalsBuckets_pct?.[i], gp.totalComGm));
+  }
+
+  if (gp.totalComGm) {
+    gp.labels10.forEach((lbl, i) => push(`1º gol da partida entre ${lbl}`, gp.primeiroGolBuckets[i] / gp.totalComGm * 100, media.primeiroGolBuckets_pct?.[i], gp.totalComGm));
+    push('partidas sem nenhum gol', gp.semGolCount / gp.totalComGm * 100, media.semGol_pct, gp.totalComGm);
+    gp.labels10.forEach((lbl, i) => push(`1º gol do ${teamName} entre ${lbl}`, gp.primeiroGolTeamBuckets[i] / gp.totalComGm * 100, media.primeiroGolTeamBuckets_pct?.[i], gp.totalComGm));
+    push(`partidas em que o ${teamName} não marcou`, gp.semGolTeamCount / gp.totalComGm * 100, media.semGolTeam_pct, gp.totalComGm);
+    push(`${teamName} marca primeiro`, gp.timeMarcouPrimeiroCount / gp.totalComGm * 100, media.timeMarcouPrimeiro_pct, gp.totalComGm);
+    push('adversário marca primeiro', gp.adversarioMarcouPrimeiroCount / gp.totalComGm * 100, media.adversarioMarcouPrimeiro_pct, gp.totalComGm);
+  }
+
+  if (gp.vencedor) {
+    gp.vencedor.checkpoints.forEach(cp => {
+      const mcp = media.vencedor?.checkpoints?.[cp];
+      push(`${teamName} vencendo aos ${cp}min`, gp.vencedor.out[cp].time, mcp?.time_pct, gp.vencedor.n);
+      push(`adversário vencendo aos ${cp}min`, gp.vencedor.out[cp].adversario, mcp?.adversario_pct, gp.vencedor.n);
+      push(`empate aos ${cp}min`, gp.vencedor.out[cp].empate, mcp?.empate_pct, gp.vencedor.n);
+    });
+  }
+
+  if (gp.diff) {
+    push('diferença de gols de 0-1 na partida', gp.diff.diff01, media.diff01_pct, gp.n);
+    push('diferença de gols de 2-3 na partida', gp.diff.diff23, media.diff23_pct, gp.n);
+    push('diferença de gols de 4+ na partida', gp.diff.diff4mais, media.diff4mais_pct, gp.n);
+    if (gp.diff.nHt) {
+      push('mais gols no 1º tempo que no 2º', gp.diff.primeiroTempo, media.primeiroTempo_pct, gp.diff.nHt);
+      push('mais gols no 2º tempo que no 1º', gp.diff.segundaMetade, media.segundaMetade_pct, gp.diff.nHt);
+      push('mesmo nº de gols nos dois tempos', gp.diff.gravata, media.gravata_pct, gp.diff.nHt);
+    }
+  }
+
   return defs;
 }
 
@@ -6378,13 +6457,29 @@ function _today2AcimaMediaPorTime({ m, homeHomeBlock, awayAwayBlock, mediaCasa, 
     const s = block.rows.length ? _jogoComputeStats(block.rows) : null;
     if (!s || s.n < MIN_N) return;
     const team = block.teamName || teamFallback;
+    const avgSaldo = block.rows.reduce((a, r) => a + (r.golsPro - r.golsContra), 0) / block.rows.length;
+    const saldoDef = {
+      val: avgSaldo, mediaVal: media.saldo, n: s.n, label: 'Saldo de Gols',
+      fmt: v => (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)), margem: 0.1,
+    };
+
+    const gp = _jogoGoalPatternStats(block.rows);
+    if (gp) {
+      gp.vencedor = _jogoWinnerAtMinuteStats(block.rows);
+      gp.diff = _jogoGoalDiffStats(block.rows);
+    }
+
     const rows = [];
-    _today2JogoStatDefs(s).forEach(d => {
-      if (d.val === undefined || d.val === null || isNaN(d.val) || d.n < MIN_N) return;
-      const mediaVal = media[d.media];
-      if (mediaVal === undefined || mediaVal === null || isNaN(mediaVal)) return;
-      if (d.val < mediaVal + (d.margem ?? 1)) return; // só o que está ACIMA da média com folga
-      rows.push({ ...d, mediaVal, confianca: _today2ConfidenceBySample(d.n) });
+    const defsAll = [
+      ..._today2JogoStatDefs(s).map(d => ({ ...d, mediaVal: media[d.media] })),
+      saldoDef,
+      ..._today2GoalPatternStatDefs(gp, media, team),
+    ];
+    defsAll.forEach(d => {
+      if (d.val === undefined || d.val === null || isNaN(d.val) || !d.n || d.n < MIN_N) return;
+      if (d.mediaVal === undefined || d.mediaVal === null || isNaN(d.mediaVal)) return;
+      if (d.val < d.mediaVal + (d.margem ?? 1)) return; // só o que está ACIMA da média com folga
+      rows.push({ ...d, confianca: _today2ConfidenceBySample(d.n) });
     });
     if (rows.length) grupos.push({ team, lado, rows });
   };
