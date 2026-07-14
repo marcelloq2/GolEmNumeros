@@ -5776,8 +5776,15 @@ async function _renderToday2Insights(matchId) {
   const profitAggAway = _profitAggregate(profitAwayRows.rows, PROFIT_MARKET_LABELS_TRADICIONAL);
   if (_today2Tab[matchId] !== 'insights') return;
 
-  const csFreqHome = _csBucketFrequency(homeGeneralBlock.rows);
-  const csFreqAway = _csBucketFrequency(awayGeneralBlock.rows);
+  // _csBucketFrequency() espera rows com {h,a} (placar cru da partida) — as rows
+  // de homeGeneralBlock/awayGeneralBlock (_jogoStatsRowsFromSection) só têm
+  // golsPro/golsContra (da PERSPECTIVA do time), então h/a vinham undefined e
+  // TODO jogo caía por padrão em "Qualquer outro empate", fazendo os outros 18
+  // buckets aparecerem com 0 ocorrências mesmo quando não era verdade. Correção:
+  // usa profitHomeRows/profitAwayRows, que já vêm com {h,a} corretos (mesma
+  // fonte usada na aba "Placares Corretos", que mostra os números certos).
+  const csFreqHome = _csBucketFrequency(profitHomeRows.rows);
+  const csFreqAway = _csBucketFrequency(profitAwayRows.rows);
 
   const body = document.getElementById(`today2InsightsBody_${matchId}`);
   if (!body) return;
