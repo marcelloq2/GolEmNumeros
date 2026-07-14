@@ -1104,7 +1104,6 @@
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('mapa', this)">🗺️ Mapa de Sugestões</button>
-    <button class="nav-tab" onclick="switchView('backtest2', this)">🧪 Backtest</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -1513,28 +1512,12 @@
     <div id="mapaContent"></div>
   </div>
 
-  <!-- BACKTEST — fusão do antigo "Backtest Tradicional" (mercado+seleção por ROI) com
-       o antigo "Backtest CS" (19 buckets de placar exato por taxa de acerto) numa aba
-       só, com sub-abas internas — os dois rankings continuam com lógica própria (ROI
-       não é comparável com taxa de acerto), só a navegação foi unificada. -->
-  <div id="backtest2Wrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
-      <button class="filter-btn active" id="backtestSubTabTradicional" onclick="_setBacktestSubTab('tradicional')">🧪 Mercados Tradicionais</button>
-      <button class="filter-btn" id="backtestSubTabCs" onclick="_setBacktestSubTab('cs')">🎯 Placar Exato</button>
-      <button onclick="openAppGuia(_backtestSubTab === 'cs' ? 'backtestcs' : 'backtestt')" title="Guia do Backtest"
-        style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
-               color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-               white-space:nowrap;flex-shrink:0;margin-left:4px">📖 Guia</button>
-    </div>
-    <div id="backtestSubTradicional" style="display:flex;flex-direction:column">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
-      <div id="bt2Content"></div>
-    </div>
-    <div id="backtestSubCs" style="display:none;flex-direction:column">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🎯 Backtest CS — ranking global de placares exatos por taxa de acerto</div>
-      <div id="btcsContent"></div>
-    </div>
-  </div>
+  <!-- BACKTEST — removido do frontend a pedido do usuário (por enquanto não vai
+       usar; volta quando tiver mais volume de dados histórico). O cálculo que
+       alimenta bt2_bets/btcs_results continua rodando sozinho 1x por dia em
+       background (ver _background_backtest_daily_backup no app.py) e faz backup
+       do backtest2.db pro GitHub, então o histórico não para de crescer — só a
+       aba em si (e as sub-abas Mercados Tradicionais/Placar Exato) saiu da UI. -->
 
   <!-- ── HISTÓRICO ── -->
 
@@ -2114,38 +2097,9 @@ const APP_GUIA_SECTIONS = {
     ].join(''),
   },
 
-  backtestt: {
-    label: '🧪 Backtest Tradicional',
-    label2: 'Backtest T.',
-    html: [
-      _guiaSec('🧪', 'O que é', `
-        Ranking global de metodologias — cada combinação de <b>mercado</b> (1X2, Acima/Abaixo de várias linhas de gols, Ambos Marcam, Dupla Chance, Handicap Asiático) + <b>seleção</b> dentro desse mercado é testada contra as odds históricas reais de todos os jogos do dia (não é simulação com odds genéricas — é a odd que realmente esteve disponível naquele jogo).`),
-      _guiaSec('📊', 'Colunas do ranking', `
-        ${_guiaRow('Apostas', 'Tamanho da amostra — quantas vezes essa seleção apareceu no período analisado')}
-        ${_guiaRow('Taxa de Acerto', '% de vezes que a aposta teria vencido')}
-        ${_guiaRow('Profit', 'Resultado acumulado em unidades, apostando 1 unidade fixa em cada ocorrência')}
-        ${_guiaRow('ROI', 'Retorno sobre o investimento — profit dividido pelo total apostado, em %')}
-        ${_guiaRow('Variância / Desvio Padrão', 'O quanto o resultado de cada aposta individual varia em torno da média — quanto maior, mais "instável" é a metodologia mesmo que o ROI final seja bom')}
-        ${_guiaRow('CV (coef. de variação)', 'Risco normalizado pelo retorno — ajuda a comparar metodologias com ROI parecido, mas risco bem diferente')}
-        ${_guiaRow('Odd Atual', 'A odd disponível agora pra essa mesma seleção, nos jogos de hoje que ainda vão acontecer')}`),
-      _guiaSec('⚡', 'Como usar', `
-        Metodologias com ROI alto (≥20%) <b>e</b> amostra de pelo menos 8 jogos são destacadas com o selo ⚡ — indicam possível ineficiência de precificação da casa de apostas naquele mercado ao longo do período estudado. Isso <b>não é garantia de lucro futuro</b>: é um indício histórico, não uma certeza — mercados eficientes tendem a corrigir esse tipo de ineficiência com o tempo, então vale acompanhar se o padrão continua se sustentando.`),
-    ].join(''),
-  },
-
-  backtestcs: {
-    label: '🎯 Backtest CS',
-    html: [
-      _guiaSec('🎯', 'O que é', `
-        Irmã do Backtest Tradicional, mas focada em <b>placar exato</b> — rankeia os 19 buckets fixos de placar (0-0, 0-1, 0-2, 0-3, 1-0, 1-1, 1-2, 1-3, 2-0, 2-1, 2-2, 2-3, 3-0, 3-1, 3-2, 3-3, + "qualquer outra vitória em casa", "qualquer outra vitória de visitante" e "qualquer outro empate") pela frequência real com que cada um ocorre no histórico de jogos do dia.`),
-      _guiaSec('🏆', 'Ranking', `
-        Mostra os placares que mais se repetem historicamente (interessante pra apostar a favor desse placar) e os que quase nunca saem (interessante pra apostar contra, via mercado Lay) — cada um com o <b>lift</b>: quantas vezes mais raro (ou mais comum) que a média geral aquele placar específico é.`),
-      _guiaSec('🧩', 'Padrões', `
-        Combina até 4 variáveis diferentes (média de gols/jogo de cada time, se é mandante ou visitante, etc.) pra achar segmentos onde um placar específico fica ainda mais ou menos provável do que o normal — mesma ideia do Mapa de Sugestões, só que aplicada ao Backtest CS.`),
-      _guiaSec('⚡', 'Placares mais improváveis', `
-        Filtro que mostra só os buckets que praticamente nunca ocorrem no histórico — útil pra apostar contra um placar específico (Lay) com alta confiança, principalmente quando a odd oferecida hoje pra esse placar parece baixa demais considerando quão raro ele é.`),
-    ].join(''),
-  },
+  // Backtest (Tradicional/CS) saiu do guia junto com a aba — removida do
+  // frontend a pedido do usuário. O cálculo continua rodando sozinho 1x por
+  // dia em background (ver _background_backtest_daily_backup no app.py).
 };
 
 function openAppGuia(startKey) {
@@ -2454,7 +2408,6 @@ function switchView(view, btn) {
   const favsPanel       = document.getElementById('favsPanel');
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
-  const backtest2Wrapper = document.getElementById('backtest2Wrapper');
   const mapaWrapper = document.getElementById('mapaWrapper');
   const passadasWrapper = document.getElementById('passadasWrapper');
   // Oculta tudo
@@ -2463,7 +2416,6 @@ function switchView(view, btn) {
   favsPanel.classList.remove('active');
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
-  backtest2Wrapper.style.display = 'none';
   mapaWrapper.style.display = 'none';
   passadasWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
@@ -2488,15 +2440,6 @@ function switchView(view, btn) {
     live2Panel.classList.add('active');
     loadLive2Matches();
     _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
-  } else if (view === 'backtest2') {
-    backtest2Wrapper.style.display = 'flex';
-    // carrega só a sub-aba ativa no momento (padrão: Mercados Tradicionais) — a
-    // outra carrega sob demanda quando o usuário clicar em _setBacktestSubTab
-    if (_backtestSubTab === 'cs') {
-      _btcsLoadRanking(); // já respeita o _btcsMode atual internamente (recente/acumulado)
-    } else {
-      _bt2LoadRanking(); // já respeita o _bt2Mode atual internamente (recente/acumulado)
-    }
   } else if (view === 'mapa') {
     mapaWrapper.style.display = 'flex';
     _mapaLoad();

@@ -5652,6 +5652,30 @@ def _btcs_compute_ranking_acumulado():
     }
 
 
+# ── BACKUP DIÁRIO DO BACKTEST (Tradicional + CS) ────────────────────────────
+# A aba Backtest foi removida do frontend (usuário não usa mais por enquanto,
+# mas quer voltar quando tiver mais volume de dados histórico) — sem a aba,
+# ninguém mais dispara o cálculo caro (_bt2_compute_ranking/_btcs_compute_ranking,
+# que são os únicos jeitos de bt2_bets/btcs_results crescerem). Essa thread roda
+# esse cálculo sozinha 1x por dia, sem depender de ninguém clicar em nada, e sobe
+# o backtest2.db pro GitHub — mesmo padrão de persistência já usado pelo resto
+# do app (github_storage), pra sobreviver a reinícios/redeploys do Railway.
+def _background_backtest_daily_backup():
+    while True:
+        try:
+            print("[backtest-backup] Rodando simulação diária do Backtest (Tradicional + CS)...")
+            _bt2_compute_ranking()
+            _btcs_compute_ranking()
+            github_storage.push_file_bg(_BT2_DB_PATH, "backtest2.db")
+            print("[backtest-backup] Concluído — backtest2.db atualizado e enviado pro GitHub.")
+        except Exception as e:
+            print(f"[backtest-backup] Erro: {e}")
+        time.sleep(24 * 3600)
+
+
+threading.Thread(target=_background_backtest_daily_backup, daemon=True, name="BacktestDailyBackup").start()
+
+
 # ── BACKTEST CS — PADRÕES: em que condições dos times a taxa de acerto de um
 # bucket de placar exato melhora vs a taxa geral (baseline) ─────────────────
 # Reusa a MESMA coleta de histórico do ranking, mas mantendo o agrupamento POR
