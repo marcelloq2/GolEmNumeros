@@ -6572,6 +6572,36 @@ def api_masterlist_generic(metodologia):
     return jsonify(data)
 
 
+@app.route("/api/masterlist/<metodologia>/atualizar_dia", methods=["POST"])
+def api_masterlist_atualizar_dia(metodologia):
+    """Reconstrói o padrão do dia + lista de sugestões do ZERO pra essa
+    metodologia — usado quando o Mapa fica "preso" mostrando jogos antigos
+    (ex: virou o dia mas por algum motivo o cache não acompanhou). Diferente
+    do recálculo normal (que só atualiza placar de quem já está na lista, de
+    propósito, pra não ficar mudando a lista toda hora), esse endpoint apaga
+    tudo e deixa escolher um padrão novo — por isso só permite 1x por dia,
+    pra não reintroduzir o mesmo problema que a trava resolveu."""
+    if metodologia not in _MAPA_METODOLOGIAS:
+        return jsonify({"error": "metodologia desconhecida"}), 404
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    day_cache = _MAPA_DAY_CACHE.get(metodologia)
+    if day_cache and day_cache.get("manual_reset_date") == today_str:
+        return jsonify({"error": "essa metodologia já foi atualizada manualmente hoje — só é permitido 1x por dia"}), 429
+
+    _MAPA_DAY_CACHE[metodologia] = {
+        "date": today_str, "melhor": None, "comparativo": None,
+        "sugestoes_by_id": {}, "manual_reset_date": today_str,
+    }
+    _MAPA_CACHE[metodologia] = {"ts": 0, "data": None}
+    path = _mapa_cache_path(metodologia)
+    if os.path.exists(path):
+        os.remove(path)
+
+    data = _mapa_compute(metodologia)
+    return jsonify(data)
+
+
 # ── ABA JOGO — MÉDIAS GERAIS — baseline pra comparação: qual a média de cada
 # estatística (vitórias, gols, ambas marcam, over/under...) entre TODOS os
 # times de hoje, não só o time que o usuário está olhando. Reaproveita

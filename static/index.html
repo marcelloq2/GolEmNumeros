@@ -1507,7 +1507,11 @@
                color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                white-space:nowrap;flex-shrink:0">📖 Guia</button>
       <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
-        border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer">🔄 Recalcular</button>
+        border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer"
+        title="Atualiza placar/resultado das partidas já sugeridas — não troca o padrão nem adiciona jogos novos">🔄 Recalcular</button>
+      <button onclick="_mapaAtualizarDia()" id="mapaAtualizarDiaBtn" style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
+        border:1px solid #f59e0b44;background:transparent;color:#f59e0b;cursor:pointer"
+        title="Reconstrói o padrão e a lista de sugestões do zero — use se o Mapa ficar mostrando jogos de ontem. Só funciona 1x por dia.">🆕 Atualizar jogos de hoje</button>
     </div>
     <div id="mapaContent"></div>
   </div>
@@ -2502,6 +2506,32 @@ async function _mapaLoad(refresh) {
     _mapaRender(metodologia);
   } catch (e) {
     content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao calcular: ${e}</div>`;
+  }
+}
+
+// Reconstrói o padrão + lista do zero (bypassa a trava) — pro caso do Mapa
+// ficar "preso" mostrando jogos de um dia anterior. Só funciona 1x por dia
+// (o backend recusa com 429 se já foi usado hoje pra essa metodologia).
+async function _mapaAtualizarDia() {
+  const metodologia = document.getElementById('mapaMetodologiaSelect').value;
+  const btn = document.getElementById('mapaAtualizarDiaBtn');
+  const content = document.getElementById('mapaContent');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Atualizando...'; }
+  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Reconstruindo o padrão do dia do zero...</div>`;
+  try {
+    const r = await fetch(`/api/masterlist/${encodeURIComponent(metodologia)}/atualizar_dia`, { method: 'POST' });
+    if (r.status === 429) {
+      const d = await r.json();
+      content.innerHTML = `<div style="color:#f59e0b;font-size:13px;padding:20px 0;text-align:center">⚠️ ${_bt2EscXml(d.error || 'já atualizado hoje')}</div>`;
+      return;
+    }
+    const d = await r.json();
+    _mapaCache[metodologia] = d;
+    _mapaRender(metodologia);
+  } catch (e) {
+    content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao atualizar: ${e}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🆕 Atualizar jogos de hoje'; }
   }
 }
 
