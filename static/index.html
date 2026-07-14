@@ -6456,8 +6456,14 @@ function _today2AcimaMediaCompactHtml(grupos) {
         // Cor condicional pela "força" da diferença: quantas vezes ela passa da
         // margem mínima exigida pra esse tipo de estatística (não um valor fixo
         // de pp — assim funciona igual pra %, minutos, gols/jogo, saldo, etc.).
+        // Escala tipo semáforo: vermelho (diferença fraca, mal passou da margem)
+        // até verde (diferença forte, bem acima da média).
         const forca = diff / (r.margem || 1);
-        const diffColor = forca >= 6 ? '#15803d' : forca >= 3 ? '#22c55e' : '#a3e635';
+        const diffColor = forca >= 6 ? '#22c55e'
+          : forca >= 4.5 ? '#84cc16'
+          : forca >= 3 ? '#eab308'
+          : forca >= 1.5 ? '#f97316'
+          : '#ef4444';
         return `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border)" ${r.explain ? `title="${_bt2EscXml(r.explain)}"` : ''}>
           <span style="font-size:13px;color:var(--text2)">${_bt2EscXml(r.label)}</span>
