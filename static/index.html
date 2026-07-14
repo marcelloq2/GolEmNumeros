@@ -6335,12 +6335,19 @@ function _today2ConfidenceBySample(n) {
   return { label: 'Baixa confiança', color: '#ef4444' };
 }
 
+// Formatadores compartilhados (por referência) entre _today2JogoStatDefs e
+// _today2GoalPatternStatDefs — usados também em _today2AcimaMediaCompactHtml
+// pra saber que UNIDADE usar na diferença (val − média): pontos percentuais
+// pras estatísticas de %, "min" pras de minuto, e casas decimais pro resto.
+const _today2FmtPct = v => `${v.toFixed(0)}%`;
+const _today2FmtMin = v => `${v.toFixed(0)} min`;
+
 // Lista todas as estatísticas da aba Jogo (mesmas do card ⚽ de cada time,
 // incluindo Valor do Gol/Saldo/Ponto) num formato uniforme {val, media, n,
 // label, fmt}, pra poder varrer todas de uma vez e achar as que estão acima
 // da média — sem repetir manualmente o que já existe em _jogoStatsCardHtml.
 function _today2JogoStatDefs(s) {
-  const pct = v => `${v.toFixed(0)}%`;
+  const pct = _today2FmtPct;
   // margem: quanto o valor precisa estar ACIMA da média pra contar (evita ruído
   // tipo "24% vs média 24%" por arredondamento) — em pontos percentuais pras
   // estatísticas de %, mas nas métricas de escala menor (Valor do Gol, Custo do
@@ -6361,9 +6368,9 @@ function _today2JogoStatDefs(s) {
   ];
   if (s.nGoalMin) {
     defs.push(
-      { val: s.tempoSemMarcar, media: 'tempoPrimeiroGolMarcado', n: s.nGoalMin, label: 'minuto médio do 1º gol marcado', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
-      { val: s.tempoSemSofrer, media: 'tempoPrimeiroGolSofrido', n: s.nGoalMin, label: 'minuto médio do 1º gol sofrido', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
-      { val: s.tempoPrimeiroGolPartida, media: 'tempoPrimeiroGolPartida', n: s.nGoalMin, label: 'minuto médio do 1º gol da partida', fmt: v => `${v.toFixed(0)} min`, margem: 1 },
+      { val: s.tempoSemMarcar, media: 'tempoPrimeiroGolMarcado', n: s.nGoalMin, label: 'minuto médio do 1º gol marcado', fmt: _today2FmtMin, margem: 1 },
+      { val: s.tempoSemSofrer, media: 'tempoPrimeiroGolSofrido', n: s.nGoalMin, label: 'minuto médio do 1º gol sofrido', fmt: _today2FmtMin, margem: 1 },
+      { val: s.tempoPrimeiroGolPartida, media: 'tempoPrimeiroGolPartida', n: s.nGoalMin, label: 'minuto médio do 1º gol da partida', fmt: _today2FmtMin, margem: 1 },
     );
   }
   // Valor do Gol/Custo do Gol/Valor do Saldo/Valor do Ponto ficaram de fora de
@@ -6383,7 +6390,7 @@ function _today2JogoStatDefs(s) {
 // de novo por outro caminho; incluir os dois duplicaria a mesma informação.
 function _today2GoalPatternStatDefs(gp, media, teamName) {
   if (!gp || !media) return [];
-  const pct = v => `${v.toFixed(0)}%`;
+  const pct = _today2FmtPct;
   const defs = [];
   const push = (label, val, mediaVal, n) => {
     if (val === undefined || val === null || isNaN(val)) return;
@@ -6503,15 +6510,22 @@ function _today2AcimaMediaCompactHtml(grupos) {
   return grupos.map(g => `
     <div style="font-size:14px;font-weight:700;color:var(--text);margin:10px 0 6px">⚽ ${_bt2EscXml(g.team)} <span style="font-weight:400;color:var(--text2)">(${g.lado})</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:520px;margin-bottom:14px">
-      ${g.rows.map(r => `
+      ${g.rows.map(r => {
+        const diff = r.val - r.mediaVal;
+        const diffTxt = r.fmt === _today2FmtPct ? `+${diff.toFixed(0)}pp`
+          : r.fmt === _today2FmtMin ? `+${diff.toFixed(0)} min`
+          : `+${diff.toFixed(2)}`;
+        return `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--border)" ${r.explain ? `title="${_bt2EscXml(r.explain)}"` : ''}>
           <span style="font-size:13px;color:var(--text2)">${_bt2EscXml(r.label)}</span>
           <span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
             <span style="font-size:10px;color:var(--text2)">méd: ${r.fmt(r.mediaVal)}</span>
             <span style="font-size:13px;font-weight:700;color:#22c55e">${r.fmt(r.val)}</span>
+            <span style="font-size:10px;font-weight:700;color:#22c55e" title="diferença em relação à média">(${diffTxt})</span>
             <span style="font-size:9px;font-weight:700;color:${r.confianca.color};background:${r.confianca.color}18;border:1px solid ${r.confianca.color}44;border-radius:4px;padding:1px 5px">${r.confianca.label.replace(' confiança', '')}</span>
           </span>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`).join('');
 }
 
