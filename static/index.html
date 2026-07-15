@@ -2602,6 +2602,7 @@ function _mapaRenderSinais(d) {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <span style="font-size:11px;font-weight:700;color:#3b82f6;background:#3b82f618;border:1px solid #3b82f644;border-radius:6px;padding:3px 8px;white-space:nowrap">🛡️ ${_bt2EscXml(labels[s.signal] || s.signal)}</span>
+          ${s.confianca ? `<span style="font-size:10px;font-weight:700;color:${s.confianca.color};background:${s.confianca.color}18;border:1px solid ${s.confianca.color}44;border-radius:6px;padding:2px 7px;white-space:nowrap" title="Combina o tamanho da amostra com a força do sinal (%) — não é a mesma coisa que a taxa de acerto do dia mostrada acima">${_bt2EscXml(s.confianca.label)}</span>` : ''}
           ${placarHtml}
         </div>
       </div>

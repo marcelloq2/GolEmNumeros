@@ -7025,6 +7025,20 @@ SINAIS_LABELS = {
 }
 
 
+def _sinais_confianca(n, pct):
+    """Selo de confiança por SUGESTÃO individual (não confundir com a taxa de
+    acerto do DIA por tipo de sinal, que é outro número) — combina tamanho da
+    amostra com a força do sinal (%), mesma régua já usada nos cards da
+    Leitura da Partida (_today2Confidence no JS): amostra pequena ou sinal
+    fraco nunca vira Alta, mesmo passando no limiar mínimo que já decidiu SE
+    o sinal dispara."""
+    if n >= 20 and pct >= 75:
+        return {"label": "Alta confiança", "color": "#22c55e"}
+    if n >= 12 and pct >= 62:
+        return {"label": "Média confiança", "color": "#f59e0b"}
+    return {"label": "Baixa confiança", "color": "#ef4444"}
+
+
 def _sinais_cache_path():
     return os.path.join(DATA_DIR, "sinais_dia_cache.json")
 
@@ -7415,6 +7429,7 @@ def _sinais_compute_locked():
                 **c, "id": uid, "match_id": m["id"], "home": m.get("home"), "away": m.get("away"),
                 "liga": m.get("liga", ""), "pais": m.get("pais", ""), "kickoff_ts": m.get("kickoff_ts"),
                 "status": m.get("status"), "acertou": None,
+                "confianca": _sinais_confianca(c.get("n") or 0, c.get("pct") or 0),
             }
 
     # Atualiza status/acertou de tudo que já está na lista (mesmo que o jogo
