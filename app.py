@@ -1562,6 +1562,16 @@ threading.Thread(
     name="GitHubSyncMapa"
 ).start()
 
+# Sinais do Dia (substitui o Mapa de Sugestões): só protege contra reinício
+# no MESMO dia — a checagem de data em _sinais_load_from_disk já ignora o
+# arquivo se ele for de um dia anterior, então não força (force=False).
+threading.Thread(
+    target=github_storage.pull_file,
+    args=("sinais_dia_cache.json", os.path.join(DATA_DIR, "sinais_dia_cache.json")),
+    daemon=True,
+    name="GitHubSyncSinais"
+).start()
+
 
 @app.route("/api/radar/momentum/<event_id>")
 def api_radar_momentum(event_id):
@@ -6968,6 +6978,488 @@ def api_jogo_medias_gerais():
     calculados em cima de uma amostra ampla de times de hoje. Cacheado 1x por
     dia."""
     return jsonify(_jogo_medias_gerais_compute())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SINAIS DO DIA — substitui o Mapa de Sugestões (32 metodologias de variável+
+# segmento) por 8 sinais narrativos, os mesmos usados na Leitura da Partida
+# (🧠). Cada jogo de hoje que disparar um sinal vira uma sugestão; quando o
+# jogo encerra, confere acerto/erro contra o placar final (e minutos de gol,
+# quando precisar). Reaproveita toda a infraestrutura de cálculo já usada
+# pelas médias gerais (_jogo_fetch_extra/_jogo_stats_from_rows/
+# _jogo_goal_pattern_from_rows), só aplicada a UM time por vez em vez da
+# amostra agregada.
+#
+# Diferente do Mapa antigo (padrão travado o dia todo, sobrevive a
+# reinício): aqui a contagem é só do DIA — vira o dia, zera tudo e recomeça
+# do zero com os jogos novos, por pedido do usuário. A persistência em disco
+# só serve pra não perder o que já foi contabilizado HOJE se o servidor
+# reiniciar no meio do dia (mesmo tipo de proteção usada em todo o app).
+#
+# "Momentum aos 75min" (existia na Leitura da Partida) foi deixado de fora a
+# pedido do usuário. "Maior destaque acima da média" só considera as
+# estatísticas "checáveis" contra o placar final (vitória/empate/derrota,
+# marcar/sofrer gol, ambas marcam, clean sheet, over/under 2.5) — as que
+# dependem de minuto exato (faixas de minuto, checkpoints) ficaram de fora
+# dessa 1ª versão.
+# ═══════════════════════════════════════════════════════════════════════════
+_SINAIS_TTL = 30 * 60
+_SINAIS_MAX_CANDIDATOS = 15  # cada candidato = ~2×30 jogos históricos pra enriquecer; mantém conservador na 1ª versão
+_SINAIS_MIN_N = 8
+_SINAIS_CACHE = {"ts": 0, "data": None}
+_SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None}
+
+SINAIS_LABELS = {
+    "primeiro_gol": "Primeiro Gol",
+    "mandante_forte": "Mandante Forte",
+    "visitante_fraco": "Visitante Fraco",
+    "tendencia_gols": "Tendência de Gols",
+    "padrao_valor": "Padrão de Valor",
+    "placar_raro": "Placar Raro (Lay)",
+    "clean_sheet": "Clean Sheet Cruzado",
+    "maior_destaque": "Maior Destaque",
+}
+
+
+def _sinais_cache_path():
+    return os.path.join(DATA_DIR, "sinais_dia_cache.json")
+
+
+def _sinais_load_from_disk(today_str):
+    path = _sinais_cache_path()
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("date") != today_str:
+            return None
+        return data
+    except Exception as e:
+        print(f"[sinais] Erro lendo cache do disco: {e}")
+        return None
+
+
+def _sinais_save_to_disk(day_cache):
+    path = _sinais_cache_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(day_cache, f, ensure_ascii=False)
+        github_storage.push_file_bg(path, "sinais_dia_cache.json")
+    except Exception as e:
+        print(f"[sinais] Erro salvando cache no disco: {e}")
+
+
+def _sinais_fetch_extra_batch(rows_with_side):
+    """Versão em LOTE de _jogo_fetch_extra, só que enxuta: os 8 sinais só
+    precisam do minuto dos gols (gm_own/gm_opp, pra "totalComGm" e "quem
+    marca primeiro") — nenhum deles usa HT nem odd histórica por jogo (essas
+    duas só alimentam Valor do Gol/Ponto/Saldo e "metade com mais gols", que
+    não fazem parte dos sinais). Cortar essas 2 buscas reduz o total de
+    chamadas de rede em ~2/3 em relação a uma cópia fiel de
+    _jogo_fetch_extra. Recebe [(row, side), ...] de VÁRIOS times/partidas de
+    uma vez, num único _fs_event_pool.map (paralelismo máximo). Muta as rows
+    in-place."""
+    def _fetch(item):
+        row, side = item
+        eid = row["id"]
+        if not eid:
+            return row
+        try:
+            gm = _fs_goal_minutes(eid)
+        except Exception:
+            gm = None
+        if gm:
+            if side == "casa":
+                row["gm_own"], row["gm_opp"] = gm.get("home", []), gm.get("away", [])
+            else:
+                row["gm_own"], row["gm_opp"] = gm.get("away", []), gm.get("home", [])
+        return row
+
+    return list(_fs_event_pool.map(_fetch, rows_with_side))
+
+
+def _sinais_standings_pos(standings_rows, team_name):
+    def _norm(s):
+        return (s or "").strip().lower()
+    tgt = _norm(team_name)
+    for r in standings_rows:
+        if _norm(r.get("team")) == tgt:
+            try:
+                return int(r["pos"]), len(standings_rows)
+            except (TypeError, ValueError):
+                return None, len(standings_rows)
+    return None, len(standings_rows)
+
+
+_SINAIS_DESTAQUE_KEYS = [
+    ("vitFT_pct", "vitórias"), ("empFT_pct", "empates"), ("derFT_pct", "derrotas"),
+    ("pctMarcar", "chance de marcar gol"), ("pctSofrer", "chance de sofrer gol"),
+    ("pctAmbasMarcam", "chance de ambas equipes marcarem"),
+    ("semSofrer_pct", "partidas sem sofrer gols"), ("semMarcar_pct", "partidas sem marcar gols"),
+    ("over25_pct", "partidas com mais de 2,5 gols"), ("under25_pct", "partidas com menos de 2,5 gols"),
+]
+
+
+def _sinais_gerar_candidatas(m, home_stats, away_stats, home_rows, away_rows,
+                              pos_home, pos_away, total_times, media_casa, media_fora, markets_today=None):
+    out = []
+    home, away = m.get("home", ""), m.get("away", "")
+    markets_today = markets_today or {}
+
+    # 1) Primeiro gol
+    for team, stats, lado in ((home, home_stats, "casa"), (away, away_stats, "fora")):
+        if stats and stats.get("totalComGm", 0) >= _SINAIS_MIN_N:
+            pct = stats.get("timeMarcouPrimeiro_pct")
+            if pct is not None and pct >= 60:
+                out.append({
+                    "signal": "primeiro_gol", "team": team, "lado": lado,
+                    "headline": f"{team} costuma sair na frente jogando {'em casa' if lado == 'casa' else 'fora'}!",
+                    "detail": f"Abriu o placar em {pct:.0f}% dos últimos jogos com dado de minutos de gol.",
+                    "n": stats["totalComGm"], "pct": pct,
+                })
+
+    # 2) Mandante forte + posição boa
+    if home_stats and home_stats["n"] >= _SINAIS_MIN_N and pos_home and total_times and total_times >= 6:
+        if home_stats["vitFT_pct"] >= 60 and pos_home <= total_times / 2:
+            out.append({
+                "signal": "mandante_forte", "team": home, "lado": "casa",
+                "headline": f"{home} manda bem em casa e ocupa a {pos_home}ª colocação!",
+                "detail": f"Venceu {home_stats['vitFT_pct']:.0f}% dos últimos {home_stats['n']} jogos como mandante.",
+                "n": home_stats["n"], "pct": home_stats["vitFT_pct"],
+            })
+
+    # 3) Visitante fraco + posição ruim
+    if away_stats and away_stats["n"] >= _SINAIS_MIN_N and pos_away and total_times and total_times >= 6:
+        if away_stats["vitFT_pct"] <= 25 and pos_away > total_times / 2:
+            out.append({
+                "signal": "visitante_fraco", "team": away, "lado": "fora",
+                "headline": f"{away} é {pos_away}º colocado e rende pouco fora de casa!",
+                "detail": f"Venceu só {away_stats['vitFT_pct']:.0f}% dos últimos {away_stats['n']} jogos como visitante.",
+                "n": away_stats["n"], "pct": away_stats["vitFT_pct"],
+            })
+
+    # 4) Tendência de gols (Over/Under 2.5)
+    for team, stats, lado in ((home, home_stats, "em casa"), (away, away_stats, "fora")):
+        if stats and stats["n"] >= _SINAIS_MIN_N:
+            ou = stats.get("ou25_total")
+            if ou:
+                lado_dom = "sobre" if ou["sobre"] >= ou["sob"] else "sob"
+                pct_dom = max(ou["sobre"], ou["sob"])
+                if pct_dom >= 70:
+                    rotulo = "Mais de 2,5 gols" if lado_dom == "sobre" else "Menos de 2,5 gols"
+                    out.append({
+                        "signal": "tendencia_gols", "team": team, "lado": lado, "lado_dom": lado_dom,
+                        "headline": f'Jogos de {team} {lado} pendem forte pra "{rotulo}"!',
+                        "detail": f"{pct_dom:.0f}% dos últimos {stats['n']} jogos bateram esse padrão.",
+                        "n": stats["n"], "pct": pct_dom,
+                    })
+
+    # 5) Padrão de valor — taxa histórica de vitória (1x2 própria) vs odd de hoje
+    try:
+        sels_today = _bt2_market_selections("1x2", markets_today.get("1x2"), 0, 0)
+    except Exception:
+        sels_today = []
+    odd_casa = next((s["odd"] for s in sels_today if s["label"] == "Casa" and s["odd"]), None)
+    odd_fora = next((s["odd"] for s in sels_today if s["label"] == "Fora" and s["odd"]), None)
+    for team, stats, lado, odd in ((home, home_stats, "casa", odd_casa), (away, away_stats, "fora", odd_fora)):
+        if stats and stats["n"] >= _SINAIS_MIN_N and odd:
+            prob_implicita = 100 / odd
+            taxa_hist = stats["vitFT_pct"]
+            if taxa_hist > prob_implicita * 1.05:
+                out.append({
+                    "signal": "padrao_valor", "team": team, "lado": lado,
+                    "headline": f"Padrão de valor encontrado: {team} pra vencer hoje!",
+                    "detail": f"Venceu {taxa_hist:.0f}% dos últimos {stats['n']} jogos, mas a odd de hoje ({odd}) implica só {prob_implicita:.0f}%.",
+                    "n": stats["n"], "pct": taxa_hist,
+                })
+
+    # 6) Placar raro (nunca ocorreu no histórico de nenhum dos dois times) —
+    # sinal de Lay (aposta contra), só se a odd de hoje pra esse placar for curta
+    AMOSTRA_MIN_RARO = 20
+
+    def _bucket_freq(rows, side):
+        counts = {}
+        for r in rows:
+            h, a = (r["own"], r["opp"]) if side == "casa" else (r["opp"], r["own"])
+            key = _btcs_bucket_key(h, a)
+            counts[key] = counts.get(key, 0) + 1
+        return counts, len(rows)
+
+    counts_home, n_home = _bucket_freq(home_rows, "casa")
+    counts_away, n_away = _bucket_freq(away_rows, "fora")
+    if n_home >= AMOSTRA_MIN_RARO and n_away >= AMOSTRA_MIN_RARO:
+        nunca = [b for b in PLACAR_EXATO_BUCKETS_ORDER if counts_home.get(b, 0) == 0 and counts_away.get(b, 0) == 0]
+        if nunca:
+            try:
+                bucket_odds = _btcs_bucket_odds((markets_today.get("placar_exato") or {}).get("items"))
+            except Exception:
+                bucket_odds = {}
+            susp = [(b, bucket_odds[b]) for b in nunca if b in bucket_odds and bucket_odds[b] <= 10]
+            if susp:
+                b, odd = min(susp, key=lambda x: x[1])
+                out.append({
+                    "signal": "placar_raro", "team": None, "lado": None, "bucket": b,
+                    "headline": f"Cuidado com o placar {b} no mercado de hoje!",
+                    "detail": f"Esse placar nunca ocorreu em {min(n_home, n_away)}+ jogos de nenhum dos dois times, mas a odd oferecida hoje é de apenas {odd:.2f}.",
+                    "n": min(n_home, n_away), "pct": 100,
+                })
+
+    # 7) Clean sheet cruzado
+    if home_stats and away_stats and home_stats["n"] >= _SINAIS_MIN_N and away_stats["n"] >= _SINAIS_MIN_N:
+        cs_home, sc_away = home_stats["semSofrer_pct"], away_stats["pctMarcar"]
+        if cs_home >= 40 and sc_away <= 55:
+            out.append({
+                "signal": "clean_sheet", "team": home, "lado": "casa",
+                "headline": f"{home} tem boas chances de sair sem sofrer gols em casa!",
+                "detail": f"Não sofreu gols em {cs_home:.0f}% dos jogos em casa, enquanto {away} só marcou fora em {sc_away:.0f}% dos jogos.",
+                "n": min(home_stats["n"], away_stats["n"]), "pct": (cs_home + (100 - sc_away)) / 2,
+            })
+        else:
+            cs_away, sc_home = away_stats["semSofrer_pct"], home_stats["pctMarcar"]
+            if cs_away >= 40 and sc_home <= 55:
+                out.append({
+                    "signal": "clean_sheet", "team": away, "lado": "fora",
+                    "headline": f"{away} costuma segurar o resultado fora de casa!",
+                    "detail": f"Não sofreu gols em {cs_away:.0f}% dos jogos fora, enquanto {home} só marcou em casa em {sc_home:.0f}% dos jogos.",
+                    "n": min(home_stats["n"], away_stats["n"]), "pct": (cs_away + (100 - sc_home)) / 2,
+                })
+
+    # 8) Maior destaque acima da média (só estatísticas checáveis pelo placar final)
+    melhor = None
+    for team, stats, lado, media in (
+        (home, home_stats, "jogando em casa", media_casa),
+        (away, away_stats, "jogando fora", media_fora),
+    ):
+        if not stats or stats["n"] < _SINAIS_MIN_N or not media:
+            continue
+        for key, label in _SINAIS_DESTAQUE_KEYS:
+            v, mv = stats.get(key), media.get(key)
+            if v is None or mv is None or v < mv + 1:
+                continue
+            diff = v - mv
+            if melhor is None or diff > melhor["diff"]:
+                melhor = {"key": key, "label": label, "val": v, "media": mv, "diff": diff, "team": team, "lado": lado, "n": stats["n"]}
+    if melhor:
+        out.append({
+            "signal": "maior_destaque", "team": melhor["team"], "lado": melhor["lado"], "key": melhor["key"],
+            "headline": f'Maior destaque acima da média (aba Jogo): {melhor["team"]} em "{melhor["label"]}" {melhor["lado"]}!',
+            "detail": f"{melhor['val']:.0f}% vs média de {melhor['media']:.0f}% entre os times de hoje ({melhor['n']} jogos analisados).",
+            "n": melhor["n"], "pct": melhor["val"],
+        })
+
+    return out
+
+
+def _sinais_check_acertou(item, m):
+    """Confere acerto/erro contra o placar final (e minutos de gol de hoje,
+    só quando precisar) — só chamado quando o jogo já encerrou."""
+    try:
+        hs, as_ = int(m.get("home_score")), int(m.get("away_score"))
+    except (TypeError, ValueError):
+        return None
+    total = hs + as_
+    sig = item["signal"]
+    team_is_home = item.get("lado") == "casa"
+
+    if sig == "primeiro_gol":
+        try:
+            gm = _fs_goal_minutes(m["id"]) or {}
+        except Exception:
+            return None
+        home_min = min(gm.get("home") or [999])
+        away_min = min(gm.get("away") or [999])
+        if home_min == 999 and away_min == 999:
+            return None
+        scored_first_home = home_min <= away_min
+        return scored_first_home if team_is_home else not scored_first_home
+    if sig == "mandante_forte":
+        return hs > as_
+    if sig == "visitante_fraco":
+        return hs >= as_
+    if sig == "tendencia_gols":
+        return (total > 2.5) if item.get("lado_dom") == "sobre" else (total <= 2.5)
+    if sig == "padrao_valor":
+        return (hs > as_) if team_is_home else (as_ > hs)
+    if sig == "placar_raro":
+        return _btcs_bucket_key(hs, as_) != item.get("bucket")
+    if sig == "clean_sheet":
+        return (as_ == 0) if team_is_home else (hs == 0)
+    if sig == "maior_destaque":
+        key = item.get("key")
+        own, opp = (hs, as_) if team_is_home else (as_, hs)
+        return {
+            "vitFT_pct": own > opp, "empFT_pct": own == opp, "derFT_pct": own < opp,
+            "pctMarcar": own >= 1, "pctSofrer": opp >= 1, "pctAmbasMarcam": own >= 1 and opp >= 1,
+            "semSofrer_pct": opp == 0, "semMarcar_pct": own == 0,
+            "over25_pct": total > 2.5, "under25_pct": total <= 2.5,
+        }.get(key)
+    return None
+
+
+def _sinais_compute():
+    now = time.time()
+    if _SINAIS_CACHE["data"] and (now - _SINAIS_CACHE["ts"]) < _SINAIS_TTL:
+        return _SINAIS_CACHE["data"]
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if _SINAIS_DAY_CACHE["date"] != today_str:
+        restored = _sinais_load_from_disk(today_str)
+        if restored:
+            _SINAIS_DAY_CACHE["date"] = today_str
+            _SINAIS_DAY_CACHE["sugestoes"] = restored.get("sugestoes") or {}
+            _SINAIS_DAY_CACHE["manual_reset_date"] = restored.get("manual_reset_date")
+        else:
+            _SINAIS_DAY_CACHE["date"] = today_str
+            _SINAIS_DAY_CACHE["sugestoes"] = {}
+            _SINAIS_DAY_CACHE["manual_reset_date"] = None
+
+    sugestoes = _SINAIS_DAY_CACHE["sugestoes"]
+
+    scheduled = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "1"), key=lambda mm: mm.get("kickoff_ts") or "")
+    finished_today = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "3"), key=lambda mm: mm.get("kickoff_ts") or "")
+    candidatos = scheduled[:_SINAIS_MAX_CANDIDATOS] + finished_today[:_SINAIS_MAX_CANDIDATOS]
+
+    media = _jogo_medias_gerais_compute()
+    media_casa, media_fora = media.get("casa") or {}, media.get("fora") or {}
+
+    # 1) H2H de TODOS os candidatos em paralelo (não um de cada vez)
+    def _fetch_h2h(m):
+        try:
+            return m["id"], _fs_h2h(m["id"])
+        except Exception:
+            return m["id"], None
+    h2h_by_id = dict(_fs_event_pool.map(_fetch_h2h, candidatos))
+
+    # 2) monta as rows brutas (casa/fora) de cada partida, ainda sem HT/minutos/odds
+    ctx = []  # [(m, home_rows, away_rows), ...]
+    enrich_batch = []  # [(row, side), ...] de TODOS os times de TODOS os candidatos juntos
+    for m in candidatos:
+        tabs = h2h_by_id.get(m["id"])
+        if not tabs:
+            continue
+        home_rows = _laycasa_home_rows(tabs)
+        away_rows = _laycasa_away_rows(tabs)
+        ctx.append((m, home_rows, away_rows))
+        enrich_batch.extend((r, "casa") for r in home_rows)
+        enrich_batch.extend((r, "fora") for r in away_rows)
+
+    # 3) enriquece TODAS as rows de TODOS os candidatos numa ÚNICA passada em
+    # paralelo (goal_minutes+HT+odd 1x2 de cada jogo histórico) — antes disso
+    # era uma passada por TIME, uma de cada vez, o que multiplicava o tempo
+    # total por ~2×nº de candidatos à toa (mesmo bug que já corrigimos antes
+    # em outras partes do app, reintroduzido aqui na 1ª versão).
+    _sinais_fetch_extra_batch(enrich_batch)
+
+    # 4) classificação e odds de hoje (1x2 + placar exato) de cada candidato,
+    # também em paralelo
+    def _fetch_standings(m):
+        try:
+            return m["id"], _fs_standings(m["id"], m.get("home", ""), m.get("away", ""))
+        except Exception:
+            return m["id"], []
+    standings_by_id = dict(_fs_event_pool.map(_fetch_standings, [c[0] for c in ctx]))
+
+    def _fetch_markets_today(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], markets_wanted=["1x2", "placar_exato"])
+            return m["id"], markets or {}
+        except Exception:
+            return m["id"], {}
+    markets_by_id = dict(_fs_event_pool.map(_fetch_markets_today, [c[0] for c in ctx]))
+
+    # 5) agora que tudo já foi buscado, só calcula (CPU local, sem rede) e gera sinais
+    for m, home_rows, away_rows in ctx:
+        home_stats = _jogo_stats_from_rows(home_rows)
+        if home_stats:
+            gp = _jogo_goal_pattern_from_rows(home_rows)
+            if gp:
+                home_stats.update(gp)
+        away_stats = _jogo_stats_from_rows(away_rows)
+        if away_stats:
+            gp = _jogo_goal_pattern_from_rows(away_rows)
+            if gp:
+                away_stats.update(gp)
+
+        standings = standings_by_id.get(m["id"], [])
+        pos_home, total_times = _sinais_standings_pos(standings, m.get("home", ""))
+        pos_away, _t2 = _sinais_standings_pos(standings, m.get("away", ""))
+
+        candidatas = _sinais_gerar_candidatas(m, home_stats, away_stats, home_rows, away_rows,
+                                               pos_home, pos_away, total_times, media_casa, media_fora,
+                                               markets_by_id.get(m["id"]))
+        for c in candidatas:
+            uid = f"{c['signal']}__{m['id']}"
+            if uid in sugestoes:
+                continue
+            sugestoes[uid] = {
+                **c, "id": uid, "match_id": m["id"], "home": m.get("home"), "away": m.get("away"),
+                "liga": m.get("liga", ""), "pais": m.get("pais", ""), "kickoff_ts": m.get("kickoff_ts"),
+                "status": m.get("status"), "acertou": None,
+            }
+
+    # Atualiza status/acertou de tudo que já está na lista (mesmo que o jogo
+    # tenha saído da janela de candidatos acima)
+    matches_by_id = {mm["id"]: mm for mm in _fs_all_matches()}
+    for item in sugestoes.values():
+        mm = matches_by_id.get(item["match_id"])
+        if not mm:
+            continue
+        item["status"] = mm.get("status")
+        if mm.get("status") == "3" and item.get("acertou") is None:
+            item["home_score"] = mm.get("home_score")
+            item["away_score"] = mm.get("away_score")
+            item["acertou"] = _sinais_check_acertou(item, mm)
+
+    _sinais_save_to_disk(_SINAIS_DAY_CACHE)
+
+    por_sinal = {}
+    for item in sugestoes.values():
+        agg = por_sinal.setdefault(item["signal"], {"total": 0, "acertos": 0, "encerrados": 0})
+        agg["total"] += 1
+        if item.get("acertou") is not None:
+            agg["encerrados"] += 1
+            if item["acertou"]:
+                agg["acertos"] += 1
+    for agg in por_sinal.values():
+        agg["taxa_acerto"] = round(agg["acertos"] / agg["encerrados"] * 100, 1) if agg["encerrados"] else None
+
+    data = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "date": today_str,
+        "sugestoes": sorted(sugestoes.values(), key=lambda x: x.get("kickoff_ts") or ""),
+        "por_sinal": por_sinal,
+        "labels": SINAIS_LABELS,
+    }
+    _SINAIS_CACHE["ts"] = now
+    _SINAIS_CACHE["data"] = data
+    return data
+
+
+@app.route("/api/sinais_dia")
+def api_sinais_dia():
+    """'Sinais do Dia' — substitui o Mapa de Sugestões antigo. 8 sinais
+    narrativos (os mesmos da Leitura da Partida) rodados em todos os jogos de
+    hoje; taxa de acerto contabilizada só do dia (zera quando vira o dia)."""
+    return jsonify(_sinais_compute())
+
+
+@app.route("/api/sinais_dia/atualizar_dia", methods=["POST"])
+def api_sinais_dia_atualizar_dia():
+    """Reconstrói os sinais do dia do ZERO. Só permite 1x por dia (mesma
+    trava do Mapa antigo), pra não ficar mudando a lista toda hora."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if _SINAIS_DAY_CACHE.get("date") == today_str and _SINAIS_DAY_CACHE.get("manual_reset_date") == today_str:
+        return jsonify({"error": "os sinais de hoje já foram atualizados manualmente — só é permitido 1x por dia"}), 429
+    _SINAIS_DAY_CACHE["date"] = today_str
+    _SINAIS_DAY_CACHE["sugestoes"] = {}
+    _SINAIS_DAY_CACHE["manual_reset_date"] = today_str
+    _SINAIS_CACHE["ts"] = 0
+    _SINAIS_CACHE["data"] = None
+    path = _sinais_cache_path()
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify(_sinais_compute())
 
 
 @app.route("/api/backtestcs/ranking")

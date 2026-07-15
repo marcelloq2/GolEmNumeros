@@ -1512,26 +1512,24 @@
     </div>
   </div>
 
-  <!-- MAPA DE SUGESTÕES — lista dinâmica de partidas de hoje que se encaixam numa
-       metodologia validada contra o histórico (ex: Lay Casa). O sistema testa
-       cada variável (aba Jogo + Backtest CS) isoladamente e escolhe sozinho a que
-       melhor prediz o resultado da metodologia — sem limiar fixo escolhido à mão. -->
+  <!-- MAPA DE SUGESTÕES (SINAIS DO DIA) — 8 sinais narrativos (os mesmos da
+       Leitura da Partida) rodados em todos os jogos de hoje. Cada jogo que
+       disparar um sinal vira sugestão; taxa de acerto contabilizada só do
+       dia (zera quando vira o dia). Substitui o antigo Mapa (32 metodologias
+       de variável+segmento). -->
   <div id="mapaWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Mapa de Sugestões</span>
-      <select id="mapaMetodologiaSelect" onchange="_mapaLoad()" style="font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-        <option value="lay_casa">Lay Casa (contra o mandante vencer)</option>
-      </select>
-      <button onclick="openAppGuia('mapa')" title="Guia do Mapa de Sugestões"
+      <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Sinais do Dia</span>
+      <button onclick="openAppGuia('mapa')" title="Guia dos Sinais do Dia"
         style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                white-space:nowrap;flex-shrink:0">📖 Guia</button>
       <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer"
-        title="Atualiza placar/resultado das partidas já sugeridas — não troca o padrão nem adiciona jogos novos">🔄 Recalcular</button>
+        title="Atualiza placar/resultado das sugestões já geradas — não adiciona sinal novo">🔄 Recalcular</button>
       <button onclick="_mapaAtualizarDia()" id="mapaAtualizarDiaBtn" style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid #f59e0b44;background:transparent;color:#f59e0b;cursor:pointer"
-        title="Reconstrói o padrão e a lista de sugestões do zero — use se o Mapa ficar mostrando jogos de ontem. Só funciona 1x por dia.">🆕 Atualizar jogos de hoje</button>
+        title="Reconstrói os sinais do dia do zero — use se o Mapa ficar mostrando jogos de ontem. Só funciona 1x por dia.">🆕 Atualizar jogos de hoje</button>
     </div>
     <div id="mapaContent"></div>
   </div>
@@ -2093,31 +2091,31 @@ const APP_GUIA_SECTIONS = {
     label: '🗺️ Mapa de Sugestões',
     label2: 'Mapa',
     html: [
-      _guiaSec('🎛️', 'O que é e como escolhe o padrão', `
-        Pra cada metodologia da lista (32 no total — veja abaixo), o sistema testa sozinho várias variáveis do time (forma recente, médias de gols, etc.) e acha a combinação <b>variável + faixa</b> com a maior "vantagem" (lift) sobre a taxa geral — sem ninguém escolher esse limiar na mão. Isso é o que torna o Mapa "dinâmico": ele não usa um filtro fixo pré-definido, ele descobre qual filtro funciona melhor a cada dia, com os dados de hoje.<br><br>
-        <b>Critério de validade:</b> só é considerado um padrão válido se tiver pelo menos <b>30 jogos</b> de amostra nesse segmento <b>e</b> lift de pelo menos <b>1.15x</b> sobre a base geral. Se nenhuma variável bater os dois critérios pra metodologia escolhida, aparece "Nenhum padrão passou no critério de validade hoje" — normal de acontecer, principalmente cedo no dia ou em placares raros, onde a amostra é naturalmente menor.`),
+      _guiaSec('🎛️', 'O que é — Sinais do Dia', `
+        Roda 8 sinais narrativos (os mesmos usados na 🧠 Leitura da Partida — primeiro gol, mandante forte, visitante fraco, tendência de gols, padrão de valor, placar raro, clean sheet cruzado e maior destaque acima da média) em cima de TODOS os jogos de hoje, no servidor, sem você precisar abrir partida por partida. Todo jogo que disparar um desses sinais vira uma sugestão na lista.`),
 
-      _guiaSec('📜', 'As 32 metodologias disponíveis', `
-        ${_guiaRow('Lay Casa / Lay Visitante', 'Contra o mandante vencer / contra o visitante vencer')}
-        ${_guiaRow('Casa Vence / Visitante Vence', 'A favor da vitória do mandante / do visitante')}
-        ${_guiaRow('Empate', 'A favor do empate no placar final')}
-        ${_guiaRow('Over/Under 1.5 e 2.5 FT', 'Mais/menos gols que essas linhas no jogo todo')}
-        ${_guiaRow('Over 0.5 e 1.5 HT', 'Mais gols que essas linhas só no 1º tempo')}
-        ${_guiaRow('Ambas Marcam Sim/Não', 'A favor de ambos os times marcarem, ou de pelo menos um não marcar')}
-        ${_guiaRow('Lay Placar (×19)', 'Uma metodologia "contra" pra cada um dos 19 placares exatos — 0-0 até 3-3, + os 3 buckets "qualquer outro"')}`),
+      _guiaSec('📜', 'Os 8 sinais', `
+        ${_guiaRow('Primeiro Gol', 'Time costuma abrir o placar (≥60% dos jogos recentes no recorte casa/fora)')}
+        ${_guiaRow('Mandante Forte', 'Mandante vence muito em casa (≥60%) e está bem na tabela')}
+        ${_guiaRow('Visitante Fraco', 'Visitante rende pouco fora (≤25% de vitórias) e está mal na tabela')}
+        ${_guiaRow('Tendência de Gols', 'Over ou Under 2,5 muito unilateral (≥70%) nos jogos recentes de um time')}
+        ${_guiaRow('Padrão de Valor', 'Taxa histórica de vitória do time bate acima do que a odd de hoje implica')}
+        ${_guiaRow('Placar Raro (Lay)', 'Um placar que nunca ocorreu no histórico de nenhum dos dois times, mas com odd curta hoje — aposta CONTRA esse placar')}
+        ${_guiaRow('Clean Sheet Cruzado', 'Defesa forte de um lado cruzada com ataque fraco do outro')}
+        ${_guiaRow('Maior Destaque', 'A estatística (dentre vitórias, gols, ambas marcam, over/under, clean sheet) mais distante da média do dia pra aquele time')}`),
 
-      _guiaSec('🔒', 'Padrão travado no dia (e à prova de reinício)', `
-        Uma vez escolhido, o padrão (ex: "Média de gols marcados em casa &lt;1.5 gols/jogo") fica <b>congelado até virar o dia</b> — assim as sugestões não ficam trocando de critério a cada recálculo. Esse padrão e a lista de sugestões também são salvos em disco, então sobrevivem a reinícios/atualizações do servidor: mesmo que o app seja reiniciado no meio do dia, o Mapa continua com o mesmo padrão e as mesmas partidas de antes, sem resetar.`),
+      _guiaSec('🔒', 'Contabilização só do dia (zera todo dia)', `
+        Diferente do sistema antigo (que travava um padrão o dia inteiro e sobrevivia a reinício), aqui a contagem é <b>só do dia</b> — quando vira o dia, tudo zera e recomeça do zero com os jogos novos, por decisão do usuário. A lista de sugestões e o placar de cada uma ficam salvos em disco só pra não perder o que já foi contabilizado HOJE se o servidor reiniciar no meio do dia — não é um histórico entre dias.`),
 
-      _guiaSec('📋', 'Lista de sugestões pra hoje', `
-        Mostra as partidas de hoje cujo time relevante se encaixa no padrão validado — cada card traz país/liga, os dois times, horário, tamanho da amostra do time nesse recorte, e o selo do padrão aplicado.<br><br>
-        <b>A lista trava:</b> partidas novas só entram nela no exato momento em que o padrão do dia é escolhido pela 1ª vez. Depois disso, os recálculos seguintes só <b>atualizam</b> o placar/resultado de quem já está na lista (mostrando 🏁 placar final + ✅ acertou / ❌ errou quando o jogo termina) — nunca acrescentam partida nova nem removem uma que já apareceu.`),
-
-      _guiaSec('📊', 'Gráfico comparativo', `
-        Compara a taxa de acerto acumulada histórica <b>com</b> o filtro validado (linha verde) vs <b>sem</b> filtro algum, ou seja, a taxa geral da metodologia (linha cinza) — se a linha verde ficar consistentemente acima da cinza ao longo de todas as entradas, é sinal de que o padrão encontrado realmente ajuda a prever aquele evento, e não é só ruído estatístico.`),
+      _guiaSec('📋', 'Lista de sugestões e taxa de acerto', `
+        Cada card mostra os dois times, horário, a frase do sinal (igual às da Leitura da Partida) e um selo indicando qual dos 8 sinais disparou. Quando o jogo termina, mostra 🏁 placar final + ✅ acertou / ❌ errou.<br><br>
+        No topo, um painel mostra a <b>taxa de acerto do dia por tipo de sinal</b> (ex: "Primeiro Gol acertou 68% hoje, em 12 de 25 jogos encerrados") — ajuda a ver quais sinais estão se saindo melhor hoje.`),
 
       _guiaSec('🔄', 'Botão Recalcular', `
-        Busca dados novos de hoje pra atualizar o placar das partidas já sugeridas (e conferir se alguma encerrou). O padrão em si só muda quando vira o dia — clicar em Recalcular não troca o padrão nem adiciona jogos novos à lista.`),
+        Busca dados novos pra atualizar o placar das sugestões já geradas (e conferir se alguma encerrou). Não adiciona sinal novo à lista.`),
+
+      _guiaSec('🆕', 'Botão Atualizar jogos de hoje', `
+        Reconstrói os sinais do dia do ZERO (usa isso se o Mapa ficar preso mostrando jogos de um dia anterior). Só funciona <b>1x por dia</b> — clicar de novo no mesmo dia é bloqueado, pra não ficar mudando a lista toda hora.`),
     ].join(''),
   },
 
@@ -2489,100 +2487,51 @@ function _setBacktestSubTab(tab) {
 }
 
 // ── MAPA DE SUGESTÕES ────────────────────────────────────────────────────────
-// Lista de partidas de hoje que se encaixam numa metodologia validada
-// dinamicamente contra o histórico (endpoint escolhe sozinho qual variável +
-// faixa tem o melhor lift, sem eu fixar limiar manual). Catálogo de
-// metodologias vem de /api/masterlist/metodologias; cada uma tem seu próprio
-// endpoint em /api/masterlist/<metodologia>.
-let _mapaCache = {};          // { [metodologia]: data }
-let _mapaCatalogLoaded = false;
-
-async function _mapaEnsureCatalog() {
-  if (_mapaCatalogLoaded) return;
-  const select = document.getElementById('mapaMetodologiaSelect');
-  try {
-    const r = await fetch('/api/masterlist/metodologias');
-    const d = await r.json();
-    const metodologias = d.metodologias || [];
-    if (metodologias.length) {
-      select.innerHTML = metodologias.map(m => `<option value="${m.key}">${_bt2EscXml(m.label)}</option>`).join('');
-    }
-    _mapaCatalogLoaded = true;
-  } catch (e) {
-    // mantém a option fixa que já vem no HTML (lay_casa) como fallback
-  }
-}
+// ── SINAIS DO DIA (novo Mapa de Sugestões) ──────────────────────────────────
+// 8 sinais narrativos (os mesmos usados na Leitura da Partida), rodados pelo
+// SERVIDOR em cima de todos os jogos de hoje. Cada sinal disparado numa
+// partida vira uma sugestão; a taxa de acerto de cada TIPO de sinal é
+// contabilizada só do dia (zera quando vira o dia, sem histórico entre
+// dias). Substitui o antigo sistema de 32 metodologias de variável+segmento.
+let _sinaisCache = null;
 
 async function _mapaLoad(refresh) {
-  await _mapaEnsureCatalog();
-  const metodologia = document.getElementById('mapaMetodologiaSelect').value;
   const content = document.getElementById('mapaContent');
-  if (!refresh && _mapaCache[metodologia]) { _mapaRender(metodologia); return; }
-  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando... testando cada variável contra o histórico</div>`;
+  if (!refresh && _sinaisCache) { _mapaRenderSinais(_sinaisCache); return; }
+  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando os 8 sinais em cima dos jogos de hoje... pode levar alguns minutos na 1ª vez do dia.</div>`;
   try {
-    const r = await fetch(`/api/masterlist/${encodeURIComponent(metodologia)}`);
+    const r = await fetch('/api/sinais_dia');
     const d = await r.json();
-    _mapaCache[metodologia] = d;
-    _mapaRender(metodologia);
+    _sinaisCache = d;
+    _mapaRenderSinais(d);
   } catch (e) {
     content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao calcular: ${e}</div>`;
   }
 }
 
-// Reconstrói o padrão + lista do zero (bypassa a trava) — pro caso do Mapa
-// ficar "preso" mostrando jogos de um dia anterior. Só funciona 1x por dia
-// (o backend recusa com 429 se já foi usado hoje pra essa metodologia).
+// Reconstrói os sinais do dia do zero (bypassa a trava) — pro caso de ficar
+// "preso" mostrando jogos de um dia anterior. Só funciona 1x por dia (o
+// backend recusa com 429 se já foi usado hoje).
 async function _mapaAtualizarDia() {
-  const metodologia = document.getElementById('mapaMetodologiaSelect').value;
   const btn = document.getElementById('mapaAtualizarDiaBtn');
   const content = document.getElementById('mapaContent');
   if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Atualizando...'; }
-  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Reconstruindo o padrão do dia do zero...</div>`;
+  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Reconstruindo os sinais do dia do zero...</div>`;
   try {
-    const r = await fetch(`/api/masterlist/${encodeURIComponent(metodologia)}/atualizar_dia`, { method: 'POST' });
+    const r = await fetch('/api/sinais_dia/atualizar_dia', { method: 'POST' });
     if (r.status === 429) {
       const d = await r.json();
       content.innerHTML = `<div style="color:#f59e0b;font-size:13px;padding:20px 0;text-align:center">⚠️ ${_bt2EscXml(d.error || 'já atualizado hoje')}</div>`;
       return;
     }
     const d = await r.json();
-    _mapaCache[metodologia] = d;
-    _mapaRender(metodologia);
+    _sinaisCache = d;
+    _mapaRenderSinais(d);
   } catch (e) {
     content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao atualizar: ${e}</div>`;
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🆕 Atualizar jogos de hoje'; }
   }
-}
-
-function _mapaComparativoSvg(comparativo) {
-  if (!comparativo || !comparativo.geral || !comparativo.geral.length) return '';
-  const geral = comparativo.geral, filtro = comparativo.com_filtro || [];
-  const W = 720, H = 240, padL = 34, padR = 16, padT = 16, padB = 24;
-  const maxN = Math.max(geral.length, filtro.length, 1);
-  const allVals = geral.map(p => p.taxa_acerto).concat(filtro.map(p => p.taxa_acerto));
-  const minY = Math.min(0.3, ...allVals), maxY = Math.max(0.7, ...allVals);
-  const spanY = (maxY - minY) || 1;
-  const xAt = n => padL + (W - padL - padR) * ((n - 1) / Math.max(1, maxN - 1));
-  const yAt = v => padT + (H - padT - padB) * (1 - (v - minY) / spanY);
-  const pathOf = pts => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(p.n).toFixed(1)} ${yAt(p.taxa_acerto).toFixed(1)}`).join(' ');
-  const lastGeral = geral[geral.length - 1];
-  const lastFiltro = filtro.length ? filtro[filtro.length - 1] : null;
-  return `
-    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">
-      <path d="${pathOf(geral)}" fill="none" stroke="#9ca3af" stroke-width="2"></path>
-      ${filtro.length ? `<path d="${pathOf(filtro)}" fill="none" stroke="#22c55e" stroke-width="2"></path>` : ''}
-      <text x="${padL}" y="${padT}" font-size="11" fill="var(--text2)">${(maxY*100).toFixed(0)}%</text>
-      <text x="${padL}" y="${H - padB + 2}" font-size="11" fill="var(--text2)">${(minY*100).toFixed(0)}%</text>
-      <text x="${padL}" y="${H - 6}" font-size="11" fill="var(--text2)">1</text>
-      <text x="${W - padR}" y="${H - 6}" text-anchor="end" font-size="11" fill="var(--text2)">${maxN} entradas</text>
-      <text x="${W - padR}" y="${padT}" text-anchor="end" font-size="12" fill="#9ca3af" font-weight="700">geral ${(lastGeral.taxa_acerto*100).toFixed(1)}%</text>
-      ${lastFiltro ? `<text x="${W - padR}" y="${padT + 16}" text-anchor="end" font-size="12" fill="#22c55e" font-weight="700">com filtro ${(lastFiltro.taxa_acerto*100).toFixed(1)}%</text>` : ''}
-    </svg>
-    <div style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:11px;color:var(--text2)">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#9ca3af;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Geral (sem filtro)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Com filtro (padrão validado)</span>
-    </div>`;
 }
 
 function _mapaFmtHora(ts) {
@@ -2591,66 +2540,78 @@ function _mapaFmtHora(ts) {
   return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function _mapaRender(metodologia) {
-  const content = document.getElementById('mapaContent');
-  const d = _mapaCache[metodologia];
-  if (!d) return;
+// Painel com a taxa de acerto do DIA de cada um dos 8 tipos de sinal —
+// substitui o gráfico comparativo do Mapa antigo, já que agora não tem mais
+// "um padrão só" pra comparar geral vs filtro.
+function _mapaTaxasPorSinalHtml(porSinal, labels) {
+  const ordem = Object.keys(labels).filter(k => porSinal[k]);
+  if (!ordem.length) return '';
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Taxa de acerto do dia, por tipo de sinal</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+        ${ordem.map(k => {
+          const agg = porSinal[k];
+          const taxa = agg.taxa_acerto;
+          const cor = taxa === null ? 'var(--text2)' : taxa >= 60 ? '#22c55e' : taxa >= 40 ? '#f59e0b' : '#ef4444';
+          return `
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+            <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(labels[k])}</div>
+            <div style="font-size:16px;font-weight:700;color:${cor}">${taxa === null ? '—' : taxa.toFixed(0) + '%'}</div>
+            <div style="font-size:10px;color:var(--text2)">${agg.encerrados}/${agg.total} encerrado(s)${agg.total > agg.encerrados ? `, ${agg.total - agg.encerrados} em aberto` : ''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
 
-  if (!d.valido || !d.melhor_padrao) {
+function _mapaRenderSinais(d) {
+  const content = document.getElementById('mapaContent');
+  const sugestoes = d.sugestoes || [];
+  const labels = d.labels || {};
+  const porSinal = d.por_sinal || {};
+
+  if (!sugestoes.length) {
     content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">
-      Nenhum padrão passou no critério de validade hoje (amostra insuficiente ou lift baixo) — tente recalcular mais tarde, quando mais jogos de hoje tiverem H2H disponível.
+      Nenhum sinal disparou ainda pros jogos de hoje — tente recalcular mais tarde, quando mais jogos de hoje tiverem H2H/classificação/odds disponíveis.
     </div>`;
     return;
   }
 
-  const p = d.melhor_padrao;
-  const sugestoes = d.sugestoes || [];
-  const metodLabel = d.metodologia_label || 'Mapa de Sugestões';
-  const amostraLado = d.side === 'visitante' ? 'jogos fora' : 'jogos em casa';
-
-  const cardsHtml = sugestoes.map(m => {
+  const cardsHtml = sugestoes.map(s => {
     let placarHtml = '';
-    if (m.encerrado) {
-      const temPlacar = m.home_score !== null && m.home_score !== undefined && m.away_score !== null && m.away_score !== undefined;
-      const placarTxt = temPlacar ? `${m.home_score} - ${m.away_score}` : 'encerrado';
+    if (s.status === '3') {
+      const temPlacar = s.home_score !== null && s.home_score !== undefined && s.away_score !== null && s.away_score !== undefined;
+      const placarTxt = temPlacar ? `${s.home_score} - ${s.away_score}` : 'encerrado';
       let badge = '';
-      if (m.acertou === true) {
+      if (s.acertou === true) {
         badge = `<span style="font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">✅ acertou</span>`;
-      } else if (m.acertou === false) {
+      } else if (s.acertou === false) {
         badge = `<span style="font-size:11px;font-weight:700;color:#ef4444;background:#ef444418;border:1px solid #ef444444;border-radius:6px;padding:3px 8px">❌ errou</span>`;
       }
       placarHtml = `<span style="font-size:12px;font-weight:700;color:var(--text)">🏁 ${placarTxt}</span>${badge}`;
     }
     return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:220px">
-        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px">${_bt2EscXml(m.pais)} · ${_bt2EscXml(m.liga)}</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text)">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px">${_bt2EscXml(s.pais)} · ${_bt2EscXml(s.liga)} · 🕐 ${_mapaFmtHora(s.kickoff_ts)}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(s.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(s.away)}</div>
+          <div style="font-size:13px;color:var(--text)">${_bt2EscXml(s.headline)}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${_bt2EscXml(s.detail)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-size:11px;font-weight:700;color:#3b82f6;background:#3b82f618;border:1px solid #3b82f644;border-radius:6px;padding:3px 8px;white-space:nowrap">🛡️ ${_bt2EscXml(labels[s.signal] || s.signal)}</span>
+          ${placarHtml}
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--text2)">🕐 ${_mapaFmtHora(m.kickoff_ts)}</div>
-      <div style="font-size:11px;color:var(--text2)">amostra do time: ${m.amostra_time} ${amostraLado}</div>
-      ${placarHtml}
-      <span title="Segmento validado: ${p.variable_label} = ${p.segment}" style="cursor:help;font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">🛡️ ${_bt2EscXml(metodLabel)}</span>
     </div>`;
   }).join('');
 
   content.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Padrão validado hoje (escolhido dinamicamente)</div>
-      <div style="font-size:14px;color:var(--text)">
-        <b>${_bt2EscXml(p.variable_label)}</b> na faixa <b>${_bt2EscXml(p.segment)}</b> →
-        <span style="color:#f59e0b;font-weight:700">${(p.rate*100).toFixed(1)}%</span> dos times nesse perfil bateram "${_bt2EscXml(metodLabel)}"
-        (vs <span style="color:var(--text2)">${(p.baseline_rate*100).toFixed(1)}%</span> da base geral) —
-        <span style="color:#22c55e;font-weight:700">lift ${p.lift}x</span>
-      </div>
-      <div style="font-size:11px;color:var(--text2);margin-top:6px">amostra: ${p.total} jogos · ${d.matches_used} jogos históricos coletados no total · gerado em ${new Date(d.generated_at).toLocaleString('pt-BR')}</div>
-    </div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Taxa de acerto acumulada — geral vs com filtro</div>
-      ${_mapaComparativoSvg(d.comparativo) || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">sem dados suficientes pro gráfico ainda</div>'}
-    </div>
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">${sugestoes.length} ${sugestoes.length===1?'sugestão':'sugestões'} pra hoje</div>
-    ${sugestoes.length ? cardsHtml : '<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Nenhuma partida de hoje se encaixa no padrão validado (só é analisado um recorte dos próximos jogos por horário).</div>'}`;
+    ${_mapaTaxasPorSinalHtml(porSinal, labels)}
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">${sugestoes.length} ${sugestoes.length === 1 ? 'sugestão' : 'sugestões'} pra hoje · gerado em ${new Date(d.generated_at).toLocaleString('pt-BR')}</div>
+    ${cardsHtml}`;
 }
 
 // ── HOJE 2 (laboratório) ─────────────────────────────────────────────────────
