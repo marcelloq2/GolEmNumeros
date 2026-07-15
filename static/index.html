@@ -1533,6 +1533,11 @@
       <select id="mapaFiltroSinal" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
         <option value="todos">Sinal: todos</option>
       </select>
+      <select id="mapaFiltroStatus" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="todos">Status: todos</option>
+        <option value="3">Só finalizados</option>
+        <option value="1">Só próximos</option>
+      </select>
     </div>
     <div id="mapaContent"></div>
   </div>
@@ -2584,11 +2589,14 @@ function _mapaOnFiltroChange() {
 function _mapaFilterSugestoes(sugestoes) {
   const confSel = document.getElementById('mapaFiltroConfianca');
   const sinalSel = document.getElementById('mapaFiltroSinal');
+  const statusSel = document.getElementById('mapaFiltroStatus');
   const conf = confSel ? confSel.value : 'todas';
   const sinal = sinalSel ? sinalSel.value : 'todos';
+  const status = statusSel ? statusSel.value : 'todos';
   return sugestoes.filter(s =>
     (conf === 'todas' || (s.confianca && s.confianca.label === conf)) &&
-    (sinal === 'todos' || s.signal === sinal)
+    (sinal === 'todos' || s.signal === sinal) &&
+    (status === 'todos' || String(s.status) === status)
   );
 }
 
