@@ -207,6 +207,22 @@
     #today2BackBtn { display: inline-block !important; }
   }
 
+  /* ── Visualização Mobile forçada (botão 📱 no cabeçalho) — mesmas regras do
+     @media acima, só que disparadas por classe em vez de largura real da
+     tela, pra dar pra pré-visualizar/usar o layout mobile mesmo num
+     computador. Não duplica dados nem HTML, só reaplica o CSS responsivo
+     que já existia. ── */
+  body.force-mobile .nav-tabs { gap: 10px; }
+  body.force-mobile .nav-tab { font-size: 11px; padding: 4px 0; }
+  body.force-mobile #today2Wrapper { flex-direction: column; }
+  body.force-mobile #today2Sidebar { width: 100% !important; min-width: 0 !important; border-right: none !important; border-bottom: 1px solid var(--border); }
+  body.force-mobile #today2Wrapper.today2-detail-active #today2Sidebar { display: none !important; }
+  body.force-mobile #today2Wrapper:not(.today2-detail-active) #today2Detail { display: none !important; }
+  body.force-mobile #today2Detail { padding: 12px !important; }
+  body.force-mobile #today2BackBtn { display: inline-block !important; }
+  body.force-mobile header { flex-wrap: wrap; height: auto; padding: 8px 12px; }
+  body.force-mobile .header-stats { order: 3; width: 100%; }
+
   /* ── MATCH ROW ── */
   .match-row {
     padding: 10px 16px;
@@ -12396,6 +12412,37 @@ function formatDate(d) {
 }
 
 // ── LOAD MATCHES ─────────────────────────────
+// ── Toggle Desktop/Mobile — botões no cabeçalho pra forçar a visualização
+// responsiva (mesmo CSS do @media 720px, só que disparado por classe em vez
+// de largura real da tela) mesmo estando num computador. Não duplica dados
+// nem HTML, só troca qual CSS responsivo fica ativo. Preferência salva no
+// navegador.
+function _viewModeToggleHtml() {
+  const mobile = localStorage.getItem('viewMode') === 'mobile';
+  const btnStyle = active => `background:${active ? 'var(--accent)' : 'transparent'};color:${active ? '#fff' : 'var(--text2)'};
+    border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:12px;cursor:pointer;display:flex;align-items:center`;
+  return `
+    <span style="display:flex;gap:2px;margin-left:2px">
+      <button onclick="setViewMode2('desktop')" title="Visualização Desktop" style="${btnStyle(!mobile)}">🖥️</button>
+      <button onclick="setViewMode2('mobile')" title="Visualização Mobile" style="${btnStyle(mobile)}">📱</button>
+    </span>`;
+}
+function setViewMode2(mode) {
+  localStorage.setItem('viewMode', mode);
+  document.body.classList.toggle('force-mobile', mode === 'mobile');
+  const el = document.getElementById('headerStats');
+  if (el) {
+    const btns = el.querySelectorAll('button[title^="Visualização"]');
+    if (btns.length === 2) {
+      btns[0].style.background = mode === 'mobile' ? 'transparent' : 'var(--accent)';
+      btns[0].style.color = mode === 'mobile' ? 'var(--text2)' : '#fff';
+      btns[1].style.background = mode === 'mobile' ? 'var(--accent)' : 'transparent';
+      btns[1].style.color = mode === 'mobile' ? '#fff' : 'var(--text2)';
+    }
+  }
+}
+if (localStorage.getItem('viewMode') === 'mobile') document.body.classList.add('force-mobile');
+
 async function loadMatches() {
   const res = await fetch('/api/matches');
   const data = await res.json();
@@ -12435,6 +12482,7 @@ async function loadMatches() {
     ${ageHtml}
     <span style="font-size:11px;color:#888">Fonte: <b>${data.source || '—'}</b></span>
     ${scrapeBtn}
+    ${_viewModeToggleHtml()}
   `;
 
   updateFavCount();
