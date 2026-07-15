@@ -7008,6 +7008,10 @@ _SINAIS_MAX_CANDIDATOS = 15  # cada candidato = ~2×30 jogos históricos pra enr
 _SINAIS_MIN_N = 8
 _SINAIS_CACHE = {"ts": 0, "data": None}
 _SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None}
+_SINAIS_LOCK = threading.Lock()  # evita 2 requisições simultâneas refazendo o
+# mesmo cálculo caro do zero cada uma (sem isso, 2 cliques próximos — ou o
+# navegador tentando de novo — dobravam o trabalho em vez de a 2ª aproveitar
+# o resultado da 1ª)
 
 SINAIS_LABELS = {
     "primeiro_gol": "Primeiro Gol",
@@ -7298,10 +7302,25 @@ def _sinais_check_acertou(item, m):
 
 
 def _sinais_compute():
+    """Wrapper com lock — só permite UMA thread calculando por vez. Sem isso,
+    2 requisições chegando perto uma da outra (2 cliques, ou o navegador
+    tentando de novo enquanto a 1ª ainda não voltou) viam o cache vazio as
+    duas e refaziam o cálculo caro do zero cada uma, em vez da 2ª esperar e
+    reaproveitar o resultado da 1ª."""
     now = time.time()
     if _SINAIS_CACHE["data"] and (now - _SINAIS_CACHE["ts"]) < _SINAIS_TTL:
         return _SINAIS_CACHE["data"]
+    with _SINAIS_LOCK:
+        # reconfere depois de pegar o lock — outra thread pode ter acabado de
+        # calcular enquanto esperávamos
+        now = time.time()
+        if _SINAIS_CACHE["data"] and (now - _SINAIS_CACHE["ts"]) < _SINAIS_TTL:
+            return _SINAIS_CACHE["data"]
+        return _sinais_compute_locked()
 
+
+def _sinais_compute_locked():
+    now = time.time()
     today_str = datetime.now().strftime("%Y-%m-%d")
     if _SINAIS_DAY_CACHE["date"] != today_str:
         restored = _sinais_load_from_disk(today_str)
