@@ -1533,9 +1533,6 @@
       <select id="mapaFiltroSinal" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
         <option value="todos">Sinal: todos</option>
       </select>
-      <button onclick="_mapaAtualizarDia()" id="mapaAtualizarDiaBtn" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
-        border:1px solid #f59e0b44;background:transparent;color:#f59e0b;cursor:pointer"
-        title="Reconstrói os sinais do dia do zero — use se o Mapa ficar mostrando jogos de ontem. Só funciona 1x por dia.">🆕 Atualizar jogos de hoje</button>
     </div>
     <div id="mapaContent"></div>
   </div>
@@ -2117,11 +2114,9 @@ const APP_GUIA_SECTIONS = {
         Cada card mostra os dois times, horário, a frase do sinal (igual às da Leitura da Partida) e um selo indicando qual dos 8 sinais disparou. Quando o jogo termina, mostra 🏁 placar final + ✅ acertou / ❌ errou.<br><br>
         No topo, um painel mostra a <b>taxa de acerto do dia por tipo de sinal</b> (ex: "Primeiro Gol acertou 68% hoje, em 12 de 25 jogos encerrados") — ajuda a ver quais sinais estão se saindo melhor hoje.`),
 
-      _guiaSec('🔄', 'Atualização automática do placar', `
-        A aba busca sozinha, a cada 1 minuto, se algum placar/resultado mudou (o servidor só recalcula de verdade a cada 30min, então isso é barato) — não precisa de nenhum botão pra manter os placares em dia. Não adiciona sinal novo à lista, só atualiza quem já está nela.`),
-
-      _guiaSec('🆕', 'Botão Atualizar jogos de hoje', `
-        Reconstrói os sinais do dia do ZERO (usa isso se o Mapa ficar preso mostrando jogos de um dia anterior). Só funciona <b>1x por dia</b> — clicar de novo no mesmo dia é bloqueado, pra não ficar mudando a lista toda hora.`),
+      _guiaSec('🔄', 'Atualização automática', `
+        A aba busca sozinha, a cada 1 minuto, se algum placar/resultado mudou (o servidor só recalcula de verdade a cada 30min, então isso é barato) — não precisa de nenhum botão pra manter os placares em dia.<br><br>
+        E quando vira o dia, a lista inteira também reseta sozinha (o servidor confere a data a cada recálculo) e recomeça do zero com os jogos novos — sem precisar de nenhuma ação manual.`),
     ].join(''),
   },
 
@@ -2523,30 +2518,12 @@ async function _mapaLoad(refresh) {
   }
 }
 
-// Reconstrói os sinais do dia do zero (bypassa a trava) — pro caso de ficar
-// "preso" mostrando jogos de um dia anterior. Só funciona 1x por dia (o
-// backend recusa com 429 se já foi usado hoje).
-async function _mapaAtualizarDia() {
-  const btn = document.getElementById('mapaAtualizarDiaBtn');
-  const content = document.getElementById('mapaContent');
-  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Atualizando...'; }
-  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Reconstruindo os sinais do dia do zero...</div>`;
-  try {
-    const r = await fetch('/api/sinais_dia/atualizar_dia', { method: 'POST' });
-    if (r.status === 429) {
-      const d = await r.json();
-      content.innerHTML = `<div style="color:#f59e0b;font-size:13px;padding:20px 0;text-align:center">⚠️ ${_bt2EscXml(d.error || 'já atualizado hoje')}</div>`;
-      return;
-    }
-    const d = await r.json();
-    _sinaisCache = d;
-    _mapaRenderSinais(d);
-  } catch (e) {
-    content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao atualizar: ${e}</div>`;
-  } finally {
-    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🆕 Atualizar jogos de hoje'; }
-  }
-}
+// _mapaAtualizarDia() (botão manual "🆕 Atualizar jogos de hoje") foi
+// removido da UI a pedido do usuário — risco de clique acidental, e o reset
+// diário já acontece sozinho (ver checagem de data em
+// _sinais_compute_locked no app.py). O endpoint de backend
+// /api/sinais_dia/atualizar_dia continua existindo (não exposto na UI), só
+// pra emergência via chamada direta se algum dia for preciso.
 
 function _mapaFmtHora(ts) {
   if (!ts) return '';
