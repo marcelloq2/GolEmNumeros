@@ -1533,10 +1533,7 @@
       <select id="mapaFiltroSinal" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
         <option value="todos">Sinal: todos</option>
       </select>
-      <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
-        border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer"
-        title="Atualiza placar/resultado das sugestões já geradas — não adiciona sinal novo">🔄 Recalcular</button>
-      <button onclick="_mapaAtualizarDia()" id="mapaAtualizarDiaBtn" style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
+      <button onclick="_mapaAtualizarDia()" id="mapaAtualizarDiaBtn" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid #f59e0b44;background:transparent;color:#f59e0b;cursor:pointer"
         title="Reconstrói os sinais do dia do zero — use se o Mapa ficar mostrando jogos de ontem. Só funciona 1x por dia.">🆕 Atualizar jogos de hoje</button>
     </div>
@@ -2120,8 +2117,8 @@ const APP_GUIA_SECTIONS = {
         Cada card mostra os dois times, horário, a frase do sinal (igual às da Leitura da Partida) e um selo indicando qual dos 8 sinais disparou. Quando o jogo termina, mostra 🏁 placar final + ✅ acertou / ❌ errou.<br><br>
         No topo, um painel mostra a <b>taxa de acerto do dia por tipo de sinal</b> (ex: "Primeiro Gol acertou 68% hoje, em 12 de 25 jogos encerrados") — ajuda a ver quais sinais estão se saindo melhor hoje.`),
 
-      _guiaSec('🔄', 'Botão Recalcular', `
-        Busca dados novos pra atualizar o placar das sugestões já geradas (e conferir se alguma encerrou). Não adiciona sinal novo à lista.`),
+      _guiaSec('🔄', 'Atualização automática do placar', `
+        A aba busca sozinha, a cada 1 minuto, se algum placar/resultado mudou (o servidor só recalcula de verdade a cada 30min, então isso é barato) — não precisa de nenhum botão pra manter os placares em dia. Não adiciona sinal novo à lista, só atualiza quem já está nela.`),
 
       _guiaSec('🆕', 'Botão Atualizar jogos de hoje', `
         Reconstrói os sinais do dia do ZERO (usa isso se o Mapa ficar preso mostrando jogos de um dia anterior). Só funciona <b>1x por dia</b> — clicar de novo no mesmo dia é bloqueado, pra não ficar mudando a lista toda hora.`),
@@ -2453,6 +2450,7 @@ function switchView(view, btn) {
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
   clearInterval(_today2AutoRefresh);
+  clearInterval(_mapaAutoRefresh);
 
   if (view === 'today') {
     todayWrapper.style.display = 'flex';
@@ -2474,6 +2472,12 @@ function switchView(view, btn) {
   } else if (view === 'mapa') {
     mapaWrapper.style.display = 'flex';
     _mapaLoad();
+    // Atualização automática do placar/resultado — o backend só recalcula de
+    // verdade a cada 30min (cache próprio), então isso aqui é barato: na
+    // maioria das vezes só busca o mesmo resultado já pronto, mas garante
+    // que quando o backend atualizar, o navegador pega sozinho, sem precisar
+    // de botão manual.
+    _mapaAutoRefresh = setInterval(() => _mapaLoad(true), 60000);
   }
 }
 
@@ -2503,6 +2507,7 @@ function _setBacktestSubTab(tab) {
 // contabilizada só do dia (zera quando vira o dia, sem histórico entre
 // dias). Substitui o antigo sistema de 32 metodologias de variável+segmento.
 let _sinaisCache = null;
+let _mapaAutoRefresh = null;
 
 async function _mapaLoad(refresh) {
   const content = document.getElementById('mapaContent');
