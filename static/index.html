@@ -1524,6 +1524,15 @@
         style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                white-space:nowrap;flex-shrink:0">📖 Guia</button>
+      <select id="mapaFiltroConfianca" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="todas">Confiança: todas</option>
+        <option value="Alta confiança">Só Alta confiança</option>
+        <option value="Média confiança">Só Média confiança</option>
+        <option value="Baixa confiança">Só Baixa confiança</option>
+      </select>
+      <select id="mapaFiltroSinal" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="todos">Sinal: todos</option>
+      </select>
       <button onclick="_mapaLoad(true)" style="margin-left:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer"
         title="Atualiza placar/resultado das sugestões já geradas — não adiciona sinal novo">🔄 Recalcular</button>
@@ -2565,16 +2574,68 @@ function _mapaTaxasPorSinalHtml(porSinal, labels) {
     </div>`;
 }
 
+// Recalcula "por_sinal" (taxa de acerto do dia) em cima de uma lista JÁ
+// FILTRADA de sugestões — mesma lógica de agregação que o backend faz em
+// cima da lista inteira (ver _sinais_compute_locked no app.py), só que no
+// navegador, pra refletir o filtro de confiança/sinal sem precisar
+// recalcular nada no servidor (os dados já vieram todos).
+function _mapaComputePorSinal(sugestoes) {
+  const porSinal = {};
+  sugestoes.forEach(s => {
+    const agg = porSinal[s.signal] || (porSinal[s.signal] = { total: 0, acertos: 0, encerrados: 0 });
+    agg.total++;
+    if (s.acertou !== null && s.acertou !== undefined) {
+      agg.encerrados++;
+      if (s.acertou) agg.acertos++;
+    }
+  });
+  Object.values(porSinal).forEach(agg => {
+    agg.taxa_acerto = agg.encerrados ? (agg.acertos / agg.encerrados * 100) : null;
+  });
+  return porSinal;
+}
+
+function _mapaOnFiltroChange() {
+  if (_sinaisCache) _mapaRenderSinais(_sinaisCache);
+}
+
+function _mapaFilterSugestoes(sugestoes) {
+  const confSel = document.getElementById('mapaFiltroConfianca');
+  const sinalSel = document.getElementById('mapaFiltroSinal');
+  const conf = confSel ? confSel.value : 'todas';
+  const sinal = sinalSel ? sinalSel.value : 'todos';
+  return sugestoes.filter(s =>
+    (conf === 'todas' || (s.confianca && s.confianca.label === conf)) &&
+    (sinal === 'todos' || s.signal === sinal)
+  );
+}
+
 function _mapaRenderSinais(d) {
   const content = document.getElementById('mapaContent');
-  const sugestoes = d.sugestoes || [];
   const labels = d.labels || {};
-  const porSinal = d.por_sinal || {};
 
-  if (!sugestoes.length) {
+  // Popula o <select> de sinal uma única vez (na 1ª renderização) com os
+  // rótulos que vieram do backend, pra não ficar hardcoded no HTML
+  const sinalSel = document.getElementById('mapaFiltroSinal');
+  if (sinalSel && sinalSel.options.length <= 1) {
+    sinalSel.innerHTML = `<option value="todos">Sinal: todos</option>` +
+      Object.entries(labels).map(([key, label]) => `<option value="${key}">${_bt2EscXml(label)}</option>`).join('');
+  }
+
+  const todasSugestoes = d.sugestoes || [];
+  const sugestoes = _mapaFilterSugestoes(todasSugestoes);
+  const porSinal = _mapaComputePorSinal(sugestoes);
+
+  if (!todasSugestoes.length) {
     content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">
       Nenhum sinal disparou ainda pros jogos de hoje — tente recalcular mais tarde, quando mais jogos de hoje tiverem H2H/classificação/odds disponíveis.
     </div>`;
+    return;
+  }
+  if (!sugestoes.length) {
+    content.innerHTML = `
+      ${_mapaTaxasPorSinalHtml(porSinal, labels)}
+      <div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Nenhuma sugestão bate com o filtro selecionado.</div>`;
     return;
   }
 
