@@ -1,0 +1,108 @@
+{
+  "event_id": "1ztvu6l8t7h4v9p",
+  "date": "2026-07-15",
+  "saved_at": "2026-07-15T07:52:48.055358",
+  "source": "uniscore",
+  "casa": "Samoa U16",
+  "fora": "Fiji U16",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 0
+    },
+    {
+      "minute": 2,
+      "value": 0
+    },
+    {
+      "minute": 3,
+      "value": 100
+    },
+    {
+      "minute": 4,
+      "value": -100
+    },
+    {
+      "minute": 5,
+      "value": 32
+    },
+    {
+      "minute": 6,
+      "value": 0
+    }
+  ],
+  "goals": [
+    {
+      "minute": 82,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 63,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 43,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    },
+    {
+      "minute": 19,
+      "addedTime": 0,
+      "team": "away",
+      "player": "",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 0,
+    "away": 4
+  },
+  "shotmap": [],
+  "statistics": {
+    "ball_possession": {
+      "home": "50%",
+      "away": "50%",
+      "homeValue": 50,
+      "awayValue": 50
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    },
+    "1ST": {
+      "ball_possession": {
+        "home": "50%",
+        "away": "50%",
+        "homeValue": 50,
+        "awayValue": 50
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": 5.333,
+    "h1_avg": 33.333,
+    "h2_avg": -22.667,
+    "home_dominance_pct": 33.3,
+    "max_home": 100,
+    "max_away": 100,
+    "momentum_swings": 4,
+    "total_points": 6
+  },
+  "xg": {},
+  "opening_odds": {}
+}
