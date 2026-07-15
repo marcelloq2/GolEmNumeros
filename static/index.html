@@ -220,8 +220,12 @@
   body.force-mobile #today2Wrapper:not(.today2-detail-active) #today2Detail { display: none !important; }
   body.force-mobile #today2Detail { padding: 12px !important; }
   body.force-mobile #today2BackBtn { display: inline-block !important; }
-  body.force-mobile header { flex-wrap: wrap; height: auto; padding: 8px 12px; }
-  body.force-mobile .header-stats { order: 3; width: 100%; }
+  /* header FICA com os 56px fixos de sempre — .container usa
+     calc(100vh - 56px), então deixar o cabeçalho crescer (ex: quebrando
+     linha) sem ajustar essa conta corta a lista embaixo sem dar pra rolar.
+     Só encolhe o texto pra caber sem quebrar linha. */
+  body.force-mobile .header-stats { font-size: 11px; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.force-mobile .logo { font-size: 16px; }
 
   /* ── MATCH ROW ── */
   .match-row {
