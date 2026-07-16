@@ -7315,22 +7315,39 @@ def _sinais_check_acertou(item, m):
     return None
 
 
-def _sinais_compute():
-    """Wrapper com lock — só permite UMA thread calculando por vez. Sem isso,
-    2 requisições chegando perto uma da outra (2 cliques, ou o navegador
-    tentando de novo enquanto a 1ª ainda não voltou) viam o cache vazio as
-    duas e refaziam o cálculo caro do zero cada uma, em vez da 2ª esperar e
-    reaproveitar o resultado da 1ª."""
+def _sinais_compute(permitir_calcular=True):
+    """Wrapper com lock NÃO-BLOQUEANTE — nunca deixa uma requisição HTTP real
+    esperando minutos pelo cálculo pesado. Isso já causou erro em produção:
+    o proxy do Railway corta a conexão antes do Flask terminar, devolvendo
+    "upstream error" (texto puro) em vez de JSON, e o navegador quebra
+    tentando fazer JSON.parse nisso.
+
+    Se o cache está quente: devolve na hora (rápido, é o caminho normal).
+    Se está frio e ninguém mais calculando: essa chamada calcula (usado pela
+    thread de aquecimento em segundo plano — ver _background_sinais_warmup).
+    Se está frio e OUTRA thread já está calculando: não espera — devolve o
+    cache antigo (se tiver, mesmo vencido) ou um sinalizador "calculando",
+    pro frontend mostrar uma mensagem e tentar de novo em instantes."""
     now = time.time()
     if _SINAIS_CACHE["data"] and (now - _SINAIS_CACHE["ts"]) < _SINAIS_TTL:
         return _SINAIS_CACHE["data"]
-    with _SINAIS_LOCK:
+
+    got_lock = _SINAIS_LOCK.acquire(blocking=False)
+    if not got_lock:
+        if _SINAIS_CACHE["data"]:
+            return _SINAIS_CACHE["data"]  # vencido, mas melhor que nada / que travar
+        return {"calculando": True, "sugestoes": [], "por_sinal": {}, "labels": SINAIS_LABELS}
+    try:
         # reconfere depois de pegar o lock — outra thread pode ter acabado de
-        # calcular enquanto esperávamos
+        # calcular enquanto esperávamos pra pegar o lock
         now = time.time()
         if _SINAIS_CACHE["data"] and (now - _SINAIS_CACHE["ts"]) < _SINAIS_TTL:
             return _SINAIS_CACHE["data"]
+        if not permitir_calcular:
+            return _SINAIS_CACHE["data"] or {"calculando": True, "sugestoes": [], "por_sinal": {}, "labels": SINAIS_LABELS}
         return _sinais_compute_locked()
+    finally:
+        _SINAIS_LOCK.release()
 
 
 def _sinais_compute_locked():
@@ -7474,8 +7491,16 @@ def _sinais_compute_locked():
 def api_sinais_dia():
     """'Sinais do Dia' — substitui o Mapa de Sugestões antigo. 8 sinais
     narrativos (os mesmos da Leitura da Partida) rodados em todos os jogos de
-    hoje; taxa de acerto contabilizada só do dia (zera quando vira o dia)."""
-    return jsonify(_sinais_compute())
+    hoje; taxa de acerto contabilizada só do dia (zera quando vira o dia).
+
+    permitir_calcular=False de propósito: essa rota é chamada direto pelo
+    navegador, então NUNCA dispara o cálculo pesado ela mesma (senão o
+    proxy do Railway corta a conexão antes de terminar, quebrando o
+    JSON.parse no frontend). Quem calcula de verdade é a thread de
+    aquecimento em segundo plano (_background_sinais_warmup) — essa rota só
+    lê o que já estiver pronto, ou devolve "calculando" se ainda não tiver
+    nada."""
+    return jsonify(_sinais_compute(permitir_calcular=False))
 
 
 @app.route("/api/sinais_dia/atualizar_dia", methods=["POST"])
@@ -7494,6 +7519,29 @@ def api_sinais_dia_atualizar_dia():
     if os.path.exists(path):
         os.remove(path)
     return jsonify(_sinais_compute())
+
+
+# Mantém o cache dos Sinais do Dia sempre quente, computando em segundo
+# plano periodicamente — é a ÚNICA coisa que dispara o cálculo pesado de
+# verdade (a rota /api/sinais_dia nunca calcula, só lê o que essa thread já
+# deixou pronto). Sem isso, a 1ª requisição do dia (ou depois do cache de
+# 30min vencer) computava DENTRO do ciclo de request/response, e como pode
+# levar vários minutos, o proxy do Railway cortava a conexão antes do Flask
+# terminar — o navegador recebia "upstream error" (texto puro) em vez de
+# JSON e quebrava. Roda a cada 25min (um pouco antes do TTL de 30min vencer,
+# pra sempre ter algo pronto pouco depois de expirar).
+def _background_sinais_warmup():
+    while True:
+        try:
+            print("[sinais-warmup] Recalculando Sinais do Dia em segundo plano...")
+            _sinais_compute()
+            print("[sinais-warmup] Concluído.")
+        except Exception as e:
+            print(f"[sinais-warmup] Erro: {e}")
+        time.sleep(25 * 60)
+
+
+threading.Thread(target=_background_sinais_warmup, daemon=True, name="SinaisWarmup").start()
 
 
 @app.route("/api/backtestcs/ranking")

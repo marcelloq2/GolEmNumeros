@@ -2604,6 +2604,16 @@ function _mapaRenderSinais(d) {
   const content = document.getElementById('mapaContent');
   const labels = d.labels || {};
 
+  // O backend nunca calcula na hora dentro dessa rota (só lê o que uma
+  // thread em segundo plano já deixou pronto) — se ainda não tiver nada
+  // pronto (1ª vez desde que o servidor ligou, ou logo depois de virar o
+  // dia), devolve esse sinalizador em vez de travar a requisição por
+  // minutos. A atualização automática de 1min já cuida de tentar de novo.
+  if (d.calculando) {
+    content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando os 8 sinais em segundo plano... a lista aparece sozinha assim que ficar pronta (pode levar alguns minutos na 1ª vez do dia).</div>`;
+    return;
+  }
+
   // Popula o <select> de sinal uma única vez (na 1ª renderização) com os
   // rótulos que vieram do backend, pra não ficar hardcoded no HTML
   const sinalSel = document.getElementById('mapaFiltroSinal');
