@@ -5965,6 +5965,42 @@ function _csImprovaveisSummaryHtml(blocks, freqs) {
     </div>`;
 }
 
+function _csProvaveisSummaryHtml(blocks, freqs) {
+  // Espelho de _csImprovaveisSummaryHtml — em vez dos placares que NUNCA
+  // ocorreram, mostra os de MAIOR frequência média entre os times exibidos
+  // (mesmo critério de amostra mínima de 30 jogos, pra não sugerir um placar
+  // "provável" com base em pouquíssimos jogos)
+  const amostraCompleta = freqs.every(f => f.n >= 30);
+  if (!amostraCompleta) {
+    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;max-width:520px">
+      <div style="font-size:12px;color:var(--text2)">✅ Resumo de prováveis exige amostra de 30 jogos por time — aqui tem menos (${freqs.map(f=>f.n).join(', ')}), então não é exibido.</div>
+    </div>`;
+  }
+  const medias = PLACAR_EXATO_BUCKETS_ORDER.map(key => {
+    const validFreqs = freqs.filter(f => f.n > 0);
+    const avgPct = validFreqs.length ? validFreqs.reduce((s, f) => s + (f.counts[key] || 0) / f.n * 100, 0) / validFreqs.length : 0;
+    return { key, avgPct };
+  }).filter(x => x.avgPct > 0).sort((a, b) => b.avgPct - a.avgPct).slice(0, 5);
+
+  if (!medias.length) {
+    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;max-width:520px">
+      <div style="font-size:12px;color:var(--text2)">✅ Nenhum placar com ocorrência em ${freqs.length > 1 ? 'ambos os times' : 'esse time'}.</div>
+    </div>`;
+  }
+  return `
+    <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:700px">
+      <div style="font-size:13px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
+        ✅ Placares mais prováveis — maior frequência histórica${freqs.length > 1 ? ' entre os dois times' : ' nesse time'}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:12px">
+        ${medias.map(({ key, avgPct }) => `
+          <div style="border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+            ${key} <span style="color:#22c55e;font-weight:700">${avgPct.toFixed(0)}%</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
 async function _renderToday2ProfitCs(matchId) {
   const content = document.getElementById('today2DetailBody');
   if (!content) return;
@@ -6014,7 +6050,7 @@ async function _renderToday2ProfitCs(matchId) {
          ${blocks.map((b, i) => `<div style="flex:1;min-width:0">${blockHtml(b, i)}</div>`).join('')}
        </div>`
     : blocks.map((b, i) => blockHtml(b, i)).join('');
-  body.innerHTML = _csImprovaveisSummaryHtml(blocks, freqs) + tablesHtml;
+  body.innerHTML = _csProvaveisSummaryHtml(blocks, freqs) + _csImprovaveisSummaryHtml(blocks, freqs) + tablesHtml;
 }
 
 function _setToday2ProfitCsScope(matchId, idx, btn) {
