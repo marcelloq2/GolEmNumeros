@@ -3974,7 +3974,8 @@ function _today2H2hRowsForTeam(confrontos, teamName) {
   }).filter(Boolean);
 }
 
-async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam) {
+async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam, boxId) {
+  boxId = boxId || `today2H2hStatsBox_${matchId}`;
   const totalTab = tabs[0];
   const directSection = totalTab && (totalTab.sections || []).find(s => /confront/i.test(s.title));
   const confrontos = directSection ? directSection.rows : [];
@@ -3984,17 +3985,17 @@ async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam) {
   const rowsFora = _today2H2hRowsForTeam(confrontos, foraTeam);
   if (!rowsCasa.length && !rowsFora.length) return;
 
-  const box = document.getElementById(`today2H2hStatsBox_${matchId}`);
+  const box = document.getElementById(boxId);
   if (!box) return;
   box.innerHTML = '<div style="color:var(--text2);font-size:13px;margin:10px 0">⏳ Calculando estatísticas dos confrontos diretos (HT, minutos de gol e odds de cada jogo)...</div>';
 
   const renderCards = (media) => {
-    const freshBox = document.getElementById(`today2H2hStatsBox_${matchId}`);
+    const freshBox = document.getElementById(boxId);
     if (!freshBox) return;
     const sCasa = _jogoStatsWithValor(rowsCasa);
     const sFora = _jogoStatsWithValor(rowsFora);
     freshBox.innerHTML = `
-      <div style="font-size:14px;font-weight:700;margin:14px 0 6px">📋 Estatísticas — Confrontos Diretos</div>
+      <div style="font-size:14px;font-weight:700;margin:14px 0 6px">📋 Confronto Direto — Estatísticas</div>
       <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex:1;min-width:340px">${_jogoStatsCardHtml(casaTeam, sCasa, media)}</div>
         <div style="flex:1;min-width:340px">${_jogoStatsCardHtml(foraTeam, sFora, media)}</div>
@@ -4004,12 +4005,12 @@ async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam) {
   await Promise.all([rowsCasa, rowsFora].map(rows =>
     Promise.all([_jogoEnsureHt(rows), _jogoEnsureGoalMinutes(rows), _jogoEnsureGolValor(rows)])
   ));
-  if (!document.getElementById(`today2H2hStatsBox_${matchId}`)) return; // usuário já saiu da aba
+  if (!document.getElementById(boxId)) return; // usuário já saiu da aba
   renderCards(_jogoMediasGeraisCache?.geral);
 
   if (!_jogoMediasGeraisCache) {
     _jogoEnsureMediasGerais().then(mediasGerais => {
-      if (document.getElementById(`today2H2hStatsBox_${matchId}`)) renderCards(mediasGerais?.geral);
+      if (document.getElementById(boxId)) renderCards(mediasGerais?.geral);
     }).catch(() => {});
   }
 }
@@ -5573,7 +5574,13 @@ async function _renderToday2Jogo(matchId) {
     <div style="display:flex;gap:4px;margin-bottom:10px">
       ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `<button onclick="_setToday2JogoScope('${matchId}',${i},this)" style="font-size:15px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:${i===scope?'var(--accent)':'transparent'};color:${i===scope?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`).join('')}
     </div>
-    <div id="today2JogoBody_${matchId}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>`;
+    <div id="today2JogoBody_${matchId}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>
+    <div id="today2JogoH2hStatsBox_${matchId}"></div>`;
+
+  // Confronto Direto (estatísticas iguais às de cima, só que calculadas em cima
+  // só dos jogos entre esses dois times específicos) — independe do escopo
+  // Geral/Casa/Fora acima, então dispara em paralelo, não bloqueia nada.
+  _today2H2hStatsCards(matchId, tabs, m.home, m.away, `today2JogoH2hStatsBox_${matchId}`);
 
   let blocks; // [{teamName, rows}]
   if (scope === 0) {
