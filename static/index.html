@@ -3977,7 +3977,7 @@ async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam, boxId) {
   boxId = boxId || `today2H2hStatsBox_${matchId}`;
   const totalTab = tabs[0];
   const directSection = totalTab && (totalTab.sections || []).find(s => /confront/i.test(s.title));
-  const confrontos = directSection ? directSection.rows : [];
+  const confrontos = (directSection ? directSection.rows : []).slice(0, H2H_DIRETO_MAX_JOGOS);
   if (confrontos.length < 3) return; // mesmo limite de amostra mínima do resumo
 
   const rowsCasa = _today2H2hRowsForTeam(confrontos, casaTeam);
@@ -4017,11 +4017,16 @@ async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam, boxId) {
 // ── CONFRONTO DIRETO — RESUMO (Feature 1, versão Hoje 2) ──────────────────
 // Calculado em cima da mesma seção "Confrontos" já buscada por /api/flashscore/h2h
 // pra aba H2H (tabs[0].sections, título contendo "confront") — sem busca extra.
+// Limita o confronto direto aos jogos mais recentes — times mudam de elenco
+// com o tempo, então uma amostra grande mistura versões bem diferentes dos
+// dois times. As linhas já vêm mais recentes primeiro (_fs_h2h no backend).
+const H2H_DIRETO_MAX_JOGOS = 5;
+
 function _today2H2hResumo(tabs, casaTeam, foraTeam) {
   const totalTab = tabs[0];
   if (!totalTab) return null;
   const directSection = (totalTab.sections || []).find(s => /confront/i.test(s.title));
-  const confrontos = directSection ? directSection.rows : [];
+  const confrontos = (directSection ? directSection.rows : []).slice(0, H2H_DIRETO_MAX_JOGOS);
   if (confrontos.length < 3) return { amostraSuficiente: false, total: confrontos.length };
 
   const casaN = _normLive2(casaTeam);
