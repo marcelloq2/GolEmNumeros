@@ -2898,109 +2898,15 @@ function _today2RefreshDetailHeader(id) {
       style="display:none;margin-bottom:8px">← Voltar à lista</button>
     <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}<span id="today2ConvBadge_${id}_casa"></span></div>
+      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
       <div style="text-align:center">
         ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
         <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
       </div>
-      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px"><span id="today2ConvBadge_${id}_fora"></span>${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
+      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>
     ${m.status === '3' ? `<div id="today2GoalEventsBox_${id}" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:12px;color:var(--text2)"></div>` : ''}`;
   if (m.status === '3') _today2LoadGoalEvents(id, m);
-  _today2LoadConvicao(id, m);
-}
-
-// ── SCORE DE CONVICÇÃO (Feature 2, versão Hoje 2) ──────────────────────────
-// Mesma ideia do painel antigo (soma ponderada com penalização por divergência),
-// mas os indicadores são normalizados comparando o valor do time com a média
-// geral já usada na aba Jogo (mesma lógica de "acima/abaixo da média" já
-// existente aqui, não uma normalização nova). Reaproveita o /api/flashscore/h2h
-// e /api/jogo/medias_gerais já buscados/cacheados pelas outras abas — sem
-// nenhuma chamada externa extra, e sem disparar as buscas caras de HT/minutos
-// de gol (_jogoEnsureHt/_jogoEnsureGoalMinutes), que não são necessárias aqui.
-const CONVICCAO_PESOS_TODAY2 = { ofensivo: 0.25, defensivo_adversario: 0.25, forma_recente: 0.20, h2h: 0.10 };
-const CONVICCAO_PENALIDADE_DIVERGENCIA_TODAY2 = 0.15;
-
-let _today2ConvicaoCache = {}; // { [matchId]: {casa, fora} | null }
-
-async function _today2LoadConvicao(id, m) {
-  if (_today2ConvicaoCache[id] !== undefined) {
-    _today2RenderConvicaoBadges(id, _today2ConvicaoCache[id]);
-    return;
-  }
-  try {
-    const cache = _today2TabCache[id] || (_today2TabCache[id] = {});
-    let tabs = cache._h2hTabs;
-    if (!tabs) {
-      const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
-      const r = await fetch(`/api/flashscore/h2h?${params}`);
-      const d = await r.json();
-      tabs = cache._h2hTabs = d.tabs || [];
-    }
-
-    // As médias gerais NÃO travam o selo — no pior caso (1ª requisição do dia)
-    // esse cálculo no servidor leva minutos (mesmo problema já resolvido na
-    // aba Jogo, ver _renderToday2Jogo). Mostra o score já calculável na hora
-    // (H2H) e só complementa com ataque/defesa/forma quando/se a média chegar.
-    const semMedia = _today2ComputeConvicao(tabs, _jogoMediasGeraisCache, m.home, m.away);
-    _today2ConvicaoCache[id] = semMedia;
-    if (_today2SelectedId === id) _today2RenderConvicaoBadges(id, semMedia);
-
-    if (!_jogoMediasGeraisCache) {
-      _jogoEnsureMediasGerais().then(mediasGerais => {
-        const result = _today2ComputeConvicao(tabs, mediasGerais, m.home, m.away);
-        _today2ConvicaoCache[id] = result;
-        if (_today2SelectedId === id) _today2RenderConvicaoBadges(id, result);
-      }).catch(() => {});
-    }
-  } catch (e) {
-    _today2ConvicaoCache[id] = null;
-  }
-}
-
-function _today2ConvicaoIndicadores(tabs, mediasGerais, isHome) {
-  const rowsBlock = _jogoStatsRowsFromSection(tabs, 0, isHome);
-  const s = _jogoComputeStats(rowsBlock.rows);
-  const media = mediasGerais && mediasGerais.geral;
-  const ind = {};
-  if (s && media) {
-    if (media.mediaMarcados > 0) ind.ofensivo = Math.round(Math.min(100, Math.max(0, 50 + (s.mediaMarcados - media.mediaMarcados) / media.mediaMarcados * 50)));
-    if (media.mediaSofridos > 0) ind.defensivo_adversario = Math.round(Math.min(100, Math.max(0, 50 - (s.mediaSofridos - media.mediaSofridos) / media.mediaSofridos * 50)));
-    if (media.vitFT_pct > 0) ind.forma_recente = Math.round(Math.min(100, Math.max(0, 50 + (s.vitFT / s.n * 100 - media.vitFT_pct) / media.vitFT_pct * 50)));
-  }
-  return ind;
-}
-
-function _today2ComputeConvicao(tabs, mediasGerais, casaTeam, foraTeam) {
-  const h2h = _today2H2hResumo(tabs, casaTeam, foraTeam);
-  const indCasa = _today2ConvicaoIndicadores(tabs, mediasGerais, true);
-  const indFora = _today2ConvicaoIndicadores(tabs, mediasGerais, false);
-  if (h2h && h2h.amostraSuficiente) {
-    indCasa.h2h = Math.round(h2h.vitoriasCasa / h2h.total * 100);
-    indFora.h2h = Math.round(h2h.vitoriasFora / h2h.total * 100);
-  }
-  return { casa: _today2ScoreFromIndicadores(indCasa), fora: _today2ScoreFromIndicadores(indFora) };
-}
-
-function _today2ScoreFromIndicadores(ind) {
-  const presentes = Object.entries(ind).filter(([, v]) => v !== null && v !== undefined);
-  if (!presentes.length) return null;
-  const somaPresente = presentes.reduce((s, [k]) => s + (CONVICCAO_PESOS_TODAY2[k] || 0), 0);
-  if (somaPresente <= 0) return null;
-  let score = 0;
-  presentes.forEach(([k, v]) => { score += (CONVICCAO_PESOS_TODAY2[k] / somaPresente) * v; });
-  if (presentes.length >= 2) {
-    const vals = presentes.map(([, v]) => v);
-    score -= (Math.max(...vals) - Math.min(...vals)) * CONVICCAO_PENALIDADE_DIVERGENCIA_TODAY2;
-  }
-  return Math.round(Math.min(100, Math.max(0, score)));
-}
-
-function _today2RenderConvicaoBadges(id, result) {
-  const badgeCasa = document.getElementById(`today2ConvBadge_${id}_casa`);
-  const badgeFora = document.getElementById(`today2ConvBadge_${id}_fora`);
-  if (badgeCasa) badgeCasa.innerHTML = convictionBadge(result?.casa, 'Score de Convicção');
-  if (badgeFora) badgeFora.innerHTML = convictionBadge(result?.fora, 'Score de Convicção');
 }
 
 // Artilheiros + cartões das partidas ENCERRADAS — o feed do Flashscore já traz
@@ -4165,54 +4071,11 @@ async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam, boxId) {
   }
 }
 
-// ── CONFRONTO DIRETO — RESUMO (Feature 1, versão Hoje 2) ──────────────────
-// Calculado em cima da mesma seção "Confrontos" já buscada por /api/flashscore/h2h
-// pra aba H2H (tabs[0].sections, título contendo "confront") — sem busca extra.
-// Limita o confronto direto aos jogos mais recentes — times mudam de elenco
-// com o tempo, então uma amostra grande mistura versões bem diferentes dos
-// dois times. As linhas já vêm mais recentes primeiro (_fs_h2h no backend).
+// Limita o confronto direto (Estatísticas, mais abaixo) aos jogos mais
+// recentes — times mudam de elenco com o tempo, então uma amostra grande
+// mistura versões bem diferentes dos dois times. As linhas já vêm mais
+// recentes primeiro (_fs_h2h no backend).
 const H2H_DIRETO_MAX_JOGOS = 5;
-
-function _today2H2hResumo(tabs, casaTeam, foraTeam) {
-  const totalTab = tabs[0];
-  if (!totalTab) return null;
-  const directSection = (totalTab.sections || []).find(s => /confront/i.test(s.title));
-  const confrontos = (directSection ? directSection.rows : []).slice(0, H2H_DIRETO_MAX_JOGOS);
-  if (confrontos.length < 3) return { amostraSuficiente: false, total: confrontos.length };
-
-  const casaN = _normLive2(casaTeam);
-  let vitCasa = 0, vitFora = 0, empates = 0, golsTotais = 0, over25 = 0;
-  let mmVitCasa = 0, mmVitFora = 0, mmEmpates = 0, mmTotal = 0;
-
-  confrontos.forEach(p => {
-    const sc = _profitParseScore(p.score);
-    if (!sc) return;
-    const pCasaEhCasaHoje = _normLive2(p.home) === casaN;
-    const golsCasaHoje = pCasaEhCasaHoje ? sc.h : sc.a;
-    const golsForaHoje = pCasaEhCasaHoje ? sc.a : sc.h;
-    if (golsCasaHoje > golsForaHoje) vitCasa++;
-    else if (golsCasaHoje < golsForaHoje) vitFora++;
-    else empates++;
-    golsTotais += sc.h + sc.a;
-    if (sc.h + sc.a > 2.5) over25++;
-    if (pCasaEhCasaHoje) {
-      mmTotal++;
-      if (golsCasaHoje > golsForaHoje) mmVitCasa++;
-      else if (golsCasaHoje < golsForaHoje) mmVitFora++;
-      else mmEmpates++;
-    }
-  });
-
-  const n = confrontos.length;
-  return {
-    amostraSuficiente: true, total: n,
-    vitoriasCasa: vitCasa, vitoriasFora: vitFora, empates,
-    mediaGolsTotais: golsTotais / n,
-    pctOver25: Math.round(over25 / n * 100),
-    quemAbrePlacar: null, // dado não disponível no feed do Flashscore usado aqui
-    mesmoMando: mmTotal >= 2 ? { total: mmTotal, vitoriasCasa: mmVitCasa, vitoriasFora: mmVitFora, empates: mmEmpates } : null,
-  };
-}
 
 // ── PROFIT (Hoje 2) ──────────────────────────────────────────────────────
 // Simula lucro flat de 1u apostando em cada seleção dos 6 mercados de odds, jogo a
