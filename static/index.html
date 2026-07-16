@@ -4002,26 +4002,28 @@ function _today2H2hResumoHtml(h2h, casaTeam, foraTeam) {
     </div>`;
   }
   const mm = h2h.mesmoMando;
-  const item = (label, val) => `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text2)">${label}</span><span style="font-weight:700">${val}</span></div>`;
+  const item = (label, val) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0"><span style="color:var(--text2)">${label}</span><span style="font-weight:700;white-space:nowrap">${val}</span></div>`;
+  const box = (title, rows) => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:700">${title}</div>
+      ${rows}
+    </div>`;
   return `
     <div style="margin-bottom:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">
-      <div style="font-size:14px;font-weight:700;margin-bottom:8px">📊 Confronto Direto — Resumo (últimos ${h2h.total})</div>
-      <div style="display:grid;grid-template-columns:${mm ? '1fr 1fr' : '1fr'};gap:16px;font-size:13px">
-        <div>
-          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">GERAL</div>
-          ${item('Vitórias ' + casaTeam, h2h.vitoriasCasa)}
-          ${item('Empates', h2h.empates)}
-          ${item('Vitórias ' + foraTeam, h2h.vitoriasFora)}
-          ${item('Média de gols totais', h2h.mediaGolsTotais.toFixed(1))}
-          ${item('Jogos com +2.5 gols', h2h.pctOver25 + '%')}
-        </div>
-        ${mm ? `
-        <div>
-          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">MESMO MANDO (${casaTeam} em casa, ${mm.total} jogo${mm.total === 1 ? '' : 's'})</div>
-          ${item('Vitórias ' + casaTeam, mm.vitoriasCasa)}
-          ${item('Empates', mm.empates)}
-          ${item('Vitórias ' + foraTeam, mm.vitoriasFora)}
-        </div>` : ''}
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">📊 Confronto Direto — Resumo (últimos ${h2h.total})</div>
+      <div style="display:grid;grid-template-columns:${mm ? '1fr 1fr' : '1fr'};gap:10px;font-size:13px;align-items:start">
+        ${box('GERAL', [
+          item('Vitórias ' + casaTeam, h2h.vitoriasCasa),
+          item('Empates', h2h.empates),
+          item('Vitórias ' + foraTeam, h2h.vitoriasFora),
+          item('Média de gols totais', h2h.mediaGolsTotais.toFixed(1)),
+          item('Jogos com +2.5 gols', h2h.pctOver25 + '%'),
+        ].join(''))}
+        ${mm ? box(`MESMO MANDO (${casaTeam} em casa, ${mm.total} jogo${mm.total === 1 ? '' : 's'})`, [
+          item('Vitórias ' + casaTeam, mm.vitoriasCasa),
+          item('Empates', mm.empates),
+          item('Vitórias ' + foraTeam, mm.vitoriasFora),
+        ].join('')) : ''}
       </div>
     </div>`;
 }
