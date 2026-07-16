@@ -6257,10 +6257,6 @@ async function _renderToday2Insights(matchId) {
   const body = document.getElementById(`today2InsightsBody_${matchId}`);
   if (!body) return;
 
-  // Confronto Direto (últimos 5 jogos entre os dois times) entra só como
-  // confirmação de cards que já existem — não gera nenhum card sozinho.
-  const h2hResumo = _today2H2hResumo(tabs, m.home, m.away);
-
   const cards = _today2InsightsCards({
     m,
     homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
@@ -6269,7 +6265,6 @@ async function _renderToday2Insights(matchId) {
     profitHomeTeam: profitHomeRows.teamName, profitAwayTeam: profitAwayRows.teamName,
     profitAggHome, profitAggAway,
     csFreqHome, csFreqAway,
-    h2hResumo,
   });
 
   body.innerHTML = _today2InsightsGridHtml(cards) + `<div id="today2AcimaMediaWrap_${matchId}"></div>`;
@@ -6384,7 +6379,7 @@ function _today2InsightsCards(ctx) {
   const {
     m, homeHomeBlock, awayAwayBlock, homeGeneralBlock, awayGeneralBlock,
     standingsRows, oddsMarkets, profitAggHome, profitAggAway,
-    profitHomeTeam, profitAwayTeam, csFreqHome, csFreqAway, h2hResumo,
+    profitHomeTeam, profitAwayTeam, csFreqHome, csFreqAway,
   } = ctx;
   const MIN_N = 8;
   const totalTimes = standingsRows.length;
@@ -6417,14 +6412,10 @@ function _today2InsightsCards(ctx) {
     const taxaVitoriaFora = (awayAwayBlock.rows.filter(r => r.result === 'V').length / statsAway.n) * 100;
     const posicaoRuim = parseInt(posAway.pos) > totalTimes / 2;
     if (taxaVitoriaFora <= 25 && posicaoRuim) {
-      let detail = `Venceu só ${taxaVitoriaFora.toFixed(0)}% dos últimos ${statsAway.n} jogos como visitante.`;
-      if (h2hResumo?.amostraSuficiente && h2hResumo.vitoriasFora <= h2hResumo.vitoriasCasa && h2hResumo.vitoriasFora <= h2hResumo.empates) {
-        detail += ` Confirma no confronto direto: só venceu ${h2hResumo.vitoriasFora} dos últimos ${h2hResumo.total} jogos contra esse adversário.`;
-      }
       cards.push({
         tone: 'red',
         headline: `${awayAwayBlock.teamName || m.away} é ${posAway.pos}º colocado e rende pouco fora de casa!`,
-        detail,
+        detail: `Venceu só ${taxaVitoriaFora.toFixed(0)}% dos últimos ${statsAway.n} jogos como visitante.`,
         confianca: _today2Confidence(statsAway.n, 100 - taxaVitoriaFora),
       });
     }
@@ -6436,14 +6427,10 @@ function _today2InsightsCards(ctx) {
     const taxaVitoriaCasa = (homeHomeBlock.rows.filter(r => r.result === 'V').length / statsHome.n) * 100;
     const posicaoBoa = parseInt(posHome.pos) <= totalTimes / 2;
     if (taxaVitoriaCasa >= 60 && posicaoBoa) {
-      let detail = `Venceu ${taxaVitoriaCasa.toFixed(0)}% dos últimos ${statsHome.n} jogos como mandante.`;
-      if (h2hResumo?.amostraSuficiente && h2hResumo.vitoriasCasa > h2hResumo.vitoriasFora && h2hResumo.vitoriasCasa > h2hResumo.empates) {
-        detail += ` Confirma no confronto direto: venceu ${h2hResumo.vitoriasCasa} dos últimos ${h2hResumo.total} jogos contra esse adversário.`;
-      }
       cards.push({
         tone: 'green',
         headline: `${homeHomeBlock.teamName || m.home} manda bem em casa e ocupa a ${posHome.pos}ª colocação!`,
-        detail,
+        detail: `Venceu ${taxaVitoriaCasa.toFixed(0)}% dos últimos ${statsHome.n} jogos como mandante.`,
         confianca: _today2Confidence(statsHome.n, taxaVitoriaCasa),
       });
     }
@@ -6462,17 +6449,10 @@ function _today2InsightsCards(ctx) {
     const linha25 = opps.find(op => parseFloat(op.handicap?.value) === 2.5);
     const oddLinha = linha25 ? (melhorOu.lado_dom === 'sobre' ? linha25.over?.value : linha25.under?.value) : null;
     const rotulo = melhorOu.lado_dom === 'sobre' ? 'Mais de 2,5 gols' : 'Menos de 2,5 gols';
-    let detail = `${melhorOu.pct_dom.toFixed(0)}% dos últimos ${melhorOu.n} jogos bateram esse padrão${oddLinha ? ` — a odd de hoje pra essa linha é ${oddLinha}` : ''}.`;
-    if (h2hResumo?.amostraSuficiente) {
-      const h2hDom = h2hResumo.pctOver25 >= 50 ? 'sobre' : 'sob';
-      if (h2hDom === melhorOu.lado_dom) {
-        detail += ` Confirma no confronto direto: ${h2hResumo.pctOver25}% dos últimos ${h2hResumo.total} jogos entre eles bateram +2,5 gols.`;
-      }
-    }
     cards.push({
       tone: 'amber',
       headline: `Jogos de ${melhorOu.team} ${melhorOu.lado} pendem forte pra "${rotulo}"!`,
-      detail,
+      detail: `${melhorOu.pct_dom.toFixed(0)}% dos últimos ${melhorOu.n} jogos bateram esse padrão${oddLinha ? ` — a odd de hoje pra essa linha é ${oddLinha}` : ''}.`,
       confianca: _today2Confidence(melhorOu.n, melhorOu.pct_dom),
     });
   }
