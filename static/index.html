@@ -13037,8 +13037,6 @@ function matchRowHtml(m) {
   const maxOdds = Math.max(m.odds_1 || 0, m.odds_x || 0, m.odds_2 || 0);
   const tipClass = m.tip === '1' ? 'tip-1' : m.tip === '2' ? 'tip-2' : m.tip === 'X' ? 'tip-x' : 'tip-other';
   const isFav = favorites.has(m.url_detalhes);
-  const sCasa = calcBtTeamScore(m, true);
-  const sFora = calcBtTeamScore(m, false);
   return `
     <div class="match-row ${activeMatchId === m.url_detalhes ? 'active' : ''} ${isFav ? 'favoritado' : ''}"
          onclick="openDetail('${escapeJs(m.url_detalhes)}', this)"
@@ -13047,15 +13045,10 @@ function matchRowHtml(m) {
       <div class="match-teams">
         <div class="match-team" style="display:flex;align-items:center;gap:4px">
           <span class="match-team-name">${m.casa}</span>
-          ${btScoreBadge(sCasa, 'Score Casa')}
-          ${convictionBadge(m.convicao_casa, 'Score de Convicção — Casa')}
         </div>
         <div class="match-team" style="display:flex;align-items:center;gap:4px">
           <span class="match-team-name">${m.fora}</span>
-          ${btScoreBadge(sFora, 'Score Visitante')}
-          ${convictionBadge(m.convicao_fora, 'Score de Convicção — Visitante')}
         </div>
-        <div style="margin-top:2px">${btGoalScoreBadge(m)}</div>
       </div>
       <div class="match-right">
         <div style="display:flex;align-items:center;gap:6px">
