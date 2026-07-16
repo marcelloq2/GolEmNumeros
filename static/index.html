@@ -3872,7 +3872,7 @@ function _truncateH2h(s, max) {
 }
 
 async function _fetchToday2H2hHt(matchId) {
-  const content = document.getElementById('today2DetailBody');
+  const content = document.getElementById(`today2H2hTabsArea_${matchId}`) || document.getElementById('today2DetailBody');
   if (!content) return;
   const pending = [...content.querySelectorAll('.h2hHt[data-htid]')]
     .map(el => el.dataset.htid)
@@ -3896,7 +3896,7 @@ async function _fetchToday2H2hHt(matchId) {
 
 function _today2H2hCollapse(matchId, key) {
   if (_today2H2hExpanded[matchId]) delete _today2H2hExpanded[matchId][key];
-  const content = document.getElementById('today2DetailBody');
+  const content = document.getElementById(`today2H2hTabsArea_${matchId}`);
   const cache = _today2TabCache[matchId];
   if (content && cache && cache._h2hTabs) {
     content.innerHTML = _renderToday2H2hTab(matchId, cache._h2hTabs);
@@ -3906,7 +3906,7 @@ function _today2H2hCollapse(matchId, key) {
 
 function _today2H2hExpand(matchId, key) {
   (_today2H2hExpanded[matchId] || (_today2H2hExpanded[matchId] = {}))[key] = true;
-  const content = document.getElementById('today2DetailBody');
+  const content = document.getElementById(`today2H2hTabsArea_${matchId}`);
   const cache = _today2TabCache[matchId];
   if (content && cache && cache._h2hTabs) {
     content.innerHTML = _renderToday2H2hTab(matchId, cache._h2hTabs);
@@ -3933,7 +3933,7 @@ function _renderToday2H2hTab(matchId, tabs) {
 
 function _setToday2H2hTab(matchId, idx, btn) {
   _today2H2hTab[matchId] = idx;
-  const content = document.getElementById('today2DetailBody');
+  const content = document.getElementById(`today2H2hTabsArea_${matchId}`);
   const cache = _today2TabCache[matchId];
   if (content && cache && cache._h2hTabs) {
     content.innerHTML = _renderToday2H2hTab(matchId, cache._h2hTabs);
@@ -3947,7 +3947,71 @@ function _buildToday2H2hHtml(d, matchId) {
   if (!tabs.length) return '<div style="color:var(--text2)">sem histórico disponível</div>';
   const m = today2MatchesCache.find(x => String(x.id) === String(matchId));
   const resumoHtml = m ? _today2H2hResumoHtml(_today2H2hResumo(tabs, m.home, m.away), m.home, m.away) : '';
-  return resumoHtml + _renderToday2H2hTab(matchId, tabs);
+  const statsBoxHtml = m ? `<div id="today2H2hStatsBox_${matchId}"></div>` : '';
+  if (m) setTimeout(() => _today2H2hStatsCards(matchId, tabs, m.home, m.away), 0);
+  return resumoHtml + statsBoxHtml + `<div id="today2H2hTabsArea_${matchId}">${_renderToday2H2hTab(matchId, tabs)}</div>`;
+}
+
+// ── ESTATÍSTICAS COMPLETAS DOS CONFRONTOS DIRETOS (igual à aba Jogo, só que
+// calculadas em cima só dos jogos do confronto direto entre os dois times) ──
+// Reaproveita _jogoComputeStats/_jogoStatsWithValor/_jogoStatsCardHtml (mesmas
+// funções e mesmo enriquecimento HT/minutos/odds da aba Jogo) — não inventa
+// cálculo novo, só alimenta com outra fonte de linhas (a seção "Confrontos").
+function _today2H2hRowsForTeam(confrontos, teamName) {
+  const normTeam = _normLive2(teamName);
+  return confrontos.map(r => {
+    const sc = _profitParseScore(r.score);
+    if (!sc) return null;
+    const isHome = _normLive2(r.home) === normTeam;
+    if (!isHome && _normLive2(r.away) !== normTeam) return null;
+    const golsPro = isHome ? sc.h : sc.a;
+    const golsContra = isHome ? sc.a : sc.h;
+    return {
+      id: r.id, date: r.date, isHome, golsPro, golsContra,
+      result: golsPro > golsContra ? 'V' : golsPro < golsContra ? 'D' : 'E',
+      htGolsPro: null, htGolsContra: null,
+    };
+  }).filter(Boolean);
+}
+
+async function _today2H2hStatsCards(matchId, tabs, casaTeam, foraTeam) {
+  const totalTab = tabs[0];
+  const directSection = totalTab && (totalTab.sections || []).find(s => /confront/i.test(s.title));
+  const confrontos = directSection ? directSection.rows : [];
+  if (confrontos.length < 3) return; // mesmo limite de amostra mínima do resumo
+
+  const rowsCasa = _today2H2hRowsForTeam(confrontos, casaTeam);
+  const rowsFora = _today2H2hRowsForTeam(confrontos, foraTeam);
+  if (!rowsCasa.length && !rowsFora.length) return;
+
+  const box = document.getElementById(`today2H2hStatsBox_${matchId}`);
+  if (!box) return;
+  box.innerHTML = '<div style="color:var(--text2);font-size:13px;margin:10px 0">⏳ Calculando estatísticas dos confrontos diretos (HT, minutos de gol e odds de cada jogo)...</div>';
+
+  const renderCards = (media) => {
+    const freshBox = document.getElementById(`today2H2hStatsBox_${matchId}`);
+    if (!freshBox) return;
+    const sCasa = _jogoStatsWithValor(rowsCasa);
+    const sFora = _jogoStatsWithValor(rowsFora);
+    freshBox.innerHTML = `
+      <div style="font-size:14px;font-weight:700;margin:14px 0 6px">📋 Estatísticas — Confrontos Diretos</div>
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:340px">${_jogoStatsCardHtml(casaTeam, sCasa, media)}</div>
+        <div style="flex:1;min-width:340px">${_jogoStatsCardHtml(foraTeam, sFora, media)}</div>
+      </div>`;
+  };
+
+  await Promise.all([rowsCasa, rowsFora].map(rows =>
+    Promise.all([_jogoEnsureHt(rows), _jogoEnsureGoalMinutes(rows), _jogoEnsureGolValor(rows)])
+  ));
+  if (!document.getElementById(`today2H2hStatsBox_${matchId}`)) return; // usuário já saiu da aba
+  renderCards(_jogoMediasGeraisCache?.geral);
+
+  if (!_jogoMediasGeraisCache) {
+    _jogoEnsureMediasGerais().then(mediasGerais => {
+      if (document.getElementById(`today2H2hStatsBox_${matchId}`)) renderCards(mediasGerais?.geral);
+    }).catch(() => {});
+  }
 }
 
 // ── CONFRONTO DIRETO — RESUMO (Feature 1, versão Hoje 2) ──────────────────
