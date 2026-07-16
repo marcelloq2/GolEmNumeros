@@ -12777,10 +12777,12 @@ function matchRowHtml(m) {
         <div class="match-team" style="display:flex;align-items:center;gap:4px">
           <span class="match-team-name">${m.casa}</span>
           ${btScoreBadge(sCasa, 'Score Casa')}
+          ${convictionBadge(m.convicao_casa, 'Score de Convicção — Casa')}
         </div>
         <div class="match-team" style="display:flex;align-items:center;gap:4px">
           <span class="match-team-name">${m.fora}</span>
           ${btScoreBadge(sFora, 'Score Visitante')}
+          ${convictionBadge(m.convicao_fora, 'Score de Convicção — Visitante')}
         </div>
         <div style="margin-top:2px">${btGoalScoreBadge(m)}</div>
       </div>
@@ -12842,12 +12844,17 @@ async function openDetail(url, rowEl) {
       loadingBar.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Buscando últimas partidas e estatísticas ao vivo...';
       panel.insertAdjacentElement('afterbegin', loadingBar);
 
-      // Busca detalhes ao vivo
+      // Busca detalhes ao vivo (manda casa/fora pra rota recalcular Convicção
+      // e Confronto Direto em cima dos detalhes recém-buscados)
       try {
-        const liveRes = await fetch('/api/match/live/' + encoded);
+        const qs = `?casa=${encodeURIComponent(match.casa || '')}&fora=${encodeURIComponent(match.fora || '')}`;
+        const liveRes = await fetch('/api/match/live/' + encoded + qs);
         if (liveRes.ok) {
           const liveData = await liveRes.json();
           match.detalhes = liveData.detalhes || {};
+          if ('convicao_casa' in liveData) match.convicao_casa = liveData.convicao_casa;
+          if ('convicao_fora' in liveData) match.convicao_fora = liveData.convicao_fora;
+          if ('h2h_confronto_direto' in liveData) match.h2h_confronto_direto = liveData.h2h_confronto_direto;
         }
       } catch(_) {}
 
@@ -13014,6 +13021,7 @@ function buildDetailHtml(m) {
           <div class="detail-team-name">${m.casa}</div>
           ${formBadges(d.ultimas_10_partidas?.[m.casa]?.form || '')}
           ${renderTeamScore(m, true)}
+          ${renderConvictionWidget(m, true)}
         </div>
         <div class="detail-center-col">
           <div class="detail-vs">${m.hora || '--:--'}</div>
@@ -13029,6 +13037,7 @@ function buildDetailHtml(m) {
           <div class="detail-team-name">${m.fora}</div>
           ${formBadges(d.ultimas_10_partidas?.[m.fora]?.form || '')}
           ${renderTeamScore(m, false)}
+          ${renderConvictionWidget(m, false)}
         </div>
       </div>
       ${renderGoalScore(m)}
@@ -13056,6 +13065,10 @@ function buildDetailHtml(m) {
 
   // ANÁLISE DE CENÁRIOS
   html += gerarAnalise(m);
+
+  // CONFRONTO DIRETO — RESUMO (calculado no backend a partir dos mesmos
+  // confrontos_diretos já coletados, sinal de desempate/ajuste fino, não sinal principal)
+  html += renderH2HResumoCard(m);
 
   // CONFRONTOS DIRETOS (H2H)
   const h2hDiretos = d.confrontos_diretos || [];
@@ -13334,6 +13347,88 @@ function calcH2HStats(h2hDiretos, teamName) {
     jogosSemMarcar, jogosOver25, jogosUnder25,
     wins, draws, loses, cleanSheets,
   };
+}
+
+// ── CONFRONTO DIRETO — RESUMO (Feature 1) ──────────────────────────
+// h2h_confronto_direto já vem calculado do backend (mesma fonte de dados de
+// d.confrontos_diretos, sem busca externa nova) — aqui é só renderização.
+function renderH2HResumoCard(m) {
+  const h2h = m.h2h_confronto_direto;
+  if (!h2h) return '';
+  if (!h2h.amostra_suficiente) {
+    return `
+      <div class="matches-section">
+        <div class="section-title">Confronto Direto — Resumo</div>
+        <div class="loading">Amostra insuficiente (${h2h.total} jogo${h2h.total === 1 ? '' : 's'} encontrado${h2h.total === 1 ? '' : 's'} nos confrontos diretos — mínimo de 3 pra gerar o resumo e entrar no Score de Convicção).</div>
+      </div>`;
+  }
+  const mm = h2h.mesmo_mando;
+  const row = (label, val) => `
+    <div class="stat-item">
+      <span class="stat-label">${label}</span>
+      <span class="stat-value">${val}</span>
+    </div>`;
+  return `
+    <div class="matches-section">
+      <div class="section-title">Confronto Direto — Resumo (últimos ${h2h.total})</div>
+      <div class="stats-grid">
+        <div>
+          <div class="form-team-name">Geral</div>
+          ${row('Vitórias ' + m.casa, h2h.vitorias_casa)}
+          ${row('Empates', h2h.empates)}
+          ${row('Vitórias ' + m.fora, h2h.vitorias_fora)}
+          ${row('Média de gols totais', h2h.media_gols_totais.toFixed(1))}
+          ${row('Jogos com +2.5 gols', h2h.pct_over_25 + '%')}
+        </div>
+        ${mm ? `
+        <div>
+          <div class="form-team-name">Mesmo mando (${m.casa} em casa, ${mm.total} jogo${mm.total === 1 ? '' : 's'})</div>
+          ${row('Vitórias ' + m.casa, mm.vitorias_casa)}
+          ${row('Empates', mm.empates)}
+          ${row('Vitórias ' + m.fora, mm.vitorias_fora)}
+        </div>` : `
+        <div>
+          <div class="form-team-name">Mesmo mando</div>
+          <div class="loading" style="font-size:11px">Poucos jogos com ${m.casa} em casa nos confrontos diretos pra separar esse recorte.</div>
+        </div>`}
+      </div>
+    </div>`;
+}
+
+// ── SCORE DE CONVICÇÃO (Feature 2) ──────────────────────────
+// Cálculo (pesos, indicadores, penalização por divergência) é feito no
+// backend (_convicao_score em app.py) — aqui é só exibição do resultado.
+function convictionInfo(s) {
+  if (s >= 75) return { label: 'Alta Convicção', color: '#22c55e' };
+  if (s >= 55) return { label: 'Convicção Moderada', color: '#84cc16' };
+  if (s >= 35) return { label: 'Convicção Baixa', color: '#f59e0b' };
+  return           { label: 'Sem Convicção', color: '#ef4444' };
+}
+
+function convictionBadge(s, title) {
+  if (s === null || s === undefined) return '';
+  const cor = s >= 75 ? '#22c55e' : s >= 55 ? '#84cc16' : s >= 35 ? '#f59e0b' : '#ef4444';
+  const bg  = s >= 75 ? '#0d2d0d' : s >= 55 ? '#1a2a0a' : s >= 35 ? '#2a1f00' : '#2d0a0a';
+  return `<span title="${title}" style="font-size:10px;font-weight:700;color:${cor};background:${bg};
+    border-radius:4px;padding:1px 5px;white-space:nowrap">🎯${s}</span>`;
+}
+
+function renderConvictionWidget(m, isHome) {
+  const s = isHome ? m.convicao_casa : m.convicao_fora;
+  if (s === null || s === undefined) return '';
+  const { label, color } = convictionInfo(s);
+  return `
+    <div class="team-score-widget" style="margin-top:6px">
+      <div class="team-score-title">Score de Convicção</div>
+      <div class="team-score-bar-track">
+        <div class="team-score-bar-fill" style="width:${s}%;background:${color}"></div>
+      </div>
+      <div class="team-score-bottom">
+        <span class="team-score-num" style="color:${color}">${s}</span>
+        <span class="team-score-max">/100</span>
+        <span class="team-score-lbl" style="color:${color}">— ${label}</span>
+      </div>
+    </div>`;
 }
 
 function switchTab(prefix, idx, btn) {

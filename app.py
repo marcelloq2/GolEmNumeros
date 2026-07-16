@@ -164,6 +164,166 @@ def load_predictions():
     return [], None
 
 
+# ── CONFRONTO DIRETO (H2H) + SCORE DE CONVICÇÃO ──────────────────────────
+# Reaproveitam só dados já coletados (m["detalhes"]), sem nenhuma chamada
+# externa nova. Cálculo é uma soma ponderada simples sobre o objeto de cada
+# partida já carregado em memória — sem impacto de performance perceptível.
+
+CONVICCAO_PESOS = {
+    "ofensivo": 0.25,
+    "defensivo_adversario": 0.25,
+    "forma_recente": 0.20,
+    "casa_fora": 0.15,
+    "h2h": 0.10,
+    "contexto": 0.05,  # sem indicador de contexto implementado ainda — o peso é
+                        # redistribuído proporcionalmente entre os presentes (ver abaixo)
+}
+CONVICCAO_PENALIDADE_DIVERGENCIA = 0.15  # TODO: recalibrar depois de acumular histórico real
+
+
+def _convicao_pesos_efetivos(indicadores_presentes):
+    """Remove 'contexto' (não implementado) e qualquer indicador ausente nessa
+    partida, redistribuindo os pesos que sobrarem proporcionalmente entre os
+    indicadores realmente presentes, mantendo a soma em 1.0."""
+    pesos = {k: v for k, v in CONVICCAO_PESOS.items() if k != "contexto" and k in indicadores_presentes}
+    soma = sum(pesos.values())
+    if soma <= 0:
+        return pesos
+    falta = 1.0 - soma
+    for k in pesos:
+        pesos[k] += falta * (pesos[k] / soma)
+    return pesos
+
+
+def _h2h_norm_nome(s):
+    import unicodedata
+    s = (s or "").lower().strip()
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def _h2h_confronto_direto(confrontos, home, fora):
+    """Estatísticas do confronto direto entre os dois times de hoje, calculadas
+    em cima de detalhes.confrontos_diretos (já coletado pelo scraper). Marca
+    amostra insuficiente com menos de 3 jogos, conforme especificado."""
+    confrontos = confrontos or []
+    if len(confrontos) < 3:
+        return {"amostra_suficiente": False, "total": len(confrontos)}
+
+    home_n = _h2h_norm_nome(home).split(" ")[0] if _h2h_norm_nome(home) else ""
+    vit_casa = vit_fora = empates = gols_totais = over25 = 0
+    mm_vit_casa = mm_vit_fora = mm_empates = mm_total = 0
+
+    for p in confrontos:
+        try: gc = int(p.get("gols_casa") or 0)
+        except (TypeError, ValueError): gc = 0
+        try: gf = int(p.get("gols_fora") or 0)
+        except (TypeError, ValueError): gf = 0
+        p_casa_norm = _h2h_norm_nome(p.get("casa"))
+        p_casa_eh_home = bool(home_n) and (home_n in p_casa_norm)
+        gols_home = gc if p_casa_eh_home else gf
+        gols_fora_time = gf if p_casa_eh_home else gc
+        if gols_home > gols_fora_time: vit_casa += 1
+        elif gols_home < gols_fora_time: vit_fora += 1
+        else: empates += 1
+        gols_totais += gc + gf
+        if gc + gf > 2.5: over25 += 1
+        if p_casa_eh_home:
+            mm_total += 1
+            if gols_home > gols_fora_time: mm_vit_casa += 1
+            elif gols_home < gols_fora_time: mm_vit_fora += 1
+            else: mm_empates += 1
+
+    n = len(confrontos)
+    resultado = {
+        "amostra_suficiente": True,
+        "total": n,
+        "vitorias_casa": vit_casa,
+        "vitorias_fora": vit_fora,
+        "empates": empates,
+        "media_gols_totais": round(gols_totais / n, 2),
+        "pct_over_25": round(over25 / n * 100),
+        "quem_abre_placar": None,  # dado não disponível no histórico coletado hoje
+    }
+    resultado["mesmo_mando"] = (
+        {"total": mm_total, "vitorias_casa": mm_vit_casa, "vitorias_fora": mm_vit_fora, "empates": mm_empates}
+        if mm_total >= 2 else None
+    )
+    return resultado
+
+
+def _convicao_indicadores(m, is_home):
+    """Indicadores normalizados 0-100, cada um alinhado a favor do time avaliado
+    (is_home decide se 'vota' pelo mandante ou visitante) — mesma escala de
+    pontos 0-100 já usada no Score do Time (frontend), não uma normalização nova."""
+    d = m.get("detalhes") or {}
+    team = m.get("casa") if is_home else m.get("fora")
+    ind = {}
+
+    last10 = d.get("ultimas_10_partidas") or {}
+    team_data = last10.get(team)
+    if team_data is None and len(last10) >= 2:
+        keys = list(last10.keys())
+        team_data = last10.get(keys[0] if is_home else keys[1])
+    form = (team_data or {}).get("form") or ""
+    if form:
+        wins, draws = form.count("W"), form.count("D")
+        ind["forma_recente"] = round((wins * 3 + draws) / (len(form) * 3) * 100)
+
+    stats = d.get("estatisticas") or {}
+    ts = stats.get(team)
+    if ts is None and len(stats) >= 2:
+        keys = list(stats.keys())
+        ts = stats.get(keys[0] if is_home else keys[1])
+    ts = ts or {}
+    try: avg_scored = float(ts.get("Average scored goals per match") or 0)
+    except (TypeError, ValueError): avg_scored = 0
+    try: avg_conc = float(ts.get("Average conceded goals per match") or 0)
+    except (TypeError, ValueError): avg_conc = 0
+    if avg_scored > 0:
+        ind["ofensivo"] = (100 if avg_scored >= 2.0 else 75 if avg_scored >= 1.5 else
+                            50 if avg_scored >= 1.0 else 25 if avg_scored >= 0.5 else 10)
+    if avg_conc > 0 or avg_scored > 0:
+        ind["defensivo_adversario"] = (100 if avg_conc <= 0.7 else 75 if avg_conc <= 1.0 else
+                                        50 if avg_conc <= 1.5 else 25 if avg_conc <= 2.0 else 10)
+
+    # casa/fora — proxy: posição na tabela. O JSON de previsões não tem um
+    # split casa/fora dedicado por time; classificação é o indicador de força
+    # relativa mais próximo já calculado hoje (mesma lógica do Score do Time).
+    standings = d.get("classificacao") or []
+    hl = [r for r in standings if r.get("destacado")]
+    if len(hl) >= 2:
+        my_row = hl[0] if is_home else hl[1]
+        try: pos = int(my_row.get("pos") or 0)
+        except (TypeError, ValueError): pos = 0
+        total = len(standings)
+        if pos > 0 and total > 0:
+            pct = pos / total
+            ind["casa_fora"] = (100 if pct <= 0.20 else 80 if pct <= 0.40 else
+                                 55 if pct <= 0.60 else 27 if pct <= 0.80 else 0)
+
+    h2h = _h2h_confronto_direto(d.get("confrontos_diretos"), m.get("casa"), m.get("fora"))
+    if h2h.get("amostra_suficiente"):
+        vit = h2h["vitorias_casa"] if is_home else h2h["vitorias_fora"]
+        ind["h2h"] = round(vit / h2h["total"] * 100)
+
+    return ind, h2h
+
+
+def _convicao_score(m, is_home):
+    """Soma ponderada dos indicadores (pesos em CONVICCAO_PESOS), com penalização
+    quando os indicadores divergem fortemente entre si. None se não houver
+    nenhum indicador calculável pra essa partida ainda (detalhes incompletos)."""
+    ind, h2h = _convicao_indicadores(m, is_home)
+    if not ind:
+        return None, h2h
+    pesos = _convicao_pesos_efetivos(ind.keys())
+    score = sum(pesos[k] * v for k, v in ind.items())
+    if len(ind) >= 2:
+        divergencia = max(ind.values()) - min(ind.values())
+        score -= divergencia * CONVICCAO_PENALIDADE_DIVERGENCIA
+    return round(min(100, max(0, score))), h2h
+
+
 APP_VERSION = "2026-05-18-v9"
 
 @app.route("/version")
@@ -185,6 +345,8 @@ def api_matches():
     # Retorna lista resumida (sem detalhes) para a listagem
     summary = []
     for m in matches:
+        conv_casa, _ = _convicao_score(m, True)
+        conv_fora, _ = _convicao_score(m, False)
         summary.append({
             "id": m.get("url_detalhes", "").split("/compare/teams/")[-1],
             "hora": m.get("hora"),
@@ -209,6 +371,8 @@ def api_matches():
             "tem_detalhes": "detalhes" in m and "erro" not in m.get("detalhes", {}),
             "url_detalhes": m.get("url_detalhes"),
             "data_coleta": m.get("data_coleta"),
+            "convicao_casa": conv_casa,
+            "convicao_fora": conv_fora,
         })
     return jsonify({"total": len(summary), "source": source, "matches": summary})
 
@@ -219,6 +383,12 @@ def api_match_detail(match_id):
     for m in matches:
         mid = m.get("url_detalhes", "").split("/compare/teams/")[-1]
         if mid == match_id:
+            conv_casa, h2h = _convicao_score(m, True)
+            conv_fora, _ = _convicao_score(m, False)
+            m = dict(m)
+            m["convicao_casa"] = conv_casa
+            m["convicao_fora"] = conv_fora
+            m["h2h_confronto_direto"] = h2h
             return jsonify(m)
     abort(404)
 
@@ -7772,13 +7942,22 @@ def api_today2_match_classification():
 
 @app.route("/api/match/live/<path:match_id>")
 def api_match_live(match_id):
-    """Busca detalhes ao vivo do StatArea para qualquer partida."""
+    """Busca detalhes ao vivo do StatArea para qualquer partida. Se casa/fora
+    forem passados via query string, também recalcula Convicção e Confronto
+    Direto em cima desses detalhes recém-buscados (senão ficariam presos aos
+    dados incompletos da 1ª resposta de /api/match/<id>)."""
     from scraper import fetch_match_details, create_session
     url = f"https://www.statarea.com/compare/teams/{match_id}"
     try:
         session = create_session()
         details = fetch_match_details(url, session=session)
-        return jsonify({"detalhes": details, "url_detalhes": url})
+        resp = {"detalhes": details, "url_detalhes": url}
+        casa, fora = request.args.get("casa"), request.args.get("fora")
+        if casa and fora:
+            m = {"casa": casa, "fora": fora, "detalhes": details}
+            resp["convicao_casa"], resp["h2h_confronto_direto"] = _convicao_score(m, True)
+            resp["convicao_fora"], _ = _convicao_score(m, False)
+        return jsonify(resp)
     except Exception as e:
         abort(503)
 
