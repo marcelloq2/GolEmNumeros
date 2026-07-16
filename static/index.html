@@ -1431,6 +1431,35 @@
           </div>
         </div>
 
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text2)">Ordenar:</span>
+          <button class="filter-btn active" id="today2SortLigaBtn" onclick="_setToday2SortMode('liga', this)">Liga</button>
+          <button class="filter-btn" id="today2SortHorarioBtn" onclick="_setToday2SortMode('horario', this)">Horário</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text2)">💰 Odds:</span>
+          <select id="today2OddsMarket" onchange="_today2OddsFilterSelectionOptions(this.value)"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 6px">
+            <option value="1x2">1X2</option>
+            <option value="over_under">Acima/Abaixo</option>
+            <option value="ambos_marcam">Ambas Marcam</option>
+            <option value="placar_exato">Placar Exato</option>
+          </select>
+          <select id="today2OddsLabel"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 6px">
+            <option value="Casa">Casa</option>
+            <option value="Empate">Empate</option>
+            <option value="Fora">Fora</option>
+          </select>
+          <span style="font-size:11px;color:var(--text2)">odd até</span>
+          <input id="today2OddsMax" type="number" step="0.1" value="2.5"
+            style="width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 6px">
+          <button class="filter-btn" onclick="_today2AplicarFiltroOdds()">Aplicar</button>
+          <span id="today2OddsStatus" style="font-size:11px;color:var(--text2)"></span>
+          <span id="today2OddsActiveChip"></span>
+        </div>
+
       </div>
       <div id="today2Wrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -2668,6 +2697,65 @@ function _mapaRenderSinais(d) {
 let today2MatchesCache = [];
 let _today2AutoRefresh = null;
 
+// ── ORDENAÇÃO da lista Hoje 2: por liga (agrupado, alfabético) ou por
+// horário (lista corrida, sem agrupar) ──────────────────────────────────
+let _today2SortMode = 'liga'; // 'liga' | 'horario'
+
+function _setToday2SortMode(mode, btn) {
+  _today2SortMode = mode;
+  document.querySelectorAll('#today2SortLigaBtn,#today2SortHorarioBtn').forEach(b => b.classList.remove('active'));
+  btn?.classList.add('active');
+  _renderToday2MatchList(today2MatchesCache);
+  filterToday2();
+}
+
+function _renderToday2MatchList(matches) {
+  const wrap = document.getElementById('today2Wrap');
+  if (!wrap) return;
+  if (!matches.length) {
+    wrap.innerHTML = `<div class="live-empty">
+      <div style="font-size:13px;color:var(--text2)">Nenhuma partida encontrada.</div>
+    </div>`;
+    return;
+  }
+
+  if (_today2SortMode === 'horario') {
+    const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+    wrap.innerHTML = `<div class="league-group" id="group2_0" data-liga-key="__todos">
+      <div class="league-body today2-league-body">
+        ${ordenados.map(m => renderToday2Row(m)).join('')}
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Modo 'liga': agrupado por liga, em ordem alfabética (país — liga)
+  const porLiga = {};
+  matches.forEach(m => {
+    const key = `${m.pais}__${m.liga}`;
+    if (!porLiga[key]) porLiga[key] = [];
+    porLiga[key].push(m);
+  });
+  const ordemLigas = Object.keys(porLiga).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  wrap.innerHTML = ordemLigas.map((key, idx) => {
+    const grupo = porLiga[key];
+    const { pais, liga } = grupo[0];
+    return `
+      <div class="league-group" id="group2_${idx}" data-liga-key="${key}">
+        <div class="league-header" onclick="toggleLeague2(${idx})">
+          <span class="league-flag">${_h2hFlag(pais)}</span>
+          <span>${liga} <span style="font-weight:400;opacity:.7">(${pais})</span></span>
+          <span class="league-count">${grupo.length}</span>
+          <span class="league-toggle">▼</span>
+        </div>
+        <div class="league-body today2-league-body">
+          ${grupo.map(m => renderToday2Row(m)).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 async function loadToday2Matches() {
   const wrap = document.getElementById('today2Wrap');
   if (!wrap) return;
@@ -2691,32 +2779,7 @@ async function loadToday2Matches() {
       return;
     }
 
-    // Agrupa por liga, mantendo a ordem em que o feed já traz (mesma ordem que o
-    // Soccerway usa — país por país, liga por liga)
-    const porLiga = {};
-    const ordemLigas = [];
-    matches.forEach(m => {
-      const key = `${m.pais}__${m.liga}`;
-      if (!porLiga[key]) { porLiga[key] = []; ordemLigas.push(key); }
-      porLiga[key].push(m);
-    });
-
-    wrap.innerHTML = ordemLigas.map((key, idx) => {
-      const grupo = porLiga[key];
-      const { pais, liga } = grupo[0];
-      return `
-        <div class="league-group" id="group2_${idx}" data-liga-key="${key}">
-          <div class="league-header" onclick="toggleLeague2(${idx})">
-            <span class="league-flag">${_h2hFlag(pais)}</span>
-            <span>${liga} <span style="font-weight:400;opacity:.7">(${pais})</span></span>
-            <span class="league-count">${grupo.length}</span>
-            <span class="league-toggle">▼</span>
-          </div>
-          <div class="league-body today2-league-body">
-            ${grupo.map(m => renderToday2Row(m)).join('')}
-          </div>
-        </div>`;
-    }).join('');
+    _renderToday2MatchList(matches);
 
     // Popula o seletor de liga (preserva a seleção atual, se ainda existir na lista nova)
     const ligaSelect = document.getElementById('today2LigaSelect');
@@ -2772,11 +2835,33 @@ function _today2FindStatAreaMatch(m) {
   return found;
 }
 
+// ── FAVORITOS (Hoje 2) — chave própria por id do Flashscore (m.id), separado
+// do sistema de favoritos da aba Hoje original (que usa url_detalhes do
+// StatArea — fonte diferente, os ids não batem 1:1 entre as duas) ──────────
+let _today2Favorites = new Set();
+try {
+  _today2Favorites = new Set(JSON.parse(localStorage.getItem('today2_favorites') || '[]'));
+} catch (e) {}
+
+function _saveToday2Favorites() {
+  try { localStorage.setItem('today2_favorites', JSON.stringify([..._today2Favorites])); } catch (e) {}
+}
+
+function _toggleToday2Favorite(id) {
+  id = String(id);
+  if (_today2Favorites.has(id)) _today2Favorites.delete(id);
+  else _today2Favorites.add(id);
+  _saveToday2Favorites();
+  _renderToday2MatchList(today2MatchesCache);
+  filterToday2();
+}
+
 function renderToday2Row(m) {
   const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
+  const isFav = _today2Favorites.has(String(m.id));
   return `
-    <div class="today2-match-row" data-id="${m.id}" onclick="selectToday2Match('${m.id}', this)">
+    <div class="today2-match-row ${isFav ? 'favoritado' : ''}" data-id="${m.id}" onclick="selectToday2Match('${m.id}', this)">
       <div style="text-align:center">
         ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
@@ -2785,7 +2870,12 @@ function renderToday2Row(m) {
         <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
         <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
       </div>
-      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <button onclick="event.stopPropagation();_toggleToday2Favorite('${m.id}')"
+          title="${isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}"
+          style="background:transparent;border:none;cursor:pointer;font-size:14px;opacity:${isFav ? 1 : .35};padding:0;line-height:1">⭐</button>
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
+      </div>
     </div>`;
 }
 
@@ -3039,7 +3129,8 @@ function filterToday2() {
       const bateStatus = !_today2StatusFiltro || m.status === _today2StatusFiltro;
       const bateParametro = _today2MatchePassaParametros(m);
       const bateAnalise = _today2AnaliseQualifyingIds.size === 0 || _today2AnaliseQualifyingIds.has(String(m.id));
-      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateParametro && bateAnalise;
+      const bateOdds = _today2MatchePassaFiltroOdds(m);
+      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateParametro && bateAnalise && bateOdds;
       card.style.display = visivel ? '' : 'none';
       if (visivel) algumVisivel = true;
     });
@@ -3699,6 +3790,87 @@ function _placarExatoBuckets(items) {
   return PLACAR_EXATO_BUCKETS_ORDER
     .filter(key => probSum[key])
     .map(key => ({ score: key, odd: 1 / probSum[key] }));
+}
+
+// ── FILTRO POR ODDS (1X2 / Acima-Abaixo / Ambas Marcam / Placar Exato) na
+// lista da aba Hoje. Reaproveita /api/today2/odds_raw, que por sua vez
+// reaproveita o MESMO snapshot cacheado (5min) já usado pelo Filtro de
+// Metodologias — nunca dispara busca nova de odds sozinho, só lê o que já
+// está cacheado no servidor. Só busca na 1ª vez que o usuário aplica o
+// filtro (precisa vir depois de PLACAR_EXATO_BUCKETS_ORDER, que já usa aqui
+// embaixo pra montar as opções do mercado Placar Exato).
+let _today2OddsRawCache = null;
+let _today2OddsFilter = null; // { market, label, maxOdd } | null
+
+const TODAY2_ODDS_FILTER_LABELS = {
+  '1x2': ['Casa', 'Empate', 'Fora'],
+  over_under: ['Acima 1.5', 'Abaixo 1.5', 'Acima 2.5', 'Abaixo 2.5', 'Acima 3.5', 'Abaixo 3.5'],
+  ambos_marcam: ['Sim', 'Não'],
+  placar_exato: PLACAR_EXATO_BUCKETS_ORDER,
+};
+const TODAY2_ODDS_FILTER_MARKET_LABEL = { '1x2': '1X2', over_under: 'Acima/Abaixo', ambos_marcam: 'Ambas Marcam', placar_exato: 'Placar Exato' };
+
+function _today2OddsFilterSelectionOptions(market) {
+  const sel = document.getElementById('today2OddsLabel');
+  if (!sel) return;
+  sel.innerHTML = (TODAY2_ODDS_FILTER_LABELS[market] || []).map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+async function _today2EnsureOddsRaw() {
+  if (_today2OddsRawCache) return _today2OddsRawCache;
+  try {
+    const r = await fetch('/api/today2/odds_raw');
+    const d = await r.json();
+    _today2OddsRawCache = d.markets || {};
+  } catch (e) {
+    _today2OddsRawCache = {};
+  }
+  return _today2OddsRawCache;
+}
+
+async function _today2AplicarFiltroOdds() {
+  const market = document.getElementById('today2OddsMarket')?.value || '1x2';
+  const label = document.getElementById('today2OddsLabel')?.value;
+  const maxOdd = parseFloat(document.getElementById('today2OddsMax')?.value) || 999;
+  if (!label) return;
+  const status = document.getElementById('today2OddsStatus');
+  if (status) status.textContent = '⏳ Carregando odds...';
+  await _today2EnsureOddsRaw();
+  if (status) status.textContent = '';
+  _today2OddsFilter = { market, label, maxOdd };
+  _today2RenderOddsFilterChip();
+  filterToday2();
+}
+
+function _today2LimparFiltroOdds() {
+  _today2OddsFilter = null;
+  _today2RenderOddsFilterChip();
+  filterToday2();
+}
+
+function _today2RenderOddsFilterChip() {
+  const el = document.getElementById('today2OddsActiveChip');
+  if (!el) return;
+  if (!_today2OddsFilter) { el.innerHTML = ''; return; }
+  const f = _today2OddsFilter;
+  el.innerHTML = `<span class="filter-btn active" style="cursor:default;display:inline-flex;align-items:center;gap:4px">
+    💰 ${TODAY2_ODDS_FILTER_MARKET_LABEL[f.market]}: ${f.label} ≤ ${f.maxOdd}
+    <span onclick="_today2LimparFiltroOdds()" style="cursor:pointer;font-weight:700">✕</span>
+  </span>`;
+}
+
+function _today2MatchePassaFiltroOdds(m) {
+  const f = _today2OddsFilter;
+  if (!f) return true;
+  const markets = _today2OddsRawCache?.[String(m.id)];
+  if (!markets) return false; // sem odds carregadas pra esse jogo (fora do snapshot) — não passa
+  if (f.market === 'placar_exato') {
+    const items = markets.placar_exato?.items || [];
+    const bucket = _placarExatoBuckets(items).find(b => b.score === f.label);
+    return !!(bucket && bucket.odd && bucket.odd <= f.maxOdd);
+  }
+  const odd = parseFloat(_currentOddForSelection(f.market, f.label, markets));
+  return !isNaN(odd) && odd <= f.maxOdd;
 }
 
 function _renderToday2OddsMarket(key, o) {

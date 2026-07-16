@@ -7940,6 +7940,22 @@ def api_today2_match_classification():
     return jsonify(data)
 
 
+@app.route("/api/today2/odds_raw")
+def api_today2_odds_raw():
+    """Odds cruas (todos os mercados: 1x2, over_under, ambos_marcam, placar_exato
+    etc) de todos os jogos de hoje, pro filtro por odds da lista da aba Hoje.
+    Reaproveita o MESMO snapshot cacheado que já alimenta o Filtro de
+    Metodologias e a classificação de Parâmetros (_today2_odds_snapshot) —
+    não dispara nenhuma busca nova, só reexpõe os mercados crus em vez da
+    versão já resumida em tiers (favorito/parelho etc)."""
+    force = request.args.get("refresh") == "1"
+    result = {}
+    for m, markets in _today2_odds_snapshot(force=force):
+        if markets:
+            result[str(m["id"])] = markets
+    return jsonify({"markets": result})
+
+
 @app.route("/api/match/live/<path:match_id>")
 def api_match_live(match_id):
     """Busca detalhes ao vivo do StatArea para qualquer partida. Se casa/fora
