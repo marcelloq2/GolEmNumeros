@@ -6307,6 +6307,58 @@ function _insFindStandingRow(rows, teamName) {
   return (rows || []).find(r => _insNorm(r.team) === alvo) || null;
 }
 
+// ── EXPORTAR LEITURA DA PARTIDA EM .TXT (pra colar no ChatGPT etc) ─────────
+// Não busca nada novo — só junta os cards que a aba já calculou (headline/
+// detail/confiança de cada um, mais "acima da média" quando já tiver chegado)
+// numa string de texto simples e dispara o download pelo navegador.
+let _today2InsightsExportCache = {}; // { matchId: { m, cards, acimaMedia } }
+
+function _today2LeituraTxt(matchId) {
+  const data = _today2InsightsExportCache[matchId];
+  if (!data) return null;
+  const { m, cards, acimaMedia } = data;
+  const linhas = [];
+  linhas.push(`Leitura da Partida — ${m.home} x ${m.away}`);
+  linhas.push(`${m.liga || ''} (${m.pais || ''})`);
+  linhas.push(`Gerado em ${new Date().toLocaleString('pt-BR')}`);
+  linhas.push('');
+  if (!cards.length) {
+    linhas.push('Nenhum sinal disparou pra essa partida com os critérios atuais.');
+  } else {
+    cards.forEach((c, i) => {
+      linhas.push(`${i + 1}. ${c.headline}`);
+      linhas.push(`   ${c.detail}`);
+      linhas.push(`   Confiança: ${c.confianca?.label || '—'}`);
+      linhas.push('');
+    });
+  }
+  if (acimaMedia && acimaMedia.length) {
+    linhas.push('Estatísticas acima da média (aba Jogo):');
+    acimaMedia.forEach(g => {
+      linhas.push(`- ${g.team} (${g.lado}):`);
+      g.linhas.forEach(l => linhas.push(`   ${l}`));
+    });
+  }
+  return linhas.join('\n');
+}
+
+function _today2BaixarLeituraTxt(matchId) {
+  const texto = _today2LeituraTxt(matchId);
+  if (!texto) return;
+  const m = _today2InsightsExportCache[matchId]?.m;
+  const nomeArquivo = `leitura_${(m?.home || 'time1')}_x_${(m?.away || 'time2')}`
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').slice(0, 60) + '.txt';
+  const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function _renderToday2Insights(matchId) {
   const content = document.getElementById('today2DetailBody');
   if (!content) return;
@@ -6382,7 +6434,18 @@ async function _renderToday2Insights(matchId) {
     csFreqHome, csFreqAway,
   });
 
-  body.innerHTML = _today2InsightsGridHtml(cards) + `<div id="today2AcimaMediaWrap_${matchId}"></div>`;
+  // Guarda os cards pra alimentar o botão "Baixar TXT" — não busca nada novo,
+  // só junta o que já foi calculado numa string pronta pra colar no ChatGPT.
+  _today2InsightsExportCache[matchId] = { m, cards, acimaMedia: null };
+
+  body.innerHTML = `
+    <button onclick="_today2BaixarLeituraTxt('${matchId}')"
+      style="margin-bottom:12px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
+             border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
+      ⬇️ Baixar TXT (pra analisar no ChatGPT)
+    </button>
+    ${_today2InsightsGridHtml(cards)}
+    <div id="today2AcimaMediaWrap_${matchId}"></div>`;
 
   mediasGeraisPromise.then(mediasGerais => {
     if (_today2Tab[matchId] !== 'insights') return;
@@ -6399,6 +6462,12 @@ async function _renderToday2Insights(matchId) {
       ${destaque ? _today2InsightsGridInner([destaque]) : ''}
       <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin:${destaque ? '14px' : '0'} 0 8px">📈 Estatísticas acima da média (aba Jogo)</div>
       ${_today2AcimaMediaCompactHtml(grupos)}`;
+    if (_today2InsightsExportCache[matchId]) {
+      _today2InsightsExportCache[matchId].acimaMedia = grupos.map(g => ({
+        team: g.team, lado: g.lado,
+        linhas: g.rows.map(r => `${r.label}: ${r.fmt(r.val)} (méd: ${r.fmt(r.mediaVal)})`),
+      }));
+    }
   });
 
   // Blocos extras (Desempenho Ofensivo, Cenário de Gols, Momento dos Times, Histórico
