@@ -7541,7 +7541,7 @@ async function _loadLive2Shotmap(matches) {
       // Só redesenha se a quantidade de chutes mudou — evita "piscar" o SVG
       // do zero a cada ciclo de refresh quando nada de novo aconteceu
       if (wrap && !(_live2ShotsCountCache[m.id] === shots.length && wrap.innerHTML.trim())) {
-        wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora) : '';
+        wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora, m.id) : '';
       }
       _live2ShotsCountCache[m.id] = shots.length;
       _live2ShotsCache[m.id] = shots;
@@ -11819,19 +11819,83 @@ async function loadShotmap(eventId, casa, fora) {
     const shots = d.shots || [];
     if (!shots.length) { el.innerHTML = ''; return; }
     _liveShotsCache[eventId] = shots;
-    el.innerHTML = buildShotMapHtml(shots, casa, fora);
+    el.innerHTML = buildShotMapHtml(shots, casa, fora, eventId);
     _updateShotmapBadge(eventId); // atualiza badge com dados frescos
   } catch(e) {
     el.innerHTML = '';
   }
 }
 
-function buildShotMapHtml(shots, homeName, awayName) {
+// Filtro 1º/2º Tempo/Geral do mapa de chutes — usa o minuto que cada chute já
+// traz (s.minute), sem buscar nada novo. mapKey identifica o card (eventId no
+// painel antigo, m.id no Ao Vivo/live2 — cada card da grade tem o seu, pra não
+// misturar o filtro/toggle de um jogo com o de outro na mesma tela).
+let _shotmapFullCache = {};  // { [mapKey]: shots[] }
+let _shotmapMeta = {};       // { [mapKey]: { homeName, awayName } }
+let _shotmapPeriod = {};     // { [mapKey]: 'all' | '1' | '2' }
+
+function _shotmapFilterByPeriod(shots, period) {
+  if (period === '1') return shots.filter(s => (parseInt(s.minute) || 0) <= 45);
+  if (period === '2') return shots.filter(s => (parseInt(s.minute) || 0) > 45);
+  return shots;
+}
+
+function _setShotmapPeriod(mapKey, period) {
+  _shotmapPeriod[mapKey] = period;
+  const meta = _shotmapMeta[mapKey] || {};
+  const full = _shotmapFullCache[mapKey] || [];
+  const wrap = document.getElementById(`shotmapWrap_${mapKey}`);
+  if (!wrap) return;
+  wrap.outerHTML = _buildShotMapHtmlInner(_shotmapFilterByPeriod(full, period), meta.homeName, meta.awayName, mapKey, period);
+}
+
+function _toggleShotmapBody(mapKey, btn) {
+  const body = document.getElementById(`shotmapBody_${mapKey}`);
+  if (!body) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? 'Ocultar' : 'Mostrar';
+  localStorage.setItem('liveShotmapHidden', hidden ? '0' : '1');
+}
+
+function _shotmapBodyHtml(shots, homeName, awayName, mapKey) {
   const homeShots = shots.filter(s => s.isHome);
   const awayShots = shots.filter(s => !s.isHome);
   const homeGoals = homeShots.filter(s => s.shotType === 'goal').length;
   const awayGoals = awayShots.filter(s => s.shotType === 'goal').length;
+  const shotHidden = localStorage.getItem('liveShotmapHidden') === '1';
+  return `
+    <div id="shotmapBody_${mapKey}" style="${shotHidden ? 'display:none' : ''}">
+      ${_shotmapFieldSvg(homeShots, awayShots)}
+      <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
+        ${_shotmapStatBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
+        ${_shotmapStatBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+      </div>
+    </div>`;
+}
 
+function _shotmapStatBar(label, total, goals, color) {
+  return `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
+      <span style="color:var(--text2)">${label}</span>
+      <span style="font-weight:700;color:var(--text1)">${total} chutes</span>
+      <span style="color:#22c55e;font-weight:700">${goals} ⚽</span>
+    </div>`;
+}
+
+function buildShotMapHtml(shots, homeName, awayName, mapKey) {
+  mapKey = mapKey || `${homeName || ''}_${awayName || ''}`;
+  _shotmapFullCache[mapKey] = shots;
+  _shotmapMeta[mapKey] = { homeName, awayName };
+  const period = _shotmapPeriod[mapKey] || 'all';
+  const filteredShots = _shotmapFilterByPeriod(shots, period);
+  return _buildShotMapHtmlInner(filteredShots, homeName, awayName, mapKey, period);
+}
+
+// Desenha só o campo com os pontos de chute — separado do resto pra poder
+// ser reconstruído sozinho quando o filtro de período muda, sem duplicar
+// a lógica de coordenadas/medidas do campo.
+function _shotmapFieldSvg(homeShots, awayShots) {
   // Sistema de coordenadas UniScore:
   // playerCoordinates.x = distância até o gol atacado (0=boca do gol, 100=longe)
   // playerCoordinates.y = posição transversal (0=touchline cima, 100=touchline baixo)
@@ -11868,7 +11932,7 @@ function buildShotMapHtml(shots, homeName, awayName) {
     goalY: H * 0.446,
   };
 
-  const fieldSvg = `
+  return `
   <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
        style="width:100%;border-radius:8px;display:block">
     <defs>
@@ -11918,31 +11982,26 @@ function buildShotMapHtml(shots, homeName, awayName) {
     <!-- Chutes AWAY (laranja) — ataca gol DIREITO -->
     ${awayShots.map(s => shotIcon(s)).join('\n    ')}
   </svg>`;
+}
 
-  // Legenda contagens
-  const statBar = (label, total, goals, color) =>
-    `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
-      <span style="color:var(--text2)">${label}</span>
-      <span style="font-weight:700;color:var(--text1)">${total} chutes</span>
-      <span style="color:#22c55e;font-weight:700">${goals} ⚽</span>
-    </div>`;
+function _buildShotMapHtmlInner(shots, homeName, awayName, mapKey, period) {
+  const periodBtn = (val, lbl) => `<button onclick="_setShotmapPeriod('${mapKey}','${val}')"
+    style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;cursor:pointer;
+    border:1px solid ${period===val?'var(--accent)':'var(--border)'};
+    background:${period===val?'var(--accent)':'none'};color:${period===val?'#fff':'var(--text2)'}">${lbl}</button>`;
 
   const shotHidden = localStorage.getItem('liveShotmapHidden') === '1';
   return `
-  <div style="margin-top:4px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+  <div id="shotmapWrap_${mapKey}" style="margin-top:4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
       <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">⚽ MAPA DE CHUTES</div>
-      <button class="shotmap-toggle-btn" onclick="(function(){var b=document.getElementById('shotmapBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';localStorage.setItem('liveShotmapHidden','0');}else{b.style.display='none';btn.textContent='Mostrar';localStorage.setItem('liveShotmapHidden','1');}}).call(this)"
-              style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">${shotHidden ? 'Mostrar' : 'Ocultar'}</button>
-    </div>
-    <div id="shotmapBody" style="${shotHidden ? 'display:none' : ''}">
-      ${fieldSvg}
-      <div style="display:flex;justify-content:space-between;padding:6px 2px 0">
-        ${statBar(homeName || 'Casa', homeShots.length, homeGoals, '#3b82f6')}
-        ${statBar(awayName || 'Fora', awayShots.length, awayGoals, '#f97316')}
+      <div style="display:flex;align-items:center;gap:4px">
+        ${periodBtn('all', 'Geral')}${periodBtn('1', '1º Tempo')}${periodBtn('2', '2º Tempo')}
+        <button class="shotmap-toggle-btn" onclick="_toggleShotmapBody('${mapKey}', this)"
+                style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">${shotHidden ? 'Mostrar' : 'Ocultar'}</button>
       </div>
     </div>
+    ${_shotmapBodyHtml(shots, homeName, awayName, mapKey)}
   </div>`;
 }
 
