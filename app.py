@@ -7544,10 +7544,19 @@ def _sinais_notificar_telegram(item):
         return
     if item.get("status") != "1":
         return
+    # O status "1" (agendado) do feed pode demorar a virar "2"/"3" quando o jogo
+    # já começou/terminou — sem essa checagem, sugestões de jogos das 11h ainda
+    # apareciam notificadas às 17h porque o status não tinha atualizado a tempo.
+    # Confirma direto pelo horário: só notifica se o kickoff ainda está no futuro.
+    try:
+        kickoff = int(item.get("kickoff_ts") or 0)
+    except (TypeError, ValueError):
+        kickoff = 0
+    if not kickoff or kickoff <= time.time():
+        return
     hora = ""
     try:
-        if item.get("kickoff_ts"):
-            hora = datetime.fromtimestamp(int(item["kickoff_ts"])).strftime("%d/%m %H:%M")
+        hora = datetime.fromtimestamp(kickoff).strftime("%d/%m %H:%M")
     except (TypeError, ValueError, OSError):
         pass
     label = SINAIS_LABELS.get(item["signal"], item["signal"])
