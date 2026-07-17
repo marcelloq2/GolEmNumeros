@@ -2926,6 +2926,7 @@ function renderToday2Row(m) {
       <div style="text-align:center">
         ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
+        ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
       </div>
       <div>
         <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
