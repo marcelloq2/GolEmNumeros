@@ -1552,9 +1552,21 @@
         <option value="Média confiança">Só Média confiança</option>
         <option value="Baixa confiança">Só Baixa confiança</option>
       </select>
-      <select id="mapaFiltroSinal" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-        <option value="todos">Sinal: todos</option>
-      </select>
+      <div style="position:relative">
+        <button id="mapaSinalToggle" onclick="_mapaToggleSinalPanel(event)"
+          style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;white-space:nowrap">
+          Sinal: todos ⌄
+        </button>
+        <div id="mapaSinalPanel" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:20;
+             background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;min-width:220px;
+             box-shadow:0 4px 12px rgba(0,0,0,.3)">
+          <div id="mapaSinalOptions" style="display:flex;flex-direction:column;gap:4px;font-size:12px;max-height:260px;overflow-y:auto"></div>
+          <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+            <button onclick="_mapaSinalMarcarTodos(true)" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Marcar todos</button>
+            <button onclick="_mapaSinalMarcarTodos(false)" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Limpar</button>
+          </div>
+        </div>
+      </div>
       <select id="mapaFiltroStatus" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
         <option value="todos">Status: todos</option>
         <option value="3">Só finalizados</option>
@@ -2585,16 +2597,57 @@ function _mapaOnFiltroChange() {
   if (_sinaisCache) _mapaRenderSinais(_sinaisCache);
 }
 
+// Filtro de sinal virou múltipla escolha (checkboxes) — conjunto vazio
+// significa "todos", igual ao antigo value === 'todos' do <select>.
+let _mapaSinaisSelecionados = new Set();
+
+function _mapaToggleSinalPanel(ev) {
+  ev?.stopPropagation();
+  const panel = document.getElementById('mapaSinalPanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('mapaSinalPanel');
+  const toggle = document.getElementById('mapaSinalToggle');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(ev.target) || toggle?.contains(ev.target)) return;
+  panel.style.display = 'none';
+});
+
+function _mapaToggleSinal(key, checked) {
+  if (checked) _mapaSinaisSelecionados.add(key);
+  else _mapaSinaisSelecionados.delete(key);
+  _mapaUpdateSinalToggleLabel();
+  _mapaOnFiltroChange();
+}
+
+function _mapaSinalMarcarTodos(marcar) {
+  document.querySelectorAll('#mapaSinalOptions input[type=checkbox]').forEach(cb => {
+    cb.checked = marcar;
+    if (marcar) _mapaSinaisSelecionados.add(cb.value);
+  });
+  if (!marcar) _mapaSinaisSelecionados.clear();
+  _mapaUpdateSinalToggleLabel();
+  _mapaOnFiltroChange();
+}
+
+function _mapaUpdateSinalToggleLabel() {
+  const btn = document.getElementById('mapaSinalToggle');
+  if (!btn) return;
+  const n = _mapaSinaisSelecionados.size;
+  btn.textContent = (n === 0 ? 'Sinal: todos' : `Sinal: ${n} selecionado${n > 1 ? 's' : ''}`) + ' ⌄';
+}
+
 function _mapaFilterSugestoes(sugestoes) {
   const confSel = document.getElementById('mapaFiltroConfianca');
-  const sinalSel = document.getElementById('mapaFiltroSinal');
   const statusSel = document.getElementById('mapaFiltroStatus');
   const conf = confSel ? confSel.value : 'todas';
-  const sinal = sinalSel ? sinalSel.value : 'todos';
   const status = statusSel ? statusSel.value : 'todos';
   return sugestoes.filter(s =>
     (conf === 'todas' || (s.confianca && s.confianca.label === conf)) &&
-    (sinal === 'todos' || s.signal === sinal) &&
+    (_mapaSinaisSelecionados.size === 0 || _mapaSinaisSelecionados.has(s.signal)) &&
     (status === 'todos' || String(s.status) === status)
   );
 }
@@ -2613,12 +2666,15 @@ function _mapaRenderSinais(d) {
     return;
   }
 
-  // Popula o <select> de sinal uma única vez (na 1ª renderização) com os
+  // Popula as checkboxes de sinal uma única vez (na 1ª renderização) com os
   // rótulos que vieram do backend, pra não ficar hardcoded no HTML
-  const sinalSel = document.getElementById('mapaFiltroSinal');
-  if (sinalSel && sinalSel.options.length <= 1) {
-    sinalSel.innerHTML = `<option value="todos">Sinal: todos</option>` +
-      Object.entries(labels).map(([key, label]) => `<option value="${key}">${_bt2EscXml(label)}</option>`).join('');
+  const sinalOptions = document.getElementById('mapaSinalOptions');
+  if (sinalOptions && !sinalOptions.childElementCount) {
+    sinalOptions.innerHTML = Object.entries(labels).map(([key, label]) => `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 4px;border-radius:4px">
+        <input type="checkbox" value="${key}" onchange="_mapaToggleSinal('${key}', this.checked)">
+        ${_bt2EscXml(label)}
+      </label>`).join('');
   }
 
   const todasSugestoes = d.sugestoes || [];
@@ -2638,10 +2694,10 @@ function _mapaRenderSinais(d) {
     return;
   }
 
-  // Selo de sinal/confiança em cada card só faz sentido quando "Todos/Todas"
-  // está selecionado (mistura vários tipos na lista) — filtrando pra um
-  // valor específico, todo card mostraria o mesmo selo repetido à toa.
-  const sinalFiltrado = document.getElementById('mapaFiltroSinal')?.value !== 'todos';
+  // Selo de sinal em cada card só some quando exatamente 1 tipo está marcado
+  // (todo card mostraria o mesmo selo repetido à toa) — com 0 (todos) ou 2+
+  // sinais marcados, a lista mistura tipos e o selo continua útil.
+  const sinalFiltrado = _mapaSinaisSelecionados.size === 1;
   const confFiltrada = document.getElementById('mapaFiltroConfianca')?.value !== 'todas';
 
   const cardsHtml = sugestoes.map(s => {
