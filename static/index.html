@@ -1428,6 +1428,7 @@
             <button class="filter-btn" id="today2AoVivoBtn" onclick="toggleToday2AoVivo(this)" style="color:#ef4444">🔴 Ao Vivo</button>
             <button class="filter-btn" id="today2EncerradosBtn" onclick="toggleToday2Status('3', this)">Encerrados</button>
             <button class="filter-btn" id="today2ProximosBtn" onclick="toggleToday2Status('1', this)">Próximos</button>
+            <button class="filter-btn" id="today2FavoritosBtn" onclick="toggleToday2SoFavoritos(this)" style="color:#f59e0b">⭐ Favoritos</button>
           </div>
         </div>
 
@@ -3030,6 +3031,14 @@ function toggleToday2AoVivo(btn) {
   filterToday2();
 }
 
+let _today2SoFavoritos = false;
+
+function toggleToday2SoFavoritos(btn) {
+  _today2SoFavoritos = !_today2SoFavoritos;
+  btn.classList.toggle('active', _today2SoFavoritos);
+  filterToday2();
+}
+
 function toggleToday2Status(status, btn) {
   _today2StatusFiltro = (_today2StatusFiltro === status) ? null : status;
   document.getElementById('today2EncerradosBtn')?.classList.toggle('active', _today2StatusFiltro === '3');
@@ -3063,7 +3072,8 @@ function filterToday2() {
       const bateParametro = _today2MatchePassaParametros(m);
       const bateAnalise = _today2AnaliseQualifyingIds.size === 0 || _today2AnaliseQualifyingIds.has(String(m.id));
       const bateOdds = _today2MatchePassaFiltroOdds(m);
-      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateParametro && bateAnalise && bateOdds;
+      const bateFavorito = !_today2SoFavoritos || _today2Favorites.has(String(m.id));
+      const visivel = bateTexto && bateLiga && bateTurno && bateAoVivo && bateStatus && bateParametro && bateAnalise && bateOdds && bateFavorito;
       card.style.display = visivel ? '' : 'none';
       if (visivel) algumVisivel = true;
     });
