@@ -7359,9 +7359,39 @@ async function _live2RenderPreStats(matchId) {
       ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
     </div>
     <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Profit Mercados Tradicionais — Últimas 5 (Geral)</div>
-    <div id="live2ProfitBody_${matchId}">⏳ Calculando profit com odds históricas...</div>`;
+    <div id="live2ProfitBody_${matchId}">⏳ Calculando profit com odds históricas...</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Estatísticas — Minuto do gol, Valor do Gol, Custo do Gol 2.0, Saldo</div>
+    <div id="live2JogoStatsBody_${matchId}">⏳ Calculando (minutos de gol, 1º tempo, odds históricas)...</div>`;
 
   await _live2RenderProfitMarkets(matchId, { homeGeneral, homeCasa, awayGeneral, awayFora, tabs });
+  await _live2RenderJogoStats(matchId, tabs);
+}
+
+// Minuto médio do 1º gol, Valor do Gol, Custo do Gol 2.0, Saldo de Gols, Valor
+// do Saldo e Valor do Ponto — mesmas funções/enriquecimento já usados na aba
+// Jogo do Hoje 2 (_jogoStatsWithValor/_jogoStatsCardHtml), reaproveitando o
+// MESMO tabs (h2h) já buscado por essa aba, sem nenhuma busca nova.
+async function _live2RenderJogoStats(matchId, tabs) {
+  const body = document.getElementById(`live2JogoStatsBody_${matchId}`);
+  if (!body) return;
+  const homeCasaBlock = _jogoStatsRowsFromSection(tabs, 1, true);
+  const awayForaBlock = _jogoStatsRowsFromSection(tabs, 2, false);
+  if (!homeCasaBlock.rows.length && !awayForaBlock.rows.length) {
+    body.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem jogos suficientes</div>';
+    return;
+  }
+  await Promise.all([homeCasaBlock, awayForaBlock].map(b =>
+    Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])
+  ));
+  const freshBody = document.getElementById(`live2JogoStatsBody_${matchId}`);
+  if (!freshBody) return;
+  const sHome = _jogoStatsWithValor(homeCasaBlock.rows);
+  const sAway = _jogoStatsWithValor(awayForaBlock.rows);
+  freshBody.innerHTML = `
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(homeCasaBlock.teamName, sHome, null)}</div>
+      <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(awayForaBlock.teamName, sAway, null)}</div>
+    </div>`;
 }
 
 async function _live2RenderProfitMarkets(matchId, ctx) {
