@@ -7358,12 +7358,9 @@ async function _live2RenderPreStats(matchId) {
       ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
       ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Profit Mercados Tradicionais — Últimas 5 (Geral)</div>
-    <div id="live2ProfitBody_${matchId}">⏳ Calculando profit com odds históricas...</div>
     <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Estatísticas — Minuto do gol, Valor do Gol, Custo do Gol 2.0, Saldo</div>
     <div id="live2JogoStatsBody_${matchId}">⏳ Calculando (minutos de gol, 1º tempo, odds históricas)...</div>`;
 
-  await _live2RenderProfitMarkets(matchId, { homeGeneral, homeCasa, awayGeneral, awayFora, tabs });
   await _live2RenderJogoStats(matchId, tabs);
 }
 
@@ -7392,60 +7389,6 @@ async function _live2RenderJogoStats(matchId, tabs) {
       <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(homeCasaBlock.teamName, sHome, null)}</div>
       <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(awayForaBlock.teamName, sAway, null)}</div>
     </div>`;
-}
-
-async function _live2RenderProfitMarkets(matchId, ctx) {
-  const { homeGeneral, homeCasa, awayGeneral, awayFora, tabs } = ctx;
-  // Só o recorte "Últimas 5 (Geral)" — os outros (Geral/Casa/Fora) foram removidos
-  // a pedido do usuário, esse é o único que importa aqui
-  const scope = 3;
-  let blocks;
-  if (scope === 0) blocks = [homeGeneral, awayGeneral];
-  else if (scope === 1) blocks = [homeCasa];
-  else if (scope === 2) blocks = [awayFora];
-  else blocks = [_profitTeamRowsFromSection(tabs, 0, true, 5), _profitTeamRowsFromSection(tabs, 0, false, 5)];
-
-  const allIds = blocks.flatMap(b => b.rows.map(r => r.id));
-  await _ensureToday2Odds(allIds);
-
-  const cache = _live2PreStatsCache[matchId] || {};
-  if (!cache._oddsMarkets) {
-    const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-    if (m) {
-      try {
-        const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-        const r = await fetch(`/api/flashscore/odds_all?${params}`);
-        const d = await r.json();
-        cache._oddsMarkets = d.markets || {};
-      } catch (e) {
-        cache._oddsMarkets = {};
-      }
-    }
-  }
-
-  const body = document.getElementById(`live2ProfitBody_${matchId}`);
-  if (!body) return;
-
-  let aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
-  if (scope === 3) {
-    // "Últimas 5 (Geral)" só mostra seleções com acerto perfeito (5/5) — mesmo
-    // critério já usado na aba Hoje, qualquer coisa abaixo disso é ruído de amostra
-    aggs = aggs.map(agg => {
-      const filtered = {};
-      for (const [mk, sels] of Object.entries(agg)) {
-        const keptSels = Object.fromEntries(
-          Object.entries(sels).filter(([, r]) => r.bets === 5 && r.wins === 5)
-        );
-        if (Object.keys(keptSels).length) filtered[mk] = keptSels;
-      }
-      return filtered;
-    });
-  }
-
-  const blockHtml = (b, agg) => `
-    <div style="font-size:11px;font-weight:700;margin:8px 0 4px">⚽ ${b.teamName || '—'}</div>
-    ${_profitTableHtml(agg, PROFIT_MARKET_LABELS_TRADICIONAL, cache._oddsMarkets)}`;
-  body.innerHTML = blocks.map((b, i) => blockHtml(b, aggs[i])).join('');
 }
 
 // Escudos — link direto pro CDN de imagens da fonte (/api/flashscore/match já traz
