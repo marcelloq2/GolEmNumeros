@@ -7520,6 +7520,46 @@ def _sinais_compute(permitir_calcular=True):
         _SINAIS_LOCK.release()
 
 
+# ── Notificação no Telegram — só sugestões novas de Alta confiança, de jogos
+# que ainda não começaram (status "1"), qualquer um dos 8 sinais. Token/chat
+# id vêm de variável de ambiente (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID), mesmo
+# padrão já usado pro GITHUB_TOKEN — nunca ficam escritos no código/git.
+def _telegram_send(text):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        return
+    try:
+        http_req.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"[telegram] Erro ao enviar mensagem: {e}")
+
+
+def _sinais_notificar_telegram(item):
+    if not item.get("confianca") or item["confianca"].get("label") != "Alta confiança":
+        return
+    if item.get("status") != "1":
+        return
+    hora = ""
+    try:
+        if item.get("kickoff_ts"):
+            hora = datetime.fromtimestamp(int(item["kickoff_ts"])).strftime("%d/%m %H:%M")
+    except (TypeError, ValueError, OSError):
+        pass
+    label = SINAIS_LABELS.get(item["signal"], item["signal"])
+    texto = (
+        f"🎯 <b>Sinal do Dia — {label}</b>\n"
+        f"{item.get('home','')} x {item.get('away','')}\n"
+        f"{item.get('liga','')} ({item.get('pais','')}) — {hora}\n\n"
+        f"{item.get('headline') or item.get('detail') or ''}"
+    )
+    _telegram_send(texto.strip())
+
+
 def _sinais_compute_locked():
     now = time.time()
     today_str = datetime.now().strftime("%Y-%m-%d")
@@ -7618,6 +7658,7 @@ def _sinais_compute_locked():
                 "status": m.get("status"), "acertou": None,
                 "confianca": _sinais_confianca(c.get("n") or 0, c.get("pct") or 0),
             }
+            _sinais_notificar_telegram(sugestoes[uid])
 
     # Atualiza status/acertou de tudo que já está na lista (mesmo que o jogo
     # tenha saído da janela de candidatos acima)
