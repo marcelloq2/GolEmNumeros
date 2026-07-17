@@ -7384,11 +7384,26 @@ async function _live2RenderJogoStats(matchId, tabs) {
   if (!freshBody) return;
   const sHome = _jogoStatsWithValor(homeCasaBlock.rows);
   const sAway = _jogoStatsWithValor(awayForaBlock.rows);
-  freshBody.innerHTML = `
-    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-      <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(homeCasaBlock.teamName, sHome, null)}</div>
-      <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(awayForaBlock.teamName, sAway, null)}</div>
-    </div>`;
+
+  const renderCards = (mediaCasa, mediaFora) => {
+    const box = document.getElementById(`live2JogoStatsBody_${matchId}`);
+    if (!box) return;
+    box.innerHTML = `
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(homeCasaBlock.teamName, sHome, mediaCasa)}</div>
+        <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(awayForaBlock.teamName, sAway, mediaFora)}</div>
+      </div>`;
+  };
+
+  renderCards(null, null);
+
+  // Médias gerais (pro "méd:" verde/vermelho, igual à aba Jogo do Hoje) NÃO
+  // travam a renderização — reaproveita o mesmo cache já usado lá
+  // (_jogoEnsureMediasGerais), sem nenhuma busca nova; só completa o card
+  // quando/se a média chegar (pode levar minutos na 1ª vez do dia).
+  _jogoEnsureMediasGerais().then(mediasGerais => {
+    if (mediasGerais?.casa || mediasGerais?.fora) renderCards(mediasGerais?.casa, mediasGerais?.fora);
+  }).catch(() => {});
 }
 
 // Escudos — link direto pro CDN de imagens da fonte (/api/flashscore/match já traz
