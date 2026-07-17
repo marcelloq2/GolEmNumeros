@@ -6249,6 +6249,36 @@ function _today2PowerRankingHtml(rows) {
     </div>`;
 }
 
+// "Must win" — jogo com peso extra porque um dos dois times de hoje está na
+// zona de rebaixamento ou brigando por vaga de classificação. Mesmo critério
+// de zona (posicional) já usado pra colorir a borda da tabela em
+// _today2StandingsTableHtml, só reaproveitado aqui — não busca nada novo.
+// Tabela pequena (grupo de copa, playoff curto) não entra: sem tabela de
+// pontos corridos de verdade, "zona" não quer dizer muita coisa.
+function _today2MustWinNote(rows) {
+  const n = rows.length;
+  if (n < 6) return '';
+  const destacados = rows.filter(r => r.destacado);
+  if (!destacados.length) return '';
+  const zonaAcesso = Math.min(4, Math.ceil(n * 0.2));
+  const zonaRebaixamento = n - Math.max(2, Math.floor(n * 0.15));
+  const notas = destacados.map(r => {
+    const pos = parseInt(r.pos) || 0;
+    if (!pos) return null;
+    if (pos > zonaRebaixamento) return { team: r.team, label: 'na zona de rebaixamento', color: '#ef4444', pos, n };
+    if (pos <= zonaAcesso) return { team: r.team, label: 'brigando por vaga de classificação', color: '#22c55e', pos, n };
+    return null;
+  }).filter(Boolean);
+  if (!notas.length) return '';
+  return `
+    <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px">
+      ${notas.map(x => `
+        <div style="background:${x.color}18;border:1px solid ${x.color}55;border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text)">
+          ⚠️ <b>${x.team}</b> está ${x.label} (${x.pos}º de ${x.n}) — jogo "must win", precisa vencer.
+        </div>`).join('')}
+    </div>`;
+}
+
 function _buildToday2StandingsHtml(d, matchId) {
   if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>';
   const rows = d.rows || [];
@@ -6257,6 +6287,7 @@ function _buildToday2StandingsHtml(d, matchId) {
   const btn = (v, lbl) => `<button onclick="_setToday2StandingsView('${matchId}','${v}')" style="font-size:14px;font-weight:600;padding:5px 12px;border-radius:6px;
     border:1px solid ${view===v?'var(--accent)':'var(--border)'};background:${view===v?'var(--accent)':'var(--bg2)'};color:${view===v?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`;
   return `
+    ${_today2MustWinNote(rows)}
     <div style="display:flex;gap:6px;margin-bottom:10px">
       ${btn('tabela', 'Tabela')}
       ${btn('power', '⚡ Power Ranking')}
