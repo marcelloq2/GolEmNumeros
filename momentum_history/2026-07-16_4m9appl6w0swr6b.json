@@ -1,7 +1,7 @@
 {
   "event_id": "4m9appl6w0swr6b",
   "date": "2026-07-16",
-  "saved_at": "2026-07-16T10:52:41.870457",
+  "saved_at": "2026-07-16T07:50:37.415749",
   "source": "uniscore",
   "casa": "Mahar Utd U20",
   "fora": "Yadanarbon U20",
@@ -378,18 +378,6 @@
     {
       "minute": 93,
       "value": -30
-    },
-    {
-      "minute": 94,
-      "value": -30
-    },
-    {
-      "minute": 95,
-      "value": 20
-    },
-    {
-      "minute": 96,
-      "value": 0
     }
   ],
   "goals": [
@@ -537,22 +525,22 @@
         "awayValue": 5
       },
       "ball_possession": {
-        "home": "52%",
-        "away": "48%",
-        "homeValue": 52,
-        "awayValue": 48
+        "home": "56%",
+        "away": "44%",
+        "homeValue": 56,
+        "awayValue": 44
       }
     }
   },
   "pressure_summary": {
-    "overall_avg": -8.052,
-    "h1_avg": -8.146,
-    "h2_avg": -7.958,
-    "home_dominance_pct": 35.4,
+    "overall_avg": -8.204,
+    "h1_avg": -9.196,
+    "h2_avg": -7.234,
+    "home_dominance_pct": 35.5,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 46,
-    "total_points": 96
+    "momentum_swings": 44,
+    "total_points": 93
   },
   "xg": {
     "home": 0.92,
@@ -567,11 +555,11 @@
     "n_fields": 4
   },
   "opening_odds": {
-    "h": "3.75",
-    "x": "4.10",
-    "a": "1.65",
+    "h": "1.02",
+    "x": "19.00",
+    "a": "101.00",
     "ou_line": "3.5",
-    "ou_over": "1.98",
-    "ou_under": "1.83"
+    "ou_over": "5.25",
+    "ou_under": "1.12"
   }
 }
