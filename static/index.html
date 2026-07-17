@@ -1993,47 +1993,20 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('🔴 Ao Vivo', 'Filtra só as partidas que estão rolando agora')}
         ${_guiaRow('Encerrados', 'Só jogos que já terminaram hoje')}
         ${_guiaRow('Próximos', 'Só jogos que ainda não começaram')}
-        (Esses 3 botões de status podem ser combinados com o turno e a liga ao mesmo tempo.)<br><br>
-        <b>77 / ↻:</b> o número mostra quantas partidas estão carregadas no total; o botão ↻ força atualizar a lista na hora, sem esperar o auto-refresh (que acontece sozinho a cada 20s).`),
+        ${_guiaRow('⭐ Favoritos', 'Mostra só os jogos que você marcou com a estrela')}
+        (Esses botões de status podem ser combinados com o turno e a liga ao mesmo tempo.)<br><br>
+        <b>Ordenar:</b> "Liga" agrupa por competição (ordem alfabética); "Horário" mostra tudo numa lista só corrida, do mais cedo pro mais tarde.<br><br>
+        <b>Número / ↻:</b> mostra quantas partidas estão carregadas no total; o botão ↻ força atualizar a lista na hora, sem esperar o auto-refresh (que acontece sozinho a cada 20s, sem piscar a tela nem perder sua posição de rolagem).`),
 
-      _guiaSec('⚙️', 'Filtrar por Parâmetros', `
-        Painel recolhível — clique no cabeçalho pra abrir/fechar. Filtra os jogos de hoje pelas <b>odds atuais</b> (busca só é feita quando você abre esse painel pela 1ª vez, pra não sobrecarregar à toa).<br><br>
-        <b>Resultado Final:</b><br>
-        ${_guiaRow('Super Favorito', 'Um dos dois times tem probabilidade implícita muito alta na odd 1X2')}
-        ${_guiaRow('Favorito', 'Um dos dois times é favorito, mas não de forma esmagadora')}
-        ${_guiaRow('Parelho', 'Odds bem próximas entre os dois lados — jogo equilibrado no papel')}
-        ${_guiaRow('Casa / Fora', 'Filtra por qual lado é o favorito, casa ou visitante')}
-        <br><b>Gols:</b> Over (tendência de mais gols pela odd de mercado) ou Under (tendência de menos gols).<br><br>
-        <b>Ambas Marcam:</b> Sim ou Não, conforme a odd do mercado "Ambos Marcam" de hoje.<br><br>
-        <b>Odd Casa/Fora:</b> compara a odd atual de um lado (Casa ou Fora) contra um valor que você escolhe, usando os operadores <b>&gt;</b> maior que, <b>≥</b> maior ou igual, <b>&lt;</b> menor que, <b>≤</b> menor ou igual, ou <b>↔</b> entre dois valores.<br><br>
-        <b>🗑 (lixeira):</b> limpa todos os filtros desse painel de uma vez.`),
-
-      _guiaSec('🔎', 'Filtrar por Análise (as ~15 regras automáticas)', `
-        Painel recolhível igual ao de Parâmetros, mas em vez de odds, cada regra roda o mesmo motor de leitura automática usado na 🧠 Leitura da Partida contra o histórico dos dois times — e só mostra os jogos de hoje que batem com as regras que você marcar. Marcar várias regras combina em <b>E</b> (todas precisam bater) ou <b>OU</b> (qualquer uma serve) — tem uma chave pra escolher o modo.<br><br>
-        <b>Grupo Gols:</b><br>
-        ${_guiaRow('Valor em Gols (Over)', 'Algum dos dois times tem ≥70% dos jogos recentes (no recorte casa-em-casa/fora-fora) acima de 2,5 gols')}
-        ${_guiaRow('Valor em Gols (Under)', 'Mesma lógica, só que ≥70% abaixo de 2,5 gols')}
-        <br><b>Grupo Padrão de Gols</b> (usa qual time é o favorito pela odd de hoje):<br>
-        ${_guiaRow('Favorito abre o placar', 'O favorito marcou o 1º gol em ≥60% dos jogos recentes dele')}
-        ${_guiaRow('Zebra toma o 1º gol', 'O time não-favorito sofreu o 1º gol em ≥60% dos jogos recentes dele')}
-        ${_guiaRow('Favorito sai na frente mas não segura', 'Em ≥40% dos jogos em que o favorito marcou primeiro, ele não venceu')}
-        ${_guiaRow('Favorito busca depois de atrás', 'Em ≥40% dos jogos em que o favorito sofreu o 1º gol, ele conseguiu não perder')}
-        ${_guiaRow('Favorito fecha bem', 'O favorito estava na frente aos 75min em ≥55% dos jogos recentes dele')}
-        ${_guiaRow('Zebra toma no final', 'O não-favorito sofreu gol nos minutos finais em ≥30% dos jogos recentes dele (acima do esperado por acaso, ~16,7%)')}
-        <br><b>Grupo Desempenho</b> (taxa de vitória isolada, sem depender de tabela):<br>
-        ${_guiaRow('Bom mandante', '≥60% de vitórias como mandante nos últimos jogos em casa')}
-        ${_guiaRow('Bom visitante', '≥50% de vitórias como visitante (piso menor que o mandante, porque ganhar fora é estruturalmente mais raro no futebol)')}
-        ${_guiaRow('Mau mandante / visitante', '≤25% de vitórias no recorte correspondente')}
-        <br><b>Grupo Peso da Camisa</b> (o favorito de hoje historicamente não corresponde ao favoritismo):<br>
-        ${_guiaRow('Peso da Camisa (mandante)', 'O mandante é favorito hoje, mas venceu menos de 50% dos jogos em casa')}
-        ${_guiaRow('Peso da Camisa (visitante)', 'O visitante é favorito hoje, mas venceu menos de 40% dos jogos fora')}
-        ${_guiaRow('Peso da Camisa (qualquer lado)', 'Bate se qualquer uma das duas de cima bater')}
-        <br><b>Grupo Extra:</b><br>
-        ${_guiaRow('Jogo complexo', 'Sinaliza quando quase nenhuma outra regra bateu pra esse jogo (1 ou menos) — ou seja, não há leitura automática clara pra ele')}
-        <br><i>Todas as regras exigem amostra mínima de 8 jogos no recorte usado — sem isso, a regra simplesmente não é avaliada pra aquele time (nem conta como falsa nem como verdadeira).</i>`),
+      _guiaSec('💰', 'Filtro por Odds', `
+        Filtra a lista pelas <b>odds atuais</b> de um mercado específico (busca só é feita quando você aperta "Aplicar" pela 1ª vez, pra não sobrecarregar à toa — cobre só os jogos mais próximos por horário, não todos os do dia inteiro).<br><br>
+        <b>Mercado:</b> 1X2 (Casa/Empate/Fora), Acima/Abaixo (linhas de 1,5 a 3,5 gols), Ambas Marcam (Sim/Não) ou Placar Exato (qualquer um dos 19 placares fixos).<br><br>
+        <b>Operador:</b> <b>≤</b> menor ou igual, <b>≥</b> maior ou igual, <b>&gt;</b> maior que, <b>=</b> igual, ou <b>entre</b> (faixa com dois valores).<br><br>
+        Depois de aplicar, aparece um selo mostrando o filtro ativo, com um ✕ pra limpar.`),
 
       _guiaSec('📋', 'Lista de partidas', `
-        Agrupada por liga (com bandeira do país e nome do campeonato). Cada linha mostra os dois times, escudos (quando disponíveis na fonte), horário/placar e status (🕐 Agendado, 🔴 Ao vivo, ✅ Encerrado).<br><br>
+        Agrupada por liga (com bandeira do país e nome do campeonato) ou em lista corrida por horário, dependendo da ordenação escolhida. Cada linha mostra os dois times, escudos (quando disponíveis na fonte), horário/placar, status (🕐 Agendado, 🔴 Ao vivo, ✅ Encerrado) e a estrela ⭐ de favorito.<br><br>
+        <b>⭐ Favoritar:</b> clique na estrela pra marcar aquele jogo — fica salvo no seu navegador (não sincroniza entre dispositivos) e pode ser filtrado com o botão "Favoritos" logo acima da lista.<br><br>
         Clique em qualquer partida pra abrir o painel de detalhe à direita, com as abas descritas abaixo.`),
 
       _guiaSec('⚽', 'Aba "Jogo" — estatísticas dos últimos jogos de cada time', `
@@ -2054,16 +2027,19 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('Saldo de Gols', 'Gols marcados menos sofridos, cru, sem pesar pela força do adversário')}
         ${_guiaRow('Valor do Saldo', 'Saldo × probabilidade do adversário vencer — mesmo saldo vale mais contra time forte')}
         ${_guiaRow('Valor do Ponto', 'Pontos (V=3/E=1/D=0) × probabilidade do adversário vencer — 3 pontos contra o líder valem mais que 3 pontos contra o lanterna')}
-        <br>Passe o mouse sobre qualquer linha pra ver uma dica explicando exatamente como aquele número é calculado e com quantos jogos.`),
+        <br>Passe o mouse sobre qualquer linha pra ver uma dica explicando exatamente como aquele número é calculado e com quantos jogos.<br><br>
+        <b>📋 Confronto Direto — Estatísticas:</b> logo abaixo dos recortes Geral/Casa/Fora, as mesmas estatísticas só que calculadas em cima só dos últimos 5 jogos entre esses dois times específicos (mesmo bloco que aparece na aba H2H).`),
 
       _guiaSec('💰', 'Aba "Odds"', `
         Mostra as odds atuais oferecidas pra essa partida nos principais mercados: 1X2 (Casa/Empate/Fora), Over/Under em várias linhas de gols, Ambas Marcam, Placar Exato e Handicap Asiático — puxadas direto da Flashscore.`),
 
       _guiaSec('📅', 'Aba "H2H"', `
-        Histórico dos confrontos diretos entre os dois times (quando existir), mais os últimos jogos de cada time separadamente — é a fonte de dados crua que alimenta as abas Jogo, Profit, Placares Corretos e Leitura da Partida.`),
+        Histórico dos confrontos diretos entre os dois times (quando existir), mais os últimos jogos de cada time separadamente — é a fonte de dados crua que alimenta as abas Jogo, Profit, Placares Corretos e Leitura da Partida.<br><br>
+        <b>📋 Confronto Direto — Estatísticas:</b> logo no topo, as mesmas estatísticas detalhadas da aba Jogo (vitórias/empates/derrotas, médias, Valor do Gol, Custo do Gol 2.0, Saldo de Gols etc), mas calculadas só em cima dos últimos 5 jogos entre esses dois times específicos — não do histórico geral de cada um. Só aparece com pelo menos 3 confrontos diretos no histórico.`),
 
       _guiaSec('🏆', 'Aba "Classificações"', `
-        Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.`),
+        Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.<br><br>
+        <b>⚠️ Aviso de "must win":</b> quando um dos dois times está na zona de rebaixamento ou brigando por vaga de classificação, aparece um aviso no topo da aba. Não aparece em partidas sem tabela de pontos corridos (copas, grupos, mata-mata).`),
 
       _guiaSec('📈', 'Aba "Profit Mercados Tradicionais"', `
         Simula, pro histórico de cada time, quanto teria rendido apostar em cada seleção de cada mercado tradicional (1X2, Over/Under, Ambas Marcam, Dupla Chance, Handicap Asiático) toda vez que ela apareceu.<br><br>
@@ -2079,7 +2055,8 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('Tendência de gols', 'Over/Under muito unilateral cruzado com a linha de odd de hoje')}
         ${_guiaRow('Placar raro com odd curta', 'Um placar que nunca ocorreu no histórico de nenhum dos dois times, mas a odd de hoje pra ele está baixa demais pra essa raridade')}
         ${_guiaRow('Estatística de maior probabilidade', 'Varre todas as % da aba Jogo dos dois times e destaca a mais alta de todas')}
-        <br><b>📈 Estatísticas acima da média (aba Jogo):</b> logo abaixo dos cards, uma tabela compacta por time (separada em jogando em casa / jogando fora) listando TODAS as estatísticas da aba Jogo em que aquele time está acima da média do dia — vitórias, gols, chance de marcar, ambas marcam, over/under. É puramente descritivo (não julga se "acima" é bom ou ruim pra cada estatística específica), com uma margem mínima pra evitar ruído tipo "24% vs média 24%" aparecer como se fosse diferença real.`),
+        <br><b>📈 Estatísticas acima da média (aba Jogo):</b> logo abaixo dos cards, uma tabela compacta por time (separada em jogando em casa / jogando fora) listando TODAS as estatísticas da aba Jogo em que aquele time está acima da média do dia — vitórias, gols, chance de marcar, ambas marcam, over/under. É puramente descritivo (não julga se "acima" é bom ou ruim pra cada estatística específica), com uma margem mínima pra evitar ruído tipo "24% vs média 24%" aparecer como se fosse diferença real.<br><br>
+        <b>⬇️ Baixar TXT:</b> botão no topo da aba — baixa um arquivo de texto com todos os cards (frase, detalhe e confiança) e as estatísticas acima da média, pronto pra colar num assistente de IA (ChatGPT etc) e pedir uma análise da partida.`),
 
       _guiaSec('🛡️', 'Escudos e outros detalhes', `
         Escudos dos times aparecem direto na lista e no cabeçalho de detalhe quando a fonte disponibiliza a imagem.`),
