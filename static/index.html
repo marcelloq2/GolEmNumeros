@@ -2732,6 +2732,12 @@ function _renderToday2MatchList(matches) {
     return;
   }
 
+  // Preserva scroll e quais ligas estavam recolhidas — sem isso, todo refresh
+  // automático (a cada 20s) reconstruía a lista do zero e "pulava" pro topo e
+  // reabria tudo, dando a sensação de piscar.
+  const scrollTop = wrap.scrollTop;
+  const recolhidas = new Set([...wrap.querySelectorAll('[data-liga-key].collapsed')].map(el => el.dataset.ligaKey));
+
   if (_today2SortMode === 'horario') {
     const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
     wrap.innerHTML = `<div class="league-group" id="group2_0" data-liga-key="__todos">
@@ -2739,6 +2745,7 @@ function _renderToday2MatchList(matches) {
         ${ordenados.map(m => renderToday2Row(m)).join('')}
       </div>
     </div>`;
+    wrap.scrollTop = scrollTop;
     return;
   }
 
@@ -2754,8 +2761,9 @@ function _renderToday2MatchList(matches) {
   wrap.innerHTML = ordemLigas.map((key, idx) => {
     const grupo = porLiga[key];
     const { pais, liga } = grupo[0];
+    const collapsed = recolhidas.has(key) ? ' collapsed' : '';
     return `
-      <div class="league-group" id="group2_${idx}" data-liga-key="${key}">
+      <div class="league-group${collapsed}" id="group2_${idx}" data-liga-key="${key}">
         <div class="league-header" onclick="toggleLeague2(${idx})">
           <span class="league-flag">${_h2hFlag(pais)}</span>
           <span>${liga} <span style="font-weight:400;opacity:.7">(${pais})</span></span>
@@ -2767,15 +2775,21 @@ function _renderToday2MatchList(matches) {
         </div>
       </div>`;
   }).join('');
+  wrap.scrollTop = scrollTop;
 }
 
 async function loadToday2Matches() {
   const wrap = document.getElementById('today2Wrap');
   if (!wrap) return;
-  wrap.innerHTML = `<div class="live-empty">
-    <div style="font-size:32px">🧪</div>
-    <div style="font-size:13px;font-weight:600">Carregando jogos de hoje...</div>
-  </div>`;
+  // Só mostra a tela de "Carregando..." na 1ª vez (lista ainda vazia) — nos
+  // refreshes automáticos seguintes (a cada 20s) isso piscava a lista inteira
+  // pra um estado em branco e de volta, mesmo sem nada de novo pra mostrar.
+  if (!today2MatchesCache.length) {
+    wrap.innerHTML = `<div class="live-empty">
+      <div style="font-size:32px">🧪</div>
+      <div style="font-size:13px;font-weight:600">Carregando jogos de hoje...</div>
+    </div>`;
+  }
   try {
     const res = await fetch('/api/flashscore/today');
     const data = await res.json();
