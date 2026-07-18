@@ -2553,7 +2553,7 @@ function switchView(view, btn) {
     _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
   } else if (view === 'mapa') {
     mapaWrapper.style.display = 'flex';
-    _mapaLoad();
+    _mapaLoad(true);
     // Atualização automática do placar/resultado — o backend só recalcula de
     // verdade a cada 30min (cache próprio), então isso aqui é barato: na
     // maioria das vezes só busca o mesmo resultado já pronto, mas garante
