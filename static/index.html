@@ -5910,79 +5910,71 @@ async function _placarContraLoadStats(id, m) {
   if (!tabs.length) { statsBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>'; return; }
 
   statsBox.innerHTML = `
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — ${m.home} em casa / ${m.away} fora</div>
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — Geral e Casa/Fora</div>
     <div id="placarContraJogoBody_${id}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>`;
 
   // Confronto Direto — dispara em paralelo, não bloqueia o resto.
   _today2H2hStatsCards(id, tabs, m.home, m.away, 'placarContraH2hBox');
 
-  // Sempre Casa (mandante jogando em casa) x Fora (visitante jogando fora) —
-  // é o recorte que interessa pra estimar o jogo de hoje, diferente do escopo
-  // "Geral" (que mistura jogos em casa e fora) usado na aba Jogo original.
-  const blocks = [_jogoStatsRowsFromSection(tabs, 1, true), _jogoStatsRowsFromSection(tabs, 2, false)];
+  // 4 blocos: Geral e Casa pro mandante, Geral e Fora pro visitante — o Geral
+  // (histórico completo, casa+fora misturado) importa como base mais estável
+  // (amostra maior), e o Casa/Fora reflete o recorte específico do jogo de
+  // hoje. Os dois entram na sugestão de placar, não só o recorte específico.
+  const blocks = [
+    _jogoStatsRowsFromSection(tabs, 0, true),  // mandante — Geral
+    _jogoStatsRowsFromSection(tabs, 1, true),  // mandante — Casa
+    _jogoStatsRowsFromSection(tabs, 0, false), // visitante — Geral
+    _jogoStatsRowsFromSection(tabs, 2, false), // visitante — Fora
+  ];
+  const BLOCK_LABELS = ['Geral', 'Casa', 'Geral', 'Fora'];
 
   const mediasGeraisPromise = _jogoEnsureMediasGerais();
 
   await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
   if (_placarContraSelectedId !== id) return;
 
-  const renderCards = (mediaScope) => {
+  const computeBlockStats = (b) => {
+    const s = _jogoComputeStats(b.rows);
+    const gv = _jogoGolValorStats(b.rows);
+    if (s && gv) {
+      s.avgValorGolMarcado = gv.avgValorGolMarcado;
+      s.avgValorGolSofrido = gv.avgValorGolSofrido;
+      s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+      s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+      s.nGolValor = gv.n;
+      s.avgSaldo = gv.avgSaldo;
+      s.nSaldo = gv.nSaldo;
+      s.avgValorSaldo = gv.avgValorSaldo;
+      s.avgValorPonto = gv.avgValorPonto;
+    }
+    return s;
+  };
+
+  const renderCards = (mediaGeral, mediaCasa, mediaFora) => {
     const body = document.getElementById(`placarContraJogoBody_${id}`);
     if (!body) return;
-    const cardsHtml = blocks.map(b => {
-      const s = _jogoComputeStats(b.rows);
-      const gv = _jogoGolValorStats(b.rows);
-      if (s && gv) {
-        s.avgValorGolMarcado = gv.avgValorGolMarcado;
-        s.avgValorGolSofrido = gv.avgValorGolSofrido;
-        s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
-        s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
-        s.nGolValor = gv.n;
-        s.avgSaldo = gv.avgSaldo;
-        s.nSaldo = gv.nSaldo;
-        s.avgValorSaldo = gv.avgValorSaldo;
-        s.avgValorPonto = gv.avgValorPonto;
-      }
-      return _jogoStatsCardHtml(b.teamName, s, mediaScope);
-    });
-    body.innerHTML = `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-         ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
+    const medias = [mediaGeral, mediaCasa, mediaGeral, mediaFora];
+    const cardsHtml = blocks.map((b, i) =>
+      _jogoStatsCardHtml(`${b.teamName} (${BLOCK_LABELS[i]})`, computeBlockStats(b), medias[i]));
+    body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start">
+         ${cardsHtml.map(h => `<div>${h}</div>`).join('')}
        </div>`;
   };
 
-  renderCards(null);
+  renderCards(null, null, null);
 
-  const sHome = _jogoComputeStats(blocks[0].rows);
-  const sAway = _jogoComputeStats(blocks[1].rows);
-  _placarContraRenderSugestao(sHome, sAway, m.home, m.away);
+  // A sugestão de placar cruza Geral e Casa/Fora de cada lado (média simples
+  // dos dois), pra não depender só do recorte específico (que às vezes tem
+  // amostra pequena) nem só do geral (que mistura casa+fora).
+  const sHomeGeral = computeBlockStats(blocks[0]);
+  const sHomeCasa = computeBlockStats(blocks[1]);
+  const sAwayGeral = computeBlockStats(blocks[2]);
+  const sAwayFora = computeBlockStats(blocks[3]);
+  _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
 
   mediasGeraisPromise.then(mediasGerais => {
     if (_placarContraSelectedId !== id) return;
-    // Casa usa a média geral "casa", Fora usa a média geral "fora" — cada
-    // bloco compara com o recorte equivalente do dia, igual à aba Jogo.
-    const cardsHtml = blocks.map((b, i) => {
-      const s = _jogoComputeStats(b.rows);
-      const gv = _jogoGolValorStats(b.rows);
-      if (s && gv) {
-        s.avgValorGolMarcado = gv.avgValorGolMarcado;
-        s.avgValorGolSofrido = gv.avgValorGolSofrido;
-        s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
-        s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
-        s.nGolValor = gv.n;
-        s.avgSaldo = gv.avgSaldo;
-        s.nSaldo = gv.nSaldo;
-        s.avgValorSaldo = gv.avgValorSaldo;
-        s.avgValorPonto = gv.avgValorPonto;
-      }
-      const media = mediasGerais?.[i === 0 ? 'casa' : 'fora'];
-      return _jogoStatsCardHtml(b.teamName, s, media);
-    });
-    const body = document.getElementById(`placarContraJogoBody_${id}`);
-    if (body) {
-      body.innerHTML = `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-           ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
-         </div>`;
-    }
+    renderCards(mediasGerais?.geral, mediasGerais?.casa, mediasGerais?.fora);
   });
 }
 
@@ -6000,12 +5992,25 @@ function _poissonPmf(k, lambda) {
   return Math.exp(-lambda) * Math.pow(lambda, k) / fat;
 }
 
-function _placarContraPoissonRanking(sHome, sAway) {
-  if (!sHome || !sAway || !sHome.n || !sAway.n) return null;
-  // Gols esperados do mandante hoje: média do que ele costuma marcar em casa
-  // e do que o visitante costuma sofrer fora (e vice-versa pro visitante).
-  const lambdaHome = (sHome.mediaMarcados + sAway.mediaSofridos) / 2;
-  const lambdaAway = (sAway.mediaMarcados + sHome.mediaSofridos) / 2;
+function _poissonAvgOf(...vals) {
+  const valid = vals.filter(v => v !== undefined && v !== null && !isNaN(v));
+  return valid.length ? valid.reduce((a, v) => a + v, 0) / valid.length : null;
+}
+
+function _placarContraPoissonRanking(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora) {
+  if (!sHomeCasa?.n || !sAwayFora?.n) return null;
+  // Gols esperados do mandante hoje: média entre (a) ataque do mandante —
+  // Geral e Casa — e (b) defesa do visitante — Geral e Fora — e vice-versa
+  // pro visitante. O Geral entra pra dar mais estabilidade (amostra maior,
+  // menos sujeito a oscilação de poucos jogos), o Casa/Fora entra porque é
+  // o recorte específico do jogo de hoje.
+  const ataqueHome = _poissonAvgOf(sHomeGeral?.mediaMarcados, sHomeCasa.mediaMarcados);
+  const defesaAway = _poissonAvgOf(sAwayGeral?.mediaSofridos, sAwayFora.mediaSofridos);
+  const ataqueAway = _poissonAvgOf(sAwayGeral?.mediaMarcados, sAwayFora.mediaMarcados);
+  const defesaHome = _poissonAvgOf(sHomeGeral?.mediaSofridos, sHomeCasa.mediaSofridos);
+  const lambdaHome = _poissonAvgOf(ataqueHome, defesaAway);
+  const lambdaAway = _poissonAvgOf(ataqueAway, defesaHome);
+  if (lambdaHome === null || lambdaAway === null) return null;
 
   const MAXG = 8; // cobre >99% da massa de probabilidade pra médias de gols normais de futebol
   const bucketProb = {};
@@ -6021,10 +6026,10 @@ function _placarContraPoissonRanking(sHome, sAway) {
   return { lambdaHome, lambdaAway, ranking };
 }
 
-function _placarContraRenderSugestao(sHome, sAway, homeTeam, awayTeam) {
+function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, homeTeam, awayTeam) {
   const box = document.getElementById('placarContraSugestaoBox');
   if (!box) return;
-  const r = _placarContraPoissonRanking(sHome, sAway);
+  const r = _placarContraPoissonRanking(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora);
   if (!r) {
     box.innerHTML = `<div style="color:var(--text2);font-size:13px">Amostra insuficiente pra estimar placares (poucos jogos de ${homeTeam} em casa e/ou ${awayTeam} fora).</div>`;
     return;
@@ -6033,11 +6038,11 @@ function _placarContraRenderSugestao(sHome, sAway, homeTeam, awayTeam) {
   box.innerHTML = `
     <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">
       <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
-        📉 Placares favoráveis a NÃO acontecer (lay) — baseado em ${homeTeam} em casa (${sHome.n} jogos) e ${awayTeam} fora (${sAway.n} jogos)
+        📉 Placares favoráveis a NÃO acontecer (lay) — cruza Geral e Casa/Fora de ${homeTeam} (${sHomeCasa.n} em casa) e ${awayTeam} (${sAwayFora.n} fora)
       </div>
       <div style="padding:10px 12px;font-size:12px;color:var(--text2)">
         Gols esperados hoje: <b style="color:var(--text)">${homeTeam} ~${r.lambdaHome.toFixed(2)}</b> · <b style="color:var(--text)">${awayTeam} ~${r.lambdaAway.toFixed(2)}</b>
-        <span title="Estimativa simples (Poisson) cruzando ataque de um lado com defesa do outro — não é odd de lay, só uma leitura de quais placares o histórico torna improváveis." style="cursor:help">ℹ️</span>
+        <span title="Estimativa simples (Poisson) cruzando ataque de um lado com defesa do outro, combinando Geral e Casa/Fora — não é odd de lay, só uma leitura de quais placares o histórico torna improváveis." style="cursor:help">ℹ️</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px">
         ${piores.map(b => `
