@@ -5834,6 +5834,26 @@ async function _placarContraLoad() {
   _renderPlacarContraList(today2MatchesCache);
   const badge = document.getElementById('placarContraCountBadge');
   if (badge) badge.textContent = today2MatchesCache.length;
+  _placarContraLoadServerPicks();
+}
+
+// Traz o "lay X-Y" já calculado em segundo plano no servidor (background
+// warmup, o mesmo processo que já busca H2H+odds pros Sinais do Dia) pra
+// TODOS os jogos do dia, sem precisar clicar em cada um. Só preenche o
+// badge se o jogo ainda não tiver um cálculo mais refinado (feito ao
+// clicar, que usa Geral+Casa/Fora em vez de só Casa/Fora) — não sobrescreve.
+async function _placarContraLoadServerPicks() {
+  try {
+    const r = await fetch('/api/placar_contra/dia');
+    const d = await r.json();
+    Object.entries(d.picks || {}).forEach(([id, pick]) => {
+      const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+      if (!cache.melhorEntrada) {
+        cache.melhorEntrada = pick;
+        _placarContraUpdateRowBadge(id, pick);
+      }
+    });
+  } catch (e) {}
 }
 
 function _renderPlacarContraList(matches) {

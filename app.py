@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3, itertools
+import json, os, glob, re, threading, time, sqlite3, itertools, math
 import requests as http_req
 from datetime import datetime
 import github_storage
@@ -7183,6 +7183,59 @@ _SINAIS_LOCK = threading.Lock()  # evita 2 requisições simultâneas refazendo 
 # navegador tentando de novo — dobravam o trabalho em vez de a 2ª aproveitar
 # o resultado da 1ª)
 
+# ── Placar Contra — "melhor entrada" (lay) de TODOS os jogos do dia, pra
+# aparecer na lista sem precisar clicar em cada jogo. Reaproveita o MESMO
+# loop de _sinais_compute_locked (já busca H2H + odds de placar_exato de
+# cada candidato) — só soma o cálculo de Poisson por cima, sem nenhuma
+# busca de rede nova. Usa Casa/Fora (não o blend Geral+Casa/Fora do cálculo
+# client-side ao clicar num jogo — aqui é só uma estimativa rápida pra
+# badge da lista; o cálculo completo continua no clique).
+_PLACARCONTRA_ZERO_BUCKETS = ["0-1", "0-2", "0-3", "1-0", "2-0", "3-0"]
+_PLACARCONTRA_AMBAS_THRESHOLD = 55
+_PLACARCONTRA_DAY_CACHE = {"date": None, "picks": {}}
+
+
+def _poisson_pmf(k, lam):
+    if lam <= 0:
+        return 1.0 if k == 0 else 0.0
+    return math.exp(-lam) * (lam ** k) / math.factorial(k)
+
+
+def _placarcontra_compute_pick(home_stats, away_stats, markets):
+    if not home_stats or not away_stats:
+        return None
+    lambda_home = (home_stats["mediaMarcados"] + away_stats["mediaSofridos"]) / 2
+    lambda_away = (away_stats["mediaMarcados"] + home_stats["mediaSofridos"]) / 2
+    p_ambas_poisson = (1 - _poisson_pmf(0, lambda_home)) * (1 - _poisson_pmf(0, lambda_away)) * 100
+    ambas_hist = (home_stats.get("pctAmbasMarcam", 0) + away_stats.get("pctAmbasMarcam", 0)) / 2
+    ambas_media = (p_ambas_poisson + ambas_hist) / 2
+    if ambas_media < _PLACARCONTRA_AMBAS_THRESHOLD:
+        return None
+
+    items = ((markets or {}).get("placar_exato") or {}).get("items") or []
+    odds = _btcs_bucket_odds(items)
+    if not odds:
+        return None
+
+    MAXG = 8
+    bucket_prob = {}
+    for h in range(MAXG + 1):
+        for a in range(MAXG + 1):
+            key = _btcs_bucket_key(h, a)
+            if key in _PLACARCONTRA_ZERO_BUCKETS:
+                bucket_prob[key] = bucket_prob.get(key, 0.0) + _poisson_pmf(h, lambda_home) * _poisson_pmf(a, lambda_away)
+
+    candidatas = []
+    for key, prob in bucket_prob.items():
+        odd = odds.get(key)
+        if odd:
+            candidatas.append({"score": key, "prob": round(prob * 100, 2), "odd": round(odd, 2), "_valor": prob * 100 * odd})
+    if not candidatas:
+        return None
+    candidatas.sort(key=lambda x: x["_valor"])
+    melhor = candidatas[0]
+    return {"score": melhor["score"], "prob": melhor["prob"], "odd": melhor["odd"]}
+
 SINAIS_LABELS = {
     "primeiro_gol": "Primeiro Gol",
     "mandante_forte": "Mandante Forte",
@@ -7585,6 +7638,10 @@ def _sinais_compute_locked():
             _SINAIS_DAY_CACHE["manual_reset_date"] = None
             _SINAIS_DAY_CACHE["processed_ids"] = []
 
+    if _PLACARCONTRA_DAY_CACHE["date"] != today_str:
+        _PLACARCONTRA_DAY_CACHE["date"] = today_str
+        _PLACARCONTRA_DAY_CACHE["picks"] = {}
+
     sugestoes = _SINAIS_DAY_CACHE["sugestoes"]
     # Partidas que JÁ tiveram seus 8 sinais checados numa passada anterior
     # (independente de terem gerado sugestão ou não) — sem isso, scheduled[:N]
@@ -7660,6 +7717,10 @@ def _sinais_compute_locked():
             if gp:
                 away_stats.update(gp)
 
+        pick = _placarcontra_compute_pick(home_stats, away_stats, markets_by_id.get(m["id"]))
+        if pick:
+            _PLACARCONTRA_DAY_CACHE["picks"][m["id"]] = pick
+
         standings = standings_by_id.get(m["id"], [])
         pos_home, total_times = _sinais_standings_pos(standings, m.get("home", ""))
         pos_away, _t2 = _sinais_standings_pos(standings, m.get("away", ""))
@@ -7734,6 +7795,18 @@ def api_sinais_dia():
     lê o que já estiver pronto, ou devolve "calculando" se ainda não tiver
     nada."""
     return jsonify(_sinais_compute(permitir_calcular=False))
+
+
+@app.route("/api/placar_contra/dia")
+def api_placar_contra_dia():
+    """"Melhor entrada (lay)" de todos os jogos do dia, pra badge na lista da
+    aba Placar Contra sem precisar clicar em cada jogo. Só LEITURA — quem
+    calcula de verdade é a mesma thread de aquecimento de _sinais_compute
+    (_background_sinais_warmup), que já busca H2H+odds de cada candidato de
+    qualquer forma; aqui só devolve o que já estiver pronto no cache do dia
+    (pode vir vazio nos primeiros minutos após o servidor subir, antes do
+    1º ciclo de aquecimento terminar)."""
+    return jsonify({"date": _PLACARCONTRA_DAY_CACHE["date"], "picks": _PLACARCONTRA_DAY_CACHE["picks"]})
 
 
 @app.route("/api/sinais_dia/atualizar_dia", methods=["POST"])
