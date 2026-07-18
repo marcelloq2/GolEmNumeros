@@ -5921,6 +5921,11 @@ function _renderPlacarContraRow(m) {
 // 'green' = já ganhou garantido | 'red' = terminou EXATAMENTE nesse placar
 // (perdeu) | null = ainda indefinido, aguardando.
 function _placarContraResultadoLay(scoreTarget, homeAtual, awayAtual, terminou) {
+  // home_score/away_score às vezes vêm como STRING da API — força Number aqui
+  // pra "===" funcionar certo (">"/"<" convertem string sozinho, mas "===" não,
+  // o que fazia um placar EXATAMENTE igual ao sugerido nunca bater no "red").
+  homeAtual = Number(homeAtual) || 0;
+  awayAtual = Number(awayAtual) || 0;
   const mm = /^(\d+)-(\d+)$/.exec(scoreTarget || '');
   if (!mm) {
     // Buckets "Qualquer outra vitória em casa/fora"/"Qualquer outro empate"
