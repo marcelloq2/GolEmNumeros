@@ -1514,6 +1514,13 @@
           <button class="filter-btn" id="placarContraEncerradosBtn" onclick="_placarContraToggleStatus('3', this)">Encerrados</button>
           <button class="filter-btn" id="placarContraProximosBtn" onclick="_placarContraToggleStatus('1', this)">Próximos</button>
         </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text2)">Horário:</span>
+          <button class="filter-btn active" id="placarContraTurno_all" onclick="_placarContraSetTurno('all', this)">Dia todo</button>
+          <button class="filter-btn" id="placarContraTurno_manha" onclick="_placarContraSetTurno('manha', this)">🌅</button>
+          <button class="filter-btn" id="placarContraTurno_tarde" onclick="_placarContraSetTurno('tarde', this)">☀️</button>
+          <button class="filter-btn" id="placarContraTurno_noite" onclick="_placarContraSetTurno('noite', this)">🌙</button>
+        </div>
       </div>
       <div id="placarContraWrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -5826,6 +5833,7 @@ let _placarContraAutoRefresh = null;
 let _placarContraSelectedId = null;
 let _placarContraTabCache = {}; // { [matchId]: { _h2hTabs } }
 let _placarContraStatusFiltro = null; // null=todos | '3'=Encerrados | '1'=Próximos | 'ao_vivo'
+let _placarContraTurnoAtivo = 'all'; // 'all' | 'manha' | 'tarde' | 'noite'
 
 async function _placarContraLoad() {
   const wrap = document.getElementById('placarContraWrap');
@@ -5919,7 +5927,8 @@ function _placarContraFilterBySearch(texto) {
     const bateTexto = !termo || norm(m.home).includes(termo) || norm(m.away).includes(termo) || norm(m.liga).includes(termo);
     const bateStatus = _placarContraStatusFiltro === 'ao_vivo' ? m.status === '2'
       : !_placarContraStatusFiltro || m.status === _placarContraStatusFiltro;
-    card.style.display = (bateTexto && bateStatus) ? '' : 'none';
+    const bateTurno = _placarContraTurnoAtivo === 'all' || _calcToday2Turno(m) === _placarContraTurnoAtivo;
+    card.style.display = (bateTexto && bateStatus && bateTurno) ? '' : 'none';
   });
 }
 
@@ -5928,6 +5937,14 @@ function _placarContraToggleStatus(status, btn) {
   document.getElementById('placarContraAoVivoBtn')?.classList.toggle('active', _placarContraStatusFiltro === 'ao_vivo');
   document.getElementById('placarContraEncerradosBtn')?.classList.toggle('active', _placarContraStatusFiltro === '3');
   document.getElementById('placarContraProximosBtn')?.classList.toggle('active', _placarContraStatusFiltro === '1');
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraSetTurno(turno, btn) {
+  _placarContraTurnoAtivo = turno;
+  document.querySelectorAll('#placarContraTurno_all, #placarContraTurno_manha, #placarContraTurno_tarde, #placarContraTurno_noite')
+    .forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
 }
 
