@@ -7174,7 +7174,11 @@ def api_jogo_medias_gerais():
 # dessa 1ª versão.
 # ═══════════════════════════════════════════════════════════════════════════
 _SINAIS_TTL = 30 * 60
-_SINAIS_MAX_CANDIDATOS = 15  # cada candidato = ~2×30 jogos históricos pra enriquecer; mantém conservador na 1ª versão
+_SINAIS_MAX_CANDIDATOS = 40  # cada candidato = ~2×30 jogos históricos pra enriquecer. Era 15 (conservador
+# na 1ª versão), mas com dias de 900+ partidas (fora dos jogos grandes) 15/ciclo de 25min não dava conta —
+# mesmo sem reprocessar quem já tava pronto (ver processed_ids), o volume de jogos NOVOS por ciclo passava
+# de 15, e sugestões de jogos de manhã cedo só apareciam à tarde. 40 (=80/ciclo somando scheduled+finished)
+# ainda é seguro pro _fs_event_pool (12 workers) rodando em background, sem bloquear nenhuma requisição HTTP.
 _SINAIS_MIN_N = 8
 _SINAIS_CACHE = {"ts": 0, "data": None}
 _SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None, "processed_ids": []}
