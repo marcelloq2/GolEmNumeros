@@ -1537,6 +1537,29 @@
             </div>
           </div>
         </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px;position:relative">
+          <span style="font-size:11px;color:var(--text2)">Custo do Gol:</span>
+          <button id="placarContraCustoToggle" onclick="_placarContraToggleCustoPanel(event)"
+            style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;white-space:nowrap">
+            sem filtro ⌄
+          </button>
+          <div id="placarContraCustoPanel" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:20;
+               background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;min-width:260px;
+               box-shadow:0 4px 12px rgba(0,0,0,.3)">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:8px">Mostra só jogos "Próximos" com Custo do Gol 2.0 ≥ o mínimo informado (deixe em branco pra não filtrar por aquele campo).</div>
+            <div style="display:grid;grid-template-columns:1fr 70px;gap:6px;align-items:center;font-size:11px">
+              <span>Marcado (Casa) mín.</span>
+              <input id="placarContraCustoMarcadoCasa" type="number" step="0.01" placeholder="—" oninput="_placarContraOnCustoInput()" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:3px 6px;width:100%;box-sizing:border-box">
+              <span>Sofrido (Casa) mín.</span>
+              <input id="placarContraCustoSofridoCasa" type="number" step="0.01" placeholder="—" oninput="_placarContraOnCustoInput()" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:3px 6px;width:100%;box-sizing:border-box">
+              <span>Marcado (Visitante) mín.</span>
+              <input id="placarContraCustoMarcadoFora" type="number" step="0.01" placeholder="—" oninput="_placarContraOnCustoInput()" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:3px 6px;width:100%;box-sizing:border-box">
+              <span>Sofrido (Visitante) mín.</span>
+              <input id="placarContraCustoSofridoFora" type="number" step="0.01" placeholder="—" oninput="_placarContraOnCustoInput()" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:3px 6px;width:100%;box-sizing:border-box">
+            </div>
+            <button onclick="_placarContraCustoLimpar()" style="margin-top:8px;width:100%;font-size:11px;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Limpar</button>
+          </div>
+        </div>
       </div>
       <div id="placarContraWrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -5883,9 +5906,13 @@ async function _placarContraLoadServerPicks() {
         _placarContraSaveLaySnapshot(id, pick);
       }
     });
-    // Reaplica o filtro de metodologia — jogos que acabaram de ganhar
-    // badge podem passar a bater (ou não) com o filtro ativo.
-    if (_placarContraMetodSelecionados.size > 0) {
+    Object.entries(d.custo || {}).forEach(([id, custo]) => {
+      const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+      if (!cache.custoGol) cache.custoGol = custo;
+    });
+    // Reaplica os filtros que dependem de dado calculado em segundo plano —
+    // jogos que acabaram de ganhar badge/custo podem passar a bater (ou não).
+    if (_placarContraMetodSelecionados.size > 0 || _placarContraCustoGolFiltroAtivo()) {
       _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
     }
   } catch (e) {}
@@ -5997,7 +6024,8 @@ function _placarContraFilterBySearch(texto) {
     const bateTurno = _placarContraTurnoAtivo === 'all' || _calcToday2Turno(m) === _placarContraTurnoAtivo;
     const lay = _placarContraTabCache[m.id]?.melhorEntrada;
     const bateMetod = _placarContraMetodSelecionados.size === 0 || (lay && _placarContraMetodSelecionados.has(lay.score));
-    card.style.display = (bateTexto && bateStatus && bateTurno && bateMetod) ? '' : 'none';
+    const bateCusto = _placarContraCustoMatchBate(m);
+    card.style.display = (bateTexto && bateStatus && bateTurno && bateMetod && bateCusto) ? '' : 'none';
   });
 }
 
@@ -6086,6 +6114,64 @@ function _placarContraUpdateMetodLabel() {
   if (!btn) return;
   const n = _placarContraMetodSelecionados.size;
   btn.textContent = (n === 0 ? 'Placar: todos' : `Placar: ${n} selecionado${n > 1 ? 's' : ''}`) + ' ⌄';
+}
+
+// ── Filtro por Custo do Gol 2.0 (mínimo) — só funciona pros jogos
+// "Próximos" (única situação em que o valor é calculado em segundo plano,
+// ver _placarcontra_fetch_odds_batch no backend). Se um campo ficar em
+// branco, não filtra por ele; se o jogo ainda não tiver o dado calculado
+// (cache.custoGol ausente), some da lista enquanto o filtro estiver ativo.
+const PLACAR_CONTRA_CUSTO_FIELDS = ['placarContraCustoMarcadoCasa', 'placarContraCustoSofridoCasa', 'placarContraCustoMarcadoFora', 'placarContraCustoSofridoFora'];
+const PLACAR_CONTRA_CUSTO_KEYS   = ['marcadoCasa', 'sofridoCasa', 'marcadoFora', 'sofridoFora'];
+
+function _placarContraToggleCustoPanel(ev) {
+  ev?.stopPropagation();
+  const panel = document.getElementById('placarContraCustoPanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('placarContraCustoPanel');
+  const toggle = document.getElementById('placarContraCustoToggle');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(ev.target) || toggle?.contains(ev.target)) return;
+  panel.style.display = 'none';
+});
+
+function _placarContraCustoGolFiltroAtivo() {
+  return PLACAR_CONTRA_CUSTO_FIELDS.some(id => document.getElementById(id)?.value !== '');
+}
+
+function _placarContraCustoMatchBate(m) {
+  if (!_placarContraCustoGolFiltroAtivo()) return true;
+  const custo = _placarContraTabCache[m.id]?.custoGol;
+  for (let i = 0; i < PLACAR_CONTRA_CUSTO_FIELDS.length; i++) {
+    const raw = document.getElementById(PLACAR_CONTRA_CUSTO_FIELDS[i])?.value;
+    if (raw === '' || raw === undefined) continue;
+    const minimo = parseFloat(raw);
+    const valor = custo?.[PLACAR_CONTRA_CUSTO_KEYS[i]];
+    if (valor === undefined || valor === null || valor < minimo) return false;
+  }
+  return true;
+}
+
+function _placarContraOnCustoInput() {
+  _placarContraUpdateCustoLabel();
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraCustoLimpar() {
+  PLACAR_CONTRA_CUSTO_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _placarContraUpdateCustoLabel();
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraUpdateCustoLabel() {
+  const btn = document.getElementById('placarContraCustoToggle');
+  if (!btn) return;
+  const n = PLACAR_CONTRA_CUSTO_FIELDS.filter(id => document.getElementById(id)?.value !== '').length;
+  btn.textContent = (n === 0 ? 'sem filtro' : `${n} filtro${n > 1 ? 's' : ''}`) + ' ⌄';
 }
 
 function selectPlacarContraMatch(id, rowEl) {

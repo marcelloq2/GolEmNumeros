@@ -7203,7 +7203,7 @@ _SINAIS_LOCK = threading.Lock()  # evita 2 requisições simultâneas refazendo 
 # badge da lista; o cálculo completo continua no clique).
 _PLACARCONTRA_ZERO_BUCKETS = ["0-1", "0-2", "0-3", "1-0", "2-0", "3-0"]
 _PLACARCONTRA_AMBAS_THRESHOLD = 55
-_PLACARCONTRA_DAY_CACHE = {"date": None, "picks": {}}
+_PLACARCONTRA_DAY_CACHE = {"date": None, "picks": {}, "custo": {}}
 
 
 def _poisson_pmf(k, lam):
@@ -7326,6 +7326,36 @@ def _sinais_fetch_extra_batch(rows_with_side):
                 row["gm_own"], row["gm_opp"] = gm.get("home", []), gm.get("away", [])
             else:
                 row["gm_own"], row["gm_opp"] = gm.get("away", []), gm.get("home", [])
+        return row
+
+    return list(_sinais_pool.map(_fetch, rows_with_side))
+
+
+def _placarcontra_fetch_odds_batch(rows_with_side):
+    """Busca só a odd 1x2 histórica (própria/adversário) de cada linha — o
+    que falta pra completar custoGol2Marcado/Sofrido em _jogo_stats_from_rows
+    (ver _jogo_fetch_extra). Só chamado pros candidatos "Próximos" do Placar
+    Contra (não pros de Sinais em geral), porque é a parte mais cara da
+    busca (1 chamada de odds por jogo histórico) e só o Placar Contra
+    precisa dela — mantém o warmup de Sinais leve como já era."""
+    def _fetch(item):
+        row, side = item
+        eid = row["id"]
+        if not eid:
+            return row
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(eid, markets_wanted=["1x2"])
+            h, a = (row["own"], row["opp"]) if side == "casa" else (row["opp"], row["own"])
+            sels = _bt2_market_selections("1x2", markets.get("1x2"), h, a)
+            target_label = "Casa" if side == "casa" else "Fora"
+            opp_label = "Fora" if side == "casa" else "Casa"
+            for sel in sels:
+                if sel["label"] == target_label and sel["odd"]:
+                    row["odd"] = sel["odd"]
+                elif sel["label"] == opp_label and sel["odd"]:
+                    row["opp_odd"] = sel["odd"]
+        except Exception:
+            pass
         return row
 
     return list(_sinais_pool.map(_fetch, rows_with_side))
@@ -7652,6 +7682,7 @@ def _sinais_compute_locked():
     if _PLACARCONTRA_DAY_CACHE["date"] != today_str:
         _PLACARCONTRA_DAY_CACHE["date"] = today_str
         _PLACARCONTRA_DAY_CACHE["picks"] = {}
+        _PLACARCONTRA_DAY_CACHE["custo"] = {}
 
     sugestoes = _SINAIS_DAY_CACHE["sugestoes"]
     # Partidas que JÁ tiveram seus 8 sinais checados numa passada anterior
@@ -7690,6 +7721,7 @@ def _sinais_compute_locked():
     # 2) monta as rows brutas (casa/fora) de cada partida, ainda sem HT/minutos/odds
     ctx = []  # [(m, home_rows, away_rows), ...]
     enrich_batch = []  # [(row, side), ...] de TODOS os times de TODOS os candidatos juntos
+    scheduled_enrich_batch = []  # subconjunto só dos candidatos "Próximos" — ver Custo do Gol abaixo
     for m in candidatos:
         tabs = h2h_by_id.get(m["id"])
         if not tabs:
@@ -7699,13 +7731,23 @@ def _sinais_compute_locked():
         ctx.append((m, home_rows, away_rows))
         enrich_batch.extend((r, "casa") for r in home_rows)
         enrich_batch.extend((r, "fora") for r in away_rows)
+        if m.get("status") == "1":
+            scheduled_enrich_batch.extend((r, "casa") for r in home_rows)
+            scheduled_enrich_batch.extend((r, "fora") for r in away_rows)
 
     # 3) enriquece TODAS as rows de TODOS os candidatos numa ÚNICA passada em
-    # paralelo (goal_minutes+HT+odd 1x2 de cada jogo histórico) — antes disso
-    # era uma passada por TIME, uma de cada vez, o que multiplicava o tempo
-    # total por ~2×nº de candidatos à toa (mesmo bug que já corrigimos antes
-    # em outras partes do app, reintroduzido aqui na 1ª versão).
+    # paralelo (goal_minutes de cada jogo histórico) — antes disso era uma
+    # passada por TIME, uma de cada vez, o que multiplicava o tempo total por
+    # ~2×nº de candidatos à toa (mesmo bug que já corrigimos antes em outras
+    # partes do app, reintroduzido aqui na 1ª versão).
     _sinais_fetch_extra_batch(enrich_batch)
+    # Odd histórica 1x2 (pra Custo do Gol 2.0) — só pros candidatos "Próximos"
+    # (scheduled_enrich_batch), não pra todo mundo: é a parte mais cara da
+    # busca (1 chamada de odds por jogo histórico) e só o filtro do Placar
+    # Contra precisa dela, então não vale encarecer o warmup pros Sinais em
+    # geral (que não usam Custo do Gol).
+    if scheduled_enrich_batch:
+        _placarcontra_fetch_odds_batch(scheduled_enrich_batch)
 
     # 4) classificação e odds de hoje (1x2 + placar exato) de cada candidato,
     # também em paralelo
@@ -7740,6 +7782,19 @@ def _sinais_compute_locked():
         pick = _placarcontra_compute_pick(home_stats, away_stats, markets_by_id.get(m["id"]))
         if pick:
             _PLACARCONTRA_DAY_CACHE["picks"][m["id"]] = pick
+
+        # Custo do Gol 2.0 (Marcado/Sofrido) de casa/visitante — só calculado
+        # (tem odd histórica) pros candidatos "Próximos", ver
+        # scheduled_enrich_batch acima. Guardado independente de ter gerado
+        # "pick" ou não, pra alimentar o filtro do Placar Contra mesmo em
+        # jogos sem sinal de Ambas Marcam forte o bastante.
+        if m.get("status") == "1" and home_stats and away_stats:
+            _PLACARCONTRA_DAY_CACHE["custo"][m["id"]] = {
+                "marcadoCasa": home_stats.get("custoGol2Marcado"),
+                "sofridoCasa": home_stats.get("custoGol2Sofrido"),
+                "marcadoFora": away_stats.get("custoGol2Marcado"),
+                "sofridoFora": away_stats.get("custoGol2Sofrido"),
+            }
 
         standings = standings_by_id.get(m["id"], [])
         pos_home, total_times = _sinais_standings_pos(standings, m.get("home", ""))
@@ -7831,7 +7886,11 @@ def api_placar_contra_dia():
     qualquer forma; aqui só devolve o que já estiver pronto no cache do dia
     (pode vir vazio nos primeiros minutos após o servidor subir, antes do
     1º ciclo de aquecimento terminar)."""
-    return jsonify({"date": _PLACARCONTRA_DAY_CACHE["date"], "picks": _PLACARCONTRA_DAY_CACHE["picks"]})
+    return jsonify({
+        "date": _PLACARCONTRA_DAY_CACHE["date"],
+        "picks": _PLACARCONTRA_DAY_CACHE["picks"],
+        "custo": _PLACARCONTRA_DAY_CACHE.get("custo") or {},
+    })
 
 
 @app.route("/api/sinais_dia/atualizar_dia", methods=["POST"])
