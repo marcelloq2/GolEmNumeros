@@ -6003,8 +6003,19 @@ function _placarContraPoissonRanking(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
   }
   const ranking = PLACAR_EXATO_BUCKETS_ORDER.map(key => ({ score: key, prob: bucketProb[key] * 100 }))
     .sort((a, b) => a.prob - b.prob);
-  return { lambdaHome, lambdaAway, ranking };
+  // Chance de AMBAS marcarem hoje (Poisson): 1 - chance do mandante zerar,
+  // vezes 1 - chance do visitante zerar (independência entre os dois lados,
+  // mesma premissa do resto do modelo).
+  const pAmbasPoisson = (1 - _poissonPmf(0, lambdaHome)) * (1 - _poissonPmf(0, lambdaAway)) * 100;
+  return { lambdaHome, lambdaAway, ranking, pAmbasPoisson };
 }
+
+// Placares onde um dos dois lados fica a ZERO (0-1, 0-2, 0-3, 1-0, 2-0, 3-0)
+// — se a chance de ambas marcarem hoje for alta, esses placares específicos
+// (mesmo sendo vitória de um dos lados) ficam pouco prováveis, porque
+// dependem do outro time não balançar as redes nenhuma vez.
+const PLACAR_CONTRA_ZERO_BUCKETS = ['0-1', '0-2', '0-3', '1-0', '2-0', '3-0'];
+const PLACAR_CONTRA_AMBAS_THRESHOLD = 55; // % mínima de "ambas marcam" pra valer destacar
 
 function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, homeTeam, awayTeam) {
   const box = document.getElementById('placarContraSugestaoBox');
@@ -6015,6 +6026,35 @@ function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
     return;
   }
   const piores = r.ranking.slice(0, 6);
+
+  // Histórico de "Ambas Marcam" de cada lado (Geral + Casa/Fora), pra
+  // corroborar a estimativa de Poisson com o que já aconteceu de verdade.
+  const ambasHome = _poissonAvgOf(sHomeGeral?.pctAmbasMarcam, sHomeCasa?.pctAmbasMarcam);
+  const ambasAway = _poissonAvgOf(sAwayGeral?.pctAmbasMarcam, sAwayFora?.pctAmbasMarcam);
+  const ambasHist = _poissonAvgOf(ambasHome, ambasAway);
+  const ambasMedia = _poissonAvgOf(r.pAmbasPoisson, ambasHist);
+
+  let zeroBucketsHtml = '';
+  if (ambasMedia !== null && ambasMedia >= PLACAR_CONTRA_AMBAS_THRESHOLD) {
+    const zeroBuckets = r.ranking.filter(b => PLACAR_CONTRA_ZERO_BUCKETS.includes(b.score));
+    zeroBucketsHtml = `
+      <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-top:10px">
+        <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
+          🥅 Ambas marcando mata esses placares (lay) — chance de ambas marcarem hoje ~${ambasMedia.toFixed(0)}%
+        </div>
+        <div style="padding:10px 12px;font-size:12px;color:var(--text2)">
+          Poisson: ~${r.pAmbasPoisson.toFixed(0)}% · Histórico (Ambas Marcam de ${homeTeam} e ${awayTeam}): ~${ambasHist === null ? '—' : ambasHist.toFixed(0) + '%'}
+          <span title="Se os dois times têm boa chance de marcar hoje, qualquer placar em que um dos dois fica a zero (0xN ou Nx0) fica menos provável, mesmo sendo vitória de um dos lados." style="cursor:help">ℹ️</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px">
+          ${zeroBuckets.map(b => `
+            <div style="border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+              lay ${b.score} <span style="color:#ef4444;font-weight:700">~${b.prob.toFixed(1)}%</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
   box.innerHTML = `
     <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">
       <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
@@ -6030,7 +6070,8 @@ function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
             ${b.score} <span style="color:#ef4444;font-weight:700">~${b.prob.toFixed(1)}%</span>
           </div>`).join('')}
       </div>
-    </div>`;
+    </div>
+    ${zeroBucketsHtml}`;
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
