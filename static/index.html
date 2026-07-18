@@ -1525,7 +1525,6 @@
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
-        <div id="placarContraH2hBox" style="margin-top:16px"></div>
       </div>
     </div>
   </div>
@@ -5881,7 +5880,6 @@ function selectPlacarContraMatch(id, rowEl) {
 
   document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
-  document.getElementById('placarContraH2hBox').innerHTML = '';
 
   _placarContraLoadOdds(id, m);
   _placarContraLoadStats(id, m);
@@ -5911,7 +5909,6 @@ async function _placarContraLoadOdds(id, m) {
 // tirar a exibição das variáveis cruas dessa aba, já que o cálculo já é
 // feito internamente e o que importa aqui é o resultado (o placar sugerido).
 async function _placarContraLoadStats(id, m) {
-  const h2hBox = document.getElementById('placarContraH2hBox');
   const sugestaoBox = document.getElementById('placarContraSugestaoBox');
   const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
 
@@ -5933,9 +5930,6 @@ async function _placarContraLoadStats(id, m) {
     if (sugestaoBox) sugestaoBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>';
     return;
   }
-
-  // Confronto Direto — dispara em paralelo, não bloqueia o resto.
-  _today2H2hStatsCards(id, tabs, m.home, m.away, 'placarContraH2hBox');
 
   // 4 blocos: Geral e Casa pro mandante, Geral e Fora pro visitante — o Geral
   // (histórico completo, casa+fora misturado) importa como base mais estável
