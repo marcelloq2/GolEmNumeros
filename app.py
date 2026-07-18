@@ -7654,7 +7654,11 @@ def _sinais_compute_locked():
 
     scheduled = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "1" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
     finished_today = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "3" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
-    candidatos = scheduled[:_SINAIS_MAX_CANDIDATOS] + finished_today[:_SINAIS_MAX_CANDIDATOS]
+    # Jogos AO VIVO (status "2") também entram — sem isso, o badge "lay X-Y"
+    # do Placar Contra nunca aparecia pro filtro Ao Vivo (esses jogos nunca
+    # eram processados, só agendados e encerrados).
+    live_now = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "2" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
+    candidatos = scheduled[:_SINAIS_MAX_CANDIDATOS] + finished_today[:_SINAIS_MAX_CANDIDATOS] + live_now[:_SINAIS_MAX_CANDIDATOS]
 
     media = _jogo_medias_gerais_compute()
     media_casa, media_fora = media.get("casa") or {}, media.get("fora") or {}
