@@ -5826,12 +5826,47 @@ function _renderPlacarContraList(matches) {
   }
   const scrollTop = wrap.scrollTop;
   const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
-  wrap.innerHTML = ordenados.map(m => renderToday2Row(m).replace(
-    `onclick="selectToday2Match('${m.id}', this)"`,
-    `onclick="selectPlacarContraMatch('${m.id}', this)"`
-  )).join('');
+  wrap.innerHTML = ordenados.map(m => _renderPlacarContraRow(m)).join('');
   wrap.scrollTop = scrollTop;
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+// Mesma estrutura de renderToday2Row, só que com um slot pro badge "lay X-Y"
+// (preenchido depois, quando/se o usuário já tiver clicado nesse jogo e a
+// sugestão "Ambas marcando" tiver sido calculada — não computa nada novo
+// pra jogos que não foram abertos, só exibe o que já tá em cache).
+function _renderPlacarContraRow(m) {
+  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
+  const lay = _placarContraTabCache[m.id]?.melhorEntrada;
+  return `
+    <div class="today2-match-row" data-id="${m.id}" onclick="selectPlacarContraMatch('${m.id}', this)">
+      <div style="text-align:center">
+        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
+        <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
+        ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
+      </div>
+      <div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        ${lay ? _placarContraLayBadgeHtml(m.id, lay) : `<span id="placarContraLayBadge_${m.id}"></span>`}
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
+      </div>
+    </div>`;
+}
+
+function _placarContraLayBadgeHtml(id, lay) {
+  return `<span id="placarContraLayBadge_${id}" title="chance de acontecer ~${lay.prob.toFixed(1)}% · odd ${lay.odd.toFixed(2)}"
+    style="border:1px solid #ef444455;background:#ef444422;color:#ef4444;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;white-space:nowrap;cursor:help">lay ${lay.score}</span>`;
+}
+
+// Atualiza o badge na linha da lista (se ela já estiver renderizada na
+// tela), sem precisar reconstruir a lista inteira.
+function _placarContraUpdateRowBadge(id, lay) {
+  const el = document.getElementById(`placarContraLayBadge_${id}`);
+  if (el) el.outerHTML = _placarContraLayBadgeHtml(id, lay);
 }
 
 function _placarContraFilterBySearch(texto) {
@@ -6112,6 +6147,11 @@ function _placarContraTryRenderZeroBucket(id) {
       </div>
     </div>
   </div>`;
+
+  // Também guarda no cache e reflete na linha da lista (se estiver visível),
+  // pra ficar acessível mesmo depois de fechar o detalhe desse jogo.
+  cache.melhorEntrada = melhor;
+  _placarContraUpdateRowBadge(id, melhor);
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
