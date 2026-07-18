@@ -1523,6 +1523,7 @@
       </div>
       <div id="placarContraDetailContent" style="display:none">
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
+        <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
         <div id="placarContraStatsBox"></div>
         <div id="placarContraH2hBox" style="margin-top:16px"></div>
@@ -5784,7 +5785,6 @@ let _placarContraAutoRefresh = null;
 let _placarContraSelectedId = null;
 let _placarContraTabCache = {}; // { [matchId]: { _h2hTabs } }
 let _placarContraStatusFiltro = null; // null=todos | '3'=Encerrados | '1'=Próximos | 'ao_vivo'
-let _placarContraJogoScope = {}; // { [matchId]: 0|1|2 } — Geral/Casa/Fora, igual à aba Jogo
 
 async function _placarContraLoad() {
   const wrap = document.getElementById('placarContraWrap');
@@ -5858,6 +5858,7 @@ function selectPlacarContraMatch(id, rowEl) {
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>`;
 
+  document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
   document.getElementById('placarContraStatsBox').innerHTML = '';
   document.getElementById('placarContraH2hBox').innerHTML = '';
@@ -5907,38 +5908,28 @@ async function _placarContraLoadStats(id, m) {
 
   const tabs = cache._h2hTabs;
   if (!tabs.length) { statsBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>'; return; }
-  const scope = _placarContraJogoScope[id] ?? 0;
 
   statsBox.innerHTML = `
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — Casa / Fora</div>
-    <div style="display:flex;gap:4px;margin-bottom:10px">
-      ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `<button onclick="_setPlacarContraJogoScope('${id}',${i},this)" style="font-size:15px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:${i===scope?'var(--accent)':'transparent'};color:${i===scope?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`).join('')}
-    </div>
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — ${m.home} em casa / ${m.away} fora</div>
     <div id="placarContraJogoBody_${id}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>`;
 
   // Confronto Direto — dispara em paralelo, não bloqueia o resto.
   _today2H2hStatsCards(id, tabs, m.home, m.away, 'placarContraH2hBox');
 
-  let blocks;
-  if (scope === 0) {
-    blocks = [_jogoStatsRowsFromSection(tabs, 0, true), _jogoStatsRowsFromSection(tabs, 0, false)];
-  } else if (scope === 1) {
-    blocks = [_jogoStatsRowsFromSection(tabs, 1, true)];
-  } else {
-    blocks = [_jogoStatsRowsFromSection(tabs, 2, false)];
-  }
+  // Sempre Casa (mandante jogando em casa) x Fora (visitante jogando fora) —
+  // é o recorte que interessa pra estimar o jogo de hoje, diferente do escopo
+  // "Geral" (que mistura jogos em casa e fora) usado na aba Jogo original.
+  const blocks = [_jogoStatsRowsFromSection(tabs, 1, true), _jogoStatsRowsFromSection(tabs, 2, false)];
 
   const mediasGeraisPromise = _jogoEnsureMediasGerais();
 
   await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
-  if (_placarContraSelectedId !== id || (_placarContraJogoScope[id] ?? 0) !== scope) return;
+  if (_placarContraSelectedId !== id) return;
 
   const renderCards = (mediaScope) => {
     const body = document.getElementById(`placarContraJogoBody_${id}`);
     if (!body) return;
     const cardsHtml = blocks.map(b => {
-      const gp = _jogoGoalPatternStats(b.rows);
-      if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
       const s = _jogoComputeStats(b.rows);
       const gv = _jogoGolValorStats(b.rows);
       if (s && gv) {
@@ -5952,29 +5943,109 @@ async function _placarContraLoadStats(id, m) {
         s.avgValorSaldo = gv.avgValorSaldo;
         s.avgValorPonto = gv.avgValorPonto;
       }
-      return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
+      return _jogoStatsCardHtml(b.teamName, s, mediaScope);
     });
-    body.innerHTML = blocks.length > 1
-      ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-           ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
-         </div>`
-      : cardsHtml.join('');
+    body.innerHTML = `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+         ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
+       </div>`;
   };
 
   renderCards(null);
 
+  const sHome = _jogoComputeStats(blocks[0].rows);
+  const sAway = _jogoComputeStats(blocks[1].rows);
+  _placarContraRenderSugestao(sHome, sAway, m.home, m.away);
+
   mediasGeraisPromise.then(mediasGerais => {
     if (_placarContraSelectedId !== id) return;
-    if ((_placarContraJogoScope[id] ?? 0) !== scope) return;
-    const mediaScope = mediasGerais?.[['geral', 'casa', 'fora'][scope]];
-    if (mediaScope) renderCards(mediaScope);
+    // Casa usa a média geral "casa", Fora usa a média geral "fora" — cada
+    // bloco compara com o recorte equivalente do dia, igual à aba Jogo.
+    const cardsHtml = blocks.map((b, i) => {
+      const s = _jogoComputeStats(b.rows);
+      const gv = _jogoGolValorStats(b.rows);
+      if (s && gv) {
+        s.avgValorGolMarcado = gv.avgValorGolMarcado;
+        s.avgValorGolSofrido = gv.avgValorGolSofrido;
+        s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+        s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+        s.nGolValor = gv.n;
+        s.avgSaldo = gv.avgSaldo;
+        s.nSaldo = gv.nSaldo;
+        s.avgValorSaldo = gv.avgValorSaldo;
+        s.avgValorPonto = gv.avgValorPonto;
+      }
+      const media = mediasGerais?.[i === 0 ? 'casa' : 'fora'];
+      return _jogoStatsCardHtml(b.teamName, s, media);
+    });
+    const body = document.getElementById(`placarContraJogoBody_${id}`);
+    if (body) {
+      body.innerHTML = `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+           ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
+         </div>`;
+    }
   });
 }
 
-function _setPlacarContraJogoScope(id, idx, btn) {
-  _placarContraJogoScope[id] = idx;
-  const m = today2MatchesCache.find(x => String(x.id) === String(id));
-  if (m) _placarContraLoadStats(id, m);
+// ── Sugestão de placares "favoráveis a não acontecer" (lay) ────────────────
+// Modelo simples de Poisson: estima quantos gols cada time deve fazer hoje
+// cruzando o ataque de um lado com a defesa do outro (mediaMarcados do
+// mandante em casa x mediaSofridos do visitante fora, e vice-versa), depois
+// calcula a probabilidade de CADA placar exato (0-0 até 3-3 + "outras") e
+// rankeia do menos provável pro mais provável. Os menos prováveis são os
+// melhores candidatos a "placar contra" (lay).
+function _poissonPmf(k, lambda) {
+  if (lambda <= 0) return k === 0 ? 1 : 0;
+  let fat = 1;
+  for (let i = 2; i <= k; i++) fat *= i;
+  return Math.exp(-lambda) * Math.pow(lambda, k) / fat;
+}
+
+function _placarContraPoissonRanking(sHome, sAway) {
+  if (!sHome || !sAway || !sHome.n || !sAway.n) return null;
+  // Gols esperados do mandante hoje: média do que ele costuma marcar em casa
+  // e do que o visitante costuma sofrer fora (e vice-versa pro visitante).
+  const lambdaHome = (sHome.mediaMarcados + sAway.mediaSofridos) / 2;
+  const lambdaAway = (sAway.mediaMarcados + sHome.mediaSofridos) / 2;
+
+  const MAXG = 8; // cobre >99% da massa de probabilidade pra médias de gols normais de futebol
+  const bucketProb = {};
+  PLACAR_EXATO_BUCKETS_ORDER.forEach(k => { bucketProb[k] = 0; });
+  for (let h = 0; h <= MAXG; h++) {
+    for (let a = 0; a <= MAXG; a++) {
+      const p = _poissonPmf(h, lambdaHome) * _poissonPmf(a, lambdaAway);
+      bucketProb[_placarExatoBucketKey(h, a)] += p;
+    }
+  }
+  const ranking = PLACAR_EXATO_BUCKETS_ORDER.map(key => ({ score: key, prob: bucketProb[key] * 100 }))
+    .sort((a, b) => a.prob - b.prob);
+  return { lambdaHome, lambdaAway, ranking };
+}
+
+function _placarContraRenderSugestao(sHome, sAway, homeTeam, awayTeam) {
+  const box = document.getElementById('placarContraSugestaoBox');
+  if (!box) return;
+  const r = _placarContraPoissonRanking(sHome, sAway);
+  if (!r) {
+    box.innerHTML = `<div style="color:var(--text2);font-size:13px">Amostra insuficiente pra estimar placares (poucos jogos de ${homeTeam} em casa e/ou ${awayTeam} fora).</div>`;
+    return;
+  }
+  const piores = r.ranking.slice(0, 6);
+  box.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">
+      <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
+        📉 Placares favoráveis a NÃO acontecer (lay) — baseado em ${homeTeam} em casa (${sHome.n} jogos) e ${awayTeam} fora (${sAway.n} jogos)
+      </div>
+      <div style="padding:10px 12px;font-size:12px;color:var(--text2)">
+        Gols esperados hoje: <b style="color:var(--text)">${homeTeam} ~${r.lambdaHome.toFixed(2)}</b> · <b style="color:var(--text)">${awayTeam} ~${r.lambdaAway.toFixed(2)}</b>
+        <span title="Estimativa simples (Poisson) cruzando ataque de um lado com defesa do outro — não é odd de lay, só uma leitura de quais placares o histórico torna improváveis." style="cursor:help">ℹ️</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px">
+        ${piores.map(b => `
+          <div style="border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+            ${b.score} <span style="color:#ef4444;font-weight:700">~${b.prob.toFixed(1)}%</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
