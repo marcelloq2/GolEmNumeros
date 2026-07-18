@@ -1521,6 +1521,22 @@
           <button class="filter-btn" id="placarContraTurno_tarde" onclick="_placarContraSetTurno('tarde', this)">☀️</button>
           <button class="filter-btn" id="placarContraTurno_noite" onclick="_placarContraSetTurno('noite', this)">🌙</button>
         </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px;position:relative">
+          <span style="font-size:11px;color:var(--text2)">Metodologia:</span>
+          <button id="placarContraMetodToggle" onclick="_placarContraToggleMetodPanel(event)"
+            style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;white-space:nowrap">
+            Placar: todos ⌄
+          </button>
+          <div id="placarContraMetodPanel" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:20;
+               background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;min-width:220px;
+               box-shadow:0 4px 12px rgba(0,0,0,.3)">
+            <div id="placarContraMetodOptions" style="display:flex;flex-direction:column;gap:4px;font-size:12px;max-height:260px;overflow-y:auto"></div>
+            <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+              <button onclick="_placarContraMetodPreset('zero')" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Zero (exceto 0-0)</button>
+              <button onclick="_placarContraMetodMarcarTodos(false)" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Limpar</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="placarContraWrap" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -5867,6 +5883,11 @@ async function _placarContraLoadServerPicks() {
         _placarContraSaveLaySnapshot(id, pick);
       }
     });
+    // Reaplica o filtro de metodologia — jogos que acabaram de ganhar
+    // badge podem passar a bater (ou não) com o filtro ativo.
+    if (_placarContraMetodSelecionados.size > 0) {
+      _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+    }
   } catch (e) {}
 }
 
@@ -5974,7 +5995,9 @@ function _placarContraFilterBySearch(texto) {
     const bateStatus = _placarContraStatusFiltro === 'ao_vivo' ? m.status === '2'
       : !_placarContraStatusFiltro || m.status === _placarContraStatusFiltro;
     const bateTurno = _placarContraTurnoAtivo === 'all' || _calcToday2Turno(m) === _placarContraTurnoAtivo;
-    card.style.display = (bateTexto && bateStatus && bateTurno) ? '' : 'none';
+    const lay = _placarContraTabCache[m.id]?.melhorEntrada;
+    const bateMetod = _placarContraMetodSelecionados.size === 0 || (lay && _placarContraMetodSelecionados.has(lay.score));
+    card.style.display = (bateTexto && bateStatus && bateTurno && bateMetod) ? '' : 'none';
   });
 }
 
@@ -5992,6 +6015,77 @@ function _placarContraSetTurno(turno, btn) {
     .forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+// ── Filtro por Metodologia (placar sugerido) — mostra só os jogos cujo
+// "lay X-Y" calculado (clique ou automático) cai num dos placares
+// marcados aqui. Vazio = mostra todos, igual ao filtro de Sinal do Mapa
+// de Sugestões (mesmo padrão de dropdown com checkbox).
+let _placarContraMetodSelecionados = new Set();
+const PLACAR_CONTRA_METOD_ZERO_PRESET = ['0-1', '0-2', '0-3', '1-0', '2-0', '3-0'];
+
+function _placarContraToggleMetodPanel(ev) {
+  ev?.stopPropagation();
+  const panel = document.getElementById('placarContraMetodPanel');
+  if (!panel) return;
+  const abrindo = panel.style.display === 'none';
+  if (abrindo) _placarContraRenderMetodOptions();
+  panel.style.display = abrindo ? 'block' : 'none';
+}
+
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('placarContraMetodPanel');
+  const toggle = document.getElementById('placarContraMetodToggle');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(ev.target) || toggle?.contains(ev.target)) return;
+  panel.style.display = 'none';
+});
+
+function _placarContraRenderMetodOptions() {
+  const box = document.getElementById('placarContraMetodOptions');
+  if (!box) return;
+  box.innerHTML = PLACAR_EXATO_BUCKETS_ORDER.map(score => `
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text)">
+      <input type="checkbox" value="${score}" ${_placarContraMetodSelecionados.has(score) ? 'checked' : ''}
+        onchange="_placarContraToggleMetod('${score}', this.checked)">
+      ${score}
+    </label>`).join('');
+}
+
+function _placarContraToggleMetod(score, checked) {
+  if (checked) _placarContraMetodSelecionados.add(score);
+  else _placarContraMetodSelecionados.delete(score);
+  _placarContraUpdateMetodLabel();
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraMetodMarcarTodos(marcar) {
+  document.querySelectorAll('#placarContraMetodOptions input[type=checkbox]').forEach(cb => {
+    cb.checked = marcar;
+    if (marcar) _placarContraMetodSelecionados.add(cb.value);
+  });
+  if (!marcar) _placarContraMetodSelecionados.clear();
+  _placarContraUpdateMetodLabel();
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+// Atalho: marca de uma vez todos os placares "zero de um lado" (0-1, 0-2,
+// 0-3, 1-0, 2-0, 3-0), excluindo o 0-0 — mesmo conjunto já usado no card
+// "Ambas marcando mata esses placares".
+function _placarContraMetodPreset(nome) {
+  if (nome === 'zero') {
+    _placarContraMetodSelecionados = new Set(PLACAR_CONTRA_METOD_ZERO_PRESET);
+  }
+  _placarContraRenderMetodOptions();
+  _placarContraUpdateMetodLabel();
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraUpdateMetodLabel() {
+  const btn = document.getElementById('placarContraMetodToggle');
+  if (!btn) return;
+  const n = _placarContraMetodSelecionados.size;
+  btn.textContent = (n === 0 ? 'Placar: todos' : `Placar: ${n} selecionado${n > 1 ? 's' : ''}`) + ' ⌄';
 }
 
 function selectPlacarContraMatch(id, rowEl) {
@@ -6295,6 +6389,9 @@ function _placarContraTryRenderZeroBucket(id) {
   cache.melhorEntrada = melhor;
   _placarContraUpdateRowBadge(id, melhor);
   _placarContraSaveLaySnapshot(id, melhor);
+  if (_placarContraMetodSelecionados.size > 0) {
+    _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+  }
 }
 
 // ── Histórico de placares sugeridos (lay) do dia, com taxa de acerto ───────
