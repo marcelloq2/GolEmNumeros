@@ -5954,11 +5954,18 @@ function selectPlacarContraMatch(id, rowEl) {
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>`;
 
-  document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
-
   _placarContraLoadOdds(id, m);
-  _placarContraLoadStats(id, m);
+
+  // Sugestão de lay só faz sentido como entrada PRÉ-jogo — pra jogo ao
+  // vivo/encerrado não calcula nada, só avisa.
+  const sugestaoBox = document.getElementById('placarContraSugestaoBox');
+  if (m.status === '1') {
+    sugestaoBox.innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
+    _placarContraLoadStats(id, m);
+  } else {
+    sugestaoBox.innerHTML = '<div style="color:var(--text2);font-size:13px">Sugestão de lay só é calculada pra jogos "Próximos" (ainda não começaram).</div>';
+  }
 }
 
 async function _placarContraLoadOdds(id, m) {
