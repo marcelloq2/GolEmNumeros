@@ -5898,6 +5898,9 @@ async function _placarContraLoadOdds(id, m) {
     box.innerHTML = `
       <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">🎯 Placar Exato — odds (back)</div>
       ${placar ? _renderToday2OddsMarket('placar_exato', placar) : '<div style="color:var(--text2)">sem odds de Placar Exato disponíveis pra esse jogo</div>'}`;
+    const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+    cache.placarExatoBuckets = placar ? _placarExatoBuckets(placar.items || []) : [];
+    _placarContraTryRenderZeroBucket(id);
   } catch (e) {
     if (_placarContraSelectedId !== id) return;
     box.innerHTML = '<div style="color:var(--text2)">erro ao buscar odds</div>';
@@ -5949,7 +5952,7 @@ async function _placarContraLoadStats(id, m) {
   const sHomeCasa = _jogoComputeStats(blocks[1].rows);
   const sAwayGeral = _jogoComputeStats(blocks[2].rows);
   const sAwayFora = _jogoComputeStats(blocks[3].rows);
-  _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
+  _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
 }
 
 // ── Sugestão de placares "favoráveis a não acontecer" (lay) ────────────────
@@ -6011,7 +6014,7 @@ function _placarContraPoissonRanking(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
 const PLACAR_CONTRA_ZERO_BUCKETS = ['0-1', '0-2', '0-3', '1-0', '2-0', '3-0'];
 const PLACAR_CONTRA_AMBAS_THRESHOLD = 55; // % mínima de "ambas marcam" pra valer destacar
 
-function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, homeTeam, awayTeam) {
+function _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, homeTeam, awayTeam) {
   const box = document.getElementById('placarContraSugestaoBox');
   if (!box) return;
   const r = _placarContraPoissonRanking(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora);
@@ -6027,27 +6030,6 @@ function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
   const ambasAway = _poissonAvgOf(sAwayGeral?.pctAmbasMarcam, sAwayFora?.pctAmbasMarcam);
   const ambasHist = _poissonAvgOf(ambasHome, ambasAway);
   const ambasMedia = _poissonAvgOf(r.pAmbasPoisson, ambasHist);
-
-  let zeroBucketsHtml = '';
-  if (ambasMedia !== null && ambasMedia >= PLACAR_CONTRA_AMBAS_THRESHOLD) {
-    const zeroBuckets = r.ranking.filter(b => PLACAR_CONTRA_ZERO_BUCKETS.includes(b.score));
-    zeroBucketsHtml = `
-      <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-top:10px">
-        <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
-          🥅 Ambas marcando mata esses placares (lay) — chance de ambas marcarem hoje ~${ambasMedia.toFixed(0)}%
-        </div>
-        <div style="padding:10px 12px;font-size:12px;color:var(--text2)">
-          Poisson: ~${r.pAmbasPoisson.toFixed(0)}% · Histórico (Ambas Marcam de ${homeTeam} e ${awayTeam}): ~${ambasHist === null ? '—' : ambasHist.toFixed(0) + '%'}
-          <span title="Se os dois times têm boa chance de marcar hoje, qualquer placar em que um dos dois fica a zero (0xN ou Nx0) fica menos provável, mesmo sendo vitória de um dos lados." style="cursor:help">ℹ️</span>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px">
-          ${zeroBuckets.map(b => `
-            <div style="border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-              lay ${b.score} <span style="color:#ef4444;font-weight:700">~${b.prob.toFixed(1)}%</span>
-            </div>`).join('')}
-        </div>
-      </div>`;
-  }
 
   box.innerHTML = `
     <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">
@@ -6065,7 +6047,71 @@ function _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFor
           </div>`).join('')}
       </div>
     </div>
-    ${zeroBucketsHtml}`;
+    <div id="placarContraZeroBucketBox"></div>`;
+
+  // Guarda o resultado do lado das estatísticas — a correlação com a odd
+  // (pra escolher a MELHOR entrada) só fecha quando a odd também já tiver
+  // chegado (busca em paralelo, ver _placarContraLoadOdds).
+  const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+  cache.zeroRanking = { ambasMedia, ranking: r.ranking, pAmbasPoisson: r.pAmbasPoisson, ambasHist, homeTeam, awayTeam };
+  _placarContraTryRenderZeroBucket(id);
+}
+
+// Escolhe UMA única entrada entre os 6 placares "zero a favor" (0-1, 0-2,
+// 0-3, 1-0, 2-0, 3-0): a que tem a MELHOR combinação de "difícil de
+// acontecer" (probabilidade baixa no modelo) e "odd baixa" (mercado tá
+// cobrando barato por algo que o modelo acha raro) — value = prob × odd,
+// quanto menor, melhor o mismatch. Só recalcula quando tanto as
+// estatísticas (ranking) quanto as odds já tiverem chegado.
+function _placarContraTryRenderZeroBucket(id) {
+  if (id !== _placarContraSelectedId) return;
+  const targetBox = document.getElementById('placarContraZeroBucketBox');
+  const cache = _placarContraTabCache[id];
+  if (!targetBox || !cache?.zeroRanking) return;
+  const { ambasMedia, ranking, pAmbasPoisson, ambasHist, homeTeam, awayTeam } = cache.zeroRanking;
+  if (ambasMedia === null || ambasMedia < PLACAR_CONTRA_AMBAS_THRESHOLD) { targetBox.innerHTML = ''; return; }
+
+  const header = `
+    <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
+      🥅 Ambas marcando mata esses placares — melhor entrada (lay)
+    </div>
+    <div style="padding:10px 12px;font-size:12px;color:var(--text2)">
+      Chance de ambas marcarem hoje: ~${ambasMedia.toFixed(0)}% (Poisson ~${pAmbasPoisson.toFixed(0)}% · histórico de ${homeTeam}/${awayTeam} ~${ambasHist === null ? '—' : ambasHist.toFixed(0) + '%'})
+    </div>`;
+
+  if (!cache.placarExatoBuckets) {
+    targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-top:10px">${header}
+      <div style="padding:0 12px 12px;font-size:12px;color:var(--text2)">⏳ Buscando odds pra escolher a melhor entrada...</div>
+    </div>`;
+    return;
+  }
+
+  const zeroBuckets = ranking.filter(b => PLACAR_CONTRA_ZERO_BUCKETS.includes(b.score));
+  const withOdd = zeroBuckets
+    .map(b => {
+      const oddEntry = cache.placarExatoBuckets.find(x => x.score === b.score);
+      return oddEntry ? { score: b.score, prob: b.prob, odd: oddEntry.odd, valor: b.prob * oddEntry.odd } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.valor - b.valor);
+
+  if (!withOdd.length) {
+    targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-top:10px">${header}
+      <div style="padding:0 12px 12px;font-size:12px;color:var(--text2)">Nenhum desses placares tem odd de Placar Exato disponível hoje.</div>
+    </div>`;
+    return;
+  }
+
+  const melhor = withOdd[0];
+  targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-top:10px">${header}
+    <div style="padding:0 12px 12px">
+      <div style="border:1px solid #ef444455;background:var(--bg);border-radius:8px;padding:10px 16px;display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <span style="font-size:18px;font-weight:800;color:var(--text)">lay ${melhor.score}</span>
+        <span style="font-size:12px;color:var(--text2)">chance de acontecer <b style="color:#ef4444">~${melhor.prob.toFixed(1)}%</b></span>
+        <span style="font-size:12px;color:var(--text2)">odd oferecida <b style="color:var(--text)">${melhor.odd.toFixed(2)}</b></span>
+      </div>
+    </div>
+  </div>`;
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
