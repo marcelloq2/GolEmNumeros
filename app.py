@@ -7177,7 +7177,7 @@ _SINAIS_TTL = 30 * 60
 _SINAIS_MAX_CANDIDATOS = 15  # cada candidato = ~2×30 jogos históricos pra enriquecer; mantém conservador na 1ª versão
 _SINAIS_MIN_N = 8
 _SINAIS_CACHE = {"ts": 0, "data": None}
-_SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None}
+_SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None, "processed_ids": []}
 _SINAIS_LOCK = threading.Lock()  # evita 2 requisições simultâneas refazendo o
 # mesmo cálculo caro do zero cada uma (sem isso, 2 cliques próximos — ou o
 # navegador tentando de novo — dobravam o trabalho em vez de a 2ª aproveitar
@@ -7578,15 +7578,25 @@ def _sinais_compute_locked():
             _SINAIS_DAY_CACHE["date"] = today_str
             _SINAIS_DAY_CACHE["sugestoes"] = restored.get("sugestoes") or {}
             _SINAIS_DAY_CACHE["manual_reset_date"] = restored.get("manual_reset_date")
+            _SINAIS_DAY_CACHE["processed_ids"] = restored.get("processed_ids") or []
         else:
             _SINAIS_DAY_CACHE["date"] = today_str
             _SINAIS_DAY_CACHE["sugestoes"] = {}
             _SINAIS_DAY_CACHE["manual_reset_date"] = None
+            _SINAIS_DAY_CACHE["processed_ids"] = []
 
     sugestoes = _SINAIS_DAY_CACHE["sugestoes"]
+    # Partidas que JÁ tiveram seus 8 sinais checados numa passada anterior
+    # (independente de terem gerado sugestão ou não) — sem isso, scheduled[:N]
+    # e finished_today[:N] (ordenados por horário) sempre devolviam os MESMOS
+    # N jogos mais antigos do dia em TODO ciclo de 25min, ficando presos
+    # reprocessando quem já tava pronto e nunca sobrando espaço pros jogos
+    # seguintes — é exatamente o que causava sugestões de jogos de manhã cedo
+    # só aparecerem no meio do dia, horas depois de já terem terminado.
+    processed_ids = set(_SINAIS_DAY_CACHE["processed_ids"])
 
-    scheduled = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "1"), key=lambda mm: mm.get("kickoff_ts") or "")
-    finished_today = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "3"), key=lambda mm: mm.get("kickoff_ts") or "")
+    scheduled = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "1" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
+    finished_today = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "3" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
     candidatos = scheduled[:_SINAIS_MAX_CANDIDATOS] + finished_today[:_SINAIS_MAX_CANDIDATOS]
 
     media = _jogo_medias_gerais_compute()
@@ -7668,6 +7678,9 @@ def _sinais_compute_locked():
                 "confianca": _sinais_confianca(c.get("n") or 0, c.get("pct") or 0),
             }
             _sinais_notificar_telegram(sugestoes[uid])
+        processed_ids.add(m["id"])
+
+    _SINAIS_DAY_CACHE["processed_ids"] = list(processed_ids)
 
     # Atualiza status/acertou de tudo que já está na lista (mesmo que o jogo
     # tenha saído da janela de candidatos acima)
@@ -7733,6 +7746,7 @@ def api_sinais_dia_atualizar_dia():
     _SINAIS_DAY_CACHE["date"] = today_str
     _SINAIS_DAY_CACHE["sugestoes"] = {}
     _SINAIS_DAY_CACHE["manual_reset_date"] = today_str
+    _SINAIS_DAY_CACHE["processed_ids"] = []
     _SINAIS_CACHE["ts"] = 0
     _SINAIS_CACHE["data"] = None
     path = _sinais_cache_path()
