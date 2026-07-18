@@ -5905,22 +5905,57 @@ function _renderPlacarContraRow(m) {
         <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        ${lay ? _placarContraLayBadgeHtml(m.id, lay) : `<span id="placarContraLayBadge_${m.id}"></span>`}
+        ${lay ? _placarContraLayBadgeHtml(m.id, lay, m) : `<span id="placarContraLayBadge_${m.id}"></span>`}
         <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
       </div>
     </div>`;
 }
 
-function _placarContraLayBadgeHtml(id, lay) {
-  return `<span id="placarContraLayBadge_${id}" title="chance de acontecer ~${lay.prob.toFixed(1)}% · odd ${lay.odd.toFixed(2)}"
-    style="border:1px solid #ef444455;background:#ef444422;color:#ef4444;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;white-space:nowrap;cursor:help">lay ${lay.score}</span>`;
+// Resultado de uma entrada de lay dado o placar ATUAL do jogo (pode ser
+// durante a partida, não precisa ter terminado) — como gol não "some" (o
+// placar só sobe), assim que o placar atual já tiver mais gols de um dos
+// lados do que o placar sugerido tinha, fica matematicamente IMPOSSÍVEL o
+// jogo terminar com aquele placar exato — o lay já ganhou garantido, mesmo
+// que a partida ainda não tenha acabado. Ex: sugeriu lay 0-1 e o time da
+// casa já marcou 1 gol (placar atual 1-0) → 0-1 não sai mais, green na hora.
+// 'green' = já ganhou garantido | 'red' = terminou EXATAMENTE nesse placar
+// (perdeu) | null = ainda indefinido, aguardando.
+function _placarContraResultadoLay(scoreTarget, homeAtual, awayAtual, terminou) {
+  const mm = /^(\d+)-(\d+)$/.exec(scoreTarget || '');
+  if (!mm) {
+    // Buckets "Qualquer outra vitória em casa/fora"/"Qualquer outro empate"
+    // (margens maiores) — só dá pra confirmar com o jogo já encerrado.
+    if (!terminou) return null;
+    return _placarExatoBucketKey(homeAtual, awayAtual) !== scoreTarget ? 'green' : 'red';
+  }
+  const targetH = parseInt(mm[1]), targetA = parseInt(mm[2]);
+  if (homeAtual > targetH || awayAtual > targetA) return 'green';
+  if (terminou) return (homeAtual === targetH && awayAtual === targetA) ? 'red' : 'green';
+  return null;
+}
+
+function _placarContraLayBadgeHtml(id, lay, m) {
+  const terminou = m?.status === '3';
+  const resultado = _placarContraResultadoLay(lay.score, m?.home_score ?? 0, m?.away_score ?? 0, terminou);
+  const estilo = resultado === 'green'
+    ? { border: '#22c55e55', bg: '#22c55e22', color: '#22c55e', prefixo: '✅' }
+    : resultado === 'red'
+      ? { border: '#ef444488', bg: '#ef444444', color: '#ef4444', prefixo: '❌' }
+      : { border: '#ef444455', bg: '#ef444422', color: '#ef4444', prefixo: '' };
+  const titulo = resultado === 'green' ? 'Já ficou impossível esse placar sair — green garantido'
+    : resultado === 'red' ? 'Terminou exatamente nesse placar — perdeu'
+      : `chance de acontecer ~${lay.prob.toFixed(1)}% · odd ${lay.odd.toFixed(2)}`;
+  return `<span id="placarContraLayBadge_${id}" title="${titulo}"
+    style="border:1px solid ${estilo.border};background:${estilo.bg};color:${estilo.color};font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;white-space:nowrap;cursor:help">${estilo.prefixo} lay ${lay.score}</span>`;
 }
 
 // Atualiza o badge na linha da lista (se ela já estiver renderizada na
 // tela), sem precisar reconstruir a lista inteira.
 function _placarContraUpdateRowBadge(id, lay) {
   const el = document.getElementById(`placarContraLayBadge_${id}`);
-  if (el) el.outerHTML = _placarContraLayBadgeHtml(id, lay);
+  if (!el) return;
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+  el.outerHTML = _placarContraLayBadgeHtml(id, lay, m);
 }
 
 function _placarContraFilterBySearch(texto) {
@@ -6271,25 +6306,26 @@ function _placarContraRenderHistorico() {
   // Calcula acertou/errou de cada entrada e agrupa por placar sugerido
   // (mercado) — não mostra os jogos individuais, só o resumo por placar.
   let acertos = 0, encerrados = 0;
-  const porPlacar = {}; // { score: {total, encerrados, acertos} }
+  const porPlacar = {}; // { score: {total, decididos, acertos} }
   hoje.forEach(e => {
     const m = today2MatchesCache.find(x => String(x.id) === String(e.id));
-    const status = m?.status;
-    const agg = porPlacar[e.score] || (porPlacar[e.score] = { total: 0, encerrados: 0, acertos: 0 });
+    const agg = porPlacar[e.score] || (porPlacar[e.score] = { total: 0, decididos: 0, acertos: 0 });
     agg.total++;
-    if (status === '3') {
-      const bucketReal = _placarExatoBucketKey(m.home_score ?? 0, m.away_score ?? 0);
-      const acertou = bucketReal !== e.score;
+    // Não espera o jogo acabar — assim que fica matematicamente impossível
+    // sair o placar sugerido (placar atual já passou do alvo), já conta
+    // como acerto, mesmo que o jogo ainda esteja rolando.
+    const resultado = _placarContraResultadoLay(e.score, m?.home_score ?? 0, m?.away_score ?? 0, m?.status === '3');
+    if (resultado === 'green' || resultado === 'red') {
       encerrados++;
-      agg.encerrados++;
-      if (acertou) { acertos++; agg.acertos++; }
+      agg.decididos++;
+      if (resultado === 'green') { acertos++; agg.acertos++; }
     }
   });
 
   const taxa = encerrados ? (acertos / encerrados * 100).toFixed(0) : null;
   const resumo = `
     <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--text2)">Taxa de acerto hoje (${encerrados} encerrados de ${hoje.length})</span>
+      <span style="font-size:12px;color:var(--text2)">Taxa de acerto hoje (${encerrados} decididos de ${hoje.length})</span>
       <span style="font-size:16px;font-weight:800;color:${taxa === null ? 'var(--text2)' : taxa >= 50 ? '#22c55e' : '#ef4444'}">${taxa === null ? '—' : taxa + '%'}</span>
     </div>`;
 
@@ -6297,7 +6333,7 @@ function _placarContraRenderHistorico() {
   // pro menos certeiro — o objetivo é identificar quais placares valem mais
   // a pena seguir, não só o número geral do dia.
   const porPlacarOrdenado = Object.entries(porPlacar)
-    .map(([score, agg]) => ({ score, ...agg, pct: agg.encerrados ? agg.acertos / agg.encerrados * 100 : null }))
+    .map(([score, agg]) => ({ score, ...agg, pct: agg.decididos ? agg.acertos / agg.decididos * 100 : null }))
     .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
   const tabelaPlacares = `
     <div style="margin-bottom:14px">
@@ -6306,7 +6342,7 @@ function _placarContraRenderHistorico() {
         ${porPlacarOrdenado.map((p, i) => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;${i ? 'border-top:1px solid var(--border)' : ''}">
             <span style="font-size:13px;font-weight:700;color:var(--text)">lay ${p.score}</span>
-            <span style="font-size:12px;color:var(--text2)">${p.acertos}/${p.encerrados} encerrados${p.total > p.encerrados ? ` (+${p.total - p.encerrados} pendente)` : ''}</span>
+            <span style="font-size:12px;color:var(--text2)">${p.acertos}/${p.decididos} decididos${p.total > p.decididos ? ` (+${p.total - p.decididos} pendente)` : ''}</span>
             <span style="font-size:13px;font-weight:800;color:${p.pct === null ? 'var(--text2)' : p.pct >= 50 ? '#22c55e' : '#ef4444'}">${p.pct === null ? '—' : p.pct.toFixed(0) + '%'}</span>
           </div>`).join('')}
       </div>
