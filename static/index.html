@@ -1533,6 +1533,7 @@
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
+        <div id="placarContraCustoGolBox"></div>
       </div>
     </div>
   </div>
@@ -6018,6 +6019,7 @@ function selectPlacarContraMatch(id, rowEl) {
 
   document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
+  document.getElementById('placarContraCustoGolBox').innerHTML = '';
 
   _placarContraLoadOdds(id, m);
   _placarContraLoadStats(id, m);
@@ -6091,6 +6093,43 @@ async function _placarContraLoadStats(id, m) {
   const sAwayGeral = _jogoComputeStats(blocks[2].rows);
   const sAwayFora = _jogoComputeStats(blocks[3].rows);
   _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
+  _placarContraRenderCustoGol(id, blocks, m.home, m.away);
+}
+
+// Custo do Gol 2.0 (Marcado/Sofrido) de cada lado — blend Geral+Casa/Fora,
+// mesma lógica já usada nas outras métricas dessa aba. Reaproveita
+// _jogoGolValorStats (mesma função da aba Jogo), só que mostrando só essas
+// 2 linhas em vez do card inteiro de estatísticas.
+function _placarContraRenderCustoGol(id, blocks, homeTeam, awayTeam) {
+  const box = document.getElementById('placarContraCustoGolBox');
+  if (!box) return;
+  const gvHomeGeral = _jogoGolValorStats(blocks[0].rows);
+  const gvHomeCasa = _jogoGolValorStats(blocks[1].rows);
+  const gvAwayGeral = _jogoGolValorStats(blocks[2].rows);
+  const gvAwayFora = _jogoGolValorStats(blocks[3].rows);
+
+  const coluna = (teamName, gvGeral, gvRecorte) => {
+    const marcado = _poissonAvgOf(gvGeral?.avgCustoGol2Marcado, gvRecorte?.avgCustoGol2Marcado);
+    const sofrido = _poissonAvgOf(gvGeral?.avgCustoGol2Sofrido, gvRecorte?.avgCustoGol2Sofrido);
+    const linha = (label, val) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">${label}</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text)">${val === null ? '—' : val.toFixed(3)}</span>
+      </div>`;
+    return `
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px">⚽ ${teamName}</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          ${linha('Custo do Gol 2.0 (Marcado)', marcado)}
+          ${linha('Custo do Gol 2.0 (Sofrido)', sofrido)}
+        </div>
+      </div>`;
+  };
+
+  box.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">
+    ${coluna(homeTeam, gvHomeGeral, gvHomeCasa)}
+    ${coluna(awayTeam, gvAwayGeral, gvAwayFora)}
+  </div>`;
 }
 
 // ── Sugestão de placares "favoráveis a não acontecer" (lay) ────────────────
