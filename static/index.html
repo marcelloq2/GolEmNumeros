@@ -1525,7 +1525,6 @@
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
-        <div id="placarContraStatsBox"></div>
         <div id="placarContraH2hBox" style="margin-top:16px"></div>
       </div>
     </div>
@@ -5860,7 +5859,6 @@ function selectPlacarContraMatch(id, rowEl) {
 
   document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
-  document.getElementById('placarContraStatsBox').innerHTML = '';
   document.getElementById('placarContraH2hBox').innerHTML = '';
 
   _placarContraLoadOdds(id, m);
@@ -5886,32 +5884,33 @@ async function _placarContraLoadOdds(id, m) {
   }
 }
 
+// Não exibe cards de estatísticas — só calcula por trás pra alimentar a
+// sugestão de placar (_placarContraRenderSugestao). O usuário pediu pra
+// tirar a exibição das variáveis cruas dessa aba, já que o cálculo já é
+// feito internamente e o que importa aqui é o resultado (o placar sugerido).
 async function _placarContraLoadStats(id, m) {
-  const statsBox = document.getElementById('placarContraStatsBox');
   const h2hBox = document.getElementById('placarContraH2hBox');
-  if (!statsBox) return;
+  const sugestaoBox = document.getElementById('placarContraSugestaoBox');
   const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
 
   if (!cache._h2hTabs) {
-    statsBox.innerHTML = '⏳ Buscando histórico...';
     try {
       const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
       const r = await fetch(`/api/flashscore/h2h?${params}`);
       const d = await r.json();
       cache._h2hTabs = d.tabs || [];
     } catch (e) {
-      statsBox.innerHTML = '<div style="color:var(--text2)">erro ao buscar histórico</div>';
+      if (sugestaoBox) sugestaoBox.innerHTML = '<div style="color:var(--text2)">erro ao buscar histórico</div>';
       return;
     }
   }
   if (_placarContraSelectedId !== id) return;
 
   const tabs = cache._h2hTabs;
-  if (!tabs.length) { statsBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>'; return; }
-
-  statsBox.innerHTML = `
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — Geral e Casa/Fora</div>
-    <div id="placarContraJogoBody_${id}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>`;
+  if (!tabs.length) {
+    if (sugestaoBox) sugestaoBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>';
+    return;
+  }
 
   // Confronto Direto — dispara em paralelo, não bloqueia o resto.
   _today2H2hStatsCards(id, tabs, m.home, m.away, 'placarContraH2hBox');
@@ -5926,56 +5925,15 @@ async function _placarContraLoadStats(id, m) {
     _jogoStatsRowsFromSection(tabs, 0, false), // visitante — Geral
     _jogoStatsRowsFromSection(tabs, 2, false), // visitante — Fora
   ];
-  const BLOCK_LABELS = ['Geral', 'Casa', 'Geral', 'Fora'];
-
-  const mediasGeraisPromise = _jogoEnsureMediasGerais();
 
   await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
   if (_placarContraSelectedId !== id) return;
 
-  const computeBlockStats = (b) => {
-    const s = _jogoComputeStats(b.rows);
-    const gv = _jogoGolValorStats(b.rows);
-    if (s && gv) {
-      s.avgValorGolMarcado = gv.avgValorGolMarcado;
-      s.avgValorGolSofrido = gv.avgValorGolSofrido;
-      s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
-      s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
-      s.nGolValor = gv.n;
-      s.avgSaldo = gv.avgSaldo;
-      s.nSaldo = gv.nSaldo;
-      s.avgValorSaldo = gv.avgValorSaldo;
-      s.avgValorPonto = gv.avgValorPonto;
-    }
-    return s;
-  };
-
-  const renderCards = (mediaGeral, mediaCasa, mediaFora) => {
-    const body = document.getElementById(`placarContraJogoBody_${id}`);
-    if (!body) return;
-    const medias = [mediaGeral, mediaCasa, mediaGeral, mediaFora];
-    const cardsHtml = blocks.map((b, i) =>
-      _jogoStatsCardHtml(`${b.teamName} (${BLOCK_LABELS[i]})`, computeBlockStats(b), medias[i]));
-    body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start">
-         ${cardsHtml.map(h => `<div>${h}</div>`).join('')}
-       </div>`;
-  };
-
-  renderCards(null, null, null);
-
-  // A sugestão de placar cruza Geral e Casa/Fora de cada lado (média simples
-  // dos dois), pra não depender só do recorte específico (que às vezes tem
-  // amostra pequena) nem só do geral (que mistura casa+fora).
-  const sHomeGeral = computeBlockStats(blocks[0]);
-  const sHomeCasa = computeBlockStats(blocks[1]);
-  const sAwayGeral = computeBlockStats(blocks[2]);
-  const sAwayFora = computeBlockStats(blocks[3]);
+  const sHomeGeral = _jogoComputeStats(blocks[0].rows);
+  const sHomeCasa = _jogoComputeStats(blocks[1].rows);
+  const sAwayGeral = _jogoComputeStats(blocks[2].rows);
+  const sAwayFora = _jogoComputeStats(blocks[3].rows);
   _placarContraRenderSugestao(sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
-
-  mediasGeraisPromise.then(mediasGerais => {
-    if (_placarContraSelectedId !== id) return;
-    renderCards(mediasGerais?.geral, mediasGerais?.casa, mediasGerais?.fora);
-  });
 }
 
 // ── Sugestão de placares "favoráveis a não acontecer" (lay) ────────────────
