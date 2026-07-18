@@ -8394,6 +8394,68 @@ function _live2CombinedSignalBadgeHtml(points, shots, m) {
   </span>`;
 }
 
+// ── Termômetro "quem está mais perto do gol" — combina os MESMOS dados que já
+// alimentam os 5 selos acima (pressão, chutes por zona com peso pela
+// perigosidade e decaindo com a antiguidade, xG oficial) numa única leitura
+// visual em barra, em vez de o usuário ter que somar os selos na cabeça.
+// Versão "simples": pesos fixos definidos por lógica, não calibrados por
+// histórico — ver PROMPT_CONTINUACAO.md/conversa sobre evolução futura
+// (calibrar com dados reais de gols após cada indicador, quando tiver
+// volume suficiente acumulado).
+const LIVE2_THERMO_ZONE_WEIGHT = { area_pequena: 30, area_grande: 18, meia_distancia: 8, longa_distancia: 3 };
+
+function _live2ThermometerScore(points, shots, m) {
+  let casa = 0, fora = 0;
+
+  // 1) Pressão média das últimas 8 leituras do gráfico de momentum
+  const N = Math.min(8, points.length);
+  if (N) {
+    const avg = points.slice(-N).map(p => p.value || 0).reduce((a, b) => a + b, 0) / N;
+    const peso = Math.min(Math.abs(avg), 100) * 0.3;
+    if (avg > 0) casa += peso; else if (avg < 0) fora += peso;
+  }
+
+  // 2) Últimos 5 chutes, pesados pela zona (área pequena pesa mais que longa
+  // distância) e decaindo 15% a cada chute mais antigo (o mais recente pesa mais)
+  if (shots && shots.length) {
+    const classZ = (x) => { const xv = x ?? 50; if (xv < 12) return 'area_pequena'; if (xv < 32) return 'area_grande'; if (xv < 55) return 'meia_distancia'; return 'longa_distancia'; };
+    const recentes = [...shots].sort((a, b) => (b.minute || 0) - (a.minute || 0)).slice(0, 5);
+    recentes.forEach((s, i) => {
+      const peso = LIVE2_THERMO_ZONE_WEIGHT[classZ(s.x)] * Math.max(1 - i * 0.15, 0.2);
+      if (s.isHome) casa += peso; else fora += peso;
+    });
+  }
+
+  // 3) xG oficial do Uniscore (quando disponível) — bônus proporcional
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const xg = d?.statistics?.expected_goals;
+  if (xg && (xg.homeValue || xg.awayValue)) {
+    casa += (parseFloat(xg.homeValue) || 0) * 10;
+    fora += (parseFloat(xg.awayValue) || 0) * 10;
+  }
+
+  const total = casa + fora;
+  if (total <= 0) return null;
+  return { casaPct: casa / total * 100, foraPct: fora / total * 100 };
+}
+
+function _live2ThermometerHtml(score) {
+  if (!score) return '';
+  const casaMaior = score.casaPct >= score.foraPct;
+  return `
+    <div style="margin-top:6px">
+      <div style="font-size:9px;color:var(--text2);text-align:center;margin-bottom:2px" title="Combina pressão recente, zona dos últimos chutes e xG oficial — leitura simples, não calibrada com histórico ainda">🌡️ Chance de marcar (indicadores atuais)</div>
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+        <div style="width:${score.casaPct}%;background:#3b82f6"></div>
+        <div style="width:${score.foraPct}%;background:#ef4444"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px">
+        <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '400'}">Casa ${score.casaPct.toFixed(0)}%</span>
+        <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '400'}">Visitante ${score.foraPct.toFixed(0)}%</span>
+      </div>
+    </div>`;
+}
+
 // Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
 // oficial, xG por chutes) sempre que momentum OU shotmap terminam de carregar
 async function _live2RefreshBadges(matchId) {
@@ -8417,6 +8479,9 @@ async function _live2RefreshBadges(matchId) {
     ? 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px'
     : 'text-align:center;margin-top:4px';
   freshBadgeEl.innerHTML = html;
+
+  const thermoEl = document.getElementById(`live2Thermo_${matchId}`);
+  if (thermoEl) thermoEl.innerHTML = _live2ThermometerHtml(_live2ThermometerScore(points, shots, m));
 }
 
 // Guarda o HTML das estatísticas/odds já carregadas por partida — o grid do Ao Vivo 2
@@ -8444,7 +8509,7 @@ async function _loadLive2Momentum(matches) {
         const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
         const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
         if (!unchanged) {
-          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div>`;
+          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div><div id="live2Thermo_${m.id}"></div>`;
           const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
           drawMiniMomentum(canvasEl, points, data.goals || []);
           _live2AttachMomentumTooltip(canvasEl, points);
