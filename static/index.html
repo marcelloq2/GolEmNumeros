@@ -1502,6 +1502,7 @@
           <span style="font-size:12px;font-weight:700;color:var(--text2)">🎯 Placar Contra</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
+            <button class="live-refresh-btn" onclick="_placarContraOpenHistorico()" title="Ver todos os placares sugeridos hoje e a taxa de acerto">📋</button>
             <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
           </span>
         </div>
@@ -1526,6 +1527,26 @@
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL HISTÓRICO DE PLACARES SUGERIDOS — PLACAR CONTRA -->
+  <div id="placarContraHistOverlay" onclick="if(event.target===this)_placarContraCloseHistorico()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:640px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">📋 Placares sugeridos hoje</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Melhor entrada (lay) de cada jogo aberto, com taxa de acerto</div>
+        </div>
+        <button onclick="_placarContraCloseHistorico()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer">✕</button>
+      </div>
+      <div id="placarContraHistBody" style="padding:16px 18px;max-height:70vh;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -6152,6 +6173,97 @@ function _placarContraTryRenderZeroBucket(id) {
   // pra ficar acessível mesmo depois de fechar o detalhe desse jogo.
   cache.melhorEntrada = melhor;
   _placarContraUpdateRowBadge(id, melhor);
+  _placarContraSaveLaySnapshot(id, melhor);
+}
+
+// ── Histórico de placares sugeridos (lay) do dia, com taxa de acerto ───────
+// Guarda no localStorage assim que uma "melhor entrada" é calculada, pra
+// depois comparar com o resultado real do jogo (mesmo padrão já usado no
+// histórico de prognóstico da aba Hoje, ver PROG_HISTORY_KEY). Um lay
+// "acerta" quando o placar final NÃO é o placar sugerido.
+const PLACAR_CONTRA_HIST_KEY = 'placarContraLayHistory';
+
+function _placarContraLoadHist() {
+  try { return JSON.parse(localStorage.getItem(PLACAR_CONTRA_HIST_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function _placarContraSaveHist(list) {
+  try { localStorage.setItem(PLACAR_CONTRA_HIST_KEY, JSON.stringify(list.slice(-300))); } catch (e) {}
+}
+
+function _placarContraSaveLaySnapshot(id, melhor) {
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+  if (!m) return;
+  const list = _placarContraLoadHist();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const entry = {
+    id, home: m.home, away: m.away, liga: m.liga, pais: m.pais,
+    kickoff_ts: m.kickoff_ts, score: melhor.score, prob: melhor.prob, odd: melhor.odd, dateStr,
+  };
+  const idx = list.findIndex(x => x.id === id);
+  if (idx >= 0) list[idx] = entry; else list.push(entry);
+  _placarContraSaveHist(list);
+}
+
+function _placarContraOpenHistorico() {
+  document.getElementById('placarContraHistOverlay').style.display = 'block';
+  _placarContraRenderHistorico();
+}
+function _placarContraCloseHistorico() {
+  document.getElementById('placarContraHistOverlay').style.display = 'none';
+}
+
+function _placarContraRenderHistorico() {
+  const body = document.getElementById('placarContraHistBody');
+  if (!body) return;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const hoje = _placarContraLoadHist().filter(e => e.dateStr === todayStr)
+    .sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+
+  if (!hoje.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px 0">
+      Nenhum placar sugerido ainda hoje — abra alguns jogos na lista pra começar a acumular.</div>`;
+    return;
+  }
+
+  let acertos = 0, encerrados = 0;
+  const rows = hoje.map(e => {
+    const m = today2MatchesCache.find(x => String(x.id) === String(e.id));
+    const status = m?.status;
+    let statusHtml = '<span style="color:var(--text2)">⏳ aguardando</span>';
+    if (status === '3') {
+      const bucketReal = _placarExatoBucketKey(m.home_score ?? 0, m.away_score ?? 0);
+      const acertou = bucketReal !== e.score;
+      encerrados++;
+      if (acertou) acertos++;
+      statusHtml = acertou
+        ? `<span style="color:#22c55e;font-weight:700">✅ acertou (saiu ${m.home_score}-${m.away_score})</span>`
+        : `<span style="color:#ef4444;font-weight:700">❌ errou (saiu ${m.home_score}-${m.away_score})</span>`;
+    } else if (status === '2') {
+      statusHtml = '<span style="color:#ef4444">🔴 ao vivo</span>';
+    }
+    const hora = e.kickoff_ts ? new Date(parseInt(e.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="min-width:0">
+          <div style="font-size:12px;color:var(--text2)">${hora} · ${e.liga || ''}</div>
+          <div style="font-size:13px;color:var(--text);font-weight:600">${e.home} x ${e.away}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;font-weight:800;color:var(--text)">lay ${e.score} <span style="font-size:11px;font-weight:400;color:var(--text2)">(odd ${e.odd.toFixed(2)})</span></div>
+          <div style="font-size:12px">${statusHtml}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const taxa = encerrados ? (acertos / encerrados * 100).toFixed(0) : null;
+  const resumo = `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--text2)">Taxa de acerto hoje (${encerrados} encerrados de ${hoje.length})</span>
+      <span style="font-size:16px;font-weight:800;color:${taxa === null ? 'var(--text2)' : taxa >= 50 ? '#22c55e' : '#ef4444'}">${taxa === null ? '—' : taxa + '%'}</span>
+    </div>`;
+
+  body.innerHTML = resumo + rows;
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
