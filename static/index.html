@@ -3919,6 +3919,18 @@ function _today2MatchePassaFiltroOdds(m) {
   return _today2OddOperadorBate(odd, f.op, f.val, f.valTo);
 }
 
+// Escala de cor vermelho→amarelo→verde (igual escala de cores do Excel) pra
+// destacar visualmente odd baixa (vermelho) vs odd alta (verde) numa grade
+// de valores, tipo o Placar Exato.
+function _oddHeatColor(val, min, max) {
+  const RED = [239, 68, 68], YELLOW = [245, 158, 11], GREEN = [34, 197, 94];
+  const lerp = (a, b, t) => a.map((c, i) => Math.round(c + (b[i] - c) * t));
+  let t = max === min ? 0.5 : (val - min) / (max - min);
+  t = Math.max(0, Math.min(1, t));
+  const [r, g, b] = t < 0.5 ? lerp(RED, YELLOW, t / 0.5) : lerp(YELLOW, GREEN, (t - 0.5) / 0.5);
+  return `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function _renderToday2OddsMarket(key, o) {
   if (!o) return '<div style="color:var(--text2);text-align:center;padding:20px 0">sem dados</div>';
   if (key === '1x2') {
@@ -3959,13 +3971,18 @@ function _renderToday2OddsMarket(key, o) {
     const items = o.items || [];
     if (!items.length) return '<div style="color:var(--text2);text-align:center;padding:20px 0">sem dados</div>';
     const buckets = _placarExatoBuckets(items);
+    const odds = buckets.map(b => b.odd);
+    const minOdd = Math.min(...odds), maxOdd = Math.max(...odds);
     return `<div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${buckets.map(b => `
-        <div style="border:1px solid var(--border);background:var(--bg2);border-radius:8px;padding:8px 14px;text-align:center;min-width:64px;transition:border-color .15s"
-             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      ${buckets.map(b => {
+        const color = _oddHeatColor(b.odd, minOdd, maxOdd);
+        return `
+        <div style="border:1px solid ${color}88;background:${color}22;border-radius:8px;padding:8px 14px;text-align:center;min-width:64px;transition:border-color .15s"
+             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${color}88'">
           <div style="font-weight:700;font-size:13px;color:var(--text)">${b.score}</div>
-          <div style="font-size:15px;color:var(--text2);margin-top:2px">${b.odd.toFixed(2)}</div>
-        </div>`).join('')}
+          <div style="font-size:15px;color:${color};font-weight:700;margin-top:2px">${b.odd.toFixed(2)}</div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
   return '<div style="color:var(--text2);text-align:center;padding:20px 0">sem dados</div>';
