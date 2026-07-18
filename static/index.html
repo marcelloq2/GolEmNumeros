@@ -8490,34 +8490,44 @@ function _live2CombinedSignalBadgeHtml(points, shots, m) {
 // volume suficiente acumulado).
 const LIVE2_THERMO_ZONE_WEIGHT = { area_pequena: 30, area_grande: 18, meia_distancia: 8, longa_distancia: 3 };
 
-function _live2ThermometerScore(points, shots, m) {
+// winMin: null = partida toda (acumulado) | 10/5 = só considera pontos/chutes
+// dos últimos N minutos reais de jogo (janela mais curta = mais sensível ao
+// que está acontecendo AGORA, janela "partida toda" = leitura mais estável).
+function _live2ThermometerScore(points, shots, m, winMin) {
   let casa = 0, fora = 0;
+  const curMin = points.length ? (points[points.length - 1]?.minute ?? null) : null;
+  const naJanela = (min) => winMin === null || curMin === null || (min || 0) >= curMin - winMin;
 
-  // 1) Pressão média das últimas 8 leituras do gráfico de momentum
-  const N = Math.min(8, points.length);
-  if (N) {
-    const avg = points.slice(-N).map(p => p.value || 0).reduce((a, b) => a + b, 0) / N;
+  // 1) Pressão média dos pontos dentro da janela
+  const pontosJanela = points.filter(p => naJanela(p.minute));
+  if (pontosJanela.length) {
+    const avg = pontosJanela.map(p => p.value || 0).reduce((a, b) => a + b, 0) / pontosJanela.length;
     const peso = Math.min(Math.abs(avg), 100) * 0.3;
     if (avg > 0) casa += peso; else if (avg < 0) fora += peso;
   }
 
-  // 2) Últimos 5 chutes, pesados pela zona (área pequena pesa mais que longa
-  // distância) e decaindo 15% a cada chute mais antigo (o mais recente pesa mais)
-  if (shots && shots.length) {
+  // 2) Até 5 chutes mais recentes DENTRO da janela, pesados pela zona (área
+  // pequena pesa mais que longa distância) e decaindo 15% a cada chute mais
+  // antigo (o mais recente pesa mais)
+  const shotsJanela = (shots || []).filter(s => naJanela(s.minute));
+  if (shotsJanela.length) {
     const classZ = (x) => { const xv = x ?? 50; if (xv < 12) return 'area_pequena'; if (xv < 32) return 'area_grande'; if (xv < 55) return 'meia_distancia'; return 'longa_distancia'; };
-    const recentes = [...shots].sort((a, b) => (b.minute || 0) - (a.minute || 0)).slice(0, 5);
+    const recentes = [...shotsJanela].sort((a, b) => (b.minute || 0) - (a.minute || 0)).slice(0, 5);
     recentes.forEach((s, i) => {
       const peso = LIVE2_THERMO_ZONE_WEIGHT[classZ(s.x)] * Math.max(1 - i * 0.15, 0.2);
       if (s.isHome) casa += peso; else fora += peso;
     });
   }
 
-  // 3) xG oficial do Uniscore (quando disponível) — bônus proporcional
-  const d = _uniCache[`${m.casa}|${m.fora}`];
-  const xg = d?.statistics?.expected_goals;
-  if (xg && (xg.homeValue || xg.awayValue)) {
-    casa += (parseFloat(xg.homeValue) || 0) * 10;
-    fora += (parseFloat(xg.awayValue) || 0) * 10;
+  // 3) xG oficial do Uniscore — é acumulado da partida INTEIRA, não dá pra
+  // recortar por janela de minutos, então só entra na versão "partida toda"
+  if (winMin === null) {
+    const d = _uniCache[`${m.casa}|${m.fora}`];
+    const xg = d?.statistics?.expected_goals;
+    if (xg && (xg.homeValue || xg.awayValue)) {
+      casa += (parseFloat(xg.homeValue) || 0) * 10;
+      fora += (parseFloat(xg.awayValue) || 0) * 10;
+    }
   }
 
   const total = casa + fora;
@@ -8525,12 +8535,12 @@ function _live2ThermometerScore(points, shots, m) {
   return { casaPct: casa / total * 100, foraPct: fora / total * 100 };
 }
 
-function _live2ThermometerHtml(score) {
+function _live2ThermometerHtml(score, label, titulo) {
   if (!score) return '';
   const casaMaior = score.casaPct >= score.foraPct;
   return `
     <div style="margin-top:6px">
-      <div style="font-size:9px;color:var(--text2);text-align:center;margin-bottom:2px" title="Combina pressão recente, zona dos últimos chutes e xG oficial — leitura simples, não calibrada com histórico ainda">🌡️ Chance de marcar (indicadores atuais)</div>
+      <div style="font-size:9px;color:var(--text2);text-align:center;margin-bottom:2px" title="${titulo}">🌡️ ${label}</div>
       <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
         <div style="width:${score.casaPct}%;background:#3b82f6"></div>
         <div style="width:${score.foraPct}%;background:#ef4444"></div>
@@ -8567,7 +8577,15 @@ async function _live2RefreshBadges(matchId) {
   freshBadgeEl.innerHTML = html;
 
   const thermoEl = document.getElementById(`live2Thermo_${matchId}`);
-  if (thermoEl) thermoEl.innerHTML = _live2ThermometerHtml(_live2ThermometerScore(points, shots, m));
+  if (thermoEl) {
+    const full = _live2ThermometerScore(points, shots, m, null);
+    const w10  = _live2ThermometerScore(points, shots, m, 10);
+    const w5   = _live2ThermometerScore(points, shots, m, 5);
+    thermoEl.innerHTML =
+      _live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização') +
+      _live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora') +
+      _live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante');
+  }
 }
 
 // Guarda o HTML das estatísticas/odds já carregadas por partida — o grid do Ao Vivo 2
