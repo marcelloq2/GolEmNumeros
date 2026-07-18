@@ -6253,41 +6253,22 @@ function _placarContraRenderHistorico() {
     return;
   }
 
-  // Calcula acertou/errou de cada entrada UMA vez, reaproveitado tanto na
-  // lista individual quanto no agrupamento por placar sugerido (mercado).
+  // Calcula acertou/errou de cada entrada e agrupa por placar sugerido
+  // (mercado) — não mostra os jogos individuais, só o resumo por placar.
   let acertos = 0, encerrados = 0;
   const porPlacar = {}; // { score: {total, encerrados, acertos} }
-  const linhas = hoje.map(e => {
+  hoje.forEach(e => {
     const m = today2MatchesCache.find(x => String(x.id) === String(e.id));
     const status = m?.status;
     const agg = porPlacar[e.score] || (porPlacar[e.score] = { total: 0, encerrados: 0, acertos: 0 });
     agg.total++;
-    let statusHtml = '<span style="color:var(--text2)">⏳ aguardando</span>';
-    let acertou = null;
     if (status === '3') {
       const bucketReal = _placarExatoBucketKey(m.home_score ?? 0, m.away_score ?? 0);
-      acertou = bucketReal !== e.score;
+      const acertou = bucketReal !== e.score;
       encerrados++;
       agg.encerrados++;
       if (acertou) { acertos++; agg.acertos++; }
-      statusHtml = acertou
-        ? `<span style="color:#22c55e;font-weight:700">✅ acertou (saiu ${m.home_score}-${m.away_score})</span>`
-        : `<span style="color:#ef4444;font-weight:700">❌ errou (saiu ${m.home_score}-${m.away_score})</span>`;
-    } else if (status === '2') {
-      statusHtml = '<span style="color:#ef4444">🔴 ao vivo</span>';
     }
-    const hora = e.kickoff_ts ? new Date(parseInt(e.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="min-width:0">
-          <div style="font-size:12px;color:var(--text2)">${hora} · ${e.liga || ''}</div>
-          <div style="font-size:13px;color:var(--text);font-weight:600">${e.home} x ${e.away}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:13px;font-weight:800;color:var(--text)">lay ${e.score} <span style="font-size:11px;font-weight:400;color:var(--text2)">(odd ${e.odd.toFixed(2)})</span></div>
-          <div style="font-size:12px">${statusHtml}</div>
-        </div>
-      </div>`;
   });
 
   const taxa = encerrados ? (acertos / encerrados * 100).toFixed(0) : null;
@@ -6316,7 +6297,7 @@ function _placarContraRenderHistorico() {
       </div>
     </div>`;
 
-  body.innerHTML = resumo + tabelaPlacares + linhas.join('');
+  body.innerHTML = resumo + tabelaPlacares;
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
