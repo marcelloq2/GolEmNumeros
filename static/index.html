@@ -5859,6 +5859,11 @@ async function _placarContraLoadServerPicks() {
       if (!cache.melhorEntrada) {
         cache.melhorEntrada = pick;
         _placarContraUpdateRowBadge(id, pick);
+        // Sem isso, o badge aparecia na lista pra jogos que o usuário nunca
+        // clicou, mas o histórico (📋) só contabilizava quem foi aberto
+        // manualmente — o cálculo automático em segundo plano também precisa
+        // entrar no histórico, senão a taxa de acerto fica incompleta.
+        _placarContraSaveLaySnapshot(id, pick);
       }
     });
   } catch (e) {}
