@@ -4813,6 +4813,14 @@ from concurrent.futures import ThreadPoolExecutor
 # que um pool único fique com todos os workers presos esperando sub-tarefas dele mesmo.
 _fs_market_pool = ThreadPoolExecutor(max_workers=30)
 _fs_event_pool = ThreadPoolExecutor(max_workers=12)
+# Pool PRÓPRIO pro processamento em segundo plano dos Sinais do Dia/Placar
+# Contra (_sinais_compute_locked) — antes usava _fs_event_pool, o MESMO pool
+# das requisições normais dos usuários (odds/h2h/standings ao vivo), e isso
+# deixava o site inteiro lento sempre que o warmup rodava (a cada 25min),
+# porque monopolizava os workers. Agora o warmup nunca mais disputa recursos
+# com quem tá navegando, então dá pra manter um volume bom de candidatos/ciclo
+# sem custar responsividade pro usuário.
+_sinais_pool = ThreadPoolExecutor(max_workers=8)
 
 # Pools dedicados só pro "jogos que se encaixam na metodologia" (Backtest 2) — sem
 # isso, essa busca rápida (poucos jogos) ficava presa na fila atrás do cálculo pesado
@@ -7174,11 +7182,10 @@ def api_jogo_medias_gerais():
 # dessa 1ª versão.
 # ═══════════════════════════════════════════════════════════════════════════
 _SINAIS_TTL = 30 * 60
-_SINAIS_MAX_CANDIDATOS = 40  # cada candidato = ~2×30 jogos históricos pra enriquecer. Era 15 (conservador
-# na 1ª versão), mas com dias de 900+ partidas (fora dos jogos grandes) 15/ciclo de 25min não dava conta —
-# mesmo sem reprocessar quem já tava pronto (ver processed_ids), o volume de jogos NOVOS por ciclo passava
-# de 15, e sugestões de jogos de manhã cedo só apareciam à tarde. 40 (=80/ciclo somando scheduled+finished)
-# ainda é seguro pro _fs_event_pool (12 workers) rodando em background, sem bloquear nenhuma requisição HTTP.
+_SINAIS_MAX_CANDIDATOS = 40  # cada candidato = ~2×30 jogos históricos pra enriquecer. Era 15 (conservador na
+# 1ª versão) — subir pra 40 tinha deixado o site lento porque o warmup disputava o MESMO pool das
+# requisições normais dos usuários (_fs_event_pool). Agora que o warmup roda no pool próprio _sinais_pool
+# (ver definição dele lá em cima), dá pra manter esse volume sem afetar a responsividade do site.
 _SINAIS_MIN_N = 8
 _SINAIS_CACHE = {"ts": 0, "data": None}
 _SINAIS_DAY_CACHE = {"date": None, "sugestoes": {}, "manual_reset_date": None, "processed_ids": []}
@@ -7321,7 +7328,7 @@ def _sinais_fetch_extra_batch(rows_with_side):
                 row["gm_own"], row["gm_opp"] = gm.get("away", []), gm.get("home", [])
         return row
 
-    return list(_fs_event_pool.map(_fetch, rows_with_side))
+    return list(_sinais_pool.map(_fetch, rows_with_side))
 
 
 def _sinais_standings_pos(standings_rows, team_name):
@@ -7678,7 +7685,7 @@ def _sinais_compute_locked():
             return m["id"], _fs_h2h(m["id"])
         except Exception:
             return m["id"], None
-    h2h_by_id = dict(_fs_event_pool.map(_fetch_h2h, candidatos))
+    h2h_by_id = dict(_sinais_pool.map(_fetch_h2h, candidatos))
 
     # 2) monta as rows brutas (casa/fora) de cada partida, ainda sem HT/minutos/odds
     ctx = []  # [(m, home_rows, away_rows), ...]
@@ -7707,7 +7714,7 @@ def _sinais_compute_locked():
             return m["id"], _fs_standings(m["id"], m.get("home", ""), m.get("away", ""))
         except Exception:
             return m["id"], []
-    standings_by_id = dict(_fs_event_pool.map(_fetch_standings, [c[0] for c in ctx]))
+    standings_by_id = dict(_sinais_pool.map(_fetch_standings, [c[0] for c in ctx]))
 
     def _fetch_markets_today(m):
         try:
@@ -7715,7 +7722,7 @@ def _sinais_compute_locked():
             return m["id"], markets or {}
         except Exception:
             return m["id"], {}
-    markets_by_id = dict(_fs_event_pool.map(_fetch_markets_today, [c[0] for c in ctx]))
+    markets_by_id = dict(_sinais_pool.map(_fetch_markets_today, [c[0] for c in ctx]))
 
     # 5) agora que tudo já foi buscado, só calcula (CPU local, sem rede) e gera sinais
     for m, home_rows, away_rows in ctx:
