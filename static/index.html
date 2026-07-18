@@ -1124,6 +1124,7 @@
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('mapa', this)">🗺️ Mapa de Sugestões</button>
+    <button class="nav-tab" onclick="switchView('placarcontra', this)">🎯 Placar Contra</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -1486,6 +1487,45 @@
         <div id="today2DetailHeader" style="margin-bottom:12px"></div>
         <div class="live-card-tabs live-card-tabs-narrow" id="today2DetailTabs"></div>
         <div id="today2DetailBody" style="padding:12px 0;font-size:15px;color:var(--text2)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
+       + a grade de odds de Placar Exato, pra análise manual de lay contra
+       placares específicos. Não calcula nada novo: só reaproveita as mesmas
+       funções client-side já usadas em Hoje2 (Jogo/Odds/H2H). -->
+  <div id="placarContraWrapper" style="display:flex;flex:1;overflow:hidden">
+    <div class="sidebar" id="placarContraSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
+      <div style="padding:12px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">🎯 Placar Contra</span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="live-count-badge" id="placarContraCountBadge">0</span>
+            <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
+          </span>
+        </div>
+        <input id="placarContraSearchInput" type="text" placeholder="🔍 Buscar jogo ou time..." oninput="_placarContraFilterBySearch(this.value)"
+          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box;margin-bottom:8px">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="filter-btn" id="placarContraAoVivoBtn" onclick="_placarContraToggleStatus('ao_vivo', this)" style="color:#ef4444">🔴 Ao Vivo</button>
+          <button class="filter-btn" id="placarContraEncerradosBtn" onclick="_placarContraToggleStatus('3', this)">Encerrados</button>
+          <button class="filter-btn" id="placarContraProximosBtn" onclick="_placarContraToggleStatus('1', this)">Próximos</button>
+        </div>
+      </div>
+      <div id="placarContraWrap" style="flex:1;overflow-y:auto"></div>
+    </div>
+    <div class="detail-panel" id="placarContraDetail" style="flex:1;overflow-y:auto;padding:20px">
+      <div class="detail-placeholder" id="placarContraDetailPlaceholder">
+        <div style="font-size:40px">🎯</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:8px">Selecione uma partida na lista</div>
+      </div>
+      <div id="placarContraDetailContent" style="display:none">
+        <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
+        <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
+        <div id="placarContraStatsBox"></div>
+        <div id="placarContraH2hBox" style="margin-top:16px"></div>
       </div>
     </div>
   </div>
@@ -2449,6 +2489,7 @@ function switchView(view, btn) {
   const live2Panel      = document.getElementById('live2Panel');
   const mapaWrapper = document.getElementById('mapaWrapper');
   const passadasWrapper = document.getElementById('passadasWrapper');
+  const placarContraWrapper = document.getElementById('placarContraWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -2457,11 +2498,13 @@ function switchView(view, btn) {
   live2Panel.classList.remove('active');
   mapaWrapper.style.display = 'none';
   passadasWrapper.style.display = 'none';
+  placarContraWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
   clearInterval(_today2AutoRefresh);
   clearInterval(_mapaAutoRefresh);
+  clearInterval(_placarContraAutoRefresh);
 
   if (view === 'today') {
     todayWrapper.style.display = 'flex';
@@ -2489,6 +2532,10 @@ function switchView(view, btn) {
     // que quando o backend atualizar, o navegador pega sozinho, sem precisar
     // de botão manual.
     _mapaAutoRefresh = setInterval(() => _mapaLoad(true), 60000);
+  } else if (view === 'placarcontra') {
+    placarContraWrapper.style.display = 'flex';
+    _placarContraLoad();
+    _placarContraAutoRefresh = setInterval(_placarContraLoad, 20000);
   }
 }
 
@@ -5723,6 +5770,211 @@ async function _renderToday2Jogo(matchId) {
 function _setToday2JogoScope(matchId, idx, btn) {
   _today2JogoScope[matchId] = idx;
   _renderToday2Jogo(matchId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🎯 PLACAR CONTRA — consolida numa tela só a grade de odds de Placar Exato
+// + as estatísticas de casa/fora/Confronto Direto que já existem na aba
+// Jogo do Hoje2, pra análise manual de lay contra placares específicos.
+// Não calcula nada novo (nem odd de lay, nem "score" de improbabilidade) —
+// só reaproveita as mesmas funções client-side já usadas em Hoje2
+// (Jogo/Odds/H2H), isolado em cache/estado próprio.
+// ═══════════════════════════════════════════════════════════════════════
+let _placarContraAutoRefresh = null;
+let _placarContraSelectedId = null;
+let _placarContraTabCache = {}; // { [matchId]: { _h2hTabs } }
+let _placarContraStatusFiltro = null; // null=todos | '3'=Encerrados | '1'=Próximos | 'ao_vivo'
+let _placarContraJogoScope = {}; // { [matchId]: 0|1|2 } — Geral/Casa/Fora, igual à aba Jogo
+
+async function _placarContraLoad() {
+  const wrap = document.getElementById('placarContraWrap');
+  if (!wrap) return;
+  if (!today2MatchesCache.length) await loadToday2Matches();
+  _renderPlacarContraList(today2MatchesCache);
+  const badge = document.getElementById('placarContraCountBadge');
+  if (badge) badge.textContent = today2MatchesCache.length;
+}
+
+function _renderPlacarContraList(matches) {
+  const wrap = document.getElementById('placarContraWrap');
+  if (!wrap) return;
+  if (!matches.length) {
+    wrap.innerHTML = `<div class="live-empty">
+      <div style="font-size:13px;color:var(--text2)">Nenhuma partida encontrada.</div>
+    </div>`;
+    return;
+  }
+  const scrollTop = wrap.scrollTop;
+  const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  wrap.innerHTML = ordenados.map(m => renderToday2Row(m).replace(
+    `onclick="selectToday2Match('${m.id}', this)"`,
+    `onclick="selectPlacarContraMatch('${m.id}', this)"`
+  )).join('');
+  wrap.scrollTop = scrollTop;
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function _placarContraFilterBySearch(texto) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const termo = norm(texto);
+  document.querySelectorAll('#placarContraWrap .today2-match-row[data-id]').forEach(card => {
+    const m = today2MatchesCache.find(x => String(x.id) === card.dataset.id);
+    if (!m) return;
+    const bateTexto = !termo || norm(m.home).includes(termo) || norm(m.away).includes(termo) || norm(m.liga).includes(termo);
+    const bateStatus = _placarContraStatusFiltro === 'ao_vivo' ? m.status === '2'
+      : !_placarContraStatusFiltro || m.status === _placarContraStatusFiltro;
+    card.style.display = (bateTexto && bateStatus) ? '' : 'none';
+  });
+}
+
+function _placarContraToggleStatus(status, btn) {
+  _placarContraStatusFiltro = (_placarContraStatusFiltro === status) ? null : status;
+  document.getElementById('placarContraAoVivoBtn')?.classList.toggle('active', _placarContraStatusFiltro === 'ao_vivo');
+  document.getElementById('placarContraEncerradosBtn')?.classList.toggle('active', _placarContraStatusFiltro === '3');
+  document.getElementById('placarContraProximosBtn')?.classList.toggle('active', _placarContraStatusFiltro === '1');
+  _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+}
+
+function selectPlacarContraMatch(id, rowEl) {
+  _placarContraSelectedId = id;
+  document.querySelectorAll('#placarContraWrap .today2-match-row').forEach(r => r.classList.remove('active'));
+  rowEl?.classList.add('active');
+
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+  if (!m) return;
+
+  document.getElementById('placarContraDetailPlaceholder').style.display = 'none';
+  document.getElementById('placarContraDetailContent').style.display = 'block';
+
+  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  document.getElementById('placarContraDetailHeader').innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
+      <div style="text-align:center">
+        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
+        <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
+      </div>
+      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
+    </div>`;
+
+  document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
+  document.getElementById('placarContraStatsBox').innerHTML = '';
+  document.getElementById('placarContraH2hBox').innerHTML = '';
+
+  _placarContraLoadOdds(id, m);
+  _placarContraLoadStats(id, m);
+}
+
+async function _placarContraLoadOdds(id, m) {
+  const box = document.getElementById('placarContraOddsBox');
+  if (!box) return;
+  try {
+    const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+    const r = await fetch(`/api/flashscore/odds_all?${params}`);
+    const d = await r.json();
+    if (_placarContraSelectedId !== id) return;
+    const markets = d.markets || {};
+    const placar = markets.placar_exato;
+    box.innerHTML = `
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">🎯 Placar Exato — odds (back)</div>
+      ${placar ? _renderToday2OddsMarket('placar_exato', placar) : '<div style="color:var(--text2)">sem odds de Placar Exato disponíveis pra esse jogo</div>'}`;
+  } catch (e) {
+    if (_placarContraSelectedId !== id) return;
+    box.innerHTML = '<div style="color:var(--text2)">erro ao buscar odds</div>';
+  }
+}
+
+async function _placarContraLoadStats(id, m) {
+  const statsBox = document.getElementById('placarContraStatsBox');
+  const h2hBox = document.getElementById('placarContraH2hBox');
+  if (!statsBox) return;
+  const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+
+  if (!cache._h2hTabs) {
+    statsBox.innerHTML = '⏳ Buscando histórico...';
+    try {
+      const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+      const r = await fetch(`/api/flashscore/h2h?${params}`);
+      const d = await r.json();
+      cache._h2hTabs = d.tabs || [];
+    } catch (e) {
+      statsBox.innerHTML = '<div style="color:var(--text2)">erro ao buscar histórico</div>';
+      return;
+    }
+  }
+  if (_placarContraSelectedId !== id) return;
+
+  const tabs = cache._h2hTabs;
+  if (!tabs.length) { statsBox.innerHTML = '<div style="color:var(--text2)">sem histórico disponível</div>'; return; }
+  const scope = _placarContraJogoScope[id] ?? 0;
+
+  statsBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Estatísticas — Casa / Fora</div>
+    <div style="display:flex;gap:4px;margin-bottom:10px">
+      ${['Geral', 'Casa', 'Fora'].map((lbl, i) => `<button onclick="_setPlacarContraJogoScope('${id}',${i},this)" style="font-size:15px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:${i===scope?'var(--accent)':'transparent'};color:${i===scope?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`).join('')}
+    </div>
+    <div id="placarContraJogoBody_${id}">⏳ Calculando estatísticas (buscando placar do 1º tempo de cada jogo)...</div>`;
+
+  // Confronto Direto — dispara em paralelo, não bloqueia o resto.
+  _today2H2hStatsCards(id, tabs, m.home, m.away, 'placarContraH2hBox');
+
+  let blocks;
+  if (scope === 0) {
+    blocks = [_jogoStatsRowsFromSection(tabs, 0, true), _jogoStatsRowsFromSection(tabs, 0, false)];
+  } else if (scope === 1) {
+    blocks = [_jogoStatsRowsFromSection(tabs, 1, true)];
+  } else {
+    blocks = [_jogoStatsRowsFromSection(tabs, 2, false)];
+  }
+
+  const mediasGeraisPromise = _jogoEnsureMediasGerais();
+
+  await Promise.all(blocks.map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
+  if (_placarContraSelectedId !== id || (_placarContraJogoScope[id] ?? 0) !== scope) return;
+
+  const renderCards = (mediaScope) => {
+    const body = document.getElementById(`placarContraJogoBody_${id}`);
+    if (!body) return;
+    const cardsHtml = blocks.map(b => {
+      const gp = _jogoGoalPatternStats(b.rows);
+      if (gp) { gp.vencedor = _jogoWinnerAtMinuteStats(b.rows); gp.diff = _jogoGoalDiffStats(b.rows); }
+      const s = _jogoComputeStats(b.rows);
+      const gv = _jogoGolValorStats(b.rows);
+      if (s && gv) {
+        s.avgValorGolMarcado = gv.avgValorGolMarcado;
+        s.avgValorGolSofrido = gv.avgValorGolSofrido;
+        s.avgCustoGol2Marcado = gv.avgCustoGol2Marcado;
+        s.avgCustoGol2Sofrido = gv.avgCustoGol2Sofrido;
+        s.nGolValor = gv.n;
+        s.avgSaldo = gv.avgSaldo;
+        s.nSaldo = gv.nSaldo;
+        s.avgValorSaldo = gv.avgValorSaldo;
+        s.avgValorPonto = gv.avgValorPonto;
+      }
+      return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
+    });
+    body.innerHTML = blocks.length > 1
+      ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+           ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
+         </div>`
+      : cardsHtml.join('');
+  };
+
+  renderCards(null);
+
+  mediasGeraisPromise.then(mediasGerais => {
+    if (_placarContraSelectedId !== id) return;
+    if ((_placarContraJogoScope[id] ?? 0) !== scope) return;
+    const mediaScope = mediasGerais?.[['geral', 'casa', 'fora'][scope]];
+    if (mediaScope) renderCards(mediaScope);
+  });
+}
+
+function _setPlacarContraJogoScope(id, idx, btn) {
+  _placarContraJogoScope[id] = idx;
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+  if (m) _placarContraLoadStats(id, m);
 }
 
 function _currentOddForSelection(marketKey, label, currentMarkets) {
