@@ -3974,12 +3974,13 @@ function _renderToday2OddsMarket(key, o) {
     // Cor por RANKING (posição entre os buckets, do menor pro maior), não pelo
     // valor bruto — assim um outlier isolado (ex: "Qualquer outro empate" com
     // odd muito mais alta que o resto) não achata o gradiente dos demais.
+    // Verde = odd menor, vermelho = odd maior.
     const rank = {};
     [...buckets].sort((a, b) => a.odd - b.odd).forEach((b, i) => { rank[b.score] = i; });
     const n = buckets.length;
     return `<div style="display:flex;flex-wrap:wrap;gap:8px">
       ${buckets.map(b => {
-        const color = _oddHeatColor(rank[b.score], 0, n - 1);
+        const color = _oddHeatColor(n - 1 - rank[b.score], 0, n - 1);
         return `
         <div style="border:1px solid var(--border);background:var(--bg2);border-radius:8px;padding:8px 14px;text-align:center;min-width:64px;transition:border-color .15s"
              onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
