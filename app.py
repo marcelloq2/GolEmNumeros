@@ -7655,9 +7655,14 @@ def _sinais_compute_locked():
     scheduled = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "1" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
     finished_today = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "3" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
     # Jogos AO VIVO (status "2") também entram — sem isso, o badge "lay X-Y"
-    # do Placar Contra nunca aparecia pro filtro Ao Vivo (esses jogos nunca
-    # eram processados, só agendados e encerrados).
+    # do Placar Contra nunca aparecia pro filtro Ao Vivo. IMPORTANTE: ao vivo
+    # só entra em processed_ids depois de conseguir um pick de verdade (ver
+    # mais abaixo) — um jogo ao vivo pode não ter odd de Placar Exato
+    # disponível numa passada (mercado fica suspenso alguns minutos após cada
+    # gol) e voltar a ter na próxima, então continua tentando enquanto não
+    # conseguir, em vez de desistir pra sempre depois da 1ª tentativa.
     live_now = sorted((mm for mm in _fs_all_matches() if mm.get("status") == "2" and mm["id"] not in processed_ids), key=lambda mm: mm.get("kickoff_ts") or "")
+    live_ids = {mm["id"] for mm in live_now}
     candidatos = scheduled[:_SINAIS_MAX_CANDIDATOS] + finished_today[:_SINAIS_MAX_CANDIDATOS] + live_now[:_SINAIS_MAX_CANDIDATOS]
 
     media = _jogo_medias_gerais_compute()
@@ -7743,7 +7748,12 @@ def _sinais_compute_locked():
                 "confianca": _sinais_confianca(c.get("n") or 0, c.get("pct") or 0),
             }
             _sinais_notificar_telegram(sugestoes[uid])
-        processed_ids.add(m["id"])
+        # Agendado/encerrado: sempre marca como processado (o histórico não
+        # muda mais). Ao vivo: só marca se já conseguiu um pick (mercado de
+        # placar exato disponível) — se não conseguiu, deixa tentar de novo
+        # no próximo ciclo, já que o mercado pode voltar a ficar disponível.
+        if m["id"] not in live_ids or pick:
+            processed_ids.add(m["id"])
 
     _SINAIS_DAY_CACHE["processed_ids"] = list(processed_ids)
 
