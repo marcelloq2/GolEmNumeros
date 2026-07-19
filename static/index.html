@@ -6750,62 +6750,73 @@ async function _hojeJogoStatsDoJogo(m) {
   return stats;
 }
 
+let _hojeJogoExportEmAndamento = false;
+
 async function _hojeJogoExportarTxt() {
+  if (_hojeJogoExportEmAndamento) return; // evita disparar 2 exportações em paralelo (dobraria os downloads)
+
   const hoje = today2MatchesCache.filter(m => m.status === '3');
   if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
 
   const btn = document.getElementById('hojeJogoExportBtn');
   const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  _hojeJogoExportEmAndamento = true;
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
 
-  const oddCols = PLACAR_EXATO_BUCKETS_ORDER;
-  const prefixos = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
-  const header = [
-    'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
-    ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
-    ...oddCols.map(s => `resultado_${s}`), // 1 = lay TERIA ganho nesse placar (green) | 0 = teria perdido (red)
-  ];
+  try {
+    const oddCols = PLACAR_EXATO_BUCKETS_ORDER;
+    const prefixos = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
+    const header = [
+      'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
+      ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
+      ...oddCols.map(s => `resultado_${s}`), // 1 = lay TERIA ganho nesse placar (green) | 0 = teria perdido (red)
+    ];
 
-  const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
-  const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
+    const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
 
-  const linhas = [];
-  let feitos = 0;
-  const LOTE = 8; // busca H2H de poucos jogos por vez, pra não sobrecarregar o site
-  for (let i = 0; i < hoje.length; i += LOTE) {
-    const lote = hoje.slice(i, i + LOTE);
-    await Promise.all(lote.map(async m => {
-      const stats = await _hojeJogoStatsDoJogo(m);
+    const linhas = [];
+    let feitos = 0;
+    const LOTE = 8; // busca H2H de poucos jogos por vez, pra não sobrecarregar o site
+    for (let i = 0; i < hoje.length; i += LOTE) {
+      const lote = hoje.slice(i, i + LOTE);
+      await Promise.all(lote.map(async m => {
+        let stats = null;
+        try { stats = await _hojeJogoStatsDoJogo(m); } catch (e) { /* segue sem stats desse jogo em vez de travar o resto */ }
 
-      const h = m.home_score, a = m.away_score;
-      const temPlacar = h !== undefined && h !== null && a !== undefined && a !== null;
-      const bucketReal = temPlacar ? _placarExatoBucketKey(parseInt(h), parseInt(a)) : null;
-      const resultadoCols = oddCols.map(s => temPlacar ? (s === bucketReal ? 0 : 1) : '—');
+        const h = m.home_score, a = m.away_score;
+        const temPlacar = h !== undefined && h !== null && a !== undefined && a !== null;
+        const bucketReal = temPlacar ? _placarExatoBucketKey(parseInt(h), parseInt(a)) : null;
+        const resultadoCols = oddCols.map(s => temPlacar ? (s === bucketReal ? 0 : 1) : '—');
 
-      const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
+        const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
 
-      linhas.push([
-        m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
-        ...statCols, ...resultadoCols,
-      ].join('\t'));
-    }));
-    feitos += lote.length;
-    if (btn) btn.innerHTML = `⏳ ${feitos}/${hoje.length}`;
+        linhas.push([
+          m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
+          ...statCols, ...resultadoCols,
+        ].join('\t'));
+      }));
+      feitos += lote.length;
+      if (btn) btn.innerHTML = `⏳ ${feitos}/${hoje.length}`;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const conteudo = [header.join('\t'), ...linhas].join('\n');
+    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hoje_jogo_${todayStr}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Erro ao exportar: ' + e.message + ' — tenta de novo.');
+  } finally {
+    _hojeJogoExportEmAndamento = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
   }
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const conteudo = [header.join('\t'), ...linhas].join('\n');
-  const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `hoje_jogo_${todayStr}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
 }
 
 function _placarContraOpenHistorico() {
