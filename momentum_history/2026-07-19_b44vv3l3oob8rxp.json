@@ -1,0 +1,645 @@
+{
+  "event_id": "b44vv3l3oob8rxp",
+  "date": "2026-07-19",
+  "saved_at": "2026-07-19T02:15:43.257006",
+  "source": "uniscore",
+  "casa": "Columbus Crew B",
+  "fora": "Philadelphia Utd II",
+  "liga": "",
+  "graphPoints": [
+    {
+      "minute": 1,
+      "value": 100
+    },
+    {
+      "minute": 2,
+      "value": 0
+    },
+    {
+      "minute": 3,
+      "value": 0
+    },
+    {
+      "minute": 4,
+      "value": 0
+    },
+    {
+      "minute": 5,
+      "value": 100
+    }
+  ],
+  "goals": [
+    {
+      "minute": 90,
+      "addedTime": 0,
+      "team": "home",
+      "player": "johann chirinos",
+      "ownGoal": false
+    },
+    {
+      "minute": 36,
+      "addedTime": 0,
+      "team": "home",
+      "player": "J.Danjaji",
+      "ownGoal": false
+    }
+  ],
+  "score": {
+    "home": 2,
+    "away": 0
+  },
+  "shotmap": [],
+  "statistics": {
+    "shots": {
+      "home": "7",
+      "away": "19",
+      "homeValue": 7,
+      "awayValue": 19
+    },
+    "shots_on_target": {
+      "home": "4",
+      "away": "5",
+      "homeValue": 4,
+      "awayValue": 5
+    },
+    "blocked_shots": {
+      "home": "1",
+      "away": "3",
+      "homeValue": 1,
+      "awayValue": 3
+    },
+    "corner_kicks": {
+      "home": "3",
+      "away": "11",
+      "homeValue": 3,
+      "awayValue": 11
+    },
+    "freekicks": {
+      "home": "10",
+      "away": "4",
+      "homeValue": 10,
+      "awayValue": 4
+    },
+    "saves": {
+      "home": "5",
+      "away": "2",
+      "homeValue": 5,
+      "awayValue": 2
+    },
+    "offsides": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "passes": {
+      "home": "411",
+      "away": "371",
+      "homeValue": 411,
+      "awayValue": 371
+    },
+    "yellow_cards": {
+      "home": "1",
+      "away": "2",
+      "homeValue": 1,
+      "awayValue": 2
+    },
+    "attacks": {
+      "home": "1",
+      "away": "0",
+      "homeValue": 1,
+      "awayValue": 0
+    },
+    "hit_woodwork": {
+      "home": "0",
+      "away": "1",
+      "homeValue": 0,
+      "awayValue": 1
+    },
+    "throw_in": {
+      "home": "7",
+      "away": "24",
+      "homeValue": 7,
+      "awayValue": 24
+    },
+    "long_balls_accuracy": {
+      "home": "25/62",
+      "away": "10/35",
+      "homeValue": 40,
+      "awayValue": 29
+    },
+    "crosses_accuracy": {
+      "home": "2/4",
+      "away": "10/29",
+      "homeValue": 50,
+      "awayValue": 34
+    },
+    "dribble": {
+      "home": "14",
+      "away": "13",
+      "homeValue": 14,
+      "awayValue": 13
+    },
+    "dribble_succ": {
+      "home": "8/14",
+      "away": "5/13",
+      "homeValue": 57,
+      "awayValue": 38
+    },
+    "tackles": {
+      "home": "13",
+      "away": "13",
+      "homeValue": 13,
+      "awayValue": 13
+    },
+    "interceptions": {
+      "home": "6",
+      "away": "5",
+      "homeValue": 6,
+      "awayValue": 5
+    },
+    "clearances": {
+      "home": "28",
+      "away": "6",
+      "homeValue": 28,
+      "awayValue": 6
+    },
+    "goal_kicks": {
+      "home": "8",
+      "away": "5",
+      "homeValue": 8,
+      "awayValue": 5
+    },
+    "poss_losts": {
+      "home": "99",
+      "away": "117",
+      "homeValue": 99,
+      "awayValue": 117
+    },
+    "ball_possession": {
+      "home": "56%",
+      "away": "44%",
+      "homeValue": 56,
+      "awayValue": 44
+    },
+    "key_passes": {
+      "home": "6",
+      "away": "13",
+      "homeValue": 6,
+      "awayValue": 13
+    },
+    "passes_accuracy": {
+      "home": "342/411",
+      "away": "309/371",
+      "homeValue": 83,
+      "awayValue": 83
+    }
+  },
+  "statistics_periods": {
+    "ALL": {
+      "shots": {
+        "home": "7",
+        "away": "19",
+        "homeValue": 7,
+        "awayValue": 19
+      },
+      "shots_on_target": {
+        "home": "4",
+        "away": "5",
+        "homeValue": 4,
+        "awayValue": 5
+      },
+      "blocked_shots": {
+        "home": "1",
+        "away": "3",
+        "homeValue": 1,
+        "awayValue": 3
+      },
+      "corner_kicks": {
+        "home": "3",
+        "away": "11",
+        "homeValue": 3,
+        "awayValue": 11
+      },
+      "freekicks": {
+        "home": "10",
+        "away": "4",
+        "homeValue": 10,
+        "awayValue": 4
+      },
+      "saves": {
+        "home": "5",
+        "away": "2",
+        "homeValue": 5,
+        "awayValue": 2
+      },
+      "offsides": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "passes": {
+        "home": "411",
+        "away": "371",
+        "homeValue": 411,
+        "awayValue": 371
+      },
+      "yellow_cards": {
+        "home": "1",
+        "away": "2",
+        "homeValue": 1,
+        "awayValue": 2
+      },
+      "attacks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "hit_woodwork": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "throw_in": {
+        "home": "7",
+        "away": "24",
+        "homeValue": 7,
+        "awayValue": 24
+      },
+      "long_balls_accuracy": {
+        "home": "25/62",
+        "away": "10/35",
+        "homeValue": 40,
+        "awayValue": 29
+      },
+      "crosses_accuracy": {
+        "home": "2/4",
+        "away": "10/29",
+        "homeValue": 50,
+        "awayValue": 34
+      },
+      "dribble": {
+        "home": "14",
+        "away": "13",
+        "homeValue": 14,
+        "awayValue": 13
+      },
+      "dribble_succ": {
+        "home": "8/14",
+        "away": "5/13",
+        "homeValue": 57,
+        "awayValue": 38
+      },
+      "tackles": {
+        "home": "13",
+        "away": "13",
+        "homeValue": 13,
+        "awayValue": 13
+      },
+      "interceptions": {
+        "home": "6",
+        "away": "5",
+        "homeValue": 6,
+        "awayValue": 5
+      },
+      "clearances": {
+        "home": "28",
+        "away": "6",
+        "homeValue": 28,
+        "awayValue": 6
+      },
+      "goal_kicks": {
+        "home": "8",
+        "away": "5",
+        "homeValue": 8,
+        "awayValue": 5
+      },
+      "poss_losts": {
+        "home": "99",
+        "away": "117",
+        "homeValue": 99,
+        "awayValue": 117
+      },
+      "ball_possession": {
+        "home": "56%",
+        "away": "44%",
+        "homeValue": 56,
+        "awayValue": 44
+      },
+      "key_passes": {
+        "home": "6",
+        "away": "13",
+        "homeValue": 6,
+        "awayValue": 13
+      },
+      "passes_accuracy": {
+        "home": "342/411",
+        "away": "309/371",
+        "homeValue": 83,
+        "awayValue": 83
+      }
+    },
+    "1ST": {
+      "shots": {
+        "home": "2",
+        "away": "9",
+        "homeValue": 2,
+        "awayValue": 9
+      },
+      "shots_on_target": {
+        "home": "2",
+        "away": "2",
+        "homeValue": 2,
+        "awayValue": 2
+      },
+      "blocked_shots": {
+        "home": "0",
+        "away": "2",
+        "homeValue": 0,
+        "awayValue": 2
+      },
+      "corner_kicks": {
+        "home": "1",
+        "away": "5",
+        "homeValue": 1,
+        "awayValue": 5
+      },
+      "freekicks": {
+        "home": "3",
+        "away": "1",
+        "homeValue": 3,
+        "awayValue": 1
+      },
+      "saves": {
+        "home": "2",
+        "away": "1",
+        "homeValue": 2,
+        "awayValue": 1
+      },
+      "offsides": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "passes": {
+        "home": "196",
+        "away": "174",
+        "homeValue": 196,
+        "awayValue": 174
+      },
+      "attacks": {
+        "home": "1",
+        "away": "0",
+        "homeValue": 1,
+        "awayValue": 0
+      },
+      "hit_woodwork": {
+        "home": "0",
+        "away": "1",
+        "homeValue": 0,
+        "awayValue": 1
+      },
+      "throw_in": {
+        "home": "2",
+        "away": "11",
+        "homeValue": 2,
+        "awayValue": 11
+      },
+      "long_balls_accuracy": {
+        "home": "10/25",
+        "away": "5/15",
+        "homeValue": 40,
+        "awayValue": 33
+      },
+      "crosses_accuracy": {
+        "home": "0/2",
+        "away": "5/13",
+        "homeValue": 0,
+        "awayValue": 38
+      },
+      "dribble": {
+        "home": "7",
+        "away": "4",
+        "homeValue": 7,
+        "awayValue": 4
+      },
+      "dribble_succ": {
+        "home": "2/7",
+        "away": "1/4",
+        "homeValue": 29,
+        "awayValue": 25
+      },
+      "tackles": {
+        "home": "7",
+        "away": "9",
+        "homeValue": 7,
+        "awayValue": 9
+      },
+      "interceptions": {
+        "home": "3",
+        "away": "1",
+        "homeValue": 3,
+        "awayValue": 1
+      },
+      "clearances": {
+        "home": "7",
+        "away": "3",
+        "homeValue": 7,
+        "awayValue": 3
+      },
+      "goal_kicks": {
+        "home": "3",
+        "away": "3",
+        "homeValue": 3,
+        "awayValue": 3
+      },
+      "poss_losts": {
+        "home": "40",
+        "away": "46",
+        "homeValue": 40,
+        "awayValue": 46
+      },
+      "ball_possession": {
+        "home": "56%",
+        "away": "44%",
+        "homeValue": 56,
+        "awayValue": 44
+      },
+      "key_passes": {
+        "home": "2",
+        "away": "8",
+        "homeValue": 2,
+        "awayValue": 8
+      },
+      "passes_accuracy": {
+        "home": "171/196",
+        "away": "149/174",
+        "homeValue": 87,
+        "awayValue": 86
+      }
+    },
+    "2ND": {
+      "shots": {
+        "home": "5",
+        "away": "10",
+        "homeValue": 5,
+        "awayValue": 10
+      },
+      "shots_on_target": {
+        "home": "2",
+        "away": "3",
+        "homeValue": 2,
+        "awayValue": 3
+      },
+      "blocked_shots": {
+        "home": "1",
+        "away": "1",
+        "homeValue": 1,
+        "awayValue": 1
+      },
+      "corner_kicks": {
+        "home": "2",
+        "away": "6",
+        "homeValue": 2,
+        "awayValue": 6
+      },
+      "freekicks": {
+        "home": "7",
+        "away": "3",
+        "homeValue": 7,
+        "awayValue": 3
+      },
+      "saves": {
+        "home": "3",
+        "away": "1",
+        "homeValue": 3,
+        "awayValue": 1
+      },
+      "passes": {
+        "home": "215",
+        "away": "197",
+        "homeValue": 215,
+        "awayValue": 197
+      },
+      "yellow_cards": {
+        "home": "1",
+        "away": "2",
+        "homeValue": 1,
+        "awayValue": 2
+      },
+      "throw_in": {
+        "home": "5",
+        "away": "13",
+        "homeValue": 5,
+        "awayValue": 13
+      },
+      "long_balls_accuracy": {
+        "home": "15/37",
+        "away": "5/20",
+        "homeValue": 41,
+        "awayValue": 25
+      },
+      "crosses_accuracy": {
+        "home": "2/2",
+        "away": "5/16",
+        "homeValue": 100,
+        "awayValue": 31
+      },
+      "dribble": {
+        "home": "7",
+        "away": "9",
+        "homeValue": 7,
+        "awayValue": 9
+      },
+      "dribble_succ": {
+        "home": "6/7",
+        "away": "4/9",
+        "homeValue": 86,
+        "awayValue": 44
+      },
+      "tackles": {
+        "home": "6",
+        "away": "4",
+        "homeValue": 6,
+        "awayValue": 4
+      },
+      "interceptions": {
+        "home": "3",
+        "away": "4",
+        "homeValue": 3,
+        "awayValue": 4
+      },
+      "clearances": {
+        "home": "21",
+        "away": "3",
+        "homeValue": 21,
+        "awayValue": 3
+      },
+      "goal_kicks": {
+        "home": "5",
+        "away": "2",
+        "homeValue": 5,
+        "awayValue": 2
+      },
+      "poss_losts": {
+        "home": "59",
+        "away": "71",
+        "homeValue": 59,
+        "awayValue": 71
+      },
+      "ball_possession": {
+        "home": "56%",
+        "away": "44%",
+        "homeValue": 56,
+        "awayValue": 44
+      },
+      "key_passes": {
+        "home": "4",
+        "away": "5",
+        "homeValue": 4,
+        "awayValue": 5
+      },
+      "passes_accuracy": {
+        "home": "171/215",
+        "away": "160/197",
+        "homeValue": 80,
+        "awayValue": 81
+      }
+    }
+  },
+  "pressure_summary": {
+    "overall_avg": 40.0,
+    "h1_avg": 50.0,
+    "h2_avg": 33.333,
+    "home_dominance_pct": 40.0,
+    "max_home": 100,
+    "max_away": 0.0,
+    "momentum_swings": 2,
+    "total_points": 5
+  },
+  "xg": {
+    "home": 1.97,
+    "away": 3.2,
+    "source": "estimated",
+    "fields_used": [
+      "shots_on_target",
+      "shots_inside_box",
+      "shots_outside_box",
+      "corners",
+      "freekicks"
+    ],
+    "n_fields": 5
+  },
+  "opening_odds": {
+    "h": "2.00",
+    "x": "3.70",
+    "a": "2.88",
+    "ou_line": "3",
+    "ou_over": "1.83",
+    "ou_under": "1.98"
+  }
+}
