@@ -1,0 +1,311 @@
+{
+  "event_id": "5z3v0bl2lwcxvu6",
+  "date": "2026-07-19",
+  "casa": "FK Čukarički",
+  "fora": "IMT Novi Beograd",
+  "liga": "Superliga",
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2947992217",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "Miladinovic",
+      "x": 7,
+      "y": 49.6
+    },
+    {
+      "id": "2947992059",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Docić",
+      "x": 10.3,
+      "y": 45.1
+    },
+    {
+      "id": "2947989925",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Miladinovic",
+      "x": 13.4,
+      "y": 40.9
+    },
+    {
+      "id": "2947989915",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Miladinovic",
+      "x": 13,
+      "y": 40.9
+    },
+    {
+      "id": "2947989301",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Glisic",
+      "x": 13.1,
+      "y": 28.5
+    },
+    {
+      "id": "2947988953",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Glisic",
+      "x": 14.7,
+      "y": 44.2
+    },
+    {
+      "id": "2947988441",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "I.maiga",
+      "x": 12.4,
+      "y": 64.5
+    },
+    {
+      "id": "2947988231",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Glisic",
+      "x": 13.8,
+      "y": 36
+    },
+    {
+      "id": "2947988051",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "V.Radosavljevic",
+      "x": 23.3,
+      "y": 67
+    },
+    {
+      "id": "2947984669",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Keita",
+      "x": 4.8,
+      "y": 52.9
+    },
+    {
+      "id": "2947984499",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D. Žagar",
+      "x": 14.7,
+      "y": 72.4
+    },
+    {
+      "id": "2947983517",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Miladinovic",
+      "x": 27.9,
+      "y": 65.5
+    },
+    {
+      "id": "2947979561",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Miladinovic",
+      "x": 24.7,
+      "y": 35.4
+    },
+    {
+      "id": "2947978497",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "S.Šapić",
+      "x": 6.7,
+      "y": 52.8
+    },
+    {
+      "id": "2947978215",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Glisic",
+      "x": 11.4,
+      "y": 23.6
+    },
+    {
+      "id": "2947977915",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "D. Žagar",
+      "x": 11.8,
+      "y": 62.9
+    },
+    {
+      "id": "2947977881",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "D. Žagar",
+      "x": 26.6,
+      "y": 64
+    },
+    {
+      "id": "2947977527",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Miladinovic",
+      "x": 9.9,
+      "y": 51.6
+    },
+    {
+      "id": "2947977163",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "regular",
+      "player": "J.Tiendrébéogo",
+      "x": 13.1,
+      "y": 58.8
+    },
+    {
+      "id": "2947977141",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Tiendrébéogo",
+      "x": 15.4,
+      "y": 44.6
+    },
+    {
+      "id": "2947976609",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Mijovic",
+      "x": 3.6,
+      "y": 74.1
+    },
+    {
+      "id": "2947976351",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D. Žagar",
+      "x": 10.6,
+      "y": 63.7
+    },
+    {
+      "id": "2947975827",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Miladinovic",
+      "x": 26.4,
+      "y": 54.8
+    },
+    {
+      "id": "2947971863",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "V.Radosavljevic",
+      "x": 4.4,
+      "y": 47.9
+    },
+    {
+      "id": "2947970013",
+      "minute": 4,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "V.Radocaj",
+      "x": 23.1,
+      "y": 69.7
+    },
+    {
+      "id": "2947969071",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Docić",
+      "x": 21.6,
+      "y": 34.6
+    },
+    {
+      "id": "2947969063",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "V.Radosavljevic",
+      "x": 10,
+      "y": 39.2
+    }
+  ]
+}
