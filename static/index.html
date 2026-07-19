@@ -6777,7 +6777,13 @@ async function _hojeJogoExportarTxt() {
 
     const linhas = [];
     let feitos = 0;
-    const LOTE = 8; // busca H2H de poucos jogos por vez, pra não sobrecarregar o site
+    // 1 jogo por vez — cada jogo já dispara ~12 chamadas internas em paralelo
+    // (H2H/HT/minutos de gol/odds dos 4 recortes Geral/Casa/Fora), e todas
+    // competem pelo MESMO pool de 12 threads usado pelas requisições normais
+    // dos outros usuários (_fs_event_pool no app.py). Processar vários jogos
+    // ao mesmo tempo aqui saturava esse pool e deixava o site inteiro lento
+    // pra todo mundo enquanto a exportação rodava.
+    const LOTE = 1;
     for (let i = 0; i < hoje.length; i += LOTE) {
       const lote = hoje.slice(i, i + LOTE);
       await Promise.all(lote.map(async m => {
