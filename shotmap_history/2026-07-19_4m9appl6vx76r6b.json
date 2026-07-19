@@ -1,0 +1,245 @@
+{
+  "event_id": "4m9appl6vx76r6b",
+  "date": "2026-07-19",
+  "casa": "Fort Wayne FC",
+  "fora": "Greenville Triumph",
+  "liga": "USL League One",
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "total_shots": 21,
+  "shotmap": [
+    {
+      "id": "2947866047",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "C. Evans",
+      "x": 18.1,
+      "y": 18.5
+    },
+    {
+      "id": "2947864157",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "C.Awoudor",
+      "x": 14.3,
+      "y": 37.1
+    },
+    {
+      "id": "2947863547",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Liadi",
+      "x": 19.4,
+      "y": 50.3
+    },
+    {
+      "id": "2947860817",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Liadi",
+      "x": 10.2,
+      "y": 57.8
+    },
+    {
+      "id": "2947856775",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "C.Awoudor",
+      "x": 16.4,
+      "y": 62.9
+    },
+    {
+      "id": "2947854701",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J. Bouregy",
+      "x": 22.2,
+      "y": 20.9
+    },
+    {
+      "id": "2947852223",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "R.Robles",
+      "x": 26.4,
+      "y": 46.3
+    },
+    {
+      "id": "2947849931",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "",
+      "x": 12.2,
+      "y": 73.8
+    },
+    {
+      "id": "2947848717",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "L.Ricol",
+      "x": 22.7,
+      "y": 34.2
+    },
+    {
+      "id": "2947845085",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R. Becher",
+      "x": 20.8,
+      "y": 40.7
+    },
+    {
+      "id": "2947844849",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "R. Becher",
+      "x": 12.4,
+      "y": 46.4
+    },
+    {
+      "id": "2947844591",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J. Bouregy",
+      "x": 25.4,
+      "y": 52.7
+    },
+    {
+      "id": "2947834887",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "C. Evans",
+      "x": 18.8,
+      "y": 48.7
+    },
+    {
+      "id": "2947831739",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L. Meek",
+      "x": 12.1,
+      "y": 36
+    },
+    {
+      "id": "2947829649",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "L.Ricol",
+      "x": 36.6,
+      "y": 49.9
+    },
+    {
+      "id": "2947828365",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "MubaNour",
+      "x": 14.4,
+      "y": 64.8
+    },
+    {
+      "id": "2947825115",
+      "minute": 22,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "W.Akio",
+      "x": 11.9,
+      "y": 50.5
+    },
+    {
+      "id": "2947823665",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "R. Becher",
+      "x": 6.4,
+      "y": 50.1
+    },
+    {
+      "id": "2947821757",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "MubaNour",
+      "x": 18.1,
+      "y": 73.3
+    },
+    {
+      "id": "2947821507",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "W.Akio",
+      "x": 15.9,
+      "y": 37.4
+    },
+    {
+      "id": "2947816909",
+      "minute": 2,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "b.fricke",
+      "x": 13,
+      "y": 53.4
+    }
+  ]
+}
