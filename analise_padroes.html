@@ -62,7 +62,7 @@
   <div id="controls">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
       <button onclick="gerarConfigAutomatica()" style="border-color:var(--accent);color:var(--accent)">🤖 Gerar configuração automática (todos os placares)</button>
-      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar — amostra mínima de 15 jogos</span>
+      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar:</span>
@@ -235,7 +235,7 @@ function _calcularBinsPorScore(score) {
 // e que a taxa fique acima da taxa geral daquele placar (senão não é uma
 // faixa que realmente ajuda, é só ruído). Placares sem nenhuma variável que
 // bata esses 2 critérios ficam de fora da configuração automática.
-const AUTO_CONFIG_AMOSTRA_MINIMA = 15;
+const AUTO_CONFIG_AMOSTRA_MINIMA = 1; // sem mínimo de verdade (só maior que 0, senão bin vazio quebraria a conta)
 
 function gerarConfigAutomatica() {
   if (!linhas.length) { alert('Carregue os arquivos primeiro.'); return; }
@@ -260,7 +260,7 @@ function gerarConfigAutomatica() {
   const avisoPoucosDias = arquivosCarregados < 10
     ? `\n\n⚠️ Só ${arquivosCarregados} dia(s) de dados carregado(s) — com pouca base, taxas de 100% costumam ser coincidência (poucos jogos daquele placar acontecendo), não um padrão de verdade. Recomendo rodar o exportador (aba Hoje) por mais dias antes de confiar nessa configuração.`
     : '';
-  alert(`Configuração automática gerada: ${adicionados} placar(es) configurado(s), ${pulados} sem variável confiável o suficiente (amostra mínima de ${AUTO_CONFIG_AMOSTRA_MINIMA} jogos e taxa acima da média geral daquele placar).${avisoPoucosDias}`);
+  alert(`Configuração automática gerada: ${adicionados} placar(es) configurado(s), ${pulados} sem nenhuma variável acima da taxa geral daquele placar.${avisoPoucosDias}`);
 }
 
 function renderRelatorio() {
