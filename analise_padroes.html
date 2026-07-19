@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Análise de Padrões — Placar Contra</title>
+<title>Análise de Padrões</title>
 <style>
   :root {
     --bg: #0b0f17; --bg2: #131a26; --bg3: #1a2232; --border: #26304a;
@@ -61,11 +61,11 @@
 
   <div id="controls">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-      <button onclick="gerarConfigAutomatica()" style="border-color:var(--accent);color:var(--accent)">🤖 Gerar configuração automática (todos os placares)</button>
-      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar</span>
+      <button onclick="gerarConfigAutomatica()" style="border-color:var(--accent);color:var(--accent)">🤖 Gerar configuração automática (todos os placares/mercados)</button>
+      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar/mercado</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar:</span>
+      <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar/mercado:</span>
       <select id="metodSelect" onchange="renderRelatorio()"></select>
       <span style="font-size:12px;color:var(--text2)" id="amostraInfo"></span>
     </div>
@@ -85,11 +85,6 @@
 </div>
 
 <script>
-const PLACAR_EXATO_BUCKETS_ORDER = [
-  '0-0','0-1','0-2','0-3','1-0','1-1','1-2','1-3','2-0','2-1','2-2','2-3','3-0','3-1','3-2','3-3',
-  'Qualquer outra vitória em casa', 'Qualquer Outra Vitória de Visitante', 'Qualquer outro empate',
-];
-
 // Colunas que NUNCA entram como "variável analisável" (identificação do jogo,
 // ou já são o próprio alvo resultado_<placar>) — tudo o mais que aparecer no
 // cabeçalho do arquivo vira variável automaticamente, então essa ferramenta
@@ -139,6 +134,7 @@ let linhas = []; // todas as linhas de todos os arquivos carregados, já parsead
 let VARIAVEIS = []; // detectadas a partir do cabeçalho dos arquivos carregados
 let config = {}; // { score: {variavel, min, max, winRate, n} }
 let arquivosCarregados = 0; // quantos .txt (dias) diferentes entraram na base — usado pra avisar se ainda é pouca coisa
+let METODOLOGIAS = []; // placares (Placar Contra) ou mercados (Mapa de Sugestões), detectados do arquivo carregado
 
 function carregarArquivos(fileList) {
   // Quando vem de "Escolher pasta" (webkitdirectory), o navegador entrega TODO
@@ -173,6 +169,13 @@ function carregarArquivos(fileList) {
     });
     linhas = todas;
     arquivosCarregados = arquivosValidos;
+    // "score"/"mercado" a analisar é detectado sozinho a partir das colunas
+    // resultado_<X> que existirem no arquivo — funciona tanto pro export de
+    // Placar Contra (resultado_0-1, resultado_0-2...) quanto pro do Mapa de
+    // Sugestões (resultado_1x2_casa, resultado_ah_casa_-1.5, resultado_over_2.5...).
+    METODOLOGIAS = [...colunasVistas]
+      .filter(k => k.startsWith('resultado_'))
+      .map(k => k.slice('resultado_'.length));
     VARIAVEIS = [...colunasVistas]
       // "..._n" é o nº de jogos que entrou na amostra do H2H daquele recorte
       // (normalmente sempre ~30, o teto de jogos buscados) — não é uma
@@ -194,7 +197,7 @@ function carregarArquivos(fileList) {
 
 function popularMetodSelect() {
   const sel = document.getElementById('metodSelect');
-  sel.innerHTML = PLACAR_EXATO_BUCKETS_ORDER.map(s => `<option value="${s}">${s}</option>`).join('');
+  sel.innerHTML = METODOLOGIAS.map(s => `<option value="${s}">${s}</option>`).join('');
 }
 
 // Calcula, pra um placar (score), os 4 bins (quartis) de taxa de acerto de
@@ -240,7 +243,7 @@ const AUTO_CONFIG_AMOSTRA_MINIMA = 1; // sem mínimo de verdade (só maior que 0
 function gerarConfigAutomatica() {
   if (!linhas.length) { alert('Carregue os arquivos primeiro.'); return; }
   let adicionados = 0, pulados = 0;
-  PLACAR_EXATO_BUCKETS_ORDER.forEach(score => {
+  METODOLOGIAS.forEach(score => {
     const resultCol = `resultado_${score}`;
     const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
     if (!validas.length) { pulados++; return; }

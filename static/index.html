@@ -1583,46 +1583,46 @@
     </div>
   </div>
 
-  <!-- MAPA DE SUGESTÕES (SINAIS DO DIA) — 8 sinais narrativos (os mesmos da
-       Leitura da Partida) rodados em todos os jogos de hoje. Cada jogo que
-       disparar um sinal vira sugestão; taxa de acerto contabilizada só do
-       dia (zera quando vira o dia). Substitui o antigo Mapa (32 metodologias
-       de variável+segmento). -->
-  <div id="mapaWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Sinais do Dia</span>
-      <button onclick="openAppGuia('mapa')" title="Guia dos Sinais do Dia"
-        style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
-               color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-               white-space:nowrap;flex-shrink:0">📖 Guia</button>
-      <select id="mapaFiltroConfianca" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-        <option value="todas">Confiança: todas</option>
-        <option value="Alta confiança">Só Alta confiança</option>
-        <option value="Média confiança">Só Média confiança</option>
-        <option value="Baixa confiança">Só Baixa confiança</option>
-      </select>
-      <div style="position:relative">
-        <button id="mapaSinalToggle" onclick="_mapaToggleSinalPanel(event)"
-          style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;white-space:nowrap">
-          Sinal: todos ⌄
-        </button>
-        <div id="mapaSinalPanel" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:20;
-             background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;min-width:220px;
-             box-shadow:0 4px 12px rgba(0,0,0,.3)">
-          <div id="mapaSinalOptions" style="display:flex;flex-direction:column;gap:4px;font-size:12px;max-height:260px;overflow-y:auto"></div>
-          <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-            <button onclick="_mapaSinalMarcarTodos(true)" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Marcar todos</button>
-            <button onclick="_mapaSinalMarcarTodos(false)" style="font-size:11px;flex:1;padding:4px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer">Limpar</button>
-          </div>
+  <!-- MAPA DE SUGESTÕES — mesmo modelo do Placar Contra, mas pra mercados
+       tradicionais (1X2, Ambas Marcam, Handicap Asiático, Over/Under), em vez
+       de placar exato. Botão ⬇️ exporta TXT com estatísticas + resultado real
+       de cada mercado (pra analisar padrões fora do site); botão 📥 importa a
+       configuração gerada por essa análise e mostra a previsão personalizada
+       em cada jogo aberto. Não calcula nada de sugestão própria. -->
+  <div id="mapaWrapper" style="display:flex;flex:1;overflow:hidden">
+    <div class="sidebar" id="mapaSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
+      <div style="padding:12px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Mapa de Sugestões</span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="live-count-badge" id="mapaCountBadge">0</span>
+            <button class="live-refresh-btn" id="mapaExportBtn" onclick="_mapaExportarTxt()" title="Baixar TXT com estatísticas + resultado real de cada mercado (1X2/Ambas Marcam/Handicap/Over-Under) de todos os jogos encerrados hoje">⬇️</button>
+            <button class="live-refresh-btn" id="mapaImportBtn" onclick="document.getElementById('mapaConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
+            <input type="file" id="mapaConfigInput" accept=".txt" style="display:none" onchange="_mapaImportarConfig(this.files[0])">
+            <button class="live-refresh-btn" onclick="_mapaLoad()" title="Atualizar">↻</button>
+          </span>
+        </div>
+        <input id="mapaSearchInput" type="text" placeholder="🔍 Buscar jogo ou time..." oninput="_mapaFilterBySearch(this.value)"
+          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box;margin-bottom:8px">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="filter-btn" id="mapaAoVivoBtn" onclick="_mapaToggleStatus('ao_vivo', this)" style="color:#ef4444">🔴 Ao Vivo</button>
+          <button class="filter-btn" id="mapaEncerradosBtn" onclick="_mapaToggleStatus('3', this)">Encerrados</button>
+          <button class="filter-btn" id="mapaProximosBtn" onclick="_mapaToggleStatus('1', this)">Próximos</button>
         </div>
       </div>
-      <select id="mapaFiltroStatus" onchange="_mapaOnFiltroChange()" style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-        <option value="todos">Status: todos</option>
-        <option value="3">Só finalizados</option>
-        <option value="1">Só próximos</option>
-      </select>
+      <div id="mapaWrap" style="flex:1;overflow-y:auto"></div>
     </div>
-    <div id="mapaContent"></div>
+    <div class="detail-panel" id="mapaDetail" style="flex:1;overflow-y:auto;padding:20px">
+      <div class="detail-placeholder" id="mapaDetailPlaceholder">
+        <div style="font-size:40px">🗺️</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:8px">Selecione uma partida na lista</div>
+      </div>
+      <div id="mapaDetailContent" style="display:none">
+        <div id="mapaDetailHeader" style="margin-bottom:12px"></div>
+        <div id="mapaConfigBox"></div>
+      </div>
+    </div>
   </div>
 
   <!-- BACKTEST — removido do frontend a pedido do usuário (por enquanto não vai
@@ -2155,36 +2155,6 @@ const APP_GUIA_SECTIONS = {
     ].join(''),
   },
 
-  mapa: {
-    label: '🗺️ Mapa de Sugestões',
-    label2: 'Mapa',
-    html: [
-      _guiaSec('🎛️', 'O que é — Sinais do Dia', `
-        Roda 8 sinais narrativos (os mesmos usados na 🧠 Leitura da Partida — primeiro gol, mandante forte, visitante fraco, tendência de gols, padrão de valor, placar raro, clean sheet cruzado e maior destaque acima da média) em cima de TODOS os jogos de hoje, no servidor, sem você precisar abrir partida por partida. Todo jogo que disparar um desses sinais vira uma sugestão na lista.`),
-
-      _guiaSec('📜', 'Os 8 sinais', `
-        ${_guiaRow('Primeiro Gol', 'Time costuma abrir o placar (≥60% dos jogos recentes no recorte casa/fora)')}
-        ${_guiaRow('Mandante Forte', 'Mandante vence muito em casa (≥60%) e está bem na tabela')}
-        ${_guiaRow('Visitante Fraco', 'Visitante rende pouco fora (≤25% de vitórias) e está mal na tabela')}
-        ${_guiaRow('Tendência de Gols', 'Over ou Under 2,5 muito unilateral (≥70%) nos jogos recentes de um time')}
-        ${_guiaRow('Padrão de Valor', 'Taxa histórica de vitória do time bate acima do que a odd de hoje implica')}
-        ${_guiaRow('Placar Raro (Lay)', 'Um placar que nunca ocorreu no histórico de nenhum dos dois times, mas com odd curta hoje — aposta CONTRA esse placar')}
-        ${_guiaRow('Clean Sheet Cruzado', 'Defesa forte de um lado cruzada com ataque fraco do outro')}
-        ${_guiaRow('Maior Destaque', 'A estatística (dentre vitórias, gols, ambas marcam, over/under, clean sheet) mais distante da média do dia pra aquele time')}`),
-
-      _guiaSec('🔒', 'Contabilização só do dia (zera todo dia)', `
-        Diferente do sistema antigo (que travava um padrão o dia inteiro e sobrevivia a reinício), aqui a contagem é <b>só do dia</b> — quando vira o dia, tudo zera e recomeça do zero com os jogos novos, por decisão do usuário. A lista de sugestões e o placar de cada uma ficam salvos em disco só pra não perder o que já foi contabilizado HOJE se o servidor reiniciar no meio do dia — não é um histórico entre dias.`),
-
-      _guiaSec('📋', 'Lista de sugestões e taxa de acerto', `
-        Cada card mostra os dois times, horário, a frase do sinal (igual às da Leitura da Partida) e um selo indicando qual dos 8 sinais disparou. Quando o jogo termina, mostra 🏁 placar final + ✅ acertou / ❌ errou.<br><br>
-        No topo, um painel mostra a <b>taxa de acerto do dia por tipo de sinal</b> (ex: "Primeiro Gol acertou 68% hoje, em 12 de 25 jogos encerrados") — ajuda a ver quais sinais estão se saindo melhor hoje.`),
-
-      _guiaSec('🔄', 'Atualização automática', `
-        A aba busca sozinha, a cada 1 minuto, se algum placar/resultado mudou (o servidor só recalcula de verdade a cada 30min, então isso é barato) — não precisa de nenhum botão pra manter os placares em dia.<br><br>
-        E quando vira o dia, a lista inteira também reseta sozinha (o servidor confere a data a cada recálculo) e recomeça do zero com os jogos novos — sem precisar de nenhuma ação manual.`),
-    ].join(''),
-  },
-
   // Backtest (Tradicional/CS) saiu do guia junto com a aba — removida do
   // frontend a pedido do usuário. O cálculo continua rodando sozinho 1x por
   // dia em background (ver _background_backtest_daily_backup no app.py).
@@ -2512,7 +2482,6 @@ function switchView(view, btn) {
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
   clearInterval(_today2AutoRefresh);
-  clearInterval(_mapaAutoRefresh);
   clearInterval(_placarContraAutoRefresh);
 
   if (view === 'today') {
@@ -2534,13 +2503,7 @@ function switchView(view, btn) {
     _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
   } else if (view === 'mapa') {
     mapaWrapper.style.display = 'flex';
-    _mapaLoad(true);
-    // Atualização automática do placar/resultado — o backend só recalcula de
-    // verdade a cada 30min (cache próprio), então isso aqui é barato: na
-    // maioria das vezes só busca o mesmo resultado já pronto, mas garante
-    // que quando o backend atualizar, o navegador pega sozinho, sem precisar
-    // de botão manual.
-    _mapaAutoRefresh = setInterval(() => _mapaLoad(true), 60000);
+    _mapaLoad();
   } else if (view === 'placarcontra') {
     placarContraWrapper.style.display = 'flex';
     _placarContraLoad();
@@ -2566,231 +2529,313 @@ function _setBacktestSubTab(tab) {
   }
 }
 
-// ── MAPA DE SUGESTÕES ────────────────────────────────────────────────────────
-// ── SINAIS DO DIA (novo Mapa de Sugestões) ──────────────────────────────────
-// 8 sinais narrativos (os mesmos usados na Leitura da Partida), rodados pelo
-// SERVIDOR em cima de todos os jogos de hoje. Cada sinal disparado numa
-// partida vira uma sugestão; a taxa de acerto de cada TIPO de sinal é
-// contabilizada só do dia (zera quando vira o dia, sem histórico entre
-// dias). Substitui o antigo sistema de 32 metodologias de variável+segmento.
-let _sinaisCache = null;
-let _mapaAutoRefresh = null;
+// ── MAPA DE SUGESTÕES — mercados tradicionais ───────────────────────────────
+// Mesmo modelo do Placar Contra: sem sugestão própria calculada aqui — só
+// exporta estatísticas + resultado real de cada mercado (⬇️), pra analisar
+// padrões fora do site (analise_padroes.html), e importa a configuração
+// gerada por essa análise (📥) pra mostrar, em cada jogo aberto, se o valor
+// atual de cada variável configurada está dentro da faixa que deu bom
+// resultado historicamente.
+const MERCADOS_TRADICIONAIS = (() => {
+  const linhasAH = [-1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.0];
+  const linhasOU = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.5, 5.5, 6.5];
+  const lista = [
+    { key: '1x2_casa', label: 'Casa vence' },
+    { key: '1x2_empate', label: 'Empate' },
+    { key: '1x2_fora', label: 'Fora vence' },
+    { key: 'ambas_sim', label: 'Ambas Marcam — Sim' },
+    { key: 'ambas_nao', label: 'Ambas Marcam — Não' },
+  ];
+  linhasAH.forEach(l => lista.push({ key: `ah_casa_${l}`, label: `Handicap Asiático (Casa) ${l >= 0 ? '+' : ''}${l}` }));
+  linhasOU.forEach(l => lista.push({ key: `over_${l}`, label: `Acima de ${l}` }));
+  linhasOU.forEach(l => lista.push({ key: `under_${l}`, label: `Abaixo de ${l}` }));
+  return lista;
+})();
 
-async function _mapaLoad(refresh) {
-  const content = document.getElementById('mapaContent');
-  if (!refresh && _sinaisCache) { _mapaRenderSinais(_sinaisCache); return; }
-  content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando os 8 sinais em cima dos jogos de hoje... pode levar alguns minutos na 1ª vez do dia.</div>`;
-  try {
-    const r = await fetch('/api/sinais_dia');
-    const d = await r.json();
-    _sinaisCache = d;
-    _mapaRenderSinais(d);
-  } catch (e) {
-    content.innerHTML = `<div style="color:#ef4444;font-size:13px">erro ao calcular: ${e}</div>`;
+// Linha "de quarto" (x.25/x.75) = aposta dividida meio a meio entre as 2
+// linhas vizinhas (x.0/x.5) — convenção padrão de Handicap Asiático/Over-Under.
+function _mercadoLinhaSplit(line) {
+  const isQuarter = Math.abs(Math.round(line * 4)) % 2 === 1;
+  return isQuarter ? [line - 0.25, line + 0.25] : [line];
+}
+// diff = gols da casa − gols de fora (placar final). line = handicap aplicado à casa.
+// Retorna 1 (green/ganhou), 0 (red/perdeu) ou null (push exato — não conta pra nem lado).
+function _mercadoAhResultado(diff, line) {
+  const units = _mercadoLinhaSplit(line).map(l => { const eff = diff + l; return eff > 0 ? 1 : eff < 0 ? -1 : 0; });
+  const avg = units.reduce((a, b) => a + b, 0) / units.length;
+  return avg > 0 ? 1 : avg < 0 ? 0 : null;
+}
+function _mercadoOuResultado(total, line, isOver) {
+  const units = _mercadoLinhaSplit(line).map(l => { const eff = isOver ? (total - l) : (l - total); return eff > 0 ? 1 : eff < 0 ? -1 : 0; });
+  const avg = units.reduce((a, b) => a + b, 0) / units.length;
+  return avg > 0 ? 1 : avg < 0 ? 0 : null;
+}
+// Calcula o resultado real (1/0/null) de TODOS os mercados de uma vez, a
+// partir do placar final — usado tanto na exportação quanto (se precisar) em
+// qualquer outro lugar que precise conferir se um mercado bateu.
+function _mercadosResultados(homeScore, awayScore) {
+  const h = parseInt(homeScore), a = parseInt(awayScore);
+  if (isNaN(h) || isNaN(a)) return null;
+  const diff = h - a, total = h + a;
+  const r = {};
+  r['1x2_casa'] = h > a ? 1 : 0;
+  r['1x2_empate'] = h === a ? 1 : 0;
+  r['1x2_fora'] = h < a ? 1 : 0;
+  r['ambas_sim'] = (h >= 1 && a >= 1) ? 1 : 0;
+  r['ambas_nao'] = (h >= 1 && a >= 1) ? 0 : 1;
+  MERCADOS_TRADICIONAIS.forEach(({ key }) => {
+    if (key.startsWith('ah_casa_')) {
+      const line = parseFloat(key.slice('ah_casa_'.length));
+      r[key] = _mercadoAhResultado(diff, line);
+    } else if (key.startsWith('over_')) {
+      const line = parseFloat(key.slice('over_'.length));
+      r[key] = _mercadoOuResultado(total, line, true);
+    } else if (key.startsWith('under_')) {
+      const line = parseFloat(key.slice('under_'.length));
+      r[key] = _mercadoOuResultado(total, line, false);
+    }
+  });
+  return r;
+}
+
+let _mapaSelectedId = null;
+let _mapaTabCache = {}; // { [matchId]: { statsPorPrefixo } }
+let _mapaStatusFiltro = null;
+
+async function _mapaLoad() {
+  const wrap = document.getElementById('mapaWrap');
+  if (!wrap) return;
+  if (!today2MatchesCache.length) await loadToday2Matches();
+  _renderMapaList(today2MatchesCache);
+  const badge = document.getElementById('mapaCountBadge');
+  if (badge) badge.textContent = today2MatchesCache.length;
+}
+
+function _renderMapaList(matches) {
+  const wrap = document.getElementById('mapaWrap');
+  if (!wrap) return;
+  if (!matches.length) {
+    wrap.innerHTML = `<div class="live-empty"><div style="font-size:13px;color:var(--text2)">Nenhuma partida encontrada.</div></div>`;
+    return;
   }
+  const scrollTop = wrap.scrollTop;
+  const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  wrap.innerHTML = ordenados.map(m => _renderMapaRow(m)).join('');
+  wrap.scrollTop = scrollTop;
+  _mapaFilterBySearch(document.getElementById('mapaSearchInput')?.value || '');
 }
 
-// _mapaAtualizarDia() (botão manual "🆕 Atualizar jogos de hoje") foi
-// removido da UI a pedido do usuário — risco de clique acidental, e o reset
-// diário já acontece sozinho (ver checagem de data em
-// _sinais_compute_locked no app.py). O endpoint de backend
-// /api/sinais_dia/atualizar_dia continua existindo (não exposto na UI), só
-// pra emergência via chamada direta se algum dia for preciso.
-
-function _mapaFmtHora(ts) {
-  if (!ts) return '';
-  const d = new Date(parseInt(ts) * 1000);
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-// Painel com a taxa de acerto do DIA de cada um dos 8 tipos de sinal —
-// substitui o gráfico comparativo do Mapa antigo, já que agora não tem mais
-// "um padrão só" pra comparar geral vs filtro.
-function _mapaTaxasPorSinalHtml(porSinal, labels) {
-  const ordem = Object.keys(labels).filter(k => porSinal[k]);
-  if (!ordem.length) return '';
+function _renderMapaRow(m) {
+  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Taxa de acerto do dia, por tipo de sinal</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
-        ${ordem.map(k => {
-          const agg = porSinal[k];
-          const taxa = agg.taxa_acerto;
-          const cor = taxa === null ? 'var(--text2)' : taxa >= 60 ? '#22c55e' : taxa >= 40 ? '#f59e0b' : '#ef4444';
-          return `
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
-            <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(labels[k])}</div>
-            <div style="font-size:16px;font-weight:700;color:${cor}">${taxa === null ? '—' : taxa.toFixed(0) + '%'}</div>
-            <div style="font-size:10px;color:var(--text2)">${agg.encerrados}/${agg.total} encerrado(s)${agg.total > agg.encerrados ? `, ${agg.total - agg.encerrados} em aberto` : ''}</div>
-          </div>`;
-        }).join('')}
+    <div class="today2-match-row" data-id="${m.id}" onclick="selectMapaMatch('${m.id}', this)">
+      <div style="text-align:center">
+        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
+        <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
+        ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
+      </div>
+      <div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
+        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
       </div>
     </div>`;
 }
 
-// Recalcula "por_sinal" (taxa de acerto do dia) em cima de uma lista JÁ
-// FILTRADA de sugestões — mesma lógica de agregação que o backend faz em
-// cima da lista inteira (ver _sinais_compute_locked no app.py), só que no
-// navegador, pra refletir o filtro de confiança/sinal sem precisar
-// recalcular nada no servidor (os dados já vieram todos).
-function _mapaComputePorSinal(sugestoes) {
-  const porSinal = {};
-  sugestoes.forEach(s => {
-    const agg = porSinal[s.signal] || (porSinal[s.signal] = { total: 0, acertos: 0, encerrados: 0 });
-    agg.total++;
-    if (s.acertou !== null && s.acertou !== undefined) {
-      agg.encerrados++;
-      if (s.acertou) agg.acertos++;
-    }
+function _mapaFilterBySearch(texto) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const termo = norm(texto);
+  document.querySelectorAll('#mapaWrap .today2-match-row[data-id]').forEach(card => {
+    const m = today2MatchesCache.find(x => String(x.id) === card.dataset.id);
+    if (!m) return;
+    const bateTexto = !termo || norm(m.home).includes(termo) || norm(m.away).includes(termo) || norm(m.liga).includes(termo);
+    const bateStatus = _mapaStatusFiltro === 'ao_vivo' ? m.status === '2' : !_mapaStatusFiltro || m.status === _mapaStatusFiltro;
+    card.style.display = (bateTexto && bateStatus) ? '' : 'none';
   });
-  Object.values(porSinal).forEach(agg => {
-    agg.taxa_acerto = agg.encerrados ? (agg.acertos / agg.encerrados * 100) : null;
-  });
-  return porSinal;
 }
 
-function _mapaOnFiltroChange() {
-  if (_sinaisCache) _mapaRenderSinais(_sinaisCache);
+function _mapaToggleStatus(status, btn) {
+  _mapaStatusFiltro = (_mapaStatusFiltro === status) ? null : status;
+  document.getElementById('mapaAoVivoBtn')?.classList.toggle('active', _mapaStatusFiltro === 'ao_vivo');
+  document.getElementById('mapaEncerradosBtn')?.classList.toggle('active', _mapaStatusFiltro === '3');
+  document.getElementById('mapaProximosBtn')?.classList.toggle('active', _mapaStatusFiltro === '1');
+  _mapaFilterBySearch(document.getElementById('mapaSearchInput')?.value || '');
 }
 
-// Filtro de sinal virou múltipla escolha (checkboxes) — conjunto vazio
-// significa "todos", igual ao antigo value === 'todos' do <select>.
-let _mapaSinaisSelecionados = new Set();
+function selectMapaMatch(id, rowEl) {
+  _mapaSelectedId = id;
+  document.querySelectorAll('#mapaWrap .today2-match-row').forEach(r => r.classList.remove('active'));
+  rowEl?.classList.add('active');
 
-function _mapaToggleSinalPanel(ev) {
-  ev?.stopPropagation();
-  const panel = document.getElementById('mapaSinalPanel');
-  if (!panel) return;
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-}
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+  if (!m) return;
 
-document.addEventListener('click', (ev) => {
-  const panel = document.getElementById('mapaSinalPanel');
-  const toggle = document.getElementById('mapaSinalToggle');
-  if (!panel || panel.style.display === 'none') return;
-  if (panel.contains(ev.target) || toggle?.contains(ev.target)) return;
-  panel.style.display = 'none';
-});
+  document.getElementById('mapaDetailPlaceholder').style.display = 'none';
+  document.getElementById('mapaDetailContent').style.display = 'block';
 
-function _mapaToggleSinal(key, checked) {
-  if (checked) _mapaSinaisSelecionados.add(key);
-  else _mapaSinaisSelecionados.delete(key);
-  _mapaUpdateSinalToggleLabel();
-  _mapaOnFiltroChange();
-}
-
-function _mapaSinalMarcarTodos(marcar) {
-  document.querySelectorAll('#mapaSinalOptions input[type=checkbox]').forEach(cb => {
-    cb.checked = marcar;
-    if (marcar) _mapaSinaisSelecionados.add(cb.value);
-  });
-  if (!marcar) _mapaSinaisSelecionados.clear();
-  _mapaUpdateSinalToggleLabel();
-  _mapaOnFiltroChange();
-}
-
-function _mapaUpdateSinalToggleLabel() {
-  const btn = document.getElementById('mapaSinalToggle');
-  if (!btn) return;
-  const n = _mapaSinaisSelecionados.size;
-  btn.textContent = (n === 0 ? 'Sinal: todos' : `Sinal: ${n} selecionado${n > 1 ? 's' : ''}`) + ' ⌄';
-}
-
-function _mapaFilterSugestoes(sugestoes) {
-  const confSel = document.getElementById('mapaFiltroConfianca');
-  const statusSel = document.getElementById('mapaFiltroStatus');
-  const conf = confSel ? confSel.value : 'todas';
-  const status = statusSel ? statusSel.value : 'todos';
-  return sugestoes.filter(s =>
-    (conf === 'todas' || (s.confianca && s.confianca.label === conf)) &&
-    (_mapaSinaisSelecionados.size === 0 || _mapaSinaisSelecionados.has(s.signal)) &&
-    (status === 'todos' || String(s.status) === status)
-  );
-}
-
-function _mapaRenderSinais(d) {
-  const content = document.getElementById('mapaContent');
-  const labels = d.labels || {};
-
-  // O backend nunca calcula na hora dentro dessa rota (só lê o que uma
-  // thread em segundo plano já deixou pronto) — se ainda não tiver nada
-  // pronto (1ª vez desde que o servidor ligou, ou logo depois de virar o
-  // dia), devolve esse sinalizador em vez de travar a requisição por
-  // minutos. A atualização automática de 1min já cuida de tentar de novo.
-  if (d.calculando) {
-    content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:30px 0;text-align:center">⏳ Calculando os 8 sinais em segundo plano... a lista aparece sozinha assim que ficar pronta (pode levar alguns minutos na 1ª vez do dia).</div>`;
-    return;
-  }
-
-  // Popula as checkboxes de sinal uma única vez (na 1ª renderização) com os
-  // rótulos que vieram do backend, pra não ficar hardcoded no HTML
-  const sinalOptions = document.getElementById('mapaSinalOptions');
-  if (sinalOptions && !sinalOptions.childElementCount) {
-    sinalOptions.innerHTML = Object.entries(labels).map(([key, label]) => `
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 4px;border-radius:4px">
-        <input type="checkbox" value="${key}" onchange="_mapaToggleSinal('${key}', this.checked)">
-        ${_bt2EscXml(label)}
-      </label>`).join('');
-  }
-
-  const todasSugestoes = d.sugestoes || [];
-  const sugestoes = _mapaFilterSugestoes(todasSugestoes);
-  const porSinal = _mapaComputePorSinal(sugestoes);
-
-  if (!todasSugestoes.length) {
-    content.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">
-      Nenhum sinal disparou ainda pros jogos de hoje — tente recalcular mais tarde, quando mais jogos de hoje tiverem H2H/classificação/odds disponíveis.
+  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  document.getElementById('mapaDetailHeader').innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
+      <div style="text-align:center">
+        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
+        <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
+      </div>
+      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
     </div>`;
-    return;
-  }
-  if (!sugestoes.length) {
-    content.innerHTML = `
-      ${_mapaTaxasPorSinalHtml(porSinal, labels)}
-      <div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Nenhuma sugestão bate com o filtro selecionado.</div>`;
-    return;
-  }
 
-  // Selo de sinal em cada card só some quando exatamente 1 tipo está marcado
-  // (todo card mostraria o mesmo selo repetido à toa) — com 0 (todos) ou 2+
-  // sinais marcados, a lista mistura tipos e o selo continua útil.
-  const sinalFiltrado = _mapaSinaisSelecionados.size === 1;
-  const confFiltrada = document.getElementById('mapaFiltroConfianca')?.value !== 'todas';
+  document.getElementById('mapaConfigBox').innerHTML = Object.keys(_mapaGetConfig()).length
+    ? '<div style="color:var(--text2)">⏳ Calculando previsão da sua configuração...</div>' : '';
 
-  const cardsHtml = sugestoes.map(s => {
-    let placarHtml = '';
-    if (s.status === '3') {
-      const temPlacar = s.home_score !== null && s.home_score !== undefined && s.away_score !== null && s.away_score !== undefined;
-      const placarTxt = temPlacar ? `${s.home_score} - ${s.away_score}` : 'encerrado';
-      let badge = '';
-      if (s.acertou === true) {
-        badge = `<span style="font-size:11px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:3px 8px">✅ acertou</span>`;
-      } else if (s.acertou === false) {
-        badge = `<span style="font-size:11px;font-weight:700;color:#ef4444;background:#ef444418;border:1px solid #ef444444;border-radius:6px;padding:3px 8px">❌ errou</span>`;
-      }
-      placarHtml = `<span style="font-size:12px;font-weight:700;color:var(--text)">🏁 ${placarTxt}</span>${badge}`;
+  _mapaLoadStats(id, m);
+}
+
+async function _mapaLoadStats(id, m) {
+  const cache = _mapaTabCache[id] || (_mapaTabCache[id] = {});
+  const stats = await _hojeJogoStatsDoJogo(m); // mesma função já usada no export da aba Hoje
+  if (_mapaSelectedId !== id) return;
+  cache.statsPorPrefixo = stats;
+  _mapaRenderConfig(id);
+}
+
+const MAPA_CONFIG_KEY = 'mapaImportedConfig';
+
+function _mapaGetConfig() {
+  try { return JSON.parse(localStorage.getItem(MAPA_CONFIG_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function _mapaImportarConfig(file) {
+  if (!file) return;
+  file.text().then(texto => {
+    const ls = texto.replace(/\r/g, '').trim().split('\n');
+    if (ls.length < 2) { alert('Arquivo de configuração vazio ou inválido.'); return; }
+    const header = ls[0].split('\t');
+    const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
+    if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
+    const config = {};
+    for (let i = 1; i < ls.length; i++) {
+      const vals = ls[i].split('\t');
+      if (vals.length < header.length) continue;
+      config[vals[idx.score]] = {
+        variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
+        winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
+      };
     }
+    localStorage.setItem(MAPA_CONFIG_KEY, JSON.stringify(config));
+    alert(`Configuração importada: ${Object.keys(config).length} mercado(s) configurado(s).`);
+    if (_mapaSelectedId) _mapaRenderConfig(_mapaSelectedId);
+  }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
+}
+
+function _mapaRenderConfig(id) {
+  const box = document.getElementById('mapaConfigBox');
+  if (!box) return;
+  const config = _mapaGetConfig();
+  const entradas = Object.entries(config);
+  if (!entradas.length) { box.innerHTML = ''; return; }
+
+  const cache = _mapaTabCache[id] || {};
+  const stats = cache.statsPorPrefixo;
+  if (!stats) { box.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Calculando previsão da sua configuração...</div>'; return; }
+
+  const prefixos4 = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
+  const linhas = entradas.map(([mercado, c]) => {
+    const prefixoReal = prefixos4.find(p => c.variavel.startsWith(p + '_'));
+    const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
+    const valorAtual = prefixoReal ? stats[prefixoReal]?.[campo] : undefined;
+    const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
+    const dentro = temValor && valorAtual >= c.min && valorAtual <= c.max;
+    const label = MERCADOS_TRADICIONAIS.find(x => x.key === mercado)?.label || mercado;
     return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">
-          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px">${_bt2EscXml(s.pais)} · ${_bt2EscXml(s.liga)} · 🕐 ${_mapaFmtHora(s.kickoff_ts)}</div>
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(s.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(s.away)}</div>
-          <div style="font-size:13px;color:var(--text)">${_bt2EscXml(s.headline)}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">${_bt2EscXml(s.detail)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:700">${label}</div>
+          <div style="font-size:11px;color:var(--text2)">${c.variavel} · faixa ${c.min.toFixed(2)} a ${c.max.toFixed(2)} · hist. ${c.winRate.toFixed(0)}% (${c.n} jogos)</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          ${!sinalFiltrado ? `<span style="font-size:11px;font-weight:700;color:#3b82f6;background:#3b82f618;border:1px solid #3b82f644;border-radius:6px;padding:3px 8px;white-space:nowrap">🛡️ ${_bt2EscXml(labels[s.signal] || s.signal)}</span>` : ''}
-          ${!confFiltrada && s.confianca ? `<span style="font-size:10px;font-weight:700;color:${s.confianca.color};background:${s.confianca.color}18;border:1px solid ${s.confianca.color}44;border-radius:6px;padding:2px 7px;white-space:nowrap" title="Combina o tamanho da amostra com a força do sinal (%) — não é a mesma coisa que a taxa de acerto do dia mostrada acima">${_bt2EscXml(s.confianca.label)}</span>` : ''}
-          ${placarHtml}
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:800;color:${!temValor ? 'var(--text2)' : dentro ? '#22c55e' : '#ef4444'}">${!temValor ? '— sem dado' : dentro ? '✅ dentro da faixa' : '❌ fora da faixa'}</div>
+          <div style="font-size:11px;color:var(--text2)">${temValor ? 'valor atual: ' + valorAtual.toFixed(2) : ''}</div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
   }).join('');
 
-  content.innerHTML = `
-    ${_mapaTaxasPorSinalHtml(porSinal, labels)}
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">${sugestoes.length} ${sugestoes.length === 1 ? 'sugestão' : 'sugestões'} pra hoje · gerado em ${new Date(d.generated_at).toLocaleString('pt-BR')}</div>
-    ${cardsHtml}`;
+  box.innerHTML = `
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px">🗺️ Previsão — sua configuração</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
+}
+
+let _mapaExportEmAndamento = false;
+
+async function _mapaExportarTxt() {
+  if (_mapaExportEmAndamento) return;
+
+  const hoje = today2MatchesCache.filter(m => m.status === '3');
+  if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
+
+  const btn = document.getElementById('mapaExportBtn');
+  const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  _mapaExportEmAndamento = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+
+  try {
+    const prefixos = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
+    const header = [
+      'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
+      ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
+      ...MERCADOS_TRADICIONAIS.map(({ key }) => `resultado_${key}`), // 1 = mercado bateu | 0 = não bateu | — = push (excluído)
+    ];
+
+    const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
+    const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+
+    const linhas = [];
+    let feitos = 0;
+    const LOTE = 1; // 1 jogo por vez — mesmo cuidado do exportador da aba Hoje, pra não sobrecarregar o site
+    for (let i = 0; i < hoje.length; i += LOTE) {
+      const lote = hoje.slice(i, i + LOTE);
+      await Promise.all(lote.map(async m => {
+        let stats = null;
+        try { stats = await _hojeJogoStatsDoJogo(m); } catch (e) { /* segue sem stats desse jogo */ }
+
+        const resultadosMercado = _mercadosResultados(m.home_score, m.away_score);
+        const resultadoCols = MERCADOS_TRADICIONAIS.map(({ key }) => {
+          const v = resultadosMercado?.[key];
+          return v === null || v === undefined ? '—' : v;
+        });
+
+        const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
+
+        linhas.push([
+          m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
+          ...statCols, ...resultadoCols,
+        ].join('\t'));
+      }));
+      feitos += lote.length;
+      if (btn) btn.innerHTML = `⏳ ${feitos}/${hoje.length}`;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const conteudo = [header.join('\t'), ...linhas].join('\n');
+    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mapa_sugestoes_${todayStr}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Erro ao exportar: ' + e.message + ' — tenta de novo.');
+  } finally {
+    _mapaExportEmAndamento = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
+  }
 }
 
 // ── HOJE 2 (laboratório) ─────────────────────────────────────────────────────
