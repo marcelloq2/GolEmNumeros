@@ -1563,6 +1563,7 @@
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
+        <div id="placarContraMarketReadBox" style="margin-bottom:16px"></div>
         <div id="placarContraCustoGolBox"></div>
       </div>
     </div>
@@ -6238,6 +6239,7 @@ function selectPlacarContraMatch(id, rowEl) {
 
   document.getElementById('placarContraSugestaoBox').innerHTML = '<div style="color:var(--text2)">⏳ Calculando sugestão de placares pra descartar...</div>';
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
+  document.getElementById('placarContraMarketReadBox').innerHTML = '';
   document.getElementById('placarContraCustoGolBox').innerHTML = '';
 
   _placarContraLoadOdds(id, m);
@@ -6260,10 +6262,80 @@ async function _placarContraLoadOdds(id, m) {
     const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
     cache.placarExatoBuckets = placar ? _placarExatoBuckets(placar.items || []) : [];
     _placarContraTryRenderZeroBucket(id);
+
+    const marketBox = document.getElementById('placarContraMarketReadBox');
+    if (marketBox) marketBox.innerHTML = _placarContraMarketReadHtml(placar?.items || []);
   } catch (e) {
     if (_placarContraSelectedId !== id) return;
     box.innerHTML = '<div style="color:var(--text2)">erro ao buscar odds</div>';
   }
+}
+
+// ── Leitura do Mercado — converte as odds CRUAS de Placar Exato (cada
+// placar individual, não os 19 buckets agrupados) em probabilidade
+// implícita (1/odd) e soma pra derivar 1X2, Ambas Marcam, Over/Under FT e
+// saldo de gols esperado, tudo só a partir do que o mercado já precifica —
+// sem depender de nenhuma estatística histórica. Complementa o card
+// "Placares favoráveis a não acontecer" (que usa histórico) com a leitura
+// oposta: o que o PRÓPRIO mercado já embute nos preços.
+function _placarContraMarketReadHtml(items) {
+  if (!items || !items.length) return '';
+  let casa = 0, empate = 0, fora = 0, ambasSim = 0, ambasNao = 0, total = 0, saldoSum = 0;
+  const ou = { '0.5': { over: 0, under: 0 }, '1.5': { over: 0, under: 0 }, '2.5': { over: 0, under: 0 } };
+
+  items.forEach(it => {
+    const mm = /^(\d+):(\d+)$/.exec(it.score || '');
+    if (!mm) return;
+    const h = parseInt(mm[1]), a = parseInt(mm[2]);
+    const odd = parseFloat(it.item?.value);
+    if (!odd || isNaN(odd)) return;
+    const p = 1 / odd;
+    total += p;
+    if (h > a) casa += p; else if (h === a) empate += p; else fora += p;
+    if (h >= 1 && a >= 1) ambasSim += p; else ambasNao += p;
+    saldoSum += (h - a) * p;
+    const totalGols = h + a;
+    ['0.5', '1.5', '2.5'].forEach(line => {
+      if (totalGols > parseFloat(line)) ou[line].over += p; else ou[line].under += p;
+    });
+  });
+  if (total <= 0) return '';
+
+  const pct = v => (v / total * 100);
+  const overround = (total - 1) * 100;
+  const saldo = saldoSum / total;
+
+  const item = (label, valorPct) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text2)">${label}</span>
+      <span style="font-size:14px;font-weight:700;color:var(--text)">${valorPct.toFixed(1)}%</span>
+    </div>`;
+
+  return `
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">📊 Leitura do Mercado <span style="font-size:11px;font-weight:400;color:var(--text2)" title="Probabilidade implícita (1/odd, normalizada) somada a partir de TODOS os placares individuais que o mercado oferece hoje — não usa nenhum histórico, só o que a odd já embute.">ℹ️</span></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Margem da casa nesse mercado: <b style="color:var(--text)">${overround.toFixed(1)}%</b> · Saldo de gols esperado (mercado): <b style="color:var(--text)">${saldo >= 0 ? '+' : ''}${saldo.toFixed(2)}</b></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Resultado (1X2)</div>
+        ${item('Casa vence', pct(casa))}
+        ${item('Empate', pct(empate))}
+        ${item('Fora vence', pct(fora))}
+      </div>
+      <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Ambas Marcam</div>
+        ${item('Sim', pct(ambasSim))}
+        ${item('Não', pct(ambasNao))}
+      </div>
+      <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Acima/Abaixo (FT)</div>
+        ${item('Acima 0,5', pct(ou['0.5'].over))}
+        ${item('Abaixo 0,5', pct(ou['0.5'].under))}
+        ${item('Acima 1,5', pct(ou['1.5'].over))}
+        ${item('Abaixo 1,5', pct(ou['1.5'].under))}
+        ${item('Acima 2,5', pct(ou['2.5'].over))}
+        ${item('Abaixo 2,5', pct(ou['2.5'].under))}
+      </div>
+    </div>`;
 }
 
 // Não exibe cards de estatísticas — só calcula por trás pra alimentar a
