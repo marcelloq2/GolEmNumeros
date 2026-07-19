@@ -1503,6 +1503,7 @@
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
             <button class="live-refresh-btn" onclick="_placarContraOpenHistorico()" title="Ver todos os placares sugeridos hoje e a taxa de acerto">📋</button>
+            <button class="live-refresh-btn" onclick="_placarContraExportarTxt()" title="Baixar TXT com todos os jogos encerrados hoje (pra análise externa)">⬇️</button>
             <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
           </span>
         </div>
@@ -6264,11 +6265,14 @@ async function _placarContraLoadOdds(id, m) {
       ${placar ? _renderToday2OddsMarket('placar_exato', placar) : '<div style="color:var(--text2)">sem odds de Placar Exato disponíveis pra esse jogo</div>'}`;
     const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
     cache.placarExatoBuckets = placar ? _placarExatoBuckets(placar.items || []) : [];
+    cache.placarExatoItens = placar?.items || []; // odds cruas, pra exportação (TXT)
     _placarContraTryRenderZeroBucket(id);
     _placarContraTryRenderMetodEntrada(id);
 
+    const marketRead = _placarContraMarketReadCalc(placar?.items || []);
+    cache.marketRead = marketRead; // pra exportação (TXT)
     const marketBox = document.getElementById('placarContraMarketReadBox');
-    if (marketBox) marketBox.innerHTML = _placarContraMarketReadHtml(placar?.items || []);
+    if (marketBox) marketBox.innerHTML = _placarContraMarketReadHtml(marketRead);
   } catch (e) {
     if (_placarContraSelectedId !== id) return;
     box.innerHTML = '<div style="color:var(--text2)">erro ao buscar odds</div>';
@@ -6282,8 +6286,8 @@ async function _placarContraLoadOdds(id, m) {
 // sem depender de nenhuma estatística histórica. Complementa o card
 // "Placares favoráveis a não acontecer" (que usa histórico) com a leitura
 // oposta: o que o PRÓPRIO mercado já embute nos preços.
-function _placarContraMarketReadHtml(items) {
-  if (!items || !items.length) return '';
+function _placarContraMarketReadCalc(items) {
+  if (!items || !items.length) return null;
   let casa = 0, empate = 0, fora = 0, ambasSim = 0, ambasNao = 0, total = 0, saldoSum = 0;
   const ou = { '0.5': { over: 0, under: 0 }, '1.5': { over: 0, under: 0 }, '2.5': { over: 0, under: 0 } };
 
@@ -6303,12 +6307,21 @@ function _placarContraMarketReadHtml(items) {
       if (totalGols > parseFloat(line)) ou[line].over += p; else ou[line].under += p;
     });
   });
-  if (total <= 0) return '';
+  if (total <= 0) return null;
 
   const pct = v => (v / total * 100);
-  const overround = (total - 1) * 100;
-  const saldo = saldoSum / total;
+  return {
+    casa: pct(casa), empate: pct(empate), fora: pct(fora),
+    ambasSim: pct(ambasSim), ambasNao: pct(ambasNao),
+    over05: pct(ou['0.5'].over), under05: pct(ou['0.5'].under),
+    over15: pct(ou['1.5'].over), under15: pct(ou['1.5'].under),
+    over25: pct(ou['2.5'].over), under25: pct(ou['2.5'].under),
+    overround: (total - 1) * 100, saldo: saldoSum / total,
+  };
+}
 
+function _placarContraMarketReadHtml(calc) {
+  if (!calc) return '';
   const item = (label, valorPct) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)">
       <span style="font-size:13px;color:var(--text2)">${label}</span>
@@ -6317,27 +6330,27 @@ function _placarContraMarketReadHtml(items) {
 
   return `
     <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">📊 Leitura do Mercado <span style="font-size:11px;font-weight:400;color:var(--text2)" title="Probabilidade implícita (1/odd, normalizada) somada a partir de TODOS os placares individuais que o mercado oferece hoje — não usa nenhum histórico, só o que a odd já embute.">ℹ️</span></div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Margem da casa nesse mercado: <b style="color:var(--text)">${overround.toFixed(1)}%</b> · Saldo de gols esperado (mercado): <b style="color:var(--text)">${saldo >= 0 ? '+' : ''}${saldo.toFixed(2)}</b></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Margem da casa nesse mercado: <b style="color:var(--text)">${calc.overround.toFixed(1)}%</b> · Saldo de gols esperado (mercado): <b style="color:var(--text)">${calc.saldo >= 0 ? '+' : ''}${calc.saldo.toFixed(2)}</b></div>
     <div style="display:flex;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
         <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Resultado (1X2)</div>
-        ${item('Casa vence', pct(casa))}
-        ${item('Empate', pct(empate))}
-        ${item('Fora vence', pct(fora))}
+        ${item('Casa vence', calc.casa)}
+        ${item('Empate', calc.empate)}
+        ${item('Fora vence', calc.fora)}
       </div>
       <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
         <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Ambas Marcam</div>
-        ${item('Sim', pct(ambasSim))}
-        ${item('Não', pct(ambasNao))}
+        ${item('Sim', calc.ambasSim)}
+        ${item('Não', calc.ambasNao)}
       </div>
       <div style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
         <div style="font-size:12px;font-weight:700;color:var(--text2);padding:6px 10px;background:var(--bg3)">Acima/Abaixo (FT)</div>
-        ${item('Acima 0,5', pct(ou['0.5'].over))}
-        ${item('Abaixo 0,5', pct(ou['0.5'].under))}
-        ${item('Acima 1,5', pct(ou['1.5'].over))}
-        ${item('Abaixo 1,5', pct(ou['1.5'].under))}
-        ${item('Acima 2,5', pct(ou['2.5'].over))}
-        ${item('Abaixo 2,5', pct(ou['2.5'].under))}
+        ${item('Acima 0,5', calc.over05)}
+        ${item('Abaixo 0,5', calc.under05)}
+        ${item('Acima 1,5', calc.over15)}
+        ${item('Abaixo 1,5', calc.under15)}
+        ${item('Acima 2,5', calc.over25)}
+        ${item('Abaixo 2,5', calc.under25)}
       </div>
     </div>`;
 }
@@ -6403,9 +6416,12 @@ function _placarContraRenderCustoGol(id, blocks, homeTeam, awayTeam) {
   const gvAwayGeral = _jogoGolValorStats(blocks[2].rows);
   const gvAwayFora = _jogoGolValorStats(blocks[3].rows);
 
-  const coluna = (teamName, gvGeral, gvRecorte) => {
-    const marcado = _poissonAvgOf(gvGeral?.avgCustoGol2Marcado, gvRecorte?.avgCustoGol2Marcado);
-    const sofrido = _poissonAvgOf(gvGeral?.avgCustoGol2Sofrido, gvRecorte?.avgCustoGol2Sofrido);
+  const marcadoCasa = _poissonAvgOf(gvHomeGeral?.avgCustoGol2Marcado, gvHomeCasa?.avgCustoGol2Marcado);
+  const sofridoCasa = _poissonAvgOf(gvHomeGeral?.avgCustoGol2Sofrido, gvHomeCasa?.avgCustoGol2Sofrido);
+  const marcadoFora = _poissonAvgOf(gvAwayGeral?.avgCustoGol2Marcado, gvAwayFora?.avgCustoGol2Marcado);
+  const sofridoFora = _poissonAvgOf(gvAwayGeral?.avgCustoGol2Sofrido, gvAwayFora?.avgCustoGol2Sofrido);
+
+  const coluna = (teamName, marcado, sofrido) => {
     const linha = (label, val) => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border)">
         <span style="font-size:13px;color:var(--text2)">${label}</span>
@@ -6422,9 +6438,14 @@ function _placarContraRenderCustoGol(id, blocks, homeTeam, awayTeam) {
   };
 
   box.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">
-    ${coluna(homeTeam, gvHomeGeral, gvHomeCasa)}
-    ${coluna(awayTeam, gvAwayGeral, gvAwayFora)}
+    ${coluna(homeTeam, marcadoCasa, sofridoCasa)}
+    ${coluna(awayTeam, marcadoFora, sofridoFora)}
   </div>`;
+
+  // Guarda estruturado no cache (não sobrescreve se já veio do servidor,
+  // já é o mesmo formato) — usado tanto pelo filtro quanto pela exportação.
+  const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
+  if (!cache.custoGol) cache.custoGol = { marcadoCasa, sofridoCasa, marcadoFora, sofridoFora };
 }
 
 // ── Sugestão de placares "favoráveis a não acontecer" (lay) ────────────────
@@ -6682,6 +6703,85 @@ function _placarContraSaveLaySnapshot(id, melhor) {
   const idx = list.findIndex(x => x.id === id);
   if (idx >= 0) list[idx] = entry; else list.push(entry);
   _placarContraSaveHist(list);
+}
+
+// ── Exportação em TXT (formato tabulado, 1 linha por jogo) — pra alimentar
+// uma análise externa (tabela dinâmica) que procura os melhores padrões de
+// faixa de cada variável por metodologia de lay. Só exporta jogos já
+// ENCERRADOS de hoje. Cada jogo só tem as colunas de análise preenchidas
+// se o usuário abriu ele em algum momento (clique) ou se o cálculo
+// automático em segundo plano já tinha rodado (picks/custo do gol, que só
+// cobrem jogos que estavam "Próximos" antes de começar) — sem isso, as
+// colunas ficam "—". Baixe de novo no fim de cada dia pra ir acumulando.
+function _placarContraMelhorEntradaGeral(ranking, placarExatoBuckets, n) {
+  if (!ranking || !placarExatoBuckets) return [];
+  return PLACAR_EXATO_BUCKETS_ORDER
+    .map(score => {
+      const rankEntry = ranking.find(b => b.score === score);
+      const oddEntry = placarExatoBuckets.find(x => x.score === score);
+      if (!rankEntry || !oddEntry) return null;
+      return { score, prob: rankEntry.prob, odd: oddEntry.odd, valor: rankEntry.prob * oddEntry.odd };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.valor - b.valor)
+    .slice(0, n);
+}
+
+function _placarContraExportarTxt() {
+  const hoje = today2MatchesCache.filter(m => m.status === '3');
+  if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
+
+  const oddCols = PLACAR_EXATO_BUCKETS_ORDER;
+  const header = [
+    'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
+    'lay1_score', 'lay1_prob', 'lay2_score', 'lay2_prob', 'lay3_score', 'lay3_prob',
+    'lay4_score', 'lay4_prob', 'lay5_score', 'lay5_prob', 'lay6_score', 'lay6_prob',
+    'melhor1_score', 'melhor1_prob', 'melhor1_odd', 'melhor2_score', 'melhor2_prob', 'melhor2_odd', 'melhor3_score', 'melhor3_prob', 'melhor3_odd',
+    ...oddCols.map(s => `odd_${s}`),
+    'mkt_casa', 'mkt_empate', 'mkt_fora', 'mkt_ambas_sim', 'mkt_ambas_nao',
+    'mkt_over05', 'mkt_under05', 'mkt_over15', 'mkt_under15', 'mkt_over25', 'mkt_under25',
+    'mkt_saldo_esperado', 'mkt_overround',
+    'custo_marcado_casa', 'custo_sofrido_casa', 'custo_marcado_fora', 'custo_sofrido_fora',
+  ];
+
+  const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
+  const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const linhas = hoje.map(m => {
+    const cache = _placarContraTabCache[m.id] || {};
+    const ranking = cache.zeroRanking?.ranking;
+    const piores = ranking ? ranking.slice(0, 6) : [];
+    const melhores = _placarContraMelhorEntradaGeral(ranking, cache.placarExatoBuckets, 3);
+    const mkt = cache.marketRead;
+    const custo = cache.custoGol;
+
+    const layCols = [];
+    for (let i = 0; i < 6; i++) { layCols.push(fmt(piores[i]?.score), fmt(piores[i]?.prob)); }
+    const melhorCols = [];
+    for (let i = 0; i < 3; i++) { melhorCols.push(fmt(melhores[i]?.score), fmt(melhores[i]?.prob), fmt(melhores[i]?.odd)); }
+    const oddValues = oddCols.map(s => fmt(cache.placarExatoBuckets?.find(x => x.score === s)?.odd));
+
+    return [
+      m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
+      ...layCols, ...melhorCols, ...oddValues,
+      fmt(mkt?.casa), fmt(mkt?.empate), fmt(mkt?.fora), fmt(mkt?.ambasSim), fmt(mkt?.ambasNao),
+      fmt(mkt?.over05), fmt(mkt?.under05), fmt(mkt?.over15), fmt(mkt?.under15), fmt(mkt?.over25), fmt(mkt?.under25),
+      fmt(mkt?.saldo), fmt(mkt?.overround),
+      fmt(custo?.marcadoCasa), fmt(custo?.sofridoCasa), fmt(custo?.marcadoFora), fmt(custo?.sofridoFora),
+    ].join('\t');
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const conteudo = [header.join('\t'), ...linhas].join('\n');
+  const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `placar_contra_${todayStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function _placarContraOpenHistorico() {
