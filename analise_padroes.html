@@ -60,8 +60,12 @@
   <div id="status"></div>
 
   <div id="controls">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <button onclick="gerarConfigAutomatica()" style="border-color:var(--accent);color:var(--accent)">🤖 Gerar configuração automática (todos os placares)</button>
+      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar — amostra mínima de 15 jogos</span>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:13px;color:var(--text2)">Placar (metodologia):</span>
+      <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar:</span>
       <select id="metodSelect" onchange="renderRelatorio()"></select>
       <span style="font-size:12px;color:var(--text2)" id="amostraInfo"></span>
     </div>
@@ -70,7 +74,7 @@
     <div class="top-actions">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;margin-bottom:6px">Configuração montada</div>
-        <div id="configBox">Nenhuma regra adicionada ainda — clique em "Usar essa faixa" nas tabelas acima.</div>
+        <div id="configBox">Nenhuma regra adicionada ainda — clique em "🤖 Gerar configuração automática" ou em "Usar essa faixa" nas tabelas acima.</div>
       </div>
     </div>
     <div style="margin-top:10px;display:flex;gap:8px">
@@ -134,6 +138,7 @@ function _labelParaColuna(key) {
 let linhas = []; // todas as linhas de todos os arquivos carregados, já parseadas
 let VARIAVEIS = []; // detectadas a partir do cabeçalho dos arquivos carregados
 let config = {}; // { score: {variavel, min, max, winRate, n} }
+let arquivosCarregados = 0; // quantos .txt (dias) diferentes entraram na base — usado pra avisar se ainda é pouca coisa
 
 function carregarArquivos(fileList) {
   // Quando vem de "Escolher pasta" (webkitdirectory), o navegador entrega TODO
@@ -167,8 +172,13 @@ function carregarArquivos(fileList) {
       arquivosValidos++;
     });
     linhas = todas;
+    arquivosCarregados = arquivosValidos;
     VARIAVEIS = [...colunasVistas]
-      .filter(k => !COLUNAS_IGNORADAS.has(k) && !k.startsWith('resultado_'))
+      // "..._n" é o nº de jogos que entrou na amostra do H2H daquele recorte
+      // (normalmente sempre ~30, o teto de jogos buscados) — não é uma
+      // variável de futebol de verdade, é metadado, então nunca deve virar
+      // "padrão" (senão o automático vive escolhendo ela por coincidência).
+      .filter(k => !COLUNAS_IGNORADAS.has(k) && !k.startsWith('resultado_') && !/_n$/.test(k))
       .map(k => ({ key: k, label: _labelParaColuna(k) }));
     document.getElementById('status').textContent =
       `${todas.length} jogo(s) carregado(s) de ${arquivosValidos} arquivo(s) · ${VARIAVEIS.length} variável(is) detectada(s)` +
@@ -185,6 +195,72 @@ function carregarArquivos(fileList) {
 function popularMetodSelect() {
   const sel = document.getElementById('metodSelect');
   sel.innerHTML = PLACAR_EXATO_BUCKETS_ORDER.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+// Calcula, pra um placar (score), os 4 bins (quartis) de taxa de acerto de
+// CADA variável detectada — usado tanto pela tabela manual (renderRelatorio)
+// quanto pela seleção automática (gerarConfigAutomatica), pra não duplicar
+// a lógica de binning em 2 lugares.
+function _calcularBinsPorScore(score) {
+  const resultCol = `resultado_${score}`;
+  const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
+  const resultado = [];
+  VARIAVEIS.forEach(v => {
+    const pares = validas
+      .map(l => ({ val: parseFloat(l[v.key]), win: l[resultCol] === '1' ? 1 : 0 }))
+      .filter(p => !isNaN(p.val));
+    if (pares.length < 5) return;
+    pares.sort((a, b) => a.val - b.val);
+
+    const n = pares.length;
+    const NBINS = 4;
+    const bins = [];
+    for (let q = 0; q < NBINS; q++) {
+      const start = Math.floor(q * n / NBINS), end = Math.floor((q + 1) * n / NBINS);
+      const slice = pares.slice(start, end);
+      if (!slice.length) continue;
+      const winRate = slice.reduce((a, p) => a + p.win, 0) / slice.length * 100;
+      bins.push({ min: slice[0].val, max: slice[slice.length - 1].val, n: slice.length, winRate });
+    }
+    if (!bins.length) return;
+    const melhor = [...bins].sort((a, b) => b.winRate - a.winRate)[0];
+    resultado.push({ v, bins, melhorIdx: bins.indexOf(melhor), melhor });
+  });
+  return resultado;
+}
+
+// Escolhe sozinho, pra CADA um dos 19 placares, a variável+faixa com a
+// maior taxa de acerto — exige uma amostra mínima na faixa vencedora (senão
+// uma faixa de 2 jogos com 100% de acerto ganharia de tudo por coincidência)
+// e que a taxa fique acima da taxa geral daquele placar (senão não é uma
+// faixa que realmente ajuda, é só ruído). Placares sem nenhuma variável que
+// bata esses 2 critérios ficam de fora da configuração automática.
+const AUTO_CONFIG_AMOSTRA_MINIMA = 15;
+
+function gerarConfigAutomatica() {
+  if (!linhas.length) { alert('Carregue os arquivos primeiro.'); return; }
+  let adicionados = 0, pulados = 0;
+  PLACAR_EXATO_BUCKETS_ORDER.forEach(score => {
+    const resultCol = `resultado_${score}`;
+    const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
+    if (!validas.length) { pulados++; return; }
+    const taxaGeral = validas.filter(l => l[resultCol] === '1').length / validas.length * 100;
+
+    const candidatos = _calcularBinsPorScore(score)
+      .filter(({ melhor }) => melhor.n >= AUTO_CONFIG_AMOSTRA_MINIMA && melhor.winRate > taxaGeral)
+      .sort((a, b) => b.melhor.winRate - a.melhor.winRate || b.melhor.n - a.melhor.n);
+
+    if (!candidatos.length) { pulados++; return; }
+    const { v, melhor } = candidatos[0];
+    config[score] = { variavel: v.key, label: v.label, min: melhor.min, max: melhor.max, winRate: melhor.winRate, n: melhor.n };
+    adicionados++;
+  });
+  renderConfigBox();
+  document.getElementById('metodSelect') && renderRelatorio();
+  const avisoPoucosDias = arquivosCarregados < 10
+    ? `\n\n⚠️ Só ${arquivosCarregados} dia(s) de dados carregado(s) — com pouca base, taxas de 100% costumam ser coincidência (poucos jogos daquele placar acontecendo), não um padrão de verdade. Recomendo rodar o exportador (aba Hoje) por mais dias antes de confiar nessa configuração.`
+    : '';
+  alert(`Configuração automática gerada: ${adicionados} placar(es) configurado(s), ${pulados} sem variável confiável o suficiente (amostra mínima de ${AUTO_CONFIG_AMOSTRA_MINIMA} jogos e taxa acima da média geral daquele placar).${avisoPoucosDias}`);
 }
 
 function renderRelatorio() {
@@ -205,28 +281,10 @@ function renderRelatorio() {
   const taxaGeral = acertos / validas.length * 100;
   info.textContent = `${validas.length} jogos · taxa geral: ${taxaGeral.toFixed(1)}%`;
 
+  const porVariavel = _calcularBinsPorScore(score);
+
   let html = '';
-  VARIAVEIS.forEach(v => {
-    const pares = validas
-      .map(l => ({ val: parseFloat(l[v.key]), win: l[resultCol] === '1' ? 1 : 0 }))
-      .filter(p => !isNaN(p.val));
-    if (pares.length < 5) return;
-    pares.sort((a, b) => a.val - b.val);
-
-    const n = pares.length;
-    const NBINS = 4;
-    const bins = [];
-    for (let q = 0; q < NBINS; q++) {
-      const start = Math.floor(q * n / NBINS), end = Math.floor((q + 1) * n / NBINS);
-      const slice = pares.slice(start, end);
-      if (!slice.length) continue;
-      const winRate = slice.reduce((a, p) => a + p.win, 0) / slice.length * 100;
-      bins.push({ min: slice[0].val, max: slice[slice.length - 1].val, n: slice.length, winRate });
-    }
-    if (!bins.length) return;
-    const melhor = [...bins].sort((a, b) => b.winRate - a.winRate)[0];
-    const melhorIdx = bins.indexOf(melhor);
-
+  porVariavel.forEach(({ v, bins, melhorIdx }) => {
     html += `
       <div class="var-block">
         <div class="var-title">${v.label}</div>
