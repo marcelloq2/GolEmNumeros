@@ -6273,6 +6273,7 @@ async function _placarContraLoadOdds(id, m) {
     cache.placarExatoItens = placar?.items || []; // odds cruas, pra exportação (TXT)
     _placarContraTryRenderZeroBucket(id);
     _placarContraTryRenderMetodEntrada(id);
+    _placarContraRenderConfig(id); // odds podem ter chegado depois das stats — re-renderiza pra já mostrar a odd junto
 
     const marketRead = _placarContraMarketReadCalc(placar?.items || []);
     cache.marketRead = marketRead; // pra exportação (TXT)
@@ -6470,7 +6471,6 @@ function _placarContraRenderConfig(id) {
   if (!stats) { box.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Calculando previsão da sua configuração...</div>'; return; }
 
   const linhas = entradas.map(([score, c]) => {
-    const [prefixo, ...resto] = c.variavel.split('_');
     // separa "mandante_geral_pctAmbasMarcam" em prefixo="mandante_geral" (2
     // primeiros pedaços) + resto do nome do campo — os 4 prefixos válidos
     // sempre têm 2 palavras antes do nome do campo.
@@ -6480,6 +6480,12 @@ function _placarContraRenderConfig(id) {
     const valorAtual = prefixoReal ? stats[prefixoReal]?.[campo] : undefined;
     const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
     const dentro = temValor && valorAtual >= c.min && valorAtual <= c.max;
+    // Odd de back desse placar (mesma grade da caixa "Placar Exato" acima) —
+    // só mostra quando o placar está dentro da faixa, é o dado que falta pra
+    // decidir se vale a pena entrar (odd baixa = mercado já concorda que é
+    // improvável, então "trabalhar contra" ele rende pouco).
+    const oddEntry = dentro ? cache.placarExatoBuckets?.find(x => x.score === score) : null;
+    const oddHtml = oddEntry?.odd ? ` · odd ${parseFloat(oddEntry.odd).toFixed(2)}` : (dentro ? ' · odd —' : '');
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)">
         <div>
@@ -6488,7 +6494,7 @@ function _placarContraRenderConfig(id) {
         </div>
         <div style="text-align:right">
           <div style="font-size:13px;font-weight:800;color:${!temValor ? 'var(--text2)' : dentro ? '#22c55e' : '#ef4444'}">${!temValor ? '— sem dado' : dentro ? '✅ dentro da faixa' : '❌ fora da faixa'}</div>
-          <div style="font-size:11px;color:var(--text2)">${temValor ? 'valor atual: ' + valorAtual.toFixed(2) : ''}</div>
+          <div style="font-size:11px;color:var(--text2)">${temValor ? 'valor atual: ' + valorAtual.toFixed(2) : ''}${oddHtml}</div>
         </div>
       </div>`;
   }).join('');
