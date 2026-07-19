@@ -1504,6 +1504,8 @@
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
             <button class="live-refresh-btn" onclick="_placarContraOpenHistorico()" title="Ver todos os placares sugeridos hoje e a taxa de acerto">📋</button>
+            <button class="live-refresh-btn" id="placarContraImportBtn" onclick="document.getElementById('placarContraConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
+            <input type="file" id="placarContraConfigInput" accept=".txt" style="display:none" onchange="_placarContraImportarConfig(this.files[0])">
             <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
           </span>
         </div>
@@ -1562,6 +1564,7 @@
       </div>
       <div id="placarContraDetailContent" style="display:none">
         <div id="placarContraDetailHeader" style="margin-bottom:12px"></div>
+        <div id="placarContraConfigBox" style="margin-bottom:16px"></div>
         <div id="placarContraSugestaoBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
         <div id="placarContraMarketReadBox" style="margin-bottom:16px"></div>
@@ -6245,6 +6248,8 @@ function selectPlacarContraMatch(id, rowEl) {
   document.getElementById('placarContraOddsBox').innerHTML = '<div style="color:var(--text2)">⏳ Buscando odds de Placar Exato...</div>';
   document.getElementById('placarContraMarketReadBox').innerHTML = '';
   document.getElementById('placarContraCustoGolBox').innerHTML = '';
+  document.getElementById('placarContraConfigBox').innerHTML = Object.keys(_placarContraGetConfig()).length
+    ? '<div style="color:var(--text2)">⏳ Calculando previsão da sua configuração...</div>' : '';
 
   _placarContraLoadOdds(id, m);
   _placarContraLoadStats(id, m);
@@ -6402,6 +6407,95 @@ async function _placarContraLoadStats(id, m) {
   const sAwayFora = _jogoComputeStats(blocks[3].rows);
   _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwayFora, m.home, m.away);
   _placarContraRenderCustoGol(id, blocks, m.home, m.away);
+
+  // Mesmos 4 recortes (mandante_geral/mandante_casa/visitante_geral/
+  // visitante_fora), com os campos de Valor do Gol/Custo do Gol 2.0 já
+  // mesclados — usa EXATAMENTE as mesmas chaves que o botão ⬇️ da aba Hoje
+  // exporta, pra poder cruzar com a configuração importada da análise externa.
+  cache.statsPorPrefixo = {
+    mandante_geral: _jogoStatsWithValor(blocks[0].rows),
+    mandante_casa: _jogoStatsWithValor(blocks[1].rows),
+    visitante_geral: _jogoStatsWithValor(blocks[2].rows),
+    visitante_fora: _jogoStatsWithValor(blocks[3].rows),
+  };
+  _placarContraRenderConfig(id);
+}
+
+// ── Previsão baseada na configuração importada (arquivo gerado pela
+// ferramenta local analise_padroes.html, a partir dos .txt exportados na
+// aba Hoje) — cada linha da config diz "pro placar X, quando a variável Y
+// está entre min e max, a taxa histórica de acerto do lay foi Z%". Aqui só
+// checa se o jogo ABERTO agora cai dentro dessa faixa, pra cada placar
+// configurado — não dispara nenhuma busca nova, só usa os dados que a aba
+// já buscou (cache.statsPorPrefixo).
+const PLACAR_CONTRA_CONFIG_KEY = 'placarContraImportedConfig';
+
+function _placarContraGetConfig() {
+  try { return JSON.parse(localStorage.getItem(PLACAR_CONTRA_CONFIG_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function _placarContraImportarConfig(file) {
+  if (!file) return;
+  file.text().then(texto => {
+    const ls = texto.replace(/\r/g, '').trim().split('\n');
+    if (ls.length < 2) { alert('Arquivo de configuração vazio ou inválido.'); return; }
+    const header = ls[0].split('\t');
+    const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
+    if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
+    const config = {};
+    for (let i = 1; i < ls.length; i++) {
+      const vals = ls[i].split('\t');
+      if (vals.length < header.length) continue;
+      config[vals[idx.score]] = {
+        variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
+        winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
+      };
+    }
+    localStorage.setItem(PLACAR_CONTRA_CONFIG_KEY, JSON.stringify(config));
+    alert(`Configuração importada: ${Object.keys(config).length} placar(es) configurado(s).`);
+    if (_placarContraSelectedId) _placarContraRenderConfig(_placarContraSelectedId);
+  }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
+}
+
+function _placarContraRenderConfig(id) {
+  const box = document.getElementById('placarContraConfigBox');
+  if (!box) return;
+  const config = _placarContraGetConfig();
+  const entradas = Object.entries(config);
+  if (!entradas.length) { box.innerHTML = ''; return; }
+
+  const cache = _placarContraTabCache[id] || {};
+  const stats = cache.statsPorPrefixo;
+  if (!stats) { box.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Calculando previsão da sua configuração...</div>'; return; }
+
+  const linhas = entradas.map(([score, c]) => {
+    const [prefixo, ...resto] = c.variavel.split('_');
+    // separa "mandante_geral_pctAmbasMarcam" em prefixo="mandante_geral" (2
+    // primeiros pedaços) + resto do nome do campo — os 4 prefixos válidos
+    // sempre têm 2 palavras antes do nome do campo.
+    const prefixos4 = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
+    const prefixoReal = prefixos4.find(p => c.variavel.startsWith(p + '_'));
+    const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
+    const valorAtual = prefixoReal ? stats[prefixoReal]?.[campo] : undefined;
+    const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
+    const dentro = temValor && valorAtual >= c.min && valorAtual <= c.max;
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:700">lay ${score}</div>
+          <div style="font-size:11px;color:var(--text2)">${c.variavel} · faixa ${c.min.toFixed(2)} a ${c.max.toFixed(2)} · hist. ${c.winRate.toFixed(0)}% (${c.n} jogos)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:800;color:${!temValor ? 'var(--text2)' : dentro ? '#22c55e' : '#ef4444'}">${!temValor ? '— sem dado' : dentro ? '✅ dentro da faixa' : '❌ fora da faixa'}</div>
+          <div style="font-size:11px;color:var(--text2)">${temValor ? 'valor atual: ' + valorAtual.toFixed(2) : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  box.innerHTML = `
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px">🎯 Previsão — sua configuração</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
 }
 
 // Custo do Gol 2.0 (Marcado/Sofrido) de cada lado — blend Geral+Casa/Fora,
