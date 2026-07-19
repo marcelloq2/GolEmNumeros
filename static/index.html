@@ -6077,6 +6077,7 @@ function _placarContraToggleMetod(score, checked) {
   else _placarContraMetodSelecionados.delete(score);
   _placarContraUpdateMetodLabel();
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+  _placarContraTryRenderMetodEntrada(_placarContraSelectedId);
 }
 
 function _placarContraMetodMarcarTodos(marcar) {
@@ -6087,6 +6088,7 @@ function _placarContraMetodMarcarTodos(marcar) {
   if (!marcar) _placarContraMetodSelecionados.clear();
   _placarContraUpdateMetodLabel();
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+  _placarContraTryRenderMetodEntrada(_placarContraSelectedId);
 }
 
 // Atalho: marca de uma vez todos os placares "zero de um lado" (0-1, 0-2,
@@ -6099,6 +6101,7 @@ function _placarContraMetodPreset(nome) {
   _placarContraRenderMetodOptions();
   _placarContraUpdateMetodLabel();
   _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
+  _placarContraTryRenderMetodEntrada(_placarContraSelectedId);
 }
 
 function _placarContraUpdateMetodLabel() {
@@ -6262,6 +6265,7 @@ async function _placarContraLoadOdds(id, m) {
     const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
     cache.placarExatoBuckets = placar ? _placarExatoBuckets(placar.items || []) : [];
     _placarContraTryRenderZeroBucket(id);
+    _placarContraTryRenderMetodEntrada(id);
 
     const marketBox = document.getElementById('placarContraMarketReadBox');
     if (marketBox) marketBox.innerHTML = _placarContraMarketReadHtml(placar?.items || []);
@@ -6515,7 +6519,8 @@ function _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwa
           </div>`).join('')}
       </div>
     </div>
-    <div id="placarContraZeroBucketBox"></div>`;
+    <div id="placarContraZeroBucketBox"></div>
+    <div id="placarContraMetodEntradaBox" style="margin-top:10px"></div>`;
 
   // Guarda o resultado do lado das estatísticas — a correlação com a odd
   // (pra escolher a MELHOR entrada) só fecha quando a odd também já tiver
@@ -6523,6 +6528,7 @@ function _placarContraRenderSugestao(id, sHomeGeral, sHomeCasa, sAwayGeral, sAwa
   const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
   cache.zeroRanking = { ambasMedia, ranking: r.ranking, pAmbasPoisson: r.pAmbasPoisson, ambasHist, homeTeam, awayTeam };
   _placarContraTryRenderZeroBucket(id);
+  _placarContraTryRenderMetodEntrada(id);
 }
 
 // Escolhe UMA única entrada entre os 6 placares "zero a favor" (0-1, 0-2,
@@ -6589,6 +6595,64 @@ function _placarContraTryRenderZeroBucket(id) {
   if (_placarContraMetodSelecionados.size > 0) {
     _placarContraFilterBySearch(document.getElementById('placarContraSearchInput')?.value || '');
   }
+}
+
+// Generaliza a mesma lógica de "melhor entrada" (prob × odd) pra QUALQUER
+// placar, não só os 6 "zero" — cruza o ranking Poisson (os 19 buckets
+// inteiros) com as odds de hoje, filtrando pelos placares marcados no
+// filtro Metodologia (ou todos os 19, se nenhum estiver marcado), e mostra
+// as 3 melhores dicas de entrada dentro desse conjunto.
+function _placarContraTryRenderMetodEntrada(id) {
+  if (id !== _placarContraSelectedId) return;
+  const targetBox = document.getElementById('placarContraMetodEntradaBox');
+  const cache = _placarContraTabCache[id];
+  if (!targetBox || !cache?.zeroRanking) return;
+  const { ranking } = cache.zeroRanking;
+
+  const candidatosScores = _placarContraMetodSelecionados.size > 0
+    ? [..._placarContraMetodSelecionados]
+    : PLACAR_EXATO_BUCKETS_ORDER;
+
+  const header = `
+    <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
+      🎯 Melhor entrada — ${_placarContraMetodSelecionados.size > 0 ? `metodologia selecionada (${_placarContraMetodSelecionados.size})` : 'todos os placares'}
+    </div>`;
+
+  if (!cache.placarExatoBuckets) {
+    targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">${header}
+      <div style="padding:10px 12px;font-size:12px;color:var(--text2)">⏳ Buscando odds pra escolher a melhor entrada...</div>
+    </div>`;
+    return;
+  }
+
+  const candidatas = candidatosScores
+    .map(score => {
+      const rankEntry = ranking.find(b => b.score === score);
+      const oddEntry = cache.placarExatoBuckets.find(x => x.score === score);
+      if (!rankEntry || !oddEntry) return null;
+      return { score, prob: rankEntry.prob, odd: oddEntry.odd, valor: rankEntry.prob * oddEntry.odd };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.valor - b.valor);
+
+  if (!candidatas.length) {
+    targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">${header}
+      <div style="padding:10px 12px;font-size:12px;color:var(--text2)">Nenhum placar desse conjunto tem odd disponível hoje.</div>
+    </div>`;
+    return;
+  }
+
+  const top3 = candidatas.slice(0, 3);
+  targetBox.innerHTML = `<div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden">${header}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px">
+      ${top3.map((c, i) => `
+        <div style="border:1px solid ${i === 0 ? '#ef444455' : 'var(--border)'};background:var(--bg);border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:10px">
+          ${i === 0 ? '<span style="font-size:11px;color:#ef4444;font-weight:800">★</span>' : ''}
+          <span style="font-size:15px;font-weight:800;color:var(--text)">lay ${c.score}</span>
+          <span style="font-size:11px;color:var(--text2)">~${c.prob.toFixed(1)}% · odd ${c.odd.toFixed(2)}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 // ── Histórico de placares sugeridos (lay) do dia, com taxa de acerto ───────
