@@ -1409,6 +1409,7 @@
                      color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                      white-space:nowrap;flex-shrink:0">📖 Guia</button>
             <span class="live-count-badge" id="today2CountBadge">0</span>
+            <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo de todos os jogos encerrados hoje (pra análise externa)">⬇️</button>
             <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar">↻</button>
           </span>
         </div>
@@ -1503,7 +1504,6 @@
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
             <button class="live-refresh-btn" onclick="_placarContraOpenHistorico()" title="Ver todos os placares sugeridos hoje e a taxa de acerto">📋</button>
-            <button class="live-refresh-btn" onclick="_placarContraExportarTxt()" title="Baixar TXT com todos os jogos encerrados hoje (pra análise externa)">⬇️</button>
             <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
           </span>
         </div>
@@ -6705,71 +6705,93 @@ function _placarContraSaveLaySnapshot(id, melhor) {
   _placarContraSaveHist(list);
 }
 
-// ── Exportação em TXT (formato tabulado, 1 linha por jogo) — pra alimentar
-// uma análise externa (tabela dinâmica) que procura os melhores padrões de
-// faixa de cada variável por metodologia de lay. Só exporta jogos já
-// ENCERRADOS de hoje. Cada jogo só tem as colunas de análise preenchidas
-// se o usuário abriu ele em algum momento (clique) ou se o cálculo
-// automático em segundo plano já tinha rodado (picks/custo do gol, que só
-// cobrem jogos que estavam "Próximos" antes de começar) — sem isso, as
-// colunas ficam "—". Baixe de novo no fim de cada dia pra ir acumulando.
-function _placarContraMelhorEntradaGeral(ranking, placarExatoBuckets, n) {
-  if (!ranking || !placarExatoBuckets) return [];
-  return PLACAR_EXATO_BUCKETS_ORDER
-    .map(score => {
-      const rankEntry = ranking.find(b => b.score === score);
-      const oddEntry = placarExatoBuckets.find(x => x.score === score);
-      if (!rankEntry || !oddEntry) return null;
-      return { score, prob: rankEntry.prob, odd: oddEntry.odd, valor: rankEntry.prob * oddEntry.odd };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.valor - b.valor)
-    .slice(0, n);
+// Exporta, em TXT, as estatísticas completas da aba Hoje → Jogo (Geral +
+// Casa/Fora dos dois times, incluindo Valor do Gol/Custo do Gol 2.0/Saldo/
+// Ponto, que dependem de odds e por isso não dá pra calcular fora do site)
+// de todos os jogos encerrados hoje — pra análise externa de padrões.
+const _HOJE_JOGO_STAT_KEYS = [
+  'n', 'vitFT', 'empFT', 'derFT', 'vitHT', 'empHT', 'derHT',
+  'mediaMarcados', 'mediaSofridos', 'pctMarcar', 'pctSofrer', 'pctAmbasMarcam',
+  'semSofrer', 'semMarcar', 'over25', 'under25',
+  'tempoSemMarcar', 'tempoSemSofrer', 'tempoPrimeiroGolPartida',
+  'avgValorGolMarcado', 'avgValorGolSofrido', 'avgCustoGol2Marcado', 'avgCustoGol2Sofrido',
+  'avgSaldo', 'avgValorSaldo', 'avgValorPonto',
+];
+
+async function _hojeJogoBuscarH2h(m) {
+  const cache = _today2TabCache[m.id] || (_today2TabCache[m.id] = {});
+  if (cache._h2hTabs) return cache._h2hTabs;
+  try {
+    const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+    const r = await fetch(`/api/flashscore/h2h?${params}`);
+    const d = await r.json();
+    cache._h2hTabs = d.tabs || [];
+  } catch (e) {
+    cache._h2hTabs = [];
+  }
+  return cache._h2hTabs;
 }
 
-function _placarContraExportarTxt() {
+async function _hojeJogoStatsDoJogo(m) {
+  const tabs = await _hojeJogoBuscarH2h(m);
+  if (!tabs.length) return null;
+  const blocos = {
+    mandante_geral: _jogoStatsRowsFromSection(tabs, 0, true),
+    mandante_casa: _jogoStatsRowsFromSection(tabs, 1, true),
+    visitante_geral: _jogoStatsRowsFromSection(tabs, 0, false),
+    visitante_fora: _jogoStatsRowsFromSection(tabs, 2, false),
+  };
+  await Promise.all(Object.values(blocos).map(b =>
+    Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])));
+  const stats = {};
+  for (const [prefixo, b] of Object.entries(blocos)) {
+    stats[prefixo] = b.rows.length ? _jogoStatsWithValor(b.rows) : null;
+  }
+  return stats;
+}
+
+async function _hojeJogoExportarTxt() {
   const hoje = today2MatchesCache.filter(m => m.status === '3');
   if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
 
+  const btn = document.getElementById('hojeJogoExportBtn');
+  const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+
   const oddCols = PLACAR_EXATO_BUCKETS_ORDER;
+  const prefixos = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
   const header = [
     'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
-    'lay1_score', 'lay1_prob', 'lay2_score', 'lay2_prob', 'lay3_score', 'lay3_prob',
-    'lay4_score', 'lay4_prob', 'lay5_score', 'lay5_prob', 'lay6_score', 'lay6_prob',
-    'melhor1_score', 'melhor1_prob', 'melhor1_odd', 'melhor2_score', 'melhor2_prob', 'melhor2_odd', 'melhor3_score', 'melhor3_prob', 'melhor3_odd',
-    ...oddCols.map(s => `odd_${s}`),
-    'mkt_casa', 'mkt_empate', 'mkt_fora', 'mkt_ambas_sim', 'mkt_ambas_nao',
-    'mkt_over05', 'mkt_under05', 'mkt_over15', 'mkt_under15', 'mkt_over25', 'mkt_under25',
-    'mkt_saldo_esperado', 'mkt_overround',
-    'custo_marcado_casa', 'custo_sofrido_casa', 'custo_marcado_fora', 'custo_sofrido_fora',
+    ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
+    ...oddCols.map(s => `resultado_${s}`), // 1 = lay TERIA ganho nesse placar (green) | 0 = teria perdido (red)
   ];
 
   const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
   const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
 
-  const linhas = hoje.map(m => {
-    const cache = _placarContraTabCache[m.id] || {};
-    const ranking = cache.zeroRanking?.ranking;
-    const piores = ranking ? ranking.slice(0, 6) : [];
-    const melhores = _placarContraMelhorEntradaGeral(ranking, cache.placarExatoBuckets, 3);
-    const mkt = cache.marketRead;
-    const custo = cache.custoGol;
+  const linhas = [];
+  let feitos = 0;
+  const LOTE = 8; // busca H2H de poucos jogos por vez, pra não sobrecarregar o site
+  for (let i = 0; i < hoje.length; i += LOTE) {
+    const lote = hoje.slice(i, i + LOTE);
+    await Promise.all(lote.map(async m => {
+      const stats = await _hojeJogoStatsDoJogo(m);
 
-    const layCols = [];
-    for (let i = 0; i < 6; i++) { layCols.push(fmt(piores[i]?.score), fmt(piores[i]?.prob)); }
-    const melhorCols = [];
-    for (let i = 0; i < 3; i++) { melhorCols.push(fmt(melhores[i]?.score), fmt(melhores[i]?.prob), fmt(melhores[i]?.odd)); }
-    const oddValues = oddCols.map(s => fmt(cache.placarExatoBuckets?.find(x => x.score === s)?.odd));
+      const h = m.home_score, a = m.away_score;
+      const temPlacar = h !== undefined && h !== null && a !== undefined && a !== null;
+      const bucketReal = temPlacar ? _placarExatoBucketKey(parseInt(h), parseInt(a)) : null;
+      const resultadoCols = oddCols.map(s => temPlacar ? (s === bucketReal ? 0 : 1) : '—');
 
-    return [
-      m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
-      ...layCols, ...melhorCols, ...oddValues,
-      fmt(mkt?.casa), fmt(mkt?.empate), fmt(mkt?.fora), fmt(mkt?.ambasSim), fmt(mkt?.ambasNao),
-      fmt(mkt?.over05), fmt(mkt?.under05), fmt(mkt?.over15), fmt(mkt?.under15), fmt(mkt?.over25), fmt(mkt?.under25),
-      fmt(mkt?.saldo), fmt(mkt?.overround),
-      fmt(custo?.marcadoCasa), fmt(custo?.sofridoCasa), fmt(custo?.marcadoFora), fmt(custo?.sofridoFora),
-    ].join('\t');
-  });
+      const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
+
+      linhas.push([
+        m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
+        ...statCols, ...resultadoCols,
+      ].join('\t'));
+    }));
+    feitos += lote.length;
+    if (btn) btn.innerHTML = `⏳ ${feitos}/${hoje.length}`;
+  }
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const conteudo = [header.join('\t'), ...linhas].join('\n');
@@ -6777,11 +6799,13 @@ function _placarContraExportarTxt() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `placar_contra_${todayStr}.txt`;
+  a.download = `hoje_jogo_${todayStr}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
 }
 
 function _placarContraOpenHistorico() {
