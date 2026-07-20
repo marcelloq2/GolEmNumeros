@@ -6075,6 +6075,8 @@ const HOJE_SCAN_OPCOES = [
   { key: 'under05ft', label: 'Under 0.5 FT' },
   { key: 'under15ft', label: 'Under 1.5 FT' },
   { key: 'under25ft', label: 'Under 2.5 FT' },
+  { key: 'mandante_marca_primeiro', label: 'Mandante marca primeiro' },
+  { key: 'visitante_marca_primeiro', label: 'Visitante marca primeiro' },
 ];
 let _hojeScanSelecionadas = new Set();
 let _hojeScanEmAndamento = false;
@@ -6091,12 +6093,20 @@ function _hojeScanStatsExtras(rows) {
   const withHt = rows.filter(r => r.htGolsPro !== null && !isNaN(r.htGolsPro) && r.htGolsContra !== null && !isNaN(r.htGolsContra));
   const nHt = withHt.length;
   const over05ht = nHt ? withHt.filter(r => (r.htGolsPro + r.htGolsContra) > 0.5).length / nHt * 100 : null;
+  // "Marcou primeiro" — primeiroGolPro/primeiroGolContra vêm de
+  // _jogoEnsureGoalMinutes (minuto do 1º gol de cada lado, default 90 se não
+  // marcou) — o time "marcou primeiro" se o dele saiu num minuto MENOR que o
+  // do adversário (inclui o caso "só eu marquei, adversário nunca marcou").
+  const withGoalMin = rows.filter(r => r.primeiroGolPro !== undefined && r.primeiroGolContra !== undefined);
+  const nGoalMin = withGoalMin.length;
+  const marcaPrimeiroPct = nGoalMin ? withGoalMin.filter(r => r.primeiroGolPro < r.primeiroGolContra).length / nGoalMin * 100 : null;
   return {
     n, vitPct, ambasPct, ambasNaoPct: 100 - ambasPct,
     over05ht, under05ht: over05ht === null ? null : 100 - over05ht,
     over15ft: overFt(1.5), under15ft: 100 - overFt(1.5),
     over25ft: overFt(2.5), under25ft: 100 - overFt(2.5),
     under05ft: 100 - overFt(0.5),
+    marcaPrimeiroPct,
   };
 }
 
@@ -6117,11 +6127,11 @@ async function _hojeScanStatsDoJogo(m) {
     visitante_geral: _jogoStatsRowsFromSection(tabs, 0, false),
     visitante_fora: _jogoStatsRowsFromSection(tabs, 2, false),
   };
-  await Promise.all(Object.values(blocos).map(b => _jogoEnsureHt(b.rows)));
+  await Promise.all(Object.values(blocos).map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
   const ex = {};
   for (const [prefixo, b] of Object.entries(blocos)) ex[prefixo] = _hojeScanStatsExtras(b.rows);
 
-  const campos = ['vitPct', 'ambasPct', 'ambasNaoPct', 'over05ht', 'under05ht', 'over15ft', 'under15ft', 'over25ft', 'under25ft', 'under05ft'];
+  const campos = ['vitPct', 'ambasPct', 'ambasNaoPct', 'over05ht', 'under05ht', 'over15ft', 'under15ft', 'over25ft', 'under25ft', 'under05ft', 'marcaPrimeiroPct'];
   const mandante = {}, visitante = {};
   campos.forEach(c => {
     mandante[c] = _hojeScanAvgOf(ex.mandante_geral?.[c], ex.mandante_casa?.[c]);
@@ -6135,6 +6145,8 @@ function _hojeScanAvaliar(stats, limiteMinimo) {
   const valorPor = key => {
     if (key === 'casa_vence') return stats.mandante.vitPct;
     if (key === 'fora_vence') return stats.visitante.vitPct;
+    if (key === 'mandante_marca_primeiro') return stats.mandante.marcaPrimeiroPct;
+    if (key === 'visitante_marca_primeiro') return stats.visitante.marcaPrimeiroPct;
     if (key === 'ambas_sim') return _hojeScanAvgOf(stats.mandante.ambasPct, stats.visitante.ambasPct);
     if (key === 'ambas_nao') return _hojeScanAvgOf(stats.mandante.ambasNaoPct, stats.visitante.ambasNaoPct);
     return _hojeScanAvgOf(stats.mandante[key], stats.visitante[key]);
