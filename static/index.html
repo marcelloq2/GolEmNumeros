@@ -5916,7 +5916,8 @@ async function _placarContraEscanearSinais() {
   const config = _placarContraGetConfig();
   if (!Object.keys(config).length) { alert('Importe uma configuração primeiro (botão 📥).'); return; }
 
-  const candidatos = today2MatchesCache.filter(m => m.status === '1');
+  const candidatos = today2MatchesCache.filter(m => m.status === '1')
+    .sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
   if (!candidatos.length) { alert('Nenhum jogo "Próximo" carregado ainda.'); return; }
 
   const overlay = document.getElementById('placarContraScanOverlay');
