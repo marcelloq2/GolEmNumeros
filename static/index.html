@@ -1585,10 +1585,11 @@
 
   <!-- MAPA DE SUGESTÕES — mesmo modelo do Placar Contra, mas pra mercados
        tradicionais (1X2, Ambas Marcam, Handicap Asiático, Over/Under), em vez
-       de placar exato. Botão ⬇️ exporta TXT com estatísticas + resultado real
-       de cada mercado (pra analisar padrões fora do site); botão 📥 importa a
-       configuração gerada por essa análise e mostra a previsão personalizada
-       em cada jogo aberto. Não calcula nada de sugestão própria. -->
+       de placar exato. Os dados pra análise externa vêm do botão ⬇️ da aba
+       Hoje (que já inclui o resultado real de cada mercado, ver
+       MERCADOS_TRADICIONAIS/_mercadosResultados) — aqui só o botão 📥 importa
+       a configuração gerada por essa análise e mostra a previsão
+       personalizada em cada jogo aberto. Não calcula nada de sugestão própria. -->
   <div id="mapaWrapper" style="display:flex;flex:1;overflow:hidden">
     <div class="sidebar" id="mapaSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
       <div style="padding:12px;border-bottom:1px solid var(--border)">
@@ -1596,7 +1597,6 @@
           <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Mapa de Sugestões</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="mapaCountBadge">0</span>
-            <button class="live-refresh-btn" id="mapaExportBtn" onclick="_mapaExportarTxt()" title="Baixar TXT com estatísticas + resultado real de cada mercado (1X2/Ambas Marcam/Handicap/Over-Under) de todos os jogos encerrados hoje">⬇️</button>
             <button class="live-refresh-btn" id="mapaImportBtn" onclick="document.getElementById('mapaConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
             <input type="file" id="mapaConfigInput" accept=".txt" style="display:none" onchange="_mapaImportarConfig(this.files[0])">
             <button class="live-refresh-btn" onclick="_mapaLoad()" title="Atualizar">↻</button>
@@ -2767,75 +2767,6 @@ function _mapaRenderConfig(id) {
   box.innerHTML = `
     <div style="font-size:14px;font-weight:700;margin-bottom:6px">🗺️ Previsão — sua configuração</div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
-}
-
-let _mapaExportEmAndamento = false;
-
-async function _mapaExportarTxt() {
-  if (_mapaExportEmAndamento) return;
-
-  const hoje = today2MatchesCache.filter(m => m.status === '3');
-  if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
-
-  const btn = document.getElementById('mapaExportBtn');
-  const btnHtmlOriginal = btn ? btn.innerHTML : null;
-  _mapaExportEmAndamento = true;
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
-
-  try {
-    const prefixos = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
-    const header = [
-      'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
-      ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
-      ...MERCADOS_TRADICIONAIS.map(({ key }) => `resultado_${key}`), // 1 = mercado bateu | 0 = não bateu | — = push (excluído)
-    ];
-
-    const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
-    const hora = m => m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
-
-    const linhas = [];
-    let feitos = 0;
-    const LOTE = 1; // 1 jogo por vez — mesmo cuidado do exportador da aba Hoje, pra não sobrecarregar o site
-    for (let i = 0; i < hoje.length; i += LOTE) {
-      const lote = hoje.slice(i, i + LOTE);
-      await Promise.all(lote.map(async m => {
-        let stats = null;
-        try { stats = await _hojeJogoStatsDoJogo(m); } catch (e) { /* segue sem stats desse jogo */ }
-
-        const resultadosMercado = _mercadosResultados(m.home_score, m.away_score);
-        const resultadoCols = MERCADOS_TRADICIONAIS.map(({ key }) => {
-          const v = resultadosMercado?.[key];
-          return v === null || v === undefined ? '—' : v;
-        });
-
-        const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
-
-        linhas.push([
-          m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
-          ...statCols, ...resultadoCols,
-        ].join('\t'));
-      }));
-      feitos += lote.length;
-      if (btn) btn.innerHTML = `⏳ ${feitos}/${hoje.length}`;
-    }
-
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const conteudo = [header.join('\t'), ...linhas].join('\n');
-    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mapa_sugestoes_${todayStr}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    alert('Erro ao exportar: ' + e.message + ' — tenta de novo.');
-  } finally {
-    _mapaExportEmAndamento = false;
-    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
-  }
 }
 
 // ── HOJE 2 (laboratório) ─────────────────────────────────────────────────────
@@ -6185,6 +6116,7 @@ async function _hojeJogoExportarTxt() {
       'id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final',
       ...prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => `${p}_${k}`)),
       ...oddCols.map(s => `resultado_${s}`), // 1 = lay TERIA ganho nesse placar (green) | 0 = teria perdido (red)
+      ...MERCADOS_TRADICIONAIS.map(({ key }) => `resultado_${key}`), // 1 = mercado bateu | 0 = não bateu | — = push
     ];
 
     const fmt = v => (v === undefined || v === null || isNaN(v)) ? '—' : (typeof v === 'number' ? v.toFixed(3) : v);
@@ -6210,11 +6142,17 @@ async function _hojeJogoExportarTxt() {
         const bucketReal = temPlacar ? _placarExatoBucketKey(parseInt(h), parseInt(a)) : null;
         const resultadoCols = oddCols.map(s => temPlacar ? (s === bucketReal ? 0 : 1) : '—');
 
+        const resultadosMercado = temPlacar ? _mercadosResultados(h, a) : null;
+        const mercadoCols = MERCADOS_TRADICIONAIS.map(({ key }) => {
+          const v = resultadosMercado?.[key];
+          return v === null || v === undefined ? '—' : v;
+        });
+
         const statCols = prefixos.flatMap(p => _HOJE_JOGO_STAT_KEYS.map(k => fmt(stats?.[p]?.[k])));
 
         linhas.push([
           m.id, m.liga || '—', m.pais || '—', hora(m), m.home, m.away, `${m.home_score ?? '—'}-${m.away_score ?? '—'}`,
-          ...statCols, ...resultadoCols,
+          ...statCols, ...resultadoCols, ...mercadoCols,
         ].join('\t'));
       }));
       feitos += lote.length;
