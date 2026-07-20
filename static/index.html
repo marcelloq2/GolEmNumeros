@@ -5782,8 +5782,16 @@ async function _placarContraLoadStats(id, m) {
 const PLACAR_CONTRA_CONFIG_KEY = 'placarContraImportedConfig';
 
 function _placarContraGetConfig() {
-  try { return JSON.parse(localStorage.getItem(PLACAR_CONTRA_CONFIG_KEY) || '{}'); }
+  let bruta;
+  try { bruta = JSON.parse(localStorage.getItem(PLACAR_CONTRA_CONFIG_KEY) || '{}'); }
   catch (e) { return {}; }
+  // Filtra de novo aqui (não só na hora de importar) — cobre configs salvas
+  // antes desse filtro existir, ou qualquer jeito que um mercado tenha
+  // parado aqui sem passar pelo import. Só sobrevive o que for placar exato.
+  const placaresValidos = new Set(PLACAR_EXATO_BUCKETS_ORDER);
+  const limpa = {};
+  Object.entries(bruta).forEach(([score, c]) => { if (placaresValidos.has(score)) limpa[score] = c; });
+  return limpa;
 }
 
 function _placarContraImportarConfig(file) {
