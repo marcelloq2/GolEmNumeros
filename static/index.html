@@ -1550,7 +1550,7 @@
                   padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:16px;font-weight:700;color:var(--text)">🔎 Sinais encontrados</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">Jogos "Próximos" que batem com a sua configuração</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px" id="placarContraScanSubtitulo">Jogos "Próximos" que batem com a sua configuração</div>
         </div>
         <button onclick="_placarContraFecharScan()"
           style="background:transparent;border:1px solid var(--border);border-radius:6px;
@@ -5922,8 +5922,10 @@ async function _placarContraEscanearSinais() {
 
   const overlay = document.getElementById('placarContraScanOverlay');
   const body = document.getElementById('placarContraScanBody');
+  const subtitulo = document.getElementById('placarContraScanSubtitulo');
   overlay.style.display = 'block';
   body.innerHTML = `<div style="color:var(--text2);font-size:13px">⏳ Escaneando 0/${candidatos.length}...</div>`;
+  if (subtitulo) subtitulo.textContent = `Jogos "Próximos" que batem com a sua configuração — escaneando ${candidatos.length} jogo(s)...`;
 
   const btn = document.getElementById('placarContraScanBtn');
   const btnHtmlOriginal = btn ? btn.innerHTML : null;
@@ -5946,6 +5948,8 @@ async function _placarContraEscanearSinais() {
     _placarContraScanEmAndamento = false;
     if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
   }
+
+  if (subtitulo) subtitulo.textContent = `${encontrados.length} jogo(s) encontrado(s) de ${candidatos.length} "Próximos" escaneados`;
 
   if (!encontrados.length) {
     body.innerHTML = `<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px 0">Nenhum jogo "Próximo" bateu com a sua configuração agora. Tente de novo mais tarde (a lista de jogos muda ao longo do dia).</div>`;
