@@ -1503,6 +1503,7 @@
           <span style="font-size:12px;font-weight:700;color:var(--text2)">🚫 Lay Placar</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
+            <button class="live-refresh-btn" id="placarContraScanBtn" onclick="_placarContraEscanearSinais()" title="Escanear os jogos 'Próximos' um por um, procurando qual bate a sua configuração">🔎</button>
             <button class="live-refresh-btn" id="placarContraImportBtn" onclick="document.getElementById('placarContraConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
             <input type="file" id="placarContraConfigInput" accept=".txt" style="display:none" onchange="_placarContraImportarConfig(this.files[0])">
             <button class="live-refresh-btn" onclick="_placarContraLoad()" title="Atualizar">↻</button>
@@ -1536,6 +1537,27 @@
         <div id="placarContraConfigBox" style="margin-bottom:16px"></div>
         <div id="placarContraOddsBox" style="margin-bottom:16px"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL SINAIS ENCONTRADOS — LAY PLACAR: resultado do escaneamento dos
+       jogos "Próximos", um por um, contra a configuração importada. -->
+  <div id="placarContraScanOverlay" onclick="if(event.target===this)_placarContraFecharScan()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:640px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">🔎 Sinais encontrados</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Jogos "Próximos" que batem com a sua configuração</div>
+        </div>
+        <button onclick="_placarContraFecharScan()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer">✕</button>
+      </div>
+      <div id="placarContraScanBody" style="padding:16px 18px;max-height:70vh;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -6067,6 +6089,100 @@ function _placarContraRenderConfig(id) {
   box.innerHTML = `
     <div style="font-size:14px;font-weight:700;margin-bottom:6px">🎯 Previsão — sua configuração</div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
+}
+
+// Dado um objeto de stats já calculado (statsPorPrefixo de um jogo), devolve
+// só os placares configurados que estão DENTRO da faixa agora — reaproveitada
+// tanto por _placarContraRenderConfig (1 jogo aberto) quanto pelo
+// escaneamento (_placarContraEscanearSinais, que roda em VÁRIOS jogos).
+function _placarContraAvaliarConfig(stats) {
+  const config = _placarContraGetConfig();
+  const prefixos4 = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
+  const hits = [];
+  Object.entries(config).forEach(([score, c]) => {
+    const prefixoReal = prefixos4.find(p => c.variavel.startsWith(p + '_'));
+    const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
+    const valorAtual = prefixoReal ? stats?.[prefixoReal]?.[campo] : undefined;
+    const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
+    if (temValor && valorAtual >= c.min && valorAtual <= c.max) hits.push({ score, valorAtual });
+  });
+  return hits;
+}
+
+// ── Escaneamento — passa pelos jogos "Próximos" um por um (mesmo cuidado do
+// exportador da aba Hoje, pra não sobrecarregar o site) procurando quais já
+// batem com a configuração importada AGORA, sem precisar abrir cada jogo na
+// mão. Não busca odd (só estatística) — quem quiser a odd, abre o jogo
+// encontrado e olha a grade de Placar Exato ali.
+let _placarContraScanEmAndamento = false;
+
+function _placarContraFecharScan() {
+  document.getElementById('placarContraScanOverlay').style.display = 'none';
+}
+
+// Clicou num resultado do escaneamento — fecha o modal e abre o jogo direto
+// no detalhe (já estamos dentro da aba Lay Placar, o botão 🔎 só existe
+// aqui, então não precisa trocar de view).
+function _placarContraAbrirDoScan(id) {
+  _placarContraFecharScan();
+  const rowEl = document.querySelector(`#placarContraWrap [data-id="${id}"]`);
+  selectPlacarContraMatch(id, rowEl);
+  rowEl?.scrollIntoView({ block: 'center' });
+}
+
+async function _placarContraEscanearSinais() {
+  if (_placarContraScanEmAndamento) return;
+
+  const config = _placarContraGetConfig();
+  if (!Object.keys(config).length) { alert('Importe uma configuração primeiro (botão 📥).'); return; }
+
+  const candidatos = today2MatchesCache.filter(m => m.status === '1');
+  if (!candidatos.length) { alert('Nenhum jogo "Próximo" carregado ainda.'); return; }
+
+  const overlay = document.getElementById('placarContraScanOverlay');
+  const body = document.getElementById('placarContraScanBody');
+  overlay.style.display = 'block';
+  body.innerHTML = `<div style="color:var(--text2);font-size:13px">⏳ Escaneando 0/${candidatos.length}...</div>`;
+
+  const btn = document.getElementById('placarContraScanBtn');
+  const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  _placarContraScanEmAndamento = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+
+  const encontrados = [];
+  try {
+    let feitos = 0;
+    for (const m of candidatos) {
+      let stats = null;
+      try { stats = await _hojeJogoStatsDoJogo(m); } catch (e) { /* segue pro próximo */ }
+      const hits = stats ? _placarContraAvaliarConfig(stats) : [];
+      if (hits.length) encontrados.push({ m, hits });
+      feitos++;
+      if (btn) btn.innerHTML = `⏳ ${feitos}/${candidatos.length}`;
+      body.innerHTML = `<div style="color:var(--text2);font-size:13px">⏳ Escaneando ${feitos}/${candidatos.length}... (${encontrados.length} encontrado(s) até agora)</div>`;
+    }
+  } finally {
+    _placarContraScanEmAndamento = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
+  }
+
+  if (!encontrados.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px 0">Nenhum jogo "Próximo" bateu com a sua configuração agora. Tente de novo mais tarde (a lista de jogos muda ao longo do dia).</div>`;
+    return;
+  }
+
+  body.innerHTML = encontrados.map(({ m, hits }) => {
+    const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    return `
+      <div onclick="_placarContraAbrirDoScan('${m.id}')"
+        style="cursor:pointer;padding:10px 12px;border-bottom:1px solid var(--border);border-radius:8px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+        <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga)} (${_bt2EscXml(m.pais)}) — ${hora}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">lay ${h.score}</span>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // Exporta, em TXT, as estatísticas completas da aba Hoje → Jogo (Geral +
