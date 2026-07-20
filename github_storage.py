@@ -214,6 +214,10 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # baixa a versão mais recente — sem isso, cada redeploy no Railway apagava o
         # disco local e o histórico acumulado voltava a zero.
         pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
+        # Configuração do Lay Placar (importada pelo usuário) — sempre baixa a mais
+        # recente, senão um redeploy no Railway apagava a configuração do servidor
+        # e cada aparelho ia depender só do que tinha salvo localmente de novo.
+        pull_file("lay_placar_config.json", os.path.join(data_dir, "lay_placar_config.json"), force=True)
         print("[github] Restauração concluída.")
     except Exception as e:
         print(f"[github] Erro na restauração: {e}")

@@ -5626,6 +5626,7 @@ async function _placarContraLoad() {
   _renderPlacarContraList(today2MatchesCache);
   const badge = document.getElementById('placarContraCountBadge');
   if (badge) badge.textContent = today2MatchesCache.length;
+  _placarContraSincronizarConfigDoServidor();
 }
 
 function _renderPlacarContraList(matches) {
@@ -5843,10 +5844,30 @@ function _placarContraImportarConfig(file) {
       };
     }
     localStorage.setItem(PLACAR_CONTRA_CONFIG_KEY, JSON.stringify(config));
+    // Também manda pro servidor — assim outro aparelho/navegador que acessar
+    // o site já pega essa configuração sozinho, sem precisar reimportar o
+    // arquivo em cada um (ver _placarContraSincronizarConfigDoServidor).
+    fetch('/api/lay_placar/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) }).catch(() => {});
     alert(`Configuração importada: ${Object.keys(config).length} placar(es) configurado(s)` +
       (ignoradas ? ` (${ignoradas} linha(s) de mercado tradicional do arquivo foram ignoradas — essas vão na aba Previsão de Mercados).` : '.'));
     if (_placarContraSelectedId) _placarContraRenderConfig(_placarContraSelectedId);
   }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
+}
+
+// Busca a configuração salva no SERVIDOR (importada de qualquer aparelho) e
+// atualiza o localStorage local com ela — chamado sempre que a aba Lay
+// Placar é aberta, pra qualquer aparelho ficar sincronizado automaticamente
+// sem precisar reimportar o arquivo. Se o servidor não tiver nada salvo
+// ainda (ou a busca falhar), não mexe no que já está salvo localmente.
+async function _placarContraSincronizarConfigDoServidor() {
+  try {
+    const r = await fetch('/api/lay_placar/config');
+    const d = await r.json();
+    if (d && Object.keys(d).length) {
+      localStorage.setItem(PLACAR_CONTRA_CONFIG_KEY, JSON.stringify(d));
+      if (_placarContraSelectedId) _placarContraRenderConfig(_placarContraSelectedId);
+    }
+  } catch (e) { /* mantém o que já tinha local */ }
 }
 
 function _placarContraRenderConfig(id) {
