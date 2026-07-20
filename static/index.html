@@ -1408,6 +1408,7 @@
                      color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                      white-space:nowrap;flex-shrink:0">📖 Guia</button>
             <span class="live-count-badge" id="today2CountBadge">0</span>
+            <button class="live-refresh-btn" id="hojeScanBtn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
             <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo de todos os jogos encerrados hoje (pra análise externa)">⬇️</button>
             <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar">↻</button>
           </span>
@@ -1557,6 +1558,28 @@
                  color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer">✕</button>
       </div>
       <div id="placarContraScanBody" style="padding:16px 18px;max-height:70vh;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ESCANEAR — ABA HOJE: escolhe quais estatísticas checar (Casa
+       vence, Ambas Marcam, Over/Under...) e um % mínimo, depois varre os
+       jogos "Próximos" um por um procurando quem bate em TODAS as marcadas. -->
+  <div id="hojeScanOverlay" onclick="if(event.target===this)_hojeScanFechar()"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:#000a;
+           overflow-y:auto;padding:20px 12px;box-sizing:border-box">
+    <div style="max-width:640px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);
+                border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">🔎 Escanear estatísticas altas</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px" id="hojeScanSubtitulo">Jogos "Próximos" com as estatísticas escolhidas acima do % mínimo</div>
+        </div>
+        <button onclick="_hojeScanFechar()"
+          style="background:transparent;border:1px solid var(--border);border-radius:6px;
+                 color:var(--text2);font-size:18px;width:32px;height:32px;cursor:pointer">✕</button>
+      </div>
+      <div id="hojeScanBody" style="padding:16px 18px;max-height:70vh;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -6013,6 +6036,198 @@ async function _hojeJogoStatsDoJogo(m) {
     stats[prefixo] = b.rows.length ? _jogoStatsWithValor(b.rows) : null;
   }
   return stats;
+}
+
+// ── Escanear estatísticas altas (aba Hoje) ──────────────────────────────────
+// Igual ao 🔎 do Lay Placar (varre "Próximos" um por um, sem sobrecarregar o
+// site), mas em vez de comparar contra uma configuração importada, o próprio
+// usuário escolhe na hora quais estatísticas checar e o % mínimo — não
+// precisa de nenhum arquivo/análise externa.
+const HOJE_SCAN_OPCOES = [
+  { key: 'casa_vence', label: 'Casa vencer' },
+  { key: 'fora_vence', label: 'Fora vencer' },
+  { key: 'ambas_sim', label: 'Ambas Marcam — Sim' },
+  { key: 'ambas_nao', label: 'Ambas Marcam — Não' },
+  { key: 'over05ht', label: 'Over 0.5 HT' },
+  { key: 'over15ft', label: 'Over 1.5 FT' },
+  { key: 'over25ft', label: 'Over 2.5 FT' },
+  { key: 'under05ft', label: 'Under 0.5 FT' },
+  { key: 'under15ft', label: 'Under 1.5 FT' },
+  { key: 'under25ft', label: 'Under 2.5 FT' },
+];
+let _hojeScanSelecionadas = new Set();
+let _hojeScanEmAndamento = false;
+
+// Estatísticas extras (over/under por linha, % de vitória) que não fazem
+// parte de _jogoComputeStats — calculadas direto das rows já enriquecidas
+// (golsPro/golsContra = FT, htGolsPro/htGolsContra = HT, quando disponível).
+function _hojeScanStatsExtras(rows) {
+  const n = rows.length;
+  if (!n) return null;
+  const vitPct = rows.filter(r => r.result === 'V').length / n * 100;
+  const ambasPct = rows.filter(r => r.golsPro >= 1 && r.golsContra >= 1).length / n * 100;
+  const overFt = linha => rows.filter(r => (r.golsPro + r.golsContra) > linha).length / n * 100;
+  const withHt = rows.filter(r => r.htGolsPro !== null && !isNaN(r.htGolsPro) && r.htGolsContra !== null && !isNaN(r.htGolsContra));
+  const nHt = withHt.length;
+  const over05ht = nHt ? withHt.filter(r => (r.htGolsPro + r.htGolsContra) > 0.5).length / nHt * 100 : null;
+  return {
+    n, vitPct, ambasPct, ambasNaoPct: 100 - ambasPct,
+    over05ht, under05ht: over05ht === null ? null : 100 - over05ht,
+    over15ft: overFt(1.5), under15ft: 100 - overFt(1.5),
+    over25ft: overFt(2.5), under25ft: 100 - overFt(2.5),
+    under05ft: 100 - overFt(0.5),
+  };
+}
+
+function _hojeScanAvgOf(...vals) {
+  const validos = vals.filter(v => v !== undefined && v !== null && !isNaN(v));
+  return validos.length ? validos.reduce((a, v) => a + v, 0) / validos.length : null;
+}
+
+// Busca H2H (reaproveita cache de _hojeJogoBuscarH2h) e devolve as estatísticas
+// já mescladas Geral+Casa (mandante) e Geral+Fora (visitante) — mesmo padrão
+// usado no resto do site pra combinar amostra ampla com o recorte do jogo.
+async function _hojeScanStatsDoJogo(m) {
+  const tabs = await _hojeJogoBuscarH2h(m);
+  if (!tabs.length) return null;
+  const blocos = {
+    mandante_geral: _jogoStatsRowsFromSection(tabs, 0, true),
+    mandante_casa: _jogoStatsRowsFromSection(tabs, 1, true),
+    visitante_geral: _jogoStatsRowsFromSection(tabs, 0, false),
+    visitante_fora: _jogoStatsRowsFromSection(tabs, 2, false),
+  };
+  await Promise.all(Object.values(blocos).map(b => _jogoEnsureHt(b.rows)));
+  const ex = {};
+  for (const [prefixo, b] of Object.entries(blocos)) ex[prefixo] = _hojeScanStatsExtras(b.rows);
+
+  const campos = ['vitPct', 'ambasPct', 'ambasNaoPct', 'over05ht', 'under05ht', 'over15ft', 'under15ft', 'over25ft', 'under25ft', 'under05ft'];
+  const mandante = {}, visitante = {};
+  campos.forEach(c => {
+    mandante[c] = _hojeScanAvgOf(ex.mandante_geral?.[c], ex.mandante_casa?.[c]);
+    visitante[c] = _hojeScanAvgOf(ex.visitante_geral?.[c], ex.visitante_fora?.[c]);
+  });
+  return { mandante, visitante };
+}
+
+function _hojeScanAvaliar(stats, limiteMinimo) {
+  if (!stats) return null;
+  const valorPor = key => {
+    if (key === 'casa_vence') return stats.mandante.vitPct;
+    if (key === 'fora_vence') return stats.visitante.vitPct;
+    if (key === 'ambas_sim') return _hojeScanAvgOf(stats.mandante.ambasPct, stats.visitante.ambasPct);
+    if (key === 'ambas_nao') return _hojeScanAvgOf(stats.mandante.ambasNaoPct, stats.visitante.ambasNaoPct);
+    return _hojeScanAvgOf(stats.mandante[key], stats.visitante[key]);
+  };
+  const resultado = [];
+  for (const key of _hojeScanSelecionadas) {
+    const valor = valorPor(key);
+    if (valor === null || valor === undefined || valor < limiteMinimo) return null; // TODAS precisam bater
+    resultado.push({ key, valor });
+  }
+  return resultado;
+}
+
+function _hojeScanAbrir() {
+  const overlay = document.getElementById('hojeScanOverlay');
+  overlay.style.display = 'block';
+  _hojeScanRenderFormulario();
+}
+
+function _hojeScanFechar() {
+  document.getElementById('hojeScanOverlay').style.display = 'none';
+}
+
+function _hojeScanRenderFormulario() {
+  const body = document.getElementById('hojeScanBody');
+  const subtitulo = document.getElementById('hojeScanSubtitulo');
+  if (subtitulo) subtitulo.textContent = 'Escolha o que checar e o % mínimo, depois clique em Escanear';
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      ${HOJE_SCAN_OPCOES.map(({ key, label }) => `
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);font-size:13px">
+          <input type="checkbox" value="${key}" ${_hojeScanSelecionadas.has(key) ? 'checked' : ''} onchange="_hojeScanToggleOpcao('${key}', this.checked)">
+          ${label}
+        </label>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:13px;color:var(--text2)">% mínimo:</span>
+      <input id="hojeScanLimiteInput" type="number" min="1" max="100" step="1" value="60"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:5px 8px;width:70px">
+    </div>
+    <button onclick="_hojeScanExecutar()" style="border-color:var(--accent);color:var(--accent);width:100%;padding:8px">🔎 Escanear jogos "Próximos"</button>`;
+}
+
+function _hojeScanToggleOpcao(key, checked) {
+  if (checked) _hojeScanSelecionadas.add(key);
+  else _hojeScanSelecionadas.delete(key);
+}
+
+async function _hojeScanExecutar() {
+  if (_hojeScanEmAndamento) return;
+  if (!_hojeScanSelecionadas.size) { alert('Marque pelo menos 1 estatística pra checar.'); return; }
+  const limiteMinimo = parseFloat(document.getElementById('hojeScanLimiteInput')?.value) || 60;
+
+  const candidatos = today2MatchesCache.filter(m => m.status === '1')
+    .sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  if (!candidatos.length) { alert('Nenhum jogo "Próximo" carregado ainda.'); return; }
+
+  const body = document.getElementById('hojeScanBody');
+  const subtitulo = document.getElementById('hojeScanSubtitulo');
+  const btn = document.getElementById('hojeScanBtn');
+  const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  _hojeScanEmAndamento = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+  if (subtitulo) subtitulo.textContent = `Escaneando ${candidatos.length} jogo(s) "Próximos"...`;
+  body.innerHTML = `<div style="color:var(--text2);font-size:13px">⏳ Escaneando 0/${candidatos.length}...</div>`;
+
+  const encontrados = [];
+  try {
+    let feitos = 0;
+    for (const m of candidatos) {
+      let stats = null;
+      try { stats = await _hojeScanStatsDoJogo(m); } catch (e) { /* segue pro próximo */ }
+      const hits = _hojeScanAvaliar(stats, limiteMinimo);
+      if (hits) encontrados.push({ m, hits });
+      feitos++;
+      if (btn) btn.innerHTML = `⏳ ${feitos}/${candidatos.length}`;
+      body.innerHTML = `<div style="color:var(--text2);font-size:13px">⏳ Escaneando ${feitos}/${candidatos.length}... (${encontrados.length} encontrado(s) até agora)</div>`;
+    }
+  } finally {
+    _hojeScanEmAndamento = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
+  }
+
+  if (subtitulo) subtitulo.textContent = `${encontrados.length} jogo(s) encontrado(s) de ${candidatos.length} "Próximos" escaneados (≥${limiteMinimo}%)`;
+
+  if (!encontrados.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px 0">
+      Nenhum jogo "Próximo" bateu em TODAS as estatísticas marcadas com ≥${limiteMinimo}%. Tente baixar o % mínimo ou marcar menos estatísticas.</div>
+      <button onclick="_hojeScanRenderFormulario()" style="margin-top:10px;width:100%;padding:8px">← Ajustar busca</button>`;
+    return;
+  }
+
+  const labelDe = key => HOJE_SCAN_OPCOES.find(o => o.key === key)?.label || key;
+  body.innerHTML = `
+    <button onclick="_hojeScanRenderFormulario()" style="margin-bottom:10px;width:100%;padding:6px">← Ajustar busca</button>
+    ${encontrados.map(({ m, hits }) => {
+      const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+      return `
+        <div onclick="_hojeScanAbrirJogo('${m.id}')"
+          style="cursor:pointer;padding:10px 12px;border-bottom:1px solid var(--border);border-radius:8px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+          <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga)} (${_bt2EscXml(m.pais)}) — ${hora}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">${labelDe(h.key)} ${h.valor.toFixed(0)}%</span>`).join('')}
+          </div>
+        </div>`;
+    }).join('')}`;
+}
+
+function _hojeScanAbrirJogo(id) {
+  _hojeScanFechar();
+  const rowEl = document.querySelector(`#today2Wrap [data-id="${id}"]`);
+  selectToday2Match(id, rowEl);
+  rowEl?.scrollIntoView({ block: 'center' });
 }
 
 let _hojeJogoExportEmAndamento = false;
