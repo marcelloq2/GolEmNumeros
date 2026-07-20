@@ -1123,8 +1123,8 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
-    <button class="nav-tab" onclick="switchView('mapa', this)">🗺️ Mapa de Sugestões</button>
-    <button class="nav-tab" onclick="switchView('placarcontra', this)">🎯 Placar Contra</button>
+    <button class="nav-tab" onclick="switchView('mapa', this)">🎯 Previsão de Mercados</button>
+    <button class="nav-tab" onclick="switchView('placarcontra', this)">🚫 Lay Placar</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -1500,7 +1500,7 @@
     <div class="sidebar" id="placarContraSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
       <div style="padding:12px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-          <span style="font-size:12px;font-weight:700;color:var(--text2)">🎯 Placar Contra</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">🚫 Lay Placar</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="placarContraCountBadge">0</span>
             <button class="live-refresh-btn" id="placarContraImportBtn" onclick="document.getElementById('placarContraConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
@@ -1594,7 +1594,7 @@
     <div class="sidebar" id="mapaSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
       <div style="padding:12px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-          <span style="font-size:12px;font-weight:700;color:var(--text2)">🗺️ Mapa de Sugestões</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">🎯 Previsão de Mercados</span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="live-count-badge" id="mapaCountBadge">0</span>
             <button class="live-refresh-btn" id="mapaImportBtn" onclick="document.getElementById('mapaConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
