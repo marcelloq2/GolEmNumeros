@@ -65,6 +65,12 @@
       <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar/mercado</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--text2)">Só considerar mercados com pelo menos</span>
+      <input id="amostraMinimaMercadoInput" type="number" min="1" step="1" value="200"
+        style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:4px 8px;width:70px">
+      <span style="font-size:11px;color:var(--text2)">jogos decididos no total (não só na faixa vencedora) — mercados com menos jogos que isso ficam de fora até a base crescer.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar/mercado:</span>
       <select id="metodSelect" onchange="renderRelatorio()"></select>
       <span style="font-size:12px;color:var(--text2)" id="amostraInfo"></span>
@@ -242,11 +248,19 @@ const AUTO_CONFIG_AMOSTRA_MINIMA = 1; // sem mínimo de verdade (só maior que 0
 
 function gerarConfigAutomatica() {
   if (!linhas.length) { alert('Carregue os arquivos primeiro.'); return; }
-  let adicionados = 0, pulados = 0;
+  // Amostra mínima do MERCADO inteiro (não da faixa vencedora) — filtro
+  // diferente do AUTO_CONFIG_AMOSTRA_MINIMA de cada faixa. Enquanto o
+  // mercado não acumular jogos suficientes, nem entra na disputa — assim
+  // que a base crescer (mais dias exportados), ele passa a ser considerado
+  // sozinho na próxima vez que gerar, sem precisar mexer em nada.
+  const amostraMinimaMercado = parseInt(document.getElementById('amostraMinimaMercadoInput')?.value) || 1;
+
+  let adicionados = 0, pulados = 0, pulamPoucoJogo = 0;
   METODOLOGIAS.forEach(score => {
     const resultCol = `resultado_${score}`;
     const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
     if (!validas.length) { pulados++; return; }
+    if (validas.length < amostraMinimaMercado) { pulamPoucoJogo++; return; }
     const taxaGeral = validas.filter(l => l[resultCol] === '1').length / validas.length * 100;
 
     const candidatos = _calcularBinsPorScore(score)
@@ -263,7 +277,7 @@ function gerarConfigAutomatica() {
   const avisoPoucosDias = arquivosCarregados < 10
     ? `\n\n⚠️ Só ${arquivosCarregados} dia(s) de dados carregado(s) — com pouca base, taxas de 100% costumam ser coincidência (poucos jogos daquele placar acontecendo), não um padrão de verdade. Recomendo rodar o exportador (aba Hoje) por mais dias antes de confiar nessa configuração.`
     : '';
-  alert(`Configuração automática gerada: ${adicionados} placar(es) configurado(s), ${pulados} sem nenhuma variável acima da taxa geral daquele placar.${avisoPoucosDias}`);
+  alert(`Configuração automática gerada: ${adicionados} placar(es)/mercado(s) configurado(s), ${pulados} sem nenhuma variável acima da taxa geral, ${pulamPoucoJogo} de fora por ainda não ter ${amostraMinimaMercado}+ jogos decididos (vão entrar sozinhos assim que a base crescer).${avisoPoucosDias}`);
 }
 
 function renderRelatorio() {
