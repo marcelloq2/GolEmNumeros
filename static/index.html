@@ -1123,7 +1123,6 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
-    <button class="nav-tab" onclick="switchView('mapa', this)">🎯 Previsão de Mercados</button>
     <button class="nav-tab" onclick="switchView('placarcontra', this)">🚫 Lay Placar</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
@@ -1602,48 +1601,6 @@
                  display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
       </div>
       <div id="liveGuiaContent" style="padding:18px;display:flex;flex-direction:column;gap:14px"></div>
-    </div>
-  </div>
-
-  <!-- MAPA DE SUGESTÕES — mesmo modelo do Placar Contra, mas pra mercados
-       tradicionais (1X2, Ambas Marcam, Handicap Asiático, Over/Under), em vez
-       de placar exato. Os dados pra análise externa vêm do botão ⬇️ da aba
-       Hoje (que já inclui o resultado real de cada mercado, ver
-       MERCADOS_TRADICIONAIS/_mercadosResultados) — aqui só o botão 📥 importa
-       a configuração gerada por essa análise e mostra a previsão
-       personalizada em cada jogo aberto. Não calcula nada de sugestão própria. -->
-  <div id="mapaWrapper" style="display:flex;flex:1;overflow:hidden">
-    <div class="sidebar" id="mapaSidebar" style="width:400px;min-width:320px;display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--border)">
-      <div style="padding:12px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-          <span style="font-size:12px;font-weight:700;color:var(--text2)">🎯 Previsão de Mercados</span>
-          <span style="display:flex;align-items:center;gap:8px">
-            <span class="live-count-badge" id="mapaCountBadge">0</span>
-            <button class="live-refresh-btn" id="mapaImportBtn" onclick="document.getElementById('mapaConfigInput').click()" title="Importar configuração (.txt) gerada pela ferramenta de análise de padrões">📥</button>
-            <input type="file" id="mapaConfigInput" accept=".txt" style="display:none" onchange="_mapaImportarConfig(this.files[0])">
-            <button class="live-refresh-btn" onclick="_mapaLoad()" title="Atualizar">↻</button>
-          </span>
-        </div>
-        <input id="mapaSearchInput" type="text" placeholder="🔍 Buscar jogo ou time..." oninput="_mapaFilterBySearch(this.value)"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
-                 color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box;margin-bottom:8px">
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="filter-btn" id="mapaAoVivoBtn" onclick="_mapaToggleStatus('ao_vivo', this)" style="color:#ef4444">🔴 Ao Vivo</button>
-          <button class="filter-btn" id="mapaEncerradosBtn" onclick="_mapaToggleStatus('3', this)">Encerrados</button>
-          <button class="filter-btn" id="mapaProximosBtn" onclick="_mapaToggleStatus('1', this)">Próximos</button>
-        </div>
-      </div>
-      <div id="mapaWrap" style="flex:1;overflow-y:auto"></div>
-    </div>
-    <div class="detail-panel" id="mapaDetail" style="flex:1;overflow-y:auto;padding:20px">
-      <div class="detail-placeholder" id="mapaDetailPlaceholder">
-        <div style="font-size:40px">🗺️</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:8px">Selecione uma partida na lista</div>
-      </div>
-      <div id="mapaDetailContent" style="display:none">
-        <div id="mapaDetailHeader" style="margin-bottom:12px"></div>
-        <div id="mapaConfigBox"></div>
-      </div>
     </div>
   </div>
 
@@ -2488,7 +2445,6 @@ function switchView(view, btn) {
   const favsPanel       = document.getElementById('favsPanel');
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
-  const mapaWrapper = document.getElementById('mapaWrapper');
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   // Oculta tudo
@@ -2497,7 +2453,6 @@ function switchView(view, btn) {
   favsPanel.classList.remove('active');
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
-  mapaWrapper.style.display = 'none';
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
@@ -2523,9 +2478,6 @@ function switchView(view, btn) {
     live2Panel.classList.add('active');
     loadLive2Matches();
     _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
-  } else if (view === 'mapa') {
-    mapaWrapper.style.display = 'flex';
-    _mapaLoad();
   } else if (view === 'placarcontra') {
     placarContraWrapper.style.display = 'flex';
     _placarContraLoad();
@@ -2618,186 +2570,6 @@ function _mercadosResultados(homeScore, awayScore) {
     }
   });
   return r;
-}
-
-let _mapaSelectedId = null;
-let _mapaTabCache = {}; // { [matchId]: { statsPorPrefixo } }
-let _mapaStatusFiltro = null;
-
-async function _mapaLoad() {
-  const wrap = document.getElementById('mapaWrap');
-  if (!wrap) return;
-  if (!today2MatchesCache.length) await loadToday2Matches();
-  _renderMapaList(today2MatchesCache);
-  const badge = document.getElementById('mapaCountBadge');
-  if (badge) badge.textContent = today2MatchesCache.length;
-}
-
-function _renderMapaList(matches) {
-  const wrap = document.getElementById('mapaWrap');
-  if (!wrap) return;
-  if (!matches.length) {
-    wrap.innerHTML = `<div class="live-empty"><div style="font-size:13px;color:var(--text2)">Nenhuma partida encontrada.</div></div>`;
-    return;
-  }
-  const scrollTop = wrap.scrollTop;
-  const ordenados = [...matches].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
-  wrap.innerHTML = ordenados.map(m => _renderMapaRow(m)).join('');
-  wrap.scrollTop = scrollTop;
-  _mapaFilterBySearch(document.getElementById('mapaSearchInput')?.value || '');
-}
-
-function _renderMapaRow(m) {
-  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  const placarOuHora = m.status === '1' ? hora : `${m.home_score ?? 0}-${m.away_score ?? 0}`;
-  return `
-    <div class="today2-match-row" data-id="${m.id}" onclick="selectMapaMatch('${m.id}', this)">
-      <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
-        <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
-        ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
-      </div>
-      <div>
-        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_casa)}${m.home}</div>
-        <div style="font-size:14px;padding:2px 0;display:flex;align-items:center;gap:5px">${_today2EscudoImg(m.escudo_fora)}${m.away}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${STATUS_LABEL_TODAY2[m.status] || ''}</div>
-      </div>
-    </div>`;
-}
-
-function _mapaFilterBySearch(texto) {
-  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  const termo = norm(texto);
-  document.querySelectorAll('#mapaWrap .today2-match-row[data-id]').forEach(card => {
-    const m = today2MatchesCache.find(x => String(x.id) === card.dataset.id);
-    if (!m) return;
-    const bateTexto = !termo || norm(m.home).includes(termo) || norm(m.away).includes(termo) || norm(m.liga).includes(termo);
-    const bateStatus = _mapaStatusFiltro === 'ao_vivo' ? m.status === '2' : !_mapaStatusFiltro || m.status === _mapaStatusFiltro;
-    card.style.display = (bateTexto && bateStatus) ? '' : 'none';
-  });
-}
-
-function _mapaToggleStatus(status, btn) {
-  _mapaStatusFiltro = (_mapaStatusFiltro === status) ? null : status;
-  document.getElementById('mapaAoVivoBtn')?.classList.toggle('active', _mapaStatusFiltro === 'ao_vivo');
-  document.getElementById('mapaEncerradosBtn')?.classList.toggle('active', _mapaStatusFiltro === '3');
-  document.getElementById('mapaProximosBtn')?.classList.toggle('active', _mapaStatusFiltro === '1');
-  _mapaFilterBySearch(document.getElementById('mapaSearchInput')?.value || '');
-}
-
-function selectMapaMatch(id, rowEl) {
-  _mapaSelectedId = id;
-  document.querySelectorAll('#mapaWrap .today2-match-row').forEach(r => r.classList.remove('active'));
-  rowEl?.classList.add('active');
-
-  const m = today2MatchesCache.find(x => String(x.id) === String(id));
-  if (!m) return;
-
-  document.getElementById('mapaDetailPlaceholder').style.display = 'none';
-  document.getElementById('mapaDetailContent').style.display = 'block';
-
-  const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  document.getElementById('mapaDetailHeader').innerHTML = `
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
-      <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
-        <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
-      </div>
-      <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
-    </div>`;
-
-  document.getElementById('mapaConfigBox').innerHTML = Object.keys(_mapaGetConfig()).length
-    ? '<div style="color:var(--text2)">⏳ Calculando previsão da sua configuração...</div>' : '';
-
-  _mapaLoadStats(id, m);
-}
-
-async function _mapaLoadStats(id, m) {
-  const cache = _mapaTabCache[id] || (_mapaTabCache[id] = {});
-  const stats = await _hojeJogoStatsDoJogo(m); // mesma função já usada no export da aba Hoje
-  if (_mapaSelectedId !== id) return;
-  cache.statsPorPrefixo = stats;
-  _mapaRenderConfig(id);
-}
-
-const MAPA_CONFIG_KEY = 'mapaImportedConfig';
-
-function _mapaGetConfig() {
-  try { return JSON.parse(localStorage.getItem(MAPA_CONFIG_KEY) || '{}'); }
-  catch (e) { return {}; }
-}
-
-function _mapaImportarConfig(file) {
-  if (!file) return;
-  file.text().then(texto => {
-    const ls = texto.replace(/\r/g, '').trim().split('\n');
-    if (ls.length < 2) { alert('Arquivo de configuração vazio ou inválido.'); return; }
-    const header = ls[0].split('\t');
-    const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
-    if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
-    // O mesmo arquivo de config pode ter linhas de placar exato (do Lay
-    // Placar) misturadas com mercados tradicionais — aqui só entram as que
-    // forem mercado de verdade (existirem em MERCADOS_TRADICIONAIS); o
-    // resto é ignorado silenciosamente, pra não misturar aba errada.
-    const mercadosValidos = new Set(MERCADOS_TRADICIONAIS.map(m => m.key));
-    const config = {};
-    let ignoradas = 0;
-    for (let i = 1; i < ls.length; i++) {
-      const vals = ls[i].split('\t');
-      if (vals.length < header.length) continue;
-      const score = vals[idx.score];
-      if (!mercadosValidos.has(score)) { ignoradas++; continue; }
-      config[score] = {
-        variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
-        winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
-      };
-    }
-    localStorage.setItem(MAPA_CONFIG_KEY, JSON.stringify(config));
-    alert(`Configuração importada: ${Object.keys(config).length} mercado(s) configurado(s)` +
-      (ignoradas ? ` (${ignoradas} linha(s) de placar exato do arquivo foram ignoradas — essas vão na aba Lay Placar).` : '.'));
-    if (_mapaSelectedId) _mapaRenderConfig(_mapaSelectedId);
-  }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
-}
-
-function _mapaRenderConfig(id) {
-  const box = document.getElementById('mapaConfigBox');
-  if (!box) return;
-  const config = _mapaGetConfig();
-  const entradas = Object.entries(config);
-  if (!entradas.length) { box.innerHTML = ''; return; }
-
-  const cache = _mapaTabCache[id] || {};
-  const stats = cache.statsPorPrefixo;
-  if (!stats) { box.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Calculando previsão da sua configuração...</div>'; return; }
-
-  const prefixos4 = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
-  const linhas = entradas.map(([mercado, c]) => {
-    const prefixoReal = prefixos4.find(p => c.variavel.startsWith(p + '_'));
-    const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
-    const valorAtual = prefixoReal ? stats[prefixoReal]?.[campo] : undefined;
-    const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
-    const dentro = temValor && valorAtual >= c.min && valorAtual <= c.max;
-    const label = MERCADOS_TRADICIONAIS.find(x => x.key === mercado)?.label || mercado;
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:13px;font-weight:700">${label}</div>
-          <div style="font-size:11px;color:var(--text2)">${c.variavel} · faixa ${c.min.toFixed(2)} a ${c.max.toFixed(2)} · hist. ${c.winRate.toFixed(0)}% (${c.n} jogos)</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:13px;font-weight:800;color:${!temValor ? 'var(--text2)' : dentro ? '#22c55e' : '#ef4444'}">${!temValor ? '— sem dado' : dentro ? '✅ dentro da faixa' : '❌ fora da faixa'}</div>
-          <div style="font-size:11px;color:var(--text2)">${temValor ? 'valor atual: ' + valorAtual.toFixed(2) : ''}</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  box.innerHTML = `
-    <div style="font-size:14px;font-weight:700;margin-bottom:6px">🗺️ Previsão — sua configuração</div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
 }
 
 // ── HOJE 2 (laboratório) ─────────────────────────────────────────────────────
