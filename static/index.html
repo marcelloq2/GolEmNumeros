@@ -2717,17 +2717,26 @@ function _mapaImportarConfig(file) {
     const header = ls[0].split('\t');
     const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
     if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
+    // O mesmo arquivo de config pode ter linhas de placar exato (do Lay
+    // Placar) misturadas com mercados tradicionais — aqui só entram as que
+    // forem mercado de verdade (existirem em MERCADOS_TRADICIONAIS); o
+    // resto é ignorado silenciosamente, pra não misturar aba errada.
+    const mercadosValidos = new Set(MERCADOS_TRADICIONAIS.map(m => m.key));
     const config = {};
+    let ignoradas = 0;
     for (let i = 1; i < ls.length; i++) {
       const vals = ls[i].split('\t');
       if (vals.length < header.length) continue;
-      config[vals[idx.score]] = {
+      const score = vals[idx.score];
+      if (!mercadosValidos.has(score)) { ignoradas++; continue; }
+      config[score] = {
         variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
         winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
       };
     }
     localStorage.setItem(MAPA_CONFIG_KEY, JSON.stringify(config));
-    alert(`Configuração importada: ${Object.keys(config).length} mercado(s) configurado(s).`);
+    alert(`Configuração importada: ${Object.keys(config).length} mercado(s) configurado(s)` +
+      (ignoradas ? ` (${ignoradas} linha(s) de placar exato do arquivo foram ignoradas — essas vão na aba Lay Placar).` : '.'));
     if (_mapaSelectedId) _mapaRenderConfig(_mapaSelectedId);
   }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
 }
@@ -5991,17 +6000,26 @@ function _placarContraImportarConfig(file) {
     const header = ls[0].split('\t');
     const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
     if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
+    // O mesmo arquivo de config pode ter linhas de mercado tradicional (do
+    // Previsão de Mercados) misturadas com placares — aqui só entram as que
+    // forem placar exato de verdade (existirem em PLACAR_EXATO_BUCKETS_ORDER);
+    // o resto é ignorado silenciosamente, pra não misturar aba errada.
+    const placaresValidos = new Set(PLACAR_EXATO_BUCKETS_ORDER);
     const config = {};
+    let ignoradas = 0;
     for (let i = 1; i < ls.length; i++) {
       const vals = ls[i].split('\t');
       if (vals.length < header.length) continue;
-      config[vals[idx.score]] = {
+      const score = vals[idx.score];
+      if (!placaresValidos.has(score)) { ignoradas++; continue; }
+      config[score] = {
         variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
         winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
       };
     }
     localStorage.setItem(PLACAR_CONTRA_CONFIG_KEY, JSON.stringify(config));
-    alert(`Configuração importada: ${Object.keys(config).length} placar(es) configurado(s).`);
+    alert(`Configuração importada: ${Object.keys(config).length} placar(es) configurado(s)` +
+      (ignoradas ? ` (${ignoradas} linha(s) de mercado tradicional do arquivo foram ignoradas — essas vão na aba Previsão de Mercados).` : '.'));
     if (_placarContraSelectedId) _placarContraRenderConfig(_placarContraSelectedId);
   }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
 }
