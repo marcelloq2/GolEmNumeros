@@ -3267,18 +3267,19 @@ function _painelStdRenderCurrent() {
   const theadHtml = table.columns.map(c =>
     `<th title="${c.title || ''}">${c.key === 'participant_name' ? 'Equipa' : (c.label || '')}</th>`).join('');
 
-  // Marcadores: só interessa quem joga nos dois times do confronto (nacionalidade/posição não importam)
-  const rowsSource = _painelStdState.table === 'top_scorers'
-    ? table.rows.filter(r => r.cells.team_name === _painelStdHomeName || r.cells.team_name === _painelStdAwayName)
+  // Só interessa os dados dos dois times do confronto (ou dos jogadores deles, em Marcadores)
+  const nameKey = table.columns.find(c => ['participant_name', 'player_name'].includes(c.key))?.key;
+  const filterKey = _painelStdState.table === 'top_scorers' ? 'team_name' : nameKey;
+  const rowsSource = filterKey
+    ? table.rows.filter(r => r.cells[filterKey] === _painelStdHomeName || r.cells[filterKey] === _painelStdAwayName)
     : table.rows;
 
   if (!rowsSource.length) {
-    wrap.innerHTML = `<div class="live-loading">Nenhum artilheiro encontrado para esses times.</div>`;
+    wrap.innerHTML = `<div class="live-loading">Nenhum dado encontrado para esses times.</div>`;
     return;
   }
 
   const rowsHtml = rowsSource.map(row => {
-    const nameKey = table.columns.find(c => ['participant_name', 'player_name'].includes(c.key))?.key;
     const name = nameKey ? row.cells[nameKey] : '';
     const highlight = (name === _painelStdHomeName || name === _painelStdAwayName) ? ' painel-std-highlight' : '';
     const tds = table.columns.map(c => {
