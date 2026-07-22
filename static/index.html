@@ -1132,15 +1132,21 @@
   .painel-match-time { color: var(--text2); font-size: 11px; }
   .painel-match-league-label { font-size: 9px; color: var(--text2); opacity: .8; white-space: nowrap; margin-top: 2px; }
   .painel-match-time.live { color: #ef4444; font-weight: 700; }
-  .painel-match-teams { display: flex; align-items: center; gap: 6px; overflow: hidden; }
-  .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; }
-  .painel-match-teams .painel-team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel-match-teams {
+    display: grid; align-items: center; gap: 6px; overflow: hidden;
+    grid-template-columns: 14px 1fr 16px 40px 16px 1fr 14px;
+  }
+  .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; justify-self: center; }
+  .painel-match-teams .painel-team {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+  }
+  .painel-match-teams .painel-team.away { text-align: left; }
   .painel-team-star {
     background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text2);
-    padding: 0 2px; flex-shrink: 0; line-height: 1;
+    padding: 0 2px; flex-shrink: 0; line-height: 1; justify-self: center;
   }
   .painel-team-star.selected { color: #f9a825; }
-  .painel-match-score { font-weight: 700; color: #ef4444; }
+  .painel-match-score { font-weight: 700; color: #ef4444; text-align: center; }
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
 
@@ -3689,7 +3695,7 @@ function _painelMatchRowHtml(m, leagueName) {
         ${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}
         ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
         ${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}
-        <span class="painel-team">${m.away}</span>
+        <span class="painel-team away">${m.away}</span>
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
       ${_painelOddCell(m.odd_1)}
