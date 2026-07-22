@@ -1130,6 +1130,7 @@
   .painel-match-row:hover { background: var(--bg2); }
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 11px; }
+  .painel-match-league-label { font-size: 9px; color: var(--text2); opacity: .8; white-space: nowrap; margin-top: 2px; }
   .painel-match-time.live { color: #ef4444; font-weight: 700; }
   .painel-match-teams { display: flex; align-items: center; gap: 6px; overflow: hidden; }
   .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; }
@@ -1189,7 +1190,11 @@
   }
   .painel-search-input { flex: 1 1 200px; min-width: 160px; }
   .painel-search-select { max-width: 220px; }
-  .painel-search-time-label, .painel-search-time-sep { font-size: 11px; color: var(--text2); }
+  .painel-sort-time-btn {
+    background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 5px;
+    font-size: 12px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+  }
+  .painel-sort-time-btn.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
 
   .painel-odds-filter-bar {
     display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 8px 12px;
@@ -1407,10 +1412,7 @@
       <select id="painelLeagueFilterSelect" class="painel-search-select" onchange="_painelSetLeagueFilter(this.value)">
         <option value="">🏆 Todas as ligas</option>
       </select>
-      <span class="painel-search-time-label">Horário:</span>
-      <input type="time" id="painelTimeFromInput" class="painel-search-time" onchange="_painelSetTimeRange('from', this.value)">
-      <span class="painel-search-time-sep">até</span>
-      <input type="time" id="painelTimeToInput" class="painel-search-time" onchange="_painelSetTimeRange('to', this.value)">
+      <button class="painel-sort-time-btn" id="painelSortTimeBtn" onclick="_painelToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
@@ -3079,12 +3081,11 @@ function _painelMatchPassesOddsFilters(m) {
   return true;
 }
 
-// ── Busca por time/campeonato, filtro por liga e por faixa de horário ─────────
+// ── Busca por time/campeonato, filtro por liga e ordenação por horário crescente ─
 let _painelSearchQuery = '';
 let _painelLeagueFilterValue = '';
-let _painelTimeFrom = '';
-let _painelTimeTo = '';
 let _painelLeagueOptionsCache = '';
+let _painelSortByTime = false;
 
 function _painelSetSearch(value) {
   _painelSearchQuery = (value || '').trim().toLowerCase();
@@ -3094,9 +3095,9 @@ function _painelSetLeagueFilter(value) {
   _painelLeagueFilterValue = value;
   if (_painelLastData) _painelRender(_painelLastData);
 }
-function _painelSetTimeRange(which, value) {
-  if (which === 'from') _painelTimeFrom = value;
-  else _painelTimeTo = value;
+function _painelToggleSortByTime() {
+  _painelSortByTime = !_painelSortByTime;
+  document.getElementById('painelSortTimeBtn').classList.toggle('active', _painelSortByTime);
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -3119,11 +3120,6 @@ function _painelMatchPassesSearch(m, leagueName) {
     if (!haystack.includes(_painelSearchQuery)) return false;
   }
   if (_painelLeagueFilterValue && leagueName !== _painelLeagueFilterValue) return false;
-  if (_painelTimeFrom || _painelTimeTo) {
-    if (!/^\d{1,2}:\d{2}$/.test(m.time || '')) return false;
-    if (_painelTimeFrom && m.time < _painelTimeFrom) return false;
-    if (_painelTimeTo && m.time > _painelTimeTo) return false;
-  }
   return true;
 }
 
@@ -3453,49 +3449,67 @@ function _painelRender(data) {
     return;
   }
 
-  container.innerHTML = leaguesFiltered.map(lg => {
-    const key = String(lg.key).replace(/[^a-zA-Z0-9_-]/g, '');
-    const collapsed = !!_painelCollapsed[key];
-    const rows = lg.matches.map(m => {
-      const isLive = _painelIsLive(m);
-      const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
-      const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
-        ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
-      const homeEsc = String(m.home).replace(/'/g, "\\'");
-      const awayEsc = String(m.away).replace(/'/g, "\\'");
-      return `
-        <div class="painel-match-row">
-          <span class="${timeClass}">${m.time || ''}</span>
-          <span class="painel-match-teams">
-            <span class="painel-team">${m.home}</span>
-            ${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}
-            ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
-            ${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}
-            <span class="painel-team">${m.away}</span>
-          </span>
-          ${_painelOddCell(m.odd_1)}
-          ${_painelOddCell(m.odd_x)}
-          ${_painelOddCell(m.odd_2)}
-          ${_painelOddCell(m.odd_over)}
-          ${_painelOddCell(m.odd_under)}
-          <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}')">📊</button>
-        </div>`;
-    }).join('');
-    return `
-      <div class="painel-league">
-        <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_painelToggleLeague('${key}', this)">
-          ${lg.flag_url ? `<img src="${lg.flag_url}" alt="">` : ''}
-          <span>${lg.league_name}</span>
-          <span class="painel-arrow">▲</span>
-        </div>
-        <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
-          <div class="painel-league-cols">
-            <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
-          </div>
-          ${rows}
-        </div>
-      </div>`;
-  }).join('');
+  container.innerHTML = _painelSortByTime
+    ? _painelRenderFlatByTime(leaguesFiltered)
+    : leaguesFiltered.map(lg => {
+        const key = String(lg.key).replace(/[^a-zA-Z0-9_-]/g, '');
+        const collapsed = !!_painelCollapsed[key];
+        const rows = lg.matches.map(m => _painelMatchRowHtml(m)).join('');
+        return `
+          <div class="painel-league">
+            <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_painelToggleLeague('${key}', this)">
+              ${lg.flag_url ? `<img src="${lg.flag_url}" alt="">` : ''}
+              <span>${lg.league_name}</span>
+              <span class="painel-arrow">▲</span>
+            </div>
+            <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
+              <div class="painel-league-cols">
+                <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+              </div>
+              ${rows}
+            </div>
+          </div>`;
+      }).join('');
+}
+
+function _painelMatchRowHtml(m, leagueName) {
+  const isLive = _painelIsLive(m);
+  const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
+  const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
+    ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
+  const homeEsc = String(m.home).replace(/'/g, "\\'");
+  const awayEsc = String(m.away).replace(/'/g, "\\'");
+  return `
+    <div class="painel-match-row">
+      <span class="${timeClass}">${m.time || ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
+      <span class="painel-match-teams">
+        <span class="painel-team">${m.home}</span>
+        ${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}
+        ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
+        ${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}
+        <span class="painel-team">${m.away}</span>
+      </span>
+      ${_painelOddCell(m.odd_1)}
+      ${_painelOddCell(m.odd_x)}
+      ${_painelOddCell(m.odd_2)}
+      ${_painelOddCell(m.odd_over)}
+      ${_painelOddCell(m.odd_under)}
+      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}')">📊</button>
+    </div>`;
+}
+
+function _painelRenderFlatByTime(leaguesFiltered) {
+  const flat = [];
+  leaguesFiltered.forEach(lg => lg.matches.forEach(m => flat.push({ m, leagueName: lg.league_name })));
+  flat.sort((a, b) => (a.m.ts || 0) - (b.m.ts || 0));
+  const rows = flat.map(({ m, leagueName }) => _painelMatchRowHtml(m, leagueName)).join('');
+  return `
+    <div class="painel-league">
+      <div class="painel-league-cols">
+        <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+      </div>
+      ${rows}
+    </div>`;
 }
 
 function loadPainelMatches() {
