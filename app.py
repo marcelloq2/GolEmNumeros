@@ -567,6 +567,10 @@ def _be_parse_team_matches(html):
         away_el = block.select_one(".table-main__participantAway p, .table-main__participantAway div")
         home_name = home_el.get_text(strip=True) if home_el else ""
         away_name = away_el.get_text(strip=True) if away_el else ""
+        home_logo_el = block.select_one(".homeImgMutual")
+        away_logo_el = block.select_one(".awayImgMutual")
+        home_logo = (BETEXPLORER_BASE + home_logo_el.get("src")) if home_logo_el and home_logo_el.get("src", "").startswith("/") else (home_logo_el.get("src") if home_logo_el else None)
+        away_logo = (BETEXPLORER_BASE + away_logo_el.get("src")) if away_logo_el and away_logo_el.get("src", "").startswith("/") else (away_logo_el.get("src") if away_logo_el else None)
 
         result_div = None
         for d in block.select(".last-results__form-results"):
@@ -594,6 +598,7 @@ def _be_parse_team_matches(html):
 
         rows.append({
             "date": date_text, "home": home_name, "away": away_name,
+            "home_logo": home_logo, "away_logo": away_logo,
             "score_home": score_home, "score_away": score_away,
             "result": result, "odds": odds, "match_url": match_href,
         })

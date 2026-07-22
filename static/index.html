@@ -1243,6 +1243,7 @@
   .painel-lr-row:hover { background: var(--bg3); }
   .painel-lr-date { color: var(--text2); }
   .painel-lr-team.away { text-align: right; }
+  .painel-lr-team img { width: 14px; height: 14px; vertical-align: middle; margin: 0 4px; }
   .painel-lr-score { text-align: center; font-weight: 700; border-radius: 4px; padding: 2px 0; color: #fff; }
   .painel-lr-score-home { background: #c62828; }
   .painel-lr-score-draw { background: #757575; }
@@ -1278,6 +1279,7 @@
   }
   .painel-h2h-row:hover { background: var(--bg3); }
   .painel-h2h-team-name.away { text-align: right; }
+  .painel-h2h-team-name img { width: 14px; height: 14px; vertical-align: middle; margin: 0 4px; }
   .painel-h2h-score { text-align: center; font-weight: 700; }
   .painel-h2h-odds { display: flex; gap: 4px; justify-content: center; }
   .painel-h2h-odd { min-width: 28px; text-align: center; padding: 2px 3px; border-radius: 4px; color: var(--text2); }
@@ -3120,10 +3122,13 @@ function _painelSetFilter(filter, btn) {
 let _painelCurrentMatchUrl = null;
 let _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
 
-function _painelOpenAnalysis(eventId, home, away, matchUrl) {
+let _painelHomeLogo = null, _painelAwayLogo = null;
+function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) {
   document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
   document.getElementById('painelAnalysisOverlay').style.display = 'flex';
   _painelCurrentMatchUrl = matchUrl;
+  _painelHomeLogo = homeLogo || null;
+  _painelAwayLogo = awayLogo || null;
   _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
   document.getElementById('painelLRTeamName_home').textContent = home;
   document.getElementById('painelLRTeamName_away').textContent = away;
@@ -3146,15 +3151,21 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl) {
   _painelLoadStandings();
 }
 
+function _painelH2HTeamLogo(name) {
+  if (name === _painelStdHomeName) return _painelHomeLogo;
+  if (name === _painelStdAwayName) return _painelAwayLogo;
+  return null;
+}
 function _painelH2HRow(m) {
   const scoreText = (m.score_home != null && m.score_away != null) ? `${m.score_home}:${m.score_away}` : '-';
   const oddsHtml = (m.odds || []).map(o =>
     `<span class="painel-h2h-odd${o.won ? ' won' : ''}">${o.value || '-'}</span>`).join('');
+  const homeLogo = _painelH2HTeamLogo(m.home), awayLogo = _painelH2HTeamLogo(m.away);
   return `
     <a class="painel-h2h-row" href="${m.match_url || '#'}" target="_blank" rel="noopener">
-      <span class="painel-h2h-team-name">${m.home}</span>
+      <span class="painel-h2h-team-name">${homeLogo ? `<img src="${homeLogo}" alt="">` : ''}${m.home}</span>
       <span class="painel-h2h-score">${scoreText}</span>
-      <span class="painel-h2h-team-name away">${m.away}</span>
+      <span class="painel-h2h-team-name away">${m.away}${awayLogo ? `<img src="${awayLogo}" alt="">` : ''}</span>
       <span class="painel-h2h-odds">${oddsHtml}</span>
       <span class="painel-h2h-date">${m.date || ''}</span>
     </a>`;
@@ -3349,9 +3360,9 @@ function _painelLRRow(row) {
   return `
     <a class="painel-lr-row" href="${row.match_url || '#'}" target="_blank" rel="noopener">
       <span class="painel-lr-date">${row.date || ''}</span>
-      <span class="painel-lr-team">${row.home}</span>
+      <span class="painel-lr-team">${row.home_logo ? `<img src="${row.home_logo}" alt="">` : ''}${row.home}</span>
       <span class="painel-lr-score ${scoreCls}">${scoreText}</span>
-      <span class="painel-lr-team away">${row.away}</span>
+      <span class="painel-lr-team away">${row.away}${row.away_logo ? `<img src="${row.away_logo}" alt="">` : ''}</span>
       <span class="painel-lr-odds">${oddsHtml}</span>
     </a>`;
 }
@@ -3442,7 +3453,7 @@ function _painelRender(data) {
           ${_painelOddCell(m.odd_2)}
           ${_painelOddCell(m.odd_over)}
           ${_painelOddCell(m.odd_under)}
-          <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}')">📊</button>
+          <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}')">📊</button>
         </div>`;
     }).join('');
     return `
