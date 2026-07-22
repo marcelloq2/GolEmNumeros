@@ -3201,7 +3201,43 @@ function _painelSetModalTab(tab, btn) {
 let _painelH2HStatsState = { tournament: '1', count: '5' };
 function _painelH2HStatsChange(field, value) {
   _painelH2HStatsState[field] = value;
-  // conteúdo calculado a partir daqui na próxima etapa
+  _painelH2HStatsRender();
+}
+
+function _painelH2HStatsFlatMatches() {
+  if (!_painelH2HRawData || !_painelH2HRawData.seasons) return [];
+  let seasons = _painelH2HRawData.seasons;
+  // "Este torneio": só liga (exclui copas) — mesma distinção liga/copa que o próprio BetExplorer usa
+  if (_painelH2HStatsState.tournament === '1') {
+    seasons = seasons.filter(s => !/copa|cup/i.test(s.season));
+  }
+  const flat = [];
+  seasons.forEach(s => s.matches.forEach(m => flat.push(m)));
+  return flat; // já vem do mais recente pro mais antigo
+}
+
+function _painelH2HStatsRender() {
+  const body = document.getElementById('painelH2HStatsBody');
+  if (!body) return;
+  if (!_painelH2HRawData) {
+    body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+    return;
+  }
+  const flat = _painelH2HStatsFlatMatches();
+  const count = _painelH2HStatsState.count;
+  const wanted = count === '20' ? flat.length : parseInt(count, 10);
+
+  if (flat.length < wanted) {
+    body.innerHTML = `<div class="live-loading">Não há ${wanted} confrontos diretos suficientes entre esses times (encontrados: ${flat.length}).</div>`;
+    return;
+  }
+  if (!flat.length) {
+    body.innerHTML = `<div class="live-loading">Nenhum confronto direto encontrado.</div>`;
+    return;
+  }
+
+  const used = flat.slice(0, wanted);
+  body.innerHTML = `<div class="painel-lr-rows">${used.map(_painelH2HRow).join('')}</div>`;
 }
 
 function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) {
@@ -3276,11 +3312,14 @@ function _painelToggleLRBlock(side) {
   document.getElementById('painelLRToggleArrow_' + side).classList.toggle('collapsed', _painelLRCollapsed[side]);
 }
 
+let _painelH2HRawData = null;   // cache da última resposta de /api/painel/h2h, reaproveitado na aba Análise
+
 function _painelLoadH2H() {
   const list = document.getElementById('painelH2HList');
   const bar = document.getElementById('painelH2HBar');
   list.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando confronto direto...</div>`;
   bar.innerHTML = '';
+  _painelH2HRawData = null;
   fetch('/api/painel/h2h?match_url=' + encodeURIComponent(_painelCurrentMatchUrl))
     .then(r => r.json())
     .then(data => {
@@ -3288,6 +3327,7 @@ function _painelLoadH2H() {
         list.innerHTML = `<div class="live-loading">${data.error}</div>`;
         return;
       }
+      _painelH2HRawData = data;
       const s = data.summary;
       document.getElementById('painelH2HWinsHome').textContent = s.wins_home;
       document.getElementById('painelH2HDraws').textContent = s.draws;
@@ -3304,6 +3344,7 @@ function _painelLoadH2H() {
         <div class="painel-h2h-season">${season.season}</div>
         ${season.matches.map(_painelH2HRow).join('')}
       `).join('');
+      _painelH2HStatsRender();
     })
     .catch(err => {
       list.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
