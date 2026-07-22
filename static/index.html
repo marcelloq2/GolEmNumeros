@@ -3239,14 +3239,12 @@ function _painelRender(data) {
       const awayEsc = String(m.away).replace(/'/g, "\\'");
       return `
         <div class="painel-match-row">
-          <a href="${m.match_url || '#'}" target="_blank" rel="noopener" style="grid-column:1/3;display:contents">
-            <span class="${timeClass}">${m.time || ''}</span>
-            <span class="painel-match-teams">
-              <span class="painel-team">${m.home}</span>
-              ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
-              <span class="painel-team">${m.away}</span>
-            </span>
-          </a>
+          <span class="${timeClass}">${m.time || ''}</span>
+          <span class="painel-match-teams">
+            <span class="painel-team">${m.home}</span>
+            ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
+            <span class="painel-team">${m.away}</span>
+          </span>
           ${_painelOddCell(m.odd_1)}
           ${_painelOddCell(m.odd_x)}
           ${_painelOddCell(m.odd_2)}
