@@ -1336,6 +1336,11 @@
   .painel-std-badge.d { background: #f9a825; }
   .painel-std-badge.l, .painel-std-badge.under { background: #c62828; }
   .painel-std-badge.s { background: var(--bg3); color: var(--text2); }
+  .painel-std-goals-icon { font-size: 12px; }
+  .painel-std-assist-badge {
+    display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px;
+    border-radius: 3px; background: #1a56c4; color: #fff; font-size: 9px; font-weight: 700; vertical-align: middle;
+  }
 </style>
 <script>
   // aplica o tema salvo ANTES do body renderizar, pra não piscar no tema errado
@@ -3329,6 +3334,21 @@ function _painelStdRenderCurrent() {
     return;
   }
 
+  // Marcadores: destaca o artilheiro (👟) e o garçom (assistências, "A") de cada time
+  const topScorerRows = new Set(), topAssistRows = new Set();
+  if (_painelStdState.table === 'top_scorers') {
+    [_painelStdHomeName, _painelStdAwayName].forEach(teamName => {
+      const teamRows = rowsSource.filter(r => r.cells.team_name === teamName);
+      if (!teamRows.length) return;
+      const maxGoals = Math.max(...teamRows.map(r => parseFloat(r.cells.goals) || 0));
+      const maxAssists = Math.max(...teamRows.map(r => parseFloat(r.cells.assists) || 0));
+      teamRows.forEach(r => {
+        if (maxGoals > 0 && parseFloat(r.cells.goals) === maxGoals) topScorerRows.add(r);
+        if (maxAssists > 0 && parseFloat(r.cells.assists) === maxAssists) topAssistRows.add(r);
+      });
+    });
+  }
+
   const rowsHtml = rowsSource.map(row => {
     const name = nameKey ? row.cells[nameKey] : '';
     const highlight = (name === _painelStdHomeName || name === _painelStdAwayName) ? ' painel-std-highlight' : '';
@@ -3339,6 +3359,12 @@ function _painelStdRenderCurrent() {
       }
       if (c.key === 'form' || c.key === 'last_5') {
         return `<td>${_painelStdBadges(val)}</td>`;
+      }
+      if (c.key === 'goals' && topScorerRows.has(row)) {
+        return `<td><span class="painel-std-goals-icon" title="Artilheiro do time">👟</span> ${val != null ? val : ''}</td>`;
+      }
+      if (c.key === 'assists' && topAssistRows.has(row)) {
+        return `<td><span class="painel-std-assist-badge" title="Mais assistências do time">A</span> ${val != null ? val : ''}</td>`;
       }
       return `<td>${val != null ? val : ''}</td>`;
     }).join('');
