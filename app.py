@@ -738,6 +738,154 @@ def api_painel_h2h():
     return jsonify(data)
 
 
+# ── Estatísticas de Confronto Direto (aba Análise) — % vitórias/empates/derrotas,
+# médias de gols, BTTS, clean sheets, over/under, tudo FT e HT ─────────────────
+# O placar do intervalo (HT) não vem na lista de confrontos (mutual-matches),
+# só o placar final — mas a própria página de cada jogo antigo tem um bloco
+# estático "js-partial" com "(HT, 2ºT)", sem precisar de Playwright. Só o minuto
+# do 1º gol marcado/sofrido não tem fonte encontrada (BetExplorer não expõe
+# timeline de gols pra jogos arquivados), então não entra nas estatísticas.
+_be_partial_score_cache = {}
+_be_partial_score_lock = threading.Lock()
+_BE_PARTIAL_SCORE_TTL = 24 * 3600  # placar de jogo já encerrado não muda mais
+
+
+def _be_fetch_partial_score(match_url):
+    with _be_partial_score_lock:
+        cached = _be_partial_score_cache.get(match_url)
+        if cached and (time.time() - cached["ts"]) < _BE_PARTIAL_SCORE_TTL:
+            return cached["data"]
+    r = http_req.get(match_url, headers=BETEXPLORER_HEADERS, timeout=15)
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    m = re.search(r'id="js-partial">\(([^,]+),\s*([^)]+)\)', r.text)
+    data = None
+    if m:
+        ht = m.group(1).strip()
+        parts = ht.split(":")
+        if len(parts) == 2:
+            try:
+                data = {"ht_home": int(parts[0]), "ht_away": int(parts[1])}
+            except ValueError:
+                data = None
+    with _be_partial_score_lock:
+        _be_partial_score_cache[match_url] = {"ts": time.time(), "data": data}
+    return data
+
+
+def _be_h2h_stats(match_url, tournament="1", count="5"):
+    h2h = _be_fetch_h2h(match_url)
+    home_name, away_name = h2h["home_name"], h2h["away_name"]
+
+    seasons = h2h["seasons"]
+    if tournament == "1":
+        seasons = [s for s in seasons if not re.search(r"copa|cup", s["season"], re.I)]
+    flat = [m for s in seasons for m in s["matches"]]  # mais recente primeiro
+
+    wanted = len(flat) if count == "20" else int(count)
+    if len(flat) < wanted:
+        return {"enough": False, "available": len(flat), "wanted": wanted}
+    used = flat[:wanted]
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        partials = list(pool.map(lambda m: _be_fetch_partial_score(m["match_url"]) if m.get("match_url") else None, used))
+
+    n = len(used)
+    wins = draws = losses = 0
+    wins_ht = draws_ht = losses_ht = 0
+    goals_for_ft = goals_against_ft = 0
+    goals_for_ht = goals_against_ht = 0
+    btts_yes = 0
+    clean_sheets_ft = clean_sheets_ht = 0
+    failed_to_score_ft = failed_to_score_ht = 0
+    over25 = over15 = over05_ht = 0
+    n_ht = 0  # partidas com dado de HT disponível
+
+    for m, partial in zip(used, partials):
+        try:
+            sh, sa = int(m["score_home"]), int(m["score_away"])
+        except (TypeError, ValueError):
+            continue
+        is_home_team = m["home"] == home_name
+        gf = sh if is_home_team else sa
+        ga = sa if is_home_team else sh
+        goals_for_ft += gf
+        goals_against_ft += ga
+        if gf > ga:
+            wins += 1
+        elif gf == ga:
+            draws += 1
+        else:
+            losses += 1
+        if gf == 0:
+            failed_to_score_ft += 1
+        if ga == 0:
+            clean_sheets_ft += 1
+        if sh > 0 and sa > 0:
+            btts_yes += 1
+        total_goals = sh + sa
+        if total_goals > 2.5:
+            over25 += 1
+        if total_goals > 1.5:
+            over15 += 1
+
+        if partial:
+            n_ht += 1
+            hh, ha = partial["ht_home"], partial["ht_away"]
+            gf_ht = hh if is_home_team else ha
+            ga_ht = ha if is_home_team else hh
+            goals_for_ht += gf_ht
+            goals_against_ht += ga_ht
+            if gf_ht > ga_ht:
+                wins_ht += 1
+            elif gf_ht == ga_ht:
+                draws_ht += 1
+            else:
+                losses_ht += 1
+            if gf_ht == 0:
+                failed_to_score_ht += 1
+            if ga_ht == 0:
+                clean_sheets_ht += 1
+            if (hh + ha) > 0.5:
+                over05_ht += 1
+
+    def pct(x, total):
+        return round(100 * x / total) if total else None
+
+    def avg(x, total):
+        return round(x / total, 2) if total else None
+
+    return {
+        "enough": True, "matches_used": n, "matches_with_ht": n_ht,
+        "home_name": home_name, "away_name": away_name,
+        "pct_wins_ft": pct(wins, n), "pct_draws_ft": pct(draws, n), "pct_losses_ft": pct(losses, n),
+        "pct_wins_ht": pct(wins_ht, n_ht), "pct_draws_ht": pct(draws_ht, n_ht), "pct_losses_ht": pct(losses_ht, n_ht),
+        "avg_goals_for_ft": avg(goals_for_ft, n), "avg_goals_against_ft": avg(goals_against_ft, n),
+        "avg_goals_for_ht": avg(goals_for_ht, n_ht), "avg_goals_against_ht": avg(goals_against_ht, n_ht),
+        "pct_btts_yes": pct(btts_yes, n), "pct_btts_no": pct(n - btts_yes, n),
+        "pct_clean_sheet_ft": pct(clean_sheets_ft, n), "pct_clean_sheet_ht": pct(clean_sheets_ht, n_ht),
+        "pct_failed_to_score_ft": pct(failed_to_score_ft, n), "pct_failed_to_score_ht": pct(failed_to_score_ht, n_ht),
+        "pct_over25_ft": pct(over25, n), "pct_under25_ft": pct(n - over25, n),
+        "pct_over15_ft": pct(over15, n), "pct_under15_ft": pct(n - over15, n),
+        "pct_over05_ht": pct(over05_ht, n_ht), "pct_under05_ht": pct(n_ht - over05_ht, n_ht),
+    }
+
+
+@app.route("/api/painel/h2h_stats")
+def api_painel_h2h_stats():
+    match_url = request.args.get("match_url", "")
+    tournament = request.args.get("tournament", "1")
+    count = request.args.get("count", "5")
+    if not match_url.startswith(BETEXPLORER_BASE):
+        return jsonify({"error": "match_url inválido"}), 400
+    try:
+        data = _be_h2h_stats(match_url, tournament=tournament, count=count)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
 # ── Widget de análise — Classificações / Forma / Over-Under / HT-FT / Marcadores
 # Diferente do "últimos resultados" (que precisa de Playwright pro token "ts" do
 # JOGO), o "ts" da TABELA/liga já vem embutido direto no HTML estático da página
