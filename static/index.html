@@ -1179,6 +1179,36 @@
   .painel-subtab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
   .painel-subtab .badge { background: var(--bg3); color: var(--text2); border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
 
+  .painel-search-bar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+  .painel-search-input, .painel-search-select, .painel-search-time {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: 5px;
+    font-size: 12px; padding: 5px 8px;
+  }
+  .painel-search-input { flex: 1 1 200px; min-width: 160px; }
+  .painel-search-select { max-width: 220px; }
+  .painel-search-time-label, .painel-search-time-sep { font-size: 11px; color: var(--text2); }
+
+  .painel-odds-filter-bar {
+    display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); background: var(--bg2);
+  }
+  .painel-odds-filter-group { display: flex; flex-direction: column; gap: 3px; }
+  .painel-odds-filter-label { font-size: 10px; font-weight: 700; color: var(--text2); }
+  .painel-odds-filter-controls { display: flex; align-items: center; gap: 4px; }
+  .painel-odds-filter-controls select, .painel-odds-filter-controls input {
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 4px;
+    font-size: 11px; padding: 3px 4px;
+  }
+  .painel-odds-filter-controls input[type="number"] { width: 52px; }
+  .painel-odds-filter-clear {
+    background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px;
+    font-size: 11px; padding: 4px 10px; cursor: pointer; align-self: flex-end;
+  }
+  .painel-odds-filter-clear:hover { color: var(--text); }
+
   .painel-match-analysis-btn {
     background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); padding: 0 2px;
   }
@@ -1350,6 +1380,7 @@
         <button class="painel-subtab active" onclick="_painelSetFilter('all', this)">TODOS OS JOGOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('live', this)">AO VIVO <span class="badge" id="painelLiveBadge">0</span></button>
         <button class="painel-subtab" onclick="_painelSetFilter('next', this)">PRÓXIMOS</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
       </div>
       <div class="painel-datebar" style="padding:6px 0">
         <button class="painel-datebar-arrow" onclick="_painelShiftDay(-1)">‹</button>
@@ -1361,6 +1392,18 @@
       </div>
     </div>
     <div style="border-bottom:1px solid var(--border)"></div>
+    <div class="painel-search-bar">
+      <input type="text" id="painelSearchInput" class="painel-search-input" placeholder="🔍 Buscar time ou campeonato..."
+        oninput="_painelSetSearch(this.value)">
+      <select id="painelLeagueFilterSelect" class="painel-search-select" onchange="_painelSetLeagueFilter(this.value)">
+        <option value="">🏆 Todas as ligas</option>
+      </select>
+      <span class="painel-search-time-label">Horário:</span>
+      <input type="time" id="painelTimeFromInput" class="painel-search-time" onchange="_painelSetTimeRange('from', this.value)">
+      <span class="painel-search-time-sep">até</span>
+      <input type="time" id="painelTimeToInput" class="painel-search-time" onchange="_painelSetTimeRange('to', this.value)">
+    </div>
+    <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
   </div>
 
@@ -2777,6 +2820,7 @@ function switchView(view, btn) {
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
+    _painelBuildOddsFilterBar();
     loadPainelMatches();
     _painelAutoRefresh = setInterval(loadPainelMatches, 20000);
   } else if (view === 'today') {
@@ -2926,6 +2970,144 @@ function _painelIsLive(m) {
 }
 function _painelIsNext(m) {
   return /^\d{1,2}:\d{2}$/.test(m.time || '');
+}
+function _painelIsFinished(m) {
+  return !_painelIsLive(m) && !_painelIsNext(m);
+}
+
+// ── Filtro por odds (1 / X / 2 / Over / Under) — operadores ≤ ≥ > < = entre ──
+const PAINEL_ODDS_FILTER_COLS = [
+  { key: 'odd_1', label: '1' }, { key: 'odd_x', label: 'X' }, { key: 'odd_2', label: '2' },
+  { key: 'odd_over', label: 'Over' }, { key: 'odd_under', label: 'Under' },
+];
+let _painelOddsFilters = {};  // key -> {op, val1, val2}
+PAINEL_ODDS_FILTER_COLS.forEach(c => { _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' }; });
+
+function _painelBuildOddsFilterBar() {
+  const bar = document.getElementById('painelOddsFilterBar');
+  if (!bar || bar.dataset.built) return;
+  bar.dataset.built = '1';
+  bar.innerHTML = PAINEL_ODDS_FILTER_COLS.map(c => `
+    <div class="painel-odds-filter-group">
+      <span class="painel-odds-filter-label">${c.label}</span>
+      <div class="painel-odds-filter-controls">
+        <select onchange="_painelOddsFilterChange('${c.key}', 'op', this.value)">
+          <option value="">--</option>
+          <option value="lte">≤</option>
+          <option value="gte">≥</option>
+          <option value="gt">&gt;</option>
+          <option value="lt">&lt;</option>
+          <option value="eq">=</option>
+          <option value="between">entre</option>
+        </select>
+        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelOddsFilterVal1_${c.key}"
+          oninput="_painelOddsFilterChange('${c.key}', 'val1', this.value)">
+        <span id="painelOddsFilterAnd_${c.key}" style="display:none;color:var(--text2)">e</span>
+        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelOddsFilterVal2_${c.key}"
+          oninput="_painelOddsFilterChange('${c.key}', 'val2', this.value)">
+      </div>
+    </div>
+  `).join('') + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`;
+}
+
+function _painelOddsFilterChange(key, field, value) {
+  _painelOddsFilters[key][field] = value;
+  if (field === 'op') {
+    const showVal1 = value !== '';
+    const showVal2 = value === 'between';
+    document.getElementById('painelOddsFilterVal1_' + key).style.display = showVal1 ? '' : 'none';
+    document.getElementById('painelOddsFilterVal2_' + key).style.display = showVal2 ? '' : 'none';
+    document.getElementById('painelOddsFilterAnd_' + key).style.display = showVal2 ? '' : 'none';
+    if (!showVal1) { document.getElementById('painelOddsFilterVal1_' + key).value = ''; _painelOddsFilters[key].val1 = ''; }
+    if (!showVal2) { document.getElementById('painelOddsFilterVal2_' + key).value = ''; _painelOddsFilters[key].val2 = ''; }
+  }
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
+function _painelOddsFilterClear() {
+  PAINEL_ODDS_FILTER_COLS.forEach(c => {
+    _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' };
+    const bar = document.getElementById('painelOddsFilterBar');
+    const sel = bar.querySelector(`select[onchange*="'${c.key}', 'op'"]`);
+    if (sel) sel.value = '';
+    document.getElementById('painelOddsFilterVal1_' + c.key).value = '';
+    document.getElementById('painelOddsFilterVal1_' + c.key).style.display = 'none';
+    document.getElementById('painelOddsFilterVal2_' + c.key).value = '';
+    document.getElementById('painelOddsFilterVal2_' + c.key).style.display = 'none';
+    document.getElementById('painelOddsFilterAnd_' + c.key).style.display = 'none';
+  });
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
+function _painelMatchPassesOddsFilters(m) {
+  for (const c of PAINEL_ODDS_FILTER_COLS) {
+    const f = _painelOddsFilters[c.key];
+    if (!f.op) continue;
+    const odd = parseFloat(m[c.key]);
+    if (isNaN(odd)) return false;
+    if (f.op === 'between') {
+      const v1 = parseFloat(f.val1), v2 = parseFloat(f.val2);
+      if (isNaN(v1) || isNaN(v2)) continue;
+      if (odd < Math.min(v1, v2) || odd > Math.max(v1, v2)) return false;
+    } else {
+      const v1 = parseFloat(f.val1);
+      if (isNaN(v1)) continue;
+      if (f.op === 'lte' && !(odd <= v1)) return false;
+      if (f.op === 'gte' && !(odd >= v1)) return false;
+      if (f.op === 'gt' && !(odd > v1)) return false;
+      if (f.op === 'lt' && !(odd < v1)) return false;
+      if (f.op === 'eq' && !(Math.abs(odd - v1) < 1e-9)) return false;
+    }
+  }
+  return true;
+}
+
+// ── Busca por time/campeonato, filtro por liga e por faixa de horário ─────────
+let _painelSearchQuery = '';
+let _painelLeagueFilterValue = '';
+let _painelTimeFrom = '';
+let _painelTimeTo = '';
+let _painelLeagueOptionsCache = '';
+
+function _painelSetSearch(value) {
+  _painelSearchQuery = (value || '').trim().toLowerCase();
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+function _painelSetLeagueFilter(value) {
+  _painelLeagueFilterValue = value;
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+function _painelSetTimeRange(which, value) {
+  if (which === 'from') _painelTimeFrom = value;
+  else _painelTimeTo = value;
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
+function _painelUpdateLeagueOptions(leagues) {
+  const select = document.getElementById('painelLeagueFilterSelect');
+  if (!select) return;
+  const names = [...new Set(leagues.map(lg => lg.league_name))].sort((a, b) => a.localeCompare(b));
+  const sig = names.join('|');
+  if (sig === _painelLeagueOptionsCache) return;
+  _painelLeagueOptionsCache = sig;
+  const current = _painelLeagueFilterValue;
+  select.innerHTML = '<option value="">🏆 Todas as ligas</option>' +
+    names.map(n => `<option value="${n.replace(/"/g, '&quot;')}">${n}</option>`).join('');
+  if (names.includes(current)) select.value = current;
+}
+
+function _painelMatchPassesSearch(m, leagueName) {
+  if (_painelSearchQuery) {
+    const haystack = (leagueName + ' ' + m.home + ' ' + m.away).toLowerCase();
+    if (!haystack.includes(_painelSearchQuery)) return false;
+  }
+  if (_painelLeagueFilterValue && leagueName !== _painelLeagueFilterValue) return false;
+  if (_painelTimeFrom || _painelTimeTo) {
+    if (!/^\d{1,2}:\d{2}$/.test(m.time || '')) return false;
+    if (_painelTimeFrom && m.time < _painelTimeFrom) return false;
+    if (_painelTimeTo && m.time > _painelTimeTo) return false;
+  }
+  return true;
 }
 
 function _painelSetFilter(filter, btn) {
@@ -3214,12 +3396,19 @@ function _painelRender(data) {
   const liveBadge = document.getElementById('painelLiveBadge');
   if (liveBadge) liveBadge.textContent = liveCount;
 
-  const filterFn = _painelViewFilter === 'live' ? _painelIsLive
+  _painelUpdateLeagueOptions(data.leagues);
+
+  const viewFilterFn = _painelViewFilter === 'live' ? _painelIsLive
     : _painelViewFilter === 'next' ? _painelIsNext
+    : _painelViewFilter === 'finished' ? _painelIsFinished
     : () => true;
 
   const leaguesFiltered = data.leagues
-    .map(lg => ({ ...lg, matches: lg.matches.filter(filterFn) }))
+    .map(lg => ({
+      ...lg,
+      matches: lg.matches.filter(m =>
+        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelMatchPassesSearch(m, lg.league_name)),
+    }))
     .filter(lg => lg.matches.length);
 
   if (!leaguesFiltered.length) {
