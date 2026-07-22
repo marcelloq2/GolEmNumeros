@@ -1222,6 +1222,13 @@
     border: 1px solid var(--border); border-radius: 12px; padding: 18px;
   }
   .painel-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .painel-modal-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .painel-modal-tab {
+    background: none; border: none; cursor: pointer; padding: 6px 2px 10px; font-size: 12px; font-weight: 700;
+    color: var(--text2); position: relative;
+  }
+  .painel-modal-tab.active { color: #d32f2f; }
+  .painel-modal-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
   .painel-modal-close { background: none; border: none; font-size: 18px; color: var(--text2); cursor: pointer; }
 
   .painel-lr-block { margin-bottom: 18px; }
@@ -1415,7 +1422,11 @@
         <div id="painelAnalysisTitle" style="font-size:15px;font-weight:700;color:var(--text)"></div>
         <button class="painel-modal-close" onclick="_painelCloseAnalysis()">✕</button>
       </div>
-      <div id="painelAnalysisBody">
+      <div class="painel-modal-tabs">
+        <button class="painel-modal-tab active" onclick="_painelSetModalTab('principal', this)">Principal</button>
+        <button class="painel-modal-tab" onclick="_painelSetModalTab('analise', this)">Análise</button>
+      </div>
+      <div id="painelTabPrincipal">
         <div class="painel-h2h-block">
           <div class="painel-h2h-header">
             <span id="painelH2HHomeName"></span>
@@ -1483,6 +1494,10 @@
             <div class="live-loading"><div class="spinner"></div>Carregando...</div>
           </div>
         </div>
+      </div>
+
+      <div id="painelTabAnalise" style="display:none;color:var(--text2);padding:24px 4px;text-align:center">
+        Em construção — o conteúdo dessa análise ainda vai ser definido.
       </div>
     </div>
   </div>
@@ -3123,9 +3138,19 @@ let _painelCurrentMatchUrl = null;
 let _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
 
 let _painelHomeLogo = null, _painelAwayLogo = null;
+function _painelSetModalTab(tab, btn) {
+  document.querySelectorAll('.painel-modal-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('painelTabPrincipal').style.display = tab === 'principal' ? '' : 'none';
+  document.getElementById('painelTabAnalise').style.display = tab === 'analise' ? '' : 'none';
+}
+
 function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) {
   document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
   document.getElementById('painelAnalysisOverlay').style.display = 'flex';
+  document.querySelectorAll('.painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.getElementById('painelTabPrincipal').style.display = '';
+  document.getElementById('painelTabAnalise').style.display = 'none';
   _painelCurrentMatchUrl = matchUrl;
   _painelHomeLogo = homeLogo || null;
   _painelAwayLogo = awayLogo || null;
