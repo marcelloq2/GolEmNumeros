@@ -391,6 +391,14 @@ def _be_parse_bettype(html):
             home = participants[0].get_text(strip=True) if len(participants) > 0 else ""
             away = participants[1].get_text(strip=True) if len(participants) > 1 else ""
 
+            logos = row.select(".table-main__participantLogo")
+            home_logo = logos[0].get("data-src") or logos[0].get("src") if len(logos) > 0 else None
+            away_logo = logos[1].get("data-src") or logos[1].get("src") if len(logos) > 1 else None
+            if home_logo and home_logo.startswith("/"):
+                home_logo = BETEXPLORER_BASE + home_logo
+            if away_logo and away_logo.startswith("/"):
+                away_logo = BETEXPLORER_BASE + away_logo
+
             score_home = score_away = None
             score_div = row.select_one(".mainResult.table-main__Bold.mobileHidden")
             if score_div:
@@ -420,6 +428,7 @@ def _be_parse_bettype(html):
             matches[event_id] = {
                 "event_id": event_id, "league_key": league_key, "ts": ts,
                 "status_text": status_text, "home": home, "away": away,
+                "home_logo": home_logo, "away_logo": away_logo,
                 "score_home": score_home, "score_away": score_away,
                 "match_url": match_url, "line": line, "odds": values,
             }
@@ -467,6 +476,7 @@ def _painel_fetch_matches(force=False, date_str=None):
                 "event_id": event_id,
                 "time": m["status_text"],
                 "home": m["home"], "away": m["away"],
+                "home_logo": m.get("home_logo"), "away_logo": m.get("away_logo"),
                 "score_home": m["score_home"], "score_away": m["score_away"],
                 "match_url": (BETEXPLORER_BASE + m["match_url"]) if m["match_url"] else None,
                 "odd_1": odds[0], "odd_x": odds[1], "odd_2": odds[2],

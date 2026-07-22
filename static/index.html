@@ -3431,7 +3431,9 @@ function _painelRender(data) {
           <span class="${timeClass}">${m.time || ''}</span>
           <span class="painel-match-teams">
             <span class="painel-team">${m.home}</span>
+            ${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}
             ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
+            ${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}
             <span class="painel-team">${m.away}</span>
           </span>
           ${_painelOddCell(m.odd_1)}
