@@ -1225,6 +1225,10 @@
 
   .painel-h2h-block { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
   .painel-h2h-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .painel-h2h-toggle { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+  .painel-h2h-toggle:hover { color: var(--accent); }
+  .painel-h2h-toggle-arrow { font-size: 11px; transition: transform .15s; display: inline-block; }
+  .painel-h2h-toggle-arrow.collapsed { transform: rotate(180deg); }
   .painel-h2h-legend { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 5px; }
   .painel-h2h-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
   .painel-h2h-legend .dot.home { background: #2e7d32; }
@@ -1370,7 +1374,7 @@
         <div class="painel-h2h-block">
           <div class="painel-h2h-header">
             <span id="painelH2HHomeName"></span>
-            <span>Confronto direto</span>
+            <span class="painel-h2h-toggle" onclick="_painelToggleH2HList()">Confronto direto <i class="painel-h2h-toggle-arrow" id="painelH2HToggleArrow">▲</i></span>
             <span id="painelH2HAwayName"></span>
           </div>
           <div class="painel-h2h-legend">
@@ -2943,6 +2947,9 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl) {
   document.getElementById('painelLRTeamName_away').textContent = away;
   document.getElementById('painelH2HHomeName').textContent = home;
   document.getElementById('painelH2HAwayName').textContent = away;
+  _painelH2HCollapsed = false;
+  document.getElementById('painelH2HList').style.display = '';
+  document.getElementById('painelH2HToggleArrow').classList.remove('collapsed');
   _painelLoadLastResults('home');
   _painelLoadLastResults('away');
   _painelLoadH2H();
@@ -2969,6 +2976,13 @@ function _painelH2HRow(m) {
       <span class="painel-h2h-odds">${oddsHtml}</span>
       <span class="painel-h2h-date">${m.date || ''}</span>
     </a>`;
+}
+
+let _painelH2HCollapsed = false;
+function _painelToggleH2HList() {
+  _painelH2HCollapsed = !_painelH2HCollapsed;
+  document.getElementById('painelH2HList').style.display = _painelH2HCollapsed ? 'none' : '';
+  document.getElementById('painelH2HToggleArrow').classList.toggle('collapsed', _painelH2HCollapsed);
 }
 
 function _painelLoadH2H() {
