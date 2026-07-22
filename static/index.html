@@ -1515,8 +1515,26 @@
         </div>
       </div>
 
-      <div id="painelTabAnalise" style="display:none;color:var(--text2);padding:24px 4px;text-align:center">
-        Em construção — o conteúdo dessa análise ainda vai ser definido.
+      <div id="painelTabAnalise" style="display:none">
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Estatísticas de Confronto Direto</div>
+          <div class="painel-lr-controls">
+            <span>Mostrar:</span>
+            <select onchange="_painelH2HStatsChange('tournament', this.value)">
+              <option value="1">Este torneio</option>
+              <option value="2">Todos os torneios</option>
+            </select>
+            <select onchange="_painelH2HStatsChange('count', this.value)">
+              <option value="5">5 resultados</option>
+              <option value="10">10 resultados</option>
+              <option value="15">15 resultados</option>
+              <option value="20">todos resultados</option>
+            </select>
+          </div>
+          <div id="painelH2HStatsBody" style="color:var(--text2);padding:16px 0;text-align:center">
+            Em construção — o conteúdo dessas estatísticas ainda vai ser definido.
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3179,6 +3197,13 @@ function _painelSetModalTab(tab, btn) {
   document.getElementById('painelTabAnalise').style.display = tab === 'analise' ? '' : 'none';
 }
 
+// ── Aba Análise — Estatísticas de Confronto Direto ─────────────────────────────
+let _painelH2HStatsState = { tournament: '1', count: '5' };
+function _painelH2HStatsChange(field, value) {
+  _painelH2HStatsState[field] = value;
+  // conteúdo calculado a partir daqui na próxima etapa
+}
+
 function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) {
   document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
   document.getElementById('painelAnalysisOverlay').style.display = 'flex';
@@ -3189,6 +3214,8 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) 
   _painelHomeLogo = homeLogo || null;
   _painelAwayLogo = awayLogo || null;
   _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
+  _painelH2HStatsState = { tournament: '1', count: '5' };
+  document.querySelectorAll('#painelTabAnalise select').forEach(sel => { sel.selectedIndex = 0; });
   document.getElementById('painelLRTeamName_home').textContent = home;
   document.getElementById('painelLRTeamName_away').textContent = away;
   document.getElementById('painelH2HHomeName').textContent = home;
