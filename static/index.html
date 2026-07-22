@@ -1104,6 +1104,190 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+
+  /* ── PAINEL PRINCIPAL — jogos + odds importados do BetExplorer ── */
+  .painel-league { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .painel-league-header {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer;
+    background: #3a3110; color: #e8c95a; font-weight: 700; font-size: 13px;
+  }
+  html[data-theme="light"] .painel-league-header {
+    background: #fff6d5; color: #7a5b00;
+  }
+  .painel-league-header img { width: 16px; height: 16px; flex-shrink: 0; }
+  .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; }
+  .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
+  .painel-league-cols {
+    display: grid; grid-template-columns: 52px 1fr 42px 42px 42px 42px 42px 26px;
+    gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
+  }
+  .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
+  .painel-match-row {
+    display: grid; grid-template-columns: 52px 1fr 42px 42px 42px 42px 42px 26px;
+    gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
+    border-top: 1px solid var(--border); color: var(--text);
+  }
+  .painel-match-row:hover { background: var(--bg2); }
+  .painel-match-row a { color: inherit; text-decoration: none; }
+  .painel-match-time { color: var(--text2); font-size: 11px; }
+  .painel-match-time.live { color: #ef4444; font-weight: 700; }
+  .painel-match-teams { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+  .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; }
+  .painel-match-teams .painel-team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel-match-score { font-weight: 700; color: #ef4444; }
+  .painel-odd { text-align: center; font-weight: 600; }
+  .painel-odd.empty { color: var(--text2); }
+
+  .painel-datebar { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 0; }
+  .painel-datebar-arrow, .painel-datebar-label {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+    cursor: pointer; font-size: 13px; padding: 4px 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .painel-datebar-arrow:hover, .painel-datebar-label:hover { background: var(--bg3); }
+  .painel-calendar-popup {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 6px;
+    width: 260px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 500; overflow: hidden;
+  }
+  .painel-calendar-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+    background: #1a56c4; color: #fff; font-weight: 700; font-size: 13px;
+  }
+  .painel-calendar-header button { background: none; border: none; color: #fff; cursor: pointer; font-size: 15px; }
+  .painel-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 10px 12px; }
+  .painel-calendar-grid .dow { font-size: 10px; color: var(--text2); text-align: center; padding: 2px 0; }
+  .painel-calendar-day {
+    text-align: center; font-size: 12px; padding: 5px 0; border-radius: 50%; cursor: pointer; color: var(--text);
+  }
+  .painel-calendar-day:hover { background: var(--bg3); }
+  .painel-calendar-day.muted { color: var(--text2); opacity: .5; }
+  .painel-calendar-day.today { background: #b91c1c; color: #fff; font-weight: 700; }
+  .painel-calendar-day.selected:not(.today) { border: 1px solid #1a56c4; }
+  .painel-calendar-links { border-top: 1px solid var(--border); }
+  .painel-calendar-links a {
+    display: flex; align-items: center; justify-content: space-between; padding: 9px 12px;
+    font-size: 12px; color: var(--text); text-decoration: none; cursor: pointer;
+  }
+  .painel-calendar-links a:hover { background: var(--bg3); }
+
+  .painel-subtabs { display: flex; align-items: center; gap: 20px; padding: 10px 12px 0; border-bottom: 1px solid var(--border); }
+  .painel-subtab {
+    background: none; border: none; cursor: pointer; padding: 6px 2px 10px; font-size: 12px; font-weight: 700;
+    color: var(--text2); letter-spacing: .3px; position: relative; display: flex; align-items: center; gap: 6px;
+  }
+  .painel-subtab.active { color: #d32f2f; }
+  .painel-subtab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
+  .painel-subtab .badge { background: var(--bg3); color: var(--text2); border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+
+  .painel-match-analysis-btn {
+    background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); padding: 0 2px;
+  }
+  .painel-match-analysis-btn:hover { color: var(--accent); }
+
+  .painel-modal-overlay {
+    position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .painel-modal-box {
+    width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 12px; padding: 18px;
+  }
+  .painel-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .painel-modal-close { background: none; border: none; font-size: 18px; color: var(--text2); cursor: pointer; }
+
+  .painel-lr-block { margin-bottom: 18px; }
+  .painel-lr-block:last-child { margin-bottom: 0; }
+  .painel-lr-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .painel-lr-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .painel-lr-controls span { font-size: 11px; color: var(--text2); }
+  .painel-lr-controls select {
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 5px;
+    font-size: 11px; padding: 3px 6px;
+  }
+  .painel-lr-rows { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .painel-lr-row {
+    display: grid; grid-template-columns: 62px 1fr 40px 1fr 110px; gap: 6px; align-items: center;
+    padding: 6px 10px; font-size: 11px; color: var(--text); text-decoration: none;
+    border-top: 1px solid var(--border);
+  }
+  .painel-lr-row:first-child { border-top: none; }
+  .painel-lr-row:hover { background: var(--bg3); }
+  .painel-lr-date { color: var(--text2); }
+  .painel-lr-team.away { text-align: right; }
+  .painel-lr-score { text-align: center; font-weight: 700; border-radius: 4px; padding: 2px 0; color: #fff; }
+  .painel-lr-score-home { background: #c62828; }
+  .painel-lr-score-draw { background: #757575; }
+  .painel-lr-score-away { background: #2e7d32; }
+  .painel-lr-odds { display: flex; gap: 4px; justify-content: flex-end; }
+  .painel-lr-odd { min-width: 30px; text-align: center; padding: 2px 3px; border-radius: 4px; color: var(--text2); }
+  .painel-lr-odd.hl-home { background: #c62828; color: #fff; font-weight: 700; }
+  .painel-lr-odd.hl-draw { background: #757575; color: #fff; font-weight: 700; }
+  .painel-lr-odd.hl-away { background: #2e7d32; color: #fff; font-weight: 700; }
+
+  .painel-h2h-block { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .painel-h2h-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .painel-h2h-legend { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+  .painel-h2h-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .painel-h2h-legend .dot.home { background: #2e7d32; }
+  .painel-h2h-legend .dot.draw { background: #757575; }
+  .painel-h2h-legend .dot.away { background: #c62828; }
+  .painel-h2h-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg3); margin-bottom: 10px; }
+  .painel-h2h-bar-home { background: #2e7d32; }
+  .painel-h2h-bar-draw { background: #757575; }
+  .painel-h2h-bar-away { background: #c62828; }
+  .painel-h2h-season {
+    font-size: 11px; font-weight: 700; color: #d32f2f; background: var(--bg3);
+    padding: 5px 10px; margin-top: 6px; border-radius: 4px;
+  }
+  .painel-h2h-row {
+    display: grid; grid-template-columns: 1fr 42px 1fr 130px 68px; gap: 6px; align-items: center;
+    padding: 6px 10px; font-size: 11px; color: var(--text); text-decoration: none; border-top: 1px solid var(--border);
+  }
+  .painel-h2h-row:hover { background: var(--bg3); }
+  .painel-h2h-team-name.away { text-align: right; }
+  .painel-h2h-score { text-align: center; font-weight: 700; }
+  .painel-h2h-odds { display: flex; gap: 4px; justify-content: center; }
+  .painel-h2h-odd { min-width: 28px; text-align: center; padding: 2px 3px; border-radius: 4px; color: var(--text2); }
+  .painel-h2h-odd.won { background: #2e7d32; color: #fff; font-weight: 700; }
+  .painel-h2h-date { text-align: right; color: var(--text2); }
+
+  .painel-std-block { margin-top: 20px; padding-top: 4px; }
+  .painel-std-tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--border); margin-bottom: 8px; flex-wrap: wrap; }
+  .painel-std-tab {
+    background: none; border: none; cursor: pointer; padding: 6px 2px 8px; font-size: 11px; font-weight: 700;
+    color: var(--text2); position: relative;
+  }
+  .painel-std-tab.active { color: #d32f2f; }
+  .painel-std-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
+  .painel-std-subrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .painel-std-subtab { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text2); padding: 2px 0; }
+  .painel-std-subtab.active { color: var(--text); font-weight: 700; text-decoration: underline; }
+  .painel-std-variants { display: flex; gap: 6px; flex-wrap: wrap; }
+  .painel-std-variant-btn {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+    font-size: 10px; color: var(--text2); padding: 2px 7px;
+  }
+  .painel-std-variant-btn.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+  .painel-std-table-wrap { overflow-x: auto; }
+  .painel-std-table { width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+  .painel-std-table th {
+    text-align: center; color: var(--text2); font-weight: 700; padding: 5px 6px; border-bottom: 1px solid var(--border);
+  }
+  .painel-std-table th:nth-child(2) { text-align: left; }
+  .painel-std-table td { text-align: center; padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .painel-std-table td:nth-child(2) { text-align: left; }
+  .painel-std-table tr.painel-std-highlight td { background: #fff6d5; }
+  html:not([data-theme="light"]) .painel-std-table tr.painel-std-highlight td { background: #3a3110; }
+  .painel-std-row-name { display: flex; align-items: center; gap: 6px; }
+  .painel-std-row-name img { width: 15px; height: 15px; flex-shrink: 0; }
+  .painel-std-form { display: flex; gap: 2px; justify-content: center; }
+  .painel-std-badge {
+    width: 15px; height: 15px; border-radius: 3px; font-size: 9px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .painel-std-badge.w, .painel-std-badge.over { background: #2e7d32; }
+  .painel-std-badge.d { background: #f9a825; }
+  .painel-std-badge.l, .painel-std-badge.under { background: #c62828; }
+  .painel-std-badge.s { background: var(--bg3); color: var(--text2); }
 </style>
 <script>
   // aplica o tema salvo ANTES do body renderizar, pra não piscar no tema errado
@@ -1121,6 +1305,7 @@
     <span><div class="status-dot"></div>Carregando...</span>
   </div>
   <div class="nav-tabs">
+    <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('placarcontra', this)">🚫 Lay Placar</button>
@@ -1153,6 +1338,105 @@
 </div>
 
 <div class="container">
+
+  <!-- PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) importados do BetExplorer -->
+  <div id="painelWrapper" style="display:none;flex:1;overflow:auto;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex-wrap:wrap;gap:6px">
+      <div class="painel-subtabs" id="painelSubtabs" style="border-bottom:none;padding:10px 0 0">
+        <button class="painel-subtab active" onclick="_painelSetFilter('all', this)">TODOS OS JOGOS</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('live', this)">AO VIVO <span class="badge" id="painelLiveBadge">0</span></button>
+        <button class="painel-subtab" onclick="_painelSetFilter('next', this)">PRÓXIMOS</button>
+      </div>
+      <div class="painel-datebar" style="padding:6px 0">
+        <button class="painel-datebar-arrow" onclick="_painelShiftDay(-1)">‹</button>
+        <button class="painel-datebar-label" onclick="_painelToggleCalendar()">
+          <span id="painelDateLabel">Hoje</span> 📅
+        </button>
+        <button class="painel-datebar-arrow" onclick="_painelShiftDay(1)">›</button>
+        <div id="painelCalendarPopup" class="painel-calendar-popup" style="display:none"></div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid var(--border)"></div>
+    <div id="painelMatches" style="padding:10px"></div>
+  </div>
+
+  <div id="painelAnalysisOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseAnalysis()">
+    <div class="painel-modal-box" style="max-width:620px">
+      <div class="painel-modal-header">
+        <div id="painelAnalysisTitle" style="font-size:15px;font-weight:700;color:var(--text)"></div>
+        <button class="painel-modal-close" onclick="_painelCloseAnalysis()">✕</button>
+      </div>
+      <div id="painelAnalysisBody">
+        <div class="painel-h2h-block">
+          <div class="painel-h2h-header">
+            <span id="painelH2HHomeName"></span>
+            <span>Confronto direto</span>
+            <span id="painelH2HAwayName"></span>
+          </div>
+          <div class="painel-h2h-legend">
+            <span><i class="dot home"></i><span id="painelH2HWinsHome">0</span> vitórias</span>
+            <span><i class="dot draw"></i><span id="painelH2HDraws">0</span> empates</span>
+            <span><span id="painelH2HWinsAway">0</span> vitórias<i class="dot away"></i></span>
+          </div>
+          <div class="painel-h2h-bar" id="painelH2HBar"></div>
+          <div id="painelH2HList"></div>
+        </div>
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Últimos resultados: <span id="painelLRTeamName_home"></span></div>
+          <div class="painel-lr-controls">
+            <span>Mostrar:</span>
+            <select onchange="_painelLRChange('home','tournament',this.value)">
+              <option value="1">Este torneio</option>
+              <option value="2">Todos os torneios</option>
+            </select>
+            <select onchange="_painelLRChange('home','count',this.value)">
+              <option value="5">5 resultados</option>
+              <option value="10">10 resultados</option>
+              <option value="15">15 resultados</option>
+              <option value="20">todos resultados</option>
+            </select>
+          </div>
+          <div class="painel-lr-rows" id="painelLR_home"></div>
+        </div>
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Últimos resultados: <span id="painelLRTeamName_away"></span></div>
+          <div class="painel-lr-controls">
+            <span>Mostrar:</span>
+            <select onchange="_painelLRChange('away','tournament',this.value)">
+              <option value="1">Este torneio</option>
+              <option value="2">Todos os torneios</option>
+            </select>
+            <select onchange="_painelLRChange('away','count',this.value)">
+              <option value="5">5 resultados</option>
+              <option value="10">10 resultados</option>
+              <option value="15">15 resultados</option>
+              <option value="20">todos resultados</option>
+            </select>
+          </div>
+          <div class="painel-lr-rows" id="painelLR_away"></div>
+        </div>
+
+        <div class="painel-std-block">
+          <div class="painel-std-tabs" id="painelStdTabs">
+            <button class="painel-std-tab active" onclick="_painelStdSetTable('table', this)">Classificações</button>
+            <button class="painel-std-tab" onclick="_painelStdSetTable('form', this)">Forma</button>
+            <button class="painel-std-tab" onclick="_painelStdSetTable('over_under', this)">Over/Under</button>
+            <button class="painel-std-tab" onclick="_painelStdSetTable('ht_ft', this)">HT/FT</button>
+            <button class="painel-std-tab" onclick="_painelStdSetTable('top_scorers', this)">Marcadores</button>
+          </div>
+          <div class="painel-std-subrow" id="painelStdSubRow">
+            <button class="painel-std-subtab active" onclick="_painelStdSetSub('', this)">Total</button>
+            <button class="painel-std-subtab" onclick="_painelStdSetSub('home', this)">Casa</button>
+            <button class="painel-std-subtab" onclick="_painelStdSetSub('away', this)">Fora</button>
+          </div>
+          <div class="painel-std-variants" id="painelStdVariants" style="display:none"></div>
+          <div class="painel-std-table-wrap" id="painelStdTableWrap" style="margin-top:8px">
+            <div class="live-loading"><div class="spinner"></div>Carregando...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- HOJE wrapper (sidebar + detail) — aba removida da navegação (substituída pelo
        Hoje 2), mas o wrapper e o carregamento de allMatches/btPatterns continuam
@@ -2470,6 +2754,7 @@ function switchView(view, btn) {
   const live2Panel      = document.getElementById('live2Panel');
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
+  const painelWrapper = document.getElementById('painelWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -2478,13 +2763,19 @@ function switchView(view, btn) {
   live2Panel.classList.remove('active');
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
+  painelWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
   clearInterval(_today2AutoRefresh);
   clearInterval(_placarContraAutoRefresh);
+  clearInterval(_painelAutoRefresh);
 
-  if (view === 'today') {
+  if (view === 'painel') {
+    painelWrapper.style.display = 'flex';
+    loadPainelMatches();
+    _painelAutoRefresh = setInterval(loadPainelMatches, 20000);
+  } else if (view === 'today') {
     todayWrapper.style.display = 'flex';
   } else if (view === 'today2') {
     today2Wrapper.style.display = 'flex';
@@ -2506,6 +2797,477 @@ function switchView(view, btn) {
     _placarContraLoad();
     _placarContraAutoRefresh = setInterval(_placarContraLoad, 20000);
   }
+}
+
+// ── PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) do BetExplorer ──────────
+let _painelAutoRefresh = null;
+let _painelCollapsed = {};   // league key -> true (colapsada), persiste enquanto a aba estiver aberta
+let _painelSelectedDate = new Date();      // dia sendo exibido (hoje por padrão)
+let _painelCalendarViewDate = new Date();  // mês exibido dentro do popup do calendário (pode diferir do selecionado)
+
+function _painelDateToStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _painelSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function _painelUpdateDateLabel() {
+  const label = document.getElementById('painelDateLabel');
+  if (!label) return;
+  const today = new Date();
+  if (_painelSameDay(_painelSelectedDate, today)) {
+    label.textContent = 'Hoje';
+  } else {
+    const y = new Date(today); y.setDate(today.getDate() - 1);
+    const t = new Date(today); t.setDate(today.getDate() + 1);
+    if (_painelSameDay(_painelSelectedDate, y)) label.textContent = 'Ontem';
+    else if (_painelSameDay(_painelSelectedDate, t)) label.textContent = 'Amanhã';
+    else label.textContent = String(_painelSelectedDate.getDate()).padStart(2, '0') + '/' + String(_painelSelectedDate.getMonth() + 1).padStart(2, '0');
+  }
+}
+function _painelShiftDay(delta) {
+  const d = new Date(_painelSelectedDate);
+  d.setDate(d.getDate() + delta);
+  _painelSelectedDate = d;
+  _painelCollapsed = {};
+  _painelUpdateDateLabel();
+  document.getElementById('painelCalendarPopup').style.display = 'none';
+  loadPainelMatches();
+}
+function _painelGoToDate(d) {
+  _painelSelectedDate = d;
+  _painelCollapsed = {};
+  _painelUpdateDateLabel();
+  document.getElementById('painelCalendarPopup').style.display = 'none';
+  loadPainelMatches();
+}
+function _painelToggleCalendar() {
+  const popup = document.getElementById('painelCalendarPopup');
+  const opening = popup.style.display === 'none';
+  if (opening) {
+    _painelCalendarViewDate = new Date(_painelSelectedDate);
+    _painelRenderCalendar();
+  }
+  popup.style.display = opening ? 'block' : 'none';
+}
+function _painelShiftCalendarMonth(delta) {
+  _painelCalendarViewDate.setMonth(_painelCalendarViewDate.getMonth() + delta);
+  _painelRenderCalendar();
+}
+const _PAINEL_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function _painelRenderCalendar() {
+  const popup = document.getElementById('painelCalendarPopup');
+  const view = _painelCalendarViewDate;
+  const year = view.getFullYear(), month = view.getMonth();
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // semana começa na segunda
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+
+  let cells = '';
+  for (let i = firstDow - 1; i >= 0; i--) {
+    cells += `<div class="painel-calendar-day muted">${daysInPrevMonth - i}</div>`;
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    let cls = 'painel-calendar-day';
+    if (_painelSameDay(d, today)) cls += ' today';
+    else if (_painelSameDay(d, _painelSelectedDate)) cls += ' selected';
+    cells += `<div class="${cls}" onclick="_painelGoToDate(new Date(${year},${month},${day}))">${day}</div>`;
+  }
+  const totalCells = firstDow + daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for (let day = 1; day <= trailing; day++) {
+    cells += `<div class="painel-calendar-day muted">${day}</div>`;
+  }
+
+  popup.innerHTML = `
+    <div class="painel-calendar-header">
+      <button onclick="_painelShiftCalendarMonth(-1)">‹</button>
+      <span>${_PAINEL_MESES[month]} ${year}</span>
+      <button onclick="_painelShiftCalendarMonth(1)">›</button>
+    </div>
+    <div class="painel-calendar-grid">
+      <div class="dow">Mo</div><div class="dow">Tu</div><div class="dow">We</div><div class="dow">Th</div><div class="dow">Fr</div><div class="dow">Sa</div><div class="dow">Su</div>
+      ${cells}
+    </div>
+    <div class="painel-calendar-links">
+      <a onclick="_painelGoToDate(new Date())">Jogos de hoje <span>›</span></a>
+      <a onclick="_painelGoToDate((function(){var d=new Date();d.setDate(d.getDate()-1);return d;})())">Resultados de ontem <span>›</span></a>
+    </div>`;
+}
+document.addEventListener('click', function (e) {
+  const popup = document.getElementById('painelCalendarPopup');
+  if (!popup || popup.style.display === 'none') return;
+  if (e.target.closest('#painelCalendarPopup') || e.target.closest('.painel-datebar-label')) return;
+  popup.style.display = 'none';
+});
+
+function _painelOddCell(v) {
+  return v ? `<span class="painel-odd">${v}</span>` : `<span class="painel-odd empty">-</span>`;
+}
+
+function _painelToggleLeague(key, headerEl) {
+  _painelCollapsed[key] = !_painelCollapsed[key];
+  const body = document.getElementById('painelBody_' + key);
+  if (body) body.style.display = _painelCollapsed[key] ? 'none' : '';
+  headerEl.classList.toggle('collapsed', !!_painelCollapsed[key]);
+}
+
+let _painelLastData = null;   // último payload recebido do backend, pra refiltrar sem refetch
+let _painelViewFilter = 'all'; // 'all' | 'live' | 'next'
+
+function _painelIsLive(m) {
+  return /^\d+['+]/.test(m.time || '');
+}
+function _painelIsNext(m) {
+  return /^\d{1,2}:\d{2}$/.test(m.time || '');
+}
+
+function _painelSetFilter(filter, btn) {
+  _painelViewFilter = filter;
+  document.querySelectorAll('#painelSubtabs .painel-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
+let _painelCurrentMatchUrl = null;
+let _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
+
+function _painelOpenAnalysis(eventId, home, away, matchUrl) {
+  document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
+  document.getElementById('painelAnalysisOverlay').style.display = 'flex';
+  _painelCurrentMatchUrl = matchUrl;
+  _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
+  document.getElementById('painelLRTeamName_home').textContent = home;
+  document.getElementById('painelLRTeamName_away').textContent = away;
+  document.getElementById('painelH2HHomeName').textContent = home;
+  document.getElementById('painelH2HAwayName').textContent = away;
+  _painelLoadLastResults('home');
+  _painelLoadLastResults('away');
+  _painelLoadH2H();
+
+  _painelStdState = { table: 'table', sub: '', count: '5', line: '2.5' };
+  _painelStdCache = {};
+  _painelStdHomeName = home;
+  _painelStdAwayName = away;
+  document.querySelectorAll('#painelStdTabs .painel-std-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.querySelectorAll('#painelStdSubRow .painel-std-subtab').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.getElementById('painelStdSubRow').style.display = '';
+  _painelLoadStandings();
+}
+
+function _painelH2HRow(m) {
+  const scoreText = (m.score_home != null && m.score_away != null) ? `${m.score_home}:${m.score_away}` : '-';
+  const oddsHtml = (m.odds || []).map(o =>
+    `<span class="painel-h2h-odd${o.won ? ' won' : ''}">${o.value || '-'}</span>`).join('');
+  return `
+    <a class="painel-h2h-row" href="${m.match_url || '#'}" target="_blank" rel="noopener">
+      <span class="painel-h2h-team-name">${m.home}</span>
+      <span class="painel-h2h-score">${scoreText}</span>
+      <span class="painel-h2h-team-name away">${m.away}</span>
+      <span class="painel-h2h-odds">${oddsHtml}</span>
+      <span class="painel-h2h-date">${m.date || ''}</span>
+    </a>`;
+}
+
+function _painelLoadH2H() {
+  const list = document.getElementById('painelH2HList');
+  const bar = document.getElementById('painelH2HBar');
+  list.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando confronto direto...</div>`;
+  bar.innerHTML = '';
+  fetch('/api/painel/h2h?match_url=' + encodeURIComponent(_painelCurrentMatchUrl))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        list.innerHTML = `<div class="live-loading">${data.error}</div>`;
+        return;
+      }
+      const s = data.summary;
+      document.getElementById('painelH2HWinsHome').textContent = s.wins_home;
+      document.getElementById('painelH2HDraws').textContent = s.draws;
+      document.getElementById('painelH2HWinsAway').textContent = s.wins_away;
+      bar.innerHTML = `
+        <div class="painel-h2h-bar-home" style="width:${s.pct_home}%"></div>
+        <div class="painel-h2h-bar-draw" style="width:${s.pct_draw}%"></div>
+        <div class="painel-h2h-bar-away" style="width:${s.pct_away}%"></div>`;
+      if (!data.seasons || !data.seasons.length) {
+        list.innerHTML = `<div class="live-loading">Nenhum confronto direto encontrado.</div>`;
+        return;
+      }
+      list.innerHTML = data.seasons.map(season => `
+        <div class="painel-h2h-season">${season.season}</div>
+        ${season.matches.map(_painelH2HRow).join('')}
+      `).join('');
+    })
+    .catch(err => {
+      list.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    });
+}
+
+// ── Classificações / Forma / Over-Under / HT-FT / Marcadores (aba de estatísticas
+// da liga) — cada requisição já traz TODAS as variantes juntas (5/10/15/20 jogos
+// pra Forma, todas as linhas 0.5-6.5 pro Over/Under), então só refazemos o fetch
+// quando trocamos de aba (Classificações/Forma/...) ou de Total/Casa/Fora.
+let _painelStdState = { table: 'table', sub: '', count: '5', line: '2.5' };
+let _painelStdCache = {};   // "table|sub" -> {variant: {columns, rows}}
+let _painelStdHomeName = null, _painelStdAwayName = null;
+
+function _painelStdSetTable(table, btn) {
+  _painelStdState.table = table;
+  document.querySelectorAll('#painelStdTabs .painel-std-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('painelStdSubRow').style.display = table === 'top_scorers' ? 'none' : '';
+  _painelLoadStandings();
+}
+function _painelStdSetSub(sub, btn) {
+  _painelStdState.sub = sub;
+  document.querySelectorAll('#painelStdSubRow .painel-std-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _painelLoadStandings();
+}
+function _painelStdSetVariant(value) {
+  if (_painelStdState.table === 'form') _painelStdState.count = value;
+  else if (_painelStdState.table === 'over_under') _painelStdState.line = value;
+  _painelStdRenderCurrent();
+}
+
+const _PAINEL_STD_BADGE_LABEL = { w: 'W', d: 'D', l: 'L', s: '?', over: 'O', under: 'U' };
+function _painelStdBadges(codes) {
+  return `<div class="painel-std-form">${(codes || []).map(c =>
+    `<span class="painel-std-badge ${c}">${_PAINEL_STD_BADGE_LABEL[c] || '?'}</span>`
+  ).join('')}</div>`;
+}
+
+function _painelStdRenderCurrent() {
+  const cacheKey = _painelStdState.table + '|' + _painelStdState.sub;
+  const data = _painelStdCache[cacheKey];
+  const wrap = document.getElementById('painelStdTableWrap');
+  const variantsBox = document.getElementById('painelStdVariants');
+  if (!data) return;
+
+  let variantKey = 'default';
+  if (_painelStdState.table === 'form') variantKey = _painelStdState.count;
+  else if (_painelStdState.table === 'over_under') variantKey = _painelStdState.line;
+
+  const variantKeys = Object.keys(data);
+  if (variantKeys.length > 1 && variantKeys[0] !== 'default') {
+    variantsBox.style.display = 'flex';
+    if (!data[variantKey]) variantKey = variantKeys[0];
+    variantsBox.innerHTML = variantKeys.map(v => `
+      <button class="painel-std-variant-btn${v === variantKey ? ' active' : ''}" onclick="_painelStdSetVariant('${v}')">${v}</button>
+    `).join('');
+  } else {
+    variantsBox.style.display = 'none';
+    variantsBox.innerHTML = '';
+  }
+
+  const table = data[variantKey];
+  if (!table || !table.rows.length) {
+    wrap.innerHTML = `<div class="live-loading">Nenhum dado encontrado.</div>`;
+    return;
+  }
+
+  const theadHtml = table.columns.map(c =>
+    `<th title="${c.title || ''}">${c.key === 'participant_name' ? 'Equipa' : (c.label || '')}</th>`).join('');
+
+  // Marcadores: só interessa quem joga nos dois times do confronto (nacionalidade/posição não importam)
+  const rowsSource = _painelStdState.table === 'top_scorers'
+    ? table.rows.filter(r => r.cells.team_name === _painelStdHomeName || r.cells.team_name === _painelStdAwayName)
+    : table.rows;
+
+  if (!rowsSource.length) {
+    wrap.innerHTML = `<div class="live-loading">Nenhum artilheiro encontrado para esses times.</div>`;
+    return;
+  }
+
+  const rowsHtml = rowsSource.map(row => {
+    const nameKey = table.columns.find(c => ['participant_name', 'player_name'].includes(c.key))?.key;
+    const name = nameKey ? row.cells[nameKey] : '';
+    const highlight = (name === _painelStdHomeName || name === _painelStdAwayName) ? ' painel-std-highlight' : '';
+    const tds = table.columns.map(c => {
+      const val = row.cells[c.key];
+      if (c.key === nameKey) {
+        return `<td><div class="painel-std-row-name">${row.logo ? `<img src="${row.logo}">` : ''}<span>${val}</span></div></td>`;
+      }
+      if (c.key === 'form' || c.key === 'last_5') {
+        return `<td>${_painelStdBadges(val)}</td>`;
+      }
+      return `<td>${val != null ? val : ''}</td>`;
+    }).join('');
+    return `<tr class="${highlight.trim()}">${tds}</tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="painel-std-table">
+      <thead><tr>${theadHtml}</tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+}
+
+function _painelLoadStandings() {
+  const cacheKey = _painelStdState.table + '|' + _painelStdState.sub;
+  const wrap = document.getElementById('painelStdTableWrap');
+  if (_painelStdCache[cacheKey]) {
+    _painelStdRenderCurrent();
+    return;
+  }
+  wrap.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  document.getElementById('painelStdVariants').style.display = 'none';
+  const url = '/api/painel/standings?match_url=' + encodeURIComponent(_painelCurrentMatchUrl)
+    + '&table=' + _painelStdState.table + '&sub=' + _painelStdState.sub;
+  fetch(url).then(r => r.json()).then(data => {
+    if (data.error) {
+      wrap.innerHTML = `<div class="live-loading">${data.error}</div>`;
+      return;
+    }
+    _painelStdCache[cacheKey] = data;
+    _painelStdRenderCurrent();
+  }).catch(err => {
+    wrap.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+  });
+}
+
+function _painelCloseAnalysis() {
+  document.getElementById('painelAnalysisOverlay').style.display = 'none';
+}
+
+function _painelLRChange(side, field, value) {
+  _painelLRState[side][field] = value;
+  _painelLoadLastResults(side);
+}
+
+function _painelLRRow(row) {
+  const sh = parseInt(row.score_home, 10), sa = parseInt(row.score_away, 10);
+  let outcome = null;
+  if (!isNaN(sh) && !isNaN(sa)) outcome = sh > sa ? 'home' : (sa > sh ? 'away' : 'draw');
+  const scoreCls = outcome ? ('painel-lr-score-' + outcome) : '';
+  const oddLabels = ['home', 'draw', 'away'];
+  const oddsHtml = [0, 1, 2].map(i => {
+    const v = row.odds && row.odds[i];
+    const hl = outcome === oddLabels[i];
+    return `<span class="painel-lr-odd${hl ? ' hl-' + outcome : ''}">${v || '-'}</span>`;
+  }).join('');
+  const scoreText = (row.score_home != null && row.score_away != null) ? `${row.score_home}:${row.score_away}` : '-';
+  return `
+    <a class="painel-lr-row" href="${row.match_url || '#'}" target="_blank" rel="noopener">
+      <span class="painel-lr-date">${row.date || ''}</span>
+      <span class="painel-lr-team">${row.home}</span>
+      <span class="painel-lr-score ${scoreCls}">${scoreText}</span>
+      <span class="painel-lr-team away">${row.away}</span>
+      <span class="painel-lr-odds">${oddsHtml}</span>
+    </a>`;
+}
+
+function _painelLoadLastResults(side) {
+  const container = document.getElementById('painelLR_' + side);
+  if (!container || !_painelCurrentMatchUrl) return;
+  container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  const state = _painelLRState[side];
+  const url = '/api/painel/last_results?match_url=' + encodeURIComponent(_painelCurrentMatchUrl)
+    + '&side=' + side + '&count=' + state.count + '&all=' + (state.tournament === '2' ? '1' : '0');
+  fetch(url).then(r => r.json()).then(data => {
+    if (data.error) {
+      container.innerHTML = `<div class="live-loading">${data.error}</div>`;
+      return;
+    }
+    if (data.team_name) document.getElementById('painelLRTeamName_' + side).textContent = data.team_name;
+    if (!data.rows || !data.rows.length) {
+      container.innerHTML = `<div class="live-loading">Nenhum resultado encontrado.</div>`;
+      return;
+    }
+    container.innerHTML = data.rows.map(_painelLRRow).join('');
+  }).catch(err => {
+    container.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+  });
+}
+
+function _painelRender(data) {
+  _painelLastData = data;
+  const container = document.getElementById('painelMatches');
+  if (!container) return;
+  if (data.error) {
+    container.innerHTML = `<div class="live-loading">Erro ao carregar jogos: ${data.error}</div>`;
+    return;
+  }
+  if (!data.leagues || !data.leagues.length) {
+    container.innerHTML = `<div class="live-loading">Nenhum jogo encontrado.</div>`;
+    return;
+  }
+
+  let liveCount = 0;
+  data.leagues.forEach(lg => lg.matches.forEach(m => { if (_painelIsLive(m)) liveCount++; }));
+  const liveBadge = document.getElementById('painelLiveBadge');
+  if (liveBadge) liveBadge.textContent = liveCount;
+
+  const filterFn = _painelViewFilter === 'live' ? _painelIsLive
+    : _painelViewFilter === 'next' ? _painelIsNext
+    : () => true;
+
+  const leaguesFiltered = data.leagues
+    .map(lg => ({ ...lg, matches: lg.matches.filter(filterFn) }))
+    .filter(lg => lg.matches.length);
+
+  if (!leaguesFiltered.length) {
+    container.innerHTML = `<div class="live-loading">Nenhum jogo nesse filtro.</div>`;
+    return;
+  }
+
+  container.innerHTML = leaguesFiltered.map(lg => {
+    const key = String(lg.key).replace(/[^a-zA-Z0-9_-]/g, '');
+    const collapsed = !!_painelCollapsed[key];
+    const rows = lg.matches.map(m => {
+      const isLive = _painelIsLive(m);
+      const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
+      const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
+        ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
+      const homeEsc = String(m.home).replace(/'/g, "\\'");
+      const awayEsc = String(m.away).replace(/'/g, "\\'");
+      return `
+        <div class="painel-match-row">
+          <a href="${m.match_url || '#'}" target="_blank" rel="noopener" style="grid-column:1/3;display:contents">
+            <span class="${timeClass}">${m.time || ''}</span>
+            <span class="painel-match-teams">
+              <span class="painel-team">${m.home}</span>
+              ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
+              <span class="painel-team">${m.away}</span>
+            </span>
+          </a>
+          ${_painelOddCell(m.odd_1)}
+          ${_painelOddCell(m.odd_x)}
+          ${_painelOddCell(m.odd_2)}
+          ${_painelOddCell(m.odd_over)}
+          ${_painelOddCell(m.odd_under)}
+          <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}')">📊</button>
+        </div>`;
+    }).join('');
+    return `
+      <div class="painel-league">
+        <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_painelToggleLeague('${key}', this)">
+          ${lg.flag_url ? `<img src="${lg.flag_url}" alt="">` : ''}
+          <span>${lg.league_name}</span>
+          <span class="painel-arrow">▲</span>
+        </div>
+        <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
+          <div class="painel-league-cols">
+            <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+          </div>
+          ${rows}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function loadPainelMatches() {
+  const today = new Date();
+  const dateParam = _painelSameDay(_painelSelectedDate, today) ? '' : ('?date=' + _painelDateToStr(_painelSelectedDate));
+  fetch('/api/painel/matches' + dateParam)
+    .then(r => r.json())
+    .then(_painelRender)
+    .catch(err => {
+      const container = document.getElementById('painelMatches');
+      if (container) container.innerHTML = `<div class="live-loading">Erro ao carregar jogos: ${err}</div>`;
+    });
 }
 
 // Sub-abas internas da aba Backtest (Mercados Tradicionais / Placar Exato) —

@@ -5,6 +5,7 @@ from flask import Flask, jsonify, send_from_directory, abort, request
 import json, os, glob, re, threading, time, sqlite3, itertools, math
 import requests as http_req
 from datetime import datetime
+from bs4 import BeautifulSoup
 import github_storage
 
 FOTMOB_HEADERS = {
@@ -325,6 +326,540 @@ def _convicao_score(m, is_home):
 
 
 APP_VERSION = "2026-05-18-v9"
+
+# ── PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) do BetExplorer ──────────
+# A listagem de jogos por liga do BetExplorer (homepage) já vem 100% renderizada
+# em HTML no endpoint /gres/ajax/homepage-data.php (sem precisar de Selenium/JS).
+# Cada chamada só traz UM tipo de aposta por vez (betType=1x2 ou betType=ou), então
+# buscamos as duas e casamos os jogos pelo event-id pra ter 1/X/2 + Over/Under juntos.
+BETEXPLORER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.betexplorer.com/br/",
+    "Accept": "text/html, */*; q=0.01",
+    "X-Requested-With": "XMLHttpRequest",
+}
+BETEXPLORER_BASE = "https://www.betexplorer.com"
+_PAINEL_CACHE_TTL = 25  # odds mudam a todo momento, mas não precisa bater no site a cada request
+_painel_cache = {}   # cache_key (data ou "today") -> {"ts":, "data":}
+_painel_lock = threading.Lock()
+
+
+def _be_fetch_bettype_html(bettype, date_params=None):
+    """date_params, quando informado, é {"year":, "month":, "day":} — mesmo
+    parâmetro que o calendário do BetExplorer usa pra navegar entre dias."""
+    params = {"tab": "all", "betType": bettype, "lang": "br", "tz": "-3:00", "start": 0, "end": 300}
+    if date_params:
+        params.update(date_params)
+    r = http_req.get(
+        f"{BETEXPLORER_BASE}/gres/ajax/homepage-data.php",
+        params=params, headers=BETEXPLORER_HEADERS, timeout=15,
+    )
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    return r.text
+
+
+def _be_parse_bettype(html):
+    """Parseia o fragment HTML do BetExplorer pra um tipo de aposta, retornando
+    {event_id: {...}} e a lista de ligas na ordem em que aparecem na página."""
+    soup = BeautifulSoup(html, "html.parser")
+    matches = {}
+    leagues_order = []
+    for ul in soup.find_all("ul", class_="leagues-list"):
+        country = ul.get("data-country", "")
+        header_li = ul.find("li", class_="js-tournament")
+        league_name, flag_url, ttid = "", "", None
+        if header_li:
+            name_tag = header_li.find("p", class_="leaguesNames")
+            if name_tag:
+                league_name = name_tag.get_text(strip=True)
+            img_tag = header_li.find("img")
+            if img_tag:
+                flag_url = img_tag.get("data-src") or img_tag.get("src") or ""
+            ttid = header_li.get("data-ttid")
+        league_key = ttid or league_name
+        leagues_order.append({"key": league_key, "country": country, "league_name": league_name, "flag_url": flag_url})
+
+        for row in ul.find_all("li", class_="table-main__tournamentLiContent"):
+            event_id = row.get("data-event-id")
+            if not event_id:
+                continue
+            status_el = row.select_one(".matchDateStatus")
+            status_text = status_el.get_text(strip=True) if status_el else ""
+
+            participants = row.select(".table-main__truncate")
+            home = participants[0].get_text(strip=True) if len(participants) > 0 else ""
+            away = participants[1].get_text(strip=True) if len(participants) > 1 else ""
+
+            score_home = score_away = None
+            score_div = row.select_one(".mainResult.table-main__Bold.mobileHidden")
+            if score_div:
+                parts = [d.get_text(strip=True) for d in score_div.find_all("div")]
+                digits = [p for p in parts if p and p not in ("-", ":")]
+                if len(digits) >= 2:
+                    score_home, score_away = digits[0], digits[1]
+
+            link_tag = row.find("a", attrs={"data-live-cell": "matchlink"})
+            match_url = link_tag.get("href") if link_tag else None
+
+            odds_wrap = row.select_one(".oddsColumn")
+            values, line = [], None
+            if odds_wrap:
+                line_div = odds_wrap.find("div", class_="table-main__oddOU")
+                if line_div:
+                    line = line_div.get_text(strip=True)
+                for odd_div in odds_wrap.select(".table-main__odd"):
+                    btn = odd_div.find(["button", "p"])
+                    values.append(btn.get("data-odd") if btn else None)
+
+            try:
+                ts = int(row.get("data-ts") or 0)
+            except (TypeError, ValueError):
+                ts = 0
+
+            matches[event_id] = {
+                "event_id": event_id, "league_key": league_key, "ts": ts,
+                "status_text": status_text, "home": home, "away": away,
+                "score_home": score_home, "score_away": score_away,
+                "match_url": match_url, "line": line, "odds": values,
+            }
+    return matches, leagues_order
+
+
+def _painel_fetch_matches(force=False, date_str=None):
+    """date_str: "YYYY-MM-DD" opcional — qualquer dia navegável pelo calendário
+    do BetExplorer. None/"" = dia atual (comportamento igual ao botão "Hoje")."""
+    now = time.time()
+    cache_key = date_str or "today"
+    with _painel_lock:
+        cached = _painel_cache.get(cache_key)
+        if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
+            return cached["data"]
+
+        date_params = None
+        if date_str:
+            try:
+                y, mo, d = date_str.split("-")
+                date_params = {"year": y, "month": mo, "day": d}
+            except ValueError:
+                date_params = None
+
+        try:
+            html_1x2 = _be_fetch_bettype_html("1x2", date_params)
+            html_ou  = _be_fetch_bettype_html("ou", date_params)
+            matches_1x2, leagues_order = _be_parse_bettype(html_1x2)
+            matches_ou, _ = _be_parse_bettype(html_ou)
+        except Exception as e:
+            return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
+
+        leagues_map = {}
+        for lg in leagues_order:
+            leagues_map.setdefault(lg["key"], dict(lg, matches=[]))
+
+        for event_id, m in matches_1x2.items():
+            lg = leagues_map.get(m["league_key"])
+            if lg is None:
+                continue
+            ou = matches_ou.get(event_id)
+            odds = m["odds"] + [None] * (3 - len(m["odds"]))
+            ou_odds = (ou["odds"] if ou else []) + [None, None]
+            lg["matches"].append({
+                "event_id": event_id,
+                "time": m["status_text"],
+                "home": m["home"], "away": m["away"],
+                "score_home": m["score_home"], "score_away": m["score_away"],
+                "match_url": (BETEXPLORER_BASE + m["match_url"]) if m["match_url"] else None,
+                "odd_1": odds[0], "odd_x": odds[1], "odd_2": odds[2],
+                "ou_line": ou["line"] if ou else None,
+                "odd_over": ou_odds[0], "odd_under": ou_odds[1],
+                "ts": m["ts"],
+            })
+
+        leagues = [lg for lg in leagues_map.values() if lg["matches"]]
+        for lg in leagues:
+            lg["matches"].sort(key=lambda x: x["ts"])
+
+        data = {"leagues": leagues, "updated_at": now, "date": date_str}
+        _painel_cache[cache_key] = {"ts": now, "data": data}
+        return data
+
+
+@app.route("/api/painel/matches")
+def api_painel_matches():
+    force = request.args.get("force") == "1"
+    date_str = request.args.get("date") or None  # "YYYY-MM-DD"
+    return jsonify(_painel_fetch_matches(force=force, date_str=date_str))
+
+
+# ── Widget de análise — "Últimos resultados" de cada time (BetExplorer) ────────
+# Essa seção do BetExplorer só é montada via JS depois que a página carrega (o
+# endpoint /gres/ajax/match-content.php exige um token "ts" gerado no client,
+# sem padrão fixo pra reproduzir com um simples requests.get). Por isso usamos o
+# Playwright (headless) UMA VEZ por partida só pra "ler" da página já renderizada
+# o token de torneio ("par") e o ID de cada time — depois disso, trocar entre
+# 5/10/15/todos os resultados ou "só esse torneio"/"todos os torneios" é um
+# requests.get direto em /res/ajax/team-matches.php (rápido, sem precisar mais
+# de browser), então o cache do contexto vale a pena mesmo custando ~2-4s a mais
+# na primeira vez que alguém abre a análise de um jogo.
+_be_context_cache = {}   # match_url -> {"ts":, "data": {"par":, "home":{"id","name"}, "away":{...}}}
+_be_context_lock = threading.Lock()
+_BE_CONTEXT_TTL = 6 * 3600
+_be_playwright_semaphore = threading.Semaphore(2)  # evita várias janelas headless simultâneas
+
+
+def _be_fetch_match_context(match_url):
+    with _be_context_lock:
+        cached = _be_context_cache.get(match_url)
+        if cached and (time.time() - cached["ts"]) < _BE_CONTEXT_TTL:
+            return cached["data"]
+
+    from playwright.sync_api import sync_playwright
+
+    with _be_playwright_semaphore:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(user_agent=BETEXPLORER_HEADERS["User-Agent"])
+                page.goto(match_url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=20000, state="attached")
+                selects = page.query_selector_all("[id^='lm_'][id$='_sel_type']")
+                headers = page.query_selector_all(".last-results__title .componentHeader")
+                par, teams = None, []
+                for i, sel in enumerate(selects[:2]):
+                    onchange = sel.get_attribute("onchange") or ""
+                    m = re.search(r"match_change_team_matches\('([^']*)',\s*'([^']*)',\s*'([^']*)'", onchange)
+                    if not m:
+                        continue
+                    par = m.group(1)
+                    name = headers[i].inner_text() if i < len(headers) else ""
+                    name = re.sub(r"^.*?:\s*", "", name).strip()
+                    teams.append({"id": m.group(3), "name": name})
+            finally:
+                browser.close()
+
+    if par is None or len(teams) < 2:
+        raise RuntimeError("Não foi possível carregar os últimos resultados dessa partida.")
+
+    data = {"par": par, "home": teams[0], "away": teams[1]}
+    with _be_context_lock:
+        _be_context_cache[match_url] = {"ts": time.time(), "data": data}
+    return data
+
+
+def _be_parse_team_matches(html):
+    soup = BeautifulSoup(html, "html.parser")
+    rows = []
+    for block in soup.select(".head-to-head__row"):
+        date_span = block.select_one(".head-to-head__date .mobileHidden")
+        date_text = date_span.get_text(strip=True) if date_span else ""
+
+        home_el = block.select_one(".table-main__participantHome p, .table-main__participantHome div")
+        away_el = block.select_one(".table-main__participantAway p, .table-main__participantAway div")
+        home_name = home_el.get_text(strip=True) if home_el else ""
+        away_name = away_el.get_text(strip=True) if away_el else ""
+
+        result_div = None
+        for d in block.select(".last-results__form-results"):
+            if "desktopHidden" not in (d.get("class") or []):
+                result_div = d
+                break
+        result, score_home, score_away = None, None, None
+        if result_div:
+            for c in (result_div.get("class") or []):
+                if c.startswith("last-results__form-results-"):
+                    result = c.rsplit("-", 1)[-1]  # W / D / L
+            nums = [t for s in result_div.find_all("span") if (t := s.get_text(strip=True)) and t != ":"]
+            if len(nums) >= 2:
+                score_home, score_away = nums[0], nums[1]
+
+        odds = []
+        odds_wrap = block.select_one(".last-results__odds-align")
+        if odds_wrap:
+            for odd_el in odds_wrap.select(".table-main__odd"):
+                span = odd_el.find("span")
+                odds.append(span.get("data-odd") if span else None)
+
+        link_tag = block.select_one("a[href]")
+        match_href = (BETEXPLORER_BASE + link_tag.get("href")) if link_tag else None
+
+        rows.append({
+            "date": date_text, "home": home_name, "away": away_name,
+            "score_home": score_home, "score_away": score_away,
+            "result": result, "odds": odds, "match_url": match_href,
+        })
+    return rows
+
+
+def _be_fetch_team_last_results(match_url, side, count=5, all_tournaments=False):
+    ctx = _be_fetch_match_context(match_url)
+    team = ctx.get(side)
+    if not team:
+        raise ValueError("side inválido (use 'home' ou 'away')")
+    event_id = match_url.rstrip("/").split("/")[-1]
+    params = {
+        "par": ctx["par"], "event": event_id, "team": team["id"],
+        "type": 2 if all_tournaments else 1, "count": count, "lang": "br",
+    }
+    r = http_req.get(
+        f"{BETEXPLORER_BASE}/res/ajax/team-matches.php",
+        params=params, headers=BETEXPLORER_HEADERS, timeout=15,
+    )
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    return {"team_name": team["name"], "rows": _be_parse_team_matches(r.text)}
+
+
+def _be_country_league_path(match_url):
+    """Extrai país/liga do caminho da URL do jogo — usado pra montar a URL da
+    página de confrontos diretos (mutual-matches), que é por país+liga."""
+    m = re.search(r"/football/([^/]+)/([^/]+)/", match_url)
+    if not m:
+        raise ValueError("Não foi possível identificar a liga a partir da URL do jogo.")
+    return m.group(1), m.group(2)
+
+
+def _be_extract_td_odd(td):
+    classes = td.get("class") or []
+    colored = "colored" in classes
+    val = td.get("data-odd")
+    if not val:
+        inner = td.find(attrs={"data-odd": True})
+        val = inner.get("data-odd") if inner else None
+    return val, colored
+
+
+def _be_parse_h2h(html):
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", id="js-mutual-table")
+    if not table:
+        return []
+    seasons = []
+    current = None
+    for tr in table.find_all("tr"):
+        if "head-to-head__header" in (tr.get("class") or []):
+            th = tr.find("th")
+            link = th.find("a") if th else None
+            current = {
+                "season": link.get_text(strip=True) if link else (th.get_text(strip=True) if th else ""),
+                "matches": [],
+            }
+            seasons.append(current)
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 7 or current is None:
+            continue
+        home_name = tds[0].get_text(strip=True)
+        away_name = tds[1].get_text(strip=True)
+        score_link = tds[2].find("a")
+        score_text = score_link.get_text(strip=True) if score_link else tds[2].get_text(strip=True)
+        match_href = (BETEXPLORER_BASE + score_link.get("href")) if score_link and score_link.get("href") else None
+        score_parts = re.split(r"[:\-]", score_text)
+        score_home = score_parts[0].strip() if len(score_parts) == 2 else None
+        score_away = score_parts[1].strip() if len(score_parts) == 2 else None
+        odds = []
+        for td in tds[3:6]:
+            val, colored = _be_extract_td_odd(td)
+            odds.append({"value": val, "won": colored})
+        current["matches"].append({
+            "home": home_name, "away": away_name,
+            "score_home": score_home, "score_away": score_away,
+            "match_url": match_href, "date": tds[6].get_text(strip=True), "odds": odds,
+        })
+    return seasons
+
+
+def _be_h2h_summary(seasons, home_name, away_name):
+    wins_home = wins_away = draws = 0
+    for season in seasons:
+        for m in season["matches"]:
+            try:
+                sh, sa = int(m["score_home"]), int(m["score_away"])
+            except (TypeError, ValueError):
+                continue
+            if sh == sa:
+                draws += 1
+            else:
+                winner = m["home"] if sh > sa else m["away"]
+                if winner == home_name:
+                    wins_home += 1
+                elif winner == away_name:
+                    wins_away += 1
+    total = wins_home + wins_away + draws
+    pct_home = round(100 * wins_home / total) if total else 0
+    pct_away = round(100 * wins_away / total) if total else 0
+    return {
+        "wins_home": wins_home, "wins_away": wins_away, "draws": draws,
+        "pct_home": pct_home, "pct_away": pct_away, "pct_draw": 100 - pct_home - pct_away if total else 0,
+    }
+
+
+def _be_fetch_h2h(match_url):
+    ctx = _be_fetch_match_context(match_url)
+    country, league = _be_country_league_path(match_url)
+    r = http_req.get(
+        f"{BETEXPLORER_BASE}/br/football/{country}/{league}/mutual-matches/",
+        params={"home": ctx["home"]["id"], "away": ctx["away"]["id"], "where": 0},
+        headers=BETEXPLORER_HEADERS, timeout=15,
+    )
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    seasons = _be_parse_h2h(r.text)
+    summary = _be_h2h_summary(seasons, ctx["home"]["name"], ctx["away"]["name"])
+    return {
+        "home_name": ctx["home"]["name"], "away_name": ctx["away"]["name"],
+        "summary": summary, "seasons": seasons,
+    }
+
+
+@app.route("/api/painel/h2h")
+def api_painel_h2h():
+    match_url = request.args.get("match_url", "")
+    if not match_url.startswith(BETEXPLORER_BASE):
+        return jsonify({"error": "match_url inválido"}), 400
+    try:
+        data = _be_fetch_h2h(match_url)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
+# ── Widget de análise — Classificações / Forma / Over-Under / HT-FT / Marcadores
+# Diferente do "últimos resultados" (que precisa de Playwright pro token "ts" do
+# JOGO), o "ts" da TABELA/liga já vem embutido direto no HTML estático da página
+# do torneio (ex: /br/football/brazil/serie-a-betano/) — então dá pra pegar com
+# um requests.get simples, sem precisar de browser headless.
+_be_tournament_ts_cache = {}   # (country, league) -> {"ts":, "value": token}
+_be_tournament_ts_lock = threading.Lock()
+_BE_TOURNAMENT_TS_TTL = 6 * 3600
+_BE_STANDINGS_CACHE_TTL = 300   # 5min — tabela de classificação não muda a cada minuto
+_be_standings_cache = {}
+_be_standings_lock = threading.Lock()
+
+
+def _be_fetch_tournament_ts(country, league):
+    key = (country, league)
+    with _be_tournament_ts_lock:
+        cached = _be_tournament_ts_cache.get(key)
+        if cached and (time.time() - cached["ts"]) < _BE_TOURNAMENT_TS_TTL:
+            return cached["value"]
+
+    r = http_req.get(f"{BETEXPLORER_BASE}/br/football/{country}/{league}/", headers=BETEXPLORER_HEADERS, timeout=15)
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    m = re.search(r"standings/\?table=table&table_sub=&ts=([^&\"]+)", r.text)
+    if not m:
+        raise RuntimeError("Não foi possível encontrar o token de classificação dessa liga.")
+    token = m.group(1)
+    with _be_tournament_ts_lock:
+        _be_tournament_ts_cache[key] = {"ts": time.time(), "value": token}
+    return token
+
+
+def _be_parse_standings_table(html):
+    """Retorna {variant: {"columns":[...], "rows":[...]}}. `variant` é o sufixo
+    do id do box (ex.: "10" pra Forma-10-jogos, "2.5" pra linha do Over/Under),
+    ou "default" quando só existe uma tabela (Classificações, HT/FT)."""
+    soup = BeautifulSoup(html, "html.parser")
+    result = {}
+    for box in soup.select("[id^='box-table-type-']"):
+        box_id = box.get("id", "")
+        m = re.match(r"box-table-type-\d+-(.+)$", box_id)
+        variant = m.group(1) if m else "default"
+        table = box.find("table")
+        if not table:
+            continue
+
+        columns = []
+        thead = table.find("thead")
+        if thead:
+            for th in thead.find_all("th"):
+                columns.append({
+                    "key": th.get("data-type", ""), "label": th.get_text(strip=True), "title": th.get("title", ""),
+                })
+
+        rows = []
+        tbody = table.find("tbody")
+        for tr in (tbody.find_all("tr") if tbody else []):
+            tds = tr.find_all("td")
+            if not tds:
+                continue
+            logo_span = tr.select_one(".team-logo, .flag")
+            logo_url = None
+            if logo_span and logo_span.get("style"):
+                mlogo = re.search(r"url\(([^)]+)\)", logo_span["style"])
+                if mlogo:
+                    src = mlogo.group(1)
+                    logo_url = (BETEXPLORER_BASE + src) if src.startswith("/") else src
+
+            cells = {}
+            for col, td in zip(columns, tds):
+                if col["key"] in ("form", "last_5"):
+                    badges = []
+                    for a in td.select("a[class*='form-']"):
+                        cls = " ".join(a.get("class") or [])
+                        mres = re.search(r"form-(w|d|l|s|over|under)\b", cls)
+                        badges.append(mres.group(1) if mres else "s")
+                    cells[col["key"]] = badges
+                else:
+                    cells[col["key"]] = td.get_text(strip=True)
+            rows.append({"logo": logo_url, "cells": cells})
+        result[variant] = {"columns": columns, "rows": rows}
+    return result
+
+
+def _be_fetch_standings(match_url, table, table_sub=""):
+    country, league = _be_country_league_path(match_url)
+    cache_key = (country, league, table, table_sub)
+    now = time.time()
+    with _be_standings_lock:
+        cached = _be_standings_cache.get(cache_key)
+        if cached and (now - cached["ts"]) < _BE_STANDINGS_CACHE_TTL:
+            return cached["data"]
+
+    token = _be_fetch_tournament_ts(country, league)
+    r = http_req.get(
+        f"{BETEXPLORER_BASE}/br/football/{country}/{league}/standings/",
+        params={"table": table, "table_sub": table_sub, "ts": token, "dcheck": 0, "as-ajax": 1, "l": "br"},
+        headers=BETEXPLORER_HEADERS, timeout=15,
+    )
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    data = _be_parse_standings_table(r.text)
+    with _be_standings_lock:
+        _be_standings_cache[cache_key] = {"ts": now, "data": data}
+    return data
+
+
+@app.route("/api/painel/standings")
+def api_painel_standings():
+    match_url = request.args.get("match_url", "")
+    table = request.args.get("table", "table")  # table | form | over_under | ht_ft | top_scorers
+    table_sub = request.args.get("sub", "")      # "" | home | away
+    if not match_url.startswith(BETEXPLORER_BASE):
+        return jsonify({"error": "match_url inválido"}), 400
+    if table not in ("table", "form", "over_under", "ht_ft", "top_scorers"):
+        return jsonify({"error": "table inválido"}), 400
+    try:
+        data = _be_fetch_standings(match_url, table, table_sub)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
+@app.route("/api/painel/last_results")
+def api_painel_last_results():
+    match_url = request.args.get("match_url", "")
+    side = request.args.get("side", "home")
+    count = request.args.get("count", "5")
+    all_tournaments = request.args.get("all") == "1"
+    if not match_url.startswith(BETEXPLORER_BASE):
+        return jsonify({"error": "match_url inválido"}), 400
+    try:
+        data = _be_fetch_team_last_results(match_url, side, count=count, all_tournaments=all_tournaments)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
 
 @app.route("/version")
 def version():
