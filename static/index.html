@@ -1444,7 +1444,10 @@
           <div id="painelH2HList"></div>
         </div>
         <div class="painel-lr-block">
-          <div class="painel-lr-title">Últimos resultados: <span id="painelLRTeamName_home"></span></div>
+          <div class="painel-lr-title painel-h2h-toggle" onclick="_painelToggleLRBlock('home')">
+            Últimos resultados: <span id="painelLRTeamName_home"></span>
+            <i class="painel-h2h-toggle-arrow" id="painelLRToggleArrow_home">▲</i>
+          </div>
           <div class="painel-lr-controls">
             <span>Mostrar:</span>
             <select onchange="_painelLRChange('home','tournament',this.value)">
@@ -1461,7 +1464,10 @@
           <div class="painel-lr-rows" id="painelLR_home"></div>
         </div>
         <div class="painel-lr-block">
-          <div class="painel-lr-title">Últimos resultados: <span id="painelLRTeamName_away"></span></div>
+          <div class="painel-lr-title painel-h2h-toggle" onclick="_painelToggleLRBlock('away')">
+            Últimos resultados: <span id="painelLRTeamName_away"></span>
+            <i class="painel-h2h-toggle-arrow" id="painelLRToggleArrow_away">▲</i>
+          </div>
           <div class="painel-lr-controls">
             <span>Mostrar:</span>
             <select onchange="_painelLRChange('away','tournament',this.value)">
@@ -3158,6 +3164,11 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) 
   _painelH2HCollapsed = false;
   document.getElementById('painelH2HList').style.display = '';
   document.getElementById('painelH2HToggleArrow').classList.remove('collapsed');
+  _painelLRCollapsed = { home: false, away: false };
+  document.getElementById('painelLR_home').style.display = '';
+  document.getElementById('painelLR_away').style.display = '';
+  document.getElementById('painelLRToggleArrow_home').classList.remove('collapsed');
+  document.getElementById('painelLRToggleArrow_away').classList.remove('collapsed');
   _painelLoadLastResults('home');
   _painelLoadLastResults('away');
   _painelLoadH2H();
@@ -3197,6 +3208,13 @@ function _painelToggleH2HList() {
   _painelH2HCollapsed = !_painelH2HCollapsed;
   document.getElementById('painelH2HList').style.display = _painelH2HCollapsed ? 'none' : '';
   document.getElementById('painelH2HToggleArrow').classList.toggle('collapsed', _painelH2HCollapsed);
+}
+
+let _painelLRCollapsed = { home: false, away: false };
+function _painelToggleLRBlock(side) {
+  _painelLRCollapsed[side] = !_painelLRCollapsed[side];
+  document.getElementById('painelLR_' + side).style.display = _painelLRCollapsed[side] ? 'none' : '';
+  document.getElementById('painelLRToggleArrow_' + side).classList.toggle('collapsed', _painelLRCollapsed[side]);
 }
 
 function _painelLoadH2H() {
