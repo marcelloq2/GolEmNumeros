@@ -3473,9 +3473,11 @@ function _painelStdRenderCurrent() {
   const theadHtml = table.columns.map(c =>
     `<th title="${c.title || ''}">${c.key === 'participant_name' ? 'Equipa' : (c.label || '')}</th>`).join('');
 
-  // Só interessa os dados dos dois times do confronto (ou dos jogadores deles, em Marcadores)
+  // Classificações mostra a tabela completa (só destaca os dois times); as outras abas
+  // (Forma/Over-Under/HT-FT/Marcadores) filtram pra só os dois times do confronto
   const nameKey = table.columns.find(c => ['participant_name', 'player_name'].includes(c.key))?.key;
-  const filterKey = _painelStdState.table === 'top_scorers' ? 'team_name' : nameKey;
+  const filterKey = _painelStdState.table === 'table' ? null
+    : _painelStdState.table === 'top_scorers' ? 'team_name' : nameKey;
   const rowsSource = filterKey
     ? table.rows.filter(r => r.cells[filterKey] === _painelStdHomeName || r.cells[filterKey] === _painelStdAwayName)
     : table.rows;
