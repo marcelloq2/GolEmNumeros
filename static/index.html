@@ -8360,6 +8360,49 @@ async function _live2RefreshBadges(matchId) {
 // sumiria a cada ciclo; com o cache, ele é reinserido automaticamente no re-render
 let _live2FsCache = {};
 
+// ── Filtro Geral/1ºT/2ºT no gráfico de barras de pressão — mesmo padrão do
+// "Geral/1º Tempo/2º Tempo" já usado no Mapa de Chutes logo abaixo. Só filtra
+// os pontos (cada um já tem `.minute`) antes de redesenhar — não muda nada
+// nos indicadores/badges de texto, só o gráfico.
+let _live2MomentumPeriod = {}; // { [matchId]: 'all' | '1' | '2' }
+let _live2GoalsCache = {};
+
+function _live2FiltrarPointsPorPeriodo(points, period) {
+  if (period === '1') return points.filter(p => (p.minute || 0) <= 45);
+  if (period === '2') return points.filter(p => (p.minute || 0) > 45);
+  return points;
+}
+
+function _live2MomentumPeriodBtnsHtml(matchId) {
+  const atual = _live2MomentumPeriod[matchId] || 'all';
+  const btn = (val, lbl) => `<button onclick="_live2SetMomentumPeriod('${matchId}','${val}',this)"
+    style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;cursor:pointer;
+    border:1px solid ${atual===val?'var(--accent)':'var(--border)'};
+    background:${atual===val?'var(--accent)':'none'};color:${atual===val?'#fff':'var(--text2)'}">${lbl}</button>`;
+  return `<div style="display:flex;justify-content:center;gap:4px;margin-bottom:2px">
+    ${btn('all','Geral')}${btn('1','1º Tempo')}${btn('2','2º Tempo')}
+  </div>`;
+}
+
+function _live2SetMomentumPeriod(matchId, period, btn) {
+  _live2MomentumPeriod[matchId] = period;
+  const btnsWrap = btn?.parentElement;
+  if (btnsWrap) btnsWrap.outerHTML = _live2MomentumPeriodBtnsHtml(matchId);
+  _live2RedrawMomentumFiltrado(matchId);
+}
+
+function _live2RedrawMomentumFiltrado(matchId) {
+  const points = _live2PointsCache[matchId];
+  const canvasEl = document.getElementById(`live2MomentumCanvas_${matchId}`);
+  if (!points || !points.length || !canvasEl) return;
+  const period = _live2MomentumPeriod[matchId] || 'all';
+  const filtrados = _live2FiltrarPointsPorPeriodo(points, period);
+  const usar = filtrados.length ? filtrados : points; // sem pontos no período (ex: 2ºT ainda não começou) — mostra Geral em vez de vazio
+  drawMiniMomentum(canvasEl, usar, _live2GoalsCache[matchId] || []);
+  _live2AttachMomentumTooltip(canvasEl, usar);
+  _live2RenderMomentumMarkers(matchId, usar);
+}
+
 // Busca o gráfico de momentum (mesmo endpoint/desenho do Ao Vivo original — só reaproveita
 // a função de desenho `drawMiniMomentum`, sem tocar em nada do painel principal) e desenha
 // em cada card depois que o grid já foi montado
@@ -8379,14 +8422,12 @@ async function _loadLive2Momentum(matches) {
         const prevPoints = _live2PointsCache[m.id];
         const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
         const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
-        if (!unchanged) {
-          wrap.innerHTML = `<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div><div id="live2Thermo_${m.id}"></div>`;
-          const canvasEl = document.getElementById(`live2MomentumCanvas_${m.id}`);
-          drawMiniMomentum(canvasEl, points, data.goals || []);
-          _live2AttachMomentumTooltip(canvasEl, points);
-          _live2RenderMomentumMarkers(m.id, points);
-        }
         _live2PointsCache[m.id] = points;
+        _live2GoalsCache[m.id] = data.goals || [];
+        if (!unchanged) {
+          wrap.innerHTML = `${_live2MomentumPeriodBtnsHtml(m.id)}<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div><div id="live2Thermo_${m.id}"></div>`;
+          _live2RedrawMomentumFiltrado(m.id);
+        }
         _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
       } else {
         wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
