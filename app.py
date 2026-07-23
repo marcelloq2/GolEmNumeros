@@ -1007,30 +1007,44 @@ def api_painel_debug_be():
     t0 = time.time()
     try:
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            t_launch = time.time()
-            browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
-            result["playwright_launch"] = {"ok": True, "seconds": round(time.time() - t_launch, 2)}
-            try:
-                page = browser.new_page(
-                    user_agent=BETEXPLORER_HEADERS["User-Agent"], viewport={"width": 1280, "height": 900}, locale="pt-BR",
+        # mesmo semáforo usado pelo resto do app — sem isso, um pico de chamadas a
+        # esse endpoint de diagnóstico podia sozinho ocupar todas as threads do
+        # gunicorn (só 1 worker/4 threads) e travar o site inteiro pra todo mundo.
+        acquired = _be_playwright_semaphore.acquire(timeout=10)
+        if not acquired:
+            return jsonify({"error": "Playwright ocupado (semáforo cheio) — tente de novo em instantes."}), 503
+        try:
+            with sync_playwright() as p:
+                t_launch = time.time()
+                browser = p.chromium.launch(
+                    headless=True, args=["--disable-blink-features=AutomationControlled"], timeout=15000,
                 )
-                t_goto = time.time()
-                page.goto(match_url, wait_until="domcontentloaded", timeout=30000)
-                result["playwright_goto"] = {"ok": True, "seconds": round(time.time() - t_goto, 2), "title": page.title()}
-
-                t_sel = time.time()
+                result["playwright_launch"] = {"ok": True, "seconds": round(time.time() - t_launch, 2)}
                 try:
-                    page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=20000, state="attached")
-                    result["playwright_selector"] = {"ok": True, "seconds": round(time.time() - t_sel, 2)}
-                except Exception as e:
-                    result["playwright_selector"] = {"ok": False, "error": f"{type(e).__name__}: {e}", "seconds": round(time.time() - t_sel, 2)}
-                    # salva um pedaço do HTML pra ver se veio página de bloqueio/captcha
-                    html = page.content()
-                    result["page_snippet"] = html[:1500]
-                    result["page_length"] = len(html)
-            finally:
-                browser.close()
+                    page = browser.new_page(
+                        user_agent=BETEXPLORER_HEADERS["User-Agent"], viewport={"width": 1280, "height": 900}, locale="pt-BR",
+                    )
+                    t_goto = time.time()
+                    page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
+                    result["playwright_goto"] = {"ok": True, "seconds": round(time.time() - t_goto, 2), "title": page.title()}
+
+                    t_sel = time.time()
+                    try:
+                        page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=10000, state="attached")
+                        result["playwright_selector"] = {"ok": True, "seconds": round(time.time() - t_sel, 2)}
+                    except Exception as e:
+                        result["playwright_selector"] = {"ok": False, "error": f"{type(e).__name__}: {e}", "seconds": round(time.time() - t_sel, 2)}
+                        # salva um pedaço do HTML pra ver se veio página de bloqueio/captcha
+                        html = page.content()
+                        result["page_snippet"] = html[:1500]
+                        result["page_length"] = len(html)
+                finally:
+                    browser.close()
+        except Exception as e:
+            result["playwright_error"] = f"{type(e).__name__}: {e}"
+            result["playwright_traceback"] = traceback.format_exc()
+        finally:
+            _be_playwright_semaphore.release()
     except Exception as e:
         result["playwright_error"] = f"{type(e).__name__}: {e}"
         result["playwright_traceback"] = traceback.format_exc()
