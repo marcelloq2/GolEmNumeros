@@ -1131,6 +1131,7 @@
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 11px; }
   .painel-match-league-label { font-size: 9px; color: var(--text2); opacity: .8; white-space: nowrap; margin-top: 2px; }
+  .painel-match-kickoff { font-size: 9px; color: var(--text2); white-space: nowrap; margin-top: 1px; }
   .painel-match-time.live { color: #ef4444; font-weight: 700; }
   .painel-match-teams {
     display: grid; align-items: center; gap: 6px; overflow: hidden;
@@ -3707,16 +3708,24 @@ function _painelRender(data) {
       }).join('');
 }
 
+function _painelKickoffTime(m) {
+  if (!m.ts) return '';
+  const d = new Date(m.ts * 1000);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 function _painelMatchRowHtml(m, leagueName) {
   const isLive = _painelIsLive(m);
+  const isFinished = _painelIsFinished(m) && !isLive;
   const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
   const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
     ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
+  const kickoff = isFinished ? _painelKickoffTime(m) : '';
   return `
     <div class="painel-match-row">
-      <span class="${timeClass}">${m.time || ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
+      <span class="${timeClass}">${m.time || ''}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
         <span class="painel-team">${m.home}</span>
