@@ -543,7 +543,7 @@ _BE_CONTEXT_TTL = 6 * 3600
 _be_playwright_semaphore = threading.Semaphore(2)  # evita várias janelas headless simultâneas
 
 
-def _be_fetch_match_context(match_url):
+def _be_fetch_match_context(match_url, _attempt=1):
     with _be_context_lock:
         cached = _be_context_cache.get(match_url)
         if cached and (time.time() - cached["ts"]) < _BE_CONTEXT_TTL:
@@ -551,29 +551,49 @@ def _be_fetch_match_context(match_url):
 
     from playwright.sync_api import sync_playwright
 
-    with _be_playwright_semaphore:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            try:
-                page = browser.new_page(user_agent=BETEXPLORER_HEADERS["User-Agent"])
-                page.goto(match_url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=20000, state="attached")
-                selects = page.query_selector_all("[id^='lm_'][id$='_sel_type']")
-                headers = page.query_selector_all(".last-results__title .componentHeader")
-                par, teams = None, []
-                for i, sel in enumerate(selects[:2]):
-                    onchange = sel.get_attribute("onchange") or ""
-                    m = re.search(r"match_change_team_matches\('([^']*)',\s*'([^']*)',\s*'([^']*)'", onchange)
-                    if not m:
-                        continue
-                    par = m.group(1)
-                    name = headers[i].inner_text() if i < len(headers) else ""
-                    name = re.sub(r"^.*?:\s*", "", name).strip()
-                    teams.append({"id": m.group(3), "name": name})
-            finally:
-                browser.close()
+    par, teams = None, []
+    try:
+        with _be_playwright_semaphore:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=["--disable-blink-features=AutomationControlled"],
+                )
+                try:
+                    page = browser.new_page(
+                        user_agent=BETEXPLORER_HEADERS["User-Agent"],
+                        viewport={"width": 1280, "height": 900},
+                        locale="pt-BR",
+                    )
+                    page.goto(match_url, wait_until="domcontentloaded", timeout=30000)
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=8000)
+                    except Exception:
+                        pass  # segue mesmo se não ficar 100% ocioso — o seletor abaixo é o que realmente importa
+                    page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=20000, state="attached")
+                    selects = page.query_selector_all("[id^='lm_'][id$='_sel_type']")
+                    headers = page.query_selector_all(".last-results__title .componentHeader")
+                    for i, sel in enumerate(selects[:2]):
+                        onchange = sel.get_attribute("onchange") or ""
+                        m = re.search(r"match_change_team_matches\('([^']*)',\s*'([^']*)',\s*'([^']*)'", onchange)
+                        if not m:
+                            continue
+                        par = m.group(1)
+                        name = headers[i].inner_text() if i < len(headers) else ""
+                        name = re.sub(r"^.*?:\s*", "", name).strip()
+                        teams.append({"id": m.group(3), "name": name})
+                finally:
+                    browser.close()
+    except Exception:
+        if _attempt < 2:
+            time.sleep(1.5)
+            return _be_fetch_match_context(match_url, _attempt=_attempt + 1)
+        raise RuntimeError("O BetExplorer não respondeu a tempo pra carregar os últimos resultados dessa partida. Tente novamente em instantes.")
 
     if par is None or len(teams) < 2:
+        if _attempt < 2:
+            time.sleep(1.5)
+            return _be_fetch_match_context(match_url, _attempt=_attempt + 1)
         raise RuntimeError("Não foi possível carregar os últimos resultados dessa partida.")
 
     data = {"par": par, "home": teams[0], "away": teams[1]}
