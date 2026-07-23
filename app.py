@@ -985,6 +985,60 @@ def api_painel_h2h_stats():
     return jsonify(data)
 
 
+@app.route("/api/painel/debug_be")
+def api_painel_debug_be():
+    """Diagnóstico temporário — testa cada etapa do acesso ao BetExplorer
+    isoladamente (requests simples vs Playwright) pra descobrir exatamente
+    onde está travando em produção, sem depender de logs do Railway."""
+    import traceback
+    result = {}
+
+    t0 = time.time()
+    try:
+        r = http_req.get(f"{BETEXPLORER_BASE}/br/", headers=BETEXPLORER_HEADERS, timeout=15)
+        result["plain_request"] = {"ok": True, "status": r.status_code, "seconds": round(time.time() - t0, 2), "len": len(r.text)}
+    except Exception as e:
+        result["plain_request"] = {"ok": False, "error": f"{type(e).__name__}: {e}", "seconds": round(time.time() - t0, 2)}
+
+    match_url = request.args.get(
+        "match_url", "https://www.betexplorer.com/br/football/brazil/serie-a-betano/coritiba-palmeiras/zmCty4Ji/"
+    )
+
+    t0 = time.time()
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            t_launch = time.time()
+            browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+            result["playwright_launch"] = {"ok": True, "seconds": round(time.time() - t_launch, 2)}
+            try:
+                page = browser.new_page(
+                    user_agent=BETEXPLORER_HEADERS["User-Agent"], viewport={"width": 1280, "height": 900}, locale="pt-BR",
+                )
+                t_goto = time.time()
+                page.goto(match_url, wait_until="domcontentloaded", timeout=30000)
+                result["playwright_goto"] = {"ok": True, "seconds": round(time.time() - t_goto, 2), "title": page.title()}
+
+                t_sel = time.time()
+                try:
+                    page.wait_for_selector("[id^='lm_'][id$='_sel_type']", timeout=20000, state="attached")
+                    result["playwright_selector"] = {"ok": True, "seconds": round(time.time() - t_sel, 2)}
+                except Exception as e:
+                    result["playwright_selector"] = {"ok": False, "error": f"{type(e).__name__}: {e}", "seconds": round(time.time() - t_sel, 2)}
+                    # salva um pedaço do HTML pra ver se veio página de bloqueio/captcha
+                    html = page.content()
+                    result["page_snippet"] = html[:1500]
+                    result["page_length"] = len(html)
+            finally:
+                browser.close()
+    except Exception as e:
+        result["playwright_error"] = f"{type(e).__name__}: {e}"
+        result["playwright_traceback"] = traceback.format_exc()
+    result["playwright_total_seconds"] = round(time.time() - t0, 2)
+
+    return jsonify(result)
+
+
 # ── Widget de análise — Classificações / Forma / Over-Under / HT-FT / Marcadores
 # Diferente do "últimos resultados" (que precisa de Playwright pro token "ts" do
 # JOGO), o "ts" da TABELA/liga já vem embutido direto no HTML estático da página
