@@ -872,16 +872,39 @@ def _be_h2h_stats(match_url, tournament="1", count="5"):
     def avg(x, total):
         return round(x / total, 2) if total else None
 
+    # Cada estatística de time é espelhada pro lado oposto: numa H2H, a vitória de
+    # um é a derrota do outro, o gol marcado por um é o gol sofrido pelo outro etc.
+    # BTTS e Over/Under são do CONFRONTO (não têm "lado"), por isso ficam repetidos
+    # dos dois lados.
+    pct_wins_ft, pct_draws_ft, pct_losses_ft = pct(wins, n), pct(draws, n), pct(losses, n)
+    pct_wins_ht, pct_draws_ht, pct_losses_ht = pct(wins_ht, n_ht), pct(draws_ht, n_ht), pct(losses_ht, n_ht)
+    avg_gf_ft, avg_ga_ft = avg(goals_for_ft, n), avg(goals_against_ft, n)
+    avg_gf_ht, avg_ga_ht = avg(goals_for_ht, n_ht), avg(goals_against_ht, n_ht)
+    pct_clean_ft, pct_clean_ht = pct(clean_sheets_ft, n), pct(clean_sheets_ht, n_ht)
+    pct_fts_ft, pct_fts_ht = pct(failed_to_score_ft, n), pct(failed_to_score_ht, n_ht)
+
+    home_stats = {
+        "pct_wins_ft": pct_wins_ft, "pct_draws_ft": pct_draws_ft, "pct_losses_ft": pct_losses_ft,
+        "pct_wins_ht": pct_wins_ht, "pct_draws_ht": pct_draws_ht, "pct_losses_ht": pct_losses_ht,
+        "avg_goals_for_ft": avg_gf_ft, "avg_goals_against_ft": avg_ga_ft,
+        "avg_goals_for_ht": avg_gf_ht, "avg_goals_against_ht": avg_ga_ht,
+        "pct_clean_sheet_ft": pct_clean_ft, "pct_clean_sheet_ht": pct_clean_ht,
+        "pct_failed_to_score_ft": pct_fts_ft, "pct_failed_to_score_ht": pct_fts_ht,
+    }
+    away_stats = {
+        "pct_wins_ft": pct_losses_ft, "pct_draws_ft": pct_draws_ft, "pct_losses_ft": pct_wins_ft,
+        "pct_wins_ht": pct_losses_ht, "pct_draws_ht": pct_draws_ht, "pct_losses_ht": pct_wins_ht,
+        "avg_goals_for_ft": avg_ga_ft, "avg_goals_against_ft": avg_gf_ft,
+        "avg_goals_for_ht": avg_ga_ht, "avg_goals_against_ht": avg_gf_ht,
+        "pct_clean_sheet_ft": pct_fts_ft, "pct_clean_sheet_ht": pct_fts_ht,
+        "pct_failed_to_score_ft": pct_clean_ft, "pct_failed_to_score_ht": pct_clean_ht,
+    }
+
     return {
         "enough": True, "matches_used": n, "matches_with_ht": n_ht,
         "home_name": home_name, "away_name": away_name,
-        "pct_wins_ft": pct(wins, n), "pct_draws_ft": pct(draws, n), "pct_losses_ft": pct(losses, n),
-        "pct_wins_ht": pct(wins_ht, n_ht), "pct_draws_ht": pct(draws_ht, n_ht), "pct_losses_ht": pct(losses_ht, n_ht),
-        "avg_goals_for_ft": avg(goals_for_ft, n), "avg_goals_against_ft": avg(goals_against_ft, n),
-        "avg_goals_for_ht": avg(goals_for_ht, n_ht), "avg_goals_against_ht": avg(goals_against_ht, n_ht),
+        "home": home_stats, "away": away_stats,
         "pct_btts_yes": pct(btts_yes, n), "pct_btts_no": pct(n - btts_yes, n),
-        "pct_clean_sheet_ft": pct(clean_sheets_ft, n), "pct_clean_sheet_ht": pct(clean_sheets_ht, n_ht),
-        "pct_failed_to_score_ft": pct(failed_to_score_ft, n), "pct_failed_to_score_ht": pct(failed_to_score_ht, n_ht),
         "pct_over25_ft": pct(over25, n), "pct_under25_ft": pct(n - over25, n),
         "pct_over15_ft": pct(over15, n), "pct_under15_ft": pct(n - over15, n),
         "pct_over05_ht": pct(over05_ht, n_ht), "pct_under05_ht": pct(n_ht - over05_ht, n_ht),
