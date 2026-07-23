@@ -1565,6 +1565,14 @@
             Em construção — o conteúdo dessas estatísticas ainda vai ser definido.
           </div>
         </div>
+
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Filtro por Odds do Confronto Direto</div>
+          <div class="painel-odds-filter-bar" id="painelH2HOddsFilterBar" style="padding:8px 0;border:none"></div>
+          <div id="painelH2HOddsStatsBody" style="color:var(--text2);padding:16px 0;text-align:center">
+            Selecione um filtro de odd acima pra ver as estatísticas.
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3246,6 +3254,138 @@ function _painelH2HStatsFlatMatches() {
   return flat; // já vem do mais recente pro mais antigo
 }
 
+// ── Filtro por Odds do Confronto Direto — ex: Coritiba odd >=5 e Palmeiras <=2 ──
+const PAINEL_H2H_ODDS_OPS = [
+  { value: '', label: '--' }, { value: 'lte', label: '≤' }, { value: 'gte', label: '≥' },
+  { value: 'gt', label: '>' }, { value: 'lt', label: '<' }, { value: 'eq', label: '=' }, { value: 'between', label: 'entre' },
+];
+let _painelH2HOddsFilters = { home: { op: '', val1: '', val2: '' }, away: { op: '', val1: '', val2: '' } };
+
+function _painelBuildH2HOddsFilterBar(homeName, awayName) {
+  const bar = document.getElementById('painelH2HOddsFilterBar');
+  if (!bar) return;
+  _painelH2HOddsFilters = { home: { op: '', val1: '', val2: '' }, away: { op: '', val1: '', val2: '' } };
+  const opsHtml = PAINEL_H2H_ODDS_OPS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  bar.innerHTML = ['home', 'away'].map(side => `
+    <div class="painel-odds-filter-group">
+      <span class="painel-odds-filter-label">${side === 'home' ? homeName : awayName}</span>
+      <div class="painel-odds-filter-controls">
+        <select onchange="_painelH2HOddsFilterChange('${side}', 'op', this.value)">${opsHtml}</select>
+        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelH2HOddsVal1_${side}"
+          oninput="_painelH2HOddsFilterChange('${side}', 'val1', this.value)">
+        <span id="painelH2HOddsAnd_${side}" style="display:none;color:var(--text2)">e</span>
+        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelH2HOddsVal2_${side}"
+          oninput="_painelH2HOddsFilterChange('${side}', 'val2', this.value)">
+      </div>
+    </div>
+  `).join('') + `<button class="painel-odds-filter-clear" onclick="_painelH2HOddsFilterClear()">Limpar</button>`;
+  document.getElementById('painelH2HOddsStatsBody').innerHTML = 'Selecione um filtro de odd acima pra ver as estatísticas.';
+}
+
+function _painelH2HOddsFilterChange(side, field, value) {
+  _painelH2HOddsFilters[side][field] = value;
+  if (field === 'op') {
+    const showVal1 = value !== '';
+    const showVal2 = value === 'between';
+    document.getElementById('painelH2HOddsVal1_' + side).style.display = showVal1 ? '' : 'none';
+    document.getElementById('painelH2HOddsVal2_' + side).style.display = showVal2 ? '' : 'none';
+    document.getElementById('painelH2HOddsAnd_' + side).style.display = showVal2 ? '' : 'none';
+    if (!showVal1) { document.getElementById('painelH2HOddsVal1_' + side).value = ''; _painelH2HOddsFilters[side].val1 = ''; }
+    if (!showVal2) { document.getElementById('painelH2HOddsVal2_' + side).value = ''; _painelH2HOddsFilters[side].val2 = ''; }
+  }
+  _painelH2HOddsStatsRender();
+}
+
+function _painelH2HOddsFilterClear() {
+  ['home', 'away'].forEach(side => {
+    _painelH2HOddsFilters[side] = { op: '', val1: '', val2: '' };
+    const bar = document.getElementById('painelH2HOddsFilterBar');
+    const sel = bar.querySelector(`select[onchange*="'${side}', 'op'"]`);
+    if (sel) sel.value = '';
+    document.getElementById('painelH2HOddsVal1_' + side).value = '';
+    document.getElementById('painelH2HOddsVal1_' + side).style.display = 'none';
+    document.getElementById('painelH2HOddsVal2_' + side).value = '';
+    document.getElementById('painelH2HOddsVal2_' + side).style.display = 'none';
+    document.getElementById('painelH2HOddsAnd_' + side).style.display = 'none';
+  });
+  _painelH2HOddsStatsRender();
+}
+
+function _painelOddPasses(filter, odd) {
+  if (!filter.op) return true;
+  if (odd === null || odd === undefined || isNaN(odd)) return false;
+  if (filter.op === 'between') {
+    const v1 = parseFloat(filter.val1), v2 = parseFloat(filter.val2);
+    if (isNaN(v1) || isNaN(v2)) return true;
+    return odd >= Math.min(v1, v2) && odd <= Math.max(v1, v2);
+  }
+  const v1 = parseFloat(filter.val1);
+  if (isNaN(v1)) return true;
+  if (filter.op === 'lte') return odd <= v1;
+  if (filter.op === 'gte') return odd >= v1;
+  if (filter.op === 'gt') return odd > v1;
+  if (filter.op === 'lt') return odd < v1;
+  if (filter.op === 'eq') return Math.abs(odd - v1) < 1e-9;
+  return true;
+}
+
+function _painelH2HOddsStatsRender() {
+  const body = document.getElementById('painelH2HOddsStatsBody');
+  if (!body) return;
+  const homeF = _painelH2HOddsFilters.home, awayF = _painelH2HOddsFilters.away;
+  if (!homeF.op && !awayF.op) {
+    body.innerHTML = 'Selecione um filtro de odd acima pra ver as estatísticas.';
+    return;
+  }
+  if (!_painelH2HRawData) {
+    body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+    return;
+  }
+  const homeName = _painelStdHomeName, awayName = _painelStdAwayName;
+  const flat = [];
+  (_painelH2HRawData.seasons || []).forEach(s => s.matches.forEach(m => flat.push(m)));
+
+  let n = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
+  flat.forEach(m => {
+    const odds = m.odds || [];
+    const o1 = odds[0] ? parseFloat(odds[0].value) : NaN;
+    const o2 = odds[2] ? parseFloat(odds[2].value) : NaN;
+    let homeTeamOdd, awayTeamOdd;
+    if (m.home === homeName) { homeTeamOdd = o1; awayTeamOdd = o2; }
+    else if (m.home === awayName) { homeTeamOdd = o2; awayTeamOdd = o1; }
+    else return;
+    if (!_painelOddPasses(homeF, homeTeamOdd)) return;
+    if (!_painelOddPasses(awayF, awayTeamOdd)) return;
+
+    const sh = parseInt(m.score_home, 10), sa = parseInt(m.score_away, 10);
+    if (isNaN(sh) || isNaN(sa)) return;
+    const isHomeTeam = m.home === homeName;
+    const teamGf = isHomeTeam ? sh : sa;
+    const teamGa = isHomeTeam ? sa : sh;
+    n++; gf += teamGf; ga += teamGa;
+    if (teamGf > teamGa) wins++;
+    else if (teamGf === teamGa) draws++;
+    else losses++;
+  });
+
+  if (!n) {
+    body.innerHTML = `<div class="live-loading">Nenhum confronto direto encontrado com esse filtro de odds.</div>`;
+    return;
+  }
+  const pct = x => Math.round(100 * x / n);
+  const avg = x => Math.round((x / n) * 100) / 100;
+  body.innerHTML = `
+    <div class="painel-h2h-stats-teams"><span>${homeName}</span><span>${awayName}</span></div>
+    ${_painelH2HStatsGroup('Resultado (com esse filtro de odds)',
+      _painelH2HStatRow('% Vitórias', pct(wins), pct(losses)) +
+      _painelH2HStatRow('% Empates', pct(draws), pct(draws)) +
+      _painelH2HStatRow('% Derrotas', pct(losses), pct(wins)))}
+    ${_painelH2HStatsGroup('Médias de gols',
+      _painelH2HStatRow('Média de gols marcados', avg(gf), avg(ga)) +
+      _painelH2HStatRow('Média de gols sofridos', avg(ga), avg(gf)))}
+    <div class="painel-h2h-stats-note">${n} confronto${n === 1 ? '' : 's'} direto${n === 1 ? '' : 's'} encontrado${n === 1 ? '' : 's'} com esse filtro de odds.</div>`;
+}
+
 function _painelH2HStatFmt(label, value) {
   if (value === null || value === undefined) return '-';
   return label.startsWith('Média') ? value : value + '%';
@@ -3367,6 +3507,8 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) 
   document.querySelectorAll('#painelStdSubRow .painel-std-subtab').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.getElementById('painelStdSubRow').style.display = '';
   _painelLoadStandings();
+
+  _painelBuildH2HOddsFilterBar(home, away);
 }
 
 function _painelH2HTeamLogo(name) {
@@ -3436,6 +3578,7 @@ function _painelLoadH2H() {
         ${season.matches.map(_painelH2HRow).join('')}
       `).join('');
       _painelH2HStatsRender();
+      _painelH2HOddsStatsRender();
     })
     .catch(err => {
       list.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
