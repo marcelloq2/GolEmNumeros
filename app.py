@@ -542,8 +542,48 @@ _be_context_lock = threading.Lock()
 _BE_CONTEXT_TTL = 6 * 3600
 _be_playwright_semaphore = threading.Semaphore(2)  # evita várias janelas headless simultâneas
 
+# Abrir o widget de análise dispara 3 chamadas em paralelo (últimos resultados casa/
+# fora + confronto direto) que TODAS precisam do mesmo contexto do jogo. Sem isso,
+# as 3 viam o cache vazio ao mesmo tempo e cada uma abria seu próprio Chromium
+# headless pra carregar a MESMA página — 3 sessões simultâneas na mesma URL, uma
+# assinatura bem óbvia de bot pro BetExplorer. Esse lock por URL garante que só a
+# primeira chamada realmente busca; as outras esperam e reaproveitam o resultado.
+_be_context_inflight = {}   # match_url -> threading.Lock (só existe enquanto a busca está em andamento)
+_be_context_inflight_guard = threading.Lock()
+
 
 def _be_fetch_match_context(match_url, _attempt=1):
+    with _be_context_lock:
+        cached = _be_context_cache.get(match_url)
+        if cached and (time.time() - cached["ts"]) < _BE_CONTEXT_TTL:
+            return cached["data"]
+
+    with _be_context_inflight_guard:
+        lock = _be_context_inflight.get(match_url)
+        is_leader = lock is None
+        if is_leader:
+            lock = threading.Lock()
+            lock.acquire()
+            _be_context_inflight[match_url] = lock
+
+    if not is_leader:
+        lock.acquire()  # espera o líder terminar
+        lock.release()
+        with _be_context_lock:
+            cached = _be_context_cache.get(match_url)
+        if cached:
+            return cached["data"]
+        raise RuntimeError("Não foi possível carregar os últimos resultados dessa partida.")
+
+    try:
+        return _be_fetch_match_context_uncached(match_url)
+    finally:
+        with _be_context_inflight_guard:
+            _be_context_inflight.pop(match_url, None)
+        lock.release()
+
+
+def _be_fetch_match_context_uncached(match_url, _attempt=1):
     with _be_context_lock:
         cached = _be_context_cache.get(match_url)
         if cached and (time.time() - cached["ts"]) < _BE_CONTEXT_TTL:
@@ -587,13 +627,13 @@ def _be_fetch_match_context(match_url, _attempt=1):
     except Exception:
         if _attempt < 2:
             time.sleep(1.5)
-            return _be_fetch_match_context(match_url, _attempt=_attempt + 1)
+            return _be_fetch_match_context_uncached(match_url, _attempt=_attempt + 1)
         raise RuntimeError("O BetExplorer não respondeu a tempo pra carregar os últimos resultados dessa partida. Tente novamente em instantes.")
 
     if par is None or len(teams) < 2:
         if _attempt < 2:
             time.sleep(1.5)
-            return _be_fetch_match_context(match_url, _attempt=_attempt + 1)
+            return _be_fetch_match_context_uncached(match_url, _attempt=_attempt + 1)
         raise RuntimeError("Não foi possível carregar os últimos resultados dessa partida.")
 
     data = {"par": par, "home": teams[0], "away": teams[1]}
