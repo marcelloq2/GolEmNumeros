@@ -3332,6 +3332,7 @@ function _painelOddPasses(filter, odd) {
 function _painelH2HOddsStatsRender() {
   const body = document.getElementById('painelH2HOddsStatsBody');
   if (!body) return;
+  if (_painelCurrentMatchFinished) { body.innerHTML = PAINEL_MATCH_FINISHED_MSG; return; }
   const homeF = _painelH2HOddsFilters.home, awayF = _painelH2HOddsFilters.away;
   if (!homeF.op && !awayF.op) {
     body.innerHTML = 'Selecione um filtro de odd acima pra ver as estatísticas.';
@@ -3412,6 +3413,7 @@ let _painelH2HStatsReqId = 0;
 function _painelH2HStatsRender() {
   const body = document.getElementById('painelH2HStatsBody');
   if (!body) return;
+  if (_painelCurrentMatchFinished) { body.innerHTML = PAINEL_MATCH_FINISHED_MSG; return; }
   // checagem rápida no que já temos em memória, sem precisar esperar o servidor
   const flat = _painelH2HStatsFlatMatches();
   if (_painelH2HRawData) {
@@ -3471,7 +3473,7 @@ function _painelH2HStatsRender() {
   });
 }
 
-function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) {
+function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, isFinished, finalScore) {
   document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
   document.getElementById('painelAnalysisOverlay').style.display = 'flex';
   document.querySelectorAll('.painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
@@ -3495,9 +3497,25 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo) 
   document.getElementById('painelLR_away').style.display = '';
   document.getElementById('painelLRToggleArrow_home').classList.remove('collapsed');
   document.getElementById('painelLRToggleArrow_away').classList.remove('collapsed');
-  _painelLoadLastResults('home');
-  _painelLoadLastResults('away');
-  _painelLoadH2H();
+  _painelCurrentMatchFinished = !!isFinished;
+  _painelH2HRawData = null;
+  if (isFinished) {
+    // O BetExplorer só serve o widget de "últimos resultados"/"confronto direto" como
+    // preparo pré-jogo — depois que a partida termina, ele para de mandar esses dados
+    // (confirmado testando: funciona pra jogos futuros, falha pra jogos já encerrados).
+    // Em vez de tentar (e o usuário ver um erro/spinner infinito), avisa direto.
+    const msg = `Essa partida já foi encerrada${finalScore ? ` (placar final: ${finalScore})` : ''}. O BetExplorer só disponibiliza os dados de últimos resultados e confronto direto antes do jogo acontecer — depois que termina, esses dados saem do ar por lá.`;
+    document.getElementById('painelLR_home').innerHTML = `<div class="live-loading">${msg}</div>`;
+    document.getElementById('painelLR_away').innerHTML = `<div class="live-loading">${msg}</div>`;
+    document.getElementById('painelH2HList').innerHTML = `<div class="live-loading">${msg}</div>`;
+    document.getElementById('painelH2HBar').innerHTML = '';
+    document.getElementById('painelH2HStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
+    document.getElementById('painelH2HOddsStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
+  } else {
+    _painelLoadLastResults('home');
+    _painelLoadLastResults('away');
+    _painelLoadH2H();
+  }
 
   _painelStdState = { table: 'table', sub: '', count: '5', line: '2.5' };
   _painelStdCache = {};
@@ -3546,6 +3564,8 @@ function _painelToggleLRBlock(side) {
 }
 
 let _painelH2HRawData = null;   // cache da última resposta de /api/painel/h2h, reaproveitado na aba Análise
+let _painelCurrentMatchFinished = false;
+const PAINEL_MATCH_FINISHED_MSG = 'Essa partida já foi encerrada. O BetExplorer só disponibiliza os dados de confronto direto antes do jogo acontecer — depois que termina, esses dados saem do ar por lá.';
 
 function _painelLoadH2H() {
   const list = document.getElementById('painelH2HList');
@@ -3883,7 +3903,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_2)}
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
-      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}')">📊</button>
+      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}',${_painelIsFinished(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}')">📊</button>
     </div>`;
 }
 
