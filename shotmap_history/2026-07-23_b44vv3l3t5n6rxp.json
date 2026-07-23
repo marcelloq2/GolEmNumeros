@@ -1,0 +1,311 @@
+{
+  "event_id": "b44vv3l3t5n6rxp",
+  "date": "2026-07-23",
+  "casa": "Vojvodina",
+  "fora": "Ajax",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 4
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2948529769",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Abdalla",
+      "x": 3.7,
+      "y": 60
+    },
+    {
+      "id": "2948521645",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "N. Petrović",
+      "x": 27.1,
+      "y": 24.4
+    },
+    {
+      "id": "2948521421",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Randjelović",
+      "x": 8.8,
+      "y": 76.2
+    },
+    {
+      "id": "2948520365",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Godts",
+      "x": 17,
+      "y": 58.9
+    },
+    {
+      "id": "2948520019",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "Mulahusejnović",
+      "x": 3.9,
+      "y": 41.3
+    },
+    {
+      "id": "2948518621",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "O.Gloukh",
+      "x": 13.2,
+      "y": 42.5
+    },
+    {
+      "id": "2948517831",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L. Randjelović",
+      "x": 3.8,
+      "y": 62.8
+    },
+    {
+      "id": "2948513015",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Dolberg",
+      "x": 18.8,
+      "y": 63.6
+    },
+    {
+      "id": "2948512299",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Djakovac",
+      "x": 14.1,
+      "y": 47.4
+    },
+    {
+      "id": "2948509793",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Berghuis",
+      "x": 14.5,
+      "y": 66.8
+    },
+    {
+      "id": "2948509541",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Dolberg",
+      "x": 7.8,
+      "y": 57.7
+    },
+    {
+      "id": "2948509335",
+      "minute": 36,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Godts",
+      "x": 31.4,
+      "y": 40.8
+    },
+    {
+      "id": "2948507729",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L. Randjelović",
+      "x": 22.6,
+      "y": 64.8
+    },
+    {
+      "id": "2948506437",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Mulahusejnović",
+      "x": 16.2,
+      "y": 50.4
+    },
+    {
+      "id": "2948505773",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "P. Sukacev",
+      "x": 9.6,
+      "y": 44.7
+    },
+    {
+      "id": "2948504899",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Rosa",
+      "x": 18.2,
+      "y": 44.8
+    },
+    {
+      "id": "2948501749",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Y. Regeer",
+      "x": 13,
+      "y": 42.4
+    },
+    {
+      "id": "2948500885",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D. Blind",
+      "x": 5.5,
+      "y": 38.8
+    },
+    {
+      "id": "2948499985",
+      "minute": 15,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Berghuis",
+      "x": 14.9,
+      "y": 58.5
+    },
+    {
+      "id": "2948499935",
+      "minute": 15,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Berghuis",
+      "x": 12.3,
+      "y": 70.3
+    },
+    {
+      "id": "2948499931",
+      "minute": 15,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Dolberg",
+      "x": 7.4,
+      "y": 52.3
+    },
+    {
+      "id": "2948499703",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "O.Gloukh",
+      "x": 13.2,
+      "y": 58.6
+    },
+    {
+      "id": "2948498279",
+      "minute": 10,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Dolberg",
+      "x": 8.1,
+      "y": 52.6
+    },
+    {
+      "id": "2948497309",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Barros",
+      "x": 27.8,
+      "y": 33.6
+    },
+    {
+      "id": "2948496321",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Dolberg",
+      "x": 1.1,
+      "y": 40.9
+    },
+    {
+      "id": "2948494979",
+      "minute": 3,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Klaassen",
+      "x": 3.3,
+      "y": 58.5
+    },
+    {
+      "id": "2948494969",
+      "minute": 3,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Klaassen",
+      "x": 7.6,
+      "y": 57.5
+    }
+  ]
+}
