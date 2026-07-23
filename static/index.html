@@ -3446,27 +3446,18 @@ function _painelH2HStatsRender() {
         _painelH2HStatRow('% Vitórias FT', h.pct_wins_ft, a.pct_wins_ft) +
         _painelH2HStatRow('% Empates FT', h.pct_draws_ft, a.pct_draws_ft) +
         _painelH2HStatRow('% Derrotas FT', h.pct_losses_ft, a.pct_losses_ft))}
-      ${_painelH2HStatsGroup('Resultado (1º tempo)',
-        _painelH2HStatRow('% Vitórias HT', h.pct_wins_ht, a.pct_wins_ht) +
-        _painelH2HStatRow('% Empates HT', h.pct_draws_ht, a.pct_draws_ht) +
-        _painelH2HStatRow('% Derrotas HT', h.pct_losses_ht, a.pct_losses_ht))}
       ${_painelH2HStatsGroup('Médias de gols',
-        _painelH2HStatRow('Média de gols marcados FT', h.avg_goals_for_ft, a.avg_goals_for_ft) +
-        _painelH2HStatRow('Média de gols sofridos FT', h.avg_goals_against_ft, a.avg_goals_against_ft) +
-        _painelH2HStatRow('Média de gols marcados HT', h.avg_goals_for_ht, a.avg_goals_for_ht) +
-        _painelH2HStatRow('Média de gols sofridos HT', h.avg_goals_against_ht, a.avg_goals_against_ht))}
+        _painelH2HStatRow('Média de gols marcados', h.avg_goals_for_ft, a.avg_goals_for_ft) +
+        _painelH2HStatRow('Média de gols sofridos', h.avg_goals_against_ft, a.avg_goals_against_ft))}
       ${_painelH2HStatsGroup('Ambas Marcam',
         _painelH2HStatRowShared('Sim', d.pct_btts_yes) + _painelH2HStatRowShared('Não', d.pct_btts_no))}
       ${_painelH2HStatsGroup('Clean sheet / Não marcou',
-        _painelH2HStatRow('% sem sofrer gols FT', h.pct_clean_sheet_ft, a.pct_clean_sheet_ft) +
-        _painelH2HStatRow('% sem sofrer gols HT', h.pct_clean_sheet_ht, a.pct_clean_sheet_ht) +
-        _painelH2HStatRow('% sem marcar FT', h.pct_failed_to_score_ft, a.pct_failed_to_score_ft) +
-        _painelH2HStatRow('% sem marcar HT', h.pct_failed_to_score_ht, a.pct_failed_to_score_ht))}
+        _painelH2HStatRow('% sem sofrer gols', h.pct_clean_sheet_ft, a.pct_clean_sheet_ft) +
+        _painelH2HStatRow('% sem marcar', h.pct_failed_to_score_ft, a.pct_failed_to_score_ft))}
       ${_painelH2HStatsGroup('Over/Under (confronto)',
-        _painelH2HStatRowShared('% mais de 2,5 gols FT', d.pct_over25_ft) + _painelH2HStatRowShared('% menos de 2,5 gols FT', d.pct_under25_ft) +
-        _painelH2HStatRowShared('% mais de 1,5 gols FT', d.pct_over15_ft) + _painelH2HStatRowShared('% menos de 1,5 gols FT', d.pct_under15_ft) +
-        _painelH2HStatRowShared('% acima de 0,5 gols HT', d.pct_over05_ht) + _painelH2HStatRowShared('% abaixo de 0,5 gols HT', d.pct_under05_ht))}
-      <div class="painel-h2h-stats-note">Baseado nos últimos ${d.matches_used} confrontos diretos${d.matches_used !== d.matches_with_ht ? ` (${d.matches_with_ht} com dado de 1º tempo disponível)` : ''}. Minuto médio do 1º gol não está disponível — o BetExplorer não expõe essa informação para jogos já encerrados.</div>`;
+        _painelH2HStatRowShared('% mais de 2,5 gols', d.pct_over25_ft) + _painelH2HStatRowShared('% menos de 2,5 gols', d.pct_under25_ft) +
+        _painelH2HStatRowShared('% mais de 1,5 gols', d.pct_over15_ft) + _painelH2HStatRowShared('% menos de 1,5 gols', d.pct_under15_ft))}
+      <div class="painel-h2h-stats-note">Baseado nos últimos ${d.matches_used} confrontos diretos (tempo integral).</div>`;
   }).catch(err => {
     if (myReqId !== _painelH2HStatsReqId) return;
     body.innerHTML = `<div class="live-loading">Erro ao calcular: ${err}</div>`;
