@@ -339,9 +339,40 @@ BETEXPLORER_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
 }
 BETEXPLORER_BASE = "https://www.betexplorer.com"
-_PAINEL_CACHE_TTL = 25  # odds mudam a todo momento, mas não precisa bater no site a cada request
+_PAINEL_CACHE_TTL = 60  # odds mudam, mas o BetExplorer passou a bloquear (429) com requests demais
 _painel_cache = {}   # cache_key (data ou "today") -> {"ts":, "data":}
 _painel_lock = threading.Lock()
+
+# ── Rate limit — o BetExplorer começou a devolver 429 (Too Many Requests) quando
+# batemos rápido demais (vários widgets abertos ao mesmo tempo, auto-refresh,
+# múltiplos usuários). Serializa TODAS as chamadas ao BetExplorer com um espaço
+# mínimo entre elas + retry com backoff quando toma 429, em vez de derrubar a
+# aba na cara do usuário.
+_be_rate_lock = threading.Lock()
+_be_last_request_ts = 0.0
+_BE_MIN_INTERVAL = 0.6  # segundos entre requests consecutivos ao BetExplorer
+
+
+def _be_get(url, params=None, timeout=15, retries=3):
+    """GET no BetExplorer com espaçamento mínimo entre chamadas e retry/backoff
+    em cima de 429 — evita que um pico de acessos derrube a página pro usuário."""
+    global _be_last_request_ts
+    last_exc = None
+    for attempt in range(retries):
+        with _be_rate_lock:
+            wait = _BE_MIN_INTERVAL - (time.time() - _be_last_request_ts)
+            if wait > 0:
+                time.sleep(wait)
+            _be_last_request_ts = time.time()
+        r = http_req.get(url, params=params, headers=BETEXPLORER_HEADERS, timeout=timeout)
+        if r.status_code == 429:
+            last_exc = RuntimeError("O BetExplorer está limitando as requisições no momento (429). Tente de novo em alguns segundos.")
+            time.sleep(1.5 * (attempt + 1))
+            continue
+        r.raise_for_status()
+        r.encoding = "utf-8"
+        return r
+    raise last_exc
 
 
 def _be_fetch_bettype_html(bettype, date_params=None):
@@ -350,12 +381,7 @@ def _be_fetch_bettype_html(bettype, date_params=None):
     params = {"tab": "all", "betType": bettype, "lang": "br", "tz": "-3:00", "start": 0, "end": 300}
     if date_params:
         params.update(date_params)
-    r = http_req.get(
-        f"{BETEXPLORER_BASE}/gres/ajax/homepage-data.php",
-        params=params, headers=BETEXPLORER_HEADERS, timeout=15,
-    )
-    r.raise_for_status()
-    r.encoding = "utf-8"
+    r = _be_get(f"{BETEXPLORER_BASE}/gres/ajax/homepage-data.php", params=params)
     return r.text
 
 
@@ -615,12 +641,7 @@ def _be_fetch_team_last_results(match_url, side, count=5, all_tournaments=False)
         "par": ctx["par"], "event": event_id, "team": team["id"],
         "type": 2 if all_tournaments else 1, "count": count, "lang": "br",
     }
-    r = http_req.get(
-        f"{BETEXPLORER_BASE}/res/ajax/team-matches.php",
-        params=params, headers=BETEXPLORER_HEADERS, timeout=15,
-    )
-    r.raise_for_status()
-    r.encoding = "utf-8"
+    r = _be_get(f"{BETEXPLORER_BASE}/res/ajax/team-matches.php", params=params)
     return {"team_name": team["name"], "rows": _be_parse_team_matches(r.text)}
 
 
@@ -711,13 +732,10 @@ def _be_h2h_summary(seasons, home_name, away_name):
 def _be_fetch_h2h(match_url):
     ctx = _be_fetch_match_context(match_url)
     country, league = _be_country_league_path(match_url)
-    r = http_req.get(
+    r = _be_get(
         f"{BETEXPLORER_BASE}/br/football/{country}/{league}/mutual-matches/",
         params={"home": ctx["home"]["id"], "away": ctx["away"]["id"], "where": 0},
-        headers=BETEXPLORER_HEADERS, timeout=15,
     )
-    r.raise_for_status()
-    r.encoding = "utf-8"
     seasons = _be_parse_h2h(r.text)
     summary = _be_h2h_summary(seasons, ctx["home"]["name"], ctx["away"]["name"])
     return {
@@ -755,9 +773,7 @@ def _be_fetch_partial_score(match_url):
         cached = _be_partial_score_cache.get(match_url)
         if cached and (time.time() - cached["ts"]) < _BE_PARTIAL_SCORE_TTL:
             return cached["data"]
-    r = http_req.get(match_url, headers=BETEXPLORER_HEADERS, timeout=15)
-    r.raise_for_status()
-    r.encoding = "utf-8"
+    r = _be_get(match_url)
     m = re.search(r'id="js-partial">\(([^,]+),\s*([^)]+)\)', r.text)
     data = None
     if m:
@@ -788,7 +804,7 @@ def _be_h2h_stats(match_url, tournament="1", count="5"):
     used = flat[:wanted]
 
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         partials = list(pool.map(lambda m: _be_fetch_partial_score(m["match_url"]) if m.get("match_url") else None, used))
 
     n = len(used)
@@ -906,9 +922,7 @@ def _be_fetch_tournament_ts(country, league):
         if cached and (time.time() - cached["ts"]) < _BE_TOURNAMENT_TS_TTL:
             return cached["value"]
 
-    r = http_req.get(f"{BETEXPLORER_BASE}/br/football/{country}/{league}/", headers=BETEXPLORER_HEADERS, timeout=15)
-    r.raise_for_status()
-    r.encoding = "utf-8"
+    r = _be_get(f"{BETEXPLORER_BASE}/br/football/{country}/{league}/")
     m = re.search(r"standings/\?table=table&table_sub=&ts=([^&\"]+)", r.text)
     if not m:
         raise RuntimeError("Não foi possível encontrar o token de classificação dessa liga.")
@@ -980,13 +994,10 @@ def _be_fetch_standings(match_url, table, table_sub=""):
             return cached["data"]
 
     token = _be_fetch_tournament_ts(country, league)
-    r = http_req.get(
+    r = _be_get(
         f"{BETEXPLORER_BASE}/br/football/{country}/{league}/standings/",
         params={"table": table, "table_sub": table_sub, "ts": token, "dcheck": 0, "as-ajax": 1, "l": "br"},
-        headers=BETEXPLORER_HEADERS, timeout=15,
     )
-    r.raise_for_status()
-    r.encoding = "utf-8"
     data = _be_parse_standings_table(r.text)
     with _be_standings_lock:
         _be_standings_cache[cache_key] = {"ts": now, "data": data}

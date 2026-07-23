@@ -2899,7 +2899,7 @@ function switchView(view, btn) {
     painelWrapper.style.display = 'flex';
     _painelBuildOddsFilterBar();
     loadPainelMatches();
-    _painelAutoRefresh = setInterval(loadPainelMatches, 20000);
+    _painelAutoRefresh = setInterval(loadPainelMatches, 60000);
   } else if (view === 'today') {
     todayWrapper.style.display = 'flex';
   } else if (view === 'today2') {
