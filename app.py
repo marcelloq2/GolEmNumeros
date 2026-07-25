@@ -675,48 +675,51 @@ def _ng_sanitize_nan(obj):
     return obj
 
 
-_NG_H2H_TABLE_JS = """
+_NG_MATCH_TABLE_JS = """
 () => {
-    const q = (id) => { const el = document.getElementById(id); return el ? el.textContent.trim() : null; };
-    const qv = (id) => { const el = document.querySelector('#' + id + ' .value'); return el ? el.textContent.trim() : null; };
-    const table = document.getElementById('table_v3');
-    if (!table) return null;
-    const rows = [...table.querySelectorAll('tr[id^="tr3_"]')].map(tr => {
-        const tds = tr.querySelectorAll('td');
-        const g = (i) => tds[i] ? tds[i] : null;
-        const scoreTd = g(3), cornerTd = g(5);
-        const ft = scoreTd ? scoreTd.querySelector('[class^="fscore"]') : null;
-        const ht = scoreTd ? scoreTd.querySelector('[class^="hscore"]') : null;
-        const cFt = cornerTd ? cornerTd.querySelector('[class^="fcorner"]') : null;
-        const cHt = cornerTd ? cornerTd.querySelector('[class^="hcorner"]') : null;
-        const odd = (i) => { const td = g(i); return td ? td.getAttribute('data-o') : null; };
+    function extract(n) {
+        const q = (id) => { const el = document.getElementById(id); return el ? el.textContent.trim() : null; };
+        const qv = (id) => { const el = document.querySelector('#' + id + ' .value'); return el ? el.textContent.trim() : null; };
+        const table = document.getElementById('table_v' + n);
+        if (!table) return null;
+        const rows = [...table.querySelectorAll('tr[id^="tr' + n + '_"]')].map(tr => {
+            const tds = tr.querySelectorAll('td');
+            const g = (i) => tds[i] ? tds[i] : null;
+            const scoreTd = g(3), cornerTd = g(5);
+            const ft = scoreTd ? scoreTd.querySelector('[class^="fscore"]') : null;
+            const ht = scoreTd ? scoreTd.querySelector('[class^="hscore"]') : null;
+            const cFt = cornerTd ? cornerTd.querySelector('[class^="fcorner"]') : null;
+            const cHt = cornerTd ? cornerTd.querySelector('[class^="hcorner"]') : null;
+            const odd = (i) => { const td = g(i); return td ? td.getAttribute('data-o') : null; };
+            return {
+                league: g(0) ? (g(0).getAttribute('title') || g(0).textContent.trim()) : null,
+                date: (() => { const s = g(1) ? g(1).querySelector('[data-t]') : null; return s ? s.getAttribute('data-t') : null; })(),
+                home: g(2) ? g(2).textContent.trim() : null,
+                score_ft: ft ? ft.textContent.trim() : null,
+                score_ht: ht ? ht.textContent.replace(/[()]/g, '').trim() : null,
+                away: g(4) ? g(4).textContent.trim() : null,
+                corner_ft: cFt ? cFt.textContent.trim() : null,
+                corner_ht: cHt ? cHt.textContent.replace(/[()]/g, '').trim() : null,
+                odd_hw: odd(6), odd_d: odd(7), odd_aw: odd(8),
+                wl_badge: g(9) ? g(9).textContent.trim() : null,
+                odd_ah_home: odd(10), ah_line: odd(11), odd_ah_away: odd(12),
+                ah_badge: g(13) ? g(13).textContent.trim() : null,
+                ou_badge: g(14) ? g(14).textContent.trim() : null,
+            };
+        });
         return {
-            league: g(0) ? (g(0).getAttribute('title') || g(0).textContent.trim()) : null,
-            date: (() => { const s = g(1) ? g(1).querySelector('[data-t]') : null; return s ? s.getAttribute('data-t') : null; })(),
-            home: g(2) ? g(2).textContent.trim() : null,
-            score_ft: ft ? ft.textContent.trim() : null,
-            score_ht: ht ? ht.textContent.replace(/[()]/g, '').trim() : null,
-            away: g(4) ? g(4).textContent.trim() : null,
-            corner_ft: cFt ? cFt.textContent.trim() : null,
-            corner_ht: cHt ? cHt.textContent.replace(/[()]/g, '').trim() : null,
-            odd_hw: odd(6), odd_d: odd(7), odd_aw: odd(8),
-            wl_badge: g(9) ? g(9).textContent.trim() : null,
-            odd_ah_home: odd(10), ah_line: odd(11), odd_ah_away: odd(12),
-            ah_badge: g(13) ? g(13).textContent.trim() : null,
-            ou_badge: g(14) ? g(14).textContent.trim() : null,
+            rows,
+            summary: {
+                win: q('hW_v' + n), draw: q('d_v' + n), lose: q('gW_v' + n),
+                goal_avg_home: q('hsAvg_v' + n), goal_avg_away: q('gsAvg_v' + n),
+                ah_home_pct: qv('ahWBar_v' + n), ah_draw_pct: qv('ahDBar_v' + n), ah_away_pct: qv('ahLBar_v' + n),
+                ah_count: q('ahCount_v' + n),
+                ou_over_pct: qv('ouWBar_v' + n), ou_draw_pct: qv('ouDBar_v' + n), ou_under_pct: qv('ouLBar_v' + n),
+                ou_count: q('ouCount_v' + n),
+            },
         };
-    });
-    return {
-        rows,
-        summary: {
-            win: q('hW_v3'), draw: q('d_v3'), lose: q('gW_v3'),
-            goal_avg_home: q('hsAvg_v3'), goal_avg_away: q('gsAvg_v3'),
-            ah_home_pct: qv('ahWBar_v3'), ah_draw_pct: qv('ahDBar_v3'), ah_away_pct: qv('ahLBar_v3'),
-            ah_count: q('ahCount_v3'),
-            ou_over_pct: qv('ouWBar_v3'), ou_draw_pct: qv('ouDBar_v3'), ou_under_pct: qv('ouLBar_v3'),
-            ou_count: q('ouCount_v3'),
-        },
-    };
+    }
+    return { home: extract(1), away: extract(2), h2h: extract(3) };
 }
 """
 
@@ -748,10 +751,14 @@ def _ng_fetch_strength(match_id, _attempt=1):
                         timeout=20000,
                     )
                     data = _ng_sanitize_nan(page.evaluate("() => window._strength"))
-                    # A tabela de confronto direto (table_v3) é preenchida pelo NowGoal via JS
-                    # depois que a página carrega, igual o _strength — extrai direto do DOM já
-                    # renderizado em vez de tentar achar/replicar o endpoint que a alimenta.
-                    data["h2h_table"] = _ng_sanitize_nan(page.evaluate(_NG_H2H_TABLE_JS))
+                    # As 3 tabelas de histórico (últimos resultados de casa/fora + confronto
+                    # direto — table_v1/v2/v3) são preenchidas pelo NowGoal via JS depois que a
+                    # página carrega, igual o _strength — extrai direto do DOM já renderizado em
+                    # vez de tentar achar/replicar o endpoint que as alimenta.
+                    tables = _ng_sanitize_nan(page.evaluate(_NG_MATCH_TABLE_JS))
+                    data["last_results_home"] = tables.get("home")
+                    data["last_results_away"] = tables.get("away")
+                    data["h2h_table"] = tables.get("h2h")
                 finally:
                     browser.close()
     except Exception:

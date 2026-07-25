@@ -1679,6 +1679,7 @@
       <div class="painel-modal-tabs">
         <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -3656,12 +3657,16 @@ function _painelForcaSetView(view, btn) {
   (btn || document.getElementById('painelForcaViewTab_' + view)).classList.add('active');
   const mainEl = document.getElementById('painelForcaViewMain');
   const h2hEl = document.getElementById('painelForcaViewH2H');
+  const lastEl = document.getElementById('painelForcaViewLast');
   if (mainEl) mainEl.style.display = view === 'main' ? '' : 'none';
   if (h2hEl) h2hEl.style.display = view === 'h2h' ? '' : 'none';
+  if (lastEl) lastEl.style.display = view === 'last' ? '' : 'none';
 }
 
 function _painelOpenForca(eventId, home, away) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
+  _painelForcaLastSide = 'home';
+  _painelForcaTableState = { h2h: { count: 10, ht: false }, home: { count: 10, ht: false }, away: { count: 10, ht: false } };
   document.getElementById('painelForcaOverlay').style.display = 'flex';
   document.querySelectorAll('#painelForcaOverlay .painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   const body = document.getElementById('painelForcaBody');
@@ -3811,39 +3816,54 @@ function _painelForcaRender() {
       <div>${_painelForcaRenderTab(d)}</div>
       <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>
     </div>
-    <div id="painelForcaViewH2H" style="display:none"></div>`;
+    <div id="painelForcaViewH2H" style="display:none"></div>
+    <div id="painelForcaViewLast" style="display:none"></div>`;
   _painelForcaH2HRender();
+  _painelForcaLastRender();
 }
 
-// ── Estatísticas de Confronto Direto (table_v3 do NowGoal) ────────────────────
-let _painelForcaH2HCount = 10;
-let _painelForcaH2HShowHT = false;
+// ── Estatísticas de Confronto Direto / Pontuações Anteriores (table_v1/v2/v3
+// do NowGoal) — mesma estrutura de dados nos 3 casos (histórico de casa, de
+// fora e confronto direto), então usa um único renderizador genérico.
+let _painelForcaTableState = {
+  h2h: { count: 10, ht: false },
+  home: { count: 10, ht: false },
+  away: { count: 10, ht: false },
+};
+let _painelForcaLastSide = 'home';
 
-function _painelForcaH2HSetCount(v) { _painelForcaH2HCount = v === 'all' ? 9999 : parseInt(v, 10); _painelForcaH2HRender(); }
-function _painelForcaH2HToggleHT(checked) { _painelForcaH2HShowHT = checked; _painelForcaH2HRender(); }
+function _painelForcaTableSetCount(key, v) {
+  _painelForcaTableState[key].count = v === 'all' ? 9999 : parseInt(v, 10);
+  if (key === 'h2h') _painelForcaH2HRender(); else _painelForcaLastRender();
+}
+function _painelForcaTableToggleHT(key, checked) {
+  _painelForcaTableState[key].ht = checked;
+  if (key === 'h2h') _painelForcaH2HRender(); else _painelForcaLastRender();
+}
+function _painelForcaLastSetSide(side) { _painelForcaLastSide = side; _painelForcaLastRender(); }
 
-function _painelForcaH2HBadgeClass(b) {
+function _painelForcaBadgeClass(b) {
   if (b === 'W' || b === 'O') return 'win';
   if (b === 'L' || b === 'U') return 'lose';
   if (b === 'D') return 'draw';
   return '';
 }
 
-function _painelForcaH2HDate(iso) {
+function _painelForcaTableDate(iso) {
   if (!iso) return '-';
   const d = new Date(iso.replace(' ', 'T'));
   if (isNaN(d)) return iso;
   return String(d.getDate()).padStart(2, '0') + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
 }
 
-function _painelForcaH2HRow(m, showHT) {
+function _painelForcaTableRow(m, showHT) {
   const score = showHT ? (m.score_ht || '-') : (m.score_ft || '-');
   const corner = showHT ? (m.corner_ht || '-') : (m.corner_ft || '-');
-  const badge = (b) => b ? `<span class="painel-forca-h2h-badge ${_painelForcaH2HBadgeClass(b)}">${b}</span>` : '-';
+  const badge = (b) => b ? `<span class="painel-forca-h2h-badge ${_painelForcaBadgeClass(b)}">${b}</span>` : '-';
   return `
     <tr>
       <td title="${m.league || ''}">${m.league || '-'}</td>
-      <td>${_painelForcaH2HDate(m.date)}</td>
+      <td>${_painelForcaTableDate(m.date)}</td>
       <td class="team">${m.home || '-'}</td>
       <td class="score">${score}</td>
       <td class="team">${m.away || '-'}</td>
@@ -3860,24 +3880,20 @@ function _painelForcaH2HRow(m, showHT) {
     </tr>`;
 }
 
-function _painelForcaH2HRender() {
-  const el = document.getElementById('painelForcaViewH2H');
-  if (!el) return;
-  const h2h = _painelForcaData ? _painelForcaData.h2h_table : null;
-  if (!h2h || !h2h.rows || !h2h.rows.length) {
-    el.innerHTML = `<div class="live-loading">Sem histórico de confrontos diretos encontrado.</div>`;
-    return;
+function _painelForcaBuildTableBlock(tbl, key) {
+  if (!tbl || !tbl.rows || !tbl.rows.length) {
+    return `<div class="live-loading">Sem histórico encontrado.</div>`;
   }
-  const s = h2h.summary;
-  const rows = h2h.rows.slice(0, _painelForcaH2HCount);
-  el.innerHTML = `
-    <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
+  const st = _painelForcaTableState[key];
+  const s = tbl.summary;
+  const rows = tbl.rows.slice(0, st.count);
+  return `
     <div class="painel-forca-h2h-controls">
-      <label><input type="checkbox" onchange="_painelForcaH2HToggleHT(this.checked)" ${_painelForcaH2HShowHT ? 'checked' : ''}> Mostrar 1º tempo (HT)</label>
-      <select onchange="_painelForcaH2HSetCount(this.value)">
-        <option value="4" ${_painelForcaH2HCount === 4 ? 'selected' : ''}>Últimos 4</option>
-        <option value="10" ${_painelForcaH2HCount === 10 ? 'selected' : ''}>Últimos 10</option>
-        <option value="all" ${_painelForcaH2HCount >= 9999 ? 'selected' : ''}>Todos</option>
+      <label><input type="checkbox" onchange="_painelForcaTableToggleHT('${key}', this.checked)" ${st.ht ? 'checked' : ''}> Mostrar 1º tempo (HT)</label>
+      <select onchange="_painelForcaTableSetCount('${key}', this.value)">
+        <option value="4" ${st.count === 4 ? 'selected' : ''}>Últimos 4</option>
+        <option value="10" ${st.count === 10 ? 'selected' : ''}>Últimos 10</option>
+        <option value="all" ${st.count >= 9999 ? 'selected' : ''}>Todos</option>
       </select>
     </div>
     ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
@@ -3896,9 +3912,33 @@ function _painelForcaH2HRender() {
           <th>Liga</th><th>Data</th><th>Lar</th><th>Placar</th><th>Visitante</th><th>Escanteio</th>
           <th>HW</th><th>D</th><th>AW</th><th>W/L</th><th>H</th><th>AH</th><th>A</th><th>AH</th><th>O/U</th>
         </tr></thead>
-        <tbody>${rows.map(m => _painelForcaH2HRow(m, _painelForcaH2HShowHT)).join('')}</tbody>
+        <tbody>${rows.map(m => _painelForcaTableRow(m, st.ht)).join('')}</tbody>
       </table>
     </div>`;
+}
+
+function _painelForcaH2HRender() {
+  const el = document.getElementById('painelForcaViewH2H');
+  if (!el) return;
+  const h2h = _painelForcaData ? _painelForcaData.h2h_table : null;
+  el.innerHTML = `
+    <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
+    ${_painelForcaBuildTableBlock(h2h, 'h2h')}`;
+}
+
+function _painelForcaLastRender() {
+  const el = document.getElementById('painelForcaViewLast');
+  if (!el) return;
+  const home = _painelForcaData ? _painelForcaData.last_results_home : null;
+  const away = _painelForcaData ? _painelForcaData.last_results_away : null;
+  const side = _painelForcaLastSide;
+  const tbl = side === 'home' ? home : away;
+  el.innerHTML = `
+    <div class="painel-forca-tabs">
+      <button class="painel-forca-tab${side === 'home' ? ' active' : ''}" onclick="_painelForcaLastSetSide('home')">${_painelForcaHome}</button>
+      <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
+    </div>
+    ${_painelForcaBuildTableBlock(tbl, side)}`;
 }
 
 function _painelH2HTeamLogo(name) {
