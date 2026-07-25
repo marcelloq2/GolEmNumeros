@@ -1333,35 +1333,6 @@
   .painel-meth-tip-result.lose { color: #c62828; }
   .painel-meth-tip-text { font-size: 12px; color: var(--text); line-height: 1.5; }
 
-  /* ── Eventos ao vivo — "campo" simplificado com os lances na linha do tempo ── */
-  .painel-live-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 12px; }
-  .painel-live-header .home { color: #e8622c; }
-  .painel-live-header .away { color: #2c7fe8; }
-  .painel-live-pitch {
-    position: relative; background: repeating-linear-gradient(180deg, #2e7d32, #2e7d32 24px, #388e3c 24px, #388e3c 48px);
-    border: 2px solid #a5d6a7; border-radius: 6px; padding: 14px 8px; min-height: 160px;
-  }
-  .painel-live-pitch::before {
-    content: ""; position: absolute; left: 50%; top: 14px; bottom: 14px; width: 1px; background: rgba(255,255,255,.5);
-  }
-  .painel-live-pitch::after {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px;
-    border: 1px solid rgba(255,255,255,.5); border-radius: 50%;
-  }
-  .painel-live-row { position: relative; min-height: 30px; margin-bottom: 6px; z-index: 1; }
-  .painel-live-marker {
-    position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center;
-    font-size: 15px; cursor: default; line-height: 1;
-  }
-  .painel-live-marker .min { font-size: 9px; color: #fff; background: rgba(0,0,0,.5); border-radius: 3px; padding: 0 3px; margin-top: 2px; white-space: nowrap; }
-  .painel-live-list { margin-top: 14px; }
-  .painel-live-item { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: 12px; }
-  .painel-live-item .side-tag { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .painel-live-item .side-tag.home { background: #e8622c; }
-  .painel-live-item .side-tag.away { background: #2c7fe8; }
-  .painel-live-item .min { font-weight: 700; color: var(--text2); min-width: 32px; }
-  .painel-live-item img.gif { width: 60px; border-radius: 4px; margin-left: auto; }
-
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
   }
@@ -1599,18 +1570,6 @@
         <button class="painel-modal-close" onclick="_painelCloseUserTips()">✕</button>
       </div>
       <div id="painelUserTipsBody">
-        <div class="live-loading"><div class="spinner"></div>Carregando...</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="painelLiveEventsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseLiveEvents()">
-    <div class="painel-modal-box" style="max-width:520px">
-      <div class="painel-modal-header">
-        <div id="painelLiveEventsTitle" style="font-size:15px;font-weight:700;color:var(--text)"></div>
-        <button class="painel-modal-close" onclick="_painelCloseLiveEvents()">✕</button>
-      </div>
-      <div id="painelLiveEventsBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
       </div>
     </div>
@@ -3565,56 +3524,6 @@ function _painelCloseUserTips() {
   document.getElementById('painelUserTipsOverlay').style.display = 'none';
 }
 
-// ── Eventos ao vivo — gols/cartões/substituições numa linha do tempo sobre um
-// "campo" simplificado nosso (o NowGoal usa um feed proprietário com
-// coordenadas pra animação completa, difícil de decodificar — aqui usamos o
-// resumo estruturado dos incidentes que eles já expõem, incluindo o GIF
-// oficial de cada lance, só que desenhado no nosso próprio layout).
-const PAINEL_LIVE_ICON = {
-  1: '⚽', 2: '❌', 3: '🟨', 4: '🟥', 5: '🟨', 7: '⚽', 8: '⚽', 11: '🔄',
-};
-
-function _painelOpenLiveEvents(eventId, home, away) {
-  document.getElementById('painelLiveEventsTitle').innerHTML = `<span style="color:#e8622c">${home}</span> x <span style="color:#2c7fe8">${away}</span>`;
-  document.getElementById('painelLiveEventsOverlay').style.display = 'flex';
-  const body = document.getElementById('painelLiveEventsBody');
-  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  fetch('/api/painel/live_events?match_id=' + encodeURIComponent(eventId))
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) { body.innerHTML = `<div class="live-loading">${d.error}</div>`; return; }
-      const events = d.events || [];
-      if (!events.length) { body.innerHTML = `<div class="live-loading">Nenhum lance registrado ainda nessa partida.</div>`; return; }
-      const homeEvents = events.filter(e => e.side === 'home');
-      const awayEvents = events.filter(e => e.side === 'away');
-      const pos = (min) => Math.min(96, Math.max(4, (min / 90) * 100));
-      const markers = (list) => list.map(e => `
-        <div class="painel-live-marker" style="left:${pos(e.minute)}%" title="${e.player || ''}${e.player2 ? ' → ' + e.player2 : ''}">
-          <span>${PAINEL_LIVE_ICON[e.code] || '⚪'}</span>
-          <span class="min">${e.minute}'</span>
-        </div>`).join('');
-      body.innerHTML = `
-        <div class="painel-live-pitch">
-          <div class="painel-live-row">${markers(homeEvents)}</div>
-          <div class="painel-live-row">${markers(awayEvents)}</div>
-        </div>
-        <div class="painel-live-list">
-          ${events.map(e => `
-            <div class="painel-live-item">
-              <span class="side-tag ${e.side}"></span>
-              <span class="min">${e.minute}'</span>
-              <span>${PAINEL_LIVE_ICON[e.code] || '⚪'} ${e.label}${e.player ? ` — ${e.player}` : ''}${e.player2 ? ` (${e.player2})` : ''}</span>
-              ${e.gif_url ? `<img class="gif" src="${e.gif_url}" alt="">` : ''}
-            </div>`).join('')}
-        </div>`;
-    })
-    .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
-}
-
-function _painelCloseLiveEvents() {
-  document.getElementById('painelLiveEventsOverlay').style.display = 'none';
-}
-
 let _painelCurrentMatchUrl = null;
 let _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
 
@@ -4956,12 +4865,9 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_2)}
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
-      <span style="display:flex;align-items:center;justify-content:center;gap:2px">
-        ${isLive ? `<button class="painel-match-analysis-btn" title="Eventos ao vivo" onclick="event.stopPropagation();_painelOpenLiveEvents('${m.event_id}','${homeEsc}','${awayEsc}')">🎬</button>` : ''}
-        ${m.match_url
-          ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
-          : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}')">📊</button>`}
-      </span>
+      ${m.match_url
+        ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}')">📊</button>`}
     </div>`;
 }
 
