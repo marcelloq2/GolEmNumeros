@@ -988,6 +988,83 @@ def api_painel_tips_user():
     return jsonify(data)
 
 
+# ── Eventos ao vivo (gols/cartões/substituições) — animação simplificada ──────
+# O NowGoal usa um feed proprietário (flashdata) pra animação completa do campo
+# (com coordenadas), díficil de decodificar. Mas o endpoint SoccerAjax?type=15
+# já devolve um resumo estruturado dos incidentes da partida (d_f[matchId]),
+# incluindo até o GIF oficial de cada lance — usamos isso pra montar nossa
+# própria linha do tempo em vez de clonar a animação deles.
+_ng_live_events_cache = {}   # match_id -> {"ts":, "data":}
+_ng_live_events_lock = threading.Lock()
+_NG_LIVE_EVENTS_TTL = 20  # jogo ao vivo muda rápido — cache curto
+
+# Só 1/3/8/11 foram confirmados observando partidas reais; os demais são o
+# palpite mais razoável pra não deixar a UI quebrada com um código desconhecido.
+_NG_INCIDENT_LABELS = {
+    1: "Gol", 2: "Pênalti perdido", 3: "Cartão Amarelo", 4: "Cartão Vermelho",
+    5: "2º Cartão Amarelo", 7: "Gol de Pênalti", 8: "Gol Contra", 11: "Substituição",
+}
+
+
+def _ng_fetch_live_events(match_id):
+    with _ng_live_events_lock:
+        cached = _ng_live_events_cache.get(match_id)
+        if cached and (time.time() - cached["ts"]) < _NG_LIVE_EVENTS_TTL:
+            return cached["data"]
+
+    import ast
+    jar = _ng_get_cookie_jar()
+    r = http_req.get(
+        f"{NOWGOAL_BASE}/Ajax/SoccerAjax",
+        params={"type": 15, "id": match_id, "flesh": time.time()},
+        headers=NOWGOAL_HEADERS, cookies=jar, timeout=15,
+    )
+    r.raise_for_status()
+    payload = r.json()
+    text = payload.get("Data", "")
+
+    m = re.search(r"d_f\[\d+\]\s*=\s*(\[.*?\]);", text, re.S)
+    events = []
+    if m:
+        try:
+            raw = ast.literal_eval(m.group(1))
+        except (ValueError, SyntaxError):
+            raw = []
+        for row in raw:
+            if len(row) < 8:
+                continue
+            code, minute, _team_id, _player_id, _player2_id, side = row[0], row[1], row[2], row[3], row[4], row[5]
+            player, player2 = row[6], row[7]
+            gif_url = row[-1] if isinstance(row[-1], str) and row[-1].startswith("/") else None
+            events.append({
+                "code": code,
+                "label": _NG_INCIDENT_LABELS.get(code, "Lance"),
+                "minute": minute,
+                "side": "home" if side == 1 else "away",
+                "player": player or None,
+                "player2": player2 or None,
+                "gif_url": (NOWGOAL_BASE + gif_url) if gif_url else None,
+            })
+    events.sort(key=lambda e: e["minute"])
+
+    data = {"events": events}
+    with _ng_live_events_lock:
+        _ng_live_events_cache[match_id] = {"ts": time.time(), "data": data}
+    return data
+
+
+@app.route("/api/painel/live_events")
+def api_painel_live_events():
+    match_id = request.args.get("match_id", "")
+    if not match_id or not match_id.isdigit():
+        return jsonify({"error": "match_id inválido"}), 400
+    try:
+        data = _ng_fetch_live_events(match_id)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
 def _painel_fetch_matches_nowgoal(force=False, date_str=None):
     """Versão NowGoal — só serve o dia atual por enquanto (o feed do NowGoal não
     tem parâmetro de data ainda descoberto; navegação por calendário fica limitada
