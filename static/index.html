@@ -1467,7 +1467,8 @@
       </div>
       <div class="painel-modal-tabs">
         <button class="painel-modal-tab active" onclick="_painelSetModalTab('principal', this)">Principal</button>
-        <button class="painel-modal-tab" onclick="_painelSetModalTab('analise', this)">Análise</button>
+        <button class="painel-modal-tab" onclick="_painelSetModalTab('analise', this)">Análise Confronto Direto</button>
+        <button class="painel-modal-tab" onclick="_painelSetModalTab('ultimos', this)">Análise Últimos Resultados</button>
       </div>
       <div id="painelTabPrincipal">
         <div class="painel-h2h-block">
@@ -1571,6 +1572,48 @@
           <div class="painel-odds-filter-bar" id="painelH2HOddsFilterBar" style="padding:8px 0;border:none"></div>
           <div id="painelH2HOddsStatsBody" style="color:var(--text2);padding:16px 0;text-align:center">
             Selecione um filtro de odd acima pra ver as estatísticas.
+          </div>
+        </div>
+      </div>
+
+      <div id="painelTabUltimos" style="display:none">
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Análise: <span id="painelLRStatsTeamName_home"></span></div>
+          <div class="painel-lr-controls">
+            <span>Mostrar:</span>
+            <select onchange="_painelLRChange('home','tournament',this.value)">
+              <option value="1">Este torneio</option>
+              <option value="2">Todos os torneios</option>
+            </select>
+            <select onchange="_painelLRChange('home','count',this.value)">
+              <option value="5">5 resultados</option>
+              <option value="10">10 resultados</option>
+              <option value="15">15 resultados</option>
+              <option value="20">todos resultados</option>
+            </select>
+          </div>
+          <div id="painelLRStatsBody_home" style="color:var(--text2);padding:16px 0;text-align:center">
+            Carregando...
+          </div>
+        </div>
+
+        <div class="painel-lr-block">
+          <div class="painel-lr-title">Análise: <span id="painelLRStatsTeamName_away"></span></div>
+          <div class="painel-lr-controls">
+            <span>Mostrar:</span>
+            <select onchange="_painelLRChange('away','tournament',this.value)">
+              <option value="1">Este torneio</option>
+              <option value="2">Todos os torneios</option>
+            </select>
+            <select onchange="_painelLRChange('away','count',this.value)">
+              <option value="5">5 resultados</option>
+              <option value="10">10 resultados</option>
+              <option value="15">15 resultados</option>
+              <option value="20">todos resultados</option>
+            </select>
+          </div>
+          <div id="painelLRStatsBody_away" style="color:var(--text2);padding:16px 0;text-align:center">
+            Carregando...
           </div>
         </div>
       </div>
@@ -3233,6 +3276,7 @@ function _painelSetModalTab(tab, btn) {
   btn.classList.add('active');
   document.getElementById('painelTabPrincipal').style.display = tab === 'principal' ? '' : 'none';
   document.getElementById('painelTabAnalise').style.display = tab === 'analise' ? '' : 'none';
+  document.getElementById('painelTabUltimos').style.display = tab === 'ultimos' ? '' : 'none';
 }
 
 // ── Aba Análise — Estatísticas de Confronto Direto ─────────────────────────────
@@ -3470,12 +3514,14 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
   document.querySelectorAll('.painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.getElementById('painelTabPrincipal').style.display = '';
   document.getElementById('painelTabAnalise').style.display = 'none';
+  document.getElementById('painelTabUltimos').style.display = 'none';
   _painelCurrentMatchUrl = matchUrl;
   _painelHomeLogo = homeLogo || null;
   _painelAwayLogo = awayLogo || null;
+  _painelLRRawData = { home: null, away: null };
   _painelLRState = { home: { tournament: '1', count: '5' }, away: { tournament: '1', count: '5' } };
   _painelH2HStatsState = { tournament: '1', count: '5' };
-  document.querySelectorAll('#painelTabAnalise select').forEach(sel => { sel.selectedIndex = 0; });
+  document.querySelectorAll('#painelTabAnalise select, #painelTabUltimos select').forEach(sel => { sel.selectedIndex = 0; });
   document.getElementById('painelLRTeamName_home').textContent = home;
   document.getElementById('painelLRTeamName_away').textContent = away;
   document.getElementById('painelH2HHomeName').textContent = home;
@@ -3502,6 +3548,8 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
     document.getElementById('painelH2HBar').innerHTML = '';
     document.getElementById('painelH2HStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
     document.getElementById('painelH2HOddsStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
+    document.getElementById('painelLRStatsBody_home').innerHTML = PAINEL_MATCH_FINISHED_MSG;
+    document.getElementById('painelLRStatsBody_away').innerHTML = PAINEL_MATCH_FINISHED_MSG;
   } else {
     _painelLoadLastResults('home');
     _painelLoadLastResults('away');
@@ -3774,27 +3822,104 @@ function _painelLRRow(row) {
     </a>`;
 }
 
+let _painelLRRawData = { home: null, away: null };  // cache do último /api/painel/last_results por lado, reaproveitado na aba de análise
+
 function _painelLoadLastResults(side) {
   const container = document.getElementById('painelLR_' + side);
   if (!container || !_painelCurrentMatchUrl) return;
   container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  const statsBody = document.getElementById('painelLRStatsBody_' + side);
+  if (statsBody) statsBody.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  _painelLRRawData[side] = null;
   const state = _painelLRState[side];
   const url = '/api/painel/last_results?match_url=' + encodeURIComponent(_painelCurrentMatchUrl)
     + '&side=' + side + '&count=' + state.count + '&all=' + (state.tournament === '2' ? '1' : '0');
   fetch(url).then(r => r.json()).then(data => {
     if (data.error) {
       container.innerHTML = `<div class="live-loading">${data.error}</div>`;
+      if (statsBody) statsBody.innerHTML = `<div class="live-loading">${data.error}</div>`;
       return;
     }
-    if (data.team_name) document.getElementById('painelLRTeamName_' + side).textContent = data.team_name;
+    if (data.team_name) {
+      document.getElementById('painelLRTeamName_' + side).textContent = data.team_name;
+      const statsNameEl = document.getElementById('painelLRStatsTeamName_' + side);
+      if (statsNameEl) statsNameEl.textContent = data.team_name;
+    }
+    _painelLRRawData[side] = data;
     if (!data.rows || !data.rows.length) {
       container.innerHTML = `<div class="live-loading">Nenhum resultado encontrado.</div>`;
+      if (statsBody) statsBody.innerHTML = `<div class="live-loading">Nenhum resultado encontrado.</div>`;
       return;
     }
     container.innerHTML = data.rows.map(_painelLRRow).join('');
+    _painelLRStatsRender(side);
   }).catch(err => {
     container.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    if (statsBody) statsBody.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
   });
+}
+
+// ── Análise dos Últimos Resultados — % vitórias/empates/derrotas, médias de gols,
+// BTTS, clean sheet/não marcou, over/under — sobre os últimos jogos de CADA time
+// isoladamente (não é confronto direto). 100% reaproveitado do que já foi buscado
+// pra lista de "Últimos resultados" — nenhuma requisição extra.
+function _painelLRComputeStats(side) {
+  const data = _painelLRRawData[side];
+  if (!data || !data.rows || !data.rows.length) return null;
+  const teamName = data.team_name;
+  let n = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0, btts = 0, clean = 0, fts = 0, over25 = 0, over15 = 0;
+  data.rows.forEach(row => {
+    const sh = parseInt(row.score_home, 10), sa = parseInt(row.score_away, 10);
+    if (isNaN(sh) || isNaN(sa)) return;
+    const isHome = row.home === teamName;
+    const teamGf = isHome ? sh : sa;
+    const teamGa = isHome ? sa : sh;
+    n++; gf += teamGf; ga += teamGa;
+    const res = (row.result || '').toUpperCase();
+    if (res === 'W') wins++;
+    else if (res === 'D') draws++;
+    else if (res === 'L') losses++;
+    if (teamGf === 0) fts++;
+    if (teamGa === 0) clean++;
+    if (sh > 0 && sa > 0) btts++;
+    const total = sh + sa;
+    if (total > 2.5) over25++;
+    if (total > 1.5) over15++;
+  });
+  if (!n) return null;
+  const pct = x => Math.round(100 * x / n);
+  const avg = x => Math.round((x / n) * 100) / 100;
+  return {
+    n, teamName,
+    pct_wins: pct(wins), pct_draws: pct(draws), pct_losses: pct(losses),
+    avg_gf: avg(gf), avg_ga: avg(ga),
+    pct_btts_yes: pct(btts), pct_btts_no: pct(n - btts),
+    pct_clean: pct(clean), pct_fts: pct(fts),
+    pct_over25: pct(over25), pct_under25: pct(n - over25),
+    pct_over15: pct(over15), pct_under15: pct(n - over15),
+  };
+}
+
+function _painelLRStatRow(label, value, isAvg) {
+  const shown = (value === null || value === undefined) ? '-' : (isAvg ? value : value + '%');
+  return `<div class="painel-h2h-stat-row painel-h2h-stat-row--shared"><span class="painel-h2h-stat-label">${label}</span><span class="painel-h2h-stat-value">${shown}</span></div>`;
+}
+
+function _painelLRStatsRender(side) {
+  const body = document.getElementById('painelLRStatsBody_' + side);
+  if (!body) return;
+  const s = _painelLRComputeStats(side);
+  if (!s) {
+    body.innerHTML = `<div class="live-loading">Sem dados suficientes pra calcular.</div>`;
+    return;
+  }
+  body.innerHTML = `
+    ${_painelH2HStatsGroup('Resultado', _painelLRStatRow('% Vitórias', s.pct_wins) + _painelLRStatRow('% Empates', s.pct_draws) + _painelLRStatRow('% Derrotas', s.pct_losses))}
+    ${_painelH2HStatsGroup('Médias de gols', _painelLRStatRow('Média de gols marcados', s.avg_gf, true) + _painelLRStatRow('Média de gols sofridos', s.avg_ga, true))}
+    ${_painelH2HStatsGroup('Ambas Marcam', _painelLRStatRow('Sim', s.pct_btts_yes) + _painelLRStatRow('Não', s.pct_btts_no))}
+    ${_painelH2HStatsGroup('Clean sheet / Não marcou', _painelLRStatRow('% sem sofrer gols', s.pct_clean) + _painelLRStatRow('% sem marcar', s.pct_fts))}
+    ${_painelH2HStatsGroup('Over/Under', _painelLRStatRow('% mais de 2,5 gols', s.pct_over25) + _painelLRStatRow('% menos de 2,5 gols', s.pct_under25) + _painelLRStatRow('% mais de 1,5 gols', s.pct_over15) + _painelLRStatRow('% menos de 1,5 gols', s.pct_under15))}
+    <div class="painel-h2h-stats-note">Baseado nos últimos ${s.n} jogos de ${s.teamName} (tempo integral).</div>`;
 }
 
 function _painelRender(data) {
