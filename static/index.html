@@ -3662,10 +3662,20 @@ function _painelForcaSetTab(tab) {
   _painelForcaRender();
 }
 
-function _painelForcaRadarSvg(d) {
-  const cx = 110, cy = 100, R = 78, n = 5;
+function _painelForcaOverallGrades(d) {
+  // O NowGoal não expõe um "grade geral" pronto — o número grande ao lado do
+  // radar é a média dos 5 eixos (H2H, Estado, Ataque, Defesa, Valor), não o
+  // grade isolado de H2H (confirmado comparando com o site original: Brann
+  // 65/Valerenga 35 no geral, mas 73/27 só na aba H2H).
   const homeVals = PAINEL_FORCA_RADAR_AXES.map(k => (d[k] && d[k].hGrade != null) ? d[k].hGrade : (d[k] ? d[k].hPercent : 0) || 0);
   const awayVals = PAINEL_FORCA_RADAR_AXES.map(k => (d[k] && d[k].gGrade != null) ? d[k].gGrade : (d[k] ? d[k].gPercent : 0) || 0);
+  const hAvg = homeVals.reduce((a, b) => a + b, 0) / homeVals.length;
+  const gAvg = awayVals.reduce((a, b) => a + b, 0) / awayVals.length;
+  return { home: Math.round(hAvg), away: Math.round(gAvg), homeVals, awayVals };
+}
+
+function _painelForcaRadarSvg(d, homeVals, awayVals) {
+  const cx = 110, cy = 100, R = 78, n = 5;
   const pt = (i, val) => {
     const angle = -Math.PI / 2 + (i * 2 * Math.PI / n);
     const r = R * Math.max(0, Math.min(100, val)) / 100;
@@ -3755,13 +3765,13 @@ function _painelForcaRender() {
   const d = _painelForcaData;
   const body = document.getElementById('painelForcaBody');
   if (!d) { body.innerHTML = `<div class="live-loading">Sem dados.</div>`; return; }
-  const battle = d.battle || {};
+  const grades = _painelForcaOverallGrades(d);
   body.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     <div class="painel-forca-radar-wrap">
-      <span class="painel-forca-grade home">${battle.hGrade != null ? battle.hGrade : '-'}</span>
-      ${_painelForcaRadarSvg(d)}
-      <span class="painel-forca-grade away">${battle.gGrade != null ? battle.gGrade : '-'}</span>
+      <span class="painel-forca-grade home">${grades.home}</span>
+      ${_painelForcaRadarSvg(d, grades.homeVals, grades.awayVals)}
+      <span class="painel-forca-grade away">${grades.away}</span>
     </div>
     <div class="painel-forca-tabs">
       ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
