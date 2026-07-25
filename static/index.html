@@ -3507,7 +3507,7 @@ function _painelH2HStatsRender() {
   });
 }
 
-function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, isFinished, finalScore) {
+function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, hasStarted, finalScore, isLive) {
   document.getElementById('painelAnalysisTitle').textContent = `${home} - ${away}`;
   document.getElementById('painelAnalysisOverlay').style.display = 'flex';
   document.querySelectorAll('.painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
@@ -3537,14 +3537,17 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
   document.getElementById('painelLR_away').style.display = '';
   document.getElementById('painelLRToggleArrow_home').classList.remove('collapsed');
   document.getElementById('painelLRToggleArrow_away').classList.remove('collapsed');
-  _painelCurrentMatchFinished = !!isFinished;
+  _painelCurrentMatchFinished = !!hasStarted;
   _painelH2HRawData = null;
-  if (isFinished) {
+  if (hasStarted) {
     // O BetExplorer só serve o widget de "últimos resultados"/"confronto direto" como
-    // preparo pré-jogo — depois que a partida termina, ele para de mandar esses dados
-    // (confirmado testando: funciona pra jogos futuros, falha pra jogos já encerrados).
+    // preparo pré-jogo — assim que a partida começa (ao vivo ou já encerrada), ele
+    // para de mandar esses dados (confirmado testando: funciona pra jogos futuros,
+    // falha tanto pra jogos ao vivo quanto pra jogos já encerrados).
     // Em vez de tentar (e o usuário ver um erro/spinner infinito), avisa direto.
-    const msg = `Essa partida já foi encerrada${finalScore ? ` (placar final: ${finalScore})` : ''}. O BetExplorer só disponibiliza os dados de últimos resultados e confronto direto antes do jogo acontecer — depois que termina, esses dados saem do ar por lá.`;
+    const msg = isLive
+      ? `Essa partida já começou (ao vivo${finalScore ? `, placar: ${finalScore}` : ''}). O BetExplorer só disponibiliza os dados de últimos resultados e confronto direto antes do jogo começar — assim que começa, esses dados saem do ar por lá.`
+      : `Essa partida já foi encerrada${finalScore ? ` (placar final: ${finalScore})` : ''}. O BetExplorer só disponibiliza os dados de últimos resultados e confronto direto antes do jogo acontecer — depois que começa, esses dados saem do ar por lá.`;
     document.getElementById('painelLR_home').innerHTML = `<div class="live-loading">${msg}</div>`;
     document.getElementById('painelLR_away').innerHTML = `<div class="live-loading">${msg}</div>`;
     document.getElementById('painelH2HList').innerHTML = `<div class="live-loading">${msg}</div>`;
@@ -4037,7 +4040,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_2)}
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
-      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}',${_painelIsFinished(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}')">📊</button>
+      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>
     </div>`;
 }
 
