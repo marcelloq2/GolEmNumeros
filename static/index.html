@@ -1266,6 +1266,21 @@
   .painel-forca-bar .home-seg { background: #e8622c; height: 100%; }
   .painel-forca-bar .away-seg { background: #2c7fe8; height: 100%; }
   .painel-forca-note { font-size: 10px; color: var(--text2); text-align: center; margin-top: 10px; }
+  .painel-forca-h2h-controls { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+  .painel-forca-h2h-controls select { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; padding: 3px 6px; }
+  .painel-forca-h2h-dist { display: flex; gap: 16px; margin: 10px 0; }
+  .painel-forca-h2h-dist > div { flex: 1; }
+  .painel-forca-h2h-dist-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .painel-forca-h2h-table-wrap { overflow-x: auto; margin-top: 6px; }
+  .painel-forca-h2h-table { border-collapse: collapse; width: 100%; font-size: 10px; white-space: nowrap; }
+  .painel-forca-h2h-table th, .painel-forca-h2h-table td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--border); color: var(--text); }
+  .painel-forca-h2h-table th { color: var(--text2); font-weight: 700; background: var(--bg2); position: sticky; top: 0; }
+  .painel-forca-h2h-table td.team { text-align: left; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  .painel-forca-h2h-table td.score { font-weight: 700; }
+  .painel-forca-h2h-badge { display: inline-block; min-width: 16px; padding: 1px 4px; border-radius: 3px; font-weight: 700; color: #fff; font-size: 9px; }
+  .painel-forca-h2h-badge.win { background: #2e7d32; }
+  .painel-forca-h2h-badge.lose { background: #c62828; }
+  .painel-forca-h2h-badge.draw { background: #f9a825; }
 
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
@@ -1656,7 +1671,7 @@
   </div>
 
   <div id="painelForcaOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseForca()">
-    <div class="painel-modal-box" style="max-width:560px">
+    <div class="painel-modal-box" style="max-width:700px">
       <div class="painel-modal-header">
         <div style="font-size:15px;font-weight:700;color:var(--text)">Comparação de força</div>
         <button class="painel-modal-close" onclick="_painelCloseForca()">✕</button>
@@ -3777,7 +3792,95 @@ function _painelForcaRender() {
       ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
     </div>
     <div>${_painelForcaRenderTab(d)}</div>
-    <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>`;
+    <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>
+    <div id="painelForcaH2HSection"></div>`;
+  _painelForcaH2HRender();
+}
+
+// ── Estatísticas de Confronto Direto (table_v3 do NowGoal) ────────────────────
+let _painelForcaH2HCount = 10;
+let _painelForcaH2HShowHT = false;
+
+function _painelForcaH2HSetCount(v) { _painelForcaH2HCount = v === 'all' ? 9999 : parseInt(v, 10); _painelForcaH2HRender(); }
+function _painelForcaH2HToggleHT(checked) { _painelForcaH2HShowHT = checked; _painelForcaH2HRender(); }
+
+function _painelForcaH2HBadgeClass(b) {
+  if (b === 'W' || b === 'O') return 'win';
+  if (b === 'L' || b === 'U') return 'lose';
+  if (b === 'D') return 'draw';
+  return '';
+}
+
+function _painelForcaH2HDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso.replace(' ', 'T'));
+  if (isNaN(d)) return iso;
+  return String(d.getDate()).padStart(2, '0') + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+}
+
+function _painelForcaH2HRow(m, showHT) {
+  const score = showHT ? (m.score_ht || '-') : (m.score_ft || '-');
+  const corner = showHT ? (m.corner_ht || '-') : (m.corner_ft || '-');
+  const badge = (b) => b ? `<span class="painel-forca-h2h-badge ${_painelForcaH2HBadgeClass(b)}">${b}</span>` : '-';
+  return `
+    <tr>
+      <td title="${m.league || ''}">${m.league || '-'}</td>
+      <td>${_painelForcaH2HDate(m.date)}</td>
+      <td class="team">${m.home || '-'}</td>
+      <td class="score">${score}</td>
+      <td class="team">${m.away || '-'}</td>
+      <td>${corner}</td>
+      <td>${_painelForcaVal(m.odd_hw)}</td>
+      <td>${_painelForcaVal(m.odd_d)}</td>
+      <td>${_painelForcaVal(m.odd_aw)}</td>
+      <td>${badge(m.wl_badge)}</td>
+      <td>${_painelForcaVal(m.odd_ah_home)}</td>
+      <td>${_painelForcaVal(m.ah_line)}</td>
+      <td>${_painelForcaVal(m.odd_ah_away)}</td>
+      <td>${badge(m.ah_badge)}</td>
+      <td>${badge(m.ou_badge)}</td>
+    </tr>`;
+}
+
+function _painelForcaH2HRender() {
+  const el = document.getElementById('painelForcaH2HSection');
+  if (!el) return;
+  const h2h = _painelForcaData ? _painelForcaData.h2h_table : null;
+  if (!h2h || !h2h.rows || !h2h.rows.length) {
+    el.innerHTML = `<div class="painel-forca-group-title" style="margin-top:16px">Estatísticas de Confronto Direto</div><div class="live-loading">Sem histórico de confrontos diretos encontrado.</div>`;
+    return;
+  }
+  const s = h2h.summary;
+  const rows = h2h.rows.slice(0, _painelForcaH2HCount);
+  el.innerHTML = `
+    <div class="painel-forca-group-title" style="margin-top:16px">Estatísticas de Confronto Direto</div>
+    <div class="painel-forca-h2h-controls">
+      <label><input type="checkbox" onchange="_painelForcaH2HToggleHT(this.checked)" ${_painelForcaH2HShowHT ? 'checked' : ''}> Mostrar 1º tempo (HT)</label>
+      <select onchange="_painelForcaH2HSetCount(this.value)">
+        <option value="4" ${_painelForcaH2HCount === 4 ? 'selected' : ''}>Últimos 4</option>
+        <option value="10" ${_painelForcaH2HCount === 10 ? 'selected' : ''}>Últimos 10</option>
+        <option value="all" ${_painelForcaH2HCount >= 9999 ? 'selected' : ''}>Todos</option>
+      </select>
+    </div>
+    ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
+    ${_painelForcaBarRow('Gols por jogo', s.goal_avg_home || '-', s.goal_avg_away || '-', null, null)}
+    <div class="painel-forca-h2h-dist">
+      <div><span class="painel-forca-group-title">Handicap Asiático ${s.ah_count || ''}</span>
+        <div class="painel-forca-h2h-dist-row"><span>Casa ${s.ah_home_pct || '-'}</span><span>Empate ${s.ah_draw_pct || '-'}</span><span>Fora ${s.ah_away_pct || '-'}</span></div>
+      </div>
+      <div><span class="painel-forca-group-title">Over/Under ${s.ou_count || ''}</span>
+        <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
+      </div>
+    </div>
+    <div class="painel-forca-h2h-table-wrap">
+      <table class="painel-forca-h2h-table">
+        <thead><tr>
+          <th>Liga</th><th>Data</th><th>Lar</th><th>Placar</th><th>Visitante</th><th>Escanteio</th>
+          <th>HW</th><th>D</th><th>AW</th><th>W/L</th><th>H</th><th>AH</th><th>A</th><th>AH</th><th>O/U</th>
+        </tr></thead>
+        <tbody>${rows.map(m => _painelForcaH2HRow(m, _painelForcaH2HShowHT)).join('')}</tbody>
+      </table>
+    </div>`;
 }
 
 function _painelH2HTeamLogo(name) {
