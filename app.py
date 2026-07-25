@@ -461,6 +461,175 @@ def _be_parse_bettype(html):
     return matches, leagues_order
 
 
+# ── NowGoal — fonte alternativa dos jogos do dia (BetExplorer passou a bloquear
+# com 429 com frequência demais). O NowGoal serve os jogos como um array JS puro
+# (sem HTML pra parsear), só exige um cookie de sessão (LS_ACCESS_TOKEN) obtido
+# visitando a home antes de acessar o feed de dados. Por ora só migramos jogos +
+# placar + liga/país (odds e link de análise continuam vindo do BetExplorer, que
+# ainda alimenta os widgets de Confronto Direto/Últimos Resultados/Classificações).
+NOWGOAL_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.nowgoal.net/",
+    "Accept": "*/*",
+}
+NOWGOAL_BASE = "https://www.nowgoal.net"
+_ng_cookie_cache = {"ts": 0.0, "jar": None}
+_ng_cookie_lock = threading.Lock()
+_NG_COOKIE_TTL = 3600  # 1h — token de sessão simples, não expira rápido, mas renovamos por segurança
+
+_NG_STATUS_MAP = {
+    "0": "Agendado", "1": "1º Tempo", "2": "Intervalo", "3": "2º Tempo",
+    "4": "Prorrogação", "5": "Pênaltis", "-1": "Encerrado", "7": "Adiado", "8": "Cancelado",
+}
+
+
+def _ng_get_cookie_jar():
+    """Visita a home do NowGoal pra pegar o cookie de sessão (LS_ACCESS_TOKEN) exigido
+    pelo feed de dados — sem ele o endpoint devolve {"code":100401} em vez do array JS."""
+    with _ng_cookie_lock:
+        now = time.time()
+        if _ng_cookie_cache["jar"] is not None and (now - _ng_cookie_cache["ts"]) < _NG_COOKIE_TTL:
+            return _ng_cookie_cache["jar"]
+        r = http_req.get(f"{NOWGOAL_BASE}/", headers=NOWGOAL_HEADERS, timeout=15)
+        r.raise_for_status()
+        _ng_cookie_cache["jar"] = r.cookies
+        _ng_cookie_cache["ts"] = now
+        return r.cookies
+
+
+def _ng_split_js_array(content):
+    """Faz o split de um literal de array JS tipo `1,'a, b',,'c'` respeitando aspas
+    simples e elementos vazios (vírgulas seguidas) — não dá pra usar json.loads porque
+    o NowGoal usa aspas simples e omite elementos nulos em vez de usar `null`."""
+    tokens = []
+    buf = ""
+    in_str = False
+    escape = False
+    for ch in content:
+        if in_str:
+            if escape:
+                buf += ch
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == "'":
+                in_str = False
+            else:
+                buf += ch
+            continue
+        if ch == "'":
+            in_str = True
+            continue
+        if ch == ",":
+            tokens.append(buf.strip())
+            buf = ""
+            continue
+        buf += ch
+    tokens.append(buf.strip())
+    return tokens
+
+
+def _ng_fetch_today_matches():
+    """Busca e parseia o feed de jogos do dia do NowGoal (array JS puro em vez de
+    HTML). Retorna (matches: list[dict], leagues_info: {league_index: {...}})."""
+    jar = _ng_get_cookie_jar()
+    r = http_req.get(f"{NOWGOAL_BASE}/gf/data/bf_en-idn1.js", headers=NOWGOAL_HEADERS, cookies=jar, timeout=15)
+    r.raise_for_status()
+    text = r.text
+
+    countries = {}   # idx -> nome do país
+    for m in re.finditer(r"C\[(\d+)\]=\[(.*?)\];", text):
+        idx = int(m.group(1))
+        parts = _ng_split_js_array(m.group(2))
+        countries[idx] = parts[1] if len(parts) > 1 else ""
+
+    leagues = {}     # idx -> {"name":, "country":}
+    for m in re.finditer(r"B\[(\d+)\]=\[(.*?)\];", text):
+        idx = int(m.group(1))
+        parts = _ng_split_js_array(m.group(2))
+        name = parts[2] if len(parts) > 2 else (parts[1] if len(parts) > 1 else "")
+        country_idx = None
+        try:
+            country_idx = int(parts[10]) if len(parts) > 10 and parts[10] else None
+        except ValueError:
+            country_idx = None
+        leagues[idx] = {"name": name, "country": countries.get(country_idx, "")}
+
+    matches = []
+    for m in re.finditer(r"A\[(\d+)\]=\[(.*?)\];", text):
+        parts = _ng_split_js_array(m.group(2))
+        if len(parts) < 11:
+            continue
+        try:
+            match_id = parts[0]
+            league_idx = int(parts[1]) if parts[1] else None
+            home_name, away_name = parts[4], parts[5]
+            kickoff = parts[6]
+            status_code = parts[8]
+            score_home = parts[9] if parts[9] != "" else None
+            score_away = parts[10] if parts[10] != "" else None
+        except (IndexError, ValueError):
+            continue
+        lg = leagues.get(league_idx, {"name": "", "country": ""})
+        try:
+            ts = int(datetime.strptime(kickoff, "%Y-%m-%d %H:%M:%S").timestamp())
+        except ValueError:
+            ts = 0
+        matches.append({
+            "event_id": match_id,
+            "league_key": league_idx,
+            "league_name": lg["name"], "country": lg["country"],
+            "time": _NG_STATUS_MAP.get(status_code, status_code),
+            "home": home_name, "away": away_name,
+            "home_logo": None, "away_logo": None,
+            "score_home": score_home, "score_away": score_away,
+            "match_url": None,
+            "odd_1": None, "odd_x": None, "odd_2": None,
+            "ou_line": None, "odd_over": None, "odd_under": None,
+            "ts": ts,
+        })
+    return matches
+
+
+def _painel_fetch_matches_nowgoal(force=False, date_str=None):
+    """Versão NowGoal — só serve o dia atual por enquanto (o feed do NowGoal não
+    tem parâmetro de data ainda descoberto; navegação por calendário fica limitada
+    ao dia de hoje até isso ser mapeado)."""
+    now = time.time()
+    cache_key = date_str or "today"
+    with _painel_lock:
+        cached = _painel_cache.get(cache_key)
+        if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
+            return cached["data"]
+
+        try:
+            matches = _ng_fetch_today_matches()
+        except Exception as e:
+            if cached is not None:
+                stale = dict(cached["data"])
+                stale["stale"] = True
+                stale["stale_error"] = str(e)
+                return stale
+            return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
+
+        leagues_map = {}
+        for m in matches:
+            key = m["league_key"]
+            lg = leagues_map.setdefault(key, {
+                "key": key, "country": m["country"], "league_name": m["league_name"],
+                "flag_url": "", "matches": [],
+            })
+            lg["matches"].append({k: v for k, v in m.items() if k not in ("league_key", "league_name", "country")})
+
+        leagues = [lg for lg in leagues_map.values() if lg["matches"]]
+        for lg in leagues:
+            lg["matches"].sort(key=lambda x: x["ts"])
+
+        data = {"leagues": leagues, "updated_at": now, "date": date_str}
+        _painel_cache[cache_key] = {"ts": now, "data": data}
+        return data
+
+
 def _painel_fetch_matches(force=False, date_str=None):
     """date_str: "YYYY-MM-DD" opcional — qualquer dia navegável pelo calendário
     do BetExplorer. None/"" = dia atual (comportamento igual ao botão "Hoje")."""
@@ -533,7 +702,7 @@ def _painel_fetch_matches(force=False, date_str=None):
 def api_painel_matches():
     force = request.args.get("force") == "1"
     date_str = request.args.get("date") or None  # "YYYY-MM-DD"
-    return jsonify(_painel_fetch_matches(force=force, date_str=date_str))
+    return jsonify(_painel_fetch_matches_nowgoal(force=force, date_str=date_str))
 
 
 # ── Widget de análise — "Últimos resultados" de cada time (BetExplorer) ────────
