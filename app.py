@@ -888,6 +888,57 @@ def _tips_fetch_ranking(kind):
     return data
 
 
+_tips_article_cache = {}   # article_id -> {"ts":, "data":}
+_tips_article_lock = threading.Lock()
+_TIPS_ARTICLE_TTL = 3600  # 1h — o palpite de um artigo já publicado não muda mais
+
+
+_TIPS_PICK_RE = re.compile(
+    r"var odds1 = changeOdds\(([\d.]+).*?"
+    r"var odds2 = changeOdds\(([\d.]+).*?"
+    r"var odds3 = changeOdds\(([\d.]+).*?"
+    r"data-kind='(\d)'>(Home|Over) .*?"
+    r"data-kind='\d'>(Away|Under)",
+    re.S,
+)
+_TIPS_FORMAT_RE = re.compile(r'dv\.format\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)')
+
+
+def _tips_fetch_article_pick(article_id):
+    """A maioria das dicas do tips.nowgoal.net é paga (o texto da análise vem
+    trocado por um parágrafo de marketing genérico e idêntico em todas), mas o
+    palpite em si (que lado, com qual odd) fica visível de graça — só o texto
+    de análise fica bloqueado. O detalhe é que essa parte NÃO vem pronta no
+    HTML: o servidor gera um trechinho de JS que monta a div na hora (usando
+    .format() estilo Python pra decidir qual lado leva a classe "on", que é o
+    que marca o palpite de fato) — então em vez de rodar esse JS (precisaria
+    de Playwright), extrai os valores literais desse script com regex."""
+    with _tips_article_lock:
+        cached = _tips_article_cache.get(article_id)
+        if cached and (time.time() - cached["ts"]) < _TIPS_ARTICLE_TTL:
+            return cached["data"]
+    pick = None
+    try:
+        r = http_req.get(f"{TIPS_BASE}/article/{article_id}", headers=TIPS_HEADERS, timeout=10)
+        r.raise_for_status()
+        m = _TIPS_PICK_RE.search(r.text)
+        fmt = _TIPS_FORMAT_RE.search(r.text)
+        if m and fmt:
+            home_odd, line_val, away_odd, kind_code, home_label, away_label = m.groups()
+            home_on, _, away_on = fmt.groups()
+            pick = {
+                "kind": "AH" if kind_code == "2" else "OU",
+                "line": line_val,
+                "home_label": home_label, "home_odd": home_odd, "home_pick": home_on.strip() == "on",
+                "away_label": away_label, "away_odd": away_odd, "away_pick": away_on.strip() == "on",
+            }
+    except Exception:
+        pick = None
+    with _tips_article_lock:
+        _tips_article_cache[article_id] = {"ts": time.time(), "data": pick}
+    return pick
+
+
 def _tips_fetch_user_tips(user_id):
     with _tips_user_lock:
         cached = _tips_user_cache.get(user_id)
@@ -897,6 +948,17 @@ def _tips_fetch_user_tips(user_id):
     r = http_req.get(f"{TIPS_BASE}/user/getusertopiclist", params=params, headers=TIPS_HEADERS, timeout=15)
     r.raise_for_status()
     data = r.json()
+
+    # Busca o palpite de cada dica em paralelo (a página do artigo é lenta,
+    # ~2-3s cada — sequencial levaria mais de 1min pras 50 dicas de uma vez).
+    tips = data.get("list") or []
+    if tips:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=20) as ex:
+            picks = list(ex.map(lambda t: _tips_fetch_article_pick(t["id"]), tips))
+        for t, pick in zip(tips, picks):
+            t["pick"] = pick
+
     with _tips_user_lock:
         _tips_user_cache[user_id] = {"ts": time.time(), "data": data}
     return data

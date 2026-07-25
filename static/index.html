@@ -3462,10 +3462,10 @@ function _painelLoadMethodologies() {
             ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
           </div>
           <div class="painel-meth-stats">
-            <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '-'}</span><span class="l">Win Rate</span></div>
-            <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '-'}</span><span class="l">ROI</span></div>
-            <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Tips</span></div>
-            <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Avg Odds</span></div>
+            <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '--'}</span><span class="l">Taxa de Vitória</span></div>
+            <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '--'}</span><span class="l">ROI</span></div>
+            <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
+            <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
           </div>
         </div>`;
       }).join('');
@@ -3473,6 +3473,23 @@ function _painelLoadMethodologies() {
     .catch(err => {
       document.getElementById('painelMethList').innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
     });
+}
+
+// A maioria das dicas do tips.nowgoal.net é paga — o campo de texto (title)
+// vem trocado por um parágrafo de marketing genérico, idêntico em todas.
+// O palpite de verdade (que lado, com qual odd) fica de graça, então mostra
+// ele no lugar dessa descrição bloqueada.
+function _painelMethPickHtml(pick) {
+  if (!pick) return '<span style="color:var(--text2)">Palpite indisponível pra essa dica.</span>';
+  const isAH = pick.kind === 'AH';
+  const lineLabel = isAH ? 'Handicap Asiático' : 'Total de gols';
+  const homeLabel = isAH ? 'Casa' : 'Mais de';
+  const awayLabel = isAH ? 'Fora' : 'Menos de';
+  const homeTxt = `${homeLabel} ${pick.home_odd}`;
+  const awayTxt = `${awayLabel} ${pick.away_odd}`;
+  const homeHtml = pick.home_pick ? `<b style="color:#2e7d32">${homeTxt} ✓</b>` : `<span style="color:var(--text2)">${homeTxt}</span>`;
+  const awayHtml = pick.away_pick ? `<b style="color:#2e7d32">${awayTxt} ✓</b>` : `<span style="color:var(--text2)">${awayTxt}</span>`;
+  return `<b>${lineLabel} ${pick.line}</b>: ${homeHtml} &nbsp;|&nbsp; ${awayHtml}`;
 }
 
 function _painelOpenUserTips(uid, uname) {
@@ -3487,7 +3504,7 @@ function _painelOpenUserTips(uid, uname) {
       body.innerHTML = d.list.map(t => {
         const hasScore = t.hscore != null && t.gscore != null && t.hscore !== '' && t.gscore !== '';
         const resultHtml = t.isEnd
-          ? `<span class="painel-meth-tip-result ${t.isWin ? 'win' : 'lose'}">${t.isWin ? '✓ Green' : '✗ Red'}</span>`
+          ? `<span class="painel-meth-tip-result ${t.isWin ? 'win' : 'lose'}">${t.isWin ? '✓ Acertou' : '✗ Errou'}</span>`
           : '<span style="color:var(--text2)">Em aberto</span>';
         return `
         <div class="painel-meth-tip">
@@ -3496,7 +3513,7 @@ function _painelOpenUserTips(uid, uname) {
             <span>${resultHtml}</span>
           </div>
           <div class="painel-meth-tip-match">${t.hname || ''} ${hasScore ? `${t.hscore}:${t.gscore}` : 'x'} ${t.gname || ''}</div>
-          <div class="painel-meth-tip-text">${t.title || ''}</div>
+          <div class="painel-meth-tip-text">${_painelMethPickHtml(t.pick)}</div>
         </div>`;
       }).join('');
     })
