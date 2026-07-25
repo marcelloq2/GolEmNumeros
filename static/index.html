@@ -1122,12 +1122,12 @@
   .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; }
   .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
   .painel-league-cols {
-    display: grid; grid-template-columns: 52px 1fr 42px 42px 42px 42px 42px 26px;
+    display: grid; grid-template-columns: 52px 1fr 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 52px 1fr 42px 42px 42px 42px 42px 26px;
+    display: grid; grid-template-columns: 52px 1fr 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
@@ -1234,6 +1234,8 @@
     background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); padding: 0 2px;
   }
   .painel-match-analysis-btn:hover { color: var(--accent); }
+  .painel-match-analysis-btn.disabled { opacity: .3; cursor: not-allowed; }
+  .painel-match-analysis-btn.disabled:hover { color: var(--text2); }
 
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
@@ -1441,12 +1443,12 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES <span class="badge" id="painelSelectedBadge">0</span></button>
       </div>
-      <div class="painel-datebar" style="padding:6px 0">
-        <button class="painel-datebar-arrow" onclick="_painelShiftDay(-1)">‹</button>
-        <button class="painel-datebar-label" onclick="_painelToggleCalendar()">
+      <div class="painel-datebar" style="padding:6px 0" title="Navegação por data ainda não disponível na nova fonte de dados (NowGoal) — por enquanto só mostra os jogos de hoje">
+        <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">‹</button>
+        <button class="painel-datebar-label" disabled style="opacity:.7;cursor:not-allowed">
           <span id="painelDateLabel">Hoje</span> 📅
         </button>
-        <button class="painel-datebar-arrow" onclick="_painelShiftDay(1)">›</button>
+        <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">›</button>
         <div id="painelCalendarPopup" class="painel-calendar-popup" style="display:none"></div>
       </div>
     </div>
@@ -1459,7 +1461,7 @@
       </select>
       <button class="painel-sort-time-btn" id="painelSortTimeBtn" onclick="_painelToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
-    <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
+    <div class="painel-odds-filter-bar" id="painelOddsFilterBar" style="display:none"></div>
     <div id="painelMatches" style="padding:10px"></div>
   </div>
 
@@ -4008,7 +4010,7 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+                <span>Hora</span><span>Jogo</span><span></span>
               </div>
               ${rows}
             </div>
@@ -4043,12 +4045,9 @@ function _painelMatchRowHtml(m, leagueName) {
         <span class="painel-team away">${m.away}</span>
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
-      ${_painelOddCell(m.odd_1)}
-      ${_painelOddCell(m.odd_x)}
-      ${_painelOddCell(m.odd_2)}
-      ${_painelOddCell(m.odd_over)}
-      ${_painelOddCell(m.odd_under)}
-      <button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url || ''}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>
+      ${m.match_url
+        ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
+        : `<button class="painel-match-analysis-btn disabled" title="Análise indisponível para esse jogo" disabled>📊</button>`}
     </div>`;
 }
 
