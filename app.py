@@ -854,6 +854,78 @@ def api_painel_ng_strength():
     return jsonify(data)
 
 
+# ── Metodologias — ranking de tipsters do tips.nowgoal.net ────────────────────
+# Ao contrário dos widgets de análise (window._strength etc), o ranking e os
+# palpites de cada usuário são JSON puro servido direto pelo backend deles —
+# não precisa de Playwright, só requests normal.
+TIPS_BASE = "https://tips.nowgoal.net"
+TIPS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://tips.nowgoal.net/",
+}
+_tips_ranking_cache = {}   # tipo -> {"ts":, "data":}
+_tips_ranking_lock = threading.Lock()
+_TIPS_RANKING_TTL = 600  # 10min
+
+_tips_user_cache = {}   # user_id -> {"ts":, "data":}
+_tips_user_lock = threading.Lock()
+_TIPS_USER_TTL = 600
+
+
+def _tips_fetch_ranking(kind):
+    """kind: 1=Semana+Taxa de vitória, 2=Semana+ROI, 3=Mês+Taxa de vitória, 4=Mês+ROI
+    (mapeamento confirmado testando os 2 seletores — Semana/Mês e Win Rate/ROI —
+    no site original e comparando qual `type` cada combinação disparava)."""
+    with _tips_ranking_lock:
+        cached = _tips_ranking_cache.get(kind)
+        if cached and (time.time() - cached["ts"]) < _TIPS_RANKING_TTL:
+            return cached["data"]
+    r = http_req.get(f"{TIPS_BASE}/home/getrankingjson", params={"type": kind}, headers=TIPS_HEADERS, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    with _tips_ranking_lock:
+        _tips_ranking_cache[kind] = {"ts": time.time(), "data": data}
+    return data
+
+
+def _tips_fetch_user_tips(user_id):
+    with _tips_user_lock:
+        cached = _tips_user_cache.get(user_id)
+        if cached and (time.time() - cached["ts"]) < _TIPS_USER_TTL:
+            return cached["data"]
+    params = {"userid": user_id, "kind": 0, "pre_page": 0, "req_page": 1, "endid": 0, "minid": 0, "type": 0}
+    r = http_req.get(f"{TIPS_BASE}/user/getusertopiclist", params=params, headers=TIPS_HEADERS, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    with _tips_user_lock:
+        _tips_user_cache[user_id] = {"ts": time.time(), "data": data}
+    return data
+
+
+@app.route("/api/painel/tips_ranking")
+def api_painel_tips_ranking():
+    kind = request.args.get("type", "1")
+    if kind not in ("1", "2", "3", "4"):
+        return jsonify({"error": "type inválido"}), 400
+    try:
+        data = _tips_fetch_ranking(kind)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
+@app.route("/api/painel/tips_user")
+def api_painel_tips_user():
+    user_id = request.args.get("uid", "")
+    if not user_id or not user_id.isdigit():
+        return jsonify({"error": "uid inválido"}), 400
+    try:
+        data = _tips_fetch_user_tips(user_id)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
 def _painel_fetch_matches_nowgoal(force=False, date_str=None):
     """Versão NowGoal — só serve o dia atual por enquanto (o feed do NowGoal não
     tem parâmetro de data ainda descoberto; navegação por calendário fica limitada

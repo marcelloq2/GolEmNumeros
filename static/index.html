@@ -1304,6 +1304,35 @@
   .painel-forca-h2h-badge.lose { background: #c62828; }
   .painel-forca-h2h-badge.draw { background: #f9a825; }
 
+  /* ── Metodologias (ranking de tipsters do tips.nowgoal.net) ── */
+  .painel-meth-tabs { display: flex; gap: 16px; margin-bottom: 14px; }
+  .painel-meth-tab-group { display: flex; background: var(--bg2); border-radius: 16px; padding: 2px; }
+  .painel-meth-tab-group button {
+    background: none; border: none; color: var(--text2); font-size: 12px; font-weight: 700;
+    padding: 5px 14px; border-radius: 14px; cursor: pointer;
+  }
+  .painel-meth-tab-group button.active { background: var(--accent); color: #fff; }
+  .painel-meth-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .painel-meth-item:hover { background: var(--bg2); }
+  .painel-meth-rank { width: 22px; text-align: center; font-weight: 700; color: var(--text2); flex-shrink: 0; }
+  .painel-meth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg2); }
+  .painel-meth-name-col { flex: 1 1 auto; min-width: 0; }
+  .painel-meth-name { font-weight: 700; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel-meth-badge { font-size: 10px; color: #2e7d32; font-weight: 700; margin-left: 6px; }
+  .painel-meth-stats { display: flex; gap: 14px; flex-shrink: 0; }
+  .painel-meth-stat { text-align: center; min-width: 44px; }
+  .painel-meth-stat .v { font-weight: 700; font-size: 12px; color: #e8622c; }
+  .painel-meth-stat .l { font-size: 9px; color: var(--text2); display: block; }
+  .painel-meth-tip { padding: 10px 4px; border-bottom: 1px solid var(--border); }
+  .painel-meth-tip-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .painel-meth-tip-match { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 4px; }
+  .painel-meth-tip-result { font-weight: 700; }
+  .painel-meth-tip-result.win { color: #2e7d32; }
+  .painel-meth-tip-result.lose { color: #c62828; }
+  .painel-meth-tip-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
   }
@@ -1509,6 +1538,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('next', this)">PRÓXIMOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES <span class="badge" id="painelSelectedBadge">0</span></button>
+        <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
       </div>
       <div class="painel-datebar" style="padding:6px 0" title="Navegação por data ainda não disponível na nova fonte de dados (NowGoal) — por enquanto só mostra os jogos de hoje">
         <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">‹</button>
@@ -1530,6 +1560,19 @@
     </div>
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
+    <div id="painelMethodologiesView" style="display:none;padding:10px"></div>
+  </div>
+
+  <div id="painelUserTipsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseUserTips()">
+    <div class="painel-modal-box" style="max-width:640px">
+      <div class="painel-modal-header">
+        <div id="painelUserTipsTitle" style="font-size:15px;font-weight:700;color:var(--text)"></div>
+        <button class="painel-modal-close" onclick="_painelCloseUserTips()">✕</button>
+      </div>
+      <div id="painelUserTipsBody">
+        <div class="live-loading"><div class="spinner"></div>Carregando...</div>
+      </div>
+    </div>
   </div>
 
   <div id="painelAnalysisOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseAnalysis()">
@@ -3355,7 +3398,113 @@ function _painelSetFilter(filter, btn) {
   _painelViewFilter = filter;
   document.querySelectorAll('#painelSubtabs .painel-subtab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (_painelLastData) _painelRender(_painelLastData);
+
+  const isMeth = filter === 'methodologies';
+  document.getElementById('painelMatches').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
+  document.querySelector('.painel-search-bar').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = isMeth ? 'none' : '';
+
+  if (isMeth) {
+    _painelLoadMethodologies();
+  } else if (_painelLastData) {
+    _painelRender(_painelLastData);
+  }
+}
+
+// ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
+let _painelMethPeriod = 'week';   // 'week' | 'month'
+let _painelMethMetric = 'winrate'; // 'winrate' | 'roi'
+
+function _painelMethType() {
+  const week = _painelMethPeriod === 'week';
+  const wr = _painelMethMetric === 'winrate';
+  if (week && wr) return 1;
+  if (week && !wr) return 2;
+  if (!week && wr) return 3;
+  return 4;
+}
+function _painelMethSetPeriod(p) { _painelMethPeriod = p; _painelLoadMethodologies(); }
+function _painelMethSetMetric(m) { _painelMethMetric = m; _painelLoadMethodologies(); }
+
+function _painelLoadMethodologies() {
+  const el = document.getElementById('painelMethodologiesView');
+  el.innerHTML = `
+    <div class="painel-meth-tabs">
+      <div class="painel-meth-tab-group">
+        <button class="${_painelMethPeriod === 'week' ? 'active' : ''}" onclick="_painelMethSetPeriod('week')">Semana</button>
+        <button class="${_painelMethPeriod === 'month' ? 'active' : ''}" onclick="_painelMethSetPeriod('month')">Mês</button>
+      </div>
+      <div class="painel-meth-tab-group">
+        <button class="${_painelMethMetric === 'winrate' ? 'active' : ''}" onclick="_painelMethSetMetric('winrate')">Taxa de Vitória</button>
+        <button class="${_painelMethMetric === 'roi' ? 'active' : ''}" onclick="_painelMethSetMetric('roi')">ROI</button>
+      </div>
+    </div>
+    <div id="painelMethList"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>`;
+  fetch('/api/painel/tips_ranking?type=' + _painelMethType())
+    .then(r => r.json())
+    .then(d => {
+      const list = document.getElementById('painelMethList');
+      if (d.error || !d.list) { list.innerHTML = `<div class="live-loading">${d.error || 'Sem dados.'}</div>`; return; }
+      const month = _painelMethPeriod === 'month';
+      list.innerHTML = d.list.map(u => {
+        const winrate = month ? u.winrate_m : u.winrate;
+        const profit = month ? u.profit_m : u.profit;
+        const tips = month ? u.tips_m : u.tips;
+        const avo = month ? u.avo_m : u.avo;
+        const nameEsc = String(u.uname).replace(/'/g, "\\'");
+        return `
+        <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
+          <div class="painel-meth-rank">${u.rank}</div>
+          <img class="painel-meth-avatar" src="${u.uimg || ''}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="painel-meth-name-col">
+            <span class="painel-meth-name">${u.uname}</span>
+            ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
+          </div>
+          <div class="painel-meth-stats">
+            <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '-'}</span><span class="l">Win Rate</span></div>
+            <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '-'}</span><span class="l">ROI</span></div>
+            <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Tips</span></div>
+            <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Avg Odds</span></div>
+          </div>
+        </div>`;
+      }).join('');
+    })
+    .catch(err => {
+      document.getElementById('painelMethList').innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    });
+}
+
+function _painelOpenUserTips(uid, uname) {
+  document.getElementById('painelUserTipsTitle').textContent = 'Prognósticos de ' + uname;
+  document.getElementById('painelUserTipsOverlay').style.display = 'flex';
+  const body = document.getElementById('painelUserTipsBody');
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  fetch('/api/painel/tips_user?uid=' + encodeURIComponent(uid))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error || !d.list || !d.list.length) { body.innerHTML = `<div class="live-loading">${d.error || 'Nenhum prognóstico encontrado.'}</div>`; return; }
+      body.innerHTML = d.list.map(t => {
+        const hasScore = t.hscore != null && t.gscore != null && t.hscore !== '' && t.gscore !== '';
+        const resultHtml = t.isEnd
+          ? `<span class="painel-meth-tip-result ${t.isWin ? 'win' : 'lose'}">${t.isWin ? '✓ Green' : '✗ Red'}</span>`
+          : '<span style="color:var(--text2)">Em aberto</span>';
+        return `
+        <div class="painel-meth-tip">
+          <div class="painel-meth-tip-head">
+            <span>${t.fname || t.sname || ''}</span>
+            <span>${resultHtml}</span>
+          </div>
+          <div class="painel-meth-tip-match">${t.hname || ''} ${hasScore ? `${t.hscore}:${t.gscore}` : 'x'} ${t.gname || ''}</div>
+          <div class="painel-meth-tip-text">${t.title || ''}</div>
+        </div>`;
+      }).join('');
+    })
+    .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
+}
+
+function _painelCloseUserTips() {
+  document.getElementById('painelUserTipsOverlay').style.display = 'none';
 }
 
 let _painelCurrentMatchUrl = null;
