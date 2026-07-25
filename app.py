@@ -723,6 +723,44 @@ _NG_MATCH_TABLE_JS = """
 }
 """
 
+# "Estatísticas de probabilidades" (Win/Draw/Lose + Over/Draw/Under de todas as
+# odds parecidas), "Distribuição de metas" (nº de gols / cronograma de gols /
+# momento do 1º gol), "Meio período/Tempo integral" (matriz HT x FT) e
+# "Diferença de gols HT x FT" — todos widgets prontos do NowGoal (ids oddsStat/
+# goalStat/HFStat/GDStat), lidos direto do DOM já renderizado como os outros.
+_NG_EXTRA_STATS_JS = """
+() => {
+    function readGroups(ul) {
+        if (!ul) return null;
+        return [...ul.querySelectorAll('li.group')].map(li => {
+            const items = [...li.querySelectorAll('.item2')].map(it => ({
+                home_pct: it.querySelector('.home.bar') ? parseFloat(it.querySelector('.home.bar').style.height) : null,
+                away_pct: it.querySelector('.away.bar') ? parseFloat(it.querySelector('.away.bar').style.height) : null,
+                home_val: it.querySelector('.home .value') ? it.querySelector('.home .value').textContent.trim() : null,
+                away_val: it.querySelector('.away .value') ? it.querySelector('.away .value').textContent.trim() : null,
+                label: it.querySelector('.txt') ? it.querySelector('.txt').textContent.trim() : null,
+            }));
+            const titEl = li.querySelector('.tit');
+            return { title: titEl ? titEl.textContent.replace(/\\s+/g, ' ').trim() : null, items };
+        });
+    }
+    let goalNum = null, goalTime = null, goalFirstTime = null;
+    if (typeof switchGoalStat === 'function' && document.getElementById('goalNumStat')) {
+        switchGoalStat(0); goalNum = readGroups(document.getElementById('goalNumStat'));
+        switchGoalStat(1); goalTime = readGroups(document.getElementById('goalTimeStat'));
+        switchGoalStat(2); goalFirstTime = readGroups(document.getElementById('goalTimeStat'));
+    }
+    return {
+        odds_stat: readGroups(document.getElementById('panLuStat')),
+        goal_num_stat: goalNum,
+        goal_time_stat: goalTime,
+        goal_first_time_stat: goalFirstTime,
+        hf_stat: readGroups(document.getElementById('HFStat')),
+        gd_stat: readGroups(document.getElementById('GDStat')),
+    };
+}
+"""
+
 
 def _ng_fetch_strength(match_id, _attempt=1):
     with _ng_strength_lock:
@@ -771,6 +809,8 @@ def _ng_fetch_strength(match_id, _attempt=1):
                         data["same_odds"] = _ng_sanitize_nan(page.evaluate("() => window._sameOdds"))
                     except Exception:
                         data["same_odds"] = None
+                    extra = _ng_sanitize_nan(page.evaluate(_NG_EXTRA_STATS_JS))
+                    data.update(extra)
                 finally:
                     browser.close()
     except Exception:

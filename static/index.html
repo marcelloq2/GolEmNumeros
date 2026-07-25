@@ -4109,7 +4109,58 @@ function _painelForcaSameOddsRender() {
       <span><i class="dot draw"></i>${labels.draw}</span>
       <span><i class="dot down"></i>${labels.down}</span>
     </div>
-    <div class="painel-forca-note">* Os dados acima são apenas para referência e baseiam-se em dados históricos.</div>`;
+    <div class="painel-forca-note">* Os dados acima são apenas para referência e baseiam-se em dados históricos.</div>
+    ${_painelForcaExtraStatsHtml()}`;
+}
+
+// ── Widgets extras da mesma página (oddsStat/goalStat/HFStat/GDStat do
+// NowGoal) — todos comparam casa x fora numa lista de categorias, então usam
+// o mesmo renderizador de barras genérico.
+let _painelForcaGoalStatTab = 'num';
+function _painelForcaSetGoalStatTab(t) { _painelForcaGoalStatTab = t; _painelForcaSameOddsRender(); }
+
+function _painelForcaBarsRow(items) {
+  if (!items || !items.length) return `<div class="live-loading">Sem dados.</div>`;
+  return `<div class="painel-forca-sameodds-groups">${items.map(it => `
+    <div class="painel-forca-sameodds-group">
+      <div class="painel-forca-sameodds-bars">
+        <div class="painel-forca-sameodds-bar"><span class="pct up">${_painelForcaVal(it.home_val)}</span><div class="bar up" style="height:${Math.max(2, it.home_pct || 0)}px"></div></div>
+        <div class="painel-forca-sameodds-bar"><span class="pct down">${_painelForcaVal(it.away_val)}</span><div class="bar down" style="height:${Math.max(2, it.away_pct || 0)}px"></div></div>
+      </div>
+      <div class="painel-forca-sameodds-title">${it.label || ''}</div>
+    </div>`).join('')}</div>`;
+}
+
+function _painelForcaExtraStatsHtml() {
+  const d = _painelForcaData;
+  if (!d) return '';
+  const oddsStat = d.odds_stat;
+  const hfStat = d.hf_stat && d.hf_stat[0] ? d.hf_stat[0].items : null;
+  const gdStat = d.gd_stat && d.gd_stat[0] ? d.gd_stat[0].items : null;
+  const goalTabs = { num: d.goal_num_stat, time: d.goal_time_stat, first: d.goal_first_time_stat };
+  const goalItems = goalTabs[_painelForcaGoalStatTab] && goalTabs[_painelForcaGoalStatTab][0] ? goalTabs[_painelForcaGoalStatTab][0].items : null;
+
+  const oddsStatHtml = oddsStat && oddsStat.length ? oddsStat.map(g => `
+    <div class="painel-forca-group-title" style="margin-top:14px">${g.title || ''}</div>
+    ${_painelForcaBarsRow(g.items)}`).join('') : '';
+
+  return `
+    <div class="painel-forca-note" style="margin-top:20px;font-size:13px;font-weight:700;color:var(--text);text-align:left">Estatísticas de probabilidades</div>
+    ${oddsStatHtml || '<div class="live-loading">Sem dados.</div>'}
+
+    <div class="painel-forca-note" style="margin-top:20px;font-size:13px;font-weight:700;color:var(--text);text-align:left">Distribuição de metas</div>
+    <div class="painel-forca-tabs">
+      <button class="painel-forca-tab${_painelForcaGoalStatTab === 'num' ? ' active' : ''}" onclick="_painelForcaSetGoalStatTab('num')">Número de gols</button>
+      <button class="painel-forca-tab${_painelForcaGoalStatTab === 'time' ? ' active' : ''}" onclick="_painelForcaSetGoalStatTab('time')">Cronograma de metas</button>
+      <button class="painel-forca-tab${_painelForcaGoalStatTab === 'first' ? ' active' : ''}" onclick="_painelForcaSetGoalStatTab('first')">Momento do primeiro gol</button>
+    </div>
+    ${_painelForcaBarsRow(goalItems)}
+
+    <div class="painel-forca-note" style="margin-top:20px;font-size:13px;font-weight:700;color:var(--text);text-align:left">Meio período / Tempo integral</div>
+    ${_painelForcaBarsRow(hfStat)}
+
+    <div class="painel-forca-note" style="margin-top:20px;font-size:13px;font-weight:700;color:var(--text);text-align:left">Diferença de gols entre tempo integral e meio tempo</div>
+    ${_painelForcaBarsRow(gdStat)}`;
 }
 
 function _painelH2HTeamLogo(name) {
