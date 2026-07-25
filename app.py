@@ -529,6 +529,41 @@ def _ng_split_js_array(content):
     return tokens
 
 
+_NG_ODDS_COMPANY = "8"  # bookmaker usado como fonte de odds (handicap asiático/1x2/O-U) — ver goal{id}.xml
+
+
+def _ng_fetch_odds():
+    """Busca o feed de odds do NowGoal (handicap asiático + 1X2 + over/under) pra
+    um bookmaker fixo. Formato por linha (dentro de <m>...</m>):
+    match_id, ah_provider_id, ah_line, ah_home_odd, ah_away_odd,
+    x12_provider_id, odd_1, odd_x, odd_2,
+    ou_provider_id, ou_line, odd_over, odd_under, ...flags
+    Retorna {match_id: {...}} — se falhar, retorna {} (odds ficam vazias, sem quebrar a listagem)."""
+    try:
+        jar = _ng_get_cookie_jar()
+        r = http_req.get(
+            f"{NOWGOAL_BASE}/gf/data/odds/en/goal{_NG_ODDS_COMPANY}.xml",
+            headers=NOWGOAL_HEADERS, cookies=jar, timeout=15,
+        )
+        r.raise_for_status()
+        text = r.text
+    except Exception:
+        return {}
+
+    odds = {}
+    for m in re.finditer(r"<m>(.*?)</m>", text):
+        fields = m.group(1).split(",")
+        if len(fields) < 13:
+            continue
+        match_id = fields[0]
+        odds[match_id] = {
+            "ah_line": fields[2] or None, "ah_home": fields[3] or None, "ah_away": fields[4] or None,
+            "odd_1": fields[6] or None, "odd_x": fields[7] or None, "odd_2": fields[8] or None,
+            "ou_line": fields[10] or None, "odd_over": fields[11] or None, "odd_under": fields[12] or None,
+        }
+    return odds
+
+
 def _ng_fetch_today_matches():
     """Busca e parseia o feed de jogos do dia do NowGoal (array JS puro em vez de
     HTML). Retorna (matches: list[dict], leagues_info: {league_index: {...}})."""
@@ -536,6 +571,7 @@ def _ng_fetch_today_matches():
     r = http_req.get(f"{NOWGOAL_BASE}/gf/data/bf_en-idn1.js", headers=NOWGOAL_HEADERS, cookies=jar, timeout=15)
     r.raise_for_status()
     text = r.text
+    odds_by_match = _ng_fetch_odds()
 
     countries = {}   # idx -> nome do país
     for m in re.finditer(r"C\[(\d+)\]=\[(.*?)\];", text):
@@ -566,8 +602,13 @@ def _ng_fetch_today_matches():
             home_name, away_name = parts[4], parts[5]
             kickoff = parts[6]
             status_code = parts[8]
-            score_home = parts[9] if parts[9] != "" else None
-            score_away = parts[10] if parts[10] != "" else None
+            not_started = status_code == "0"  # antes do apito inicial o NowGoal já manda "0" em placar/HT/escanteio
+            score_home = parts[9] if parts[9] != "" and not not_started else None
+            score_away = parts[10] if parts[10] != "" and not not_started else None
+            ht_home = parts[11] if len(parts) > 11 and parts[11] != "" and not not_started else None
+            ht_away = parts[12] if len(parts) > 12 and parts[12] != "" and not not_started else None
+            corner_home = parts[27] if len(parts) > 27 and parts[27] != "" and not not_started else None
+            corner_away = parts[28] if len(parts) > 28 and parts[28] != "" and not not_started else None
         except (IndexError, ValueError):
             continue
         lg = leagues.get(league_idx, {"name": "", "country": ""})
@@ -575,17 +616,31 @@ def _ng_fetch_today_matches():
             ts = int(datetime.strptime(kickoff, "%Y-%m-%d %H:%M:%S").timestamp())
         except ValueError:
             ts = 0
+
+        minute = None
+        if status_code in ("1", "3") and ts:
+            elapsed = int((time.time() - ts) / 60)
+            if status_code == "1":
+                minute = max(0, min(elapsed, 45))
+            else:  # 2º tempo — aproximado: desconta o intervalo (~15min) do tempo corrido
+                minute = max(46, min(elapsed - 15, 90))
+
+        odds = odds_by_match.get(match_id, {})
         matches.append({
             "event_id": match_id,
             "league_key": league_idx,
             "league_name": lg["name"], "country": lg["country"],
             "time": _NG_STATUS_MAP.get(status_code, status_code),
+            "minute": minute,
             "home": home_name, "away": away_name,
             "home_logo": None, "away_logo": None,
             "score_home": score_home, "score_away": score_away,
+            "ht_home": ht_home, "ht_away": ht_away,
+            "corner_home": corner_home, "corner_away": corner_away,
             "match_url": None,
-            "odd_1": None, "odd_x": None, "odd_2": None,
-            "ou_line": None, "odd_over": None, "odd_under": None,
+            "odd_1": odds.get("odd_1"), "odd_x": odds.get("odd_x"), "odd_2": odds.get("odd_2"),
+            "ou_line": odds.get("ou_line"), "odd_over": odds.get("odd_over"), "odd_under": odds.get("odd_under"),
+            "ah_line": odds.get("ah_line"), "ah_home": odds.get("ah_home"), "ah_away": odds.get("ah_away"),
             "ts": ts,
         })
     return matches

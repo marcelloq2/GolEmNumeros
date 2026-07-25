@@ -1122,15 +1122,18 @@
   .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; }
   .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
   .painel-league-cols {
-    display: grid; grid-template-columns: 52px 1fr 26px;
+    display: grid; grid-template-columns: 52px 1fr 40px 50px 36px 36px 36px 36px 36px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 52px 1fr 26px;
+    display: grid; grid-template-columns: 52px 1fr 40px 50px 36px 36px 36px 36px 36px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
+  .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
+  .painel-match-ht { text-align: center; font-size: 11px; color: var(--text2); }
+  .painel-match-corners { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-match-row:hover { background: var(--bg2); }
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 11px; }
@@ -1461,7 +1464,7 @@
       </select>
       <button class="painel-sort-time-btn" id="painelSortTimeBtn" onclick="_painelToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
-    <div class="painel-odds-filter-bar" id="painelOddsFilterBar" style="display:none"></div>
+    <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
   </div>
 
@@ -3105,11 +3108,12 @@ function _painelToggleLeague(key, headerEl) {
 let _painelLastData = null;   // último payload recebido do backend, pra refiltrar sem refetch
 let _painelViewFilter = 'all'; // 'all' | 'live' | 'next'
 
+const PAINEL_LIVE_STATUSES = ['1º Tempo', 'Intervalo', '2º Tempo', 'Prorrogação', 'Pênaltis'];
 function _painelIsLive(m) {
-  return /^\d+['+]/.test(m.time || '');
+  return PAINEL_LIVE_STATUSES.includes(m.time) || /^\d+['+]/.test(m.time || '');
 }
 function _painelIsNext(m) {
-  return /^\d{1,2}:\d{2}$/.test(m.time || '');
+  return m.time === 'Agendado' || /^\d{1,2}:\d{2}$/.test(m.time || '');
 }
 function _painelIsFinished(m) {
   return !_painelIsLive(m) && !_painelIsNext(m);
@@ -4010,7 +4014,7 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span></span>
+                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
               </div>
               ${rows}
             </div>
@@ -4033,9 +4037,12 @@ function _painelMatchRowHtml(m, leagueName) {
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
   const kickoff = isFinished ? _painelKickoffTime(m) : '';
+  const minuteHtml = (isLive && m.minute != null) ? `<div class="painel-match-minute">${m.minute}'</div>` : '';
+  const htHtml = (m.ht_home != null && m.ht_home !== '') ? `${m.ht_home}-${m.ht_away}` : '-';
+  const cornersHtml = (m.corner_home != null && m.corner_home !== '') ? `${m.corner_home}-${m.corner_away}` : '-';
   return `
     <div class="painel-match-row">
-      <span class="${timeClass}">${m.time || ''}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
+      <span class="${timeClass}">${m.time || ''}${minuteHtml}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
         <span class="painel-team">${m.home}</span>
@@ -4045,6 +4052,13 @@ function _painelMatchRowHtml(m, leagueName) {
         <span class="painel-team away">${m.away}</span>
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
+      <span class="painel-match-ht">${htHtml}</span>
+      <span class="painel-match-corners">${cornersHtml}</span>
+      ${_painelOddCell(m.odd_1)}
+      ${_painelOddCell(m.odd_x)}
+      ${_painelOddCell(m.odd_2)}
+      ${_painelOddCell(m.odd_over)}
+      ${_painelOddCell(m.odd_under)}
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
         : `<button class="painel-match-analysis-btn disabled" title="Análise indisponível para esse jogo" disabled>📊</button>`}
