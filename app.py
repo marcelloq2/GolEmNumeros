@@ -646,6 +646,76 @@ def _ng_fetch_today_matches():
     return matches
 
 
+# ── "Comparação de força" (widget de análise pré-jogo do NowGoal) ─────────────
+# O NowGoal já calcula tudo isso no client (grades/percentuais de H2H, Estado,
+# Ataque, Defesa, Valor de mercado, Escanteios/Cartões/Faltas/Posse) a partir de
+# dados embutidos na própria página (`battleData`, `lastMatchData`, `marketData`,
+# `survayData`) e expõe o resultado pronto em `window._strength` depois que a
+# página carrega. Em vez de reimplementar essa fórmula (script minificado de
+# ~1MB, não vale o risco de divergir do site original), abrimos a página com
+# Playwright (igual já fazemos pro contexto do BetExplorer) e lemos esse objeto
+# já calculado direto do browser.
+_ng_strength_cache = {}   # match_id -> {"ts":, "data": {...}}
+_ng_strength_lock = threading.Lock()
+_NG_STRENGTH_TTL = 900  # 15min — dado muda pouco entre atualizações
+_ng_playwright_semaphore = threading.Semaphore(2)
+
+
+def _ng_fetch_strength(match_id, _attempt=1):
+    with _ng_strength_lock:
+        cached = _ng_strength_cache.get(match_id)
+        if cached and (time.time() - cached["ts"]) < _NG_STRENGTH_TTL:
+            return cached["data"]
+
+    from playwright.sync_api import sync_playwright
+
+    data = None
+    try:
+        with _ng_playwright_semaphore:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=["--disable-blink-features=AutomationControlled"],
+                )
+                try:
+                    page = browser.new_page(
+                        user_agent=NOWGOAL_HEADERS["User-Agent"],
+                        viewport={"width": 1280, "height": 900},
+                    )
+                    page.goto(f"{NOWGOAL_BASE}/match/h2h-{match_id}", wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_function(
+                        "() => window._strength && window._strength.count !== undefined",
+                        timeout=20000,
+                    )
+                    data = page.evaluate("() => window._strength")
+                finally:
+                    browser.close()
+    except Exception:
+        if _attempt < 2:
+            time.sleep(1.5)
+            return _ng_fetch_strength(match_id, _attempt=_attempt + 1)
+        raise RuntimeError("Não foi possível carregar a Comparação de Força dessa partida no NowGoal.")
+
+    if data is None:
+        raise RuntimeError("Não foi possível carregar a Comparação de Força dessa partida no NowGoal.")
+
+    with _ng_strength_lock:
+        _ng_strength_cache[match_id] = {"ts": time.time(), "data": data}
+    return data
+
+
+@app.route("/api/painel/ng_strength")
+def api_painel_ng_strength():
+    match_id = request.args.get("match_id", "")
+    if not match_id or not match_id.isdigit():
+        return jsonify({"error": "match_id inválido"}), 400
+    try:
+        data = _ng_fetch_strength(match_id)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(data)
+
+
 def _painel_fetch_matches_nowgoal(force=False, date_str=None):
     """Versão NowGoal — só serve o dia atual por enquanto (o feed do NowGoal não
     tem parâmetro de data ainda descoberto; navegação por calendário fica limitada

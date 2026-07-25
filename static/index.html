@@ -1240,6 +1240,33 @@
   .painel-match-analysis-btn.disabled { opacity: .3; cursor: not-allowed; }
   .painel-match-analysis-btn.disabled:hover { color: var(--text2); }
 
+  /* ── Comparação de Força (NowGoal) ── */
+  .painel-forca-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .painel-forca-header .home { color: #e8622c; font-weight: 700; font-size: 13px; }
+  .painel-forca-header .away { color: #2c7fe8; font-weight: 700; font-size: 13px; }
+  .painel-forca-radar-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
+  .painel-forca-grade { font-size: 26px; font-weight: 800; }
+  .painel-forca-grade.home { color: #e8622c; }
+  .painel-forca-grade.away { color: #2c7fe8; }
+  .painel-forca-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; }
+  .painel-forca-tab {
+    background: var(--bg2); border: 1px solid var(--border); color: var(--text2); border-radius: 14px;
+    font-size: 11px; font-weight: 700; padding: 5px 12px; cursor: pointer;
+  }
+  .painel-forca-tab.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+  .painel-forca-group-title {
+    display: inline-block; background: var(--bg2); border-radius: 12px; padding: 3px 12px;
+    font-size: 11px; font-weight: 700; color: var(--text2); margin: 10px 0 6px;
+  }
+  .painel-forca-row { margin-bottom: 10px; }
+  .painel-forca-row-detail { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+  .painel-forca-row-detail .home { text-align: left; color: #e8622c; }
+  .painel-forca-row-detail .away { text-align: right; color: #2c7fe8; }
+  .painel-forca-bar { display: flex; align-items: center; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg2); }
+  .painel-forca-bar .home-seg { background: #e8622c; height: 100%; }
+  .painel-forca-bar .away-seg { background: #2c7fe8; height: 100%; }
+  .painel-forca-note { font-size: 10px; color: var(--text2); text-align: center; margin-top: 10px; }
+
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
   }
@@ -1624,6 +1651,18 @@
             Carregando...
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="painelForcaOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseForca()">
+    <div class="painel-modal-box" style="max-width:560px">
+      <div class="painel-modal-header">
+        <div style="font-size:15px;font-weight:700;color:var(--text)">Comparação de força</div>
+        <button class="painel-modal-close" onclick="_painelCloseForca()">✕</button>
+      </div>
+      <div id="painelForcaBody">
+        <div class="live-loading"><div class="spinner"></div>Carregando...</div>
       </div>
     </div>
   </div>
@@ -3583,6 +3622,153 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
   _painelBuildH2HOddsFilterBar(home, away);
 }
 
+// ── Comparação de Força (NowGoal) — window._strength já vem calculado pelo
+// próprio NowGoal (grades/percentuais de H2H, Estado, Ataque, Defesa, Valor de
+// mercado, Escanteios/Cartões/Faltas/Posse); o backend só lê esse objeto via
+// Playwright e repassa como veio, sem reprocessar nada aqui.
+let _painelForcaData = null;
+let _painelForcaHome = '', _painelForcaAway = '';
+let _painelForcaTab = 'battle';
+
+function _painelOpenForca(eventId, home, away) {
+  _painelForcaHome = home; _painelForcaAway = away; _painelForcaTab = 'battle'; _painelForcaData = null;
+  document.getElementById('painelForcaOverlay').style.display = 'flex';
+  const body = document.getElementById('painelForcaBody');
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(eventId))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { body.innerHTML = `<div class="live-loading">${d.error}</div>`; return; }
+      _painelForcaData = d;
+      _painelForcaRender();
+    })
+    .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
+}
+
+function _painelCloseForca() {
+  document.getElementById('painelForcaOverlay').style.display = 'none';
+}
+
+const PAINEL_FORCA_TABS = [
+  { key: 'battle', label: 'H2H' }, { key: 'state', label: 'Estado' },
+  { key: 'attack', label: 'Ataque' }, { key: 'defend', label: 'Defesa' },
+  { key: 'market', label: 'Valor' }, { key: 'other', label: 'Outros' },
+];
+const PAINEL_FORCA_RADAR_AXES = ['battle', 'state', 'attack', 'defend', 'market'];
+const PAINEL_FORCA_RADAR_LABELS = ['H2H', 'Estado', 'Ataque', 'Defesa', 'Valor'];
+
+function _painelForcaSetTab(tab) {
+  _painelForcaTab = tab;
+  _painelForcaRender();
+}
+
+function _painelForcaRadarSvg(d) {
+  const cx = 110, cy = 100, R = 78, n = 5;
+  const homeVals = PAINEL_FORCA_RADAR_AXES.map(k => (d[k] && d[k].hGrade != null) ? d[k].hGrade : (d[k] ? d[k].hPercent : 0) || 0);
+  const awayVals = PAINEL_FORCA_RADAR_AXES.map(k => (d[k] && d[k].gGrade != null) ? d[k].gGrade : (d[k] ? d[k].gPercent : 0) || 0);
+  const pt = (i, val) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI / n);
+    const r = R * Math.max(0, Math.min(100, val)) / 100;
+    return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+  };
+  const gridPts = (frac) => Array.from({ length: n }, (_, i) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI / n);
+    return `${cx + R * frac * Math.cos(angle)},${cy + R * frac * Math.sin(angle)}`;
+  }).join(' ');
+  const homePoly = homeVals.map((v, i) => pt(i, v).join(',')).join(' ');
+  const awayPoly = awayVals.map((v, i) => pt(i, v).join(',')).join(' ');
+  const labels = PAINEL_FORCA_RADAR_LABELS.map((lbl, i) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI / n);
+    const lx = cx + (R + 16) * Math.cos(angle), ly = cy + (R + 16) * Math.sin(angle);
+    return `<text x="${lx}" y="${ly}" font-size="10" fill="var(--text2)" text-anchor="middle" dominant-baseline="middle">${lbl}</text>`;
+  }).join('');
+  return `
+    <svg width="220" height="200" viewBox="0 0 220 200">
+      <polygon points="${gridPts(1)}" fill="none" stroke="var(--border)" />
+      <polygon points="${gridPts(.66)}" fill="none" stroke="var(--border)" />
+      <polygon points="${gridPts(.33)}" fill="none" stroke="var(--border)" />
+      <polygon points="${homePoly}" fill="#e8622c33" stroke="#e8622c" stroke-width="1.5" />
+      <polygon points="${awayPoly}" fill="#2c7fe833" stroke="#2c7fe8" stroke-width="1.5" />
+      ${labels}
+    </svg>`;
+}
+
+function _painelForcaJogos(n) { return n === 1 ? '1 jogo' : `${n} jogos`; }
+function _painelForcaBarRow(label, homeDetail, awayDetail, homePct, awayPct) {
+  const hp = homePct != null ? homePct : 50, ap = awayPct != null ? awayPct : 50;
+  const total = (hp + ap) || 1;
+  return `
+    <div class="painel-forca-row">
+      <div class="painel-forca-row-detail"><span class="home">${homeDetail}</span><span style="color:var(--text2)">${label}</span><span class="away">${awayDetail}</span></div>
+      <div class="painel-forca-bar">
+        <div class="home-seg" style="width:${(100 * hp / total).toFixed(1)}%"></div>
+        <div class="away-seg" style="width:${(100 * ap / total).toFixed(1)}%"></div>
+      </div>
+    </div>`;
+}
+
+function _painelForcaRenderTab(d) {
+  const tab = _painelForcaTab;
+  const rows = [];
+  if (tab === 'battle' || tab === 'state') {
+    const sec = d[tab];
+    const block = (v, titleTodos) => {
+      rows.push(`<div class="painel-forca-group-title">${titleTodos}</div>`);
+      rows.push(_painelForcaBarRow('Registro', `${v.hWin}V ${v.hDraw}E ${v.hLoss}D`, `${v.gWin}V ${v.gDraw}E ${v.gLoss}D`, v.hPercent, v.gPercent));
+      if (tab === 'state') {
+        rows.push(_painelForcaBarRow('Avaliação', `${v.hRating} (${_painelForcaJogos(v.hRatingGame)})`, `${v.gRating} (${_painelForcaJogos(v.gRatingGame)})`, v.hRatingPercent, v.gRatingPercent));
+      } else {
+        rows.push(_painelForcaBarRow('Pontuado', `${v.hGoal} gols em ${_painelForcaJogos(v.hWin + v.hDraw + v.hLoss)}`, `${v.gGoal} gols em ${_painelForcaJogos(v.gWin + v.gDraw + v.gLoss)}`, v.hGoalPercent, v.gGoalPercent));
+      }
+    };
+    block(sec.all, 'Todos');
+    if (sec.same && sec.same.show) block(sec.same, 'A mesma coisa em casa e fora');
+  } else if (tab === 'attack' || tab === 'defend') {
+    const sec = d[tab];
+    const goalLabel = tab === 'attack' ? 'Pontuado' : 'Concedido';
+    const targetLabel = tab === 'attack' ? 'Chutes (OT)' : 'Chutes concedidos';
+    const hGoalKey = tab === 'attack' ? 'hGoal' : 'hLoss', gGoalKey = tab === 'attack' ? 'gGoal' : 'gLoss';
+    rows.push(`<div class="painel-forca-group-title">Todos</div>`);
+    rows.push(_painelForcaBarRow(goalLabel, `${sec[hGoalKey]} gols em ${_painelForcaJogos(d.count)}`, `${sec[gGoalKey]} gols em ${_painelForcaJogos(d.count)}`, sec.hPercent, sec.gPercent));
+    rows.push(_painelForcaBarRow(targetLabel, `${sec.hTarget} vezes/${_painelForcaJogos(sec.hTargetGame)}`, `${sec.gTarget} vezes/${_painelForcaJogos(sec.gTargetGame)}`, sec.hTargetPercent, sec.gTargetPercent));
+    if (sec.showSame) {
+      rows.push(`<div class="painel-forca-group-title">A mesma coisa em casa e fora</div>`);
+      const hSameGoalKey = tab === 'attack' ? 'hSameGoal' : 'hSameLoss', gSameGoalKey = tab === 'attack' ? 'gSameGoal' : 'gSameLoss';
+      rows.push(_painelForcaBarRow(goalLabel, `${sec[hSameGoalKey]} gols em ${_painelForcaJogos(sec.hSameTargetGame)}`, `${sec[gSameGoalKey]} gols em ${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSamePercent, sec.gSamePercent));
+      rows.push(_painelForcaBarRow(targetLabel, `${sec.hSameTarget} vezes/${_painelForcaJogos(sec.hSameTargetGame)}`, `${sec.gSameTarget} vezes/${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSameTargetPercent, sec.gSameTargetPercent));
+    }
+  } else if (tab === 'market') {
+    const sec = d.market;
+    rows.push(_painelForcaBarRow('Valor de mercado', `${sec.hMarket} milhões`, `${sec.gMarket} milhões`, sec.hPercent, sec.gPercent));
+  } else if (tab === 'other') {
+    const sec = d.other;
+    rows.push(_painelForcaBarRow('Escanteios por jogo', sec.hCorner[0], sec.gCorner[0], sec.hCorner[1], sec.gCorner[1]));
+    rows.push(_painelForcaBarRow('Cartão amarelo por jogo', sec.hYellow[0], sec.gYellow[0], sec.hYellow[1], sec.gYellow[1]));
+    rows.push(_painelForcaBarRow('Faltas por jogo', sec.hFouls[0], sec.gFouls[0], sec.hFouls[1], sec.gFouls[1]));
+    rows.push(_painelForcaBarRow('Posse', sec.hControl[0], sec.gControl[0], sec.hControl[1], sec.gControl[1]));
+  }
+  return rows.join('');
+}
+
+function _painelForcaRender() {
+  const d = _painelForcaData;
+  const body = document.getElementById('painelForcaBody');
+  if (!d) { body.innerHTML = `<div class="live-loading">Sem dados.</div>`; return; }
+  const battle = d.battle || {};
+  body.innerHTML = `
+    <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
+    <div class="painel-forca-radar-wrap">
+      <span class="painel-forca-grade home">${battle.hGrade != null ? battle.hGrade : '-'}</span>
+      ${_painelForcaRadarSvg(d)}
+      <span class="painel-forca-grade away">${battle.gGrade != null ? battle.gGrade : '-'}</span>
+    </div>
+    <div class="painel-forca-tabs">
+      ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
+    </div>
+    <div>${_painelForcaRenderTab(d)}</div>
+    <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>`;
+}
+
 function _painelH2HTeamLogo(name) {
   if (name === _painelStdHomeName) return _painelHomeLogo;
   if (name === _painelStdAwayName) return _painelAwayLogo;
@@ -4061,7 +4247,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_under)}
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
-        : `<button class="painel-match-analysis-btn disabled" title="Análise indisponível para esse jogo" disabled>📊</button>`}
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}')">📊</button>`}
     </div>`;
 }
 
