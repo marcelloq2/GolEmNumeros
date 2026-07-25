@@ -732,17 +732,26 @@ _NG_EXTRA_STATS_JS = """
 () => {
     function readGroups(ul) {
         if (!ul) return null;
-        return [...ul.querySelectorAll('li.group')].map(li => {
-            const items = [...li.querySelectorAll('.item2')].map(it => ({
-                home_pct: it.querySelector('.home.bar') ? parseFloat(it.querySelector('.home.bar').style.height) : null,
-                away_pct: it.querySelector('.away.bar') ? parseFloat(it.querySelector('.away.bar').style.height) : null,
-                home_val: it.querySelector('.home .value') ? it.querySelector('.home .value').textContent.trim() : null,
-                away_val: it.querySelector('.away .value') ? it.querySelector('.away .value').textContent.trim() : null,
-                label: it.querySelector('.txt') ? it.querySelector('.txt').textContent.trim() : null,
-            }));
-            const titEl = li.querySelector('.tit');
-            return { title: titEl ? titEl.textContent.replace(/\\s+/g, ' ').trim() : null, items };
-        });
+        // O NowGoal já embute TODAS as variantes de HT/HA-Igual no atributo "rate"
+        // (por item, no oddsStat; no <ul> inteiro, no HFStat/goalStat) — os
+        // checkboxes só trocam qual variante já calculada é exibida, sem nova
+        // busca. Repassa o "rate" cru pro frontend poder alternar sem refazer
+        // scraping nenhum.
+        return {
+            ul_rate: ul.getAttribute('rate'),
+            groups: [...ul.querySelectorAll('li.group')].map(li => {
+                const items = [...li.querySelectorAll('.item2')].map(it => ({
+                    home_pct: it.querySelector('.home.bar') ? parseFloat(it.querySelector('.home.bar').style.height) : null,
+                    away_pct: it.querySelector('.away.bar') ? parseFloat(it.querySelector('.away.bar').style.height) : null,
+                    home_val: it.querySelector('.home .value') ? it.querySelector('.home .value').textContent.trim() : null,
+                    away_val: it.querySelector('.away .value') ? it.querySelector('.away .value').textContent.trim() : null,
+                    label: it.querySelector('.txt') ? it.querySelector('.txt').textContent.trim() : null,
+                    rate: it.getAttribute('rate'),
+                }));
+                const titEl = li.querySelector('.tit');
+                return { title: titEl ? titEl.textContent.replace(/\\s+/g, ' ').trim() : null, items };
+            }),
+        };
     }
     let goalNum = null, goalTime = null, goalFirstTime = null;
     if (typeof switchGoalStat === 'function' && document.getElementById('goalNumStat')) {
