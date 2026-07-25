@@ -4145,13 +4145,17 @@ function _painelForcaOddsItemVariant(item, htOn, haOn) {
   return { ...item, home_pct: h, away_pct: a, home_val: h + '%', away_val: a + '%' };
 }
 
-// ul_rate = "grupo0|grupo1" (grupo1 só existe quando o widget tem HA-Igual),
-// cada grupo é "hPct^hVal-aPct^aVal,hPct^hVal-aPct^aVal,..." na ordem dos itens.
-function _painelForcaUlVariantItems(data, haOn) {
+// ul_rate = "grupo0|grupo1|..." — cada grupo é "hPct^hVal-aPct^aVal,..." na
+// ordem dos itens. Widgets com só HA-Igual têm 2 grupos (normal/HA); o
+// "Cronograma de metas" (#goalTimeStat) tem 4: [tempo-normal, tempo-HA,
+// primeiro gol-normal, primeiro gol-HA] — daí o baseIndex pra pular pro par
+// certo antes de somar o HA-Igual.
+function _painelForcaUlVariantItems(data, haOn, baseIndex) {
   if (!data || !data.groups || !data.groups[0]) return null;
   const baseItems = data.groups[0].items;
-  if (!haOn || !data.ul_rate) return baseItems;
-  const variantStr = data.ul_rate.split('|')[1];
+  const idx = (baseIndex || 0) + (haOn ? 1 : 0);
+  if (!data.ul_rate) return baseItems;
+  const variantStr = data.ul_rate.split('|')[idx];
   if (!variantStr) return baseItems;
   const parts = variantStr.split(',').map(s => s.trim()).filter(Boolean);
   return parts.map((pair, i) => {
@@ -4178,10 +4182,11 @@ function _painelForcaExtraStatsHtml() {
   const d = _painelForcaData;
   if (!d) return '';
   const oddsStat = d.odds_stat;
-  const hfItems = _painelForcaUlVariantItems(d.hf_stat, _painelForcaHFStatHA);
+  const hfItems = _painelForcaUlVariantItems(d.hf_stat, _painelForcaHFStatHA, 0);
   const gdItems = d.gd_stat && d.gd_stat.groups && d.gd_stat.groups[0] ? d.gd_stat.groups[0].items : null;
-  const goalTabs = { num: d.goal_num_stat, time: d.goal_time_stat, first: d.goal_first_time_stat };
-  const goalItems = _painelForcaUlVariantItems(goalTabs[_painelForcaGoalStatTab], _painelForcaGoalStatHA);
+  const goalItems = _painelForcaGoalStatTab === 'num'
+    ? _painelForcaUlVariantItems(d.goal_num_stat, _painelForcaGoalStatHA, 0)
+    : _painelForcaUlVariantItems(d.goal_time_stat, _painelForcaGoalStatHA, _painelForcaGoalStatTab === 'first' ? 2 : 0);
 
   const oddsStatHtml = oddsStat && oddsStat.groups && oddsStat.groups.length ? oddsStat.groups.map(g => `
     <div class="painel-forca-group-title" style="margin-top:14px">${g.title || ''}</div>

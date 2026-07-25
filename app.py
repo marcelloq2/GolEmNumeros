@@ -753,17 +753,23 @@ _NG_EXTRA_STATS_JS = """
             }),
         };
     }
-    let goalNum = null, goalTime = null, goalFirstTime = null;
+    // "Momento do primeiro gol" (3ª sub-aba) usa o MESMO elemento #goalTimeStat
+    // que "Cronograma de metas" — só troca via switchGoalStat(2), e o clique
+    // síncrono não dá tempo do DOM re-renderizar antes da gente ler (a leitura
+    // saía vazia). Em vez de depender desse timing, o rate de #goalTimeStat já
+    // vem com as 4 variantes (time-normal, time-HA, primeiro gol-normal,
+    // primeiro gol-HA) no mesmo atributo — só troca de sub-aba pra pegar os
+    // rótulos certos (que são os mesmos nas duas abas) e decodifica o índice
+    // 2/3 no frontend em vez de tentar reler o DOM depois do 3º clique.
+    let goalNum = null, goalTime = null;
     if (typeof switchGoalStat === 'function' && document.getElementById('goalNumStat')) {
         switchGoalStat(0); goalNum = readGroups(document.getElementById('goalNumStat'));
         switchGoalStat(1); goalTime = readGroups(document.getElementById('goalTimeStat'));
-        switchGoalStat(2); goalFirstTime = readGroups(document.getElementById('goalTimeStat'));
     }
     return {
         odds_stat: readGroups(document.getElementById('panLuStat')),
         goal_num_stat: goalNum,
         goal_time_stat: goalTime,
-        goal_first_time_stat: goalFirstTime,
         hf_stat: readGroups(document.getElementById('HFStat')),
         gd_stat: readGroups(document.getElementById('GDStat')),
     };
