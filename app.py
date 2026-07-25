@@ -485,6 +485,15 @@ def _painel_fetch_matches(force=False, date_str=None):
             matches_1x2, leagues_order = _be_parse_bettype(html_1x2)
             matches_ou, _ = _be_parse_bettype(html_ou)
         except Exception as e:
+            # BetExplorer fora do ar/bloqueando (429) — em vez de deixar a página vazia
+            # com erro, serve o último resultado que já funcionou (mesmo vencido), com
+            # um aviso de que os dados podem estar desatualizados. Só mostra erro puro
+            # se nunca conseguimos buscar nada pra esse dia ainda.
+            if cached is not None:
+                stale = dict(cached["data"])
+                stale["stale"] = True
+                stale["stale_error"] = str(e)
+                return stale
             return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
 
         leagues_map = {}

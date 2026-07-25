@@ -1098,6 +1098,10 @@
   .live-odds-name { font-size: 9px; color: var(--text2); margin-top: 3px; }
 
   /* Loading spinner live */
+  .painel-stale-notice {
+    background: #4a3510; color: #f0c674; border: 1px solid #6b4d18; border-radius: 6px;
+    padding: 8px 12px; margin-bottom: 10px; font-size: 12px;
+  }
   .live-loading {
     display: flex; align-items: center; justify-content: center;
     padding: 40px; color: var(--text2); gap: 10px;
@@ -3985,7 +3989,11 @@ function _painelRender(data) {
     return;
   }
 
-  container.innerHTML = _painelSortByTime
+  const staleNotice = data.stale
+    ? `<div class="painel-stale-notice">⚠️ O BetExplorer está indisponível no momento — mostrando os últimos jogos/odds que conseguimos buscar (podem estar desatualizados).</div>`
+    : '';
+
+  container.innerHTML = staleNotice + (_painelSortByTime
     ? _painelRenderFlatByTime(leaguesFiltered)
     : leaguesFiltered.map(lg => {
         const key = String(lg.key).replace(/[^a-zA-Z0-9_-]/g, '');
@@ -4005,7 +4013,7 @@ function _painelRender(data) {
               ${rows}
             </div>
           </div>`;
-      }).join('');
+      }).join(''));
 }
 
 function _painelKickoffTime(m) {
