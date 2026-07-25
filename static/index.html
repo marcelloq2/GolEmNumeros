@@ -3647,7 +3647,7 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
 // mercado, Escanteios/Cartões/Faltas/Posse); o backend só lê esse objeto via
 // Playwright e repassa como veio, sem reprocessar nada aqui.
 let _painelForcaData = null;
-let _painelForcaHome = '', _painelForcaAway = '';
+let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
 let _painelForcaTab = 'battle';
 let _painelForcaView = 'main';
 
@@ -3663,10 +3663,14 @@ function _painelForcaSetView(view, btn) {
   if (lastEl) lastEl.style.display = view === 'last' ? '' : 'none';
 }
 
-function _painelOpenForca(eventId, home, away) {
-  _painelForcaHome = home; _painelForcaAway = away; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
+function _painelOpenForca(eventId, home, away, league) {
+  _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
   _painelForcaLastSide = 'home';
-  _painelForcaTableState = { h2h: { count: 10, ht: false }, home: { count: 10, ht: false }, away: { count: 10, ht: false } };
+  _painelForcaTableState = {
+    h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
+    home: { count: 10, ht: false, onlySide: false, sameLeague: false },
+    away: { count: 10, ht: false, onlySide: false, sameLeague: false },
+  };
   document.getElementById('painelForcaOverlay').style.display = 'flex';
   document.querySelectorAll('#painelForcaOverlay .painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   const body = document.getElementById('painelForcaBody');
@@ -3826,21 +3830,41 @@ function _painelForcaRender() {
 // do NowGoal) — mesma estrutura de dados nos 3 casos (histórico de casa, de
 // fora e confronto direto), então usa um único renderizador genérico.
 let _painelForcaTableState = {
-  h2h: { count: 10, ht: false },
-  home: { count: 10, ht: false },
-  away: { count: 10, ht: false },
+  h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
+  home: { count: 10, ht: false, onlySide: false, sameLeague: false },
+  away: { count: 10, ht: false, onlySide: false, sameLeague: false },
 };
 let _painelForcaLastSide = 'home';
 
+function _painelForcaTableRerender(key) {
+  if (key === 'h2h') _painelForcaH2HRender(); else _painelForcaLastRender();
+}
 function _painelForcaTableSetCount(key, v) {
   _painelForcaTableState[key].count = v === 'all' ? 9999 : parseInt(v, 10);
-  if (key === 'h2h') _painelForcaH2HRender(); else _painelForcaLastRender();
+  _painelForcaTableRerender(key);
 }
 function _painelForcaTableToggleHT(key, checked) {
   _painelForcaTableState[key].ht = checked;
-  if (key === 'h2h') _painelForcaH2HRender(); else _painelForcaLastRender();
+  _painelForcaTableRerender(key);
+}
+function _painelForcaTableToggleSide(key, checked) {
+  _painelForcaTableState[key].onlySide = checked;
+  _painelForcaTableRerender(key);
+}
+function _painelForcaTableToggleLeague(key, checked) {
+  _painelForcaTableState[key].sameLeague = checked;
+  _painelForcaTableRerender(key);
 }
 function _painelForcaLastSetSide(side) { _painelForcaLastSide = side; _painelForcaLastRender(); }
+
+// Cada bloco (casa/fora/confronto direto) filtra a partir da perspectiva de um
+// time específico: pro time da casa o checkbox é "Casa" (só jogos em que ele
+// jogou em casa), pro visitante é "Ausente" (só jogos fora), e o confronto
+// direto usa o time da casa como referência (igual o próprio NowGoal faz).
+function _painelForcaSideConfig(key) {
+  if (key === 'away') return { teamName: _painelForcaAway, field: 'away', label: 'Ausente' };
+  return { teamName: _painelForcaHome, field: 'home', label: 'Casa' };
+}
 
 function _painelForcaBadgeClass(b) {
   if (b === 'W' || b === 'O') return 'win';
@@ -3880,15 +3904,68 @@ function _painelForcaTableRow(m, showHT) {
     </tr>`;
 }
 
+function _painelForcaFilterRows(rows, key, st) {
+  const cfg = _painelForcaSideConfig(key);
+  return rows.filter(m => {
+    if (st.onlySide && m[cfg.field] !== cfg.teamName) return false;
+    if (st.sameLeague && _painelForcaLeague && (m.league || '').trim().toLowerCase() !== _painelForcaLeague.trim().toLowerCase()) return false;
+    return true;
+  });
+}
+
+// Os percentuais/medias que o NowGoal manda (win/draw/lose, gols por jogo,
+// distribuição de handicap/O-U) são calculados lá pro filtro padrão deles —
+// quando o usuário liga "Casa"/"Ausente" ou "Mesma liga" aqui, recalcula tudo
+// em cima só das linhas que sobraram, senão os números ficam inconsistentes
+// com a tabela filtrada.
+function _painelForcaComputeSummary(rows, key) {
+  const cfg = _painelForcaSideConfig(key);
+  let win = 0, draw = 0, lose = 0, goalsFor = 0, goalsAgainst = 0, goalGames = 0;
+  let ahHome = 0, ahDraw = 0, ahAway = 0, ahN = 0, ouOver = 0, ouUnder = 0, ouN = 0;
+  rows.forEach(m => {
+    const isHomeRow = m.home === cfg.teamName;
+    if (m.wl_badge === 'D') draw++;
+    else if (m.wl_badge === 'W') { if (isHomeRow) win++; else lose++; }
+    else if (m.wl_badge === 'L') { if (isHomeRow) lose++; else win++; }
+    const parts = (m.score_ft || '').split('-').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      goalGames++;
+      if (isHomeRow) { goalsFor += parts[0]; goalsAgainst += parts[1]; } else { goalsFor += parts[1]; goalsAgainst += parts[0]; }
+    }
+    if (m.ah_badge === 'D') { ahDraw++; ahN++; }
+    else if (m.ah_badge === 'W') { ahN++; if (isHomeRow) ahHome++; else ahAway++; }
+    else if (m.ah_badge === 'L') { ahN++; if (isHomeRow) ahAway++; else ahHome++; }
+    if (m.ou_badge === 'O') { ouOver++; ouN++; }
+    else if (m.ou_badge === 'U') { ouUnder++; ouN++; }
+  });
+  const n = rows.length || 1;
+  const pct = (v) => Math.round(100 * v / n);
+  const pctOf = (v, total) => total ? Math.round(100 * v / total) : 0;
+  return {
+    win: `${win} (${pct(win)}%)`, draw: `${draw} (${pct(draw)}%)`, lose: `${lose} (${pct(lose)}%)`,
+    goal_avg_home: `${goalGames ? (goalsFor / goalGames).toFixed(1) : '0'} goals`,
+    goal_avg_away: `${goalGames ? (goalsAgainst / goalGames).toFixed(1) : '0'} goals`,
+    ah_home_pct: `${pctOf(ahHome, ahN)}%`, ah_draw_pct: `${pctOf(ahDraw, ahN)}%`, ah_away_pct: `${pctOf(ahAway, ahN)}%`,
+    ah_count: `(${ahN} games)`,
+    ou_over_pct: `${pctOf(ouOver, ouN)}%`, ou_draw_pct: `${pctOf(ouN - ouOver - ouUnder, ouN)}%`, ou_under_pct: `${pctOf(ouUnder, ouN)}%`,
+    ou_count: `(${ouN} games)`,
+  };
+}
+
 function _painelForcaBuildTableBlock(tbl, key) {
   if (!tbl || !tbl.rows || !tbl.rows.length) {
     return `<div class="live-loading">Sem histórico encontrado.</div>`;
   }
   const st = _painelForcaTableState[key];
-  const s = tbl.summary;
-  const rows = tbl.rows.slice(0, st.count);
+  const cfg = _painelForcaSideConfig(key);
+  const filtered = _painelForcaFilterRows(tbl.rows, key, st);
+  const filterActive = st.onlySide || st.sameLeague;
+  const s = filterActive ? _painelForcaComputeSummary(filtered, key) : tbl.summary;
+  const rows = filtered.slice(0, st.count);
   return `
     <div class="painel-forca-h2h-controls">
+      <label><input type="checkbox" onchange="_painelForcaTableToggleSide('${key}', this.checked)" ${st.onlySide ? 'checked' : ''}> ${cfg.label}</label>
+      <label><input type="checkbox" onchange="_painelForcaTableToggleLeague('${key}', this.checked)" ${st.sameLeague ? 'checked' : ''}> Mesma liga</label>
       <label><input type="checkbox" onchange="_painelForcaTableToggleHT('${key}', this.checked)" ${st.ht ? 'checked' : ''}> Mostrar 1º tempo (HT)</label>
       <select onchange="_painelForcaTableSetCount('${key}', this.value)">
         <option value="4" ${st.count === 4 ? 'selected' : ''}>Últimos 4</option>
@@ -3896,6 +3973,7 @@ function _painelForcaBuildTableBlock(tbl, key) {
         <option value="all" ${st.count >= 9999 ? 'selected' : ''}>Todos</option>
       </select>
     </div>
+    ${!filtered.length ? `<div class="live-loading">Nenhum jogo nesse filtro.</div>` : `
     ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
     ${_painelForcaBarRow('Gols por jogo', s.goal_avg_home || '-', s.goal_avg_away || '-', null, null)}
     <div class="painel-forca-h2h-dist">
@@ -3914,7 +3992,7 @@ function _painelForcaBuildTableBlock(tbl, key) {
         </tr></thead>
         <tbody>${rows.map(m => _painelForcaTableRow(m, st.ht)).join('')}</tbody>
       </table>
-    </div>`;
+    </div>`}`;
 }
 
 function _painelForcaH2HRender() {
@@ -4362,7 +4440,7 @@ function _painelRender(data) {
     : leaguesFiltered.map(lg => {
         const key = String(lg.key).replace(/[^a-zA-Z0-9_-]/g, '');
         const collapsed = !!_painelCollapsed[key];
-        const rows = lg.matches.map(m => _painelMatchRowHtml(m)).join('');
+        const rows = lg.matches.map(m => _painelMatchRowHtml(m, lg.league_name)).join('');
         return `
           <div class="painel-league">
             <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_painelToggleLeague('${key}', this)">
@@ -4419,7 +4497,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_under)}
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
-        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}')">📊</button>`}
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}')">📊</button>`}
     </div>`;
 }
 
