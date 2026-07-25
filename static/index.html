@@ -3693,7 +3693,8 @@ function _painelForcaRadarSvg(d) {
     </svg>`;
 }
 
-function _painelForcaJogos(n) { return n === 1 ? '1 jogo' : `${n} jogos`; }
+function _painelForcaJogos(n) { return n === 1 ? '1 jogo' : `${n ?? 0} jogos`; }
+function _painelForcaVal(v) { return (v === null || v === undefined) ? '-' : v; }
 function _painelForcaBarRow(label, homeDetail, awayDetail, homePct, awayPct) {
   const hp = homePct != null ? homePct : 50, ap = awayPct != null ? awayPct : 50;
   const total = (hp + ap) || 1;
@@ -3716,9 +3717,9 @@ function _painelForcaRenderTab(d) {
       rows.push(`<div class="painel-forca-group-title">${titleTodos}</div>`);
       rows.push(_painelForcaBarRow('Registro', `${v.hWin}V ${v.hDraw}E ${v.hLoss}D`, `${v.gWin}V ${v.gDraw}E ${v.gLoss}D`, v.hPercent, v.gPercent));
       if (tab === 'state') {
-        rows.push(_painelForcaBarRow('Avaliação', `${v.hRating} (${_painelForcaJogos(v.hRatingGame)})`, `${v.gRating} (${_painelForcaJogos(v.gRatingGame)})`, v.hRatingPercent, v.gRatingPercent));
+        rows.push(_painelForcaBarRow('Avaliação', `${_painelForcaVal(v.hRating)} (${_painelForcaJogos(v.hRatingGame)})`, `${_painelForcaVal(v.gRating)} (${_painelForcaJogos(v.gRatingGame)})`, v.hRatingPercent, v.gRatingPercent));
       } else {
-        rows.push(_painelForcaBarRow('Pontuado', `${v.hGoal} gols em ${_painelForcaJogos(v.hWin + v.hDraw + v.hLoss)}`, `${v.gGoal} gols em ${_painelForcaJogos(v.gWin + v.gDraw + v.gLoss)}`, v.hGoalPercent, v.gGoalPercent));
+        rows.push(_painelForcaBarRow('Pontuado', `${_painelForcaVal(v.hGoal)} gols em ${_painelForcaJogos(v.hWin + v.hDraw + v.hLoss)}`, `${_painelForcaVal(v.gGoal)} gols em ${_painelForcaJogos(v.gWin + v.gDraw + v.gLoss)}`, v.hGoalPercent, v.gGoalPercent));
       }
     };
     block(sec.all, 'Todos');
@@ -3729,17 +3730,17 @@ function _painelForcaRenderTab(d) {
     const targetLabel = tab === 'attack' ? 'Chutes (OT)' : 'Chutes concedidos';
     const hGoalKey = tab === 'attack' ? 'hGoal' : 'hLoss', gGoalKey = tab === 'attack' ? 'gGoal' : 'gLoss';
     rows.push(`<div class="painel-forca-group-title">Todos</div>`);
-    rows.push(_painelForcaBarRow(goalLabel, `${sec[hGoalKey]} gols em ${_painelForcaJogos(d.count)}`, `${sec[gGoalKey]} gols em ${_painelForcaJogos(d.count)}`, sec.hPercent, sec.gPercent));
-    rows.push(_painelForcaBarRow(targetLabel, `${sec.hTarget} vezes/${_painelForcaJogos(sec.hTargetGame)}`, `${sec.gTarget} vezes/${_painelForcaJogos(sec.gTargetGame)}`, sec.hTargetPercent, sec.gTargetPercent));
+    rows.push(_painelForcaBarRow(goalLabel, `${_painelForcaVal(sec[hGoalKey])} gols em ${_painelForcaJogos(d.count)}`, `${_painelForcaVal(sec[gGoalKey])} gols em ${_painelForcaJogos(d.count)}`, sec.hPercent, sec.gPercent));
+    rows.push(_painelForcaBarRow(targetLabel, `${_painelForcaVal(sec.hTarget)} vezes/${_painelForcaJogos(sec.hTargetGame)}`, `${_painelForcaVal(sec.gTarget)} vezes/${_painelForcaJogos(sec.gTargetGame)}`, sec.hTargetPercent, sec.gTargetPercent));
     if (sec.showSame) {
       rows.push(`<div class="painel-forca-group-title">A mesma coisa em casa e fora</div>`);
       const hSameGoalKey = tab === 'attack' ? 'hSameGoal' : 'hSameLoss', gSameGoalKey = tab === 'attack' ? 'gSameGoal' : 'gSameLoss';
-      rows.push(_painelForcaBarRow(goalLabel, `${sec[hSameGoalKey]} gols em ${_painelForcaJogos(sec.hSameTargetGame)}`, `${sec[gSameGoalKey]} gols em ${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSamePercent, sec.gSamePercent));
-      rows.push(_painelForcaBarRow(targetLabel, `${sec.hSameTarget} vezes/${_painelForcaJogos(sec.hSameTargetGame)}`, `${sec.gSameTarget} vezes/${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSameTargetPercent, sec.gSameTargetPercent));
+      rows.push(_painelForcaBarRow(goalLabel, `${_painelForcaVal(sec[hSameGoalKey])} gols em ${_painelForcaJogos(sec.hSameTargetGame)}`, `${_painelForcaVal(sec[gSameGoalKey])} gols em ${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSamePercent, sec.gSamePercent));
+      rows.push(_painelForcaBarRow(targetLabel, `${_painelForcaVal(sec.hSameTarget)} vezes/${_painelForcaJogos(sec.hSameTargetGame)}`, `${_painelForcaVal(sec.gSameTarget)} vezes/${_painelForcaJogos(sec.gSameTargetGame)}`, sec.hSameTargetPercent, sec.gSameTargetPercent));
     }
   } else if (tab === 'market') {
     const sec = d.market;
-    rows.push(_painelForcaBarRow('Valor de mercado', `${sec.hMarket} milhões`, `${sec.gMarket} milhões`, sec.hPercent, sec.gPercent));
+    rows.push(_painelForcaBarRow('Valor de mercado', `${_painelForcaVal(sec.hMarket)} milhões`, `${_painelForcaVal(sec.gMarket)} milhões`, sec.hPercent, sec.gPercent));
   } else if (tab === 'other') {
     const sec = d.other;
     rows.push(_painelForcaBarRow('Escanteios por jogo', sec.hCorner[0], sec.gCorner[0], sec.hCorner[1], sec.gCorner[1]));

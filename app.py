@@ -661,6 +661,20 @@ _NG_STRENGTH_TTL = 900  # 15min — dado muda pouco entre atualizações
 _ng_playwright_semaphore = threading.Semaphore(2)
 
 
+def _ng_sanitize_nan(obj):
+    """O NowGoal calcula alguns percentuais como 0/0 => NaN (ex.: time sem jogos
+    ainda nesse recorte). Python aceita NaN como literal JSON na serialização,
+    mas isso não é JSON válido de verdade — o `fetch().json()` do navegador
+    rejeita com "Unexpected token 'N'". Troca por None (vira null, JSON válido)."""
+    if isinstance(obj, float) and (obj != obj):  # NaN nunca é igual a si mesmo
+        return None
+    if isinstance(obj, dict):
+        return {k: _ng_sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_ng_sanitize_nan(v) for v in obj]
+    return obj
+
+
 def _ng_fetch_strength(match_id, _attempt=1):
     with _ng_strength_lock:
         cached = _ng_strength_cache.get(match_id)
@@ -687,7 +701,7 @@ def _ng_fetch_strength(match_id, _attempt=1):
                         "() => window._strength && window._strength.count !== undefined",
                         timeout=20000,
                     )
-                    data = page.evaluate("() => window._strength")
+                    data = _ng_sanitize_nan(page.evaluate("() => window._strength"))
                 finally:
                     browser.close()
     except Exception:
