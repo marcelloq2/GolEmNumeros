@@ -1578,41 +1578,40 @@
 
       <div id="painelTabUltimos" style="display:none">
         <div class="painel-lr-block">
-          <div class="painel-lr-title">Análise: <span id="painelLRStatsTeamName_home"></span></div>
-          <div class="painel-lr-controls">
-            <span>Mostrar:</span>
-            <select onchange="_painelLRChange('home','tournament',this.value)">
-              <option value="1">Este torneio</option>
-              <option value="2">Todos os torneios</option>
-            </select>
-            <select onchange="_painelLRChange('home','count',this.value)">
-              <option value="5">5 resultados</option>
-              <option value="10">10 resultados</option>
-              <option value="15">15 resultados</option>
-              <option value="20">todos resultados</option>
-            </select>
+          <div class="painel-h2h-header">
+            <span id="painelLRStatsTeamName_home"></span>
+            <span>Últimos Resultados</span>
+            <span id="painelLRStatsTeamName_away"></span>
           </div>
-          <div id="painelLRStatsBody_home" style="color:var(--text2);padding:16px 0;text-align:center">
-            Carregando...
+          <div class="painel-lr-controls" style="justify-content:space-between;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="painelLRStatsTeamName_home_lbl" style="font-weight:700"></span>
+              <select onchange="_painelLRChange('home','tournament',this.value)">
+                <option value="1">Este torneio</option>
+                <option value="2">Todos os torneios</option>
+              </select>
+              <select onchange="_painelLRChange('home','count',this.value)">
+                <option value="5">5 resultados</option>
+                <option value="10">10 resultados</option>
+                <option value="15">15 resultados</option>
+                <option value="20">todos resultados</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="painelLRStatsTeamName_away_lbl" style="font-weight:700"></span>
+              <select onchange="_painelLRChange('away','tournament',this.value)">
+                <option value="1">Este torneio</option>
+                <option value="2">Todos os torneios</option>
+              </select>
+              <select onchange="_painelLRChange('away','count',this.value)">
+                <option value="5">5 resultados</option>
+                <option value="10">10 resultados</option>
+                <option value="15">15 resultados</option>
+                <option value="20">todos resultados</option>
+              </select>
+            </div>
           </div>
-        </div>
-
-        <div class="painel-lr-block">
-          <div class="painel-lr-title">Análise: <span id="painelLRStatsTeamName_away"></span></div>
-          <div class="painel-lr-controls">
-            <span>Mostrar:</span>
-            <select onchange="_painelLRChange('away','tournament',this.value)">
-              <option value="1">Este torneio</option>
-              <option value="2">Todos os torneios</option>
-            </select>
-            <select onchange="_painelLRChange('away','count',this.value)">
-              <option value="5">5 resultados</option>
-              <option value="10">10 resultados</option>
-              <option value="15">15 resultados</option>
-              <option value="20">todos resultados</option>
-            </select>
-          </div>
-          <div id="painelLRStatsBody_away" style="color:var(--text2);padding:16px 0;text-align:center">
+          <div id="painelLRStatsBody" style="color:var(--text2);padding:16px 0;text-align:center">
             Carregando...
           </div>
         </div>
@@ -3524,6 +3523,10 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
   document.querySelectorAll('#painelTabAnalise select, #painelTabUltimos select').forEach(sel => { sel.selectedIndex = 0; });
   document.getElementById('painelLRTeamName_home').textContent = home;
   document.getElementById('painelLRTeamName_away').textContent = away;
+  document.getElementById('painelLRStatsTeamName_home').textContent = home;
+  document.getElementById('painelLRStatsTeamName_away').textContent = away;
+  document.getElementById('painelLRStatsTeamName_home_lbl').textContent = home;
+  document.getElementById('painelLRStatsTeamName_away_lbl').textContent = away;
   document.getElementById('painelH2HHomeName').textContent = home;
   document.getElementById('painelH2HAwayName').textContent = away;
   _painelH2HCollapsed = false;
@@ -3548,8 +3551,7 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
     document.getElementById('painelH2HBar').innerHTML = '';
     document.getElementById('painelH2HStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
     document.getElementById('painelH2HOddsStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
-    document.getElementById('painelLRStatsBody_home').innerHTML = PAINEL_MATCH_FINISHED_MSG;
-    document.getElementById('painelLRStatsBody_away').innerHTML = PAINEL_MATCH_FINISHED_MSG;
+    document.getElementById('painelLRStatsBody').innerHTML = PAINEL_MATCH_FINISHED_MSG;
   } else {
     _painelLoadLastResults('home');
     _painelLoadLastResults('away');
@@ -3828,34 +3830,35 @@ function _painelLoadLastResults(side) {
   const container = document.getElementById('painelLR_' + side);
   if (!container || !_painelCurrentMatchUrl) return;
   container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  const statsBody = document.getElementById('painelLRStatsBody_' + side);
-  if (statsBody) statsBody.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   _painelLRRawData[side] = null;
+  _painelLRStatsRenderCombined();
   const state = _painelLRState[side];
   const url = '/api/painel/last_results?match_url=' + encodeURIComponent(_painelCurrentMatchUrl)
     + '&side=' + side + '&count=' + state.count + '&all=' + (state.tournament === '2' ? '1' : '0');
   fetch(url).then(r => r.json()).then(data => {
     if (data.error) {
       container.innerHTML = `<div class="live-loading">${data.error}</div>`;
-      if (statsBody) statsBody.innerHTML = `<div class="live-loading">${data.error}</div>`;
+      _painelLRStatsRenderCombined();
       return;
     }
     if (data.team_name) {
       document.getElementById('painelLRTeamName_' + side).textContent = data.team_name;
-      const statsNameEl = document.getElementById('painelLRStatsTeamName_' + side);
-      if (statsNameEl) statsNameEl.textContent = data.team_name;
+      const headerEl = document.getElementById('painelLRStatsTeamName_' + side);
+      if (headerEl) headerEl.textContent = data.team_name;
+      const lblEl = document.getElementById('painelLRStatsTeamName_' + side + '_lbl');
+      if (lblEl) lblEl.textContent = data.team_name;
     }
     _painelLRRawData[side] = data;
     if (!data.rows || !data.rows.length) {
       container.innerHTML = `<div class="live-loading">Nenhum resultado encontrado.</div>`;
-      if (statsBody) statsBody.innerHTML = `<div class="live-loading">Nenhum resultado encontrado.</div>`;
+      _painelLRStatsRenderCombined();
       return;
     }
     container.innerHTML = data.rows.map(_painelLRRow).join('');
-    _painelLRStatsRender(side);
+    _painelLRStatsRenderCombined();
   }).catch(err => {
     container.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
-    if (statsBody) statsBody.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    _painelLRStatsRenderCombined();
   });
 }
 
@@ -3900,26 +3903,41 @@ function _painelLRComputeStats(side) {
   };
 }
 
-function _painelLRStatRow(label, value, isAvg) {
-  const shown = (value === null || value === undefined) ? '-' : (isAvg ? value : value + '%');
-  return `<div class="painel-h2h-stat-row painel-h2h-stat-row--shared"><span class="painel-h2h-stat-label">${label}</span><span class="painel-h2h-stat-value">${shown}</span></div>`;
-}
-
-function _painelLRStatsRender(side) {
-  const body = document.getElementById('painelLRStatsBody_' + side);
+function _painelLRStatsRenderCombined() {
+  const body = document.getElementById('painelLRStatsBody');
   if (!body) return;
-  const s = _painelLRComputeStats(side);
-  if (!s) {
-    body.innerHTML = `<div class="live-loading">Sem dados suficientes pra calcular.</div>`;
+  if (_painelCurrentMatchFinished) { body.innerHTML = PAINEL_MATCH_FINISHED_MSG; return; }
+  if (_painelLRRawData.home === null && _painelLRRawData.away === null) {
+    body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
     return;
   }
+  const h = _painelLRComputeStats('home');
+  const a = _painelLRComputeStats('away');
+  if (!h && !a) {
+    body.innerHTML = `<div class="live-loading">Nenhum resultado encontrado pra calcular estatísticas.</div>`;
+    return;
+  }
+  const g = (obj, key) => obj ? obj[key] : null;
   body.innerHTML = `
-    ${_painelH2HStatsGroup('Resultado', _painelLRStatRow('% Vitórias', s.pct_wins) + _painelLRStatRow('% Empates', s.pct_draws) + _painelLRStatRow('% Derrotas', s.pct_losses))}
-    ${_painelH2HStatsGroup('Médias de gols', _painelLRStatRow('Média de gols marcados', s.avg_gf, true) + _painelLRStatRow('Média de gols sofridos', s.avg_ga, true))}
-    ${_painelH2HStatsGroup('Ambas Marcam', _painelLRStatRow('Sim', s.pct_btts_yes) + _painelLRStatRow('Não', s.pct_btts_no))}
-    ${_painelH2HStatsGroup('Clean sheet / Não marcou', _painelLRStatRow('% sem sofrer gols', s.pct_clean) + _painelLRStatRow('% sem marcar', s.pct_fts))}
-    ${_painelH2HStatsGroup('Over/Under', _painelLRStatRow('% mais de 2,5 gols', s.pct_over25) + _painelLRStatRow('% menos de 2,5 gols', s.pct_under25) + _painelLRStatRow('% mais de 1,5 gols', s.pct_over15) + _painelLRStatRow('% menos de 1,5 gols', s.pct_under15))}
-    <div class="painel-h2h-stats-note">Baseado nos últimos ${s.n} jogos de ${s.teamName} (tempo integral).</div>`;
+    ${_painelH2HStatsGroup('Resultado',
+      _painelH2HStatRow('% Vitórias', g(h, 'pct_wins'), g(a, 'pct_wins')) +
+      _painelH2HStatRow('% Empates', g(h, 'pct_draws'), g(a, 'pct_draws')) +
+      _painelH2HStatRow('% Derrotas', g(h, 'pct_losses'), g(a, 'pct_losses')))}
+    ${_painelH2HStatsGroup('Médias de gols',
+      _painelH2HStatRow('Média de gols marcados', g(h, 'avg_gf'), g(a, 'avg_gf')) +
+      _painelH2HStatRow('Média de gols sofridos', g(h, 'avg_ga'), g(a, 'avg_ga')))}
+    ${_painelH2HStatsGroup('Ambas Marcam',
+      _painelH2HStatRow('Sim', g(h, 'pct_btts_yes'), g(a, 'pct_btts_yes')) +
+      _painelH2HStatRow('Não', g(h, 'pct_btts_no'), g(a, 'pct_btts_no')))}
+    ${_painelH2HStatsGroup('Clean sheet / Não marcou',
+      _painelH2HStatRow('% sem sofrer gols', g(h, 'pct_clean'), g(a, 'pct_clean')) +
+      _painelH2HStatRow('% sem marcar', g(h, 'pct_fts'), g(a, 'pct_fts')))}
+    ${_painelH2HStatsGroup('Over/Under',
+      _painelH2HStatRow('% mais de 2,5 gols', g(h, 'pct_over25'), g(a, 'pct_over25')) +
+      _painelH2HStatRow('% menos de 2,5 gols', g(h, 'pct_under25'), g(a, 'pct_under25')) +
+      _painelH2HStatRow('% mais de 1,5 gols', g(h, 'pct_over15'), g(a, 'pct_over15')) +
+      _painelH2HStatRow('% menos de 1,5 gols', g(h, 'pct_under15'), g(a, 'pct_under15')))}
+    <div class="painel-h2h-stats-note">Baseado nos últimos ${h ? h.n : '-'} jogos de ${h ? h.teamName : '?'} e ${a ? a.n : '-'} jogos de ${a ? a.teamName : '?'} (tempo integral).</div>`;
 }
 
 function _painelRender(data) {
