@@ -759,6 +759,18 @@ def _ng_fetch_strength(match_id, _attempt=1):
                     data["last_results_home"] = tables.get("home")
                     data["last_results_away"] = tables.get("away")
                     data["h2h_table"] = tables.get("h2h")
+                    # "Partidas históricas com as mesmas probabilidades" (AH/1X2/O-U) — o
+                    # NowGoal também calcula isso no client e expõe pronto em window._sameOdds,
+                    # mas isso carrega um pouco depois (via ajax assíncrono próprio) do que o
+                    # _strength — sem esperar por ele especificamente, `data` ainda vem vazio.
+                    try:
+                        page.wait_for_function(
+                            "() => window._sameOdds && window._sameOdds.data && window._sameOdds.data.AHAllSclass",
+                            timeout=10000,
+                        )
+                        data["same_odds"] = _ng_sanitize_nan(page.evaluate("() => window._sameOdds"))
+                    except Exception:
+                        data["same_odds"] = None
                 finally:
                     browser.close()
     except Exception:

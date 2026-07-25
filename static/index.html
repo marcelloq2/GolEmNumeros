@@ -1266,6 +1266,28 @@
   .painel-forca-bar .home-seg { background: #e8622c; height: 100%; }
   .painel-forca-bar .away-seg { background: #2c7fe8; height: 100%; }
   .painel-forca-note { font-size: 10px; color: var(--text2); text-align: center; margin-top: 10px; }
+  .painel-forca-sameodds-line { text-align: center; font-size: 12px; color: var(--text); margin: 10px 0; }
+  .painel-forca-sameodds-groups { display: flex; justify-content: space-around; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+  .painel-forca-sameodds-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .painel-forca-sameodds-bars { display: flex; align-items: flex-end; gap: 10px; height: 110px; }
+  .painel-forca-sameodds-bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .painel-forca-sameodds-bar .pct { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .painel-forca-sameodds-bar .pct.up { color: #e8622c; }
+  .painel-forca-sameodds-bar .pct.draw { color: var(--text2); }
+  .painel-forca-sameodds-bar .pct.down { color: #2c7fe8; }
+  .painel-forca-sameodds-bar .bar { width: 26px; border-radius: 3px 3px 0 0; }
+  .painel-forca-sameodds-bar .bar.up { background: #e8622c; }
+  .painel-forca-sameodds-bar .bar.draw { background: var(--border); }
+  .painel-forca-sameodds-bar .bar.down { background: #2c7fe8; }
+  .painel-forca-sameodds-title {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px;
+    font-size: 11px; font-weight: 700; color: var(--text); white-space: nowrap;
+  }
+  .painel-forca-sameodds-legend { display: flex; justify-content: center; gap: 16px; font-size: 11px; color: var(--text2); }
+  .painel-forca-sameodds-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .painel-forca-sameodds-legend .dot.up { background: #e8622c; }
+  .painel-forca-sameodds-legend .dot.draw { background: var(--border); }
+  .painel-forca-sameodds-legend .dot.down { background: #2c7fe8; }
   .painel-forca-h2h-controls { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 8px; }
   .painel-forca-h2h-controls select { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; padding: 3px 6px; }
   .painel-forca-h2h-dist { display: flex; gap: 16px; margin: 10px 0; }
@@ -1680,6 +1702,7 @@
         <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_sameodds" onclick="_painelForcaSetView('sameodds', this)">Mesmas Probabilidades</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -3658,9 +3681,11 @@ function _painelForcaSetView(view, btn) {
   const mainEl = document.getElementById('painelForcaViewMain');
   const h2hEl = document.getElementById('painelForcaViewH2H');
   const lastEl = document.getElementById('painelForcaViewLast');
+  const sameOddsEl = document.getElementById('painelForcaViewSameOdds');
   if (mainEl) mainEl.style.display = view === 'main' ? '' : 'none';
   if (h2hEl) h2hEl.style.display = view === 'h2h' ? '' : 'none';
   if (lastEl) lastEl.style.display = view === 'last' ? '' : 'none';
+  if (sameOddsEl) sameOddsEl.style.display = view === 'sameodds' ? '' : 'none';
 }
 
 function _painelOpenForca(eventId, home, away, league) {
@@ -3821,9 +3846,11 @@ function _painelForcaRender() {
       <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>
     </div>
     <div id="painelForcaViewH2H" style="display:none"></div>
-    <div id="painelForcaViewLast" style="display:none"></div>`;
+    <div id="painelForcaViewLast" style="display:none"></div>
+    <div id="painelForcaViewSameOdds" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
+  _painelForcaSameOddsRender();
 }
 
 // ── Estatísticas de Confronto Direto / Pontuações Anteriores (table_v1/v2/v3
@@ -4017,6 +4044,72 @@ function _painelForcaLastRender() {
       <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
     </div>
     ${_painelForcaBuildTableBlock(tbl, side)}`;
+}
+
+// ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
+let _painelForcaSameOddsTab = 'AH';
+function _painelForcaSameOddsSetTab(t) { _painelForcaSameOddsTab = t; _painelForcaSameOddsRender(); }
+
+function _painelForcaSameOddsBarGroup(title, up, draw, down) {
+  const u = up || 0, d = draw || 0, w = down || 0;
+  return `
+    <div class="painel-forca-sameodds-group">
+      <div class="painel-forca-sameodds-bars">
+        <div class="painel-forca-sameodds-bar"><span class="pct up">${u}%</span><div class="bar up" style="height:${Math.max(2, u)}px"></div></div>
+        <div class="painel-forca-sameodds-bar"><span class="pct draw">${d}%</span><div class="bar draw" style="height:${Math.max(2, d)}px"></div></div>
+        <div class="painel-forca-sameodds-bar"><span class="pct down">${w}%</span><div class="bar down" style="height:${Math.max(2, w)}px"></div></div>
+      </div>
+      <div class="painel-forca-sameodds-title">${title}</div>
+    </div>`;
+}
+
+function _painelForcaSameOddsRender() {
+  const el = document.getElementById('painelForcaViewSameOdds');
+  if (!el) return;
+  const so = _painelForcaData ? _painelForcaData.same_odds : null;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  if (!so || !so.data) {
+    el.innerHTML = `${header}<div class="live-loading">Sem dados de probabilidades históricas pra essa partida.</div>`;
+    return;
+  }
+  const tab = _painelForcaSameOddsTab;
+  const fo = so.data.FirstOdds;
+  const rate = so.rate[tab];
+  const leagueLabel = _painelForcaLeague || 'Mesma liga';
+
+  let oddsLine = '', extraGroup = '', labels;
+  if (tab === 'AH') {
+    oddsLine = `Probabilidades do Handicap Asiático: ${_painelForcaVal(fo.AHUpOdds)} &nbsp; ${_painelForcaVal(fo.AHDrawOdds)} &nbsp; ${_painelForcaVal(fo.AHDownOdds)}`;
+    labels = { up: 'Vitória em casa', draw: 'Empate', down: 'Vitória fora de casa' };
+  } else if (tab === 'OP') {
+    oddsLine = `Probabilidades 1X2: ${_painelForcaVal(fo.OPUpOdds)} &nbsp; ${_painelForcaVal(fo.OPDrawOdds)} &nbsp; ${_painelForcaVal(fo.OPDownOdds)}`;
+    labels = { up: 'Lar', draw: 'Empate', down: 'Ausente' };
+    extraGroup = _painelForcaSameOddsBarGroup('Cálculo de probabilidades', Math.round(fo.OPHomeWinRate || 0), Math.round(fo.OPDrawRate || 0), Math.round(fo.OPAwayWinRate || 0));
+  } else {
+    oddsLine = `Probabilidades de Mais/Menos: ${_painelForcaVal(fo.OUUpOdds)} &nbsp; ${_painelForcaVal(fo.OUDrawOdds)} &nbsp; ${_painelForcaVal(fo.OUDownOdds)}`;
+    labels = { up: 'Sobre', draw: 'Meta', down: 'Sob' };
+  }
+
+  el.innerHTML = `
+    ${header}
+    <div class="painel-forca-tabs">
+      <button class="painel-forca-tab${tab === 'AH' ? ' active' : ''}" onclick="_painelForcaSameOddsSetTab('AH')">Probabilidades AH</button>
+      <button class="painel-forca-tab${tab === 'OP' ? ' active' : ''}" onclick="_painelForcaSameOddsSetTab('OP')">Probabilidades 1x2</button>
+      <button class="painel-forca-tab${tab === 'OU' ? ' active' : ''}" onclick="_painelForcaSameOddsSetTab('OU')">Probabilidades de Mais/Menos</button>
+    </div>
+    <div class="painel-forca-sameodds-line">${oddsLine}</div>
+    <div class="painel-forca-sameodds-groups">
+      ${extraGroup}
+      ${_painelForcaSameOddsBarGroup('Total', rate.all.up, rate.all.draw, rate.all.down)}
+      ${_painelForcaSameOddsBarGroup('Principais ligas', rate.main.up, rate.main.draw, rate.main.down)}
+      ${_painelForcaSameOddsBarGroup(leagueLabel, rate.same.up, rate.same.draw, rate.same.down)}
+    </div>
+    <div class="painel-forca-sameodds-legend">
+      <span><i class="dot up"></i>${labels.up}</span>
+      <span><i class="dot draw"></i>${labels.draw}</span>
+      <span><i class="dot down"></i>${labels.down}</span>
+    </div>
+    <div class="painel-forca-note">* Os dados acima são apenas para referência e baseiam-se em dados históricos.</div>`;
 }
 
 function _painelH2HTeamLogo(name) {
