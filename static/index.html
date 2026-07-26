@@ -10803,7 +10803,8 @@ function _live2ThermoDominanceIconHtml(full, w10, w5) {
   if (!dFull || !d10 || !d5 || dFull !== d10 || d10 !== d5) return '';
   const cor = dFull === 'casa' ? '#3b82f6' : '#ef4444';
   const lado = dFull === 'casa' ? 'Casa' : 'Visitante';
-  return `<span title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)" style="font-size:15px;color:${cor};flex-shrink:0">🔥</span>`;
+  return `<span title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)"
+    style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${cor};flex-shrink:0"></span>`;
 }
 
 // Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
