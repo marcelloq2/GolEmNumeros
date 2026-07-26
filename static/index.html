@@ -1339,6 +1339,12 @@
   .painel-meth-stat { text-align: center; min-width: 44px; }
   .painel-meth-stat .v { font-weight: 700; font-size: 12px; color: #e8622c; }
   .painel-meth-stat .l { font-size: 9px; color: var(--text2); display: block; }
+  .painel-meth-watch-btn {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+    background: transparent; font-size: 14px; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s;
+  }
+  .painel-meth-watch-btn:hover { opacity: 1; background: var(--bg2); }
+  .painel-meth-watch-btn.active { opacity: 1; border-color: #0088cc; background: rgba(0,136,204,.12); }
   .painel-meth-tip { padding: 10px 4px; border-bottom: 1px solid var(--border); }
   .painel-meth-tip-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
   .painel-meth-tip-match { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 4px; }
@@ -3573,8 +3579,38 @@ function _painelMethTabsHtml() {
     </div>`;
 }
 
+let _painelWatchedTipsters = new Set(); // uids (string) sendo acompanhados no Telegram
+
+function _painelLoadWatchlist() {
+  return fetch('/api/painel/tips_watchlist')
+    .then(r => r.json())
+    .then(d => { _painelWatchedTipsters = new Set((d.watched || []).map(w => String(w.user_id))); })
+    .catch(() => {});
+}
+
+function _painelToggleWatch(ev, uid, uname, btn) {
+  ev.stopPropagation();
+  const key = String(uid);
+  const isWatched = _painelWatchedTipsters.has(key);
+  const url = isWatched ? '/api/painel/tips_unwatch' : '/api/painel/tips_watch';
+  const bodyData = isWatched ? { user_id: key } : { user_id: key, user_name: uname };
+  btn.disabled = true;
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        if (isWatched) _painelWatchedTipsters.delete(key); else _painelWatchedTipsters.add(key);
+        btn.textContent = isWatched ? '🔕' : '🔔';
+        btn.title = isWatched ? 'Adicionar aos avisos do Telegram' : 'Remover dos avisos do Telegram (já está recebendo)';
+        btn.classList.toggle('active', !isWatched);
+      }
+    })
+    .finally(() => { btn.disabled = false; });
+}
+
 function _painelMethItemShell(u, statsHtml) {
   const nameEsc = String(u.uname).replace(/'/g, "\\'");
+  const isWatched = _painelWatchedTipsters.has(String(u.uid));
   return `
     <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
       <div class="painel-meth-rank">${u.rank}</div>
@@ -3584,6 +3620,8 @@ function _painelMethItemShell(u, statsHtml) {
         ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
       </div>
       ${statsHtml}
+      <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
+        onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
     </div>`;
 }
 
@@ -3591,6 +3629,10 @@ function _painelLoadMethodologies() {
   const el = document.getElementById('painelMethodologiesView');
   el.innerHTML = _painelMethTabsHtml() + `<div id="painelMethList"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>`;
 
+  _painelLoadWatchlist().then(() => _painelLoadMethodologiesList());
+}
+
+function _painelLoadMethodologiesList() {
   if (_painelMethView === 'bestmarket') {
     fetch('/api/painel/tips_best_markets?type=' + _painelMethType())
       .then(r => r.json())
