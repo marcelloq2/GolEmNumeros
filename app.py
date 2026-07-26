@@ -1207,6 +1207,7 @@ def _tipster_watch_poll_cycle():
 
 
 def _tipster_watch_loop():
+    _github_sync_done.wait(timeout=120)  # espera a restauração do GitHub terminar antes do 1º ciclo
     while True:
         try:
             _tipster_watch_poll_cycle()
@@ -1380,6 +1381,7 @@ def _clv_close_finished_matches():
 
 
 def _clv_background_loop():
+    _github_sync_done.wait(timeout=120)  # espera a restauração do GitHub terminar antes do 1º ciclo
     while True:
         try:
             print("[clv] Coletando odds Live da Bet365 pros jogos de hoje ainda não começados...")
@@ -3572,10 +3574,23 @@ def _background_monitor():
 # Inicia a thread de monitoramento (daemon = morre junto com o Flask)
 threading.Thread(target=_background_monitor, daemon=True, name="MomentumMonitor").start()
 
-# Restaura dados do GitHub ao iniciar (backtest + momentum_history + shotmap_history + cache)
+# Restaura dados do GitHub ao iniciar (backtest + momentum_history + shotmap_history + cache).
+# _github_sync_done é usado pelos loops de watchlist/CLV pra esperar essa restauração
+# terminar antes do 1º ciclo — sem isso, o 1º ciclo (que roda quase instantaneamente)
+# criava um banco novo VAZIO local e o dava PUSH pro GitHub antes dessa restauração
+# (mais lenta, sequencial) conseguir baixar a versão de verdade, apagando o backup bom.
+_github_sync_done = threading.Event()
+
+
+def _github_sync_on_startup_then_flag():
+    try:
+        github_storage.sync_on_startup(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR)
+    finally:
+        _github_sync_done.set()
+
+
 threading.Thread(
-    target=github_storage.sync_on_startup,
-    args=(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR),
+    target=_github_sync_on_startup_then_flag,
     daemon=True,
     name="GitHubSync"
 ).start()
