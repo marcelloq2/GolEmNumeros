@@ -6101,7 +6101,7 @@ function _placarExatoBuckets(items) {
 // filtro (precisa vir depois de PLACAR_EXATO_BUCKETS_ORDER, que já usa aqui
 // embaixo pra montar as opções do mercado Placar Exato).
 let _today2OddsRawCache = null;
-let _today2OddsFilter = null; // { market, label, op, val, valTo } | null
+let _today2OddsFilters = []; // [{ market, label, op, val, valTo }, ...] — todos precisam bater (E lógico)
 
 const TODAY2_ODDS_FILTER_LABELS = {
   '1x2': ['Casa', 'Empate', 'Fora'],
@@ -6146,13 +6146,14 @@ async function _today2AplicarFiltroOdds() {
   if (status) status.textContent = '⏳ Carregando odds...';
   await _today2EnsureOddsRaw();
   if (status) status.textContent = '';
-  _today2OddsFilter = { market, label, op, val, valTo };
+  _today2OddsFilters.push({ market, label, op, val, valTo });
   _today2RenderOddsFilterChip();
   filterToday2();
 }
 
-function _today2LimparFiltroOdds() {
-  _today2OddsFilter = null;
+function _today2LimparFiltroOdds(index) {
+  if (index === undefined) _today2OddsFilters = [];
+  else _today2OddsFilters.splice(index, 1);
   _today2RenderOddsFilterChip();
   filterToday2();
 }
@@ -6160,13 +6161,16 @@ function _today2LimparFiltroOdds() {
 function _today2RenderOddsFilterChip() {
   const el = document.getElementById('today2OddsActiveChip');
   if (!el) return;
-  if (!_today2OddsFilter) { el.innerHTML = ''; return; }
-  const f = _today2OddsFilter;
-  const faixa = f.op === '<->' ? `${f.val} e ${f.valTo}` : `${TODAY2_ODDS_OP_LABEL[f.op]} ${f.val}`;
-  el.innerHTML = `<span class="filter-btn active" style="cursor:default;display:inline-flex;align-items:center;gap:4px">
-    💰 ${TODAY2_ODDS_FILTER_MARKET_LABEL[f.market]}: ${f.label} odd ${faixa}
-    <span onclick="_today2LimparFiltroOdds()" style="cursor:pointer;font-weight:700">✕</span>
-  </span>`;
+  if (!_today2OddsFilters.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _today2OddsFilters.map((f, i) => {
+    const faixa = f.op === '<->' ? `${f.val} e ${f.valTo}` : `${TODAY2_ODDS_OP_LABEL[f.op]} ${f.val}`;
+    return `<span class="filter-btn active" style="cursor:default;display:inline-flex;align-items:center;gap:4px;margin-right:4px">
+      💰 ${TODAY2_ODDS_FILTER_MARKET_LABEL[f.market]}: ${f.label} odd ${faixa}
+      <span onclick="_today2LimparFiltroOdds(${i})" style="cursor:pointer;font-weight:700">✕</span>
+    </span>`;
+  }).join('') + (_today2OddsFilters.length > 1
+    ? `<span class="filter-btn" style="cursor:pointer" onclick="_today2LimparFiltroOdds()">Limpar todos</span>`
+    : '');
 }
 
 function _today2OddOperadorBate(odd, op, val, valTo) {
@@ -6183,17 +6187,18 @@ function _today2OddOperadorBate(odd, op, val, valTo) {
 }
 
 function _today2MatchePassaFiltroOdds(m) {
-  const f = _today2OddsFilter;
-  if (!f) return true;
+  if (!_today2OddsFilters.length) return true;
   const markets = _today2OddsRawCache?.[String(m.id)];
-  if (!markets) return false; // sem odds carregadas pra esse jogo (fora do snapshot) — não passa
-  if (f.market === 'placar_exato') {
-    const items = markets.placar_exato?.items || [];
-    const bucket = _placarExatoBuckets(items).find(b => b.score === f.label);
-    return _today2OddOperadorBate(bucket?.odd, f.op, f.val, f.valTo);
-  }
-  const odd = parseFloat(_currentOddForSelection(f.market, f.label, markets));
-  return _today2OddOperadorBate(odd, f.op, f.val, f.valTo);
+  if (!markets) return false; // sem odds carregadas pra esse jogo (fora do snapshot) — não passa nenhum filtro
+  return _today2OddsFilters.every(f => {
+    if (f.market === 'placar_exato') {
+      const items = markets.placar_exato?.items || [];
+      const bucket = _placarExatoBuckets(items).find(b => b.score === f.label);
+      return _today2OddOperadorBate(bucket?.odd, f.op, f.val, f.valTo);
+    }
+    const odd = parseFloat(_currentOddForSelection(f.market, f.label, markets));
+    return _today2OddOperadorBate(odd, f.op, f.val, f.valTo);
+  });
 }
 
 // Escala de cor vermelho→amarelo→verde (igual escala de cores do Excel) pra
