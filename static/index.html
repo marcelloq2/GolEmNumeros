@@ -10735,11 +10735,11 @@ function _live2ThermometerHtml(score, label, titulo) {
   if (!score) return '';
   const casaMaior = score.casaPct >= score.foraPct;
   return `
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:9px;margin-top:3px" title="${titulo}">
-      <span style="color:var(--text2)">🌡️ ${label}:</span>
-      <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '400'}">Casa ${score.casaPct.toFixed(0)}%</span>
-      <span style="color:var(--text2)">·</span>
-      <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '400'}">Visitante ${score.foraPct.toFixed(0)}%</span>
+    <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${titulo}">
+      <span style="color:var(--text2);font-weight:600;letter-spacing:.2px">🌡️ ${label}:</span>
+      <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '500'}">Casa ${score.casaPct.toFixed(0)}%</span>
+      <span style="color:var(--text2);opacity:.5">·</span>
+      <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '500'}">Visitante ${score.foraPct.toFixed(0)}%</span>
     </div>`;
 }
 
