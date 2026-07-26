@@ -3432,6 +3432,7 @@ function _painelSetFilter(filter, btn) {
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
 let _painelMethPeriod = 'week';   // 'week' | 'month'
 let _painelMethMetric = 'winrate'; // 'winrate' | 'roi'
+let _painelMethView = 'stats';    // 'stats' | 'bestmarket'
 
 function _painelMethType() {
   const week = _painelMethPeriod === 'week';
@@ -3443,10 +3444,10 @@ function _painelMethType() {
 }
 function _painelMethSetPeriod(p) { _painelMethPeriod = p; _painelLoadMethodologies(); }
 function _painelMethSetMetric(m) { _painelMethMetric = m; _painelLoadMethodologies(); }
+function _painelMethSetView(v) { _painelMethView = v; _painelLoadMethodologies(); }
 
-function _painelLoadMethodologies() {
-  const el = document.getElementById('painelMethodologiesView');
-  el.innerHTML = `
+function _painelMethTabsHtml() {
+  return `
     <div class="painel-meth-tabs">
       <div class="painel-meth-tab-group">
         <button class="${_painelMethPeriod === 'week' ? 'active' : ''}" onclick="_painelMethSetPeriod('week')">Semana</button>
@@ -3456,8 +3457,55 @@ function _painelLoadMethodologies() {
         <button class="${_painelMethMetric === 'winrate' ? 'active' : ''}" onclick="_painelMethSetMetric('winrate')">Taxa de Vitória</button>
         <button class="${_painelMethMetric === 'roi' ? 'active' : ''}" onclick="_painelMethSetMetric('roi')">ROI</button>
       </div>
-    </div>
-    <div id="painelMethList"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>`;
+      <div class="painel-meth-tab-group">
+        <button class="${_painelMethView === 'bestmarket' ? 'active' : ''}" onclick="_painelMethSetView('${_painelMethView === 'bestmarket' ? 'stats' : 'bestmarket'}')">Previsões mais acertivas</button>
+      </div>
+    </div>`;
+}
+
+function _painelMethItemShell(u, statsHtml) {
+  const nameEsc = String(u.uname).replace(/'/g, "\\'");
+  return `
+    <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
+      <div class="painel-meth-rank">${u.rank}</div>
+      <img class="painel-meth-avatar" src="${u.uimg || ''}" alt="" onerror="this.style.visibility='hidden'">
+      <div class="painel-meth-name-col">
+        <span class="painel-meth-name">${u.uname}</span>
+        ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
+      </div>
+      ${statsHtml}
+    </div>`;
+}
+
+function _painelLoadMethodologies() {
+  const el = document.getElementById('painelMethodologiesView');
+  el.innerHTML = _painelMethTabsHtml() + `<div id="painelMethList"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>`;
+
+  if (_painelMethView === 'bestmarket') {
+    fetch('/api/painel/tips_best_markets?type=' + _painelMethType())
+      .then(r => r.json())
+      .then(d => {
+        const list = document.getElementById('painelMethList');
+        if (d.error || !d.list) { list.innerHTML = `<div class="live-loading">${d.error || 'Sem dados.'}</div>`; return; }
+        list.innerHTML = d.list.map(u => {
+          const bm = u.best_market;
+          const statsHtml = `
+            <div class="painel-meth-stats">
+              ${bm ? `
+                <div class="painel-meth-stat"><span class="v">${bm.label}</span><span class="l">Melhor mercado</span></div>
+                <div class="painel-meth-stat"><span class="v">${Math.round(bm.pct * 100)}%</span><span class="l">Acerto</span></div>
+                <div class="painel-meth-stat"><span class="v">${bm.wins}/${bm.total}</span><span class="l">Palpites</span></div>
+              ` : `<div class="painel-meth-stat"><span class="v">--</span><span class="l">Dados insuficientes</span></div>`}
+            </div>`;
+          return _painelMethItemShell(u, statsHtml);
+        }).join('');
+      })
+      .catch(err => {
+        document.getElementById('painelMethList').innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+      });
+    return;
+  }
+
   fetch('/api/painel/tips_ranking?type=' + _painelMethType())
     .then(r => r.json())
     .then(d => {
@@ -3469,22 +3517,14 @@ function _painelLoadMethodologies() {
         const profit = month ? u.profit_m : u.profit;
         const tips = month ? u.tips_m : u.tips;
         const avo = month ? u.avo_m : u.avo;
-        const nameEsc = String(u.uname).replace(/'/g, "\\'");
-        return `
-        <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
-          <div class="painel-meth-rank">${u.rank}</div>
-          <img class="painel-meth-avatar" src="${u.uimg || ''}" alt="" onerror="this.style.visibility='hidden'">
-          <div class="painel-meth-name-col">
-            <span class="painel-meth-name">${u.uname}</span>
-            ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
-          </div>
+        const statsHtml = `
           <div class="painel-meth-stats">
             <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '--'}</span><span class="l">Taxa de Vitória</span></div>
             <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '--'}</span><span class="l">ROI</span></div>
             <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
             <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
-          </div>
-        </div>`;
+          </div>`;
+        return _painelMethItemShell(u, statsHtml);
       }).join('');
     })
     .catch(err => {

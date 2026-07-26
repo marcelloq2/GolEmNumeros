@@ -939,7 +939,10 @@ def _tips_fetch_article_pick(article_id):
     return pick
 
 
-def _tips_fetch_user_tips(user_id):
+def _tips_fetch_user_tips_raw(user_id):
+    """Só a listagem básica (sem buscar o palpite de cada artigo) — usada tanto
+    como base pra `_tips_fetch_user_tips` quanto pro "Previsões mais acertivas"
+    (que só precisa de okind/isWin/isEnd, já vêm de graça nessa chamada)."""
     with _tips_user_lock:
         cached = _tips_user_cache.get(user_id)
         if cached and (time.time() - cached["ts"]) < _TIPS_USER_TTL:
@@ -948,6 +951,44 @@ def _tips_fetch_user_tips(user_id):
     r = http_req.get(f"{TIPS_BASE}/user/getusertopiclist", params=params, headers=TIPS_HEADERS, timeout=15)
     r.raise_for_status()
     data = r.json()
+    with _tips_user_lock:
+        _tips_user_cache[user_id] = {"ts": time.time(), "data": data}
+    return data
+
+
+_TIPS_MARKET_LABELS = {2: "Handicap Asiático", 3: "Over/Under", 1: "1X2"}
+
+
+def _tips_compute_best_market(user_id):
+    """Agrupa as dicas encerradas do tipster por mercado (okind) e devolve o
+    mercado onde ele mais acerta (com pelo menos 3 dicas encerradas nesse
+    mercado, senão o recorte é pequeno demais pra significar algo)."""
+    try:
+        data = _tips_fetch_user_tips_raw(user_id)
+    except Exception:
+        return None
+    tips = data.get("list") or []
+    by_market = {}
+    for t in tips:
+        if not t.get("isEnd"):
+            continue
+        k = t.get("okind")
+        m = by_market.setdefault(k, {"wins": 0, "total": 0})
+        m["total"] += 1
+        if t.get("isWin"):
+            m["wins"] += 1
+    best = None
+    for k, m in by_market.items():
+        if m["total"] < 3:
+            continue
+        pct = m["wins"] / m["total"]
+        if best is None or pct > best["pct"]:
+            best = {"kind": k, "label": _TIPS_MARKET_LABELS.get(k, "Outros"), "pct": pct, "wins": m["wins"], "total": m["total"]}
+    return best
+
+
+def _tips_fetch_user_tips(user_id):
+    data = _tips_fetch_user_tips_raw(user_id)
 
     # Busca o palpite de cada dica em paralelo (a página do artigo é lenta,
     # ~2-3s cada — sequencial levaria mais de 1min pras 50 dicas de uma vez).
@@ -974,6 +1015,34 @@ def api_painel_tips_ranking():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     return jsonify(data)
+
+
+@app.route("/api/painel/tips_best_markets")
+def api_painel_tips_best_markets():
+    """Pro mesmo ranking (Semana/Mês × Taxa de Vitória/ROI já existente), busca
+    em qual mercado (Handicap Asiático ou Over/Under) cada tipster mais acerta.
+    Bem mais leve que /tips_user: só a listagem básica de cada um (sem os
+    palpites por artigo), então dá pra buscar todo mundo do ranking em paralelo
+    numa boa."""
+    kind = request.args.get("type", "1")
+    if kind not in ("1", "2", "3", "4"):
+        return jsonify({"error": "type inválido"}), 400
+    try:
+        ranking = _tips_fetch_ranking(kind)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    users = ranking.get("list") or []
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=20) as ex:
+        best_markets = list(ex.map(lambda u: _tips_compute_best_market(u["uid"]), users))
+    out = []
+    for u, best in zip(users, best_markets):
+        out.append({
+            "uid": u["uid"], "uname": u["uname"], "uimg": u.get("uimg"), "rank": u["rank"], "rrc": u.get("rrc"),
+            "best_market": best,
+        })
+    return jsonify({"list": out})
 
 
 @app.route("/api/painel/tips_user")
