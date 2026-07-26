@@ -10334,6 +10334,59 @@ function setLive2Tab(matchId, tab, btn) {
     body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
   } else if (tab === 'prestats') {
     body.innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
+    _live2LoadStandingsMini(matchId, m);
+  }
+}
+
+// Estatísticas Pré — mini classificação/Power Ranking dos 2 times do confronto,
+// reaproveitando /api/flashscore/standings e _today2PowerRankingRows/_insFindStandingRow
+// (mesma fonte e cálculo já usados na aba Classificações do Painel Principal), sem
+// nenhum endpoint novo.
+let _live2StandingsMiniCache = {}; // matchId -> rows (classificação da liga)
+
+function _live2StandingsMiniTeamCardHtml(rows, teamName) {
+  const row = _insFindStandingRow(rows, teamName);
+  if (!row) return `<div style="flex:1;min-width:140px;color:var(--text2);font-size:11px;text-align:center">${teamName}<br>sem classificação</div>`;
+  const ranked = _today2PowerRankingRows(rows);
+  const prIdx = ranked.findIndex(r => _insNorm(r.team) === _insNorm(teamName));
+  const pr = prIdx >= 0 ? ranked[prIdx] : null;
+  return `
+    <div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+      <div style="font-weight:700;font-size:12px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.team}</div>
+      <div style="font-size:11px;color:var(--text2)">Tabela: <b style="color:var(--text)">${row.pos}º</b> · ${row.pontos} pts (${row.vitorias}V ${row.empates}E ${row.derrotas}D)</div>
+      ${pr ? `<div style="font-size:11px;color:var(--text2);margin-top:2px">Power Ranking: <b style="color:var(--text)">${prIdx + 1}º</b> · Geral <b style="color:${pr.geral >= 0 ? '#22c55e' : '#ef4444'}">${pr.geral >= 0 ? '+' : ''}${pr.geral.toFixed(2)}</b></div>` : ''}
+    </div>`;
+}
+
+async function _live2LoadStandingsMini(matchId, m) {
+  const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
+  if (!wrap || !m) return;
+  if (_live2StandingsMiniCache[matchId]) {
+    wrap.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${_live2StandingsMiniTeamCardHtml(_live2StandingsMiniCache[matchId], m.casa)}
+      ${_live2StandingsMiniTeamCardHtml(_live2StandingsMiniCache[matchId], m.fora)}
+    </div>`;
+    return;
+  }
+  wrap.innerHTML = '⏳ Buscando classificação...';
+  try {
+    const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+    const r = await fetch(`/api/flashscore/standings?${params}`);
+    const d = await r.json();
+    const freshWrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
+    if (!freshWrap) return;
+    if (!d.found || !d.rows || !d.rows.length) {
+      freshWrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem classificação disponível pra essa liga</div>';
+      return;
+    }
+    _live2StandingsMiniCache[matchId] = d.rows;
+    freshWrap.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${_live2StandingsMiniTeamCardHtml(d.rows, m.casa)}
+      ${_live2StandingsMiniTeamCardHtml(d.rows, m.fora)}
+    </div>`;
+  } catch (e) {
+    const freshWrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
+    if (freshWrap) freshWrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar classificação</div>';
   }
 }
 
