@@ -4916,13 +4916,12 @@ function _painelKickoffTime(m) {
 
 function _painelMatchRowHtml(m, leagueName) {
   const isLive = _painelIsLive(m);
-  const isFinished = _painelIsFinished(m) && !isLive;
   const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
   const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
     ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
-  const kickoff = isFinished ? _painelKickoffTime(m) : '';
+  const kickoff = _painelKickoffTime(m);
   const minuteHtml = (isLive && m.minute != null) ? `<div class="painel-match-minute">${m.minute}'</div>` : '';
   const htHtml = (m.ht_home != null && m.ht_home !== '') ? `${m.ht_home}-${m.ht_away}` : '-';
   const cornersHtml = (m.corner_home != null && m.corner_home !== '') ? `${m.corner_home}-${m.corner_away}` : '-';
