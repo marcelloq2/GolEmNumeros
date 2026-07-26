@@ -1,0 +1,278 @@
+{
+  "event_id": "1ztvu6l8o19yv9p",
+  "date": "2026-07-26",
+  "casa": "FC Tulsa",
+  "fora": "Lexington",
+  "liga": "",
+  "score": {
+    "home": 0,
+    "away": 0
+  },
+  "total_shots": 24,
+  "shotmap": [
+    {
+      "id": "2949171559",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Henry-Scott",
+      "x": 9,
+      "y": 42.1
+    },
+    {
+      "id": "2949170465",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Colli",
+      "x": 23.5,
+      "y": 60.9
+    },
+    {
+      "id": "2949170451",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Cissoko",
+      "x": 11.8,
+      "y": 59
+    },
+    {
+      "id": "2949167787",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Brown",
+      "x": 11.4,
+      "y": 47.8
+    },
+    {
+      "id": "2949167343",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Henry-Scott",
+      "x": 9.2,
+      "y": 49.1
+    },
+    {
+      "id": "2949165071",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "crossbar",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Scott",
+      "x": 10.2,
+      "y": 36.7
+    },
+    {
+      "id": "2949164565",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "I. Souza Daniel",
+      "x": 6.5,
+      "y": 40.6
+    },
+    {
+      "id": "2949164241",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "S. Lukić",
+      "x": 7.6,
+      "y": 51
+    },
+    {
+      "id": "2949164171",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "I. Souza Daniel",
+      "x": 4.4,
+      "y": 51.9
+    },
+    {
+      "id": "2949161401",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "b.sparks",
+      "x": 13.8,
+      "y": 52.2
+    },
+    {
+      "id": "2949153645",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Batista",
+      "x": 6.3,
+      "y": 59.6
+    },
+    {
+      "id": "2949134963",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Firmino",
+      "x": 14,
+      "y": 70.9
+    },
+    {
+      "id": "2949134767",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "b.sparks",
+      "x": 10,
+      "y": 62.4
+    },
+    {
+      "id": "2949127337",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "j.webber",
+      "x": 31.8,
+      "y": 41
+    },
+    {
+      "id": "2949121569",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Kocevski",
+      "x": 24.9,
+      "y": 59.3
+    },
+    {
+      "id": "2949117885",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Molloy",
+      "x": 25.2,
+      "y": 60.3
+    },
+    {
+      "id": "2949111945",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Molloy",
+      "x": 21.8,
+      "y": 38
+    },
+    {
+      "id": "2949109729",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Stauffer",
+      "x": 22.4,
+      "y": 37.3
+    },
+    {
+      "id": "2949107761",
+      "minute": 20,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Greene",
+      "x": 15.6,
+      "y": 59.7
+    },
+    {
+      "id": "2949107143",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "B.Ferri",
+      "x": 14.8,
+      "y": 48.7
+    },
+    {
+      "id": "2949102131",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "L. Dorsey",
+      "x": 3.9,
+      "y": 43.4
+    },
+    {
+      "id": "2949096271",
+      "minute": 8,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "B.Ferri",
+      "x": 25.5,
+      "y": 61.2
+    },
+    {
+      "id": "2949092593",
+      "minute": 4,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Molloy",
+      "x": 35,
+      "y": 48.7
+    },
+    {
+      "id": "2949090741",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "j.webber",
+      "x": 19.4,
+      "y": 49.3
+    }
+  ]
+}
