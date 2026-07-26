@@ -4917,9 +4917,9 @@ function _painelMatchRowHtml(m, leagueName) {
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
-        ${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}
+        <span>${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}</span>
         ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
-        ${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}
+        <span>${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}</span>
         <span class="painel-team away" title="${awayEsc}">${m.away}</span>
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
