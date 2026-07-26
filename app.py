@@ -1135,6 +1135,7 @@ def api_painel_tips_watch():
             conn.commit()
         finally:
             conn.close()
+    github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
     return jsonify({"ok": True})
 
 
@@ -1150,6 +1151,7 @@ def api_painel_tips_unwatch():
             conn.commit()
         finally:
             conn.close()
+    github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
     return jsonify({"ok": True})
 
 
@@ -1208,6 +1210,7 @@ def _tipster_watch_loop():
     while True:
         try:
             _tipster_watch_poll_cycle()
+            github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
         except Exception as e:
             print(f"[tipster-watch] Erro no ciclo: {e}")
         time.sleep(_TIPSTER_WATCH_POLL_INTERVAL)
@@ -1382,6 +1385,7 @@ def _clv_background_loop():
             print("[clv] Coletando odds Live da Bet365 pros jogos de hoje ainda não começados...")
             _clv_collect_cycle()
             _clv_close_finished_matches()
+            github_storage.push_file_bg(CLV_DB_PATH, "clv_tracker.db")
             print("[clv] Ciclo concluído.")
         except Exception as e:
             print(f"[clv] Erro no ciclo: {e}")
