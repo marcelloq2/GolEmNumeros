@@ -9443,7 +9443,15 @@ function _insNorm(s) {
 
 function _insFindStandingRow(rows, teamName) {
   const alvo = _insNorm(teamName);
-  return (rows || []).find(r => _insNorm(r.team) === alvo) || null;
+  const exato = (rows || []).find(r => _insNorm(r.team) === alvo);
+  if (exato) return exato;
+  // Fallback fuzzy — cobre casos tipo "Vitória" (Flashscore) vs "Vitoria BA" (NowGoal,
+  // com sufixo do estado pra desambiguar) ou outras pequenas variações de nome entre
+  // as duas fontes: um nome é prefixo do outro (mesma técnica do _fs_find_match no backend).
+  return (rows || []).find(r => {
+    const rt = _insNorm(r.team);
+    return rt.length >= 4 && alvo.length >= 4 && (rt.startsWith(alvo) || alvo.startsWith(rt));
+  }) || null;
 }
 
 // ── EXPORTAR LEITURA DA PARTIDA EM .TXT (pra colar no ChatGPT etc) ─────────
