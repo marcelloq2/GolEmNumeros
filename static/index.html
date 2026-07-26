@@ -1232,7 +1232,6 @@
     font-size: 11px; padding: 4px 10px; cursor: pointer; align-self: flex-end;
   }
   .painel-odds-filter-clear:hover { color: var(--text); }
-  .painel-odds-filter-clear.active { background: #f9a825; border-color: #f9a825; color: #1a1a1a; font-weight: 700; }
 
   .painel-match-analysis-btn {
     background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); padding: 0 2px;
@@ -3299,17 +3298,16 @@ function _painelBuildOddsFilterBar() {
       </div>
     </div>
   `).join('') + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`
-    + `<button class="painel-odds-filter-clear${_painelHideFavorites ? ' active' : ''}" id="painelHideFavBtn" onclick="_painelToggleHideFavorites()">${_painelHideFavorites ? '★ Mostrar favoritos' : '☆ Ocultar favoritos'}</button>`;
+    + `<button class="painel-odds-filter-clear" id="painelClearFavBtn" onclick="_painelClearFavorites()">☆ Remover Minhas Seleções</button>`;
 }
 
-let _painelHideFavorites = false;
-function _painelToggleHideFavorites() {
-  _painelHideFavorites = !_painelHideFavorites;
-  const btn = document.getElementById('painelHideFavBtn');
-  if (btn) {
-    btn.textContent = _painelHideFavorites ? '★ Mostrar favoritos' : '☆ Ocultar favoritos';
-    btn.classList.toggle('active', _painelHideFavorites);
-  }
+function _painelClearFavorites() {
+  if (!_painelSelectedTeams.size) return;
+  if (!confirm('Remover todos os times marcados em Minhas Seleções?')) return;
+  _painelSelectedTeams.clear();
+  localStorage.setItem('painel_selected_teams', JSON.stringify([]));
+  const badge = document.getElementById('painelSelectedBadge');
+  if (badge) badge.textContent = '0';
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -4805,8 +4803,7 @@ function _painelRender(data) {
     .map(lg => ({
       ...lg,
       matches: lg.matches.filter(m =>
-        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelMatchPassesSearch(m, lg.league_name)
-        && (!_painelHideFavorites || !_painelIsSelectedMatch(m))),
+        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelMatchPassesSearch(m, lg.league_name)),
     }))
     .filter(lg => lg.matches.length);
 
