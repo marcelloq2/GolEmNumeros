@@ -10785,6 +10785,27 @@ function _live2ThermometerHtml(score, label, titulo) {
     </div>`;
 }
 
+// Ícone extra quando as 3 janelas (Partida toda / Últimos 10min / Últimos 5min)
+// concordam que o MESMO lado está dominando com pelo menos o dobro do percentual
+// do outro lado — sinal de pressão consistente e forte em todas as leituras.
+function _live2ThermoDominance(score) {
+  if (!score) return null;
+  const { casaPct, foraPct } = score;
+  if (casaPct >= foraPct * 2 && casaPct > 0) return 'casa';
+  if (foraPct >= casaPct * 2 && foraPct > 0) return 'fora';
+  return null;
+}
+
+function _live2ThermoDominanceIconHtml(full, w10, w5) {
+  const dFull = _live2ThermoDominance(full);
+  const d10   = _live2ThermoDominance(w10);
+  const d5    = _live2ThermoDominance(w5);
+  if (!dFull || !d10 || !d5 || dFull !== d10 || d10 !== d5) return '';
+  const cor = dFull === 'casa' ? '#3b82f6' : '#ef4444';
+  const lado = dFull === 'casa' ? 'Casa' : 'Visitante';
+  return `<span title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)" style="font-size:15px;color:${cor};flex-shrink:0">🔥</span>`;
+}
+
 // Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
 // oficial, xG por chutes) sempre que momentum OU shotmap terminam de carregar
 async function _live2RefreshBadges(matchId) {
@@ -10814,10 +10835,15 @@ async function _live2RefreshBadges(matchId) {
     const full = _live2ThermometerScore(points, shots, m, null);
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
-    thermoEl.innerHTML =
-      _live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização') +
-      _live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora') +
-      _live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante');
+    thermoEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1">
+          ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
+          ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
+          ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante')}
+        </div>
+        ${_live2ThermoDominanceIconHtml(full, w10, w5)}
+      </div>`;
   }
 }
 
