@@ -1172,37 +1172,6 @@
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
 
-  .painel-datebar { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 0; }
-  .painel-datebar-arrow, .painel-datebar-label {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
-    cursor: pointer; font-size: 13px; padding: 4px 12px; display: flex; align-items: center; gap: 6px;
-  }
-  .painel-datebar-arrow:hover, .painel-datebar-label:hover { background: var(--bg3); }
-  .painel-calendar-popup {
-    position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 6px;
-    width: 260px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 500; overflow: hidden;
-  }
-  .painel-calendar-header {
-    display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
-    background: #1a56c4; color: #fff; font-weight: 700; font-size: 13px;
-  }
-  .painel-calendar-header button { background: none; border: none; color: #fff; cursor: pointer; font-size: 15px; }
-  .painel-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 10px 12px; }
-  .painel-calendar-grid .dow { font-size: 10px; color: var(--text2); text-align: center; padding: 2px 0; }
-  .painel-calendar-day {
-    text-align: center; font-size: 12px; padding: 5px 0; border-radius: 50%; cursor: pointer; color: var(--text);
-  }
-  .painel-calendar-day:hover { background: var(--bg3); }
-  .painel-calendar-day.muted { color: var(--text2); opacity: .5; }
-  .painel-calendar-day.today { background: #b91c1c; color: #fff; font-weight: 700; }
-  .painel-calendar-day.selected:not(.today) { border: 1px solid #1a56c4; }
-  .painel-calendar-links { border-top: 1px solid var(--border); }
-  .painel-calendar-links a {
-    display: flex; align-items: center; justify-content: space-between; padding: 9px 12px;
-    font-size: 12px; color: var(--text); text-decoration: none; cursor: pointer;
-  }
-  .painel-calendar-links a:hover { background: var(--bg3); }
 
   .painel-subtabs { display: flex; align-items: center; gap: 20px; padding: 10px 12px 0; border-bottom: 1px solid var(--border); }
   .painel-subtab {
@@ -1559,14 +1528,6 @@
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES <span class="badge" id="painelSelectedBadge">0</span></button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('clv', this)">CLV</button>
-      </div>
-      <div class="painel-datebar" style="padding:6px 0" title="Navegação por data ainda não disponível na nova fonte de dados (NowGoal) — por enquanto só mostra os jogos de hoje">
-        <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">‹</button>
-        <button class="painel-datebar-label" disabled style="opacity:.7;cursor:not-allowed">
-          <span id="painelDateLabel">Hoje</span> 📅
-        </button>
-        <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">›</button>
-        <div id="painelCalendarPopup" class="painel-calendar-popup" style="display:none"></div>
       </div>
     </div>
     <div style="border-bottom:1px solid var(--border)"></div>
@@ -3149,106 +3110,6 @@ function switchView(view, btn) {
 // ── PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) do BetExplorer ──────────
 let _painelAutoRefresh = null;
 let _painelCollapsed = {};   // league key -> true (colapsada), persiste enquanto a aba estiver aberta
-let _painelSelectedDate = new Date();      // dia sendo exibido (hoje por padrão)
-let _painelCalendarViewDate = new Date();  // mês exibido dentro do popup do calendário (pode diferir do selecionado)
-
-function _painelDateToStr(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-function _painelSameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-function _painelUpdateDateLabel() {
-  const label = document.getElementById('painelDateLabel');
-  if (!label) return;
-  const today = new Date();
-  if (_painelSameDay(_painelSelectedDate, today)) {
-    label.textContent = 'Hoje';
-  } else {
-    const y = new Date(today); y.setDate(today.getDate() - 1);
-    const t = new Date(today); t.setDate(today.getDate() + 1);
-    if (_painelSameDay(_painelSelectedDate, y)) label.textContent = 'Ontem';
-    else if (_painelSameDay(_painelSelectedDate, t)) label.textContent = 'Amanhã';
-    else label.textContent = String(_painelSelectedDate.getDate()).padStart(2, '0') + '/' + String(_painelSelectedDate.getMonth() + 1).padStart(2, '0');
-  }
-}
-function _painelShiftDay(delta) {
-  const d = new Date(_painelSelectedDate);
-  d.setDate(d.getDate() + delta);
-  _painelSelectedDate = d;
-  _painelCollapsed = {};
-  _painelUpdateDateLabel();
-  document.getElementById('painelCalendarPopup').style.display = 'none';
-  loadPainelMatches();
-}
-function _painelGoToDate(d) {
-  _painelSelectedDate = d;
-  _painelCollapsed = {};
-  _painelUpdateDateLabel();
-  document.getElementById('painelCalendarPopup').style.display = 'none';
-  loadPainelMatches();
-}
-function _painelToggleCalendar() {
-  const popup = document.getElementById('painelCalendarPopup');
-  const opening = popup.style.display === 'none';
-  if (opening) {
-    _painelCalendarViewDate = new Date(_painelSelectedDate);
-    _painelRenderCalendar();
-  }
-  popup.style.display = opening ? 'block' : 'none';
-}
-function _painelShiftCalendarMonth(delta) {
-  _painelCalendarViewDate.setMonth(_painelCalendarViewDate.getMonth() + delta);
-  _painelRenderCalendar();
-}
-const _PAINEL_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-function _painelRenderCalendar() {
-  const popup = document.getElementById('painelCalendarPopup');
-  const view = _painelCalendarViewDate;
-  const year = view.getFullYear(), month = view.getMonth();
-  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // semana começa na segunda
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-  const today = new Date();
-
-  let cells = '';
-  for (let i = firstDow - 1; i >= 0; i--) {
-    cells += `<div class="painel-calendar-day muted">${daysInPrevMonth - i}</div>`;
-  }
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(year, month, day);
-    let cls = 'painel-calendar-day';
-    if (_painelSameDay(d, today)) cls += ' today';
-    else if (_painelSameDay(d, _painelSelectedDate)) cls += ' selected';
-    cells += `<div class="${cls}" onclick="_painelGoToDate(new Date(${year},${month},${day}))">${day}</div>`;
-  }
-  const totalCells = firstDow + daysInMonth;
-  const trailing = (7 - (totalCells % 7)) % 7;
-  for (let day = 1; day <= trailing; day++) {
-    cells += `<div class="painel-calendar-day muted">${day}</div>`;
-  }
-
-  popup.innerHTML = `
-    <div class="painel-calendar-header">
-      <button onclick="_painelShiftCalendarMonth(-1)">‹</button>
-      <span>${_PAINEL_MESES[month]} ${year}</span>
-      <button onclick="_painelShiftCalendarMonth(1)">›</button>
-    </div>
-    <div class="painel-calendar-grid">
-      <div class="dow">Mo</div><div class="dow">Tu</div><div class="dow">We</div><div class="dow">Th</div><div class="dow">Fr</div><div class="dow">Sa</div><div class="dow">Su</div>
-      ${cells}
-    </div>
-    <div class="painel-calendar-links">
-      <a onclick="_painelGoToDate(new Date())">Jogos de hoje <span>›</span></a>
-      <a onclick="_painelGoToDate((function(){var d=new Date();d.setDate(d.getDate()-1);return d;})())">Resultados de ontem <span>›</span></a>
-    </div>`;
-}
-document.addEventListener('click', function (e) {
-  const popup = document.getElementById('painelCalendarPopup');
-  if (!popup || popup.style.display === 'none') return;
-  if (e.target.closest('#painelCalendarPopup') || e.target.closest('.painel-datebar-label')) return;
-  popup.style.display = 'none';
-});
 
 function _painelOddCell(v) {
   return v ? `<span class="painel-odd">${v}</span>` : `<span class="painel-odd empty">-</span>`;
@@ -5104,9 +4965,7 @@ function _painelRenderFlatByTime(leaguesFiltered) {
 }
 
 function loadPainelMatches() {
-  const today = new Date();
-  const dateParam = _painelSameDay(_painelSelectedDate, today) ? '' : ('?date=' + _painelDateToStr(_painelSelectedDate));
-  fetch('/api/painel/matches' + dateParam)
+  fetch('/api/painel/matches')
     .then(r => r.json())
     .then(_painelRender)
     .catch(err => {
