@@ -1,0 +1,311 @@
+{
+  "event_id": "54cvbml3679fvp4",
+  "date": "2026-07-26",
+  "casa": "Orense SC",
+  "fora": "Ind. del Valle",
+  "liga": "LigaPro Serie A",
+  "score": {
+    "home": 2,
+    "away": 3
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2949540637",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "S. Vasquez Cabrera",
+      "x": 15.1,
+      "y": 61.1
+    },
+    {
+      "id": "2949539087",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "W.Herrera",
+      "x": 6.7,
+      "y": 50.1
+    },
+    {
+      "id": "2949536095",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "ChristianAlejandroOrtízCalle",
+      "x": 30.1,
+      "y": 52.1
+    },
+    {
+      "id": "2949533969",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Angulo",
+      "x": 16.2,
+      "y": 53
+    },
+    {
+      "id": "2949532373",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "W.Herrera",
+      "x": 8.4,
+      "y": 52.2
+    },
+    {
+      "id": "2949530803",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "W.Herrera",
+      "x": 7.9,
+      "y": 60
+    },
+    {
+      "id": "2949530111",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Bermúdez",
+      "x": 25.3,
+      "y": 66
+    },
+    {
+      "id": "2949529569",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S. Vasquez Cabrera",
+      "x": 11.3,
+      "y": 24.1
+    },
+    {
+      "id": "2949528897",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Perelló",
+      "x": 6.9,
+      "y": 39.5
+    },
+    {
+      "id": "2949528643",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Bermúdez",
+      "x": 8,
+      "y": 64.4
+    },
+    {
+      "id": "2949528041",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "H.Quintana",
+      "x": 4.3,
+      "y": 44.5
+    },
+    {
+      "id": "2949526329",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Guagua",
+      "x": 14.4,
+      "y": 70.5
+    },
+    {
+      "id": "2949525379",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Parrales",
+      "x": 3.5,
+      "y": 56.9
+    },
+    {
+      "id": "2949512975",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Pata",
+      "x": 25.5,
+      "y": 16.5
+    },
+    {
+      "id": "2949511885",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Caicedo",
+      "x": 25.4,
+      "y": 40.3
+    },
+    {
+      "id": "2949510597",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Pata",
+      "x": 23.2,
+      "y": 34
+    },
+    {
+      "id": "2949509999",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "S. Vasquez Cabrera",
+      "x": 27.4,
+      "y": 33.7
+    },
+    {
+      "id": "2949509885",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "m.quinonez",
+      "x": 3.3,
+      "y": 43.6
+    },
+    {
+      "id": "2949509063",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S. Vasquez Cabrera",
+      "x": 8.2,
+      "y": 59.3
+    },
+    {
+      "id": "2949507673",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Velasco",
+      "x": 29.3,
+      "y": 54.2
+    },
+    {
+      "id": "2949506129",
+      "minute": 27,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Guagua",
+      "x": 17.6,
+      "y": 48.4
+    },
+    {
+      "id": "2949504569",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "E.Pata",
+      "x": 4.2,
+      "y": 36.3
+    },
+    {
+      "id": "2949504337",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Pata",
+      "x": 24.1,
+      "y": 39.4
+    },
+    {
+      "id": "2949503545",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "W.Herrera",
+      "x": 22.9,
+      "y": 52.9
+    },
+    {
+      "id": "2949503013",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "R. H. Schunke",
+      "x": 8,
+      "y": 56
+    },
+    {
+      "id": "2949502143",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "M.Bermúdez",
+      "x": 22.9,
+      "y": 56.9
+    },
+    {
+      "id": "2949500777",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Angulo",
+      "x": 11.2,
+      "y": 50
+    }
+  ]
+}
