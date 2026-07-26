@@ -1553,6 +1553,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES <span class="badge" id="painelSelectedBadge">0</span></button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('clv', this)">CLV</button>
       </div>
       <div class="painel-datebar" style="padding:6px 0" title="Navegação por data ainda não disponível na nova fonte de dados (NowGoal) — por enquanto só mostra os jogos de hoje">
         <button class="painel-datebar-arrow" disabled style="opacity:.3;cursor:not-allowed">‹</button>
@@ -1575,6 +1576,7 @@
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
     <div id="painelMethodologiesView" style="display:none;padding:10px"></div>
+    <div id="painelClvView" style="display:none;padding:10px"></div>
   </div>
 
   <div id="painelUserTipsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseUserTips()">
@@ -3425,16 +3427,116 @@ function _painelSetFilter(filter, btn) {
   btn.classList.add('active');
 
   const isMeth = filter === 'methodologies';
-  document.getElementById('painelMatches').style.display = isMeth ? 'none' : '';
+  const isClv = filter === 'clv';
+  document.getElementById('painelMatches').style.display = (isMeth || isClv) ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
-  document.querySelector('.painel-search-bar').style.display = isMeth ? 'none' : '';
-  document.getElementById('painelOddsFilterBar').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelClvView').style.display = isClv ? '' : 'none';
+  document.querySelector('.painel-search-bar').style.display = (isMeth || isClv) ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = (isMeth || isClv) ? 'none' : '';
 
   if (isMeth) {
     _painelLoadMethodologies();
+  } else if (isClv) {
+    _painelLoadClv();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
+}
+
+// ── CLV — Closing Line Value tracker (Bet365, movimento de odds até o fechamento) ──
+function _painelClvBucketLabel(b) {
+  return { '<1h': '< 1 hora', '1-6h': '1 a 6 horas', '6-24h': '6 a 24 horas', '>24h': '+ de 24 horas', '?': '—' }[b] || b;
+}
+function _painelClvMarketLabel(m) {
+  return { ah: 'Handicap Asiático', ou: 'Over/Under', op: 'Handicap Europeu' }[m] || m;
+}
+function _painelClvPct(v) {
+  if (v === null || v === undefined) return '—';
+  const cls = v > 0 ? 'color:#2ecc71' : (v < 0 ? 'color:#ff6b6b' : '');
+  const sign = v > 0 ? '+' : '';
+  return `<span style="${cls};font-weight:700">${sign}${v.toFixed(2)}%</span>`;
+}
+
+function _painelLoadClv() {
+  const el = document.getElementById('painelClvView');
+  el.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+
+  fetch('/api/painel/clv_stats')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.stats || !data.stats.length) {
+        el.innerHTML = `
+          <div style="padding:20px;text-align:center;color:var(--text-secondary)">
+            <div style="font-size:15px;font-weight:700;margin-bottom:8px">📈 Closing Line Value (CLV)</div>
+            <div style="font-size:13px;line-height:1.6">
+              Ainda não há dados suficientes. O sistema coleta as odds da Bet365 (Handicap Asiático,
+              Over/Under e Handicap Europeu) a cada 20 minutos para todos os jogos agendados do dia,
+              e compara com a odd de fechamento (momento do apito inicial) assim que cada partida começa.<br><br>
+              Total de partidas monitoradas até agora: <b>${data.total_matches_tracked || 0}</b> —
+              já fechadas: <b>${data.total_matches_closed || 0}</b>.<br>
+              Volte em algumas horas para ver os primeiros números.
+            </div>
+          </div>`;
+        return;
+      }
+
+      const rows = data.stats.map(s => `
+        <tr>
+          <td style="padding:6px 10px">${_painelClvMarketLabel(s.market)}</td>
+          <td style="padding:6px 10px">${_painelClvBucketLabel(s.bucket)}</td>
+          <td style="padding:6px 10px;text-align:center">${s.n}</td>
+          <td style="padding:6px 10px;text-align:center">${_painelClvPct(s.avg_clv_home)}</td>
+          <td style="padding:6px 10px;text-align:center">${_painelClvPct(s.avg_clv_away)}</td>
+        </tr>`).join('');
+
+      const recent = (data.recent || []).map(r => `
+        <tr>
+          <td style="padding:5px 10px;font-size:12px">${r.home} x ${r.away}</td>
+          <td style="padding:5px 10px;font-size:12px;color:var(--text-secondary)">${r.league || ''}</td>
+          <td style="padding:5px 10px;font-size:12px">${_painelClvMarketLabel(r.market)}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:center">${r.minutes_before_kickoff != null ? Math.round(r.minutes_before_kickoff) + ' min antes' : '—'}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:center">${r.odd_home ?? '—'} / ${r.odd_away ?? '—'}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:center">${_painelClvPct(r.clv_home)}</td>
+          <td style="padding:5px 10px;font-size:12px;text-align:center">${_painelClvPct(r.clv_away)}</td>
+        </tr>`).join('');
+
+      el.innerHTML = `
+        <div style="margin-bottom:14px;font-size:12px;color:var(--text-secondary)">
+          📈 Closing Line Value — compara a odd no momento da coleta com a odd de fechamento (início do jogo).
+          Valor positivo = a odd caiu até o fechamento (sinal de que essa aposta tinha valor quando foi coletada).
+          Partidas monitoradas: <b>${data.total_matches_tracked}</b>, já fechadas: <b>${data.total_matches_closed}</b>.
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-secondary)">
+              <th style="padding:6px 10px">Mercado</th>
+              <th style="padding:6px 10px">Antecedência</th>
+              <th style="padding:6px 10px;text-align:center">Amostras</th>
+              <th style="padding:6px 10px;text-align:center">CLV médio (casa)</th>
+              <th style="padding:6px 10px;text-align:center">CLV médio (fora)</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">Últimas partidas fechadas</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-secondary);font-size:12px">
+              <th style="padding:5px 10px">Jogo</th>
+              <th style="padding:5px 10px">Liga</th>
+              <th style="padding:5px 10px">Mercado</th>
+              <th style="padding:5px 10px;text-align:center">Coletado</th>
+              <th style="padding:5px 10px;text-align:center">Odd (casa/fora)</th>
+              <th style="padding:5px 10px;text-align:center">CLV casa</th>
+              <th style="padding:5px 10px;text-align:center">CLV fora</th>
+            </tr>
+          </thead>
+          <tbody>${recent}</tbody>
+        </table>`;
+    })
+    .catch(err => {
+      el.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    });
 }
 
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
