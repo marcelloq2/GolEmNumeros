@@ -6360,12 +6360,15 @@ def _fs_find_match(casa, fora):
     best, best_score = None, 0
     for m in _fs_live_matches():
         h, a = norm(m["home"]), norm(m["away"])
-        sc_home, sc_away = side_score(nc, h), side_score(nf, a)
-        # Exige alguma confiança dos DOIS lados — senão um nome parecido de um só
-        # time (ex: "Nautico" batendo com "Nautico Hacoaj") pode casar o jogo errado
-        if sc_home == 0 or sc_away == 0:
+        # Testa nos dois sentidos (casa/fora direto E invertido) — o mesmo jogo
+        # às vezes vem com mandante/visitante trocado entre a fonte do Ao Vivo
+        # (NowGoal) e a do Flashscore (usada só aqui pra tabela/H2H), então uma
+        # comparação só na ordem "direta" perdia esses jogos.
+        sc_direto = side_score(nc, h) and side_score(nf, a) and (side_score(nc, h) + side_score(nf, a))
+        sc_invertido = side_score(nc, a) and side_score(nf, h) and (side_score(nc, a) + side_score(nf, h))
+        score = max(sc_direto or 0, sc_invertido or 0)
+        if score == 0:
             continue
-        score = sc_home + sc_away
         if score > best_score:
             best_score = score
             best = m

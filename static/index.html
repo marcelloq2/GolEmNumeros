@@ -9435,7 +9435,11 @@ function _buildToday2StandingsHtml(d, matchId) {
 // Profit/Placares Corretos) já calculam e cacheiam, e roda um motor de regras em cima
 // pra gerar cartões de leitura em linguagem natural. Cada regra só dispara com amostra
 // mínima — nada de "achismo" com 2-3 jogos.
-function _insNorm(s) { return (s || '').trim().toLowerCase(); }
+function _insNorm(s) {
+  return (s || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim(); // hífen/underscore -> espaço
+}
 
 function _insFindStandingRow(rows, teamName) {
   const alvo = _insNorm(teamName);
