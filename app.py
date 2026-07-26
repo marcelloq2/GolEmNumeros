@@ -1489,6 +1489,18 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
         for lg in leagues:
             lg["matches"].sort(key=lambda x: x["ts"])
 
+        # O NowGoal às vezes devolve uma página de bloqueio/verificação em vez do feed
+        # de verdade — isso não estoura exceção (o request "funciona", só que o regex
+        # não acha nenhum jogo pra extrair), e sem essa checagem o cache ficava com
+        # "leagues: []" por 60s, mostrando "Nenhum jogo encontrado" com o app cheio de
+        # jogos de verdade. Se veio vazio e já tínhamos dados bons antes, mantém os
+        # dados antigos (marcados como stale) em vez de aceitar o vazio como válido.
+        if not leagues and cached is not None and cached["data"].get("leagues"):
+            stale = dict(cached["data"])
+            stale["stale"] = True
+            stale["stale_error"] = "NowGoal devolveu feed vazio (possível bloqueio temporário)"
+            return stale
+
         data = {"leagues": leagues, "updated_at": now, "date": date_str}
         _painel_cache[cache_key] = {"ts": now, "data": data}
         return data
