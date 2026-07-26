@@ -10418,13 +10418,7 @@ function setLive2Tab(matchId, tab, btn) {
   } else if (tab === 'escalacoes') {
     body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
   } else if (tab === 'prestats') {
-    body.innerHTML = `<div id="live2PreStatsWrap_${matchId}">⏳ Buscando histórico...</div>`;
-    if (!_live2PreStatsLoaded[matchId]) {
-      _live2PreStatsLoaded[matchId] = true;
-      if (m) _live2LoadPreStats(matchId, m);
-    } else {
-      _live2RenderPreStats(matchId);
-    }
+    body.innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
   }
 }
 
@@ -10460,127 +10454,6 @@ function _live2ToggleStatsDetail(matchId, btn) {
   const hidden = wrap.style.display === 'none';
   wrap.style.display = hidden ? '' : 'none';
   btn.textContent = hidden ? '🔼 Ocultar estatísticas detalhadas' : '🔽 Mostrar estatísticas detalhadas';
-}
-
-// Widget "Estatísticas Pré" — placares corretos (Geral/Casa/Fora) de cada time, mesma
-// fonte e cálculo já usados na aba "Placares Corretos" do Hoje 2 (h2h + _csBucketFrequency)
-let _live2PreStatsCache = {};  // { [matchId]: { _h2hTabs } }
-let _live2PreStatsLoaded = {}; // evita recarregar toda vez que a aba é reaberta
-
-async function _live2LoadPreStats(matchId, m) {
-  const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
-  if (!wrap) return;
-  wrap.innerHTML = '⏳ Buscando histórico...';
-  const cache = _live2PreStatsCache[matchId] || (_live2PreStatsCache[matchId] = {});
-  const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-  try {
-    if (!cache._h2hTabs) {
-      const r = await fetch(`/api/flashscore/h2h?${params}`);
-      const d = await r.json();
-      cache._h2hTabs = d.tabs || [];
-    }
-  } catch (e) {
-    wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar histórico</div>';
-    return;
-  }
-  _live2RenderPreStats(matchId);
-}
-
-// Só lista os placares que NUNCA saíram (0%) tanto no recorte Geral do time quanto no
-// recorte específico (Casa pro mandante, Fora pro visitante) — é isso que o usuário
-// pediu: "ex: placar 0x1 geral 0% casa 0% visitante 0%"
-function _live2ZeroBucketsTableHtml(teamName, generalFreq, splitFreq, splitLabel) {
-  const titulo = `<div style="font-size:12px;font-weight:700;text-align:left;margin:6px 0 6px">⚽ ${teamName || '—'} <span style="font-weight:400;color:var(--text2)">— placares 0% (Geral e ${splitLabel})</span></div>`;
-  if (!generalFreq.n || !splitFreq.n) return titulo + '<div style="color:var(--text2);font-size:11px">sem jogos suficientes</div>';
-  const zeroBuckets = PLACAR_EXATO_BUCKETS_ORDER.filter(key =>
-    (generalFreq.counts[key] || 0) === 0 && (splitFreq.counts[key] || 0) === 0);
-  if (!zeroBuckets.length) return titulo + '<div style="color:var(--text2);font-size:11px">nenhum placar com 0% nos dois recortes</div>';
-  return titulo + `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <table style="width:100%;font-size:11px;text-align:center;border-collapse:collapse;table-layout:fixed">
-        <colgroup><col style="width:46%"><col style="width:27%"><col style="width:27%"></colgroup>
-        <thead><tr style="color:var(--text2)">
-          <th style="text-align:left;padding:5px 8px">Placar</th><th>Geral</th><th>${splitLabel}</th>
-        </tr></thead>
-        <tbody>
-          ${zeroBuckets.map((key, i) => `<tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">
-            <td style="text-align:left;padding:5px 8px;color:var(--text)">${key}</td>
-            <td style="color:var(--text2)">0%</td>
-            <td style="color:var(--text2)">0%</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function _live2RenderPreStats(matchId) {
-  const wrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
-  if (!wrap) return;
-  const cache = _live2PreStatsCache[matchId] || {};
-  const tabs = cache._h2hTabs || [];
-  if (!tabs.length) { wrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem histórico disponível</div>'; return; }
-
-  const homeGeneral = _profitTeamRowsFromSection(tabs, 0, true);
-  const homeCasa     = _profitTeamRowsFromSection(tabs, 1, true);
-  const awayGeneral = _profitTeamRowsFromSection(tabs, 0, false);
-  const awayFora     = _profitTeamRowsFromSection(tabs, 2, false);
-
-  const freqHomeGeneral = _csBucketFrequency(homeGeneral.rows);
-  const freqHomeCasa    = _csBucketFrequency(homeCasa.rows);
-  const freqAwayGeneral = _csBucketFrequency(awayGeneral.rows);
-  const freqAwayFora    = _csBucketFrequency(awayFora.rows);
-
-  wrap.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${_live2ZeroBucketsTableHtml(homeGeneral.teamName, freqHomeGeneral, freqHomeCasa, 'Casa')}
-      ${_live2ZeroBucketsTableHtml(awayGeneral.teamName, freqAwayGeneral, freqAwayFora, 'Fora')}
-    </div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px">Estatísticas — Minuto do gol, Valor do Gol, Custo do Gol 2.0, Saldo</div>
-    <div id="live2JogoStatsBody_${matchId}">⏳ Calculando (minutos de gol, 1º tempo, odds históricas)...</div>`;
-
-  await _live2RenderJogoStats(matchId, tabs);
-}
-
-// Minuto médio do 1º gol, Valor do Gol, Custo do Gol 2.0, Saldo de Gols, Valor
-// do Saldo e Valor do Ponto — mesmas funções/enriquecimento já usados na aba
-// Jogo do Hoje 2 (_jogoStatsWithValor/_jogoStatsCardHtml), reaproveitando o
-// MESMO tabs (h2h) já buscado por essa aba, sem nenhuma busca nova.
-async function _live2RenderJogoStats(matchId, tabs) {
-  const body = document.getElementById(`live2JogoStatsBody_${matchId}`);
-  if (!body) return;
-  const homeCasaBlock = _jogoStatsRowsFromSection(tabs, 1, true);
-  const awayForaBlock = _jogoStatsRowsFromSection(tabs, 2, false);
-  if (!homeCasaBlock.rows.length && !awayForaBlock.rows.length) {
-    body.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">sem jogos suficientes</div>';
-    return;
-  }
-  await Promise.all([homeCasaBlock, awayForaBlock].map(b =>
-    Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows), _jogoEnsureGolValor(b.rows)])
-  ));
-  const freshBody = document.getElementById(`live2JogoStatsBody_${matchId}`);
-  if (!freshBody) return;
-  const sHome = _jogoStatsWithValor(homeCasaBlock.rows);
-  const sAway = _jogoStatsWithValor(awayForaBlock.rows);
-
-  const renderCards = (mediaCasa, mediaFora) => {
-    const box = document.getElementById(`live2JogoStatsBody_${matchId}`);
-    if (!box) return;
-    box.innerHTML = `
-      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-        <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(homeCasaBlock.teamName, sHome, mediaCasa)}</div>
-        <div style="flex:1;min-width:280px">${_jogoStatsCardHtml(awayForaBlock.teamName, sAway, mediaFora)}</div>
-      </div>`;
-  };
-
-  renderCards(null, null);
-
-  // Médias gerais (pro "méd:" verde/vermelho, igual à aba Jogo do Hoje) NÃO
-  // travam a renderização — reaproveita o mesmo cache já usado lá
-  // (_jogoEnsureMediasGerais), sem nenhuma busca nova; só completa o card
-  // quando/se a média chegar (pode levar minutos na 1ª vez do dia).
-  _jogoEnsureMediasGerais().then(mediasGerais => {
-    if (mediasGerais?.casa || mediasGerais?.fora) renderCards(mediasGerais?.casa, mediasGerais?.fora);
-  }).catch(() => {});
 }
 
 // Escudos — link direto pro CDN de imagens da fonte (/api/flashscore/match já traz
