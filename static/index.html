@@ -2638,6 +2638,38 @@ function _guiaPill(txt, color, bg) {
 }
 
 const APP_GUIA_SECTIONS = {
+  painel: {
+    label: '🏠 Painel Principal',
+    html: [
+      _guiaSec('📑', 'Sub-abas', `
+        ${_guiaRow('TODOS OS JOGOS', 'Lista completa do dia, agrupada por liga')}
+        ${_guiaRow('AO VIVO', 'Só as partidas rolando agora')}
+        ${_guiaRow('PRÓXIMOS', 'Só jogos que ainda não começaram')}
+        ${_guiaRow('FINALIZADOS', 'Só jogos que já terminaram hoje')}
+        ${_guiaRow('MINHAS SELEÇÕES', 'Só os jogos que você marcou com a estrela ⭐')}
+        ${_guiaRow('METODOLOGIAS', 'Ranking de tipsters do tips.nowgoal.net — ver seção própria abaixo')}`),
+
+      _guiaSec('🔍', 'Busca e filtros', `
+        <b>Campo de busca:</b> filtra por nome de time ou campeonato em tempo real.<br><br>
+        <b>Seletor de liga:</b> mostra só os jogos de uma competição específica.<br><br>
+        <b>Ordenar por horário:</b> alterna entre agrupado por liga e lista corrida por horário de início.<br><br>
+        <b>Filtro por odds:</b> escolha mercado (1X2/Acima-Abaixo/Ambas Marcam/Placar Exato), lado e operador (≤/≥/&gt;/=/entre), digite o valor e aperte "Aplicar". Cada clique em "Aplicar" <b>empilha mais um filtro</b> em vez de substituir o anterior — só aparecem os jogos que baterem em <b>todos</b> os filtros ativos ao mesmo tempo. Cada filtro vira um selo com ✕ próprio pra remover individualmente, e um "Limpar todos" aparece quando há mais de um.<br><br>
+        <b>☆ Remover Minhas Seleções:</b> apaga de vez todos os jogos marcados com estrela (pede confirmação antes).`),
+
+      _guiaSec('⚔️', 'Comparação de Força (clique num jogo)', `
+        Abre um modal com 4 abas:<br><br>
+        ${_guiaRow('Comparação de força', 'Radar com 5 eixos de força de cada time, mais odds de Handicap Asiático e Over/Under nas variantes HT/HA-Igual')}
+        ${_guiaRow('Estatísticas de Confronto Direto', 'Ganhe/Empate/Perca, gols por jogo, distribuição de Handicap Asiático e Over/Under, tabela dos últimos confrontos — com filtros de Casa/Fora, Mesma liga, 1º tempo e quantidade de jogos')}
+        ${_guiaRow('Estatísticas de Pontuações Anteriores', 'Mesmo formato, mas olhando os últimos jogos de cada time separadamente (não só os confrontos diretos)')}
+        ${_guiaRow('Mesmas Probabilidades', 'Histórico de partidas com odds parecidas às de hoje, pra ver como costumam terminar')}`),
+
+      _guiaSec('🏆', 'Metodologias — ranking de tipsters', `
+        Filtros no topo: <b>Semana/Mês</b> (período) e <b>Taxa de Vitória/ROI</b> (métrica de ordenação) — pra lucrar mais, ROI costuma ser o filtro mais confiável, já que Taxa de Vitória sozinha não pesa o tamanho da odd. Um terceiro botão, <b>"Previsões mais acertivas"</b>, troca a lista pra mostrar o mercado (Handicap Asiático/Over-Under/1X2) em que cada tipster mais acerta.<br><br>
+        Clique num tipster pra abrir os prognósticos recentes dele, com liga, confronto, placar, resultado (✓/✗) e o palpite real (não a descrição bloqueada/paga).<br><br>
+        <b>🔔 Sino:</b> ativa o acompanhamento daquele tipster — você recebe uma mensagem no Telegram assim que ele publicar um prognóstico novo (checagem a cada 5min). Clique de novo pra parar de receber.`),
+    ].join(''),
+  },
+
   hoje: {
     label: '✏️ Hoje',
     html: [
@@ -2662,7 +2694,10 @@ const APP_GUIA_SECTIONS = {
         Filtra a lista pelas <b>odds atuais</b> de um mercado específico (busca só é feita quando você aperta "Aplicar" pela 1ª vez, pra não sobrecarregar à toa — cobre só os jogos mais próximos por horário, não todos os do dia inteiro).<br><br>
         <b>Mercado:</b> 1X2 (Casa/Empate/Fora), Acima/Abaixo (linhas de 1,5 a 3,5 gols), Ambas Marcam (Sim/Não) ou Placar Exato (qualquer um dos 19 placares fixos).<br><br>
         <b>Operador:</b> <b>≤</b> menor ou igual, <b>≥</b> maior ou igual, <b>&gt;</b> maior que, <b>=</b> igual, ou <b>entre</b> (faixa com dois valores).<br><br>
-        Depois de aplicar, aparece um selo mostrando o filtro ativo, com um ✕ pra limpar.`),
+        Cada "Aplicar" <b>empilha mais um filtro</b> em vez de substituir o anterior — só passam os jogos que baterem em todos ao mesmo tempo. Cada filtro vira um selo com ✕ próprio, e um "Limpar todos" aparece com mais de um ativo.`),
+
+      _guiaSec('🚫', 'Lay Placar', `
+        Botão vermelho ao lado do título "Hoje" (antes do "📖 Guia") — abre uma tela separada pra analisar manualmente contra placares específicos, usando uma configuração calculada externamente (ferramenta local <code>analise_padroes.html</code>) a partir dos jogos exportados pelo botão ⬇️ desta aba. Tem botão "← Hoje" pra voltar.`),
 
       _guiaSec('📋', 'Lista de partidas', `
         Agrupada por liga (com bandeira do país e nome do campeonato) ou em lista corrida por horário, dependendo da ordenação escolhida. Cada linha mostra os dois times, escudos (quando disponíveis na fonte), horário/placar, status (🕐 Agendado, 🔴 Ao vivo, ✅ Encerrado) e a estrela ⭐ de favorito.<br><br>
@@ -2738,7 +2773,8 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('▲ / ▼ Pressão sustentada', 'Um dos dois times vem empurrando o jogo de forma consistente por vários minutos seguidos (não é só um pico isolado).')}
         ${_guiaRow('🗺️ Zona do último chute', 'Mostra em que zona do campo (perigosa ou não) saiu a última finalização.')}
         ${_guiaRow('🧠 xG em dobro (oficial)', 'O xG (gol esperado) oficial da partida já está acima do dobro do que seria "normal" pro tempo de jogo até agora — sinal de jogo mais aberto que o esperado.')}
-        ${_guiaRow('🗺️🧮 xG em dobro (calculado)', 'Mesma leitura do selo acima, só que calculada por nós a partir da posição de cada chute no mapa, pra quando a fonte não traz o xG oficial.')}`),
+        ${_guiaRow('🗺️🧮 xG em dobro (calculado)', 'Mesma leitura do selo acima, só que calculada por nós a partir da posição de cada chute no mapa, pra quando a fonte não traz o xG oficial.')}
+        <br><b>Linhas "Partida toda / Últimos 10min / Últimos 5min":</b> % de pressão+chutes (e xG oficial na "Partida toda") de cada lado em 3 janelas de tempo diferentes. Uma bolinha <span style="color:#3b82f6;font-weight:700">azul</span> ou <span style="color:#ef4444;font-weight:700">vermelha</span> aparece ao lado quando o mesmo time está com pelo menos o dobro do percentual do outro lado nas 3 janelas ao mesmo tempo — sinal de domínio consistente, não só um pico passageiro.`),
 
       _guiaSec('🗺️', 'Mapa de chutes', `
         Campo de futebol desenhado com a posição exata de cada finalização da partida até agora — dá pra ver rapidamente se as chances estão vindo de dentro da área (mais perigosas) ou de longe.`),
@@ -2750,7 +2786,7 @@ const APP_GUIA_SECTIONS = {
         Os 11 titulares de cada time, quando a fonte disponibiliza essa informação pra partida.`),
 
       _guiaSec('📉', 'Aba do card — Estatísticas Pré', `
-        Placares que nunca saíram (0% de ocorrência) no histórico geral e no recorte casa/fora de cada time — mesma lógica da aba Placares Corretos do Hoje, só que focada em pré-jogo. Também traz a 🧠 Leitura da Partida, o mesmo motor de análise usado na aba Hoje, aplicado a essa partida ao vivo.`),
+        Mostra, lado a lado, a posição de cada time na tabela do campeonato (pontos, V/E/D) e no Power Ranking (posição + Índice de Ataque/Defesa/Geral, calculado em cima dos gols marcados/sofridos por jogo comparado com a média da liga) — mesmos dados e cálculo já usados na aba Classificações do Hoje.`),
     ].join(''),
   },
 
@@ -2767,7 +2803,7 @@ function openAppGuia(startKey) {
     <button onclick="_setAppGuiaTab('${key}', this)" data-guia-tab="${key}"
       style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;
              border:1px solid var(--border);background:var(--bg3);color:var(--text2)">${s.label2 || s.label}</button>`).join('');
-  const key = (startKey && APP_GUIA_SECTIONS[startKey]) ? startKey : 'hoje';
+  const key = (startKey && APP_GUIA_SECTIONS[startKey]) ? startKey : 'painel';
   _setAppGuiaTab(key, tabsEl.querySelector(`[data-guia-tab="${key}"]`));
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
