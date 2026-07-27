@@ -897,6 +897,10 @@
     display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
     gap: 18px;
   }
+  @media (max-width: 720px) {
+    .live-grid-wrap { grid-template-columns: 1fr; gap: 12px; }
+  }
+  body.force-mobile .live-grid-wrap { grid-template-columns: 1fr !important; gap: 12px !important; }
   .live-card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
     overflow: hidden; cursor: pointer; transition: border-color .15s;
@@ -1152,6 +1156,9 @@
     .painel-league-cols span:nth-child(n+3):not(:last-child),
     .painel-match-ht, .painel-match-corners, .painel-odd { display: none; }
   }
+  body.force-mobile .painel-league-cols, body.force-mobile .painel-match-row { grid-template-columns: 46px 1fr 24px !important; }
+  body.force-mobile .painel-league-cols span:nth-child(n+3):not(:last-child),
+  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd { display: none !important; }
   .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; justify-self: center; }
   .painel-match-teams .painel-team {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
