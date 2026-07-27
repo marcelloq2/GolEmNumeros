@@ -4029,7 +4029,7 @@ function _painelForcaRender() {
         ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
       </div>
       <div>${_painelForcaRenderTab(d)}</div>
-      <div class="painel-forca-note">* Dados calculados pelo NowGoal a partir do histórico recente de cada time — só como referência.</div>
+      <div class="painel-forca-note">* Dados calculados a partir do histórico recente de cada time — só como referência.</div>
     </div>
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
