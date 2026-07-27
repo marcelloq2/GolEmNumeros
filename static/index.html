@@ -4317,12 +4317,16 @@ function _painelForcaCenariosRender() {
   }
   const rows = h2h.rows;
   const homeRows = rows.filter(m => m.home === _painelForcaHome);
+  const leagueRows = _painelForcaLeague
+    ? rows.filter(m => (m.league || '').trim().toLowerCase() === _painelForcaLeague.trim().toLowerCase())
+    : [];
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     <div style="padding:0 4px 10px">
       <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Taxa de acerto — Estatísticas de Confronto Direto</div>
       ${_painelForcaCenariosBlockHtml(rows, 'Todos os jogos')}
       ${_painelForcaCenariosBlockHtml(homeRows, `${_painelForcaHome} jogando em casa`)}
+      ${_painelForcaCenariosBlockHtml(leagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`)}
     </div>`;
 }
 
