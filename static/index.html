@@ -1533,7 +1533,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('live', this)">AO VIVO <span class="badge" id="painelLiveBadge">0</span></button>
         <button class="painel-subtab" onclick="_painelSetFilter('next', this)">PRÓXIMOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
-        <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES <span class="badge" id="painelSelectedBadge">0</span></button>
+        <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
       </div>
     </div>
@@ -3191,8 +3191,6 @@ function _painelToggleTeamSelection(name) {
   if (_painelSelectedTeams.has(name)) _painelSelectedTeams.delete(name);
   else _painelSelectedTeams.add(name);
   localStorage.setItem('painel_selected_teams', JSON.stringify([..._painelSelectedTeams]));
-  const badge = document.getElementById('painelSelectedBadge');
-  if (badge) badge.textContent = _painelSelectedTeams.size;
   if (_painelLastData) _painelRender(_painelLastData);
 }
 function _painelIsSelectedMatch(m) {
@@ -3240,8 +3238,6 @@ function _painelClearFavorites() {
   if (!confirm('Remover todos os times marcados em Minhas Seleções?')) return;
   _painelSelectedTeams.clear();
   localStorage.setItem('painel_selected_teams', JSON.stringify([]));
-  const badge = document.getElementById('painelSelectedBadge');
-  if (badge) badge.textContent = '0';
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -4799,9 +4795,6 @@ function _painelRender(data) {
   if (liveBadge) liveBadge.textContent = liveCount;
 
   _painelUpdateLeagueOptions(data.leagues);
-
-  const badge = document.getElementById('painelSelectedBadge');
-  if (badge) badge.textContent = _painelSelectedTeams.size;
 
   const viewFilterFn = _painelViewFilter === 'live' ? _painelIsLive
     : _painelViewFilter === 'next' ? _painelIsNext
