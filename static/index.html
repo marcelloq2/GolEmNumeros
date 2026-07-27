@@ -4041,6 +4041,7 @@ function _painelForcaRender() {
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
+  _painelForcaCenariosRender();
 }
 
 // ── Estatísticas de Confronto Direto / Pontuações Anteriores (table_v1/v2/v3
@@ -4210,6 +4211,73 @@ function _painelForcaBuildTableBlock(tbl, key) {
         <tbody>${rows.map(m => _painelForcaTableRow(m, st.ht)).join('')}</tbody>
       </table>
     </div>`}`;
+}
+
+// Agrupa as linhas de Handicap Asiático do histórico de Confronto Direto (m.ah_line,
+// ex: "-0.5", "0/-0.5", "+1") e calcula, pra cada linha, a % de jogos em que o lado
+// que jogou em casa NAQUELA partida cobriu o handicap (W), empatou/push (D) ou não
+// cobriu (L) — mesma lógica de orientação (isHomeRow) já usada em _painelForcaComputeSummary.
+function _painelForcaAhLineStats(rows) {
+  const groups = {};
+  rows.forEach(m => {
+    const line = m.ah_line;
+    if (line == null || line === '') return;
+    const isHomeRow = m.home === _painelForcaHome;
+    const g = groups[line] || (groups[line] = { home: 0, draw: 0, away: 0, n: 0 });
+    if (m.ah_badge === 'D') { g.draw++; g.n++; }
+    else if (m.ah_badge === 'W') { g.n++; if (isHomeRow) g.home++; else g.away++; }
+    else if (m.ah_badge === 'L') { g.n++; if (isHomeRow) g.away++; else g.home++; }
+  });
+  return Object.entries(groups)
+    .map(([line, g]) => ({
+      line, n: g.n,
+      homePct: g.n ? Math.round(100 * g.home / g.n) : 0,
+      drawPct: g.n ? Math.round(100 * g.draw / g.n) : 0,
+      awayPct: g.n ? Math.round(100 * g.away / g.n) : 0,
+    }))
+    .sort((a, b) => b.n - a.n);
+}
+
+// Aba "Cenários de Jogo" — taxa de acerto de W/L, Handicap Asiático (agregado +
+// por linha) e Over/Under, sempre a partir da tabela de Confronto Direto (H2H)
+// completa: "Todos" os jogos, sem os filtros de Casa/Mesma liga/1º tempo (que só
+// mudam o que aparece NA TABELA da outra aba — os badges de resultado usados aqui
+// não mudam com HT, então o resumo já é "Todos" por padrão sem precisar filtrar).
+function _painelForcaCenariosRender() {
+  const el = document.getElementById('painelForcaViewCenarios');
+  if (!el) return;
+  const h2h = _painelForcaData ? _painelForcaData.h2h_table : null;
+  if (!h2h || !h2h.rows || !h2h.rows.length) {
+    el.innerHTML = `<div class="live-loading">Sem histórico de confronto direto suficiente.</div>`;
+    return;
+  }
+  const rows = h2h.rows;
+  const s = _painelForcaComputeSummary(rows, 'h2h');
+  const ahLines = _painelForcaAhLineStats(rows);
+  el.innerHTML = `
+    <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
+    <div style="padding:0 4px 10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Taxa de acerto — Estatísticas de Confronto Direto, ${rows.length} jogos (Todos, sem filtro de Casa/Mesma liga/1º tempo)</div>
+      ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
+      <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — resultado ${s.ah_count || ''}</div>
+      <div class="painel-forca-h2h-dist-row"><span>Casa ${s.ah_home_pct || '-'}</span><span>Empate ${s.ah_draw_pct || '-'}</span><span>Fora ${s.ah_away_pct || '-'}</span></div>
+      <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — por linha</div>
+      ${ahLines.length ? `
+      <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse;margin-top:6px">
+        <thead><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">Linha</th><th>Jogos</th><th>Casa</th><th>Empate</th><th>Fora</th></tr></thead>
+        <tbody>
+          ${ahLines.map(l => `<tr>
+            <td style="text-align:left;padding:4px 8px">${l.line}</td>
+            <td>${l.n}</td>
+            <td style="color:${l.homePct >= l.awayPct ? '#22c55e' : 'var(--text2)'}">${l.homePct}%</td>
+            <td>${l.drawPct}%</td>
+            <td style="color:${l.awayPct > l.homePct ? '#22c55e' : 'var(--text2)'}">${l.awayPct}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : `<div style="color:var(--text2);font-size:12px">sem linhas suficientes</div>`}
+      <div class="painel-forca-group-title" style="margin-top:14px">Over/Under ${s.ou_count || ''}</div>
+      <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
+    </div>`;
 }
 
 function _painelForcaH2HRender() {
