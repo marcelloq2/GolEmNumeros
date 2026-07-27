@@ -1734,6 +1734,7 @@
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_sameodds" onclick="_painelForcaSetView('sameodds', this)">Mesmas Probabilidades</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_cenarios" onclick="_painelForcaSetView('cenarios', this)">Cenários de Jogo</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -3865,10 +3866,12 @@ function _painelForcaSetView(view, btn) {
   const h2hEl = document.getElementById('painelForcaViewH2H');
   const lastEl = document.getElementById('painelForcaViewLast');
   const sameOddsEl = document.getElementById('painelForcaViewSameOdds');
+  const cenariosEl = document.getElementById('painelForcaViewCenarios');
   if (mainEl) mainEl.style.display = view === 'main' ? '' : 'none';
   if (h2hEl) h2hEl.style.display = view === 'h2h' ? '' : 'none';
   if (lastEl) lastEl.style.display = view === 'last' ? '' : 'none';
   if (sameOddsEl) sameOddsEl.style.display = view === 'sameodds' ? '' : 'none';
+  if (cenariosEl) cenariosEl.style.display = view === 'cenarios' ? '' : 'none';
 }
 
 function _painelOpenForca(eventId, home, away, league) {
@@ -4033,7 +4036,8 @@ function _painelForcaRender() {
     </div>
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
-    <div id="painelForcaViewSameOdds" style="display:none"></div>`;
+    <div id="painelForcaViewSameOdds" style="display:none"></div>
+    <div id="painelForcaViewCenarios" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
