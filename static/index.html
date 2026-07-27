@@ -4238,6 +4238,34 @@ function _painelForcaAhLineStats(rows) {
     .sort((a, b) => b.n - a.n);
 }
 
+// Faixas mín/máx de gols (total, casa, fora) e escanteios (total) do histórico de
+// Confronto Direto — "casa"/"fora" aqui é sempre relativo ao confronto de HOJE
+// (_painelForcaHome/_painelForcaAway), não a quem jogou em casa em cada jogo antigo,
+// por isso reorienta pelo isHomeRow igual às outras funções desta aba.
+function _painelForcaMinMaxStats(rows) {
+  const corners = [], goals = [], homeGoals = [], awayGoals = [];
+  rows.forEach(m => {
+    const isHomeRow = m.home === _painelForcaHome;
+    const sParts = String(m.score_ft || '').split('-').map(Number);
+    if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
+      homeGoals.push(isHomeRow ? sParts[0] : sParts[1]);
+      awayGoals.push(isHomeRow ? sParts[1] : sParts[0]);
+      goals.push(sParts[0] + sParts[1]);
+    }
+    const cParts = String(m.corner_ft || '').split('-').map(Number);
+    if (cParts.length === 2 && !isNaN(cParts[0]) && !isNaN(cParts[1])) {
+      corners.push(cParts[0] + cParts[1]);
+    }
+  });
+  const minMax = (arr) => arr.length ? { min: Math.min(...arr), max: Math.max(...arr), n: arr.length } : null;
+  return { corners: minMax(corners), goals: minMax(goals), homeGoals: minMax(homeGoals), awayGoals: minMax(awayGoals) };
+}
+
+function _painelForcaMinMaxRow(label, mm) {
+  if (!mm) return `<div class="painel-forca-h2h-dist-row"><span>${label}: sem dado</span></div>`;
+  return `<div class="painel-forca-h2h-dist-row"><span>${label}: mín <b style="color:var(--text)">${mm.min}</b> · máx <b style="color:var(--text)">${mm.max}</b> (${mm.n} jogos)</span></div>`;
+}
+
 // Aba "Cenários de Jogo" — taxa de acerto de W/L, Handicap Asiático (agregado +
 // por linha) e Over/Under, sempre a partir da tabela de Confronto Direto (H2H)
 // completa: "Todos" os jogos, sem os filtros de Casa/Mesma liga/1º tempo (que só
@@ -4254,6 +4282,7 @@ function _painelForcaCenariosRender() {
   const rows = h2h.rows;
   const s = _painelForcaComputeSummary(rows, 'h2h');
   const ahLines = _painelForcaAhLineStats(rows);
+  const mm = _painelForcaMinMaxStats(rows);
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     <div style="padding:0 4px 10px">
@@ -4277,6 +4306,11 @@ function _painelForcaCenariosRender() {
       </table>` : `<div style="color:var(--text2);font-size:12px">sem linhas suficientes</div>`}
       <div class="painel-forca-group-title" style="margin-top:14px">Over/Under ${s.ou_count || ''}</div>
       <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
+      <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios (mín/máx)</div>
+      ${_painelForcaMinMaxRow('Gols na partida', mm.goals)}
+      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome}`, mm.homeGoals)}
+      ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway}`, mm.awayGoals)}
+      ${_painelForcaMinMaxRow('Escanteios na partida', mm.corners)}
     </div>`;
 }
 
