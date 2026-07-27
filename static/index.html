@@ -4266,11 +4266,47 @@ function _painelForcaMinMaxRow(label, mm) {
   return `<div class="painel-forca-h2h-dist-row"><span>${label}: mín <b style="color:var(--text)">${mm.min}</b> · máx <b style="color:var(--text)">${mm.max}</b> (${mm.n} jogos)</span></div>`;
 }
 
+// Monta um bloco completo (W/L, Handicap agregado + por linha, Over/Under, faixas
+// mín/máx de gols/escanteios) pra um conjunto de linhas já filtrado — reaproveitado
+// pra cada "configuração" (Todos / Só em casa / etc) da aba Cenários de Jogo.
+function _painelForcaCenariosBlockHtml(rows, title) {
+  if (!rows.length) return `<div class="painel-forca-group-title" style="margin-top:18px">${title}</div><div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhum jogo nesse recorte.</div>`;
+  const s = _painelForcaComputeSummary(rows, 'h2h');
+  const ahLines = _painelForcaAhLineStats(rows);
+  const mm = _painelForcaMinMaxStats(rows);
+  return `
+    <div class="painel-forca-group-title" style="margin-top:18px;background:var(--accent);color:#fff">${title} — ${rows.length} jogos</div>
+    ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
+    <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — resultado ${s.ah_count || ''}</div>
+    <div class="painel-forca-h2h-dist-row"><span>Casa ${s.ah_home_pct || '-'}</span><span>Empate ${s.ah_draw_pct || '-'}</span><span>Fora ${s.ah_away_pct || '-'}</span></div>
+    <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — por linha</div>
+    ${ahLines.length ? `
+    <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse;margin-top:6px">
+      <thead><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">Linha</th><th>Jogos</th><th>Casa</th><th>Empate</th><th>Fora</th></tr></thead>
+      <tbody>
+        ${ahLines.map(l => `<tr>
+          <td style="text-align:left;padding:4px 8px">${l.line}</td>
+          <td>${l.n}</td>
+          <td style="color:${l.homePct >= l.awayPct ? '#22c55e' : 'var(--text2)'}">${l.homePct}%</td>
+          <td>${l.drawPct}%</td>
+          <td style="color:${l.awayPct > l.homePct ? '#22c55e' : 'var(--text2)'}">${l.awayPct}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : `<div style="color:var(--text2);font-size:12px">sem linhas suficientes</div>`}
+    <div class="painel-forca-group-title" style="margin-top:14px">Over/Under ${s.ou_count || ''}</div>
+    <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
+    <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios (mín/máx)</div>
+    ${_painelForcaMinMaxRow('Gols na partida', mm.goals)}
+    ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome}`, mm.homeGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway}`, mm.awayGoals)}
+    ${_painelForcaMinMaxRow('Escanteios na partida', mm.corners)}`;
+}
+
 // Aba "Cenários de Jogo" — taxa de acerto de W/L, Handicap Asiático (agregado +
-// por linha) e Over/Under, sempre a partir da tabela de Confronto Direto (H2H)
-// completa: "Todos" os jogos, sem os filtros de Casa/Mesma liga/1º tempo (que só
-// mudam o que aparece NA TABELA da outra aba — os badges de resultado usados aqui
-// não mudam com HT, então o resumo já é "Todos" por padrão sem precisar filtrar).
+// por linha) e Over/Under, a partir da tabela de Confronto Direto (H2H). Cada
+// bloco usa "Todos" os jogos daquele recorte (sem filtro de Mesma liga/1º tempo,
+// que não afetam os badges/resultado usados aqui) — só o recorte Casa muda quais
+// linhas entram, igual ao checkbox "Casa" da aba Confronto Direto.
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4280,37 +4316,13 @@ function _painelForcaCenariosRender() {
     return;
   }
   const rows = h2h.rows;
-  const s = _painelForcaComputeSummary(rows, 'h2h');
-  const ahLines = _painelForcaAhLineStats(rows);
-  const mm = _painelForcaMinMaxStats(rows);
+  const homeRows = rows.filter(m => m.home === _painelForcaHome);
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     <div style="padding:0 4px 10px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Taxa de acerto — Estatísticas de Confronto Direto, ${rows.length} jogos (Todos, sem filtro de Casa/Mesma liga/1º tempo)</div>
-      ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
-      <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — resultado ${s.ah_count || ''}</div>
-      <div class="painel-forca-h2h-dist-row"><span>Casa ${s.ah_home_pct || '-'}</span><span>Empate ${s.ah_draw_pct || '-'}</span><span>Fora ${s.ah_away_pct || '-'}</span></div>
-      <div class="painel-forca-group-title" style="margin-top:14px">Handicap Asiático — por linha</div>
-      ${ahLines.length ? `
-      <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse;margin-top:6px">
-        <thead><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">Linha</th><th>Jogos</th><th>Casa</th><th>Empate</th><th>Fora</th></tr></thead>
-        <tbody>
-          ${ahLines.map(l => `<tr>
-            <td style="text-align:left;padding:4px 8px">${l.line}</td>
-            <td>${l.n}</td>
-            <td style="color:${l.homePct >= l.awayPct ? '#22c55e' : 'var(--text2)'}">${l.homePct}%</td>
-            <td>${l.drawPct}%</td>
-            <td style="color:${l.awayPct > l.homePct ? '#22c55e' : 'var(--text2)'}">${l.awayPct}%</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>` : `<div style="color:var(--text2);font-size:12px">sem linhas suficientes</div>`}
-      <div class="painel-forca-group-title" style="margin-top:14px">Over/Under ${s.ou_count || ''}</div>
-      <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
-      <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios (mín/máx)</div>
-      ${_painelForcaMinMaxRow('Gols na partida', mm.goals)}
-      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome}`, mm.homeGoals)}
-      ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway}`, mm.awayGoals)}
-      ${_painelForcaMinMaxRow('Escanteios na partida', mm.corners)}
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Taxa de acerto — Estatísticas de Confronto Direto</div>
+      ${_painelForcaCenariosBlockHtml(rows, 'Todos os jogos')}
+      ${_painelForcaCenariosBlockHtml(homeRows, `${_painelForcaHome} jogando em casa`)}
     </div>`;
 }
 
