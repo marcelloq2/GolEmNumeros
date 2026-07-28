@@ -3292,12 +3292,16 @@ function _painelRelatorioTxtForMatch(home, away, leagueName, kickoffStr, d) {
   lines.push(`Gols ${home}: ${fmt(_painelForcaCombinedTeamGoalsMinMax(combined, home))}`);
   lines.push(`Gols ${away}: ${fmt(_painelForcaCombinedTeamGoalsMinMax(combined, away))}`);
   lines.push(`Escanteios na partida: ${fmt(_painelForcaCombinedCornersMinMax(combined))}`);
+  lines.push(`Escanteios ${home}: ${fmt(_painelForcaCombinedTeamCornersMinMax(combined, home))}`);
+  lines.push(`Escanteios ${away}: ${fmt(_painelForcaCombinedTeamCornersMinMax(combined, away))}`);
   lines.push('');
   lines.push('📋 Relatório — 1º tempo');
   lines.push(`Gols na partida (HT): ${fmt(_painelForcaCombinedGoalsMinMaxHT(combined))}`);
   lines.push(`Gols ${home} (HT): ${fmt(_painelForcaCombinedTeamGoalsMinMaxHT(combined, home))}`);
   lines.push(`Gols ${away} (HT): ${fmt(_painelForcaCombinedTeamGoalsMinMaxHT(combined, away))}`);
   lines.push(`Escanteios na partida (HT): ${fmt(_painelForcaCombinedCornersMinMaxHT(combined))}`);
+  lines.push(`Escanteios ${home} (HT): ${fmt(_painelForcaCombinedTeamCornersMinMaxHT(combined, home))}`);
+  lines.push(`Escanteios ${away} (HT): ${fmt(_painelForcaCombinedTeamCornersMinMaxHT(combined, away))}`);
   lines.push('');
   return lines.join('\n');
 }
@@ -4632,6 +4636,34 @@ function _painelForcaCombinedCornersMinMaxHT(rowsArrays) {
   return corners.length ? { min: Math.min(...corners), max: Math.max(...corners), n: corners.length } : null;
 }
 
+// Igual _painelForcaCombinedTeamGoalsMinMax, só que com escanteios (corner_ft) de
+// UM time específico em vez do total da partida.
+function _painelForcaCombinedTeamCornersMinMax(rowsArrays, team) {
+  const corners = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const cParts = String(m.corner_ft || '').split('-').map(Number);
+      if (cParts.length !== 2 || isNaN(cParts[0]) || isNaN(cParts[1])) return;
+      if (m.home === team) corners.push(cParts[0]);
+      else if (m.away === team) corners.push(cParts[1]);
+    });
+  });
+  return corners.length ? { min: Math.min(...corners), max: Math.max(...corners), n: corners.length } : null;
+}
+
+function _painelForcaCombinedTeamCornersMinMaxHT(rowsArrays, team) {
+  const corners = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const cParts = String(m.corner_ht || '').split('-').map(Number);
+      if (cParts.length !== 2 || isNaN(cParts[0]) || isNaN(cParts[1])) return;
+      if (m.home === team) corners.push(cParts[0]);
+      else if (m.away === team) corners.push(cParts[1]);
+    });
+  });
+  return corners.length ? { min: Math.min(...corners), max: Math.max(...corners), n: corners.length } : null;
+}
+
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4690,6 +4722,10 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
       ${_painelForcaReportMinMaxLine('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMax([rows, lastHomeRows, lastAwayRows]))}
+      ${_painelForcaReportMinMaxLine(`Escanteios ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamCornersMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaReportMinMaxLine(`Escanteios ${_painelForcaAway} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamCornersMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
 
       <div style="font-size:13px;font-weight:700;color:var(--text);margin:22px 0 4px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório — 1º tempo</div>
       ${_painelForcaReportMinMaxLine('Gols na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
@@ -4700,6 +4736,10 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedTeamGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
       ${_painelForcaReportMinMaxLine('Escanteios na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
+      ${_painelForcaReportMinMaxLine(`Escanteios ${_painelForcaHome} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamCornersMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaReportMinMaxLine(`Escanteios ${_painelForcaAway} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamCornersMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
     </div>`;
 }
 
