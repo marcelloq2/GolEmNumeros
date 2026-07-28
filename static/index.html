@@ -4414,11 +4414,13 @@ function _painelForcaCenariosRender() {
       ${_painelForcaCenariosBlockHtml(lastHomeRows, 'Todos os jogos', _painelForcaHome, 'Adversário')}
       ${_painelForcaCenariosBlockHtml(lastHomeAtHomeRows, `${_painelForcaHome} jogando em casa`, _painelForcaHome, 'Adversário')}
       ${_painelForcaCenariosBlockHtml(lastHomeLeagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`, _painelForcaHome, 'Adversário')}
+      ${_painelForcaCenariosHtBlockHtml(lastHomeRows, 'Placar do intervalo (1º tempo)', _painelForcaHome, 'Adversário', _painelForcaHome)}
 
       <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Taxa de acerto — Estatísticas de Pontuações Anteriores — ${_painelForcaAway}</div>
       ${_painelForcaCenariosBlockHtml(lastAwayRows, 'Todos os jogos', _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosBlockHtml(lastAwayAsAwayRows, `${_painelForcaAway} jogando fora (ausente)`, _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosBlockHtml(lastAwayLeagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`, _painelForcaAway, 'Adversário', _painelForcaAway)}
+      ${_painelForcaCenariosHtBlockHtml(lastAwayRows, 'Placar do intervalo (1º tempo)', _painelForcaAway, 'Adversário', _painelForcaAway)}
     </div>`;
 }
 
