@@ -1548,6 +1548,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('opportunities', this)">MAPA DE OPORTUNIDADES</button>
       </div>
     </div>
     <div style="border-bottom:1px solid var(--border)"></div>
@@ -1562,6 +1563,7 @@
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
     <div id="painelMethodologiesView" style="display:none;padding:10px"></div>
+    <div id="painelOpportunitiesView" style="display:none;padding:10px"></div>
   </div>
 
   <div id="painelUserTipsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseUserTips()">
@@ -3455,16 +3457,26 @@ function _painelSetFilter(filter, btn) {
   btn.classList.add('active');
 
   const isMeth = filter === 'methodologies';
-  document.getElementById('painelMatches').style.display = isMeth ? 'none' : '';
+  const isOpp = filter === 'opportunities';
+  document.getElementById('painelMatches').style.display = (isMeth || isOpp) ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
-  document.querySelector('.painel-search-bar').style.display = isMeth ? 'none' : '';
-  document.getElementById('painelOddsFilterBar').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelOpportunitiesView').style.display = isOpp ? '' : 'none';
+  document.querySelector('.painel-search-bar').style.display = (isMeth || isOpp) ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = (isMeth || isOpp) ? 'none' : '';
 
   if (isMeth) {
     _painelLoadMethodologies();
+  } else if (isOpp) {
+    _painelLoadOpportunities();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
+}
+
+// "Mapa de Oportunidades" — conteúdo a definir.
+function _painelLoadOpportunities() {
+  const el = document.getElementById('painelOpportunitiesView');
+  el.innerHTML = `<div style="color:var(--text2);text-align:center;padding:24px 0">Em construção.</div>`;
 }
 
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
