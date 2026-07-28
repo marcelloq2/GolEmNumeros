@@ -3244,7 +3244,8 @@ function _painelBuildOddsFilterBar() {
       </div>
     </div>
   `).join('') + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`
-    + `<button class="painel-odds-filter-clear" id="painelClearFavBtn" onclick="_painelClearFavorites()">☆ Remover Minhas Seleções</button>`;
+    + `<button class="painel-odds-filter-clear" id="painelClearFavBtn" onclick="_painelClearFavorites()">☆ Remover Minhas Seleções</button>`
+    + `<button class="painel-odds-filter-clear" id="painelExportRelatoriosBtn" onclick="_painelExportRelatoriosTxt()" title="Busca o Relatório (Cenários de Jogo) de cada partida do dia, uma de cada vez, e baixa tudo num .txt só — pode demorar vários minutos com muitos jogos">⬇️ Relatórios (TXT)</button>`;
 }
 
 function _painelClearFavorites() {
@@ -3253,6 +3254,101 @@ function _painelClearFavorites() {
   _painelSelectedTeams.clear();
   localStorage.setItem('painel_selected_teams', JSON.stringify([]));
   if (_painelLastData) _painelRender(_painelLastData);
+}
+
+// Monta o texto plano do Relatório (FT + 1º tempo) de UMA partida, a partir da
+// mesma resposta de /api/painel/ng_strength usada pelo modal "Comparação de
+// força" — reaproveita as funções de cálculo já usadas na aba Cenários de Jogo
+// (_painelForcaCombined*), só formatando em texto simples em vez de HTML.
+// Alguns nomes de time vêm com marcação de local neutro embutida (ex:
+// "Lincoln Red Imps FC<font color=#880000>(N)</font>") — isso quebra tanto a
+// exibição em texto puro quanto a comparação de nome (m.home === team) contra
+// o histórico, que não tem essa tag. Tira qualquer HTML antes de usar o nome.
+function _painelStripHtml(s) {
+  return String(s || '')
+    .replace(/<[^>]*>/g, '')      // tags tipo <font color=...>
+    .replace(/\(N\)\s*$/i, '')    // marcador de "local neutro" que o NowGoal cola no nome só na listagem de hoje
+    .trim();
+}
+
+function _painelRelatorioTxtForMatch(home, away, leagueName, kickoffStr, d) {
+  home = _painelStripHtml(home);
+  away = _painelStripHtml(away);
+  const rows = (d.h2h_table && d.h2h_table.rows) || [];
+  const lastHomeRows = (d.last_results_home && d.last_results_home.rows) || [];
+  const lastAwayRows = (d.last_results_away && d.last_results_away.rows) || [];
+  const combined = [rows, lastHomeRows, lastAwayRows];
+
+  const fmt = (mm) => mm ? `mín ${mm.min} · máx ${mm.max} (${mm.n} jogos)` : 'sem dado';
+  const best = _painelForcaCombinedAhBestLine(combined);
+
+  const lines = [];
+  lines.push(`=== ${kickoffStr} — ${home} x ${away}${leagueName ? ' (' + leagueName + ')' : ''} ===`);
+  lines.push('📋 Relatório');
+  lines.push(best
+    ? `Handicap Asiático mais acertivo: linha ${best.line} — ${best.side} cobriu em ${Math.round(best.pct)}% dos jogos (${best.n} jogos)`
+    : 'Handicap Asiático mais acertivo: sem dados suficientes');
+  lines.push(`Gols na partida: ${fmt(_painelForcaCombinedGoalsMinMax(combined))}`);
+  lines.push(`Gols ${home}: ${fmt(_painelForcaCombinedTeamGoalsMinMax(combined, home))}`);
+  lines.push(`Gols ${away}: ${fmt(_painelForcaCombinedTeamGoalsMinMax(combined, away))}`);
+  lines.push(`Escanteios na partida: ${fmt(_painelForcaCombinedCornersMinMax(combined))}`);
+  lines.push('');
+  lines.push('📋 Relatório — 1º tempo');
+  lines.push(`Gols na partida (HT): ${fmt(_painelForcaCombinedGoalsMinMaxHT(combined))}`);
+  lines.push(`Gols ${home} (HT): ${fmt(_painelForcaCombinedTeamGoalsMinMaxHT(combined, home))}`);
+  lines.push(`Gols ${away} (HT): ${fmt(_painelForcaCombinedTeamGoalsMinMaxHT(combined, away))}`);
+  lines.push(`Escanteios na partida (HT): ${fmt(_painelForcaCombinedCornersMinMaxHT(combined))}`);
+  lines.push('');
+  return lines.join('\n');
+}
+
+// Busca o Relatório de TODOS os jogos do dia, em ordem crescente de horário —
+// sequencial (um de cada vez, nunca em paralelo) de propósito: cada jogo usa o
+// mesmo endpoint Playwright do modal "Comparação de força", e já vimos antes
+// (feature do CLV) que martelar o NowGoal em paralelo/volume alto arrisca
+// bloqueio. Aqui é a MESMA quantidade de chamadas que já existiriam se você
+// abrisse cada jogo manualmente — só automatizado, um atrás do outro.
+async function _painelExportRelatoriosTxt() {
+  if (!_painelLastData || !_painelLastData.leagues || !_painelLastData.leagues.length) {
+    alert('Nenhum jogo carregado ainda.');
+    return;
+  }
+  const flat = [];
+  _painelLastData.leagues.forEach(lg => lg.matches.forEach(m => flat.push({ m, leagueName: lg.league_name })));
+  flat.sort((a, b) => (a.m.ts || 0) - (b.m.ts || 0));
+
+  if (!confirm(`Isso vai buscar o relatório de ${flat.length} jogos, um de cada vez (pode levar vários minutos). Continuar?`)) return;
+
+  const btn = document.getElementById('painelExportRelatoriosBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  const parts = [];
+  let done = 0;
+
+  for (const { m, leagueName } of flat) {
+    if (btn) { btn.disabled = true; btn.textContent = `⏳ ${done}/${flat.length}`; }
+    try {
+      const r = await fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(m.event_id));
+      const d = await r.json();
+      if (!d.error) {
+        parts.push(_painelRelatorioTxtForMatch(m.home, m.away, leagueName, _painelKickoffTime(m) || m.time || '', d));
+      }
+    } catch (e) { /* pula esse jogo, não trava o restante da exportação */ }
+    done++;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+
+  if (!parts.length) { alert('Nenhum relatório pôde ser calculado (sem histórico suficiente nos jogos de hoje).'); return; }
+
+  const blob = new Blob([parts.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `relatorios_cenarios_${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function _painelOddsFilterChange(key, field, value) {
