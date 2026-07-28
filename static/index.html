@@ -4266,6 +4266,59 @@ function _painelForcaMinMaxRow(label, mm) {
   return `<div class="painel-forca-h2h-dist-row"><span>${label}: mín <b style="color:var(--text)">${mm.min}</b> · máx <b style="color:var(--text)">${mm.max}</b> (${mm.n} jogos)</span></div>`;
 }
 
+// Bloco "1º tempo (HT)" — só existe placar/escanteio do intervalo no histórico, sem
+// linha/odd de Handicap Asiático nem Over/Under específica de HT (só de FT), então
+// esse recorte só calcula Ganhe/Empate/Perca e faixas mín/máx a partir do score_ht/
+// corner_ht — diferente dos outros blocos (que reaproveitam os badges já prontos).
+function _painelForcaHtSummary(rows) {
+  let win = 0, draw = 0, lose = 0, n = 0;
+  rows.forEach(m => {
+    const parts = String(m.score_ht || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    const isHomeRow = m.home === _painelForcaHome;
+    const homeG = isHomeRow ? parts[0] : parts[1];
+    const awayG = isHomeRow ? parts[1] : parts[0];
+    n++;
+    if (homeG > awayG) win++; else if (homeG < awayG) lose++; else draw++;
+  });
+  const pct = (v) => n ? Math.round(100 * v / n) : 0;
+  return { win: `${win} (${pct(win)}%)`, draw: `${draw} (${pct(draw)}%)`, lose: `${lose} (${pct(lose)}%)`, n };
+}
+
+function _painelForcaMinMaxStatsHT(rows) {
+  const corners = [], goals = [], homeGoals = [], awayGoals = [];
+  rows.forEach(m => {
+    const isHomeRow = m.home === _painelForcaHome;
+    const sParts = String(m.score_ht || '').split('-').map(Number);
+    if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
+      homeGoals.push(isHomeRow ? sParts[0] : sParts[1]);
+      awayGoals.push(isHomeRow ? sParts[1] : sParts[0]);
+      goals.push(sParts[0] + sParts[1]);
+    }
+    const cParts = String(m.corner_ht || '').split('-').map(Number);
+    if (cParts.length === 2 && !isNaN(cParts[0]) && !isNaN(cParts[1])) {
+      corners.push(cParts[0] + cParts[1]);
+    }
+  });
+  const minMax = (arr) => arr.length ? { min: Math.min(...arr), max: Math.max(...arr), n: arr.length } : null;
+  return { corners: minMax(corners), goals: minMax(goals), homeGoals: minMax(homeGoals), awayGoals: minMax(awayGoals) };
+}
+
+function _painelForcaCenariosHtBlockHtml(rows, title) {
+  const htRows = rows.filter(m => m.score_ht != null && m.score_ht !== '');
+  if (!htRows.length) return `<div class="painel-forca-group-title" style="margin-top:18px">${title}</div><div style="color:var(--text2);font-size:12px;padding:6px 0">Sem placar de intervalo disponível nesse recorte.</div>`;
+  const s = _painelForcaHtSummary(htRows);
+  const mm = _painelForcaMinMaxStatsHT(htRows);
+  return `
+    <div class="painel-forca-group-title" style="margin-top:18px;background:var(--accent);color:#fff">${title} — ${s.n} jogos com placar de intervalo</div>
+    ${_painelForcaBarRow('Ganhe/Empate/Perca (1º tempo)', s.win, s.lose, null, null)}
+    <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios no intervalo (mín/máx)</div>
+    ${_painelForcaMinMaxRow('Gols na partida (HT)', mm.goals)}
+    ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (HT)`, mm.homeGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway} (HT)`, mm.awayGoals)}
+    ${_painelForcaMinMaxRow('Escanteios na partida (HT)', mm.corners)}`;
+}
+
 // Monta um bloco completo (W/L, Handicap agregado + por linha, Over/Under, faixas
 // mín/máx de gols/escanteios) pra um conjunto de linhas já filtrado — reaproveitado
 // pra cada "configuração" (Todos / Só em casa / etc) da aba Cenários de Jogo.
@@ -4327,6 +4380,7 @@ function _painelForcaCenariosRender() {
       ${_painelForcaCenariosBlockHtml(rows, 'Todos os jogos')}
       ${_painelForcaCenariosBlockHtml(homeRows, `${_painelForcaHome} jogando em casa`)}
       ${_painelForcaCenariosBlockHtml(leagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`)}
+      ${_painelForcaCenariosHtBlockHtml(rows, 'Placar do intervalo (1º tempo)')}
     </div>`;
 }
 
