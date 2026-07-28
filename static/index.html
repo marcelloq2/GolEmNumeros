@@ -4399,6 +4399,23 @@ function _painelForcaCenariosReportHtml(configs, refTeam, label) {
   return `<div class="painel-forca-h2h-dist-row"><span>Taxa de acerto média — Handicap Asiático (${label}, jogo todo): <b style="color:var(--text)">${media}%</b> <span style="color:var(--text2)">(média de ${pcts.length} recortes)</span></span></div>`;
 }
 
+// Junta várias listas de jogos (Confronto Direto + Pontuações Anteriores dos 2
+// times) num min/máx só de gols totais na partida — sempre FT (score_ft), nunca
+// HT. Não deduplica jogos repetidos entre as listas de propósito: a ideia é
+// mostrar o mín/máx entre TUDO que já foi analisado, não uma amostra "limpa".
+function _painelForcaCombinedGoalsMinMax(rowsArrays) {
+  const goals = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const sParts = String(m.score_ft || '').split('-').map(Number);
+      if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
+        goals.push(sParts[0] + sParts[1]);
+      }
+    });
+  });
+  return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
+}
+
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4452,6 +4469,8 @@ function _painelForcaCenariosRender() {
         [rows, homeRows, leagueRows, lastHomeRows, lastHomeAtHomeRows, lastHomeLeagueRows],
         _painelForcaHome, _painelForcaHome
       )}
+      ${_painelForcaMinMaxRow('Gols na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+        _painelForcaCombinedGoalsMinMax([rows, lastHomeRows, lastAwayRows]))}
     </div>`;
 }
 
