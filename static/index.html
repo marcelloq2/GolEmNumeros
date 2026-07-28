@@ -4416,6 +4416,22 @@ function _painelForcaCombinedGoalsMinMax(rowsArrays) {
   return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
 }
 
+// Igual _painelForcaCombinedGoalsMinMax, só que soma escanteios (corner_ft) em vez
+// de gols — mesma ideia de juntar tudo (H2H + Pontuações Anteriores dos 2 times)
+// num mín/máx só, sempre FT.
+function _painelForcaCombinedCornersMinMax(rowsArrays) {
+  const corners = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const cParts = String(m.corner_ft || '').split('-').map(Number);
+      if (cParts.length === 2 && !isNaN(cParts[0]) && !isNaN(cParts[1])) {
+        corners.push(cParts[0] + cParts[1]);
+      }
+    });
+  });
+  return corners.length ? { min: Math.min(...corners), max: Math.max(...corners), n: corners.length } : null;
+}
+
 // Igual _painelForcaCombinedGoalsMinMax, mas só conta o gol de UM time específico
 // (team) — varre H2H + Pontuações Anteriores dos 2 times, e em cada linha onde
 // esse time aparece (seja como mandante ou visitante daquele jogo específico),
@@ -4491,6 +4507,8 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedGoalsMinMax([rows, lastHomeRows, lastAwayRows]))}
       ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
         _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaMinMaxRow('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+        _painelForcaCombinedCornersMinMax([rows, lastHomeRows, lastAwayRows]))}
     </div>`;
 }
 
