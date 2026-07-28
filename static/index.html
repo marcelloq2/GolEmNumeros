@@ -4374,29 +4374,60 @@ function _painelForcaCenariosBlockHtml(rows, title, centerLabel, opponentLabel, 
 // bloco usa "Todos" os jogos daquele recorte (sem filtro de Mesma liga/1º tempo,
 // que não afetam os badges/resultado usados aqui) — só o recorte Casa muda quais
 // linhas entram, igual ao checkbox "Casa" da aba Confronto Direto.
-// % de jogos em que refTeam cobriu o Handicap Asiático (jogo TODO, FT — nunca HT,
-// que não tem linha/odd própria) num conjunto de linhas — usado pra tirar a média
-// entre as várias configurações (Todos/Casa/Mesma liga) no Relatório da aba.
-function _painelForcaAhHomePctRaw(rows, refTeam) {
-  refTeam = refTeam || _painelForcaHome;
-  let home = 0, n = 0;
-  rows.forEach(m => {
-    const isHomeRow = m.home === refTeam;
-    if (m.ah_badge === 'D') { n++; }
-    else if (m.ah_badge === 'W') { n++; if (isHomeRow) home++; }
-    else if (m.ah_badge === 'L') { n++; if (!isHomeRow) home++; }
-  });
-  return n ? (100 * home / n) : null;
-}
-
 // Relatório — cruza os vários recortes já calculados (Todos/Casa/Mesma liga, SEM
 // o 1º tempo, que não tem handicap próprio) numa média só, pra leitura mais rápida
 // do que ficar olhando bloco por bloco.
-function _painelForcaCenariosReportHtml(configs, refTeam, label) {
-  const pcts = configs.map(rows => _painelForcaAhHomePctRaw(rows, refTeam)).filter(v => v !== null);
-  if (!pcts.length) return `<div style="color:var(--text2);font-size:12px">sem dados suficientes pra calcular a média (${label})</div>`;
-  const media = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-  return `<div class="painel-forca-h2h-dist-row"><span>Taxa de acerto média — Handicap Asiático (${label}, jogo todo): <b style="color:var(--text)">${media}%</b> <span style="color:var(--text2)">(média de ${pcts.length} recortes)</span></span></div>`;
+// Linha de handicap que mais "acerta" — junta H2H + Pontuações Anteriores dos 2
+// times (não usa refTeam: soma mandante/visitante de cada jogo daquele grupo
+// literalmente, já que estamos combinando confrontos de times diferentes) e acha,
+// entre TODAS as linhas que apareceram, qual teve maior % de cobertura pra
+// mandante OU visitante — é essa a informação que faltava: a linha específica,
+// não só uma média sem contexto.
+function _painelForcaCombinedAhBestLine(rowsArrays) {
+  const groups = {};
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const line = m.ah_line;
+      if (line == null || line === '') return;
+      const g = groups[line] || (groups[line] = { home: 0, draw: 0, away: 0, n: 0 });
+      if (m.ah_badge === 'D') { g.draw++; g.n++; }
+      else if (m.ah_badge === 'W') { g.n++; g.home++; }
+      else if (m.ah_badge === 'L') { g.n++; g.away++; }
+    });
+  });
+  let best = null;
+  Object.entries(groups).forEach(([line, g]) => {
+    if (g.n < 3) return; // amostra mínima — menos que isso é ruído
+    const homePct = 100 * g.home / g.n, awayPct = 100 * g.away / g.n;
+    const [pct, side] = homePct >= awayPct ? [homePct, 'Mandante'] : [awayPct, 'Visitante'];
+    if (!best || pct > best.pct) best = { line, side, pct, n: g.n };
+  });
+  return best;
+}
+
+// Linhas do Relatório com fonte maior/mais destacada, já que é a seção-resumo da
+// aba (as outras usam .painel-forca-h2h-dist-row, que é pensada pra caber 3
+// colunas lado a lado — pequena demais pra ler rápido aqui).
+function _painelForcaReportLine(html) {
+  return `<div style="font-size:14px;padding:8px 2px;border-bottom:1px solid var(--border);line-height:1.5">${html}</div>`;
+}
+
+function _painelForcaReportAhLine(rowsArrays) {
+  const best = _painelForcaCombinedAhBestLine(rowsArrays);
+  if (!best) return _painelForcaReportLine(`<span style="color:var(--text2)">Handicap Asiático mais acertivo: sem dados suficientes</span>`);
+  return _painelForcaReportLine(
+    `Handicap Asiático mais acertivo: linha <b style="color:var(--text);font-size:16px">${best.line}</b> — ` +
+    `<b style="color:#22c55e;font-size:16px">${best.side}</b> cobriu em <b style="color:#22c55e;font-size:16px">${Math.round(best.pct)}%</b> dos jogos ` +
+    `<span style="color:var(--text2);font-size:12px">(${best.n} jogos)</span>`
+  );
+}
+
+function _painelForcaReportMinMaxLine(label, mm) {
+  if (!mm) return _painelForcaReportLine(`<span style="color:var(--text2)">${label}: sem dado</span>`);
+  return _painelForcaReportLine(
+    `${label}: mín <b style="color:var(--text);font-size:16px">${mm.min}</b> · máx <b style="color:var(--text);font-size:16px">${mm.max}</b> ` +
+    `<span style="color:var(--text2);font-size:12px">(${mm.n} jogos)</span>`
+  );
 }
 
 // Junta várias listas de jogos (Confronto Direto + Pontuações Anteriores dos 2
@@ -4540,24 +4571,21 @@ function _painelForcaCenariosRender() {
       ${_painelForcaCenariosBlockHtml(lastAwayLeagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`, _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosHtBlockHtml(lastAwayRows, 'Placar do intervalo (1º tempo)', _painelForcaAway, 'Adversário', _painelForcaAway)}
 
-      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório</div>
-      ${_painelForcaCenariosReportHtml(
-        [rows, homeRows, leagueRows, lastHomeRows, lastHomeAtHomeRows, lastHomeLeagueRows],
-        _painelForcaHome, _painelForcaHome
-      )}
-      ${_painelForcaMinMaxRow('Gols na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin:22px 0 4px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório</div>
+      ${_painelForcaReportAhLine([rows, lastHomeRows, lastAwayRows])}
+      ${_painelForcaReportMinMaxLine('Gols na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedGoalsMinMax([rows, lastHomeRows, lastAwayRows]))}
-      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+      ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
         _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
-      ${_painelForcaMinMaxRow('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+      ${_painelForcaReportMinMaxLine('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMax([rows, lastHomeRows, lastAwayRows]))}
 
-      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório — 1º tempo</div>
-      ${_painelForcaMinMaxRow('Gols na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin:22px 0 4px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório — 1º tempo</div>
+      ${_painelForcaReportMinMaxLine('Gols na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
-      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+      ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaHome} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
         _painelForcaCombinedTeamGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
-      ${_painelForcaMinMaxRow('Escanteios na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+      ${_painelForcaReportMinMaxLine('Escanteios na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
     </div>`;
 }
