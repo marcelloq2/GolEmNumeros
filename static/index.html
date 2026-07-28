@@ -4322,7 +4322,13 @@ function _painelForcaCenariosHtBlockHtml(rows, title) {
 // Monta um bloco completo (W/L, Handicap agregado + por linha, Over/Under, faixas
 // mín/máx de gols/escanteios) pra um conjunto de linhas já filtrado — reaproveitado
 // pra cada "configuração" (Todos / Só em casa / etc) da aba Cenários de Jogo.
-function _painelForcaCenariosBlockHtml(rows, title) {
+// centerLabel/opponentLabel: no H2H os dois times são fixos (usa os nomes reais),
+// mas em Pontuações Anteriores o "adversário" varia a cada linha (não é sempre o
+// mesmo time), então quem chama passa um rótulo genérico ("Adversário") pra não
+// dar a entender que todo jogo foi contra o mesmo oponente.
+function _painelForcaCenariosBlockHtml(rows, title, centerLabel, opponentLabel) {
+  centerLabel = centerLabel || _painelForcaHome;
+  opponentLabel = opponentLabel || _painelForcaAway;
   if (!rows.length) return `<div class="painel-forca-group-title" style="margin-top:18px">${title}</div><div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhum jogo nesse recorte.</div>`;
   const s = _painelForcaComputeSummary(rows, 'h2h');
   const ahLines = _painelForcaAhLineStats(rows);
@@ -4350,8 +4356,8 @@ function _painelForcaCenariosBlockHtml(rows, title) {
     <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
     <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios (mín/máx)</div>
     ${_painelForcaMinMaxRow('Gols na partida', mm.goals)}
-    ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome}`, mm.homeGoals)}
-    ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway}`, mm.awayGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${centerLabel}`, mm.homeGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${opponentLabel}`, mm.awayGoals)}
     ${_painelForcaMinMaxRow('Escanteios na partida', mm.corners)}`;
 }
 
@@ -4373,6 +4379,10 @@ function _painelForcaCenariosRender() {
   const leagueRows = _painelForcaLeague
     ? rows.filter(m => (m.league || '').trim().toLowerCase() === _painelForcaLeague.trim().toLowerCase())
     : [];
+
+  const lastHome = _painelForcaData.last_results_home;
+  const lastHomeRows = (lastHome && lastHome.rows) ? lastHome.rows : [];
+
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     <div style="padding:0 4px 10px">
@@ -4381,6 +4391,9 @@ function _painelForcaCenariosRender() {
       ${_painelForcaCenariosBlockHtml(homeRows, `${_painelForcaHome} jogando em casa`)}
       ${_painelForcaCenariosBlockHtml(leagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`)}
       ${_painelForcaCenariosHtBlockHtml(rows, 'Placar do intervalo (1º tempo)')}
+
+      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Taxa de acerto — Estatísticas de Pontuações Anteriores — ${_painelForcaHome}</div>
+      ${_painelForcaCenariosBlockHtml(lastHomeRows, 'Todos os jogos', _painelForcaHome, 'Adversário')}
     </div>`;
 }
 
