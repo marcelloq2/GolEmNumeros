@@ -4450,6 +4450,48 @@ function _painelForcaCombinedTeamGoalsMinMax(rowsArrays, team) {
   return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
 }
 
+// Versões "1º tempo" das 3 combinadas acima — usam score_ht/corner_ht em vez de FT.
+// Não existe versão HT do item de Handicap Asiático (taxa de acerto): não há
+// linha/odd de handicap específica de intervalo nos dados, só placar e escanteio.
+function _painelForcaCombinedGoalsMinMaxHT(rowsArrays) {
+  const goals = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const sParts = String(m.score_ht || '').split('-').map(Number);
+      if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
+        goals.push(sParts[0] + sParts[1]);
+      }
+    });
+  });
+  return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
+}
+
+function _painelForcaCombinedTeamGoalsMinMaxHT(rowsArrays, team) {
+  const goals = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const sParts = String(m.score_ht || '').split('-').map(Number);
+      if (sParts.length !== 2 || isNaN(sParts[0]) || isNaN(sParts[1])) return;
+      if (m.home === team) goals.push(sParts[0]);
+      else if (m.away === team) goals.push(sParts[1]);
+    });
+  });
+  return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
+}
+
+function _painelForcaCombinedCornersMinMaxHT(rowsArrays) {
+  const corners = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const cParts = String(m.corner_ht || '').split('-').map(Number);
+      if (cParts.length === 2 && !isNaN(cParts[0]) && !isNaN(cParts[1])) {
+        corners.push(cParts[0] + cParts[1]);
+      }
+    });
+  });
+  return corners.length ? { min: Math.min(...corners), max: Math.max(...corners), n: corners.length } : null;
+}
+
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4509,6 +4551,14 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
       ${_painelForcaMinMaxRow('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMax([rows, lastHomeRows, lastAwayRows]))}
+
+      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório — 1º tempo</div>
+      ${_painelForcaMinMaxRow('Gols na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+        _painelForcaCombinedGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
+      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaMinMaxRow('Escanteios na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
+        _painelForcaCombinedCornersMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
     </div>`;
 }
 
