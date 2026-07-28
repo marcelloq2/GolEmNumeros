@@ -4217,12 +4217,13 @@ function _painelForcaBuildTableBlock(tbl, key) {
 // ex: "-0.5", "0/-0.5", "+1") e calcula, pra cada linha, a % de jogos em que o lado
 // que jogou em casa NAQUELA partida cobriu o handicap (W), empatou/push (D) ou não
 // cobriu (L) — mesma lógica de orientação (isHomeRow) já usada em _painelForcaComputeSummary.
-function _painelForcaAhLineStats(rows) {
+function _painelForcaAhLineStats(rows, refTeam) {
+  refTeam = refTeam || _painelForcaHome;
   const groups = {};
   rows.forEach(m => {
     const line = m.ah_line;
     if (line == null || line === '') return;
-    const isHomeRow = m.home === _painelForcaHome;
+    const isHomeRow = m.home === refTeam;
     const g = groups[line] || (groups[line] = { home: 0, draw: 0, away: 0, n: 0 });
     if (m.ah_badge === 'D') { g.draw++; g.n++; }
     else if (m.ah_badge === 'W') { g.n++; if (isHomeRow) g.home++; else g.away++; }
@@ -4242,10 +4243,11 @@ function _painelForcaAhLineStats(rows) {
 // Confronto Direto — "casa"/"fora" aqui é sempre relativo ao confronto de HOJE
 // (_painelForcaHome/_painelForcaAway), não a quem jogou em casa em cada jogo antigo,
 // por isso reorienta pelo isHomeRow igual às outras funções desta aba.
-function _painelForcaMinMaxStats(rows) {
+function _painelForcaMinMaxStats(rows, refTeam) {
+  refTeam = refTeam || _painelForcaHome;
   const corners = [], goals = [], homeGoals = [], awayGoals = [];
   rows.forEach(m => {
-    const isHomeRow = m.home === _painelForcaHome;
+    const isHomeRow = m.home === refTeam;
     const sParts = String(m.score_ft || '').split('-').map(Number);
     if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
       homeGoals.push(isHomeRow ? sParts[0] : sParts[1]);
@@ -4270,12 +4272,13 @@ function _painelForcaMinMaxRow(label, mm) {
 // linha/odd de Handicap Asiático nem Over/Under específica de HT (só de FT), então
 // esse recorte só calcula Ganhe/Empate/Perca e faixas mín/máx a partir do score_ht/
 // corner_ht — diferente dos outros blocos (que reaproveitam os badges já prontos).
-function _painelForcaHtSummary(rows) {
+function _painelForcaHtSummary(rows, refTeam) {
+  refTeam = refTeam || _painelForcaHome;
   let win = 0, draw = 0, lose = 0, n = 0;
   rows.forEach(m => {
     const parts = String(m.score_ht || '').split('-').map(Number);
     if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
-    const isHomeRow = m.home === _painelForcaHome;
+    const isHomeRow = m.home === refTeam;
     const homeG = isHomeRow ? parts[0] : parts[1];
     const awayG = isHomeRow ? parts[1] : parts[0];
     n++;
@@ -4285,10 +4288,11 @@ function _painelForcaHtSummary(rows) {
   return { win: `${win} (${pct(win)}%)`, draw: `${draw} (${pct(draw)}%)`, lose: `${lose} (${pct(lose)}%)`, n };
 }
 
-function _painelForcaMinMaxStatsHT(rows) {
+function _painelForcaMinMaxStatsHT(rows, refTeam) {
+  refTeam = refTeam || _painelForcaHome;
   const corners = [], goals = [], homeGoals = [], awayGoals = [];
   rows.forEach(m => {
-    const isHomeRow = m.home === _painelForcaHome;
+    const isHomeRow = m.home === refTeam;
     const sParts = String(m.score_ht || '').split('-').map(Number);
     if (sParts.length === 2 && !isNaN(sParts[0]) && !isNaN(sParts[1])) {
       homeGoals.push(isHomeRow ? sParts[0] : sParts[1]);
@@ -4304,18 +4308,21 @@ function _painelForcaMinMaxStatsHT(rows) {
   return { corners: minMax(corners), goals: minMax(goals), homeGoals: minMax(homeGoals), awayGoals: minMax(awayGoals) };
 }
 
-function _painelForcaCenariosHtBlockHtml(rows, title) {
+function _painelForcaCenariosHtBlockHtml(rows, title, centerLabel, opponentLabel, refTeam) {
+  centerLabel = centerLabel || _painelForcaHome;
+  opponentLabel = opponentLabel || _painelForcaAway;
+  refTeam = refTeam || _painelForcaHome;
   const htRows = rows.filter(m => m.score_ht != null && m.score_ht !== '');
   if (!htRows.length) return `<div class="painel-forca-group-title" style="margin-top:18px">${title}</div><div style="color:var(--text2);font-size:12px;padding:6px 0">Sem placar de intervalo disponível nesse recorte.</div>`;
-  const s = _painelForcaHtSummary(htRows);
-  const mm = _painelForcaMinMaxStatsHT(htRows);
+  const s = _painelForcaHtSummary(htRows, refTeam);
+  const mm = _painelForcaMinMaxStatsHT(htRows, refTeam);
   return `
     <div class="painel-forca-group-title" style="margin-top:18px;background:var(--accent);color:#fff">${title} — ${s.n} jogos com placar de intervalo</div>
     ${_painelForcaBarRow('Ganhe/Empate/Perca (1º tempo)', s.win, s.lose, null, null)}
     <div class="painel-forca-group-title" style="margin-top:14px">Faixas de gols e escanteios no intervalo (mín/máx)</div>
     ${_painelForcaMinMaxRow('Gols na partida (HT)', mm.goals)}
-    ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (HT)`, mm.homeGoals)}
-    ${_painelForcaMinMaxRow(`Gols ${_painelForcaAway} (HT)`, mm.awayGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${centerLabel} (HT)`, mm.homeGoals)}
+    ${_painelForcaMinMaxRow(`Gols ${opponentLabel} (HT)`, mm.awayGoals)}
     ${_painelForcaMinMaxRow('Escanteios na partida (HT)', mm.corners)}`;
 }
 
@@ -4326,13 +4333,14 @@ function _painelForcaCenariosHtBlockHtml(rows, title) {
 // mas em Pontuações Anteriores o "adversário" varia a cada linha (não é sempre o
 // mesmo time), então quem chama passa um rótulo genérico ("Adversário") pra não
 // dar a entender que todo jogo foi contra o mesmo oponente.
-function _painelForcaCenariosBlockHtml(rows, title, centerLabel, opponentLabel) {
+function _painelForcaCenariosBlockHtml(rows, title, centerLabel, opponentLabel, refTeam) {
   centerLabel = centerLabel || _painelForcaHome;
   opponentLabel = opponentLabel || _painelForcaAway;
+  refTeam = refTeam || _painelForcaHome;
   if (!rows.length) return `<div class="painel-forca-group-title" style="margin-top:18px">${title}</div><div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhum jogo nesse recorte.</div>`;
-  const s = _painelForcaComputeSummary(rows, 'h2h');
-  const ahLines = _painelForcaAhLineStats(rows);
-  const mm = _painelForcaMinMaxStats(rows);
+  const s = _painelForcaComputeSummary(rows, refTeam === _painelForcaAway ? 'away' : 'h2h');
+  const ahLines = _painelForcaAhLineStats(rows, refTeam);
+  const mm = _painelForcaMinMaxStats(rows, refTeam);
   return `
     <div class="painel-forca-group-title" style="margin-top:18px;background:var(--accent);color:#fff">${title} — ${rows.length} jogos</div>
     ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
@@ -4382,6 +4390,8 @@ function _painelForcaCenariosRender() {
 
   const lastHome = _painelForcaData.last_results_home;
   const lastHomeRows = (lastHome && lastHome.rows) ? lastHome.rows : [];
+  const lastAway = _painelForcaData.last_results_away;
+  const lastAwayRows = (lastAway && lastAway.rows) ? lastAway.rows : [];
 
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
@@ -4394,6 +4404,9 @@ function _painelForcaCenariosRender() {
 
       <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Taxa de acerto — Estatísticas de Pontuações Anteriores — ${_painelForcaHome}</div>
       ${_painelForcaCenariosBlockHtml(lastHomeRows, 'Todos os jogos', _painelForcaHome, 'Adversário')}
+
+      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Taxa de acerto — Estatísticas de Pontuações Anteriores — ${_painelForcaAway}</div>
+      ${_painelForcaCenariosBlockHtml(lastAwayRows, 'Todos os jogos', _painelForcaAway, 'Adversário', _painelForcaAway)}
     </div>`;
 }
 
