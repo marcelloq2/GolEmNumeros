@@ -4397,6 +4397,9 @@ function _painelForcaCenariosRender() {
   const lastAway = _painelForcaData.last_results_away;
   const lastAwayRows = (lastAway && lastAway.rows) ? lastAway.rows : [];
   const lastAwayAsAwayRows = lastAwayRows.filter(m => m.away === _painelForcaAway);
+  const lastAwayLeagueRows = _painelForcaLeague
+    ? lastAwayRows.filter(m => (m.league || '').trim().toLowerCase() === _painelForcaLeague.trim().toLowerCase())
+    : [];
 
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
@@ -4415,6 +4418,7 @@ function _painelForcaCenariosRender() {
       <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Taxa de acerto — Estatísticas de Pontuações Anteriores — ${_painelForcaAway}</div>
       ${_painelForcaCenariosBlockHtml(lastAwayRows, 'Todos os jogos', _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosBlockHtml(lastAwayAsAwayRows, `${_painelForcaAway} jogando fora (ausente)`, _painelForcaAway, 'Adversário', _painelForcaAway)}
+      ${_painelForcaCenariosBlockHtml(lastAwayLeagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`, _painelForcaAway, 'Adversário', _painelForcaAway)}
     </div>`;
 }
 
