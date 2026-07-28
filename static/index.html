@@ -4416,6 +4416,24 @@ function _painelForcaCombinedGoalsMinMax(rowsArrays) {
   return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
 }
 
+// Igual _painelForcaCombinedGoalsMinMax, mas só conta o gol de UM time específico
+// (team) — varre H2H + Pontuações Anteriores dos 2 times, e em cada linha onde
+// esse time aparece (seja como mandante ou visitante daquele jogo específico),
+// extrai o gol dele. Linhas onde o time não aparece (ex: Myanmar x Vietnã, se
+// team=Philippines) são ignoradas — não têm gol de Philippines pra contar.
+function _painelForcaCombinedTeamGoalsMinMax(rowsArrays, team) {
+  const goals = [];
+  rowsArrays.forEach(rowsArr => {
+    rowsArr.forEach(m => {
+      const sParts = String(m.score_ft || '').split('-').map(Number);
+      if (sParts.length !== 2 || isNaN(sParts[0]) || isNaN(sParts[1])) return;
+      if (m.home === team) goals.push(sParts[0]);
+      else if (m.away === team) goals.push(sParts[1]);
+    });
+  });
+  return goals.length ? { min: Math.min(...goals), max: Math.max(...goals), n: goals.length } : null;
+}
+
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4471,6 +4489,8 @@ function _painelForcaCenariosRender() {
       )}
       ${_painelForcaMinMaxRow('Gols na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedGoalsMinMax([rows, lastHomeRows, lastAwayRows]))}
+      ${_painelForcaMinMaxRow(`Gols ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
     </div>`;
 }
 
