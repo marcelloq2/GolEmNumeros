@@ -4374,6 +4374,31 @@ function _painelForcaCenariosBlockHtml(rows, title, centerLabel, opponentLabel, 
 // bloco usa "Todos" os jogos daquele recorte (sem filtro de Mesma liga/1º tempo,
 // que não afetam os badges/resultado usados aqui) — só o recorte Casa muda quais
 // linhas entram, igual ao checkbox "Casa" da aba Confronto Direto.
+// % de jogos em que refTeam cobriu o Handicap Asiático (jogo TODO, FT — nunca HT,
+// que não tem linha/odd própria) num conjunto de linhas — usado pra tirar a média
+// entre as várias configurações (Todos/Casa/Mesma liga) no Relatório da aba.
+function _painelForcaAhHomePctRaw(rows, refTeam) {
+  refTeam = refTeam || _painelForcaHome;
+  let home = 0, n = 0;
+  rows.forEach(m => {
+    const isHomeRow = m.home === refTeam;
+    if (m.ah_badge === 'D') { n++; }
+    else if (m.ah_badge === 'W') { n++; if (isHomeRow) home++; }
+    else if (m.ah_badge === 'L') { n++; if (!isHomeRow) home++; }
+  });
+  return n ? (100 * home / n) : null;
+}
+
+// Relatório — cruza os vários recortes já calculados (Todos/Casa/Mesma liga, SEM
+// o 1º tempo, que não tem handicap próprio) numa média só, pra leitura mais rápida
+// do que ficar olhando bloco por bloco.
+function _painelForcaCenariosReportHtml(configs, refTeam, label) {
+  const pcts = configs.map(rows => _painelForcaAhHomePctRaw(rows, refTeam)).filter(v => v !== null);
+  if (!pcts.length) return `<div style="color:var(--text2);font-size:12px">sem dados suficientes pra calcular a média (${label})</div>`;
+  const media = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+  return `<div class="painel-forca-h2h-dist-row"><span>Taxa de acerto média — Handicap Asiático (${label}, jogo todo): <b style="color:var(--text)">${media}%</b> <span style="color:var(--text2)">(média de ${pcts.length} recortes)</span></span></div>`;
+}
+
 function _painelForcaCenariosRender() {
   const el = document.getElementById('painelForcaViewCenarios');
   if (!el) return;
@@ -4421,6 +4446,12 @@ function _painelForcaCenariosRender() {
       ${_painelForcaCenariosBlockHtml(lastAwayAsAwayRows, `${_painelForcaAway} jogando fora (ausente)`, _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosBlockHtml(lastAwayLeagueRows, `Mesma liga${_painelForcaLeague ? ' (' + _painelForcaLeague + ')' : ''}`, _painelForcaAway, 'Adversário', _painelForcaAway)}
       ${_painelForcaCenariosHtBlockHtml(lastAwayRows, 'Placar do intervalo (1º tempo)', _painelForcaAway, 'Adversário', _painelForcaAway)}
+
+      <div style="font-size:11px;color:var(--text2);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">📋 Relatório</div>
+      ${_painelForcaCenariosReportHtml(
+        [rows, homeRows, leagueRows, lastHomeRows, lastHomeAtHomeRows, lastHomeLeagueRows],
+        _painelForcaHome, _painelForcaHome
+      )}
     </div>`;
 }
 
