@@ -4577,6 +4577,8 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedGoalsMinMax([rows, lastHomeRows, lastAwayRows]))}
       ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaHome} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
         _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaAway} (combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamGoalsMinMax([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
       ${_painelForcaReportMinMaxLine('Escanteios na partida (combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMax([rows, lastHomeRows, lastAwayRows]))}
 
@@ -4585,6 +4587,8 @@ function _painelForcaCenariosRender() {
         _painelForcaCombinedGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
       ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaHome} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
         _painelForcaCombinedTeamGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaHome))}
+      ${_painelForcaReportMinMaxLine(`Gols ${_painelForcaAway} (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)`,
+        _painelForcaCombinedTeamGoalsMinMaxHT([rows, lastHomeRows, lastAwayRows], _painelForcaAway))}
       ${_painelForcaReportMinMaxLine('Escanteios na partida (HT, combinando Confronto Direto + Pontuações Anteriores dos 2 times)',
         _painelForcaCombinedCornersMinMaxHT([rows, lastHomeRows, lastAwayRows]))}
     </div>`;
