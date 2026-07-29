@@ -11255,6 +11255,44 @@ function _live2ThermometerHtml(score, label, titulo) {
     </div>`;
 }
 
+// Ataque perigoso / Toques na área / Chutes na área — médias por minuto (total
+// acumulado até agora ÷ minutos jogados). Não existe série minuto a minuto de
+// verdade pra esses 3 (diferente do gráfico de pressão), só o total acumulado do
+// UniScore — por isso é uma MÉDIA, não um valor "desse minuto específico".
+// Reaproveita _uniCache (já buscado em lote pra todos os cards do Ao Vivo, sem
+// request novo) — "Infiltração na área" não existe como dado na fonte, por isso
+// entrou "Toques na Área Adversária" (touches_in_box) no lugar.
+function _live2RateStatsHtml(m) {
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  if (!d || !d.found) return '';
+  const minutos = parseInt(m.minuto, 10);
+  if (!minutos || minutos <= 0) return '';
+  const st = d.statistics || {};
+  // null (não [0,0]) quando a fonte não tem essa estatística pra esse jogo — evita
+  // mostrar "0.00/min" como se fosse um valor real quando na verdade é dado ausente.
+  const gv = (key) => {
+    const it = st[key];
+    return it ? [Number(it.homeValue) || 0, Number(it.awayValue) || 0] : null;
+  };
+  const rate = (v) => (v / minutos).toFixed(2);
+  const row = (label, pair, tituloBase) => {
+    if (!pair) return '';
+    const [h, a] = pair;
+    return `
+    <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
+      <span style="color:var(--text2);font-weight:600;letter-spacing:.2px">📊 ${label}:</span>
+      <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
+      <span style="color:var(--text2);opacity:.5">·</span>
+      <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
+    </div>`;
+  };
+  const rows = row('Ataque perigoso', gv('dangerous_attacks'), 'Ataques perigosos')
+    + row('Toques na área', gv('touches_in_box'), 'Toques na área adversária')
+    + row('Chutes na área', gv('shots_inside_box'), 'Chutes de dentro da área');
+  if (!rows) return '';
+  return `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">${rows}</div>`;
+}
+
 // Ícone extra quando as 3 janelas (Partida toda / Últimos 10min / Últimos 5min)
 // concordam que o MESMO lado está dominando com pelo menos o dobro do percentual
 // do outro lado — sinal de pressão consistente e forte em todas as leituras.
@@ -11312,6 +11350,7 @@ async function _live2RefreshBadges(matchId) {
           ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
           ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
           ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante')}
+          ${_live2RateStatsHtml(m)}
         </div>
         ${_live2ThermoDominanceIconHtml(full, w10, w5)}
       </div>`;
