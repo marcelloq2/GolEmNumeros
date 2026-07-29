@@ -1268,6 +1268,180 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
         return data
 
 
+# ── Mapa de Oportunidades — varre os jogos AO VIVO comparando o placar/escanteios
+# atuais com o histórico combinado (Confronto Direto + Pontuações Anteriores dos 2
+# times, mesmo cálculo já usado na aba Cenários de Jogo) — sinaliza quando o jogo
+# já está "na metade ou mais" do máximo histórico, e quando alguma linha de
+# Handicap Asiático teve 100% de cobertura no histórico combinado.
+_OPPORTUNITIES_SCAN_INTERVAL = 20 * 60  # 20min — mesmo intervalo do antigo CLV, mas sequencial (não paralelo)
+_OPPORTUNITIES_LIVE_STATUSES = {"1º Tempo", "Intervalo", "2º Tempo", "Prorrogação", "Pênaltis"}
+_opportunities_lock = threading.Lock()
+_opportunities_cache = {"ts": 0.0, "items": []}
+
+
+def _opp_parse_pair(s):
+    if not s:
+        return None
+    parts = str(s).split("-")
+    if len(parts) != 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def _opp_combined_minmax(rows_arrays, field, team=None):
+    """team=None -> soma dos dois lados (total da partida). Com team, extrai só o
+    valor daquele time em cada linha (testando se ele foi mandante ou visitante
+    NAQUELE jogo específico do histórico) — mesma lógica das funções JS
+    _painelForcaCombined* já usadas na aba Cenários de Jogo."""
+    values = []
+    for rows in rows_arrays:
+        for m in rows:
+            pair = _opp_parse_pair(m.get(field))
+            if not pair:
+                continue
+            h, a = pair
+            if team is None:
+                values.append(h + a)
+            elif m.get("home") == team:
+                values.append(h)
+            elif m.get("away") == team:
+                values.append(a)
+    if not values:
+        return None
+    return {"min": min(values), "max": max(values), "n": len(values)}
+
+
+def _opp_combined_ah_100_lines(rows_arrays, min_n=3):
+    """Linhas de Handicap Asiático com 100% de cobertura (mandante ou visitante)
+    no histórico combinado, com amostra mínima de 3 jogos pra não marcar ruído."""
+    groups = {}
+    for rows in rows_arrays:
+        for m in rows:
+            line = m.get("ah_line")
+            if not line:
+                continue
+            g = groups.setdefault(line, {"home": 0, "draw": 0, "away": 0, "n": 0})
+            badge = m.get("ah_badge")
+            if badge == "D":
+                g["draw"] += 1
+                g["n"] += 1
+            elif badge == "W":
+                g["n"] += 1
+                g["home"] += 1
+            elif badge == "L":
+                g["n"] += 1
+                g["away"] += 1
+    out = []
+    for line, g in groups.items():
+        if g["n"] < min_n:
+            continue
+        home_pct = 100 * g["home"] / g["n"]
+        away_pct = 100 * g["away"] / g["n"]
+        if home_pct >= 100:
+            out.append({"line": line, "side": "Mandante", "n": g["n"]})
+        elif away_pct >= 100:
+            out.append({"line": line, "side": "Visitante", "n": g["n"]})
+    return out
+
+
+def _opportunities_scan_cycle():
+    try:
+        matches_data = _painel_fetch_matches_nowgoal(force=True)
+    except Exception as e:
+        print(f"[opportunities] Erro buscando jogos do dia: {e}")
+        return
+
+    live_matches = []
+    for lg in matches_data.get("leagues", []):
+        for m in lg["matches"]:
+            if m.get("time") in _OPPORTUNITIES_LIVE_STATUSES:
+                live_matches.append((m, lg.get("league_name", "")))
+
+    def to_int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    items = []
+    for m, league_name in live_matches:
+        try:
+            d = _ng_fetch_strength(str(m["event_id"]))
+        except Exception as e:
+            print(f"[opportunities] Erro no jogo {m.get('home')} x {m.get('away')}: {e}")
+            continue
+
+        home, away = m.get("home"), m.get("away")
+        h2h_rows = (d.get("h2h_table") or {}).get("rows") or []
+        lh_rows = (d.get("last_results_home") or {}).get("rows") or []
+        la_rows = (d.get("last_results_away") or {}).get("rows") or []
+        combined = [h2h_rows, lh_rows, la_rows]
+
+        score_home, score_away = to_int(m.get("score_home")), to_int(m.get("score_away"))
+        ht_home, ht_away = to_int(m.get("ht_home")), to_int(m.get("ht_away"))
+        corner_home, corner_away = to_int(m.get("corner_home")), to_int(m.get("corner_away"))
+
+        signals = []
+
+        def check(label, live_value, mm):
+            if live_value is None or not mm or not mm["max"]:
+                return
+            if live_value >= mm["max"] * 0.5:
+                signals.append({
+                    "label": label, "live": live_value,
+                    "min": mm["min"], "max": mm["max"], "n": mm["n"],
+                    "excedeu": live_value >= mm["max"],
+                })
+
+        if score_home is not None and score_away is not None:
+            check("Gols na partida", score_home + score_away, _opp_combined_minmax(combined, "score_ft"))
+            check(f"Gols {home}", score_home, _opp_combined_minmax(combined, "score_ft", team=home))
+            check(f"Gols {away}", score_away, _opp_combined_minmax(combined, "score_ft", team=away))
+        if corner_home is not None and corner_away is not None:
+            check("Escanteios na partida", corner_home + corner_away, _opp_combined_minmax(combined, "corner_ft"))
+            check(f"Escanteios {home}", corner_home, _opp_combined_minmax(combined, "corner_ft", team=home))
+            check(f"Escanteios {away}", corner_away, _opp_combined_minmax(combined, "corner_ft", team=away))
+        if ht_home is not None and ht_away is not None:
+            check("Gols na partida (HT)", ht_home + ht_away, _opp_combined_minmax(combined, "score_ht"))
+            check(f"Gols {home} (HT)", ht_home, _opp_combined_minmax(combined, "score_ht", team=home))
+            check(f"Gols {away} (HT)", ht_away, _opp_combined_minmax(combined, "score_ht", team=away))
+
+        ah_100 = _opp_combined_ah_100_lines(combined)
+
+        if signals or ah_100:
+            items.append({
+                "event_id": str(m.get("event_id")), "home": home, "away": away, "league": league_name,
+                "minute": m.get("minute"), "status": m.get("time"),
+                "score": f"{score_home}-{score_away}" if score_home is not None else None,
+                "signals": signals, "ah_100": ah_100,
+            })
+
+    with _opportunities_lock:
+        _opportunities_cache["ts"] = time.time()
+        _opportunities_cache["items"] = items
+
+
+def _opportunities_loop():
+    _github_sync_done.wait(timeout=120)  # espera a restauração do GitHub terminar antes do 1º ciclo
+    while True:
+        try:
+            print("[opportunities] Escaneando jogos ao vivo...")
+            _opportunities_scan_cycle()
+            print("[opportunities] Ciclo concluído.")
+        except Exception as e:
+            print(f"[opportunities] Erro no ciclo: {e}")
+        time.sleep(_OPPORTUNITIES_SCAN_INTERVAL)
+
+
+@app.route("/api/painel/opportunities")
+def api_painel_opportunities():
+    with _opportunities_lock:
+        return jsonify({"updated_at": _opportunities_cache["ts"], "items": _opportunities_cache["items"]})
+
+
 def _painel_fetch_matches(force=False, date_str=None):
     """date_str: "YYYY-MM-DD" opcional — qualquer dia navegável pelo calendário
     do BetExplorer. None/"" = dia atual (comportamento igual ao botão "Hoje")."""
@@ -9466,6 +9640,7 @@ def api_lay_placar_config():
 
 
 threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
+threading.Thread(target=_opportunities_loop, daemon=True, name="Opportunities").start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

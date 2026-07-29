@@ -3458,6 +3458,7 @@ function _painelSetFilter(filter, btn) {
 
   const isMeth = filter === 'methodologies';
   const isOpp = filter === 'opportunities';
+  if (!isOpp) clearInterval(_painelOppRefreshTimer);
   document.getElementById('painelMatches').style.display = (isMeth || isOpp) ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
   document.getElementById('painelOpportunitiesView').style.display = isOpp ? '' : 'none';
@@ -3474,9 +3475,59 @@ function _painelSetFilter(filter, btn) {
 }
 
 // "Mapa de Oportunidades" — conteúdo a definir.
+// Mapa de Oportunidades — mostra os jogos AO VIVO onde o placar/escanteios atuais
+// já bateram pelo menos metade do máximo histórico combinado (Confronto Direto +
+// Pontuações Anteriores), ou onde alguma linha de Handicap Asiático teve 100% de
+// cobertura nesse histórico. Os dados vêm de uma varredura que já roda sozinha no
+// servidor a cada ~20min (backend, sequencial) — aqui só busca o resultado pronto
+// e fica atualizando a tela sozinha enquanto a aba estiver aberta.
+let _painelOppRefreshTimer = null;
+
 function _painelLoadOpportunities() {
   const el = document.getElementById('painelOpportunitiesView');
-  el.innerHTML = `<div style="color:var(--text2);text-align:center;padding:24px 0">Em construção.</div>`;
+  el.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  _painelFetchOpportunities();
+  clearInterval(_painelOppRefreshTimer);
+  _painelOppRefreshTimer = setInterval(_painelFetchOpportunities, 60000);
+}
+
+function _painelFetchOpportunities() {
+  fetch('/api/painel/opportunities')
+    .then(r => r.json())
+    .then(_painelRenderOpportunities)
+    .catch(err => {
+      const el = document.getElementById('painelOpportunitiesView');
+      if (el) el.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
+    });
+}
+
+function _painelRenderOpportunities(d) {
+  const el = document.getElementById('painelOpportunitiesView');
+  if (!el) return;
+  const items = d.items || [];
+  const updated = d.updated_at ? new Date(d.updated_at * 1000).toLocaleTimeString('pt-BR') : '— (primeira varredura ainda não terminou)';
+  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~20min, comparando com o histórico combinado (Confronto Direto + Pontuações Anteriores dos 2 times).</div>`;
+
+  if (!items.length) {
+    el.innerHTML = header + `<div style="color:var(--text2);text-align:center;padding:24px 0">Nenhuma oportunidade encontrada nos jogos ao vivo agora.</div>`;
+    return;
+  }
+
+  el.innerHTML = header + items.map(it => `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <b style="font-size:14px">${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}</b>
+        <span style="font-size:11px;color:var(--text2)">${it.league || ''} · ${it.status || ''}${it.minute != null ? ' ' + it.minute + "'" : ''}</span>
+      </div>
+      ${(it.signals || []).map(s => `
+        <div style="font-size:13px;padding:5px 0;color:${s.excedeu ? '#22c55e' : 'var(--text)'}">
+          ${s.excedeu ? '🔥' : '⚠️'} ${s.label}: já saiu(ram) <b>${s.live}</b> — histórico mín ${s.min} · máx <b>${s.max}</b> (${s.n} jogos)
+        </div>`).join('')}
+      ${(it.ah_100 || []).map(b => `
+        <div style="font-size:13px;padding:5px 0;color:#f59e0b">
+          🎯 Handicap Asiático 100%: linha <b>${b.line}</b> — <b>${b.side}</b> cobriu em 100% dos jogos (${b.n} jogos)
+        </div>`).join('')}
+    </div>`).join('');
 }
 
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
