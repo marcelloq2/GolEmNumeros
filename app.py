@@ -1273,7 +1273,8 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
 # times, mesmo cálculo já usado na aba Cenários de Jogo) — sinaliza quando o jogo
 # já está "na metade ou mais" do máximo histórico, e quando alguma linha de
 # Handicap Asiático teve 100% de cobertura no histórico combinado.
-_OPPORTUNITIES_SCAN_INTERVAL = 20 * 60  # 20min — mesmo intervalo do antigo CLV, mas sequencial (não paralelo)
+_OPPORTUNITIES_SCAN_INTERVAL = 5 * 60  # 5min — seguro porque _ng_fetch_strength já cacheia 15min (_NG_STRENGTH_TTL);
+# na prática só ~1 em cada 3 ciclos busca de verdade no NowGoal por jogo, os outros reaproveitam cache
 _OPPORTUNITIES_LIVE_STATUSES = {"1º Tempo", "Intervalo", "2º Tempo", "Prorrogação", "Pênaltis"}
 _opportunities_lock = threading.Lock()
 _opportunities_cache = {"ts": 0.0, "items": []}
