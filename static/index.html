@@ -11280,7 +11280,7 @@ function _live2RateStatsHtml(m) {
   const dotHtml = (h, a) => {
     const cor = h >= a * 2 && h > 0 ? '#3b82f6' : (a >= h * 2 && a > 0 ? '#ef4444' : null);
     if (!cor) return '';
-    return `<span style="display:inline-flex;width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0;margin-left:2px"></span>`;
+    return `<span style="display:inline-flex;width:16px;height:16px;border-radius:50%;background:${cor};flex-shrink:0;margin-left:2px"></span>`;
   };
   const row = (label, pair, tituloBase) => {
     if (!pair) return '';
