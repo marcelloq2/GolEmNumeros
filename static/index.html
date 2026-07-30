@@ -10894,30 +10894,11 @@ function renderLive2Card(m) {
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
-        <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
-        <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','prestats',this)">Estatísticas Pré</button>
+        <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
+        <button class="live-card-tab-btn" onclick="_live2OpenPreStatsModal('${m.id}')">Estatísticas Pré</button>
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
       </div>
-      <div id="live2TabBody_${m.id}">${_live2LineupCache[m.id] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>'}</div>
     </div>`;
-}
-
-// ── Controle da aba ativa (Escalações / Estatísticas Pré) de cada card,
-// mesmo padrão visual (.live-card-tabs) já usado no Ao Vivo original ──
-let _live2Tab = {};
-function setLive2Tab(matchId, tab, btn) {
-  _live2Tab[matchId] = tab;
-  document.querySelectorAll(`#live2Tabs_${matchId} .live-card-tab-btn`).forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  const body = document.getElementById(`live2TabBody_${matchId}`);
-  if (!body) return;
-  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  if (tab === 'escalacoes') {
-    body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
-  } else if (tab === 'prestats') {
-    body.innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
-    _live2LoadStandingsMini(matchId, m);
-  }
 }
 
 // Estatísticas Pré — mini classificação/Power Ranking dos 2 times do confronto,
@@ -10972,12 +10953,22 @@ async function _live2LoadStandingsMini(matchId, m) {
   }
 }
 
-function _live2OpenStatsModal(matchId) {
+// Rastreia qual widget (Estatísticas+Odds / Escalações / Estatísticas Pré) está
+// aberto agora, e de qual partida — usado só pra saber se uma atualização em
+// segundo plano (ex: escalação chegando depois) deve refletir no modal aberto
+// ou não, já que os 3 dividem o mesmo overlay/corpo.
+let _live2OpenModal = null; // { matchId, type: 'stats' | 'lineup' | 'prestats' }
+
+function _live2OpenModalCommon(matchId, type, titleSuffix) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  document.getElementById('live2StatsModalTitle').textContent = m ? `${m.casa} x ${m.fora}` : 'Estatísticas + Odds';
-  const overlay = document.getElementById('live2StatsOverlay');
-  const body = document.getElementById('live2StatsModalBody');
-  overlay.style.display = 'flex';
+  _live2OpenModal = { matchId, type };
+  document.getElementById('live2StatsModalTitle').textContent = m ? `${titleSuffix} — ${m.casa} x ${m.fora}` : titleSuffix;
+  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  return { m, body: document.getElementById('live2StatsModalBody') };
+}
+
+function _live2OpenStatsModal(matchId) {
+  const { body } = _live2OpenModalCommon(matchId, 'stats', 'Estatísticas + Odds');
   if (_live2FsCache[matchId]) {
     body.innerHTML = _live2FsCache[matchId];
     return;
@@ -10987,8 +10978,20 @@ function _live2OpenStatsModal(matchId) {
   loadLive2Flashscore(matchId, fakeBtn, body);
 }
 
+function _live2OpenLineupModal(matchId) {
+  const { body } = _live2OpenModalCommon(matchId, 'lineup', 'Escalações');
+  body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+}
+
+function _live2OpenPreStatsModal(matchId) {
+  const { m } = _live2OpenModalCommon(matchId, 'prestats', 'Estatísticas Pré');
+  document.getElementById('live2StatsModalBody').innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
+  _live2LoadStandingsMini(matchId, m);
+}
+
 function _live2CloseStatsModal() {
   document.getElementById('live2StatsOverlay').style.display = 'none';
+  _live2OpenModal = null;
 }
 
 // Oculta só o bloco de estatísticas detalhadas (Destaques/Finalizações/Ataque/...),
@@ -11102,9 +11105,9 @@ async function _loadLive2Lineups(matches) {
       const html = hasLineup ? buildLineupHtml(m) : '';
       if (html !== _live2LineupCache[m.id]) {
         _live2LineupCache[m.id] = html;
-        // Só atualiza a tela se a aba "Escalações" desse card estiver aberta agora
-        if ((_live2Tab[m.id] || 'escalacoes') === 'escalacoes') {
-          const body = document.getElementById(`live2TabBody_${m.id}`);
+        // Só atualiza a tela se o widget "Escalações" dessa partida estiver aberto agora
+        if (_live2OpenModal && _live2OpenModal.type === 'lineup' && String(_live2OpenModal.matchId) === String(m.id)) {
+          const body = document.getElementById('live2StatsModalBody');
           if (body) body.innerHTML = html || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
         }
       }
