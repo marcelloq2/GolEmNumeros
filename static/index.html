@@ -966,6 +966,15 @@
     cursor: pointer; border-bottom: none; text-transform: uppercase; letter-spacing: .3px;
   }
   .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #4f6ef7; }
+  /* Linhas de termômetro / estatística por minuto — colunas fixas pra a "bolinha"
+     de domínio cair sempre na mesma posição horizontal em todas as linhas, em vez
+     de deslocar conforme o tamanho do texto (que era o problema com justify-content:center) */
+  .live2-stat-row {
+    display: grid; grid-template-columns: 128px 64px 10px 74px 20px;
+    align-items: center; justify-content: center; column-gap: 6px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 11px; margin-top: 4px;
+  }
+  .live2-stat-row .live2-stat-dot { justify-self: start; width: 16px; height: 16px; border-radius: 50%; }
   .live-view-toggle {
     display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0;
   }
@@ -10866,16 +10875,15 @@ function renderLive2Card(m) {
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
-        <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
-        <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
+        <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
         <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','prestats',this)">Estatísticas Pré</button>
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
       </div>
-      <div id="live2TabBody_${m.id}">${_live2GeralTabHtml(m)}</div>
+      <div id="live2TabBody_${m.id}">${_live2LineupCache[m.id] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>'}</div>
     </div>`;
 }
 
-// ── Controle da aba ativa (Geral / Escalações / Estatísticas Pré) de cada card,
+// ── Controle da aba ativa (Escalações / Estatísticas Pré) de cada card,
 // mesmo padrão visual (.live-card-tabs) já usado no Ao Vivo original ──
 let _live2Tab = {};
 function setLive2Tab(matchId, tab, btn) {
@@ -10885,9 +10893,7 @@ function setLive2Tab(matchId, tab, btn) {
   const body = document.getElementById(`live2TabBody_${matchId}`);
   if (!body) return;
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  if (tab === 'geral') {
-    body.innerHTML = _live2GeralTabHtml(m);
-  } else if (tab === 'escalacoes') {
+  if (tab === 'escalacoes') {
     body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
   } else if (tab === 'prestats') {
     body.innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
@@ -10945,11 +10951,6 @@ async function _live2LoadStandingsMini(matchId, m) {
     const freshWrap = document.getElementById(`live2PreStatsWrap_${matchId}`);
     if (freshWrap) freshWrap.innerHTML = '<div style="color:var(--text2);text-align:center;padding:8px 0">erro ao buscar classificação</div>';
   }
-}
-
-function _live2GeralTabHtml(m) {
-  if (!m) return '';
-  return `<div id="live2FsWrap_${m.id}" style="display:none">${_live2FsCache[m.id] || ''}</div>`;
 }
 
 function _live2OpenStatsModal(matchId) {
@@ -11083,7 +11084,7 @@ async function _loadLive2Lineups(matches) {
       if (html !== _live2LineupCache[m.id]) {
         _live2LineupCache[m.id] = html;
         // Só atualiza a tela se a aba "Escalações" desse card estiver aberta agora
-        if (_live2Tab[m.id] === 'escalacoes') {
+        if ((_live2Tab[m.id] || 'escalacoes') === 'escalacoes') {
           const body = document.getElementById(`live2TabBody_${m.id}`);
           if (body) body.innerHTML = html || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
         }
@@ -11256,15 +11257,16 @@ function _live2ThermometerScore(points, shots, m, winMin) {
   return { casaPct: casa / total * 100, foraPct: fora / total * 100 };
 }
 
-function _live2ThermometerHtml(score, label, titulo) {
+function _live2ThermometerHtml(score, label, titulo, dotHtml) {
   if (!score) return '';
   const casaMaior = score.casaPct >= score.foraPct;
   return `
-    <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${titulo}">
+    <div class="live2-stat-row" title="${titulo}">
       <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">🌡️ ${label}:</span>
       <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '500'}">Casa ${score.casaPct.toFixed(0)}%</span>
-      <span style="color:var(--text2);opacity:.5">·</span>
+      <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
       <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '500'}">Visitante ${score.foraPct.toFixed(0)}%</span>
+      <span>${dotHtml || ''}</span>
     </div>`;
 }
 
@@ -11293,18 +11295,18 @@ function _live2RateStatsHtml(m) {
   const dotHtml = (h, a) => {
     const cor = h >= a * 2 && h > 0 ? '#3b82f6' : (a >= h * 2 && a > 0 ? '#ef4444' : null);
     if (!cor) return '';
-    return `<span style="display:inline-flex;width:16px;height:16px;border-radius:50%;background:${cor};flex-shrink:0;margin-left:2px"></span>`;
+    return `<span class="live2-stat-dot" style="background:${cor}"></span>`;
   };
   const row = (label, pair, tituloBase) => {
     if (!pair) return '';
     const [h, a] = pair;
     return `
-    <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
+    <div class="live2-stat-row" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
       <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">📊 ${label}:</span>
       <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
-      <span style="color:var(--text2);opacity:.5">·</span>
+      <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
       <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
-      ${dotHtml(h, a)}
+      <span>${dotHtml(h, a)}</span>
     </div>`;
   };
   const rows = row('Ataque perigoso', gv('dangerous_attacks'), 'Ataques perigosos')
@@ -11332,8 +11334,8 @@ function _live2ThermoDominanceIconHtml(full, w10, w5) {
   if (!dFull || !d10 || !d5 || dFull !== d10 || d10 !== d5) return '';
   const cor = dFull === 'casa' ? '#3b82f6' : '#ef4444';
   const lado = dFull === 'casa' ? 'Casa' : 'Visitante';
-  return `<span title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)"
-    style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${cor};flex-shrink:0"></span>`;
+  return `<span class="live2-stat-dot" title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)"
+    style="display:inline-flex;background:${cor}"></span>`;
 }
 
 // Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
@@ -11366,15 +11368,10 @@ async function _live2RefreshBadges(matchId) {
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
     thermoEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="flex:1">
-          ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
-          ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
-          ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante')}
-          ${_live2RateStatsHtml(m)}
-        </div>
-        ${_live2ThermoDominanceIconHtml(full, w10, w5)}
-      </div>`;
+      ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
+      ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
+      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(full, w10, w5))}
+      ${_live2RateStatsHtml(m)}`;
   }
 }
 
