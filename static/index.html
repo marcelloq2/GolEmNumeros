@@ -3598,6 +3598,7 @@ function _painelMethTabsHtml() {
 }
 
 let _painelWatchedTipsters = new Set(); // uids (string) sendo acompanhados no Telegram
+let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado pelo gráfico 📈, pra mostrar na linha do ranking
 
 function _painelLoadWatchlist() {
   return fetch('/api/painel/tips_watchlist')
@@ -3689,12 +3690,16 @@ function _painelLoadMethodologiesList() {
         const profit = month ? u.profit_m : u.profit;
         const tips = month ? u.tips_m : u.tips;
         const avo = month ? u.avo_m : u.avo;
+        const cachedProfit = _painelProfitStatCache[u.uid];
         const statsHtml = `
           <div class="painel-meth-stats">
             <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '--'}</span><span class="l">Taxa de Vitória</span></div>
             <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '--'}</span><span class="l">ROI</span></div>
             <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
             <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
+            <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1) — abre no 📈, aparece aqui depois de calculado uma vez">
+              <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:#22c55e' : 'color:#ef4444') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
+            </div>
           </div>`;
         return _painelMethItemShell(u, statsHtml);
       }).join('');
@@ -3828,6 +3833,13 @@ function _painelOpenProfitChart(uid, uname) {
         points.push({ label: _painelTipDateLabel(t.time), cumulative: acc });
       });
       if (!points.length) { body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">sem dicas encerradas suficientes pro gráfico</div>`; return; }
+      const finalProfit = points[points.length - 1].cumulative;
+      _painelProfitStatCache[uid] = finalProfit;
+      const statEl = document.getElementById(`painelMethProfitStat_${uid}`);
+      if (statEl) {
+        statEl.querySelector('.v').textContent = (finalProfit >= 0 ? '+' : '') + finalProfit.toFixed(2) + 'u';
+        statEl.querySelector('.v').style.color = finalProfit >= 0 ? '#22c55e' : '#ef4444';
+      }
       body.innerHTML = `
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Profit acumulado em unidades (stake fixo de 1 por dica), só com as dicas já encerradas, em ordem cronológica.</div>
         ${_painelProfitChartSvg(points)}`;
