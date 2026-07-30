@@ -1757,6 +1757,18 @@
     </div>
   </div>
 
+  <div id="live2StatsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _live2CloseStatsModal()">
+    <div class="painel-modal-box" style="max-width:500px">
+      <div class="painel-modal-header">
+        <div style="font-size:15px;font-weight:700;color:var(--text)" id="live2StatsModalTitle">Estatísticas + Odds</div>
+        <button class="painel-modal-close" onclick="_live2CloseStatsModal()">✕</button>
+      </div>
+      <div id="live2StatsModalBody" style="padding:8px 12px">
+        <div class="live-loading"><div class="spinner"></div>Carregando...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- HOJE wrapper (sidebar + detail) — aba removida da navegação (substituída pelo
        Hoje 2), mas o wrapper e o carregamento de allMatches/btPatterns continuam
        existindo porque o Hoje 2 depende deles (score badges, Leitura da Partida) -->
@@ -10857,6 +10869,7 @@ function renderLive2Card(m) {
         <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
         <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
         <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','prestats',this)">Estatísticas Pré</button>
+        <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
       </div>
       <div id="live2TabBody_${m.id}">${_live2GeralTabHtml(m)}</div>
     </div>`;
@@ -10950,6 +10963,25 @@ function _live2GeralTabHtml(m) {
 
 // Alterna mostrar/ocultar as estatísticas já carregadas (sem refazer o fetch) —
 // antes o botão sumia pra sempre depois de carregado, sem forma de recolher de volta
+function _live2OpenStatsModal(matchId) {
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  document.getElementById('live2StatsModalTitle').textContent = m ? `${m.casa} x ${m.fora}` : 'Estatísticas + Odds';
+  const overlay = document.getElementById('live2StatsOverlay');
+  const body = document.getElementById('live2StatsModalBody');
+  overlay.style.display = 'flex';
+  if (_live2FsCache[matchId]) {
+    body.innerHTML = _live2FsCache[matchId];
+    return;
+  }
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  const fakeBtn = { disabled: false, textContent: '', style: {}, onclick: null };
+  loadLive2Flashscore(matchId, fakeBtn, body);
+}
+
+function _live2CloseStatsModal() {
+  document.getElementById('live2StatsOverlay').style.display = 'none';
+}
+
 function _live2ToggleStats(matchId, btn) {
   const wrap = document.getElementById(`live2FsWrap_${matchId}`);
   if (!wrap) return;
@@ -11765,10 +11797,10 @@ async function _live2XgRowsHtml(m) {
   return xgHtml + xgzHtml;
 }
 
-async function loadLive2Flashscore(matchId, btn) {
+async function loadLive2Flashscore(matchId, btn, targetWrap) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
   if (!m) return;
-  const wrap = document.getElementById(`live2FsWrap_${matchId}`);
+  const wrap = targetWrap || document.getElementById(`live2FsWrap_${matchId}`);
   if (!wrap) return;
 
   btn.disabled = true;
