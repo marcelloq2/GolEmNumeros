@@ -3774,8 +3774,12 @@ function _painelTipProfit(t) {
   if (oddStr == null) return null;
   const odd = parseFloat(oddStr);
   if (isNaN(odd)) return null;
+  // O valor já vem no formato "líquido" do NowGoal (tanto pro Handicap Asiático
+  // quanto pro Over/Under): "0.81" representa uma odd decimal 1.81, ou seja,
+  // já é o profit direto se ganhar (ex: stake de 100 → +81 se ganhar, -100 se
+  // perder) — por isso usa o valor puro, sem subtrair 1 como numa odd decimal comum.
   if (!t.isWin) return -1;
-  return p.kind === 'AH' ? odd : (odd - 1);
+  return odd;
 }
 
 function _painelProfitChartSvg(points) {
