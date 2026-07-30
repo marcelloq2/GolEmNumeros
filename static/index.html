@@ -963,7 +963,7 @@
   .live-card-tab-btn {
     background: transparent; border: 1px solid var(--border); color: var(--text2);
     font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px 6px 0 0;
-    cursor: pointer; border-bottom: none;
+    cursor: pointer; border-bottom: none; text-transform: uppercase; letter-spacing: .3px;
   }
   .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #4f6ef7; }
   .live-view-toggle {
@@ -11261,7 +11261,7 @@ function _live2ThermometerHtml(score, label, titulo) {
   const casaMaior = score.casaPct >= score.foraPct;
   return `
     <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${titulo}">
-      <span style="color:var(--text2);font-weight:600;letter-spacing:.2px">🌡️ ${label}:</span>
+      <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">🌡️ ${label}:</span>
       <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '500'}">Casa ${score.casaPct.toFixed(0)}%</span>
       <span style="color:var(--text2);opacity:.5">·</span>
       <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '500'}">Visitante ${score.foraPct.toFixed(0)}%</span>
@@ -11300,7 +11300,7 @@ function _live2RateStatsHtml(m) {
     const [h, a] = pair;
     return `
     <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;margin-top:4px" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
-      <span style="color:var(--text2);font-weight:600;letter-spacing:.2px">📊 ${label}:</span>
+      <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">📊 ${label}:</span>
       <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
       <span style="color:var(--text2);opacity:.5">·</span>
       <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
