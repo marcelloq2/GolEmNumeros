@@ -10059,6 +10059,84 @@ function _today2BaixarLeituraTxt(matchId) {
   URL.revokeObjectURL(url);
 }
 
+// ── Baixar "Estatísticas acima da média" (aba Jogo) de TODAS as partidas do dia
+// num único TXT — só entra no arquivo o jogo que tiver os DOIS lados (mandante
+// jogando em casa E visitante jogando fora) com amostra suficiente; se só um dos
+// dois tiver dado, o jogo fica de fora (pedido explícito do usuário). Busca um
+// jogo de cada vez (nunca em paralelo), reaproveitando o cache de h2h se a
+// partida já tiver sido aberta na aba Insights antes.
+async function _today2ExportAcimaMediaTodasTxt() {
+  if (!today2MatchesCache.length) { alert('Nenhum jogo carregado ainda.'); return; }
+
+  if (!confirm(`Isso vai buscar as estatísticas acima da média de ${today2MatchesCache.length} jogos, um de cada vez (pode levar vários minutos). Continuar?`)) return;
+
+  const btn = document.getElementById('today2ExportAcimaMediaBtn');
+  const originalLabel = btn ? btn.textContent : '';
+
+  const mediasGerais = await _jogoEnsureMediasGerais();
+  const mediaCasa = mediasGerais?.casa;
+  const mediaFora = mediasGerais?.fora;
+  if (!mediaCasa && !mediaFora) {
+    alert('Médias gerais indisponíveis no momento — tenta de novo em alguns minutos.');
+    return;
+  }
+
+  const matches = [...today2MatchesCache].sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+  const partes = [];
+  let done = 0;
+
+  for (const m of matches) {
+    if (btn) { btn.disabled = true; btn.textContent = `⏳ ${done}/${matches.length}`; }
+    done++;
+    try {
+      const cache = _today2TabCache[m.id] || (_today2TabCache[m.id] = {});
+      if (!cache._h2hTabs) {
+        const params = new URLSearchParams({ casa: m.home || '', fora: m.away || '' });
+        const r = await fetch(`/api/flashscore/h2h?${params}`);
+        const d = await r.json();
+        cache._h2hTabs = d.tabs || [];
+      }
+      const tabs = cache._h2hTabs;
+      if (!tabs.length) continue;
+
+      const homeHomeBlock = _jogoStatsRowsFromSection(tabs, 1, true);
+      const awayAwayBlock = _jogoStatsRowsFromSection(tabs, 2, false);
+      await Promise.all([homeHomeBlock, awayAwayBlock]
+        .map(b => Promise.all([_jogoEnsureHt(b.rows), _jogoEnsureGoalMinutes(b.rows)])));
+
+      const grupos = _today2AcimaMediaPorTime({ m, homeHomeBlock, awayAwayBlock, mediaCasa, mediaFora });
+      const temCasa = grupos.some(g => g.lado === 'jogando em casa');
+      const temFora = grupos.some(g => g.lado === 'jogando fora');
+      if (!temCasa || !temFora) continue; // só um dos dois lados tem dado — pula o jogo
+
+      const linhas = [];
+      linhas.push(`${m.home} x ${m.away}`);
+      linhas.push(`${m.liga || ''} (${m.pais || ''}) — ${m.hora || ''}`);
+      grupos.forEach(g => {
+        linhas.push(`- ${g.team} (${g.lado}):`);
+        g.rows.forEach(r => linhas.push(`   ${r.label}: ${r.fmt(r.val)} (méd: ${r.fmt(r.mediaVal)})`));
+      });
+      partes.push(linhas.join('\n'));
+    } catch (e) { /* pula esse jogo, não trava o restante da exportação */ }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+
+  if (!partes.length) { alert('Nenhum jogo de hoje tem estatísticas acima da média nos dois lados (casa e fora) com amostra suficiente.'); return; }
+
+  const cabecalho = `Estatísticas acima da média (aba Jogo) — só jogos com os 2 lados (casa e fora)\nGerado em ${new Date().toLocaleString('pt-BR')}\n${partes.length} jogo(s)\n`;
+  const texto = cabecalho + '\n' + partes.join('\n\n');
+  const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `acima_da_media_${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function _renderToday2Insights(matchId) {
   const content = document.getElementById('today2DetailBody');
   if (!content) return;
@@ -10139,11 +10217,19 @@ async function _renderToday2Insights(matchId) {
   _today2InsightsExportCache[matchId] = { m, cards, acimaMedia: null };
 
   body.innerHTML = `
-    <button onclick="_today2BaixarLeituraTxt('${matchId}')"
-      style="margin-bottom:12px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
-             border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
-      ⬇️ Baixar TXT (pra analisar no ChatGPT)
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="_today2BaixarLeituraTxt('${matchId}')"
+        style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
+               border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
+        ⬇️ Baixar TXT (pra analisar no ChatGPT)
+      </button>
+      <button id="today2ExportAcimaMediaBtn" onclick="_today2ExportAcimaMediaTodasTxt()"
+        title="Baixa 'Estatísticas acima da média (aba Jogo)' de todos os jogos de hoje que tiverem os 2 lados (casa e fora) com dado suficiente, num único TXT"
+        style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
+               border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
+        ⬇️ Baixar TXT (📈 acima da média — todas as partidas)
+      </button>
+    </div>
     ${_today2InsightsGridHtml(cards)}
     <div id="today2AcimaMediaWrap_${matchId}"></div>`;
 
