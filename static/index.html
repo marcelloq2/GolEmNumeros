@@ -1587,6 +1587,18 @@
     </div>
   </div>
 
+  <div id="painelProfitChartOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseProfitChart()">
+    <div class="painel-modal-box" style="max-width:700px">
+      <div class="painel-modal-header">
+        <div id="painelProfitChartTitle" style="font-size:15px;font-weight:700;color:var(--text)"></div>
+        <button class="painel-modal-close" onclick="_painelCloseProfitChart()">✕</button>
+      </div>
+      <div id="painelProfitChartBody" style="padding:12px">
+        <div class="live-loading"><div class="spinner"></div>Carregando...</div>
+      </div>
+    </div>
+  </div>
+
   <div id="painelAnalysisOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseAnalysis()">
     <div class="painel-modal-box" style="max-width:620px">
       <div class="painel-modal-header">
@@ -3626,6 +3638,8 @@ function _painelMethItemShell(u, statsHtml) {
         ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
       </div>
       ${statsHtml}
+      <button class="painel-meth-watch-btn" title="Ver gráfico de profit acumulado"
+        onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">📈</button>
       <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
         onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
     </div>`;
@@ -3737,6 +3751,88 @@ function _painelOpenUserTips(uid, uname) {
 
 function _painelCloseUserTips() {
   document.getElementById('painelUserTipsOverlay').style.display = 'none';
+}
+
+// ── Gráfico de profit acumulado do tipster (📈 ao lado do sino) ────────────
+// Reaproveita a mesma dica (com pick+odd) já usada na lista "Prognósticos de
+// X" — só calcula o profit de cada dica ENCERRADA (1 unidade de stake fixo:
+// perde -1, ganha o odd do lado escolhido — no Handicap Asiático o odd já
+// vem como payout líquido, então usa direto; no Over/Under é odd decimal
+// normal, então usa odd-1) e acumula em ordem cronológica (a API devolve
+// mais recente primeiro, por isso o .reverse()).
+function _painelTipDateLabel(timeStr) {
+  const parts = String(timeStr || '').split(',').map(Number);
+  if (parts.length < 3 || parts.some(isNaN)) return '';
+  const [, mo, d] = parts;
+  return `${String(d).padStart(2, '0')}/${String(mo).padStart(2, '0')}`;
+}
+
+function _painelTipProfit(t) {
+  if (!t.isEnd || !t.pick) return null;
+  const p = t.pick;
+  const oddStr = p.home_pick ? p.home_odd : (p.away_pick ? p.away_odd : null);
+  if (oddStr == null) return null;
+  const odd = parseFloat(oddStr);
+  if (isNaN(odd)) return null;
+  if (!t.isWin) return -1;
+  return p.kind === 'AH' ? odd : (odd - 1);
+}
+
+function _painelProfitChartSvg(points) {
+  if (!points.length) {
+    return `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">sem dicas encerradas suficientes pro gráfico</div>`;
+  }
+  const W = 640, H = 220, padL = 40, padR = 16, padT = 16, padB = 30;
+  const ys = points.map(p => p.cumulative);
+  const minY = Math.min(0, ...ys), maxY = Math.max(0, ...ys);
+  const spanY = (maxY - minY) || 1;
+  const stepX = (W - padL - padR) / Math.max(1, points.length - 1);
+  const xAt = i => padL + i * stepX;
+  const yAt = v => padT + (H - padT - padB) * (1 - (v - minY) / spanY);
+  const zeroY = yAt(0);
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(p.cumulative).toFixed(1)}`).join(' ');
+  const last = points[points.length - 1];
+  const lineColor = last.cumulative >= 0 ? '#22c55e' : '#ef4444';
+  return `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">
+      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"></line>
+      <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="2"></path>
+      <text x="${padL}" y="${H - 8}" font-size="11" fill="var(--text2)">${points[0].label}</text>
+      <text x="${W - padR}" y="${H - 8}" text-anchor="end" font-size="11" fill="var(--text2)">${last.label}</text>
+      <text x="${padL}" y="${padT}" font-size="11" fill="var(--text2)">${maxY.toFixed(1)}u</text>
+      <text x="${padL}" y="${H - padB + 2}" font-size="11" fill="var(--text2)">${minY.toFixed(1)}u</text>
+      <text x="${W - padR}" y="${padT}" text-anchor="end" font-size="12" fill="${lineColor}" font-weight="700">${last.cumulative >= 0 ? '+' : ''}${last.cumulative.toFixed(2)}u</text>
+    </svg>`;
+}
+
+function _painelOpenProfitChart(uid, uname) {
+  document.getElementById('painelProfitChartTitle').textContent = '📈 Profit acumulado — ' + uname;
+  document.getElementById('painelProfitChartOverlay').style.display = 'flex';
+  const body = document.getElementById('painelProfitChartBody');
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  fetch('/api/painel/tips_user?uid=' + encodeURIComponent(uid))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error || !d.list) { body.innerHTML = `<div class="live-loading">${d.error || 'Erro ao buscar dicas.'}</div>`; return; }
+      const closed = d.list.filter(t => t.isEnd).slice().reverse();
+      let acc = 0;
+      const points = [];
+      closed.forEach(t => {
+        const profit = _painelTipProfit(t);
+        if (profit == null) return;
+        acc += profit;
+        points.push({ label: _painelTipDateLabel(t.time), cumulative: acc });
+      });
+      if (!points.length) { body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">sem dicas encerradas suficientes pro gráfico</div>`; return; }
+      body.innerHTML = `
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Profit acumulado em unidades (stake fixo de 1 por dica), só com as dicas já encerradas, em ordem cronológica.</div>
+        ${_painelProfitChartSvg(points)}`;
+    })
+    .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
+}
+
+function _painelCloseProfitChart() {
+  document.getElementById('painelProfitChartOverlay').style.display = 'none';
 }
 
 let _painelCurrentMatchUrl = null;
