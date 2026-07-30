@@ -10949,20 +10949,9 @@ async function _live2LoadStandingsMini(matchId, m) {
 
 function _live2GeralTabHtml(m) {
   if (!m) return '';
-  const loaded = !!_live2FsCache[m.id];
-  return `
-    <div style="padding:8px 12px">
-      <button onclick="${loaded ? `_live2ToggleStats('${m.id}', this)` : `loadLive2Flashscore('${m.id}', this)`}"
-        style="width:100%;background:none;border:1px solid #a855f766;color:#a855f7;
-               font-size:11px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer">
-        ${loaded ? '🔼 Ocultar estatísticas' : '📊 Carregar estatísticas + odds'}
-      </button>
-      <div id="live2FsWrap_${m.id}">${_live2FsCache[m.id] || ''}</div>
-    </div>`;
+  return `<div id="live2FsWrap_${m.id}" style="display:none">${_live2FsCache[m.id] || ''}</div>`;
 }
 
-// Alterna mostrar/ocultar as estatísticas já carregadas (sem refazer o fetch) —
-// antes o botão sumia pra sempre depois de carregado, sem forma de recolher de volta
 function _live2OpenStatsModal(matchId) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
   document.getElementById('live2StatsModalTitle').textContent = m ? `${m.casa} x ${m.fora}` : 'Estatísticas + Odds';
@@ -10980,14 +10969,6 @@ function _live2OpenStatsModal(matchId) {
 
 function _live2CloseStatsModal() {
   document.getElementById('live2StatsOverlay').style.display = 'none';
-}
-
-function _live2ToggleStats(matchId, btn) {
-  const wrap = document.getElementById(`live2FsWrap_${matchId}`);
-  if (!wrap) return;
-  const hidden = wrap.style.display === 'none';
-  wrap.style.display = hidden ? '' : 'none';
-  btn.textContent = hidden ? '🔼 Ocultar estatísticas' : '📊 Mostrar estatísticas + odds';
 }
 
 // Oculta só o bloco de estatísticas detalhadas (Destaques/Finalizações/Ataque/...),
@@ -11945,12 +11926,10 @@ function _live2SplitPeriods(sections) {
 }
 
 function _live2ShowPeriod(matchId, idx) {
-  const wrap = document.getElementById(`live2FsWrap_${matchId}`);
-  if (!wrap) return;
-  wrap.querySelectorAll(`[id^="live2PeriodBody_${matchId}_"]`).forEach(el => {
+  document.querySelectorAll(`[id^="live2PeriodBody_${matchId}_"]`).forEach(el => {
     el.style.display = el.id === `live2PeriodBody_${matchId}_${idx}` ? '' : 'none';
   });
-  wrap.querySelectorAll(`[id^="live2PeriodBtn_${matchId}_"]`).forEach(btn => {
+  document.querySelectorAll(`[id^="live2PeriodBtn_${matchId}_"]`).forEach(btn => {
     const active = btn.id === `live2PeriodBtn_${matchId}_${idx}`;
     btn.style.background = active ? 'var(--accent)' : 'var(--bg3)';
     btn.style.color = active ? '#fff' : 'var(--text2)';
