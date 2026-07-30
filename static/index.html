@@ -10843,6 +10843,7 @@ function renderLive2Card(m) {
             <span id="live2EscudoFora_${m.id}"></span>
           </div>
         </div>
+        <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
@@ -10852,7 +10853,6 @@ function renderLive2Card(m) {
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
-      <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn active" onclick="setLive2Tab('${m.id}','geral',this)">Geral</button>
         <button class="live-card-tab-btn" onclick="setLive2Tab('${m.id}','escalacoes',this)">Escalações</button>
