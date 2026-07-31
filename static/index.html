@@ -3599,7 +3599,7 @@ function _painelMethTabsHtml() {
 
 let _painelWatchedTipsters = new Set(); // uids (string) sendo acompanhados no Telegram
 let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado, pra mostrar na linha do ranking
-let _painelDrawdownStatCache = {}; // uid -> { ddMax, ddMin } já calculado, pra mostrar na linha do ranking
+let _painelDrawdownStatCache = {}; // uid -> { maxWinStreak, maxLossStreak } já calculado, pra mostrar na linha do ranking
 
 function _painelLoadWatchlist() {
   return fetch('/api/painel/tips_watchlist')
@@ -3702,11 +3702,11 @@ function _painelLoadMethodologiesList() {
             <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1 por dica encerrada)">
               <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:#22c55e' : 'color:#ef4444') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
             </div>
-            <div class="painel-meth-stat" id="painelMethDdMaxStat_${u.uid}" title="Maior queda (drawdown): a maior distância que o profit acumulado já caiu em relação ao topo (pico) atingido até então">
-              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.ddMax.toFixed(2) + 'u' : '--'}</span><span class="l">DD Máx</span>
+            <div class="painel-meth-stat" id="painelMethDdMaxStat_${u.uid}" title="Maior sequência de dicas ERRADAS seguidas (em ordem cronológica)">
+              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.maxLossStreak : '--'}</span><span class="l">DD Máx RED</span>
             </div>
-            <div class="painel-meth-stat" id="painelMethDdMinStat_${u.uid}" title="Ponto mais baixo: o menor valor absoluto que o profit acumulado já chegou a ter (não necessariamente vindo de um pico)">
-              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.ddMin.toFixed(2) + 'u' : '--'}</span><span class="l">DD Mín</span>
+            <div class="painel-meth-stat" id="painelMethDdMinStat_${u.uid}" title="Maior sequência de dicas CERTAS seguidas (em ordem cronológica)">
+              <span class="v" style="${cachedDD ? 'color:#22c55e' : ''}">${cachedDD ? cachedDD.maxWinStreak : '--'}</span><span class="l">DD Máx GREEN</span>
             </div>
           </div>`;
         return _painelMethItemShell(u, statsHtml);
@@ -3838,43 +3838,41 @@ function _painelProfitChartSvg(points) {
     </svg>`;
 }
 
-// Busca as dicas do tipster e monta a curva de profit acumulado + drawdown.
-// DD Máx = maior distância que o acumulado já caiu em relação ao pico atingido
-// até então (drawdown clássico); DD Mín = o valor absoluto mais baixo que o
-// acumulado já chegou a ter (pode ser antes de qualquer pico, ex: logo no
-// início). São dois números diferentes de propósito — um mede queda relativa
-// ao topo, o outro o fundo do poço histórico.
+// Busca as dicas do tipster e monta a curva de profit acumulado + maiores
+// sequências (mesmo conceito já usado no Backtest 2 — DD Máx RED/GREEN — que
+// lá é contagem de apostas seguidas, não unidades de drawdown): DD Máx GREEN =
+// maior sequência de dicas ganhas seguidas; DD Máx RED = maior sequência de
+// dicas perdidas seguidas, em ordem cronológica.
 function _painelFetchTipsterCurve(uid) {
   return fetch('/api/painel/tips_user?uid=' + encodeURIComponent(uid))
     .then(r => r.json())
     .then(d => {
       if (d.error || !d.list) return null;
       const closed = d.list.filter(t => t.isEnd).slice().reverse();
-      let acc = 0, peak = 0, ddMax = 0, ddMin = 0;
+      let acc = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
       const points = [];
       closed.forEach(t => {
         const profit = _painelTipProfit(t);
         if (profit == null) return;
         acc += profit;
-        if (acc > peak) peak = acc;
-        const dd = acc - peak;
-        if (dd < ddMax) ddMax = dd;
-        if (acc < ddMin) ddMin = acc;
+        if (t.isWin) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
+        if (curWin > maxWinStreak) maxWinStreak = curWin;
+        if (curLoss > maxLossStreak) maxLossStreak = curLoss;
         points.push({ label: _painelTipDateLabel(t.time), cumulative: acc });
       });
       if (!points.length) return null;
-      return { points, finalProfit: acc, ddMax, ddMin };
+      return { points, finalProfit: acc, maxWinStreak, maxLossStreak };
     });
 }
 
-// Atualiza cache + a linha do ranking (Profit/DD Máx/DD Mín) pra um uid — usada
-// tanto pelo carregamento automático quanto pelo clique no 📈 (que só precisa
-// então desenhar o gráfico em cima do resultado já calculado).
+// Atualiza cache + a linha do ranking (Profit/DD Máx GREEN/RED) pra um uid —
+// usada tanto pelo carregamento automático quanto pelo clique no 📈 (que só
+// precisa então desenhar o gráfico em cima do resultado já calculado).
 function _painelUpdateProfitDrawdownStat(uid) {
   return _painelFetchTipsterCurve(uid).then(curve => {
     if (!curve) return null;
     _painelProfitStatCache[uid] = curve.finalProfit;
-    _painelDrawdownStatCache[uid] = { ddMax: curve.ddMax, ddMin: curve.ddMin };
+    _painelDrawdownStatCache[uid] = { maxWinStreak: curve.maxWinStreak, maxLossStreak: curve.maxLossStreak };
     const profitEl = document.getElementById(`painelMethProfitStat_${uid}`);
     if (profitEl) {
       const v = profitEl.querySelector('.v');
@@ -3884,14 +3882,14 @@ function _painelUpdateProfitDrawdownStat(uid) {
     const ddMaxEl = document.getElementById(`painelMethDdMaxStat_${uid}`);
     if (ddMaxEl) {
       const v = ddMaxEl.querySelector('.v');
-      v.textContent = curve.ddMax.toFixed(2) + 'u';
+      v.textContent = curve.maxLossStreak;
       v.style.color = '#ef4444';
     }
     const ddMinEl = document.getElementById(`painelMethDdMinStat_${uid}`);
     if (ddMinEl) {
       const v = ddMinEl.querySelector('.v');
-      v.textContent = curve.ddMin.toFixed(2) + 'u';
-      v.style.color = '#ef4444';
+      v.textContent = curve.maxWinStreak;
+      v.style.color = '#22c55e';
     }
     return curve;
   });
@@ -3909,8 +3907,8 @@ function _painelOpenProfitChart(uid, uname) {
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Profit acumulado em unidades (stake fixo de 1 por dica), só com as dicas já encerradas, em ordem cronológica.</div>
         ${_painelProfitChartSvg(curve.points)}
         <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text2)">
-          <span>DD Máx: <b style="color:#ef4444">${curve.ddMax.toFixed(2)}u</b></span>
-          <span>DD Mín: <b style="color:#ef4444">${curve.ddMin.toFixed(2)}u</b></span>
+          <span>DD Máx (GREEN — sequência de vitórias): <b style="color:#22c55e">${curve.maxWinStreak}</b></span>
+          <span>DD Máx (RED — sequência de derrotas): <b style="color:#ef4444">${curve.maxLossStreak}</b></span>
         </div>`;
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
