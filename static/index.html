@@ -3598,7 +3598,8 @@ function _painelMethTabsHtml() {
 }
 
 let _painelWatchedTipsters = new Set(); // uids (string) sendo acompanhados no Telegram
-let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado pelo gráfico 📈, pra mostrar na linha do ranking
+let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado, pra mostrar na linha do ranking
+let _painelDrawdownStatCache = {}; // uid -> { ddMax, ddMin } já calculado, pra mostrar na linha do ranking
 
 function _painelLoadWatchlist() {
   return fetch('/api/painel/tips_watchlist')
@@ -3691,22 +3692,45 @@ function _painelLoadMethodologiesList() {
         const tips = month ? u.tips_m : u.tips;
         const avo = month ? u.avo_m : u.avo;
         const cachedProfit = _painelProfitStatCache[u.uid];
+        const cachedDD = _painelDrawdownStatCache[u.uid];
         const statsHtml = `
           <div class="painel-meth-stats">
             <div class="painel-meth-stat"><span class="v">${winrate != null ? Math.round(winrate * 100) + '%' : '--'}</span><span class="l">Taxa de Vitória</span></div>
             <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '--'}</span><span class="l">ROI</span></div>
             <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
             <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
-            <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1) — abre no 📈, aparece aqui depois de calculado uma vez">
+            <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1 por dica encerrada)">
               <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:#22c55e' : 'color:#ef4444') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
+            </div>
+            <div class="painel-meth-stat" id="painelMethDdMaxStat_${u.uid}" title="Maior queda (drawdown): a maior distância que o profit acumulado já caiu em relação ao topo (pico) atingido até então">
+              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.ddMax.toFixed(2) + 'u' : '--'}</span><span class="l">DD Máx</span>
+            </div>
+            <div class="painel-meth-stat" id="painelMethDdMinStat_${u.uid}" title="Ponto mais baixo: o menor valor absoluto que o profit acumulado já chegou a ter (não necessariamente vindo de um pico)">
+              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.ddMin.toFixed(2) + 'u' : '--'}</span><span class="l">DD Mín</span>
             </div>
           </div>`;
         return _painelMethItemShell(u, statsHtml);
       }).join('');
+      _painelEagerLoadProfitsAndDrawdowns(d.list.map(u => u.uid));
     })
     .catch(err => {
       document.getElementById('painelMethList').innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
     });
+}
+
+// Lê o profit acumulado + drawdown de TODOS os tipsters do ranking assim que a
+// lista carrega (não só quando o usuário clica no 📈) — um de cada vez (nunca em
+// paralelo, mesmo princípio usado nos outros exports em lote do app), já que cada
+// chamada de /tips_user já busca várias dezenas de artigos em paralelo no
+// backend sozinha. Pula quem já está em cache (ex: usuário já tinha aberto o
+// gráfico antes, ou trocou de Semana/Mês e voltou).
+async function _painelEagerLoadProfitsAndDrawdowns(uids) {
+  for (const uid of uids) {
+    if (_painelProfitStatCache[uid] !== undefined) continue;
+    try {
+      await _painelUpdateProfitDrawdownStat(uid);
+    } catch (e) { /* pula esse tipster, não trava o resto */ }
+  }
 }
 
 // A maioria das dicas do tips.nowgoal.net é paga — o campo de texto (title)
@@ -3814,35 +3838,80 @@ function _painelProfitChartSvg(points) {
     </svg>`;
 }
 
-function _painelOpenProfitChart(uid, uname) {
-  document.getElementById('painelProfitChartTitle').textContent = '📈 Profit acumulado — ' + uname;
-  document.getElementById('painelProfitChartOverlay').style.display = 'flex';
-  const body = document.getElementById('painelProfitChartBody');
-  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  fetch('/api/painel/tips_user?uid=' + encodeURIComponent(uid))
+// Busca as dicas do tipster e monta a curva de profit acumulado + drawdown.
+// DD Máx = maior distância que o acumulado já caiu em relação ao pico atingido
+// até então (drawdown clássico); DD Mín = o valor absoluto mais baixo que o
+// acumulado já chegou a ter (pode ser antes de qualquer pico, ex: logo no
+// início). São dois números diferentes de propósito — um mede queda relativa
+// ao topo, o outro o fundo do poço histórico.
+function _painelFetchTipsterCurve(uid) {
+  return fetch('/api/painel/tips_user?uid=' + encodeURIComponent(uid))
     .then(r => r.json())
     .then(d => {
-      if (d.error || !d.list) { body.innerHTML = `<div class="live-loading">${d.error || 'Erro ao buscar dicas.'}</div>`; return; }
+      if (d.error || !d.list) return null;
       const closed = d.list.filter(t => t.isEnd).slice().reverse();
-      let acc = 0;
+      let acc = 0, peak = 0, ddMax = 0, ddMin = 0;
       const points = [];
       closed.forEach(t => {
         const profit = _painelTipProfit(t);
         if (profit == null) return;
         acc += profit;
+        if (acc > peak) peak = acc;
+        const dd = acc - peak;
+        if (dd < ddMax) ddMax = dd;
+        if (acc < ddMin) ddMin = acc;
         points.push({ label: _painelTipDateLabel(t.time), cumulative: acc });
       });
-      if (!points.length) { body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">sem dicas encerradas suficientes pro gráfico</div>`; return; }
-      const finalProfit = points[points.length - 1].cumulative;
-      _painelProfitStatCache[uid] = finalProfit;
-      const statEl = document.getElementById(`painelMethProfitStat_${uid}`);
-      if (statEl) {
-        statEl.querySelector('.v').textContent = (finalProfit >= 0 ? '+' : '') + finalProfit.toFixed(2) + 'u';
-        statEl.querySelector('.v').style.color = finalProfit >= 0 ? '#22c55e' : '#ef4444';
-      }
+      if (!points.length) return null;
+      return { points, finalProfit: acc, ddMax, ddMin };
+    });
+}
+
+// Atualiza cache + a linha do ranking (Profit/DD Máx/DD Mín) pra um uid — usada
+// tanto pelo carregamento automático quanto pelo clique no 📈 (que só precisa
+// então desenhar o gráfico em cima do resultado já calculado).
+function _painelUpdateProfitDrawdownStat(uid) {
+  return _painelFetchTipsterCurve(uid).then(curve => {
+    if (!curve) return null;
+    _painelProfitStatCache[uid] = curve.finalProfit;
+    _painelDrawdownStatCache[uid] = { ddMax: curve.ddMax, ddMin: curve.ddMin };
+    const profitEl = document.getElementById(`painelMethProfitStat_${uid}`);
+    if (profitEl) {
+      const v = profitEl.querySelector('.v');
+      v.textContent = (curve.finalProfit >= 0 ? '+' : '') + curve.finalProfit.toFixed(2) + 'u';
+      v.style.color = curve.finalProfit >= 0 ? '#22c55e' : '#ef4444';
+    }
+    const ddMaxEl = document.getElementById(`painelMethDdMaxStat_${uid}`);
+    if (ddMaxEl) {
+      const v = ddMaxEl.querySelector('.v');
+      v.textContent = curve.ddMax.toFixed(2) + 'u';
+      v.style.color = '#ef4444';
+    }
+    const ddMinEl = document.getElementById(`painelMethDdMinStat_${uid}`);
+    if (ddMinEl) {
+      const v = ddMinEl.querySelector('.v');
+      v.textContent = curve.ddMin.toFixed(2) + 'u';
+      v.style.color = '#ef4444';
+    }
+    return curve;
+  });
+}
+
+function _painelOpenProfitChart(uid, uname) {
+  document.getElementById('painelProfitChartTitle').textContent = '📈 Profit acumulado — ' + uname;
+  document.getElementById('painelProfitChartOverlay').style.display = 'flex';
+  const body = document.getElementById('painelProfitChartBody');
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  _painelUpdateProfitDrawdownStat(uid)
+    .then(curve => {
+      if (!curve) { body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">sem dicas encerradas suficientes pro gráfico</div>`; return; }
       body.innerHTML = `
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Profit acumulado em unidades (stake fixo de 1 por dica), só com as dicas já encerradas, em ordem cronológica.</div>
-        ${_painelProfitChartSvg(points)}`;
+        ${_painelProfitChartSvg(curve.points)}
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text2)">
+          <span>DD Máx: <b style="color:#ef4444">${curve.ddMax.toFixed(2)}u</b></span>
+          <span>DD Mín: <b style="color:#ef4444">${curve.ddMin.toFixed(2)}u</b></span>
+        </div>`;
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
 }
