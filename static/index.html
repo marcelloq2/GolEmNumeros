@@ -1803,6 +1803,7 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_leitura" onclick="_painelForcaSetView('leitura', this)">📝 Leitura</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -4255,6 +4256,7 @@ const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
+  leitura: 'painelForcaViewLeitura',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -4488,11 +4490,13 @@ function _painelForcaRender() {
     <div id="painelForcaViewSameOdds" style="display:none"></div>
     <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>
+    <div id="painelForcaViewLeitura" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
   _painelForcaCenariosRender();
+  _painelForcaLeituraRender();
 }
 
 // ── Estatísticas de Confronto Direto / Pontuações Anteriores (table_v1/v2/v3
@@ -5103,6 +5107,57 @@ function _painelForcaLastRender() {
       <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
     </div>
     ${_painelForcaBuildTableBlock(tbl, side)}`;
+}
+
+// ── 📝 Leitura — cards descritivos em texto corrido, cruzando o que as outras
+// abas já calculam. Primeiro card: mediana de gols marcados/sofridos do
+// mandante jogando em casa, na mesma liga, nos últimos 4 jogos (mesmo recorte
+// "Casa + Mesma liga + Últimos 4" já usado em Estatísticas de Pontuações
+// Anteriores) — mediana em vez de média, pra não deixar um jogo fora da curva
+// (ex: um 5-0) distorcer a leitura como a média faria.
+function _painelForcaMedian(arr) {
+  if (!arr.length) return null;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function _painelForcaLeituraRender() {
+  const el = document.getElementById('painelForcaViewLeitura');
+  if (!el) return;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+
+  const cards = [];
+  const homeTbl = _painelForcaData.last_results_home;
+  if (homeTbl && homeTbl.rows && homeTbl.rows.length) {
+    const filtered = homeTbl.rows.filter(m => m.home === _painelForcaHome
+      && (!_painelForcaLeague || (m.league || '').trim().toLowerCase() === _painelForcaLeague.trim().toLowerCase()));
+    const last4 = filtered.slice(0, 4);
+    const golsMarcados = [], golsSofridos = [];
+    last4.forEach(m => {
+      const parts = (m.score_ft || '').split('-').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        golsMarcados.push(parts[0]); golsSofridos.push(parts[1]);
+      }
+    });
+    if (golsMarcados.length) {
+      const medMarc = _painelForcaMedian(golsMarcados);
+      const medSofr = _painelForcaMedian(golsSofridos);
+      cards.push(`
+        <div class="cenario-block">
+          <div class="cenario-icon">📊</div>
+          <div class="cenario-content">
+            <div class="cenario-label">Estatísticas de Pontuações Anteriores — ${_painelForcaHome} (Casa, mesma liga, últimos ${golsMarcados.length} jogo${golsMarcados.length > 1 ? 's' : ''})</div>
+            <div style="margin-top:6px;font-size:13px;color:var(--text)">Mediana de gols marcados: <b style="color:var(--green)">${medMarc}</b> &nbsp;·&nbsp; Mediana de gols sofridos: <b style="color:var(--red)">${medSofr}</b></div>
+          </div>
+        </div>`);
+    }
+  }
+
+  el.innerHTML = header + (cards.length
+    ? cards.join('')
+    : '<div class="live-loading">Amostra insuficiente pra essa análise ainda (menos de 1 jogo de casa na mesma liga).</div>');
 }
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
