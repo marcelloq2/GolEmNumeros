@@ -11116,23 +11116,28 @@ function renderLive2Card(m) {
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
       </div>
       <div class="live-card-body">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div class="live-card-team" style="flex:1;justify-content:flex-start">
-            <span id="live2EscudoCasa_${m.id}"></span>
-            <span class="tname">${m.casa}</span>
-            <span id="live2PosCasa_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start">
+            <div class="live-card-team" style="justify-content:flex-start">
+              <span id="live2EscudoCasa_${m.id}"></span>
+              <span class="tname">${m.casa}</span>
+              <span id="live2PosCasa_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
+            </div>
+            <div id="live2FormWrapCasa_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.casa || ''}</div>
           </div>
           <div style="text-align:center;flex-shrink:0;padding:0 10px">
             <div id="live2Score_${m.id}" style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
             <div id="live2HT_${m.id}" style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
           </div>
-          <div class="live-card-team" style="flex:1;justify-content:flex-end;text-align:right">
-            <span id="live2PosFora_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
-            <span class="tname">${m.fora}</span>
-            <span id="live2EscudoFora_${m.id}"></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end">
+            <div class="live-card-team" style="justify-content:flex-end;text-align:right">
+              <span id="live2PosFora_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700"></span>
+              <span class="tname">${m.fora}</span>
+              <span id="live2EscudoFora_${m.id}"></span>
+            </div>
+            <div id="live2FormWrapFora_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.fora || ''}</div>
           </div>
         </div>
-        <div id="live2FormWrap_${m.id}">${_live2FsFormCache[m.id] || ''}</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
@@ -12060,20 +12065,19 @@ async function _live2AutoLoadForms(matches) {
       const h2hData = await r.json();
       const tabs = h2hData.tabs || [];
       const tab0 = tabs[0];
-      let html = '';
+      let casaHtml = '', foraHtml = '';
       if (tab0) {
         const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
         const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
         const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
-        html = _live2FormRowHtml(homeRows) ? `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 6px">
-            <div style="display:flex;gap:3px">${_live2FormRowHtml(homeRows)}</div>
-            <div style="display:flex;gap:3px">${_live2FormRowHtml(awayRows)}</div>
-          </div>` : '';
+        casaHtml = _live2FormRowHtml(homeRows);
+        foraHtml = _live2FormRowHtml(awayRows);
       }
-      _live2FsFormCache[m.id] = html;
-      const wrap = document.getElementById(`live2FormWrap_${m.id}`);
-      if (wrap) wrap.innerHTML = html;
+      _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
+      const wrapCasa = document.getElementById(`live2FormWrapCasa_${m.id}`);
+      if (wrapCasa) wrapCasa.innerHTML = casaHtml;
+      const wrapFora = document.getElementById(`live2FormWrapFora_${m.id}`);
+      if (wrapFora) wrapFora.innerHTML = foraHtml;
     } catch (e) { /* pula essa partida, não trava o resto */ }
   }
 }
@@ -12088,7 +12092,8 @@ async function loadLive2Flashscore(matchId, btn, targetWrap) {
   btn.textContent = '⏳ Buscando...';
   wrap.innerHTML = '';
 
-  const formWrap = document.getElementById(`live2FormWrap_${matchId}`);
+  const formWrapCasa = document.getElementById(`live2FormWrapCasa_${matchId}`);
+  const formWrapFora = document.getElementById(`live2FormWrapFora_${matchId}`);
 
   try {
     const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
@@ -12113,18 +12118,18 @@ async function loadLive2Flashscore(matchId, btn, targetWrap) {
     // Badges de forma recente (V/E/D) — reaproveita a mesma seleção de seções
     // (sections[0]=casa, sections[1]=fora, ignorando "confront...") já usada em
     // _profitTeamRowsFromSection, mas aqui só precisamos do campo `result` pronto.
-    if (formWrap) {
+    if (formWrapCasa || formWrapFora) {
       const tabs = h2hData.tabs || [];
       const tab0 = tabs[0];
       if (tab0) {
         const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
         const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
         const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
-        formWrap.innerHTML = _live2FormRowHtml(homeRows) ? `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 6px">
-            <div style="display:flex;gap:3px">${_live2FormRowHtml(homeRows)}</div>
-            <div style="display:flex;gap:3px">${_live2FormRowHtml(awayRows)}</div>
-          </div>` : '';
+        const casaHtml = _live2FormRowHtml(homeRows);
+        const foraHtml = _live2FormRowHtml(awayRows);
+        if (formWrapCasa) formWrapCasa.innerHTML = casaHtml;
+        if (formWrapFora) formWrapFora.innerHTML = foraHtml;
+        _live2FsFormCache[matchId] = { casa: casaHtml, fora: foraHtml };
       }
     }
 
@@ -12182,7 +12187,6 @@ async function loadLive2Flashscore(matchId, btn, targetWrap) {
     const finalHtml = xgRowsHtml + oddsHtml + statsDetailHtml;
     wrap.innerHTML = finalHtml;
     _live2FsCache[matchId] = finalHtml;
-    _live2FsFormCache[matchId] = formWrap ? formWrap.innerHTML : '';
     // Mantém o botão visível (em vez de escondê-lo) pra dar a opção de ocultar de
     // novo depois de expandido, sem precisar buscar tudo outra vez
     btn.disabled = false;
