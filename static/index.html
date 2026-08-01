@@ -1797,12 +1797,12 @@
       </div>
       <div class="painel-modal-tabs">
         <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_hoje_h2h" onclick="_painelOpenForcaHojeTab('h2h')"
-          title="H2H desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">H2H (Hoje)</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_standings" onclick="_painelOpenForcaHojeTab('standings')"
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações (Hoje)</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
+          title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking (Hoje)</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab('jogo')"
           title="Abre Jogo/Odds/H2H/Classificações/Leitura da Partida desse mesmo jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Jogo/Odds/H2H (Hoje)</button>
       </div>
@@ -4256,7 +4256,7 @@ let _painelForcaView = 'main';
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
-  hoje_h2h: 'painelForcaViewHojeH2H', hoje_standings: 'painelForcaViewHojeStandings', hoje_jogo: 'painelForcaViewHojeJogo',
+  hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower', hoje_jogo: 'painelForcaViewHojeJogo',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -4321,8 +4321,8 @@ function _painelFindToday2MatchByNames(home, away) {
 // render já usadas na Hoje (_today2RefreshDetailHeader/_renderToday2Content),
 // só que apontando pra um container próprio em vez do today2DetailBody.
 const _PAINEL_HOJE_TAB_INFO = {
-  h2h:       { btnId: 'painelForcaViewTab_hoje_h2h',       view: 'hoje_h2h',       containerId: 'painelForcaViewHojeH2H' },
   standings: { btnId: 'painelForcaViewTab_hoje_standings', view: 'hoje_standings', containerId: 'painelForcaViewHojeStandings' },
+  power:     { btnId: 'painelForcaViewTab_hoje_power',     view: 'hoje_power',     containerId: 'painelForcaViewHojePower' },
   jogo:      { btnId: 'painelForcaViewTab_hoje',           view: 'hoje_jogo',      containerId: 'painelForcaViewHojeJogo' },
 };
 
@@ -4490,8 +4490,8 @@ function _painelForcaRender() {
     <div id="painelForcaViewLast" style="display:none"></div>
     <div id="painelForcaViewSameOdds" style="display:none"></div>
     <div id="painelForcaViewCenarios" style="display:none"></div>
-    <div id="painelForcaViewHojeH2H" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
+    <div id="painelForcaViewHojePower" style="display:none"></div>
     <div id="painelForcaViewHojeJogo" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
@@ -6779,6 +6779,13 @@ async function _renderToday2Content(matchId, targetId) {
       const d = await r.json();
       cache._standingsRows = d.rows || [];
       cache.standings = _buildToday2StandingsHtml(d, matchId);
+    } else if (tab === 'power') {
+      const r = await fetch(`/api/flashscore/standings?${params}`);
+      const d = await r.json();
+      cache._standingsRows = d.rows || [];
+      cache.power = !d.found ? '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>'
+        : !(d.rows || []).length ? '<div style="color:var(--text2)">sem classificação disponível pra essa liga</div>'
+        : _today2PowerRankingHtml(d.rows);
     }
     // Só aplica se o usuário ainda estiver nessa mesma aba (evita sobrescrever se ele já trocou)
     if (_today2Tab[matchId] === tab) {
@@ -10246,16 +10253,11 @@ function _buildToday2StandingsHtml(d, matchId) {
   if (!d.found) return '<div style="color:var(--text2)">jogo não encontrado na base de dados</div>';
   const rows = d.rows || [];
   if (!rows.length) return '<div style="color:var(--text2)">sem classificação disponível pra essa liga</div>';
-  const view = _today2StandingsView[matchId] || 'tabela';
-  const btn = (v, lbl) => `<button onclick="_setToday2StandingsView('${matchId}','${v}')" style="font-size:14px;font-weight:600;padding:5px 12px;border-radius:6px;
-    border:1px solid ${view===v?'var(--accent)':'var(--border)'};background:${view===v?'var(--accent)':'var(--bg2)'};color:${view===v?'#fff':'var(--text2)'};cursor:pointer">${lbl}</button>`;
+  // O toggle "Tabela / Power Ranking" saiu daqui — Power Ranking agora é sua
+  // própria aba separada (⚡ Power Ranking (Hoje), na Análise da partida).
   return `
     ${_today2MustWinNote(rows)}
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      ${btn('tabela', 'Tabela')}
-      ${btn('power', '⚡ Power Ranking')}
-    </div>
-    ${view === 'power' ? _today2PowerRankingHtml(rows) : _today2StandingsTableHtml(rows)}`;
+    ${_today2StandingsTableHtml(rows)}`;
 }
 
 // ── 🧠 LEITURA DA PARTIDA — aba de insights (Hoje 2) ────────────────────────
