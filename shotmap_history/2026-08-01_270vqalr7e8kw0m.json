@@ -1,0 +1,234 @@
+{
+  "event_id": "270vqalr7e8kw0m",
+  "date": "2026-08-01",
+  "casa": "Cajamarca",
+  "fora": "Sport Huancayo",
+  "liga": "Ligue 1",
+  "score": {
+    "home": 0,
+    "away": 2
+  },
+  "total_shots": 20,
+  "shotmap": [
+    {
+      "id": "2950712623",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S. Enciso Ávila",
+      "x": 30.5,
+      "y": 22.7
+    },
+    {
+      "id": "2950712209",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Arrasco",
+      "x": 11.9,
+      "y": 29.1
+    },
+    {
+      "id": "2950711027",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "S.Pineau",
+      "x": 12.5,
+      "y": 46.3
+    },
+    {
+      "id": "2950709027",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Arrasco",
+      "x": 36.8,
+      "y": 34
+    },
+    {
+      "id": "2950708077",
+      "minute": 85,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "H.Plazas",
+      "x": 7.7,
+      "y": 58.4
+    },
+    {
+      "id": "2950704183",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Palacios",
+      "x": 14.3,
+      "y": 90.3
+    },
+    {
+      "id": "2950694367",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "H.Plazas",
+      "x": 7,
+      "y": 51.5
+    },
+    {
+      "id": "2950695643",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Labrador",
+      "x": 7.3,
+      "y": 48.8
+    },
+    {
+      "id": "2950690009",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Sanguinetti",
+      "x": 30.9,
+      "y": 50.5
+    },
+    {
+      "id": "2950688407",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "S. Enciso Ávila",
+      "x": 30.6,
+      "y": 28.9
+    },
+    {
+      "id": "2950686415",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Palacios",
+      "x": 21,
+      "y": 55.1
+    },
+    {
+      "id": "2950675033",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Huaccha",
+      "x": 10.8,
+      "y": 52.6
+    },
+    {
+      "id": "2950669347",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "C.Gómez",
+      "x": 23.2,
+      "y": 61.8
+    },
+    {
+      "id": "2950664313",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lujan",
+      "x": 4.5,
+      "y": 35.6
+    },
+    {
+      "id": "2950664141",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Lujan",
+      "x": 7.9,
+      "y": 59.3
+    },
+    {
+      "id": "2950660965",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Huaccha",
+      "x": 8.7,
+      "y": 51
+    },
+    {
+      "id": "2950660747",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Huaccha",
+      "x": 11.6,
+      "y": 52.2
+    },
+    {
+      "id": "2950659423",
+      "minute": 10,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Carabaño",
+      "x": 24.2,
+      "y": 33.2
+    },
+    {
+      "id": "2950657073",
+      "minute": 3,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Lujan",
+      "x": 12.8,
+      "y": 37.6
+    },
+    {
+      "id": "2950657061",
+      "minute": 3,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sanguinetti",
+      "x": 13.8,
+      "y": 53.3
+    }
+  ]
+}
