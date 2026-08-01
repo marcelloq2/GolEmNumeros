@@ -1514,8 +1514,7 @@
     <span><div class="status-dot"></div>Carregando...</span>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
-    <button class="nav-tab active" id="navTabToday2" onclick="switchView('today2', this)">✏️ Hoje</button>
+    <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
@@ -2148,10 +2147,10 @@
       <div style="padding:12px;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:8px">
-            <button onclick="switchView('today2', document.getElementById('navTabToday2'))" title="Voltar pra Hoje"
+            <button onclick="switchView('painel', document.getElementById('navTabPainel'))" title="Voltar pro Painel Principal"
               style="background:transparent;border:1px solid var(--border);border-radius:6px;
                      color:var(--text2);font-size:12px;font-weight:700;padding:3px 8px;cursor:pointer;
-                     white-space:nowrap;flex-shrink:0">← Hoje</button>
+                     white-space:nowrap;flex-shrink:0">← Painel Principal</button>
             <span style="font-size:12px;font-weight:700;color:var(--text2)">🚫 Lay Placar</span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
@@ -18881,16 +18880,20 @@ function gerarBlocoHistorico(m) {
 // ── (ABA HISTÓRICO REMOVIDA) ──────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Garante estado inicial correto (aba Hoje 2 visível — a aba Hoje original foi
-  // removida da navegação, mas continua carregando em segundo plano porque o
-  // Hoje 2 depende de allMatches/btPatterns pros score badges e Leitura da Partida)
+  // Garante estado inicial correto (Painel Principal como aba padrão — a Hoje
+  // saiu da navegação, mas seus dados (today2MatchesCache) continuam
+  // carregando em segundo plano porque o Painel Principal depende deles pros
+  // botões importados (Lay Placar/Guia/Escanear/Exportar) e pra aba "Jogo/
+  // Odds/H2H (Hoje)" da Análise da partida; allMatches/btPatterns também
+  // continuam sendo buscados porque a Leitura da Partida (Hoje) depende deles)
   document.getElementById('todayWrapper').style.display = 'none';
   document.getElementById('favsPanel').classList.remove('active');
   updateFavCount();
   loadMatches();
   loadPatterns();
-  switchView('today2', document.getElementById('navTabToday2'));
+  switchView('painel', document.getElementById('navTabPainel'));
   _today2StartBackgroundRefresh();
+  loadToday2Matches();
 });
 </script>
 <style>.hidden { display: none !important; }</style>
