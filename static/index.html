@@ -1586,7 +1586,7 @@
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
         <button class="live-refresh-btn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' (dados da Hoje) procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
-        <button class="live-refresh-btn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
+        <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
         <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar dados da aba Hoje">↻</button>
       </div>
     </div>
@@ -9756,6 +9756,7 @@ async function _hojeJogoExportarTxt() {
 
   const hoje = today2MatchesCache.filter(m => m.status === '3');
   if (!hoje.length) { alert('Nenhum jogo encerrado hoje ainda pra exportar.'); return; }
+  if (hoje.length > 150 && !confirm(`Isso vai processar ${hoje.length} jogos encerrados, um de cada vez (pra não sobrecarregar o site pros outros usuários) — pode demorar vários minutos. Continuar?`)) return;
 
   const btn = document.getElementById('hojeJogoExportBtn');
   const btnHtmlOriginal = btn ? btn.innerHTML : null;
