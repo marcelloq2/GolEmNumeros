@@ -4316,8 +4316,15 @@ async function _painelOpenForcaHojeTab(tab) {
       alert(`Não achei "${_painelForcaHome} x ${_painelForcaAway}" na base da Hoje (Flashscore) — pode ser que esse jogo só esteja disponível na fonte do Painel Principal (NowGoal).`);
       return;
     }
+    // Ao contrário do selectToday2Match (usado na Hoje), aqui não mostra a
+    // barra de abas Jogo/Odds/H2H/Classificações — cada botão da Análise da
+    // partida já é o "seletor", então só renderiza a única informação pedida.
+    _today2SelectedId = m.id;
     _today2Tab[m.id] = tab;
-    selectToday2Match(m.id, null);
+    document.getElementById('today2DetailOverlay').style.display = 'flex';
+    _today2RefreshDetailHeader(m.id);
+    document.getElementById('today2DetailTabs').innerHTML = '';
+    _renderToday2Content(m.id);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
   }
