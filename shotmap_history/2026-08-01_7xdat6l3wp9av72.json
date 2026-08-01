@@ -1,0 +1,311 @@
+{
+  "event_id": "7xdat6l3wp9av72",
+  "date": "2026-08-01",
+  "casa": "Everton CD",
+  "fora": "Colo Colo",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 4
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2950742769",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Méndez",
+      "x": 16.8,
+      "y": 41.5
+    },
+    {
+      "id": "2950741585",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Ramos",
+      "x": 31.2,
+      "y": 21.3
+    },
+    {
+      "id": "2950738997",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Palacios",
+      "x": 12.5,
+      "y": 45.2
+    },
+    {
+      "id": "2950737229",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Rojas",
+      "x": 6.6,
+      "y": 68.2
+    },
+    {
+      "id": "2950734743",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Alfaro",
+      "x": 14.1,
+      "y": 50.3
+    },
+    {
+      "id": "2950731547",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Romero",
+      "x": 9.9,
+      "y": 66
+    },
+    {
+      "id": "2950731113",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "n.montiel",
+      "x": 2.9,
+      "y": 64.2
+    },
+    {
+      "id": "2950730227",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Romero",
+      "x": 12,
+      "y": 33
+    },
+    {
+      "id": "2950728077",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Alfaro",
+      "x": 13.5,
+      "y": 56
+    },
+    {
+      "id": "2950727255",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L.Hernández",
+      "x": 6,
+      "y": 40.9
+    },
+    {
+      "id": "2950711353",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Medina",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2950709821",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Berríos",
+      "x": 7.3,
+      "y": 53.8
+    },
+    {
+      "id": "2950709363",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "V.Fernández",
+      "x": 6.9,
+      "y": 70
+    },
+    {
+      "id": "2950707835",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Madrid",
+      "x": 15,
+      "y": 36.4
+    },
+    {
+      "id": "2950706383",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Soto",
+      "x": 26.6,
+      "y": 56.9
+    },
+    {
+      "id": "2950705543",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Medina",
+      "x": 12.1,
+      "y": 43.7
+    },
+    {
+      "id": "2950706101",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Oyarzun",
+      "x": 7.1,
+      "y": 53.3
+    },
+    {
+      "id": "2950705027",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Medina",
+      "x": 20.5,
+      "y": 41.6
+    },
+    {
+      "id": "2950701075",
+      "minute": 32,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Romero",
+      "x": 8,
+      "y": 36
+    },
+    {
+      "id": "2950698467",
+      "minute": 27,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Hernández",
+      "x": 23.3,
+      "y": 62.1
+    },
+    {
+      "id": "2950697139",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Medina",
+      "x": 10.1,
+      "y": 39.1
+    },
+    {
+      "id": "2950694357",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Oyarzun",
+      "x": 7.2,
+      "y": 42.4
+    },
+    {
+      "id": "2950693755",
+      "minute": 16,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Hernández",
+      "x": 22.6,
+      "y": 34.7
+    },
+    {
+      "id": "2950694203",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Magallanes",
+      "x": 3,
+      "y": 45.9
+    },
+    {
+      "id": "2950693171",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "n.montiel",
+      "x": 7.7,
+      "y": 51.7
+    },
+    {
+      "id": "2950687601",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Alfaro",
+      "x": 7.1,
+      "y": 18.9
+    },
+    {
+      "id": "2950686537",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "n.montiel",
+      "x": 11.9,
+      "y": 62.4
+    }
+  ]
+}
