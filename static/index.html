@@ -1780,9 +1780,13 @@
       </div>
       <div class="painel-modal-tabs">
         <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_hoje_h2h" onclick="_painelOpenForcaHojeTab('h2h')"
+          title="H2H desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">H2H (Hoje)</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab()"
+        <button class="painel-modal-tab" id="painelForcaViewTab_hoje_standings" onclick="_painelOpenForcaHojeTab('standings')"
+          title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações (Hoje)</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab('jogo')"
           title="Abre Jogo/Odds/H2H/Classificações/Leitura da Partida desse mesmo jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Jogo/Odds/H2H (Hoje)</button>
       </div>
       <div id="painelForcaBody">
@@ -4298,8 +4302,11 @@ function _painelFindToday2MatchByNames(home, away) {
 // quebrar as duas versões toda vez que uma mudasse), simplesmente abre o MESMO
 // modal de detalhe já usado pela Hoje (today2DetailOverlay, com Jogo/Odds/H2H/
 // Classificações/Leitura da Partida), empilhado por cima da Análise da partida.
-async function _painelOpenForcaHojeTab() {
-  const btn = document.getElementById('painelForcaViewTab_hoje');
+const _PAINEL_HOJE_TAB_BTN_ID = { jogo: 'painelForcaViewTab_hoje', h2h: 'painelForcaViewTab_hoje_h2h', standings: 'painelForcaViewTab_hoje_standings' };
+
+async function _painelOpenForcaHojeTab(tab) {
+  tab = tab || 'jogo';
+  const btn = document.getElementById(_PAINEL_HOJE_TAB_BTN_ID[tab] || 'painelForcaViewTab_hoje');
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Procurando...'; }
   try {
@@ -4309,6 +4316,7 @@ async function _painelOpenForcaHojeTab() {
       alert(`Não achei "${_painelForcaHome} x ${_painelForcaAway}" na base da Hoje (Flashscore) — pode ser que esse jogo só esteja disponível na fonte do Painel Principal (NowGoal).`);
       return;
     }
+    _today2Tab[m.id] = tab;
     selectToday2Match(m.id, null);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
