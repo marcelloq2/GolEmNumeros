@@ -6138,8 +6138,7 @@ function selectToday2Match(id, rowEl) {
     <button class="live-card-tab-btn ${(_today2Tab[id]||'jogo')==='jogo'?'active':''}" onclick="setToday2Tab('${id}','jogo',this)">Jogo</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='odds'?'active':''}" onclick="setToday2Tab('${id}','odds',this)">Odds</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='h2h'?'active':''}" onclick="setToday2Tab('${id}','h2h',this)">H2H</button>
-    <button class="live-card-tab-btn ${_today2Tab[id]==='standings'?'active':''}" onclick="setToday2Tab('${id}','standings',this)">Classificações</button>
-    <button class="live-card-tab-btn ${_today2Tab[id]==='insights'?'active':''}" onclick="setToday2Tab('${id}','insights',this)">🧠 Leitura da Partida</button>`;
+    <button class="live-card-tab-btn ${_today2Tab[id]==='standings'?'active':''}" onclick="setToday2Tab('${id}','standings',this)">Classificações</button>`;
 
   _renderToday2Content(id);
 }
@@ -11101,9 +11100,6 @@ function renderLive2Card(m) {
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
           title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
-        <span onclick="event.stopPropagation();_live2OpenStatsModal('${m.id}')"
-          title="Abrir estatísticas + odds em widget"
-          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:13px;opacity:.75">↗️</span>
       </div>
       <div class="live-card-body">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
