@@ -1786,6 +1786,8 @@
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_sameodds" onclick="_painelForcaSetView('sameodds', this)">Mesmas Probabilidades</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_cenarios" onclick="_painelForcaSetView('cenarios', this)">Cenários de Jogo</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab()"
+          title="Abre Jogo/Odds/H2H/Classificações/Leitura da Partida desse mesmo jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Jogo/Odds/H2H (Hoje)</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -4292,6 +4294,44 @@ function _painelOpenForca(eventId, home, away, league) {
 
 function _painelCloseForca() {
   document.getElementById('painelForcaOverlay').style.display = 'none';
+}
+
+// Acha o mesmo confronto na base da Hoje (Flashscore) por nome aproximado —
+// o Painel Principal usa nomes do NowGoal, que quase nunca batem 100% com os
+// do Flashscore (mesma técnica de "prefixo em comum" já usada em
+// _today2FindStatAreaMatch/_live2SideScore). Pode não achar (cobertura de
+// jogos diferente entre as duas fontes), nesse caso avisa e não quebra nada.
+function _painelFindToday2MatchByNames(home, away) {
+  const h = _normLive2(home), a = _normLive2(away);
+  let best = null, bestScore = 0;
+  for (const m of today2MatchesCache) {
+    const sh = _live2SideScore(_normLive2(m.home), h);
+    const sa = _live2SideScore(_normLive2(m.away), a);
+    if (sh > 0 && sa > 0 && (sh + sa) > bestScore) { bestScore = sh + sa; best = m; }
+  }
+  return bestScore >= 4 ? best : null;
+}
+
+// Botão "Jogo/Odds/H2H (Hoje)" da Análise da partida (Painel Principal) — em
+// vez de duplicar a renderização das abas da Hoje aqui dentro (o que arriscaria
+// quebrar as duas versões toda vez que uma mudasse), simplesmente abre o MESMO
+// modal de detalhe já usado pela Hoje (today2DetailOverlay, com Jogo/Odds/H2H/
+// Classificações/Leitura da Partida), empilhado por cima da Análise da partida.
+async function _painelOpenForcaHojeTab() {
+  const btn = document.getElementById('painelForcaViewTab_hoje');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Procurando...'; }
+  try {
+    if (!today2MatchesCache.length) await loadToday2Matches();
+    const m = _painelFindToday2MatchByNames(_painelForcaHome, _painelForcaAway);
+    if (!m) {
+      alert(`Não achei "${_painelForcaHome} x ${_painelForcaAway}" na base da Hoje (Flashscore) — pode ser que esse jogo só esteja disponível na fonte do Painel Principal (NowGoal).`);
+      return;
+    }
+    selectToday2Match(m.id, null);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
 }
 
 const PAINEL_FORCA_TABS = [
