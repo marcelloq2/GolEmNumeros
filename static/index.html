@@ -4497,6 +4497,22 @@ function _painelForcaRender() {
   _painelForcaSameOddsRender();
   _painelForcaCenariosRender();
   _painelForcaLeituraRender();
+
+  // O innerHTML acima recria os containers do zero, sempre com "Comparação de
+  // força" visível por padrão — se o usuário já tinha clicado noutra aba
+  // ENQUANTO os dados (NowGoal) ainda estavam carregando, aquele clique virava
+  // só o botão "ativo" (os containers nem existiam ainda), e esse rebuild
+  // silenciosamente voltava a mostrar a força de novo, mesmo com o botão
+  // errado marcado como ativo. Reaplica a aba que estava selecionada.
+  if (_painelForcaView && _painelForcaView !== 'main') {
+    _painelForcaSetView(_painelForcaView);
+    const hojeEntry = Object.entries(_PAINEL_HOJE_TAB_INFO).find(([, info]) => info.view === _painelForcaView);
+    if (hojeEntry) {
+      const [tabKey, info] = hojeEntry;
+      const container = document.getElementById(info.containerId);
+      if (container && !container.dataset.loadedFor) _painelOpenForcaHojeTab(tabKey);
+    }
+  }
 }
 
 // ── Estatísticas de Confronto Direto / Pontuações Anteriores (table_v1/v2/v3
