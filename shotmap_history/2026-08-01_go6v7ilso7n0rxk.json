@@ -1,0 +1,322 @@
+{
+  "event_id": "go6v7ilso7n0rxk",
+  "date": "2026-08-01",
+  "casa": "Gimnasia Mendoza",
+  "fora": "CA Unión",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 0
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2950729813",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Cuello",
+      "x": 14.6,
+      "y": 67.9
+    },
+    {
+      "id": "2950723013",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "I.Charparin",
+      "x": 13.8,
+      "y": 65.1
+    },
+    {
+      "id": "2950718871",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Tarragona",
+      "x": 11.8,
+      "y": 41.6
+    },
+    {
+      "id": "2950718691",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Palacios",
+      "x": 20.2,
+      "y": 35.1
+    },
+    {
+      "id": "2950716941",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Cingolani",
+      "x": 22.2,
+      "y": 25.8
+    },
+    {
+      "id": "2950713857",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Tarragona",
+      "x": 32.1,
+      "y": 65
+    },
+    {
+      "id": "2950711885",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "M.Recalde",
+      "x": 25.4,
+      "y": 25.2
+    },
+    {
+      "id": "2950706005",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Tarragona",
+      "x": 13.8,
+      "y": 55.1
+    },
+    {
+      "id": "2950704747",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Módica",
+      "x": 9.9,
+      "y": 66.6
+    },
+    {
+      "id": "2950702403",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "Mosqueira",
+      "x": 15.2,
+      "y": 41.5
+    },
+    {
+      "id": "2950702367",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "post_right",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Malcorra",
+      "x": 23.6,
+      "y": 72.9
+    },
+    {
+      "id": "2950693137",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Módica",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2950690155",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "F.Lencioni",
+      "x": 13.4,
+      "y": 48.3
+    },
+    {
+      "id": "2950690135",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "F.Lencioni",
+      "x": 10.7,
+      "y": 43.8
+    },
+    {
+      "id": "2950686147",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Aguirre",
+      "x": 15.6,
+      "y": 62.9
+    },
+    {
+      "id": "2950686027",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Tarragona",
+      "x": 17.8,
+      "y": 34.2
+    },
+    {
+      "id": "2950685363",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Rodríguez",
+      "x": 11.3,
+      "y": 39.6
+    },
+    {
+      "id": "2950684597",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L.Carrera",
+      "x": 9.9,
+      "y": 49.3
+    },
+    {
+      "id": "2950682751",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "L.Carrera",
+      "x": 8.9,
+      "y": 59.1
+    },
+    {
+      "id": "2950681103",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "F.Lencioni",
+      "x": 18.4,
+      "y": 55
+    },
+    {
+      "id": "2950680451",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Módica",
+      "x": 8.1,
+      "y": 45.3
+    },
+    {
+      "id": "2950680257",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Fernández",
+      "x": 12.9,
+      "y": 66.3
+    },
+    {
+      "id": "2950678807",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Malcorra",
+      "x": 9.4,
+      "y": 38.5
+    },
+    {
+      "id": "2950677645",
+      "minute": 22,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "M.Aguirre",
+      "x": 18.8,
+      "y": 44.4
+    },
+    {
+      "id": "2950676875",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "F.Lencioni",
+      "x": 25.3,
+      "y": 44.7
+    },
+    {
+      "id": "2950675875",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "L.Ayala",
+      "x": 17.4,
+      "y": 32.1
+    },
+    {
+      "id": "2950669207",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Aguirre",
+      "x": 8.1,
+      "y": 47.8
+    },
+    {
+      "id": "2950667165",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "S.Rodríguez",
+      "x": 18,
+      "y": 50.8
+    }
+  ]
+}
