@@ -10990,7 +10990,6 @@ function toggleLive2Pin(id) {
       _loadLive2Shotmap(sorted);
       _loadLive2Lineups(sorted);
       _loadLive2Standings(sorted);
-      _loadLive2GoalEvents(sorted);
       _loadLive2Escudos(sorted);
     }
   }
@@ -11055,7 +11054,6 @@ async function loadLive2Matches() {
       _loadLive2Momentum(matches);
       _loadLive2Lineups(matches);
       _loadLive2Standings(matches);
-      _loadLive2GoalEvents(matches);
       _loadLive2Escudos(matches);
       _live2AutoLoadForms(matches);
     }
@@ -11144,7 +11142,6 @@ function renderLive2Card(m) {
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
-        <div id="live2GoalEventsBox_${m.id}" style="display:flex;gap:8px;font-size:10px;margin-top:4px">${_live2GoalEventsCache[m.id] ? _today2GoalEventsHtml(_live2GoalEventsCache[m.id]) : ''}</div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
@@ -11317,27 +11314,6 @@ async function _loadLive2Standings(matches) {
       if (casaEl) casaEl.textContent = posCasa;
       if (foraEl) foraEl.textContent = posFora;
     } catch (e) {}
-  }
-}
-
-// Goleadores + minutos — reaproveita o mesmo endpoint e desenho já usados no Hoje 2
-// (/api/flashscore/goal_events + _today2GoalEventsHtml), agora também no Ao Vivo 2
-let _live2GoalEventsCache = {};
-async function _loadLive2GoalEvents(matches) {
-  for (const m of matches) {
-    const box = document.getElementById(`live2GoalEventsBox_${m.id}`);
-    if (!box) continue;
-    if (_live2GoalEventsCache[m.id]) { box.innerHTML = _today2GoalEventsHtml(_live2GoalEventsCache[m.id]); continue; }
-    try {
-      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-      const r = await fetch(`/api/flashscore/goal_events?${params}`);
-      const d = await r.json();
-      _live2GoalEventsCache[m.id] = d.events || [];
-    } catch (e) {
-      _live2GoalEventsCache[m.id] = [];
-    }
-    const freshBox = document.getElementById(`live2GoalEventsBox_${m.id}`);
-    if (freshBox) freshBox.innerHTML = _today2GoalEventsHtml(_live2GoalEventsCache[m.id]);
   }
 }
 
