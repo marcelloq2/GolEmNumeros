@@ -1803,8 +1803,6 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações (Hoje)</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking (Hoje)</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab('jogo')"
-          title="Abre Jogo/Odds/H2H/Classificações/Leitura da Partida desse mesmo jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Jogo/Odds/H2H (Hoje)</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -4256,7 +4254,7 @@ let _painelForcaView = 'main';
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
-  hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower', hoje_jogo: 'painelForcaViewHojeJogo',
+  hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -4323,12 +4321,11 @@ function _painelFindToday2MatchByNames(home, away) {
 const _PAINEL_HOJE_TAB_INFO = {
   standings: { btnId: 'painelForcaViewTab_hoje_standings', view: 'hoje_standings', containerId: 'painelForcaViewHojeStandings' },
   power:     { btnId: 'painelForcaViewTab_hoje_power',     view: 'hoje_power',     containerId: 'painelForcaViewHojePower' },
-  jogo:      { btnId: 'painelForcaViewTab_hoje',           view: 'hoje_jogo',      containerId: 'painelForcaViewHojeJogo' },
 };
 
 async function _painelOpenForcaHojeTab(tab) {
-  tab = tab || 'jogo';
-  const info = _PAINEL_HOJE_TAB_INFO[tab] || _PAINEL_HOJE_TAB_INFO.jogo;
+  tab = tab || 'standings';
+  const info = _PAINEL_HOJE_TAB_INFO[tab] || _PAINEL_HOJE_TAB_INFO.standings;
   const btn = document.getElementById(info.btnId);
   _painelForcaSetView(info.view, btn);
   const container = document.getElementById(info.containerId);
@@ -4491,8 +4488,7 @@ function _painelForcaRender() {
     <div id="painelForcaViewSameOdds" style="display:none"></div>
     <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>
-    <div id="painelForcaViewHojeJogo" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
