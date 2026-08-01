@@ -5215,10 +5215,16 @@ function _painelForcaLeituraRender() {
       <span style="flex:1;text-align:center;font-size:12px;color:var(--text2)">${label}</span>
       <span style="width:70px;text-align:left;font-weight:700;color:#ef4444">${awayVal}</span>
     </div>`;
+  const LEITURA_SAMPLE_ALVO = 4; // "Últimos 4" — mesmo recorte usado em Pontuações Anteriores
+  const amostraLabel = (t) => {
+    if (!t) return ' — sem amostra';
+    const faltando = t.n < LEITURA_SAMPLE_ALVO;
+    return `, ${t.n} jogo${t.n > 1 ? 's' : ''}${faltando ? ` <span style="color:var(--yellow)" title="Pediu os últimos ${LEITURA_SAMPLE_ALVO}, mas só achou ${t.n} jogo${t.n > 1 ? 's' : ''} no próprio lado + mesma liga — os % acima vêm de uma amostra menor que o normal">⚠️ só ${t.n}/${LEITURA_SAMPLE_ALVO}</span>` : ''}`;
+  };
   const teamsSubheader = (home, away) => `
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text2)">
-      <span>${_painelForcaHome} (Casa${home ? ', ' + home.n + ' jogo' + (home.n > 1 ? 's' : '') : ' — sem amostra'})</span>
-      <span>${_painelForcaAway} (Ausente${away ? ', ' + away.n + ' jogo' + (away.n > 1 ? 's' : '') : ' — sem amostra'})</span>
+      <span>${_painelForcaHome} (Casa${amostraLabel(home)})</span>
+      <span>${_painelForcaAway} (Ausente${amostraLabel(away)})</span>
     </div>`;
 
   // ── Tempo todo (FT) ──
