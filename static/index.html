@@ -1557,7 +1557,6 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
-        <button class="painel-subtab" onclick="_painelSetFilter('opportunities', this)">MAPA DE OPORTUNIDADES</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0">
         <button onclick="switchView('placarcontra', this)"
@@ -1784,8 +1783,6 @@
         <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_sameodds" onclick="_painelForcaSetView('sameodds', this)">Mesmas Probabilidades</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_cenarios" onclick="_painelForcaSetView('cenarios', this)">Cenários de Jogo</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje" onclick="_painelOpenForcaHojeTab()"
           title="Abre Jogo/Odds/H2H/Classificações/Leitura da Partida desse mesmo jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Jogo/Odds/H2H (Hoje)</button>
       </div>
@@ -2718,11 +2715,10 @@ const APP_GUIA_SECTIONS = {
         <b>☆ Remover Minhas Seleções:</b> apaga de vez todos os jogos marcados com estrela (pede confirmação antes).`),
 
       _guiaSec('⚔️', 'Comparação de Força (clique num jogo)', `
-        Abre um modal com 4 abas:<br><br>
+        Abre um modal com 3 abas:<br><br>
         ${_guiaRow('Comparação de força', 'Radar com 5 eixos de força de cada time, mais odds de Handicap Asiático e Over/Under nas variantes HT/HA-Igual')}
         ${_guiaRow('Estatísticas de Confronto Direto', 'Ganhe/Empate/Perca, gols por jogo, distribuição de Handicap Asiático e Over/Under, tabela dos últimos confrontos — com filtros de Casa/Fora, Mesma liga, 1º tempo e quantidade de jogos')}
-        ${_guiaRow('Estatísticas de Pontuações Anteriores', 'Mesmo formato, mas olhando os últimos jogos de cada time separadamente (não só os confrontos diretos)')}
-        ${_guiaRow('Mesmas Probabilidades', 'Histórico de partidas com odds parecidas às de hoje, pra ver como costumam terminar')}`),
+        ${_guiaRow('Estatísticas de Pontuações Anteriores', 'Mesmo formato, mas olhando os últimos jogos de cada time separadamente (não só os confrontos diretos)')}`),
 
       _guiaSec('🏆', 'Metodologias — ranking de tipsters', `
         Filtros no topo: <b>Semana/Mês</b> (período) e <b>Taxa de Vitória/ROI</b> (métrica de ordenação) — pra lucrar mais, ROI costuma ser o filtro mais confiável, já que Taxa de Vitória sozinha não pesa o tamanho da odd. Um terceiro botão, <b>"Previsões mais acertivas"</b>, troca a lista pra mostrar o mercado (Handicap Asiático/Over-Under/1X2) em que cada tipster mais acerta.<br><br>
