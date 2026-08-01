@@ -11057,6 +11057,7 @@ async function loadLive2Matches() {
       _loadLive2Standings(matches);
       _loadLive2GoalEvents(matches);
       _loadLive2Escudos(matches);
+      _live2AutoLoadForms(matches);
     }
     // Roda pra TODAS as partidas (visíveis ou não) — é o que descobre quando uma
     // partida escondida passa a ter mapa de chutes e dispara a reexibição dela
@@ -12043,6 +12044,38 @@ async function _live2XgRowsHtml(m) {
       </div>`;
   }
   return xgHtml + xgzHtml;
+}
+
+// Badges de forma (V/E/D) automáticos abaixo do nome dos times — antes só
+// apareciam depois de clicar em "Ver estatísticas + odds em widget" (que busca
+// stats+odds+h2h juntos). Aqui busca só o h2h (mais leve, é tudo que a forma
+// precisa) pra cada partida visível, uma de cada vez (nunca em paralelo, pra
+// não sobrecarregar o Flashscore), pulando quem já está em cache.
+async function _live2AutoLoadForms(matches) {
+  for (const m of matches) {
+    if (_live2FsFormCache[m.id] !== undefined) continue;
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/h2h?${params}`);
+      const h2hData = await r.json();
+      const tabs = h2hData.tabs || [];
+      const tab0 = tabs[0];
+      let html = '';
+      if (tab0) {
+        const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
+        const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
+        const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
+        html = _live2FormRowHtml(homeRows) ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 6px">
+            <div style="display:flex;gap:3px">${_live2FormRowHtml(homeRows)}</div>
+            <div style="display:flex;gap:3px">${_live2FormRowHtml(awayRows)}</div>
+          </div>` : '';
+      }
+      _live2FsFormCache[m.id] = html;
+      const wrap = document.getElementById(`live2FormWrap_${m.id}`);
+      if (wrap) wrap.innerHTML = html;
+    } catch (e) { /* pula essa partida, não trava o resto */ }
+  }
 }
 
 async function loadLive2Flashscore(matchId, btn, targetWrap) {
