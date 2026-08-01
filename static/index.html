@@ -11114,6 +11114,9 @@ function renderLive2Card(m) {
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
           title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
+        <span onclick="event.stopPropagation();window.open('https://www.flashscore.com/match/football/${m.id}/#/match-summary','_blank')"
+          title="Abrir essa partida no Flashscore (nova aba/popup) — link direto pra fonte, não busca nada aqui no app"
+          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:13px;opacity:.75">↗️</span>
       </div>
       <div class="live-card-body">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
