@@ -4253,20 +4253,20 @@ let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
 let _painelForcaTab = 'battle';
 let _painelForcaView = 'main';
 
+const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
+  main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
+  sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
+  hoje_h2h: 'painelForcaViewHojeH2H', hoje_standings: 'painelForcaViewHojeStandings', hoje_jogo: 'painelForcaViewHojeJogo',
+};
+
 function _painelForcaSetView(view, btn) {
   _painelForcaView = view;
   document.querySelectorAll('#painelForcaOverlay .painel-modal-tab').forEach(b => b.classList.remove('active'));
   (btn || document.getElementById('painelForcaViewTab_' + view)).classList.add('active');
-  const mainEl = document.getElementById('painelForcaViewMain');
-  const h2hEl = document.getElementById('painelForcaViewH2H');
-  const lastEl = document.getElementById('painelForcaViewLast');
-  const sameOddsEl = document.getElementById('painelForcaViewSameOdds');
-  const cenariosEl = document.getElementById('painelForcaViewCenarios');
-  if (mainEl) mainEl.style.display = view === 'main' ? '' : 'none';
-  if (h2hEl) h2hEl.style.display = view === 'h2h' ? '' : 'none';
-  if (lastEl) lastEl.style.display = view === 'last' ? '' : 'none';
-  if (sameOddsEl) sameOddsEl.style.display = view === 'sameodds' ? '' : 'none';
-  if (cenariosEl) cenariosEl.style.display = view === 'cenarios' ? '' : 'none';
+  Object.entries(_PAINEL_FORCA_VIEW_CONTAINER_ID).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = view === key ? '' : 'none';
+  });
 }
 
 function _painelOpenForca(eventId, home, away, league) {
@@ -4314,34 +4314,42 @@ function _painelFindToday2MatchByNames(home, away) {
   return bestScore >= 4 ? best : null;
 }
 
-// Botão "Jogo/Odds/H2H (Hoje)" da Análise da partida (Painel Principal) — em
-// vez de duplicar a renderização das abas da Hoje aqui dentro (o que arriscaria
-// quebrar as duas versões toda vez que uma mudasse), simplesmente abre o MESMO
-// modal de detalhe já usado pela Hoje (today2DetailOverlay, com Jogo/Odds/H2H/
-// Classificações/Leitura da Partida), empilhado por cima da Análise da partida.
-const _PAINEL_HOJE_TAB_BTN_ID = { jogo: 'painelForcaViewTab_hoje', h2h: 'painelForcaViewTab_hoje_h2h', standings: 'painelForcaViewTab_hoje_standings' };
+// Botões "H2H (Hoje)" / "Classificações (Hoje)" / "Jogo/Odds/H2H (Hoje)" da
+// Análise da partida — em vez de abrir um modal empilhado por cima (widget),
+// abrem uma aba INLINE dentro do mesmo modal, igual às outras (Comparação de
+// força, Confronto Direto etc.), reaproveitando as mesmas funções de fetch/
+// render já usadas na Hoje (_today2RefreshDetailHeader/_renderToday2Content),
+// só que apontando pra um container próprio em vez do today2DetailBody.
+const _PAINEL_HOJE_TAB_INFO = {
+  h2h:       { btnId: 'painelForcaViewTab_hoje_h2h',       view: 'hoje_h2h',       containerId: 'painelForcaViewHojeH2H' },
+  standings: { btnId: 'painelForcaViewTab_hoje_standings', view: 'hoje_standings', containerId: 'painelForcaViewHojeStandings' },
+  jogo:      { btnId: 'painelForcaViewTab_hoje',           view: 'hoje_jogo',      containerId: 'painelForcaViewHojeJogo' },
+};
 
 async function _painelOpenForcaHojeTab(tab) {
   tab = tab || 'jogo';
-  const btn = document.getElementById(_PAINEL_HOJE_TAB_BTN_ID[tab] || 'painelForcaViewTab_hoje');
+  const info = _PAINEL_HOJE_TAB_INFO[tab] || _PAINEL_HOJE_TAB_INFO.jogo;
+  const btn = document.getElementById(info.btnId);
+  _painelForcaSetView(info.view, btn);
+  const container = document.getElementById(info.containerId);
+  if (!container) return;
+  if (container.dataset.loadedFor === `${_painelForcaHome}|${_painelForcaAway}`) return; // já carregado pra esse jogo
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Procurando...'; }
+  container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
     if (!today2MatchesCache.length) await loadToday2Matches();
     const m = _painelFindToday2MatchByNames(_painelForcaHome, _painelForcaAway);
     if (!m) {
-      alert(`Não achei "${_painelForcaHome} x ${_painelForcaAway}" na base da Hoje (Flashscore) — pode ser que esse jogo só esteja disponível na fonte do Painel Principal (NowGoal).`);
+      container.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center">Não achei "${_painelForcaHome} x ${_painelForcaAway}" na base da Hoje (Flashscore) — pode ser que esse jogo só esteja disponível na fonte do Painel Principal (NowGoal).</div>`;
       return;
     }
-    // Ao contrário do selectToday2Match (usado na Hoje), aqui não mostra a
-    // barra de abas Jogo/Odds/H2H/Classificações — cada botão da Análise da
-    // partida já é o "seletor", então só renderiza a única informação pedida.
-    _today2SelectedId = m.id;
+    container.dataset.loadedFor = `${_painelForcaHome}|${_painelForcaAway}`;
+    const headerId = `${info.containerId}_header`, bodyId = `${info.containerId}_body`;
+    container.innerHTML = `<div id="${headerId}" style="margin-bottom:12px"></div><div id="${bodyId}"></div>`;
     _today2Tab[m.id] = tab;
-    document.getElementById('today2DetailOverlay').style.display = 'flex';
-    _today2RefreshDetailHeader(m.id);
-    document.getElementById('today2DetailTabs').innerHTML = '';
-    _renderToday2Content(m.id);
+    _today2RefreshDetailHeader(m.id, headerId);
+    _renderToday2Content(m.id, bodyId);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
   }
@@ -4481,7 +4489,10 @@ function _painelForcaRender() {
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
     <div id="painelForcaViewSameOdds" style="display:none"></div>
-    <div id="painelForcaViewCenarios" style="display:none"></div>`;
+    <div id="painelForcaViewCenarios" style="display:none"></div>
+    <div id="painelForcaViewHojeH2H" style="display:none"></div>
+    <div id="painelForcaViewHojeStandings" style="display:none"></div>
+    <div id="painelForcaViewHojeJogo" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
@@ -6092,11 +6103,13 @@ function _today2EscudoImg(url, size) {
 
 let _today2SelectedId = null;
 
-function _today2RefreshDetailHeader(id) {
+function _today2RefreshDetailHeader(id, targetId) {
   const m = today2MatchesCache.find(x => String(x.id) === String(id));
   if (!m) return;
   const hora = m.kickoff_ts ? new Date(parseInt(m.kickoff_ts) * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  document.getElementById('today2DetailHeader').innerHTML = `
+  const headerEl = document.getElementById(targetId || 'today2DetailHeader');
+  if (!headerEl) return;
+  headerEl.innerHTML = `
     <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.liga} (${m.pais}) — ${hora}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
@@ -6719,13 +6732,14 @@ function setToday2Tab(matchId, tab, btn) {
   _renderToday2Content(matchId);
 }
 
-async function _renderToday2Content(matchId) {
-  const content = document.getElementById('today2DetailBody');
+async function _renderToday2Content(matchId, targetId) {
+  targetId = targetId || 'today2DetailBody';
+  const content = document.getElementById(targetId);
   if (!content) return;
   const tab = _today2Tab[matchId] || 'jogo';
 
   if (tab === 'jogo') {
-    _renderToday2Jogo(matchId);
+    _renderToday2Jogo(matchId, targetId);
     return;
   }
   if (tab === 'profit') {
@@ -8783,8 +8797,9 @@ function _jogoGoalPatternHtml(teamName, gp, media) {
         ${_pctBarRow('gravata', gp.diff.gravata, media?.gravata_pct)}` : ''}`) : '');
 }
 
-async function _renderToday2Jogo(matchId) {
-  const content = document.getElementById('today2DetailBody');
+async function _renderToday2Jogo(matchId, targetId) {
+  targetId = targetId || 'today2DetailBody';
+  const content = document.getElementById(targetId);
   if (!content) return;
   const cache = _today2TabCache[matchId] || (_today2TabCache[matchId] = {});
   const m = today2MatchesCache.find(x => String(x.id) === String(matchId));
