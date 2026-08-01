@@ -2785,14 +2785,6 @@ const APP_GUIA_SECTIONS = {
         Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.<br><br>
         <b>⚠️ Aviso de "must win":</b> quando um dos dois times está na zona de rebaixamento ou brigando por vaga de classificação, aparece um aviso no topo da aba. Não aparece em partidas sem tabela de pontos corridos (copas, grupos, mata-mata).`),
 
-      _guiaSec('📈', 'Aba "Profit Mercados Tradicionais"', `
-        Simula, pro histórico de cada time, quanto teria rendido apostar em cada seleção de cada mercado tradicional (1X2, Over/Under, Ambas Marcam, Dupla Chance, Handicap Asiático) toda vez que ela apareceu.<br><br>
-        Mostra apostas (amostra), acertos, e um selo comparando a <b>odd de hoje</b> com a <b>taxa histórica de acerto</b>: se a taxa histórica for maior que a probabilidade implícita da odd de hoje (com uma margem de 5% pra não marcar por ruído), aparece como "valor" — sinal de que a odd de hoje pode estar mais generosa do que o histórico desse time sugere.`),
-
-      _guiaSec('🎯', 'Aba "Placares Corretos — Taxa de Acerto"', `
-        Mesmos 3 recortes (Geral/Casa/Fora) de escopo. Pra cada um dos 19 buckets fixos de placar (0-0 até 3-3, + "qualquer outra vitória em casa", "qualquer outra vitória de visitante", "qualquer outro empate"), mostra quantas vezes esse placar exato já ocorreu no histórico de cada time, em número absoluto e %.<br><br>
-        <b>Resumo de improváveis:</b> lista os placares que tiveram ZERO ocorrências nos dois times ao mesmo tempo — só aparece quando os dois times têm pelo menos 30 jogos de amostra, pra não marcar como "improvável" algo que só não ocorreu por falta de dado.`),
-
       _guiaSec('🧠', 'Aba "Leitura da Partida"', `
         Cruza tudo que as outras abas já buscaram em cards de texto automático, cada um com um selo de confiança (<span style="color:#22c55e">Alta</span>/<span style="color:#f59e0b">Média</span>/<span style="color:#ef4444">Baixa</span>, combinando tamanho da amostra com força do sinal):<br><br>
         ${_guiaRow('Mandante/visitante em forma', 'Time forte em casa/fora cruzado com a posição na tabela')}
@@ -6082,8 +6074,6 @@ function selectToday2Match(id, rowEl) {
     <button class="live-card-tab-btn ${_today2Tab[id]==='odds'?'active':''}" onclick="setToday2Tab('${id}','odds',this)">Odds</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='h2h'?'active':''}" onclick="setToday2Tab('${id}','h2h',this)">H2H</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='standings'?'active':''}" onclick="setToday2Tab('${id}','standings',this)">Classificações</button>
-    <button class="live-card-tab-btn ${_today2Tab[id]==='profit'?'active':''}" onclick="setToday2Tab('${id}','profit',this)">Profit mercados tradicionais</button>
-    <button class="live-card-tab-btn ${_today2Tab[id]==='profit_cs'?'active':''}" onclick="setToday2Tab('${id}','profit_cs',this)">Placares Corretos — Taxa de Acerto</button>
     <button class="live-card-tab-btn ${_today2Tab[id]==='insights'?'active':''}" onclick="setToday2Tab('${id}','insights',this)">🧠 Leitura da Partida</button>`;
 
   _renderToday2Content(id);
