@@ -5144,7 +5144,15 @@ function _painelForcaMedian(arr) {
 // (Over/Under, 1X2, dupla chance, ambas marcam) contadas no placar bruto de
 // cada linha (não relativas ao time analisado) — mesma leitura clássica "1 / X
 // / 2" de mercado de apostas.
-function _painelForcaLastFullStats(key) {
+// period: 'ft' (padrão, placar+escanteio+odd de tempo todo, linha over/under
+// em 2.5) ou 'ht' (só 1º tempo: score_ht/corner_ht, linha over em 0.5 — não
+// calcula odd, o NowGoal não traz odd separada de 1º tempo nessas linhas).
+function _painelForcaLastFullStats(key, period) {
+  period = period || 'ft';
+  const isHt = period === 'ht';
+  const scoreField = isHt ? 'score_ht' : 'score_ft';
+  const cornerField = isHt ? 'corner_ht' : 'corner_ft';
+  const overLine = isHt ? 0.5 : 2.5;
   const cfg = _painelForcaSideConfig(key);
   const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
   if (!tbl || !tbl.rows || !tbl.rows.length) return null;
@@ -5153,24 +5161,27 @@ function _painelForcaLastFullStats(key) {
   const last4 = filtered.slice(0, 4);
   if (!last4.length) return null;
 
-  const marcados = [], sofridos = [], escanteiosTotais = [], odds = [];
-  let over25 = 0, homeWins = 0, awayWins = 0, draws = 0, bttsYes = 0, nGoalGames = 0;
+  const marcados = [], sofridos = [], golsTotais = [], escanteiosTotais = [], odds = [];
+  let over = 0, homeWins = 0, awayWins = 0, draws = 0, bttsYes = 0, nGoalGames = 0;
   last4.forEach(m => {
     const isHomeRow = m.home === cfg.teamName;
-    const parts = String(m.score_ft || '').split('-').map(Number);
+    const parts = String(m[scoreField] || '').split('-').map(Number);
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
       nGoalGames++;
       const [gh, ga] = parts;
       marcados.push(isHomeRow ? gh : ga);
       sofridos.push(isHomeRow ? ga : gh);
-      if (gh + ga > 2.5) over25++;
+      golsTotais.push(gh + ga);
+      if (gh + ga > overLine) over++;
       if (gh > ga) homeWins++; else if (ga > gh) awayWins++; else draws++;
       if (gh > 0 && ga > 0) bttsYes++;
     }
-    const cParts = String(m.corner_ft || '').split('-').map(Number);
+    const cParts = String(m[cornerField] || '').split('-').map(Number);
     if (cParts.length === 2 && !isNaN(cParts[0]) && !isNaN(cParts[1])) escanteiosTotais.push(cParts[0] + cParts[1]);
-    const oddVal = parseFloat(isHomeRow ? m.odd_hw : m.odd_aw);
-    if (!isNaN(oddVal)) odds.push(oddVal);
+    if (!isHt) {
+      const oddVal = parseFloat(isHomeRow ? m.odd_hw : m.odd_aw);
+      if (!isNaN(oddVal)) odds.push(oddVal);
+    }
   });
   if (!nGoalGames) return null;
 
@@ -5181,12 +5192,13 @@ function _painelForcaLastFullStats(key) {
   return {
     team: cfg.teamName, label: cfg.label, n: last4.length,
     marcados: _painelForcaMedian(marcados), sofridos: _painelForcaMedian(sofridos),
+    golsTotais: _painelForcaMedian(golsTotais),
     escanteios: _painelForcaMedian(escanteiosTotais),
-    over25: pct(over25), under25: pct(n - over25),
+    over: pct(over), under: pct(n - over),
     casaVence: pct(homeWins), visitanteVence: pct(awayWins), empate: pct(draws),
     casaEmpate: pct(homeWins + draws), visitanteEmpate: pct(awayWins + draws),
     bttsSim: pct(bttsYes), bttsNao: pct(n - bttsYes),
-    oddMedia: avg(odds),
+    oddMedia: isHt ? null : avg(odds),
   };
 }
 
@@ -5196,8 +5208,6 @@ function _painelForcaLeituraRender() {
   const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
   if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
 
-  const home = _painelForcaLastFullStats('home');
-  const away = _painelForcaLastFullStats('away');
   const fmt = (v, suffix) => v == null ? '—' : `${v}${suffix || ''}`;
   const row = (label, homeVal, awayVal) => `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -5205,40 +5215,72 @@ function _painelForcaLeituraRender() {
       <span style="flex:1;text-align:center;font-size:12px;color:var(--text2)">${label}</span>
       <span style="width:70px;text-align:left;font-weight:700;color:#ef4444">${awayVal}</span>
     </div>`;
+  const teamsSubheader = (home, away) => `
+    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text2)">
+      <span>${_painelForcaHome} (Casa${home ? ', ' + home.n + ' jogo' + (home.n > 1 ? 's' : '') : ' — sem amostra'})</span>
+      <span>${_painelForcaAway} (Ausente${away ? ', ' + away.n + ' jogo' + (away.n > 1 ? 's' : '') : ' — sem amostra'})</span>
+    </div>`;
 
-  let card;
-  if (!home && !away) {
-    card = '<div class="live-loading">Amostra insuficiente pra essa análise ainda (nenhum dos dois times tem jogo no próprio lado, na mesma liga).</div>';
+  // ── Tempo todo (FT) ──
+  const homeFt = _painelForcaLastFullStats('home', 'ft');
+  const awayFt = _painelForcaLastFullStats('away', 'ft');
+  let cardFt;
+  if (!homeFt && !awayFt) {
+    cardFt = '<div class="live-loading">Amostra insuficiente pra essa análise ainda (nenhum dos dois times tem jogo no próprio lado, na mesma liga).</div>';
   } else {
-    card = `
+    cardFt = `
       <div class="cenario-block">
         <div class="cenario-icon">📊</div>
         <div class="cenario-content">
-          <div class="cenario-label">Estatísticas de Pontuações Anteriores — cada time no próprio lado, mesma liga, últimos jogos</div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text2)">
-            <span>${_painelForcaHome} (Casa${home ? ', ' + home.n + ' jogo' + (home.n > 1 ? 's' : '') : ' — sem amostra'})</span>
-            <span>${_painelForcaAway} (Ausente${away ? ', ' + away.n + ' jogo' + (away.n > 1 ? 's' : '') : ' — sem amostra'})</span>
-          </div>
+          <div class="cenario-label">Estatísticas de Pontuações Anteriores — cada time no próprio lado, mesma liga, últimos jogos (tempo todo)</div>
+          ${teamsSubheader(homeFt, awayFt)}
           <div style="margin-top:8px">
-            ${row('Mediana de gols marcados', fmt(home?.marcados), fmt(away?.marcados))}
-            ${row('Mediana de gols sofridos', fmt(home?.sofridos), fmt(away?.sofridos))}
-            ${row('Mediana de escanteios', fmt(home?.escanteios), fmt(away?.escanteios))}
-            ${row('Taxa de acerto Over 2.5 FT', fmt(home?.over25, '%'), fmt(away?.over25, '%'))}
-            ${row('Taxa de acerto Under 2.5 FT', fmt(home?.under25, '%'), fmt(away?.under25, '%'))}
-            ${row('Casa Vence', fmt(home?.casaVence, '%'), fmt(away?.casaVence, '%'))}
-            ${row('Visitante Vence', fmt(home?.visitanteVence, '%'), fmt(away?.visitanteVence, '%'))}
-            ${row('Empate', fmt(home?.empate, '%'), fmt(away?.empate, '%'))}
-            ${row('Casa ou Empate', fmt(home?.casaEmpate, '%'), fmt(away?.casaEmpate, '%'))}
-            ${row('Visitante ou Empate', fmt(home?.visitanteEmpate, '%'), fmt(away?.visitanteEmpate, '%'))}
-            ${row('Ambas Marcam Sim', fmt(home?.bttsSim, '%'), fmt(away?.bttsSim, '%'))}
-            ${row('Ambas Marcam Não', fmt(home?.bttsNao, '%'), fmt(away?.bttsNao, '%'))}
-            ${row('Odd Média', home?.oddMedia != null ? home.oddMedia.toFixed(2) : '—', away?.oddMedia != null ? away.oddMedia.toFixed(2) : '—')}
+            ${row('Mediana de gols marcados', fmt(homeFt?.marcados), fmt(awayFt?.marcados))}
+            ${row('Mediana de gols sofridos', fmt(homeFt?.sofridos), fmt(awayFt?.sofridos))}
+            ${row('Mediana de escanteios', fmt(homeFt?.escanteios), fmt(awayFt?.escanteios))}
+            ${row('Taxa de acerto Over 2.5 FT', fmt(homeFt?.over, '%'), fmt(awayFt?.over, '%'))}
+            ${row('Taxa de acerto Under 2.5 FT', fmt(homeFt?.under, '%'), fmt(awayFt?.under, '%'))}
+            ${row('Casa Vence', fmt(homeFt?.casaVence, '%'), fmt(awayFt?.casaVence, '%'))}
+            ${row('Visitante Vence', fmt(homeFt?.visitanteVence, '%'), fmt(awayFt?.visitanteVence, '%'))}
+            ${row('Empate', fmt(homeFt?.empate, '%'), fmt(awayFt?.empate, '%'))}
+            ${row('Casa ou Empate', fmt(homeFt?.casaEmpate, '%'), fmt(awayFt?.casaEmpate, '%'))}
+            ${row('Visitante ou Empate', fmt(homeFt?.visitanteEmpate, '%'), fmt(awayFt?.visitanteEmpate, '%'))}
+            ${row('Ambas Marcam Sim', fmt(homeFt?.bttsSim, '%'), fmt(awayFt?.bttsSim, '%'))}
+            ${row('Ambas Marcam Não', fmt(homeFt?.bttsNao, '%'), fmt(awayFt?.bttsNao, '%'))}
+            ${row('Odd Média', homeFt?.oddMedia != null ? homeFt.oddMedia.toFixed(2) : '—', awayFt?.oddMedia != null ? awayFt.oddMedia.toFixed(2) : '—')}
           </div>
         </div>
       </div>`;
   }
 
-  el.innerHTML = header + card;
+  // ── 1º Tempo (HT) ──
+  const homeHt = _painelForcaLastFullStats('home', 'ht');
+  const awayHt = _painelForcaLastFullStats('away', 'ht');
+  let cardHt = '';
+  if (homeHt || awayHt) {
+    cardHt = `
+      <div class="cenario-block" style="margin-top:10px">
+        <div class="cenario-icon">🕐</div>
+        <div class="cenario-content">
+          <div class="cenario-label">Estatísticas de Pontuações Anteriores — cada time no próprio lado, mesma liga, últimos jogos (1º tempo)</div>
+          ${teamsSubheader(homeHt, awayHt)}
+          <div style="margin-top:8px">
+            ${row('Mediana de gols HT', fmt(homeHt?.golsTotais), fmt(awayHt?.golsTotais))}
+            ${row('Mediana de escanteios HT', fmt(homeHt?.escanteios), fmt(awayHt?.escanteios))}
+            ${row('Taxa de acerto Over 0.5 HT', fmt(homeHt?.over, '%'), fmt(awayHt?.over, '%'))}
+            ${row('Casa Vence', fmt(homeHt?.casaVence, '%'), fmt(awayHt?.casaVence, '%'))}
+            ${row('Visitante Vence', fmt(homeHt?.visitanteVence, '%'), fmt(awayHt?.visitanteVence, '%'))}
+            ${row('Empate', fmt(homeHt?.empate, '%'), fmt(awayHt?.empate, '%'))}
+            ${row('Casa ou Empate', fmt(homeHt?.casaEmpate, '%'), fmt(awayHt?.casaEmpate, '%'))}
+            ${row('Visitante ou Empate', fmt(homeHt?.visitanteEmpate, '%'), fmt(awayHt?.visitanteEmpate, '%'))}
+            ${row('Ambas Marcam Sim', fmt(homeHt?.bttsSim, '%'), fmt(awayHt?.bttsSim, '%'))}
+            ${row('Ambas Marcam Não', fmt(homeHt?.bttsNao, '%'), fmt(awayHt?.bttsNao, '%'))}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = header + cardFt + cardHt;
 }
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
