@@ -1559,6 +1559,21 @@
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('opportunities', this)">MAPA DE OPORTUNIDADES</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0">
+        <button onclick="switchView('placarcontra', this)"
+          title="Lay Placar — configuração calculada a partir dos jogos exportados aqui (dados da aba Hoje)"
+          style="background:transparent;border:1px solid #ef444444;border-radius:6px;
+                 color:#ef4444;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">🚫 Lay Placar</button>
+        <button onclick="openAppGuia('hoje')" title="Guia da aba Hoje"
+          style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
+                 color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">📖 Guia</button>
+        <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
+        <button class="live-refresh-btn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' (dados da Hoje) procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
+        <button class="live-refresh-btn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
+        <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar dados da aba Hoje">↻</button>
+      </div>
     </div>
     <div style="border-bottom:1px solid var(--border)"></div>
     <div class="painel-search-bar">
@@ -5800,6 +5815,21 @@ function _mercadosResultados(homeScore, awayScore) {
 let today2MatchesCache = [];
 let _today2AutoRefresh = null;
 
+// Mantém today2MatchesCache (e o contador de jogos) atualizado em segundo
+// plano mesmo com outra aba aberta — os botões "🚫 Lay Placar / 📖 Guia /
+// 🔎 Escanear / ⬇️ Exportar TXT" do Painel Principal reaproveitam os MESMOS
+// dados/funções da Hoje (Flashscore), então precisam que esse cache continue
+// vivo mesmo quando a Hoje não é a aba ativa. Pula o fetch quando a Hoje já
+// está aberta (o próprio switchView já mantém um intervalo dela nesse caso),
+// pra não buscar em dobro.
+let _today2BgAutoRefresh = null;
+function _today2StartBackgroundRefresh() {
+  if (_today2BgAutoRefresh) return;
+  _today2BgAutoRefresh = setInterval(() => {
+    if (currentView !== 'today2') loadToday2Matches();
+  }, 20000);
+}
+
 // ── ORDENAÇÃO da lista Hoje 2: por liga (agrupado, alfabético) ou por
 // horário (lista corrida, sem agrupar) ──────────────────────────────────
 let _today2SortMode = 'liga'; // 'liga' | 'horario'
@@ -5888,6 +5918,8 @@ async function loadToday2Matches() {
 
     const badge = document.getElementById('today2CountBadge');
     if (badge) badge.textContent = matches.length;
+    const painelBadge = document.getElementById('painelHojeCountBadge');
+    if (painelBadge) painelBadge.textContent = matches.length;
 
     if (!matches.length) {
       wrap.innerHTML = `<div class="live-empty">
@@ -18819,6 +18851,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadMatches();
   loadPatterns();
   switchView('today2', document.getElementById('navTabToday2'));
+  _today2StartBackgroundRefresh();
 });
 </script>
 <style>.hidden { display: none !important; }</style>
