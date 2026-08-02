@@ -1315,6 +1315,34 @@ def _opp_combined_minmax(rows_arrays, field, team=None):
     return {"min": min(values), "max": max(values), "n": len(values)}
 
 
+_OPP_CORNER_LINES = {"ft": [7, 8, 9, 10, 11, 12, 13, 14, 15], "ht": [4, 5, 6]}
+
+
+def _opp_team_corner_over100(rows, team, side_field, league, period, min_n=2):
+    """Mesmo recorte da aba Leitura (Painel Principal): time no próprio lado
+    (side_field='home'/'away' — qual campo da linha do histórico é o time),
+    mesma liga, últimos 4 jogos. Retorna as linhas fixas (FT 7-15 / HT 4-6)
+    que bateram Over em 100% desses jogos, com amostra mínima de min_n pra
+    não marcar ruído de 1 jogo só."""
+    corner_field = "corner_ht" if period == "ht" else "corner_ft"
+    filtered = [m for m in rows if m.get(side_field) == team
+                and (not league or (m.get("league") or "").strip().lower() == league.strip().lower())]
+    last4 = filtered[:4]
+    totals = []
+    for m in last4:
+        pair = _opp_parse_pair(m.get(corner_field))
+        if pair:
+            totals.append(pair[0] + pair[1])
+    if len(totals) < min_n:
+        return []
+    n = len(totals)
+    out = []
+    for line in _OPP_CORNER_LINES[period]:
+        if sum(1 for v in totals if v > line) == n:
+            out.append({"line": line, "n": n})
+    return out
+
+
 def _opp_combined_ah_100_lines(rows_arrays, min_n=3):
     """Linhas de Handicap Asiático com 100% de cobertura (mandante ou visitante)
     no histórico combinado, com amostra mínima de 3 jogos pra não marcar ruído."""
@@ -1412,12 +1440,22 @@ def _opportunities_scan_cycle():
 
         ah_100 = _opp_combined_ah_100_lines(combined)
 
-        if signals or ah_100:
+        # Mesma leitura da aba "Leitura" (Painel Principal): time no próprio
+        # lado + mesma liga + últimos 4 jogos, linhas fixas de escanteios
+        # Over 7-15 FT / 4-6 HT que bateram 100%.
+        corner_over100 = []
+        for period, period_label in (("ft", "FT"), ("ht", "HT")):
+            for b in _opp_team_corner_over100(lh_rows, home, "home", league_name, period):
+                corner_over100.append({"team": home, "side": "Casa", "period": period_label, "line": b["line"], "n": b["n"]})
+            for b in _opp_team_corner_over100(la_rows, away, "away", league_name, period):
+                corner_over100.append({"team": away, "side": "Visitante", "period": period_label, "line": b["line"], "n": b["n"]})
+
+        if signals or ah_100 or corner_over100:
             items.append({
                 "event_id": str(m.get("event_id")), "home": home, "away": away, "league": league_name,
                 "minute": m.get("minute"), "status": m.get("time"),
                 "score": f"{score_home}-{score_away}" if score_home is not None else None,
-                "signals": signals, "ah_100": ah_100,
+                "signals": signals, "ah_100": ah_100, "corner_over100": corner_over100,
             })
 
     with _opportunities_lock:
