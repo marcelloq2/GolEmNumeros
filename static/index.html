@@ -5245,7 +5245,6 @@ function _painelForcaLeituraRender() {
   };
   const cornerLineRows = (home, away, lines, suffix) => lines.map(line => `
     ${row(`Over ${line}.5 Escanteios${suffix}`, fmt(home?.cornerOverUnder?.[line]?.over, '%'), fmt(away?.cornerOverUnder?.[line]?.over, '%'))}
-    ${row(`Under ${line}.5 Escanteios${suffix}`, fmt(home?.cornerOverUnder?.[line]?.under, '%'), fmt(away?.cornerOverUnder?.[line]?.under, '%'))}
   `).join('');
   const teamsSubheader = (home, away) => `
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text2)">
