@@ -3565,10 +3565,12 @@ function _painelRenderOpportunities(d) {
     return;
   }
 
-  el.innerHTML = header + items.map(it => `
+  el.innerHTML = header + items.map(it => {
+    const logos = typeof _painelFindToday2MatchByNames === 'function' ? _painelFindToday2MatchByNames(it.home, it.away) : null;
+    return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <b style="font-size:14px">${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}</b>
+        <b style="font-size:14px;display:flex;align-items:center;gap:6px">${_today2EscudoImg(logos?.escudo_casa)}${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}${_today2EscudoImg(logos?.escudo_fora)}</b>
         <span style="font-size:11px;color:var(--text2)">${it.league || ''} · ${it.status || ''}${it.minute != null ? ' ' + it.minute + "'" : ''}</span>
       </div>
       ${(it.signals || []).map(s => `
@@ -3587,7 +3589,8 @@ function _painelRenderOpportunities(d) {
         <div style="font-size:13px;padding:5px 0;color:#a78bfa">
           ⚽ Gols ${g.kind === 'over' ? 'Over' : 'Under'} ${g.line}.5 ${g.period}: <b>${g.team}</b> (${g.side}) bateu em 100% dos últimos jogos (${g.n} jogos)
         </div>`).join('')}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
