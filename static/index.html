@@ -5207,12 +5207,15 @@ function _painelForcaLastFullStats(key, period) {
     });
   }
 
+  const over1_5Count = golsTotais.filter(v => v > 1).length;
+
   return {
     team: cfg.teamName, label: cfg.label, n: last4.length,
     marcados: _painelForcaMedian(marcados), sofridos: _painelForcaMedian(sofridos),
     golsTotais: _painelForcaMedian(golsTotais),
     escanteios: _painelForcaMedian(escanteiosTotais),
     cornerOverUnder,
+    over1_5: pct(over1_5Count),
     over: pct(over), under: pct(n - over),
     teamVence: pct(teamWins), oppVence: pct(oppWins), empate: pct(draws),
     teamOuEmpate: pct(teamWins + draws), oppOuEmpate: pct(oppWins + draws),
@@ -5268,6 +5271,7 @@ function _painelForcaLeituraRender() {
             ${row('Mediana de gols sofridos', fmt(homeFt?.sofridos), fmt(awayFt?.sofridos))}
             ${row('Mediana de escanteios', fmt(homeFt?.escanteios), fmt(awayFt?.escanteios))}
             ${cornerLineRows(homeFt, awayFt, [7, 8, 9, 10, 11, 12, 13, 14, 15], ' FT')}
+            ${row('Taxa de acerto Over 1.5 FT', fmt(homeFt?.over1_5, '%'), fmt(awayFt?.over1_5, '%'))}
             ${row('Taxa de acerto Over 2.5 FT', fmt(homeFt?.over, '%'), fmt(awayFt?.over, '%'))}
             ${row('Taxa de acerto Under 2.5 FT', fmt(homeFt?.under, '%'), fmt(awayFt?.under, '%'))}
             ${row('Vence', fmt(homeFt?.teamVence, '%'), fmt(awayFt?.teamVence, '%'))}
@@ -5297,6 +5301,7 @@ function _painelForcaLeituraRender() {
             ${row('Mediana de escanteios HT', fmt(homeHt?.escanteios), fmt(awayHt?.escanteios))}
             ${cornerLineRows(homeHt, awayHt, [4, 5, 6], ' HT')}
             ${row('Taxa de acerto Over 0.5 HT', fmt(homeHt?.over, '%'), fmt(awayHt?.over, '%'))}
+            ${row('Taxa de acerto Over 1.5 HT', fmt(homeHt?.over1_5, '%'), fmt(awayHt?.over1_5, '%'))}
             ${row('Vence', fmt(homeHt?.teamVence, '%'), fmt(awayHt?.teamVence, '%'))}
             ${row('Empate', fmt(homeHt?.empate, '%'), fmt(awayHt?.empate, '%'))}
             ${row('Vence ou Empate', fmt(homeHt?.teamOuEmpate, '%'), fmt(awayHt?.teamOuEmpate, '%'))}
