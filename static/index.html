@@ -3565,12 +3565,35 @@ function _painelFetchOpportunities() {
     });
 }
 
+let _painelOppLastData = null;
+let _painelOppSortMode = 'default'; // 'default' | 'minute_asc' | 'minute_desc'
+
+function _painelOppSetSort(mode) {
+  _painelOppSortMode = mode;
+  if (_painelOppLastData) _painelRenderOpportunities(_painelOppLastData);
+}
+
+function _painelOppSortItems(items) {
+  if (_painelOppSortMode === 'default') return items;
+  const withMinute = items.filter(it => it.minute != null);
+  const withoutMinute = items.filter(it => it.minute == null);
+  withMinute.sort((a, b) => _painelOppSortMode === 'minute_asc' ? a.minute - b.minute : b.minute - a.minute);
+  return [...withMinute, ...withoutMinute];
+}
+
 function _painelRenderOpportunities(d) {
   const el = document.getElementById('painelOpportunitiesView');
   if (!el) return;
-  const items = d.items || [];
+  _painelOppLastData = d;
+  const items = _painelOppSortItems(d.items || []);
   const updated = d.updated_at ? new Date(d.updated_at * 1000).toLocaleTimeString('pt-BR') : '— (primeira varredura ainda não terminou)';
-  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, procurando times que bateram 100% em alguma linha de Over de escanteios ou de gol na aba Leitura (próprio lado, mesma liga, últimos 4 jogos).</div>`;
+  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, procurando times que bateram 100% em alguma linha de Over de escanteios ou de gol na aba Leitura (próprio lado, mesma liga, últimos 4 jogos).</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <span style="font-size:12px;color:var(--text2)">Ordenar por horário:</span>
+      <button class="painel-forca-tab${_painelOppSortMode === 'default' ? ' active' : ''}" onclick="_painelOppSetSort('default')">Padrão</button>
+      <button class="painel-forca-tab${_painelOppSortMode === 'minute_asc' ? ' active' : ''}" onclick="_painelOppSetSort('minute_asc')">Menor minuto</button>
+      <button class="painel-forca-tab${_painelOppSortMode === 'minute_desc' ? ' active' : ''}" onclick="_painelOppSetSort('minute_desc')">Maior minuto</button>
+    </div>`;
 
   if (!items.length) {
     el.innerHTML = header + `<div style="color:var(--text2);text-align:center;padding:24px 0">Nenhuma oportunidade encontrada nos jogos ao vivo agora.</div>`;
