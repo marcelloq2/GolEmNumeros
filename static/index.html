@@ -5194,11 +5194,25 @@ function _painelForcaLastFullStats(key, period) {
   const pct = v => Math.round(100 * v / n);
   const avg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : null;
 
+  // Taxa de acerto Over/Under X.5 escanteios (total, casa+visitante), pras
+  // linhas fixas 7-15 no tempo todo e 4-6 no 1º tempo — mesma amostra
+  // (escanteiosTotais) usada na mediana de escanteios acima.
+  const cornerLines = isHt ? [4, 5, 6] : [7, 8, 9, 10, 11, 12, 13, 14, 15];
+  const cornerOverUnder = {};
+  if (escanteiosTotais.length) {
+    const nc = escanteiosTotais.length;
+    cornerLines.forEach(line => {
+      const overCount = escanteiosTotais.filter(v => v > line).length;
+      cornerOverUnder[line] = { over: Math.round(100 * overCount / nc), under: Math.round(100 * (nc - overCount) / nc) };
+    });
+  }
+
   return {
     team: cfg.teamName, label: cfg.label, n: last4.length,
     marcados: _painelForcaMedian(marcados), sofridos: _painelForcaMedian(sofridos),
     golsTotais: _painelForcaMedian(golsTotais),
     escanteios: _painelForcaMedian(escanteiosTotais),
+    cornerOverUnder,
     over: pct(over), under: pct(n - over),
     teamVence: pct(teamWins), oppVence: pct(oppWins), empate: pct(draws),
     teamOuEmpate: pct(teamWins + draws), oppOuEmpate: pct(oppWins + draws),
@@ -5226,6 +5240,10 @@ function _painelForcaLeituraRender() {
     const faltando = t.n < LEITURA_SAMPLE_ALVO;
     return `, ${t.n} jogo${t.n > 1 ? 's' : ''}${faltando ? ` <span style="color:var(--yellow)" title="Pediu os últimos ${LEITURA_SAMPLE_ALVO}, mas só achou ${t.n} jogo${t.n > 1 ? 's' : ''} no próprio lado + mesma liga — os % acima vêm de uma amostra menor que o normal">⚠️ só ${t.n}/${LEITURA_SAMPLE_ALVO}</span>` : ''}`;
   };
+  const cornerLineRows = (home, away, lines, suffix) => lines.map(line => `
+    ${row(`Over ${line}.5 Escanteios${suffix}`, fmt(home?.cornerOverUnder?.[line]?.over, '%'), fmt(away?.cornerOverUnder?.[line]?.over, '%'))}
+    ${row(`Under ${line}.5 Escanteios${suffix}`, fmt(home?.cornerOverUnder?.[line]?.under, '%'), fmt(away?.cornerOverUnder?.[line]?.under, '%'))}
+  `).join('');
   const teamsSubheader = (home, away) => `
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text2)">
       <span>${_painelForcaHome} (Casa${amostraLabel(home)})</span>
@@ -5249,6 +5267,7 @@ function _painelForcaLeituraRender() {
             ${row('Mediana de gols marcados', fmt(homeFt?.marcados), fmt(awayFt?.marcados))}
             ${row('Mediana de gols sofridos', fmt(homeFt?.sofridos), fmt(awayFt?.sofridos))}
             ${row('Mediana de escanteios', fmt(homeFt?.escanteios), fmt(awayFt?.escanteios))}
+            ${cornerLineRows(homeFt, awayFt, [7, 8, 9, 10, 11, 12, 13, 14, 15], ' FT')}
             ${row('Taxa de acerto Over 2.5 FT', fmt(homeFt?.over, '%'), fmt(awayFt?.over, '%'))}
             ${row('Taxa de acerto Under 2.5 FT', fmt(homeFt?.under, '%'), fmt(awayFt?.under, '%'))}
             ${row('Vence', fmt(homeFt?.teamVence, '%'), fmt(awayFt?.teamVence, '%'))}
@@ -5276,6 +5295,7 @@ function _painelForcaLeituraRender() {
           <div style="margin-top:8px">
             ${row('Mediana de gols HT', fmt(homeHt?.golsTotais), fmt(awayHt?.golsTotais))}
             ${row('Mediana de escanteios HT', fmt(homeHt?.escanteios), fmt(awayHt?.escanteios))}
+            ${cornerLineRows(homeHt, awayHt, [4, 5, 6], ' HT')}
             ${row('Taxa de acerto Over 0.5 HT', fmt(homeHt?.over, '%'), fmt(awayHt?.over, '%'))}
             ${row('Vence', fmt(homeHt?.teamVence, '%'), fmt(awayHt?.teamVence, '%'))}
             ${row('Empate', fmt(homeHt?.empate, '%'), fmt(awayHt?.empate, '%'))}
