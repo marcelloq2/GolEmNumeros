@@ -5252,10 +5252,8 @@ function _painelForcaLeituraRender() {
             ${row('Taxa de acerto Over 2.5 FT', fmt(homeFt?.over, '%'), fmt(awayFt?.over, '%'))}
             ${row('Taxa de acerto Under 2.5 FT', fmt(homeFt?.under, '%'), fmt(awayFt?.under, '%'))}
             ${row('Vence', fmt(homeFt?.teamVence, '%'), fmt(awayFt?.teamVence, '%'))}
-            ${row('Adversário Vence', fmt(homeFt?.oppVence, '%'), fmt(awayFt?.oppVence, '%'))}
             ${row('Empate', fmt(homeFt?.empate, '%'), fmt(awayFt?.empate, '%'))}
             ${row('Vence ou Empate', fmt(homeFt?.teamOuEmpate, '%'), fmt(awayFt?.teamOuEmpate, '%'))}
-            ${row('Adversário Vence ou Empate', fmt(homeFt?.oppOuEmpate, '%'), fmt(awayFt?.oppOuEmpate, '%'))}
             ${row('Ambas Marcam Sim', fmt(homeFt?.bttsSim, '%'), fmt(awayFt?.bttsSim, '%'))}
             ${row('Ambas Marcam Não', fmt(homeFt?.bttsNao, '%'), fmt(awayFt?.bttsNao, '%'))}
             ${row('Odd Média', homeFt?.oddMedia != null ? homeFt.oddMedia.toFixed(2) : '—', awayFt?.oddMedia != null ? awayFt.oddMedia.toFixed(2) : '—')}
@@ -5280,10 +5278,8 @@ function _painelForcaLeituraRender() {
             ${row('Mediana de escanteios HT', fmt(homeHt?.escanteios), fmt(awayHt?.escanteios))}
             ${row('Taxa de acerto Over 0.5 HT', fmt(homeHt?.over, '%'), fmt(awayHt?.over, '%'))}
             ${row('Vence', fmt(homeHt?.teamVence, '%'), fmt(awayHt?.teamVence, '%'))}
-            ${row('Adversário Vence', fmt(homeHt?.oppVence, '%'), fmt(awayHt?.oppVence, '%'))}
             ${row('Empate', fmt(homeHt?.empate, '%'), fmt(awayHt?.empate, '%'))}
             ${row('Vence ou Empate', fmt(homeHt?.teamOuEmpate, '%'), fmt(awayHt?.teamOuEmpate, '%'))}
-            ${row('Adversário Vence ou Empate', fmt(homeHt?.oppOuEmpate, '%'), fmt(awayHt?.oppOuEmpate, '%'))}
             ${row('Ambas Marcam Sim', fmt(homeHt?.bttsSim, '%'), fmt(awayHt?.bttsSim, '%'))}
             ${row('Ambas Marcam Não', fmt(homeHt?.bttsNao, '%'), fmt(awayHt?.bttsNao, '%'))}
           </div>
