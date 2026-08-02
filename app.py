@@ -1351,6 +1351,44 @@ def _opp_team_goal_rate100(rows, team, side_field, league, period, min_n=4):
     return out
 
 
+def _opp_team_result_rate100(rows, team, side_field, league, period, min_n=4):
+    """Mesma leitura da aba Leitura pra Vence/Empate/Vence ou Empate (relativo
+    ao próprio time, não ao mandante/visitante literal do placar) — time no
+    próprio lado, mesma liga, últimos 4 jogos. Retorna quais das 3 combinações
+    bateram 100% nesse recorte."""
+    score_field = "score_ht" if period == "ht" else "score_ft"
+    is_home_row = side_field == "home"
+    filtered = [m for m in rows if m.get(side_field) == team
+                and (not league or (m.get("league") or "").strip().lower() == league.strip().lower())]
+    last4 = filtered[:4]
+    outcomes = []
+    for m in last4:
+        pair = _opp_parse_pair(m.get(score_field))
+        if not pair:
+            continue
+        gh, ga = pair
+        team_goals, opp_goals = (gh, ga) if is_home_row else (ga, gh)
+        if team_goals > opp_goals:
+            outcomes.append("win")
+        elif opp_goals > team_goals:
+            outcomes.append("loss")
+        else:
+            outcomes.append("draw")
+    if len(outcomes) < min_n:
+        return {}
+    n = len(outcomes)
+    wins = outcomes.count("win")
+    draws = outcomes.count("draw")
+    out = {}
+    if wins == n:
+        out["vence"] = n
+    if draws == n:
+        out["empate"] = n
+    if wins + draws == n:
+        out["vence_ou_empate"] = n
+    return out
+
+
 def _opportunities_scan_cycle():
     try:
         matches_data = _painel_fetch_matches_nowgoal(force=True)
@@ -1397,12 +1435,27 @@ def _opportunities_scan_cycle():
             for g in _opp_team_goal_rate100(la_rows, away, "away", league_name, period):
                 goal_rate100.append({"team": away, "side": "Visitante", "period": period_label, "kind": g["kind"], "line": g["line"], "n": g["n"]})
 
-        if corner_over100 or goal_rate100:
+        # Vence / Empate / Vence ou Empate — só entra se APENAS UM dos 2 times
+        # bateu 100% naquele item (mesmo período); se os 2 baterem 100% na
+        # mesma coisa, não faz sentido como "oportunidade" e nenhum dos 2 entra.
+        result100 = []
+        result_labels = {"vence": "Vence", "empate": "Empate", "vence_ou_empate": "Vence ou Empate"}
+        for period, period_label in (("ft", "FT"), ("ht", "HT")):
+            home_rate = _opp_team_result_rate100(lh_rows, home, "home", league_name, period)
+            away_rate = _opp_team_result_rate100(la_rows, away, "away", league_name, period)
+            for key, label in result_labels.items():
+                h_n, a_n = home_rate.get(key), away_rate.get(key)
+                if h_n and not a_n:
+                    result100.append({"team": home, "side": "Casa", "period": period_label, "label": label, "n": h_n})
+                elif a_n and not h_n:
+                    result100.append({"team": away, "side": "Visitante", "period": period_label, "label": label, "n": a_n})
+
+        if corner_over100 or goal_rate100 or result100:
             items.append({
                 "event_id": str(m.get("event_id")), "home": home, "away": away, "league": league_name,
                 "minute": m.get("minute"), "status": m.get("time"),
                 "score": f"{score_home}-{score_away}" if score_home is not None else None,
-                "corner_over100": corner_over100, "goal_rate100": goal_rate100,
+                "corner_over100": corner_over100, "goal_rate100": goal_rate100, "result100": result100,
             })
       except Exception as e:
         print(f"[opportunities] Erro no jogo {m.get('home')} x {m.get('away')}: {e}")
