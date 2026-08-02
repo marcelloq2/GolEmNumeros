@@ -1292,29 +1292,6 @@ def _opp_parse_pair(s):
         return None
 
 
-def _opp_combined_minmax(rows_arrays, field, team=None):
-    """team=None -> soma dos dois lados (total da partida). Com team, extrai só o
-    valor daquele time em cada linha (testando se ele foi mandante ou visitante
-    NAQUELE jogo específico do histórico) — mesma lógica das funções JS
-    _painelForcaCombined* já usadas na aba Cenários de Jogo."""
-    values = []
-    for rows in rows_arrays:
-        for m in rows:
-            pair = _opp_parse_pair(m.get(field))
-            if not pair:
-                continue
-            h, a = pair
-            if team is None:
-                values.append(h + a)
-            elif m.get("home") == team:
-                values.append(h)
-            elif m.get("away") == team:
-                values.append(a)
-    if not values:
-        return None
-    return {"min": min(values), "max": max(values), "n": len(values)}
-
-
 _OPP_CORNER_LINES = {"ft": [7, 8, 9, 10, 11, 12, 13, 14, 15], "ht": [4, 5, 6]}
 
 
@@ -1374,39 +1351,6 @@ def _opp_team_goal_rate100(rows, team, side_field, league, period, min_n=4):
     return out
 
 
-def _opp_combined_ah_100_lines(rows_arrays, min_n=3):
-    """Linhas de Handicap Asiático com 100% de cobertura (mandante ou visitante)
-    no histórico combinado, com amostra mínima de 3 jogos pra não marcar ruído."""
-    groups = {}
-    for rows in rows_arrays:
-        for m in rows:
-            line = m.get("ah_line")
-            if not line:
-                continue
-            g = groups.setdefault(line, {"home": 0, "draw": 0, "away": 0, "n": 0})
-            badge = m.get("ah_badge")
-            if badge == "D":
-                g["draw"] += 1
-                g["n"] += 1
-            elif badge == "W":
-                g["n"] += 1
-                g["home"] += 1
-            elif badge == "L":
-                g["n"] += 1
-                g["away"] += 1
-    out = []
-    for line, g in groups.items():
-        if g["n"] < min_n:
-            continue
-        home_pct = 100 * g["home"] / g["n"]
-        away_pct = 100 * g["away"] / g["n"]
-        if home_pct >= 100:
-            out.append({"line": line, "side": "Mandante", "n": g["n"]})
-        elif away_pct >= 100:
-            out.append({"line": line, "side": "Visitante", "n": g["n"]})
-    return out
-
-
 def _opportunities_scan_cycle():
     try:
         matches_data = _painel_fetch_matches_nowgoal(force=True)
@@ -1432,45 +1376,15 @@ def _opportunities_scan_cycle():
         d = _ng_fetch_strength(str(m["event_id"]))
 
         home, away = m.get("home"), m.get("away")
-        h2h_rows = (d.get("h2h_table") or {}).get("rows") or []
         lh_rows = (d.get("last_results_home") or {}).get("rows") or []
         la_rows = (d.get("last_results_away") or {}).get("rows") or []
-        combined = [h2h_rows, lh_rows, la_rows]
 
         score_home, score_away = to_int(m.get("score_home")), to_int(m.get("score_away"))
-        ht_home, ht_away = to_int(m.get("ht_home")), to_int(m.get("ht_away"))
-        corner_home, corner_away = to_int(m.get("corner_home")), to_int(m.get("corner_away"))
-
-        signals = []
-
-        def check(label, live_value, mm):
-            if live_value is None or not mm or not mm["max"]:
-                return
-            if live_value >= mm["max"] * 0.5:
-                signals.append({
-                    "label": label, "live": live_value,
-                    "min": mm["min"], "max": mm["max"], "n": mm["n"],
-                    "excedeu": live_value >= mm["max"],
-                })
-
-        if score_home is not None and score_away is not None:
-            check("Gols na partida", score_home + score_away, _opp_combined_minmax(combined, "score_ft"))
-            check(f"Gols {home}", score_home, _opp_combined_minmax(combined, "score_ft", team=home))
-            check(f"Gols {away}", score_away, _opp_combined_minmax(combined, "score_ft", team=away))
-        if corner_home is not None and corner_away is not None:
-            check("Escanteios na partida", corner_home + corner_away, _opp_combined_minmax(combined, "corner_ft"))
-            check(f"Escanteios {home}", corner_home, _opp_combined_minmax(combined, "corner_ft", team=home))
-            check(f"Escanteios {away}", corner_away, _opp_combined_minmax(combined, "corner_ft", team=away))
-        if ht_home is not None and ht_away is not None:
-            check("Gols na partida (HT)", ht_home + ht_away, _opp_combined_minmax(combined, "score_ht"))
-            check(f"Gols {home} (HT)", ht_home, _opp_combined_minmax(combined, "score_ht", team=home))
-            check(f"Gols {away} (HT)", ht_away, _opp_combined_minmax(combined, "score_ht", team=away))
-
-        ah_100 = _opp_combined_ah_100_lines(combined)
 
         # Mesma leitura da aba "Leitura" (Painel Principal): time no próprio
         # lado + mesma liga + últimos 4 jogos, linhas fixas de escanteios
-        # Over 7-15 FT / 4-6 HT que bateram 100%.
+        # Over 7-15 FT / 4-6 HT e mercados de gol (Over 1.5/2.5, Under 2.5 FT,
+        # Over 0.5/1.5 HT) que bateram 100%.
         corner_over100 = []
         goal_rate100 = []
         for period, period_label in (("ft", "FT"), ("ht", "HT")):
@@ -1483,12 +1397,12 @@ def _opportunities_scan_cycle():
             for g in _opp_team_goal_rate100(la_rows, away, "away", league_name, period):
                 goal_rate100.append({"team": away, "side": "Visitante", "period": period_label, "kind": g["kind"], "line": g["line"], "n": g["n"]})
 
-        if signals or ah_100 or corner_over100 or goal_rate100:
+        if corner_over100 or goal_rate100:
             items.append({
                 "event_id": str(m.get("event_id")), "home": home, "away": away, "league": league_name,
                 "minute": m.get("minute"), "status": m.get("time"),
                 "score": f"{score_home}-{score_away}" if score_home is not None else None,
-                "signals": signals, "ah_100": ah_100, "corner_over100": corner_over100, "goal_rate100": goal_rate100,
+                "corner_over100": corner_over100, "goal_rate100": goal_rate100,
             })
       except Exception as e:
         print(f"[opportunities] Erro no jogo {m.get('home')} x {m.get('away')}: {e}")

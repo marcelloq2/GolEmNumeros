@@ -3526,13 +3526,13 @@ function _painelSetFilter(filter, btn) {
   }
 }
 
-// "Mapa de Oportunidades" — conteúdo a definir.
-// Mapa de Oportunidades — mostra os jogos AO VIVO onde o placar/escanteios atuais
-// já bateram pelo menos metade do máximo histórico combinado (Confronto Direto +
-// Pontuações Anteriores), ou onde alguma linha de Handicap Asiático teve 100% de
-// cobertura nesse histórico. Os dados vêm de uma varredura que já roda sozinha no
-// servidor a cada ~5min (backend, sequencial) — aqui só busca o resultado pronto
-// e fica atualizando a tela sozinha enquanto a aba estiver aberta.
+// Mapa de Oportunidades — mostra os jogos AO VIVO onde algum time bateu 100%
+// em alguma linha de Over de escanteios (FT 7-15 / HT 4-6) ou de mercado de
+// gol (Over 1.5/2.5, Under 2.5 FT, Over 0.5/1.5 HT), no mesmo recorte da aba
+// Leitura (próprio lado, mesma liga, últimos 4 jogos). Os dados vêm de uma
+// varredura que já roda sozinha no servidor a cada ~5min (backend, sequencial)
+// — aqui só busca o resultado pronto e fica atualizando a tela sozinha
+// enquanto a aba estiver aberta.
 let _painelOppRefreshTimer = null;
 
 function _painelLoadOpportunities() {
@@ -3570,7 +3570,7 @@ function _painelRenderOpportunities(d) {
   if (!el) return;
   const items = d.items || [];
   const updated = d.updated_at ? new Date(d.updated_at * 1000).toLocaleTimeString('pt-BR') : '— (primeira varredura ainda não terminou)';
-  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, comparando com o histórico combinado (Confronto Direto + Pontuações Anteriores dos 2 times).</div>`;
+  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, procurando times que bateram 100% em alguma linha de Over de escanteios ou de gol na aba Leitura (próprio lado, mesma liga, últimos 4 jogos).</div>`;
 
   if (!items.length) {
     el.innerHTML = header + `<div style="color:var(--text2);text-align:center;padding:24px 0">Nenhuma oportunidade encontrada nos jogos ao vivo agora.</div>`;
@@ -3585,14 +3585,6 @@ function _painelRenderOpportunities(d) {
         <b style="font-size:14px;display:flex;align-items:center;gap:6px">${_today2EscudoImg(logos?.escudo_casa)}${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}${_today2EscudoImg(logos?.escudo_fora)}</b>
         <span style="font-size:11px;color:var(--text2)">${it.league || ''} · ${it.status || ''}${it.minute != null ? ' ' + it.minute + "'" : ''}</span>
       </div>
-      ${(it.signals || []).map(s => `
-        <div style="font-size:13px;padding:5px 0;color:${s.excedeu ? '#22c55e' : 'var(--text)'}">
-          ${s.excedeu ? '🔥' : '⚠️'} ${s.label}: já saiu(ram) <b>${s.live}</b> — histórico mín ${s.min} · máx <b>${s.max}</b> (${s.n} jogos)
-        </div>`).join('')}
-      ${(it.ah_100 || []).map(b => `
-        <div style="font-size:13px;padding:5px 0;color:#f59e0b">
-          🎯 Handicap Asiático 100%: linha <b>${b.line}</b> — <b>${b.side}</b> cobriu em 100% dos jogos (${b.n} jogos)
-        </div>`).join('')}
       ${(it.corner_over100 || []).map(c => `
         <div style="font-size:13px;padding:5px 0;color:#38bdf8">
           🚩 Escanteios Over ${c.line}.5 ${c.period}: <b>${c.team}</b> (${c.side}) bateu em 100% dos últimos jogos (${c.n} jogos)
