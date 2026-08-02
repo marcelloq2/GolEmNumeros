@@ -5906,11 +5906,23 @@ function _painelKickoffTime(m) {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+// NowGoal (fonte do Painel Principal) não manda escudo de time nenhum
+// (home_logo/away_logo sempre None no app.py) — reaproveita o mesmo fuzzy-match
+// por nome já usado nas abas Classificações/Power Ranking pra achar o jogo
+// equivalente na base da Flashscore (today2MatchesCache) e pegar o escudo de lá.
+function _painelRowLogos(m) {
+  if (m.home_logo || m.away_logo) return { home: m.home_logo, away: m.away_logo };
+  const found = typeof _painelFindToday2MatchByNames === 'function'
+    ? _painelFindToday2MatchByNames(m.home, m.away) : null;
+  return { home: found?.escudo_casa || null, away: found?.escudo_fora || null };
+}
+
 function _painelMatchRowHtml(m, leagueName) {
   const isLive = _painelIsLive(m);
   const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
   const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
     ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
+  const rowLogos = _painelRowLogos(m);
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
   const kickoff = _painelKickoffTime(m);
@@ -5923,9 +5935,9 @@ function _painelMatchRowHtml(m, leagueName) {
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
-        <span>${m.home_logo ? `<img src="${m.home_logo}" alt="">` : ''}</span>
+        <span>${rowLogos.home ? `<img src="${rowLogos.home}" alt="" onerror="this.style.display='none'">` : ''}</span>
         ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
-        <span>${m.away_logo ? `<img src="${m.away_logo}" alt="">` : ''}</span>
+        <span>${rowLogos.away ? `<img src="${rowLogos.away}" alt="" onerror="this.style.display='none'">` : ''}</span>
         <span class="painel-team away" title="${awayEsc}">${m.away}</span>
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
