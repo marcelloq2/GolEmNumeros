@@ -3582,7 +3582,7 @@ function _painelRenderOpportunities(d) {
     return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <b style="font-size:14px;display:flex;align-items:center;gap:6px">${_today2EscudoImg(logos?.escudo_casa)}${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}${_today2EscudoImg(logos?.escudo_fora)}</b>
+        <b style="font-size:14px;display:flex;align-items:center;gap:6px">${_today2EscudoImg(logos?.escudo_casa)}${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}${_today2EscudoImg(logos?.escudo_fora)}${it.minute != null ? `<span style="font-size:11px;font-weight:400;color:var(--text2)">${it.minute}'</span>` : ''}</b>
         <span style="font-size:11px;color:var(--text2)">${it.league || ''} · ${it.status || ''}${it.minute != null ? ' ' + it.minute + "'" : ''}</span>
       </div>
       ${(it.corner_over100 || []).map(c => `
