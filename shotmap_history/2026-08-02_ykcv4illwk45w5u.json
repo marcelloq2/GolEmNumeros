@@ -1,0 +1,300 @@
+{
+  "event_id": "ykcv4illwk45w5u",
+  "date": "2026-08-02",
+  "casa": "Grasshopper",
+  "fora": "Lugano",
+  "liga": "Super League",
+  "score": {
+    "home": 1,
+    "away": 4
+  },
+  "total_shots": 26,
+  "shotmap": [
+    {
+      "id": "2951192345",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y.Cimignani",
+      "x": 16,
+      "y": 34.2
+    },
+    {
+      "id": "2951190263",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Krasniqi",
+      "x": 26.9,
+      "y": 42.2
+    },
+    {
+      "id": "2951186217",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "crossbar",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "E.Pihlstrom",
+      "x": 15.1,
+      "y": 57.3
+    },
+    {
+      "id": "2951182369",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "E.Pihlstrom",
+      "x": 26.3,
+      "y": 46.4
+    },
+    {
+      "id": "2951176563",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y.Cimignani",
+      "x": 5.5,
+      "y": 49.2
+    },
+    {
+      "id": "2951175055",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Ó.Clemente",
+      "x": 15.7,
+      "y": 60.2
+    },
+    {
+      "id": "2951174121",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Bengondo",
+      "x": 19.8,
+      "y": 34.8
+    },
+    {
+      "id": "2951172705",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E. Alioski",
+      "x": 5.4,
+      "y": 43.1
+    },
+    {
+      "id": "2951171403",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Moncada",
+      "x": 6.4,
+      "y": 55.4
+    },
+    {
+      "id": "2951170361",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y.Cimignani",
+      "x": 14.1,
+      "y": 77.4
+    },
+    {
+      "id": "2951166221",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D.Moncada",
+      "x": 6.3,
+      "y": 50.2
+    },
+    {
+      "id": "2951164241",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Bislimi",
+      "x": 25.7,
+      "y": 61.3
+    },
+    {
+      "id": "2951162787",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Bislimi",
+      "x": 23.7,
+      "y": 53.8
+    },
+    {
+      "id": "2951162889",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Y.Cimignani",
+      "x": 6.6,
+      "y": 55.8
+    },
+    {
+      "id": "2951148477",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Daniel Dos Santos",
+      "x": 23.8,
+      "y": 34
+    },
+    {
+      "id": "2951144015",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "regular",
+      "player": "R. Steffen",
+      "x": 8.9,
+      "y": 42.6
+    },
+    {
+      "id": "2951143753",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M. Zanotti",
+      "x": 9.1,
+      "y": 52.1
+    },
+    {
+      "id": "2951140421",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "N.Rissi",
+      "x": 21.2,
+      "y": 28.3
+    },
+    {
+      "id": "2951140185",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Abrashi",
+      "x": 18.7,
+      "y": 47.2
+    },
+    {
+      "id": "2951138411",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "I.Hassane",
+      "x": 15.7,
+      "y": 44
+    },
+    {
+      "id": "2951136711",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S.Krasniqi",
+      "x": 6.8,
+      "y": 53.3
+    },
+    {
+      "id": "2951136683",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Krasniqi",
+      "x": 23.5,
+      "y": 54.6
+    },
+    {
+      "id": "2951134975",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Plange",
+      "x": 3.3,
+      "y": 49
+    },
+    {
+      "id": "2951130467",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A. Grgic",
+      "x": 26.4,
+      "y": 53.4
+    },
+    {
+      "id": "2951129475",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Krasniqi",
+      "x": 13,
+      "y": 33.4
+    },
+    {
+      "id": "2951124281",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Muci",
+      "x": 8.2,
+      "y": 62.1
+    }
+  ]
+}
