@@ -1318,7 +1318,7 @@ def _opp_combined_minmax(rows_arrays, field, team=None):
 _OPP_CORNER_LINES = {"ft": [7, 8, 9, 10, 11, 12, 13, 14, 15], "ht": [4, 5, 6]}
 
 
-def _opp_team_corner_over100(rows, team, side_field, league, period, min_n=2):
+def _opp_team_corner_over100(rows, team, side_field, league, period, min_n=4):
     """Mesmo recorte da aba Leitura (Painel Principal): time no próprio lado
     (side_field='home'/'away' — qual campo da linha do histórico é o time),
     mesma liga, últimos 4 jogos. Retorna as linhas fixas (FT 7-15 / HT 4-6)
@@ -1349,7 +1349,7 @@ _OPP_GOAL_CHECKS = {
 }
 
 
-def _opp_team_goal_rate100(rows, team, side_field, league, period, min_n=2):
+def _opp_team_goal_rate100(rows, team, side_field, league, period, min_n=4):
     """Mesma leitura da aba Leitura pros mercados de gol (Over 1.5/2.5, Under
     2.5 FT e Over 0.5/1.5 HT) — time no próprio lado, mesma liga, últimos 4
     jogos. Retorna as combinações que bateram 100% nesse recorte."""
