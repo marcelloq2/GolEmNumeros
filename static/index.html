@@ -3531,7 +3531,7 @@ function _painelSetFilter(filter, btn) {
 // já bateram pelo menos metade do máximo histórico combinado (Confronto Direto +
 // Pontuações Anteriores), ou onde alguma linha de Handicap Asiático teve 100% de
 // cobertura nesse histórico. Os dados vêm de uma varredura que já roda sozinha no
-// servidor a cada ~20min (backend, sequencial) — aqui só busca o resultado pronto
+// servidor a cada ~5min (backend, sequencial) — aqui só busca o resultado pronto
 // e fica atualizando a tela sozinha enquanto a aba estiver aberta.
 let _painelOppRefreshTimer = null;
 
@@ -3558,7 +3558,7 @@ function _painelRenderOpportunities(d) {
   if (!el) return;
   const items = d.items || [];
   const updated = d.updated_at ? new Date(d.updated_at * 1000).toLocaleTimeString('pt-BR') : '— (primeira varredura ainda não terminou)';
-  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~20min, comparando com o histórico combinado (Confronto Direto + Pontuações Anteriores dos 2 times).</div>`;
+  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, comparando com o histórico combinado (Confronto Direto + Pontuações Anteriores dos 2 times).</div>`;
 
   if (!items.length) {
     el.innerHTML = header + `<div style="color:var(--text2);text-align:center;padding:24px 0">Nenhuma oportunidade encontrada nos jogos ao vivo agora.</div>`;
