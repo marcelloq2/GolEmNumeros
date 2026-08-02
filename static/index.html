@@ -3538,9 +3538,21 @@ let _painelOppRefreshTimer = null;
 function _painelLoadOpportunities() {
   const el = document.getElementById('painelOpportunitiesView');
   el.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  // Dispara uma varredura na hora (sem esperar o ciclo automático de 5min) e
+  // busca o resultado com mais frequência por um tempo, pra aparecer assim
+  // que a varredura sob demanda terminar — depois volta pro ritmo normal.
+  fetch('/api/painel/opportunities/scan_now', { method: 'POST' }).catch(() => {});
   _painelFetchOpportunities();
   clearInterval(_painelOppRefreshTimer);
-  _painelOppRefreshTimer = setInterval(_painelFetchOpportunities, 60000);
+  let _oppFastTicks = 0;
+  _painelOppRefreshTimer = setInterval(() => {
+    _painelFetchOpportunities();
+    _oppFastTicks++;
+    if (_oppFastTicks === 6) { // ~30s no ritmo rápido, depois cai pro normal (60s)
+      clearInterval(_painelOppRefreshTimer);
+      _painelOppRefreshTimer = setInterval(_painelFetchOpportunities, 60000);
+    }
+  }, 5000);
 }
 
 function _painelFetchOpportunities() {

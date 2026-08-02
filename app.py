@@ -1503,12 +1503,18 @@ def _opportunities_scan_cycle():
 def _opportunities_loop():
     _github_sync_done.wait(timeout=120)  # espera a restauração do GitHub terminar antes do 1º ciclo
     while True:
+        if _opportunities_scan_running.is_set():
+            time.sleep(5)  # alguém já disparou uma varredura sob demanda — não roda 2 ao mesmo tempo
+            continue
+        _opportunities_scan_running.set()
         try:
             print("[opportunities] Escaneando jogos ao vivo...")
             _opportunities_scan_cycle()
             print("[opportunities] Ciclo concluído.")
         except Exception as e:
             print(f"[opportunities] Erro no ciclo: {e}")
+        finally:
+            _opportunities_scan_running.clear()
         time.sleep(_OPPORTUNITIES_SCAN_INTERVAL)
 
 
@@ -1516,6 +1522,31 @@ def _opportunities_loop():
 def api_painel_opportunities():
     with _opportunities_lock:
         return jsonify({"updated_at": _opportunities_cache["ts"], "items": _opportunities_cache["items"]})
+
+
+_opportunities_scan_running = threading.Event()
+
+
+@app.route("/api/painel/opportunities/scan_now", methods=["POST"])
+def api_painel_opportunities_scan_now():
+    """Disparada quando o usuário abre a aba — roda uma varredura em segundo
+    plano na hora, sem esperar o ciclo automático de 5min. Se já tiver uma
+    rodando (outro usuário abriu a aba um pouco antes), só reaproveita."""
+    if _opportunities_scan_running.is_set():
+        return jsonify({"status": "already_running"})
+
+    def run():
+        _opportunities_scan_running.set()
+        try:
+            _opportunities_scan_cycle()
+        except Exception as e:
+            print(f"[opportunities] Erro na varredura sob demanda: {e}")
+            traceback.print_exc()
+        finally:
+            _opportunities_scan_running.clear()
+
+    threading.Thread(target=run, daemon=True, name="OpportunitiesScanNow").start()
+    return jsonify({"status": "started"})
 
 
 def _painel_fetch_matches(force=False, date_str=None):
