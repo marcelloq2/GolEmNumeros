@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3, itertools, math
+import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback
 import requests as http_req
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -1428,11 +1428,8 @@ def _opportunities_scan_cycle():
 
     items = []
     for m, league_name in live_matches:
-        try:
-            d = _ng_fetch_strength(str(m["event_id"]))
-        except Exception as e:
-            print(f"[opportunities] Erro no jogo {m.get('home')} x {m.get('away')}: {e}")
-            continue
+      try:
+        d = _ng_fetch_strength(str(m["event_id"]))
 
         home, away = m.get("home"), m.get("away")
         h2h_rows = (d.get("h2h_table") or {}).get("rows") or []
@@ -1493,6 +1490,10 @@ def _opportunities_scan_cycle():
                 "score": f"{score_home}-{score_away}" if score_home is not None else None,
                 "signals": signals, "ah_100": ah_100, "corner_over100": corner_over100, "goal_rate100": goal_rate100,
             })
+      except Exception as e:
+        print(f"[opportunities] Erro no jogo {m.get('home')} x {m.get('away')}: {e}")
+        traceback.print_exc()
+        continue
 
     with _opportunities_lock:
         _opportunities_cache["ts"] = time.time()
