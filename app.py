@@ -1322,6 +1322,12 @@ def _get_radar_futebol_links():
             return _radar_links_cache["events"]
     try:
         r = http_req.get(_RADAR_LINKS_URL, headers=_RADAR_LINKS_HEADERS, stream=True, timeout=15)
+        # O servidor não declara charset no Content-Type do SSE, então o requests
+        # cai no fallback ISO-8859-1 (padrão HTTP pra text/*) e decodifica errado
+        # qualquer acento (ex: "Fenerbahçe" virava "FenerbahÃ§e") — isso quebrava
+        # o casamento de nome pra times com acento/cedilha. Força UTF-8 (é o que
+        # o feed realmente manda).
+        r.encoding = "utf-8"
         payload = None
         for raw_line in r.iter_lines(decode_unicode=True):
             if raw_line and raw_line.startswith("data:"):
