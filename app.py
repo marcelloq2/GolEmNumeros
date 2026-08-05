@@ -2777,6 +2777,28 @@ def api_radar_live():
     except Exception as e:
         print(f"[radar-links] Erro anexando links (ao vivo): {e}")
 
+    # Reaproveita as mesmas odds 1x2/Over-Under do Painel Principal (NowGoal) —
+    # casa (casa, fora) do Ao Vivo (Uniscore) com o jogo equivalente lá pelo
+    # nome dos times, mesma técnica do _find_radar_links. Busca a lista uma vez
+    # só (não por partida) porque _painel_fetch_matches_nowgoal já cacheia por
+    # conta própria, mas repetir a chamada pra cada jogo ainda seria bater no
+    # lock/dict à toa dezenas de vezes por request.
+    try:
+        painel_data = _painel_fetch_matches_nowgoal()
+        painel_matches = [pm for lg in painel_data.get("leagues", []) for pm in lg["matches"]]
+    except Exception as e:
+        print(f"[painel-odds] Erro buscando odds do Painel Principal: {e}")
+        painel_matches = []
+    for m in live:
+        pm = next((p for p in painel_matches
+                   if _name_match(m.get("casa") or "", p.get("home") or "")
+                   and _name_match(m.get("fora") or "", p.get("away") or "")), None)
+        m["odd_1"] = pm.get("odd_1") if pm else None
+        m["odd_x"] = pm.get("odd_x") if pm else None
+        m["odd_2"] = pm.get("odd_2") if pm else None
+        m["odd_over"] = pm.get("odd_over") if pm else None
+        m["odd_under"] = pm.get("odd_under") if pm else None
+
     # Se a fetch retornou 0 jogos mas o cache anterior tem dados recentes (< 5 min),
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
     if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):
