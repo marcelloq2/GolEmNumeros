@@ -4292,6 +4292,7 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
 // Playwright e repassa como veio, sem reprocessar nada aqui.
 let _painelForcaData = null;
 let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
+let _painelForcaOddHome = null, _painelForcaOddAway = null; // odd 1/2 do jogo atual (Painel Principal), usadas no estudo "odd parecida" da Leitura
 let _painelForcaTab = 'battle';
 let _painelForcaView = 'main';
 
@@ -4312,8 +4313,10 @@ function _painelForcaSetView(view, btn) {
   });
 }
 
-function _painelOpenForca(eventId, home, away, league) {
+function _painelOpenForca(eventId, home, away, league, oddHome, oddAway) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
+  _painelForcaOddHome = (oddHome != null && !isNaN(oddHome)) ? parseFloat(oddHome) : null;
+  _painelForcaOddAway = (oddAway != null && !isNaN(oddAway)) ? parseFloat(oddAway) : null;
   _painelForcaLastSide = 'home';
   _painelForcaTableState = {
     h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
@@ -5276,6 +5279,47 @@ function _painelForcaLastFullStats(key, period) {
   };
 }
 
+// Estudo "odd parecida": pega a odd 1/2 do jogo de HOJE (Painel Principal) e olha o
+// histórico do time (próprio lado, qualquer liga — aqui não filtra por liga porque o
+// que importa é a odd, não o campeonato) procurando jogos passados em que ele também
+// tinha uma odd parecida — ou seja, era "favorito/zebra" no mesmo nível de hoje — e
+// mostra como ele se saiu nesses jogos (Vence/Empate/Perde + média de gols marcados).
+function _painelForcaOddSimilarStats(key) {
+  const cfg = _painelForcaSideConfig(key);
+  const currentOdd = key === 'home' ? _painelForcaOddHome : _painelForcaOddAway;
+  if (currentOdd == null) return null;
+  const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
+  if (!tbl || !tbl.rows || !tbl.rows.length) return null;
+  const oddField = key === 'home' ? 'odd_hw' : 'odd_aw';
+  const tolerance = Math.max(0.15, currentOdd * 0.15);
+  const rows = tbl.rows.filter(m => {
+    if (m[cfg.field] !== cfg.teamName) return false;
+    const o = parseFloat(m[oddField]);
+    return !isNaN(o) && Math.abs(o - currentOdd) <= tolerance;
+  });
+  if (!rows.length) return null;
+
+  let wins = 0, draws = 0, losses = 0;
+  const gols = [];
+  const isHomeRow = key === 'home';
+  rows.forEach(m => {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    const oppGoals = isHomeRow ? parts[1] : parts[0];
+    gols.push(teamGoals);
+    if (teamGoals > oppGoals) wins++; else if (oppGoals > teamGoals) losses++; else draws++;
+  });
+  const n = wins + draws + losses;
+  if (!n) return null;
+  const avg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  return {
+    n, odd: currentOdd, tolerance,
+    vencePct: Math.round(100 * wins / n), empatePct: Math.round(100 * draws / n), percePct: Math.round(100 * losses / n),
+    golsMedia: avg(gols),
+  };
+}
+
 function _painelForcaLeituraRender() {
   const el = document.getElementById('painelForcaViewLeitura');
   if (!el) return;
@@ -5291,6 +5335,43 @@ function _painelForcaLeituraRender() {
         <option value="all" ${_painelForcaLeituraSample === 'all' ? 'selected' : ''}>Todos</option>
       </select>
     </div>`;
+
+  // ── Estudo "odd parecida" — desempenho histórico do time quando teve uma
+  // odd 1/2 próxima da odd de hoje (favoritismo/zebra no mesmo nível) ──
+  const oddHomeStats = _painelForcaOddSimilarStats('home');
+  const oddAwayStats = _painelForcaOddSimilarStats('away');
+  let cardOddSimilar = '';
+  if (oddHomeStats || oddAwayStats) {
+    const oddCol = (name, s) => !s ? `<div style="flex:1;text-align:center;color:var(--text2);font-size:12px">${name}<br>sem jogos com odd parecida</div>` : `
+      <div style="flex:1">
+        <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:6px">${name} — odd ${s.odd.toFixed(2)} (${s.n} jogo${s.n > 1 ? 's' : ''} com odd parecida)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#22c55e">${s.vencePct}%</div><div style="font-size:10px;color:var(--text2)">Vence</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:16px;font-weight:800">${s.empatePct}%</div><div style="font-size:10px;color:var(--text2)">Empate</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#ef4444">${s.percePct}%</div><div style="font-size:10px;color:var(--text2)">Perde</div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--text2)">Média de gols marcados: <b style="color:var(--text)">${s.golsMedia != null ? s.golsMedia.toFixed(1) : '—'}</b></div>
+      </div>`;
+    cardOddSimilar = `
+      <div class="cenario-block">
+        <div class="cenario-icon">🎯</div>
+        <div class="cenario-content">
+          <div class="cenario-label">Desempenho histórico com odd parecida à de hoje — próprio lado, qualquer liga</div>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            ${oddCol(_painelForcaHome, oddHomeStats)}
+            ${oddCol(_painelForcaAway, oddAwayStats)}
+          </div>
+        </div>
+      </div>`;
+  } else if (_painelForcaOddHome == null && _painelForcaOddAway == null) {
+    cardOddSimilar = `<div class="cenario-block"><div class="cenario-icon">🎯</div><div class="cenario-content"><div class="cenario-label">Desempenho histórico com odd parecida à de hoje</div><div style="color:var(--text2);font-size:13px;padding:8px 0">Esse jogo não tem odd 1/2 disponível no Painel Principal, então não dá pra comparar.</div></div></div>`;
+  }
 
   const fmt = (v, suffix) => v == null ? '—' : `${v}${suffix || ''}`;
   const row = (label, homeVal, awayVal) => `
@@ -5373,7 +5454,7 @@ function _painelForcaLeituraRender() {
       </div>`;
   }
 
-  el.innerHTML = header + sampleSelect + cardFt + cardHt;
+  el.innerHTML = header + sampleSelect + cardOddSimilar + cardFt + cardHt;
 }
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
@@ -6036,7 +6117,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_under)}
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
-        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}')">📊</button>`}
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}',${m.odd_1 ?? 'null'},${m.odd_2 ?? 'null'})">📊</button>`}
     </div>`;
 }
 
