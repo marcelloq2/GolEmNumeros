@@ -1165,12 +1165,12 @@
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .painel-league-cols {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 50px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 72px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 50px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 72px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
@@ -1182,6 +1182,7 @@
   .painel-plat-icon:hover { filter: brightness(1.15); transform: scale(1.08); }
   .painel-plat-betfair { background: #ffb80c; color: #05262b; }
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
+  .painel-plat-radar { background: #a855f7; color: #fff; }
   .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
   .painel-match-ht { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-match-corners { text-align: center; font-size: 11px; color: var(--text2); }
@@ -6193,6 +6194,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
       <span class="painel-plat-icons">
+        ${(m.link_betfair || m.link_bolsa) ? `<a href="https://www.radarfutebol.com/" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
       </span>
@@ -11619,6 +11621,7 @@ function renderLive2Card(m) {
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" onclick="_live2OpenPreStatsModal('${m.id}')">PosiçãoT / PowerR</button>
         <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
+        ${(m.link_betfair || m.link_bolsa) ? `<a href="https://www.radarfutebol.com/" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
