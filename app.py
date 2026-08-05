@@ -2759,6 +2759,18 @@ def api_radar_live():
     live = list(all_by_id.values())
     print(f"[live] {len(live)} jogos ao vivo retornados")
 
+    # Mesmo link direto pra Betfair Exchange / Bolsa de Aposta usado no Painel
+    # Principal (ver _find_radar_links) — aqui não temos horário de início (o
+    # jogo já tá em andamento), então em caso raro de nome ambíguo fica com o
+    # 1º candidato em vez de desempatar por horário.
+    try:
+        for m in live:
+            lb, lba = _find_radar_links(m.get("casa"), m.get("fora"))
+            m["link_betfair"] = lb
+            m["link_bolsa"] = lba
+    except Exception as e:
+        print(f"[radar-links] Erro anexando links (ao vivo): {e}")
+
     # Se a fetch retornou 0 jogos mas o cache anterior tem dados recentes (< 5 min),
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
     if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):

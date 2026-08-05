@@ -11619,6 +11619,8 @@ function renderLive2Card(m) {
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" onclick="_live2OpenPreStatsModal('${m.id}')">PosiçãoT / PowerR</button>
         <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
+        ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
+        ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
       </div>
     </div>`;
