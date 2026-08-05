@@ -1,7 +1,7 @@
 {
   "event_id": "hesv5yld1x7ewhu",
   "date": "2026-08-05",
-  "saved_at": "2026-08-05T01:51:56.446202",
+  "saved_at": "2026-08-05T02:33:47.605867",
   "source": "uniscore",
   "casa": "México (W)",
   "fora": "El Salvador (W)",
@@ -373,117 +373,266 @@
     },
     {
       "minute": 92,
-      "value": 86
+      "value": 78
+    },
+    {
+      "minute": 93,
+      "value": 40
+    },
+    {
+      "minute": 94,
+      "value": 68
+    },
+    {
+      "minute": 95,
+      "value": 30
+    },
+    {
+      "minute": 96,
+      "value": 0
+    },
+    {
+      "minute": 97,
+      "value": 14
+    },
+    {
+      "minute": 98,
+      "value": 32
+    },
+    {
+      "minute": 99,
+      "value": 100
+    },
+    {
+      "minute": 100,
+      "value": -30
+    },
+    {
+      "minute": 101,
+      "value": -100
+    },
+    {
+      "minute": 102,
+      "value": 0
+    },
+    {
+      "minute": 103,
+      "value": -50
+    },
+    {
+      "minute": 104,
+      "value": 40
+    },
+    {
+      "minute": 105,
+      "value": 100
+    },
+    {
+      "minute": 106,
+      "value": 100
+    },
+    {
+      "minute": 107,
+      "value": 70
+    },
+    {
+      "minute": 108,
+      "value": -20
+    },
+    {
+      "minute": 109,
+      "value": 20
+    },
+    {
+      "minute": 110,
+      "value": 26
+    },
+    {
+      "minute": 111,
+      "value": 12
+    },
+    {
+      "minute": 112,
+      "value": 44
+    },
+    {
+      "minute": 113,
+      "value": -62
+    },
+    {
+      "minute": 114,
+      "value": 32
+    },
+    {
+      "minute": 115,
+      "value": -72
+    },
+    {
+      "minute": 116,
+      "value": 44
+    },
+    {
+      "minute": 117,
+      "value": 100
+    },
+    {
+      "minute": 118,
+      "value": 20
+    },
+    {
+      "minute": 119,
+      "value": -48
+    },
+    {
+      "minute": 120,
+      "value": 14
+    },
+    {
+      "minute": 121,
+      "value": -100
+    },
+    {
+      "minute": 122,
+      "value": -44
+    },
+    {
+      "minute": 123,
+      "value": 100
+    },
+    {
+      "minute": 124,
+      "value": 100
     }
   ],
   "goals": [
     {
+      "minute": 120,
+      "addedTime": 5,
+      "team": "home",
+      "player": "América Frías",
+      "ownGoal": false
+    },
+    {
+      "minute": 117,
+      "addedTime": 0,
+      "team": "home",
+      "player": "Valerie vargas",
+      "ownGoal": false
+    },
+    {
+      "minute": 91,
+      "addedTime": 0,
+      "team": "home",
+      "player": "América Frías",
+      "ownGoal": false
+    },
+    {
       "minute": 72,
       "addedTime": 0,
       "team": "away",
-      "player": "",
+      "player": "Y.López",
       "ownGoal": false
     },
     {
       "minute": 25,
       "addedTime": 0,
       "team": "home",
-      "player": "",
+      "player": "L.Bosch",
       "ownGoal": false
     }
   ],
   "score": {
-    "home": 1,
+    "home": 4,
     "away": 1
   },
   "shotmap": [],
   "statistics": {
     "shots": {
-      "home": "11",
+      "home": "17",
       "away": "8",
-      "homeValue": 11,
+      "homeValue": 17,
       "awayValue": 8
     },
     "shots_on_target": {
-      "home": "4",
+      "home": "10",
       "away": "3",
-      "homeValue": 4,
+      "homeValue": 10,
       "awayValue": 3
     },
     "corner_kicks": {
-      "home": "7",
-      "away": "1",
-      "homeValue": 7,
-      "awayValue": 1
+      "home": "9",
+      "away": "2",
+      "homeValue": 9,
+      "awayValue": 2
     },
     "yellow_cards": {
       "home": "0",
-      "away": "2",
+      "away": "3",
       "homeValue": 0,
-      "awayValue": 2
+      "awayValue": 3
     },
     "attacks": {
-      "home": "91",
-      "away": "77",
-      "homeValue": 91,
-      "awayValue": 77
+      "home": "109",
+      "away": "102",
+      "homeValue": 109,
+      "awayValue": 102
     },
     "dangerous_attacks": {
-      "home": "62",
-      "away": "46",
-      "homeValue": 62,
-      "awayValue": 46
+      "home": "89",
+      "away": "62",
+      "homeValue": 89,
+      "awayValue": 62
     },
     "ball_possession": {
-      "home": "55%",
-      "away": "45%",
-      "homeValue": 55,
-      "awayValue": 45
+      "home": "57%",
+      "away": "43%",
+      "homeValue": 57,
+      "awayValue": 43
     }
   },
   "statistics_periods": {
     "ALL": {
       "shots": {
-        "home": "11",
+        "home": "17",
         "away": "8",
-        "homeValue": 11,
+        "homeValue": 17,
         "awayValue": 8
       },
       "shots_on_target": {
-        "home": "4",
+        "home": "10",
         "away": "3",
-        "homeValue": 4,
+        "homeValue": 10,
         "awayValue": 3
       },
       "corner_kicks": {
-        "home": "7",
-        "away": "1",
-        "homeValue": 7,
-        "awayValue": 1
+        "home": "9",
+        "away": "2",
+        "homeValue": 9,
+        "awayValue": 2
       },
       "yellow_cards": {
         "home": "0",
-        "away": "2",
+        "away": "3",
         "homeValue": 0,
-        "awayValue": 2
+        "awayValue": 3
       },
       "attacks": {
-        "home": "91",
-        "away": "77",
-        "homeValue": 91,
-        "awayValue": 77
+        "home": "109",
+        "away": "102",
+        "homeValue": 109,
+        "awayValue": 102
       },
       "dangerous_attacks": {
-        "home": "62",
-        "away": "46",
-        "homeValue": 62,
-        "awayValue": 46
+        "home": "89",
+        "away": "62",
+        "homeValue": 89,
+        "awayValue": 62
       },
       "ball_possession": {
-        "home": "55%",
-        "away": "45%",
-        "homeValue": 55,
-        "awayValue": 45
+        "home": "57%",
+        "away": "43%",
+        "homeValue": 57,
+        "awayValue": 43
       }
     },
     "1ST": {
@@ -570,18 +719,18 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 13.261,
-    "h1_avg": 14.783,
-    "h2_avg": 11.739,
-    "home_dominance_pct": 56.5,
+    "overall_avg": 14.452,
+    "h1_avg": 13.484,
+    "h2_avg": 15.419,
+    "home_dominance_pct": 58.9,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 37,
-    "total_points": 92
+    "momentum_swings": 51,
+    "total_points": 124
   },
   "xg": {
-    "home": 2.21,
-    "away": 1.53,
+    "home": 4.62,
+    "away": 1.55,
     "source": "estimated",
     "fields_used": [
       "shots_on_target",
@@ -592,11 +741,11 @@
     "n_fields": 4
   },
   "opening_odds": {
-    "h": "1.18",
-    "x": "5.75",
-    "a": "13.00",
-    "ou_line": "3",
-    "ou_over": "1.03",
-    "ou_under": "1.78"
+    "h": "13.00",
+    "x": "1.04",
+    "a": "19.00",
+    "ou_line": "2.5",
+    "ou_over": "5.80",
+    "ou_under": "1.11"
   }
 }
