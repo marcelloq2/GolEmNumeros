@@ -1245,9 +1245,10 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
         # se o RadarFutebol estiver fora do ar, só fica sem os links dessa vez.
         try:
             for m in matches:
-                lb, lba = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
+                lb, lba, lr = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
                 m["link_betfair"] = lb
                 m["link_bolsa"] = lba
+                m["link_radar"] = lr
         except Exception as e:
             print(f"[radar-links] Erro anexando links: {e}")
 
@@ -1352,12 +1353,16 @@ def _get_radar_futebol_links():
                         ts = datetime.strptime(inicio, "%Y-%m-%d %H:%M:%S").timestamp()
                     except ValueError:
                         ts = None
+                slug_evento = ev.get("slugEvento")
+                id_evento = ev.get("idEvento")
+                link_radar = f"https://www.radarfutebol.com/radar/{slug_evento}/{id_evento}" if slug_evento and id_evento else None
                 events.append({
                     "home": ev.get("timeCasa") or "",
                     "away": ev.get("timeFora") or "",
                     "ts": ts,
                     "link_betfair": link_betfair,
                     "link_bolsa": link_bolsa,
+                    "link_radar": link_radar,
                 })
 
         with _radar_links_lock:
@@ -1376,17 +1381,17 @@ def _find_radar_links(home, away, ts=None):
     jogando no mesmo dia), desempata pelo horário mais próximo; se mesmo assim
     a diferença passar de 3h, não arrisca linkar pro jogo errado."""
     if not home or not away:
-        return None, None
+        return None, None, None
     events = _get_radar_futebol_links()
     candidates = [ev for ev in events if _name_match(home, ev["home"]) and _name_match(away, ev["away"])]
     if not candidates:
-        return None, None
+        return None, None, None
     if len(candidates) > 1 and ts:
         candidates.sort(key=lambda ev: abs((ev["ts"] or 0) - ts))
         if abs((candidates[0]["ts"] or 0) - ts) > 3 * 3600:
-            return None, None
+            return None, None, None
     ev = candidates[0]
-    return ev.get("link_betfair"), ev.get("link_bolsa")
+    return ev.get("link_betfair"), ev.get("link_bolsa"), ev.get("link_radar")
 
 
 # ── Mapa de Oportunidades — varre os jogos AO VIVO comparando o placar/escanteios
@@ -2765,9 +2770,10 @@ def api_radar_live():
     # 1º candidato em vez de desempatar por horário.
     try:
         for m in live:
-            lb, lba = _find_radar_links(m.get("casa"), m.get("fora"))
+            lb, lba, lr = _find_radar_links(m.get("casa"), m.get("fora"))
             m["link_betfair"] = lb
             m["link_bolsa"] = lba
+            m["link_radar"] = lr
     except Exception as e:
         print(f"[radar-links] Erro anexando links (ao vivo): {e}")
 
