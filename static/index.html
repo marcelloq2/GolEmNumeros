@@ -11437,6 +11437,7 @@ function renderLive2Card(m) {
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" onclick="_live2OpenPreStatsModal('${m.id}')">PosiçãoT / PowerR</button>
+        <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
       </div>
     </div>`;
@@ -11528,6 +11529,80 @@ function _live2OpenPreStatsModal(matchId) {
   const { m } = _live2OpenModalCommon(matchId, 'prestats', 'Estatísticas Pré');
   document.getElementById('live2StatsModalBody').innerHTML = `<div id="live2PreStatsWrap_${matchId}"></div>`;
   _live2LoadStandingsMini(matchId, m);
+}
+
+// CD (Sequências do time) + Dados (Over/BTTS/médias) — reaproveita o mesmo
+// widget do site uniscore.com, achado interceptando as chamadas de rede reais
+// (endpoint team-streaks + cálculo próprio a partir do recent-form, igual à Leitura).
+let _live2CDCache = {};
+async function _live2OpenUniscoreCDModal(matchId) {
+  const { m, body } = _live2OpenModalCommon(matchId, 'unicd', 'CD / Dados (Uniscore)');
+  if (!m) { body.innerHTML = `<div class="live-loading">Jogo não encontrado.</div>`; return; }
+  const cacheKey = `${m.casa}|${m.fora}`;
+  if (_live2CDCache[cacheKey]) { body.innerHTML = _renderUniscoreCD(_live2CDCache[cacheKey]); return; }
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando dados do Uniscore...</div>`;
+  try {
+    const r = await fetch(`/api/uniscore/cd_dados?casa=${encodeURIComponent(m.casa)}&fora=${encodeURIComponent(m.fora)}`);
+    const d = await r.json();
+    _live2CDCache[cacheKey] = d;
+    if (_live2OpenModal && _live2OpenModal.matchId === matchId && _live2OpenModal.type === 'unicd') {
+      body.innerHTML = _renderUniscoreCD(d);
+    }
+  } catch (e) {
+    body.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
+  }
+}
+
+function _renderUniscoreCD(d) {
+  if (!d || !d.found) {
+    return `<div class="live-loading">Não achei esse jogo na base do Uniscore agora.</div>`;
+  }
+  const streakRow = s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${s.label}</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">${s.team === 'Casa' ? d.casa : d.fora}<b style="color:var(--text);font-size:14px">${s.value}</b></span>
+    </div>`;
+  const streaksHtml = (d.streaks?.geral?.length || d.streaks?.confronto_direto?.length) ? `
+    ${d.streaks.confronto_direto?.length ? `
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin:10px 0 4px">Sequências de confrontos diretos</div>
+      ${d.streaks.confronto_direto.map(streakRow).join('')}` : ''}
+    <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin:10px 0 4px">Sequências do time</div>
+    ${d.streaks.geral.map(streakRow).join('')}
+  ` : `<div style="color:var(--text2);font-size:13px;padding:10px 0">Sem sequências disponíveis pra esse jogo.</div>`;
+
+  const dadosCol = (label, dados) => !dados ? `<div style="flex:1;text-align:center;color:var(--text2);font-size:12px">${label}<br>sem dados</div>` : `
+    <div style="flex:1">
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:6px">${label} <span style="opacity:.7">(${dados.n} jogos)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#22c55e">${dados.over25_pct}%</div><div style="font-size:10px;color:var(--text2)">Mais De 2.5</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#22c55e">${dados.over15_pct}%</div><div style="font-size:10px;color:var(--text2)">Mais De 1.5</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800">${dados.btts_pct}%</div><div style="font-size:10px;color:var(--text2)">BTTS</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800">${dados.gols_jogo}</div><div style="font-size:10px;color:var(--text2)">Gols/Jogo</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800">${dados.escanteios}</div><div style="font-size:10px;color:var(--text2)">Escanteios</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:16px;font-weight:800">${dados.cartoes}</div><div style="font-size:10px;color:var(--text2)">Cartão</div>
+        </div>
+      </div>
+    </div>`;
+
+  return `
+    <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Fonte: Uniscore — Sequências (últimos jogos de cada time, próprio lado) e Dados (média/taxas dos últimos jogos, mesmo cálculo da aba Leitura).</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      ${dadosCol(d.casa, d.dados_casa)}
+      ${dadosCol(d.fora, d.dados_fora)}
+    </div>
+    ${streaksHtml}
+  `;
 }
 
 function _live2CloseStatsModal() {

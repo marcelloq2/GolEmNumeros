@@ -6055,6 +6055,129 @@ def _uni_enrich_one(casa, fora):
     return result
 
 
+# ── Aba "CD" (Sequências do time / confronto direto) + "Dados" do Uniscore ────
+# Descoberto interceptando as chamadas reais do site uniscore.com (devtools):
+# team-streaks = exatamente o card "Sequências do time" / "Sequências de
+# confrontos diretos". "Dados" (Mais De 2.5, BTTS, Gols/Jogo...) não tem
+# endpoint próprio — o site calcula na hora a partir do /recent-form de cada
+# time, então aqui replicamos o mesmo cálculo (mesmo estilo já usado na aba
+# Leitura do Painel Principal).
+_UNI_STREAK_NAMED_LABELS = {
+    "first_to_score": "Primeiro a marcar",
+    "both_team_scoring": "Ambas as equipes marcando",
+    "without_clean_sheet": "Sem goleiro sem sofrer gol",
+    "no_wins": "Sem vitórias",
+    "no_losses": "Sem derrotas",
+    "no_draws": "Sem empates",
+    "clean_sheet": "Sem sofrer gol",
+    "failed_to_score": "Não marcou",
+}
+_UNI_STREAK_STAT_LABELS = {
+    "more_goals": "Mais de {n} gols",
+    "less_goals": "Menos de {n} gols",
+    "more_corners": "Mais de {n} escanteios",
+    "less_corners": "Menos de {n} escanteios",
+    "more_cards": "Mais de {n} cartões",
+    "less_cards": "Menos de {n} cartões",
+}
+
+
+def _uni_streak_label(name):
+    if name in _UNI_STREAK_NAMED_LABELS:
+        return _UNI_STREAK_NAMED_LABELS[name]
+    m = re.match(r"(more|less)_(goals|corners|cards)_([\d.]+)", name or "")
+    if m:
+        kind, stat, n = m.groups()
+        base = _UNI_STREAK_STAT_LABELS.get(f"{kind}_{stat}")
+        if base:
+            return base.format(n=n)
+    return (name or "").replace("_", " ").capitalize()
+
+
+def _uni_fetch_team_streaks(eid, home_tid, away_tid, start_ts):
+    try:
+        r = http_req.get(
+            f"{UNISCORE_BASE}/football/event/{eid}/home/{home_tid}/away/{away_tid}/start-time/{start_ts}/team-streaks?language=pt-BR",
+            headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", {})
+        def parse(items):
+            out = []
+            for it in (items or []):
+                out.append({
+                    "label": _uni_streak_label(it.get("name")),
+                    "team": "Casa" if it.get("team") == "Home" else "Fora",
+                    "value": it.get("value"),
+                })
+            return out
+        return {"geral": parse(d.get("general")), "confronto_direto": parse(d.get("head2head"))}
+    except Exception:
+        return {"geral": [], "confronto_direto": []}
+
+
+def _uni_dados_from_form(matches, team_name):
+    """Mesmo cálculo da aba Leitura, mas usando o /recent-form do Uniscore (que já
+    inclui escanteio/cartão por jogo) — só os últimos jogos em que o time apareceu."""
+    total_gols, total_corners, total_cards, over25, over15, btts = [], [], [], 0, 0, 0
+    n = 0
+    for m in (matches or [])[:10]:
+        hs, aws = m.get("homeScore", {}) or {}, m.get("awayScore", {}) or {}
+        gh, ga = hs.get("current", 0) or 0, aws.get("current", 0) or 0
+        ch, ca = hs.get("corner", 0) or 0, aws.get("corner", 0) or 0
+        yh, ya = hs.get("yellow_card", 0) or 0, aws.get("yellow_card", 0) or 0
+        rh, ra = hs.get("red_card", 0) or 0, aws.get("red_card", 0) or 0
+        n += 1
+        total_gols.append(gh + ga)
+        total_corners.append(ch + ca)
+        total_cards.append(yh + ya + rh + ra)
+        if gh + ga > 2.5: over25 += 1
+        if gh + ga > 1.5: over15 += 1
+        if gh > 0 and ga > 0: btts += 1
+    if not n:
+        return None
+    avg = lambda arr: round(sum(arr) / len(arr), 1) if arr else 0
+    return {
+        "gols_jogo": avg(total_gols), "escanteios": avg(total_corners), "cartoes": avg(total_cards),
+        "over25_pct": round(100 * over25 / n), "over15_pct": round(100 * over15 / n),
+        "btts_pct": round(100 * btts / n), "n": n,
+    }
+
+
+def _uni_cd_dados_one(casa, fora):
+    ev = _uni_find(casa, fora)
+    if not ev:
+        return {"found": False}
+    eid = ev.get("id")
+    home_tid = ev.get("homeTeam", {}).get("id", "")
+    away_tid = ev.get("awayTeam", {}).get("id", "")
+    start_ts = ev.get("startTimestamp", 0)
+
+    streaks = _uni_fetch_team_streaks(eid, home_tid, away_tid, start_ts)
+
+    dados_casa, dados_fora = None, None
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/recent-form?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", {})
+        dados_casa = _uni_dados_from_form(d.get("home", {}).get("latest_matches", []), ev.get("homeTeam", {}).get("name"))
+        dados_fora = _uni_dados_from_form(d.get("away", {}).get("latest_matches", []), ev.get("awayTeam", {}).get("name"))
+    except Exception:
+        pass
+
+    return {
+        "found": True, "casa": ev.get("homeTeam", {}).get("name"), "fora": ev.get("awayTeam", {}).get("name"),
+        "streaks": streaks, "dados_casa": dados_casa, "dados_fora": dados_fora,
+    }
+
+
+@app.route("/api/uniscore/cd_dados")
+def api_uniscore_cd_dados():
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    if not casa or not fora:
+        return jsonify({"error": "casa e fora obrigatórios"}), 400
+    return jsonify(_uni_cd_dados_one(casa, fora))
+
+
 @app.route("/api/uniscore/enrich")
 def api_uniscore_enrich():
     """Retorna dados enriquecidos do Uniscore para uma partida ao vivo."""
