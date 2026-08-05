@@ -44,6 +44,12 @@
   .top-actions { display: flex; gap: 8px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
   .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; }
   .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+  .plataforma-icon {
+    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; cursor: pointer; margin-left: 6px; border: 1px solid var(--border);
+    transition: all 0.2s; font-size: 13px;
+  }
+  .plataforma-icon:hover { border-color: var(--accent); transform: scale(1.1); }
 </style>
 </head>
 <body>
@@ -138,7 +144,7 @@ function _labelParaColuna(key) {
 
 let linhas = []; // todas as linhas de todos os arquivos carregados, já parseadas
 let VARIAVEIS = []; // detectadas a partir do cabeçalho dos arquivos carregados
-let config = {}; // { score: {variavel, min, max, winRate, n} }
+let config = {}; // { score: {variavel, min, max, winRate, n, taxaGeral, lift} }
 let arquivosCarregados = 0; // quantos .txt (dias) diferentes entraram na base — usado pra avisar se ainda é pouca coisa
 let METODOLOGIAS = []; // placares (Placar Contra) ou mercados (Mapa de Sugestões), detectados do arquivo carregado
 
@@ -213,6 +219,7 @@ function popularMetodSelect() {
 function _calcularBinsPorScore(score) {
   const resultCol = `resultado_${score}`;
   const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
+  const taxaGeral = validas.filter(l => l[resultCol] === '1').length / validas.length * 100;
   const resultado = [];
   VARIAVEIS.forEach(v => {
     const pares = validas
@@ -235,7 +242,7 @@ function _calcularBinsPorScore(score) {
     const melhor = [...bins].sort((a, b) => b.winRate - a.winRate)[0];
     resultado.push({ v, bins, melhorIdx: bins.indexOf(melhor), melhor });
   });
-  return resultado;
+  return { binsPorVariavel: resultado, taxaGeral };
 }
 
 // Escolhe sozinho, pra CADA um dos 19 placares, a variável+faixa com a
@@ -261,15 +268,16 @@ function gerarConfigAutomatica() {
     const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
     if (!validas.length) { pulados++; return; }
     if (validas.length < amostraMinimaMercado) { pulamPoucoJogo++; return; }
-    const taxaGeral = validas.filter(l => l[resultCol] === '1').length / validas.length * 100;
 
-    const candidatos = _calcularBinsPorScore(score)
+    const { binsPorVariavel, taxaGeral } = _calcularBinsPorScore(score);
+    const candidatos = binsPorVariavel
       .filter(({ melhor }) => melhor.n >= AUTO_CONFIG_AMOSTRA_MINIMA && melhor.winRate > taxaGeral)
       .sort((a, b) => b.melhor.winRate - a.melhor.winRate || b.melhor.n - a.melhor.n);
 
     if (!candidatos.length) { pulados++; return; }
     const { v, melhor } = candidatos[0];
-    config[score] = { variavel: v.key, label: v.label, min: melhor.min, max: melhor.max, winRate: melhor.winRate, n: melhor.n };
+    const lift = melhor.winRate / taxaGeral;
+    config[score] = { variavel: v.key, label: v.label, min: melhor.min, max: melhor.max, winRate: melhor.winRate, n: melhor.n, taxaGeral, lift };
     adicionados++;
   });
   renderConfigBox();
@@ -298,22 +306,26 @@ function renderRelatorio() {
   const taxaGeral = acertos / validas.length * 100;
   info.textContent = `${validas.length} jogos · taxa geral: ${taxaGeral.toFixed(1)}%`;
 
-  const porVariavel = _calcularBinsPorScore(score);
+  const { binsPorVariavel, taxaGeral: taxaGeralRet } = _calcularBinsPorScore(score);
 
   let html = '';
-  porVariavel.forEach(({ v, bins, melhorIdx }) => {
+  binsPorVariavel.forEach(({ v, bins, melhorIdx }) => {
     html += `
       <div class="var-block">
         <div class="var-title">${v.label}</div>
         <table>
-          <tr><th>Faixa</th><th>Amostra</th><th>Taxa green</th><th></th></tr>
-          ${bins.map((b, i) => `
+          <tr><th>Faixa</th><th>Amostra</th><th>Taxa green</th><th>Lift</th><th></th></tr>
+          ${bins.map((b, i) => {
+            const lift = b.winRate / taxaGeralRet;
+            return `
             <tr class="${i === melhorIdx ? 'row-best' : ''}">
               <td>${b.min.toFixed(2)} a ${b.max.toFixed(2)}</td>
               <td>${b.n}</td>
-              <td>${b.winRate.toFixed(1)}% ${i === melhorIdx ? '<span class="badge badge-green">melhor</span>' : ''}</td>
-              <td><button onclick='usarFaixa("${score}","${v.key}","${v.label.replace(/"/g, '&quot;')}",${b.min},${b.max},${b.winRate.toFixed(1)},${b.n})'>Usar essa faixa</button></td>
-            </tr>`).join('')}
+              <td>${b.winRate.toFixed(1)}%</td>
+              <td><strong>${lift.toFixed(2)}x</strong> ${i === melhorIdx ? '<span class="badge badge-green">melhor</span>' : ''}</td>
+              <td><button onclick='usarFaixa("${score}","${v.key}","${v.label.replace(/"/g, '&quot;')}",${b.min},${b.max},${b.winRate.toFixed(1)},${b.n},${taxaGeralRet.toFixed(1)})'>Usar essa faixa</button></td>
+            </tr>`;
+          }).join('')}
         </table>
       </div>`;
   });
@@ -321,8 +333,9 @@ function renderRelatorio() {
   box.innerHTML = html || '<p style="color:var(--text2);font-size:13px">Nenhuma variável com dado suficiente ainda pra esse placar (mínimo 5 jogos por variável).</p>';
 }
 
-function usarFaixa(score, variavel, label, min, max, winRate, n) {
-  config[score] = { variavel, label, min, max, winRate, n };
+function usarFaixa(score, variavel, label, min, max, winRate, n, taxaGeral) {
+  const lift = winRate / taxaGeral;
+  config[score] = { variavel, label, min, max, winRate, n, taxaGeral, lift };
   renderConfigBox();
 }
 
@@ -334,12 +347,17 @@ function renderConfigBox() {
     return;
   }
   box.innerHTML = `<table>
-    <tr><th>Placar</th><th>Variável</th><th>Faixa</th><th>Taxa</th><th>Amostra</th><th></th></tr>
+    <tr><th>Placar</th><th>Variável</th><th>Faixa</th><th>Taxa</th><th>Lift</th><th>Amostra</th><th>Gráfico</th><th>Plataformas</th><th></th></tr>
     ${entradas.map(([score, c]) => `
       <tr>
         <td>${score}</td><td>${c.label}</td>
         <td>${c.min.toFixed(2)} a ${c.max.toFixed(2)}</td>
-        <td>${c.winRate.toFixed(1)}%</td><td>${c.n}</td>
+        <td>${c.winRate.toFixed(1)}%</td><td><strong>${(c.lift || 1).toFixed(2)}x</strong></td><td>${c.n}</td>
+        <td>${gerarMiniGrafico(c.taxaGeral || 50, c.winRate, c.lift || 1, score)}</td>
+        <td style="text-align:center;display:flex;gap:6px;justify-content:center">
+          <a href="https://www.bolsadeapostas.com" target="_blank" class="plataforma-icon" title="Bolsa de Apostas" style="background:linear-gradient(135deg, #1db854 0%, #15a844 100%);color:white;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-weight:700;font-size:10px">BDA</a>
+          <a href="https://www.betfair.com" target="_blank" class="plataforma-icon" title="Betfair" style="background:linear-gradient(135deg, #ffc600 0%, #ffb300 100%);color:#333;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-weight:700;font-size:10px">BET</a>
+        </td>
         <td><button onclick='removerConfig("${score}")'>remover</button></td>
       </tr>`).join('')}
   </table>`;
@@ -348,6 +366,72 @@ function renderConfigBox() {
 function removerConfig(score) {
   delete config[score];
   renderConfigBox();
+}
+
+function gerarMiniGrafico(taxaGeral, winRate, lift, score) {
+  const resultCol = `resultado_${score}`;
+  const config_item = config[score];
+
+  // Filtra só os que tão na faixa
+  const naFaixa = linhas.filter(l => {
+    const val = parseFloat(l[config_item.variavel]);
+    return !isNaN(val) && val >= config_item.min && val <= config_item.max &&
+           (l[resultCol] === '0' || l[resultCol] === '1');
+  });
+
+  if (naFaixa.length === 0) {
+    return `<span style="color:var(--text2);font-size:11px">-</span>`;
+  }
+
+  // Calcula acertos até primeiro red (drawdown até perder)
+  let acertosConsecutivos = 0;
+  let acertosAteRed = 0;
+  let primeiraPerda = false;
+
+  for (let l of naFaixa) {
+    if (l[resultCol] === '1') {
+      acertosConsecutivos++;
+      if (!primeiraPerda) {
+        acertosAteRed++;
+      }
+    } else {
+      if (!primeiraPerda) {
+        primeiraPerda = true;
+      }
+      acertosConsecutivos = 0;
+    }
+  }
+
+  // Calcula maior drawdown (maior sequência de perdas)
+  let maxDrawdown = 0;
+  let drawdownAtual = 0;
+
+  for (let l of naFaixa) {
+    if (l[resultCol] === '0') {
+      drawdownAtual++;
+      maxDrawdown = Math.max(maxDrawdown, drawdownAtual);
+    } else {
+      drawdownAtual = 0;
+    }
+  }
+
+  // Cor baseada em Lift
+  let cor = '#ef4444';
+  if (lift >= 1.2) cor = '#22c55e';
+  else if (lift >= 1.1) cor = '#f59e0b';
+  else if (lift >= 1.0) cor = '#3b82f6';
+
+  return `<div style="display:inline-flex;gap:12px;font-size:11px;align-items:center">
+    <div style="text-align:center">
+      <div style="color:var(--text2);font-size:9px">Acertos até Red</div>
+      <div style="color:${cor};font-weight:700;font-size:14px">${acertosAteRed}</div>
+    </div>
+    <div style="color:var(--border);opacity:0.3">|</div>
+    <div style="text-align:center">
+      <div style="color:var(--text2);font-size:9px">Maior DD</div>
+      <div style="color:#ef4444;font-weight:700;font-size:14px">${maxDrawdown}</div>
+    </div>
+  </div>`;
 }
 
 function limparConfig() {
@@ -359,8 +443,8 @@ function baixarConfig() {
   const entradas = Object.entries(config);
   if (!entradas.length) { alert('Nenhuma regra adicionada ainda.'); return; }
   const linhasTxt = entradas.map(([score, c]) =>
-    [score, c.variavel, c.min, c.max, c.winRate, c.n].join('\t'));
-  const conteudo = ['score\tvariavel\tmin\tmax\ttaxa_acerto\tamostra', ...linhasTxt].join('\n');
+    [score, c.variavel, c.min, c.max, c.winRate, (c.lift || 1).toFixed(2), c.n].join('\t'));
+  const conteudo = ['score\tvariavel\tmin\tmax\ttaxa_acerto\tlift\tamostra', ...linhasTxt].join('\n');
   const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
