@@ -11504,7 +11504,7 @@ let _live2OpenModal = null; // { matchId, type: 'stats' | 'lineup' | 'prestats' 
 function _live2OpenModalCommon(matchId, type, titleSuffix) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
   _live2OpenModal = { matchId, type };
-  document.getElementById('live2StatsModalTitle').textContent = m ? `${titleSuffix} — ${m.casa} x ${m.fora}` : titleSuffix;
+  document.getElementById('live2StatsModalTitle').textContent = m ? (titleSuffix ? `${titleSuffix} — ${m.casa} x ${m.fora}` : `${m.casa} x ${m.fora}`) : titleSuffix;
   document.getElementById('live2StatsOverlay').style.display = 'flex';
   return { m, body: document.getElementById('live2StatsModalBody') };
 }
@@ -11536,7 +11536,7 @@ function _live2OpenPreStatsModal(matchId) {
 // (endpoint team-streaks + cálculo próprio a partir do recent-form, igual à Leitura).
 let _live2CDCache = {};
 async function _live2OpenUniscoreCDModal(matchId) {
-  const { m, body } = _live2OpenModalCommon(matchId, 'unicd', 'CD / Dados (Uniscore)');
+  const { m, body } = _live2OpenModalCommon(matchId, 'unicd', '');
   if (!m) { body.innerHTML = `<div class="live-loading">Jogo não encontrado.</div>`; return; }
   const cacheKey = `${m.casa}|${m.fora}`;
   if (_live2CDCache[cacheKey]) { body.innerHTML = _renderUniscoreCD(_live2CDCache[cacheKey]); return; }
