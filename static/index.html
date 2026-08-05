@@ -9580,7 +9580,13 @@ function _placarContraImportarConfig(file) {
     const ls = texto.replace(/\r/g, '').trim().split('\n');
     if (ls.length < 2) { alert('Arquivo de configuração vazio ou inválido.'); return; }
     const header = ls[0].split('\t');
-    const idx = { score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra') };
+    const idx = {
+      score: header.indexOf('score'), variavel: header.indexOf('variavel'), min: header.indexOf('min'), max: header.indexOf('max'), taxa: header.indexOf('taxa_acerto'), n: header.indexOf('amostra'),
+      // Colunas opcionais (só existem quando a Etapa 2 da ferramenta local
+      // combinou a regra com uma variável do StatArea/Hoje antigo) — se não
+      // existirem no arquivo, a regra importada continua com 1 condição só.
+      variavel2: header.indexOf('variavel2'), min2: header.indexOf('min2'), max2: header.indexOf('max2'),
+    };
     if (idx.score < 0 || idx.variavel < 0) { alert('Esse arquivo não parece ser uma configuração válida (baixada pela ferramenta de Análise de Padrões).'); return; }
     // O mesmo arquivo de config pode ter linhas de mercado tradicional (do
     // Previsão de Mercados) misturadas com placares — aqui só entram as que
@@ -9588,7 +9594,7 @@ function _placarContraImportarConfig(file) {
     // o resto é ignorado silenciosamente, pra não misturar aba errada.
     const placaresValidos = new Set(PLACAR_EXATO_BUCKETS_ORDER);
     const config = {};
-    let ignoradas = 0;
+    let ignoradas = 0, comCombinacao = 0;
     for (let i = 1; i < ls.length; i++) {
       const vals = ls[i].split('\t');
       if (vals.length < header.length) continue;
@@ -9598,6 +9604,12 @@ function _placarContraImportarConfig(file) {
         variavel: vals[idx.variavel], min: parseFloat(vals[idx.min]), max: parseFloat(vals[idx.max]),
         winRate: parseFloat(vals[idx.taxa]), n: parseInt(vals[idx.n]),
       };
+      if (idx.variavel2 >= 0 && vals[idx.variavel2]) {
+        config[score].variavel2 = vals[idx.variavel2];
+        config[score].min2 = parseFloat(vals[idx.min2]);
+        config[score].max2 = parseFloat(vals[idx.max2]);
+        comCombinacao++;
+      }
     }
     localStorage.setItem(PLACAR_CONTRA_CONFIG_KEY, JSON.stringify(config));
     // Também manda pro servidor — assim outro aparelho/navegador que acessar
@@ -9605,7 +9617,8 @@ function _placarContraImportarConfig(file) {
     // arquivo em cada um (ver _placarContraSincronizarConfigDoServidor).
     fetch('/api/lay_placar/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) }).catch(() => {});
     alert(`Configuração importada: ${Object.keys(config).length} placar(es) configurado(s)` +
-      (ignoradas ? ` (${ignoradas} linha(s) de mercado tradicional do arquivo foram ignoradas — essas vão na aba Previsão de Mercados).` : '.'));
+      (comCombinacao ? ` (${comCombinacao} deles com 2ª condição do StatArea — só contam jogos que o site conseguir casar com o StatArea).` : '') +
+      (ignoradas ? ` · ${ignoradas} linha(s) de mercado tradicional do arquivo foram ignoradas (essas vão na aba Previsão de Mercados).` : '.'));
     if (_placarContraSelectedId) _placarContraRenderConfig(_placarContraSelectedId);
   }).catch(e => alert('Erro lendo o arquivo: ' + e.message));
 }
@@ -9637,6 +9650,8 @@ function _placarContraRenderConfig(id) {
   const stats = cache.statsPorPrefixo;
   if (!stats) { box.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Calculando previsão da sua configuração...</div>'; return; }
 
+  const m = today2MatchesCache.find(x => String(x.id) === String(id));
+
   const linhas = entradas.map(([score, c]) => {
     // separa "mandante_geral_pctAmbasMarcam" em prefixo="mandante_geral" (2
     // primeiros pedaços) + resto do nome do campo — os 4 prefixos válidos
@@ -9646,7 +9661,19 @@ function _placarContraRenderConfig(id) {
     const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
     const valorAtual = prefixoReal ? stats[prefixoReal]?.[campo] : undefined;
     const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
-    const dentro = temValor && valorAtual >= c.min && valorAtual <= c.max;
+    const dentro1 = temValor && valorAtual >= c.min && valorAtual <= c.max;
+
+    // 2ª condição (Etapa 2, StatArea) — só existe quando a regra foi
+    // combinada. Sem correspondência no StatArea (null), o jogo NÃO conta
+    // como sinal, mesmo que a 1ª condição bata sozinha.
+    let cond2 = true, cond2Txt = '';
+    if (c.variavel2) {
+      cond2 = _placarContraCheckCondicao2(m, c);
+      cond2Txt = cond2 === null ? ' · 2ª condição: sem correspondência no StatArea pra esse jogo'
+        : cond2 ? ' · 2ª condição: ✅ bate' : ' · 2ª condição: ❌ fora';
+    }
+    const dentro = dentro1 && cond2 === true;
+
     // Odd de back desse placar (mesma grade da caixa "Placar Exato" acima) —
     // só mostra quando o placar está dentro da faixa, é o dado que falta pra
     // decidir se vale a pena entrar (odd baixa = mercado já concorda que é
@@ -9657,7 +9684,7 @@ function _placarContraRenderConfig(id) {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:13px;font-weight:700">lay ${score}</div>
-          <div style="font-size:11px;color:var(--text2)">${c.variavel} · faixa ${c.min.toFixed(2)} a ${c.max.toFixed(2)} · hist. ${c.winRate.toFixed(0)}% (${c.n} jogos)</div>
+          <div style="font-size:11px;color:var(--text2)">${c.variavel} · faixa ${c.min.toFixed(2)} a ${c.max.toFixed(2)} · hist. ${c.winRate.toFixed(0)}% (${c.n} jogos)${c.variavel2 ? `<br>+ ${c.variavel2} (StatArea) · faixa ${c.min2.toFixed(2)} a ${c.max2.toFixed(2)}${cond2Txt}` : ''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:13px;font-weight:800;color:${!temValor ? 'var(--text2)' : dentro ? '#22c55e' : '#ef4444'}">${!temValor ? '— sem dado' : dentro ? '✅ dentro da faixa' : '❌ fora da faixa'}</div>
@@ -9675,7 +9702,29 @@ function _placarContraRenderConfig(id) {
 // só os placares configurados que estão DENTRO da faixa agora — reaproveitada
 // tanto por _placarContraRenderConfig (1 jogo aberto) quanto pelo
 // escaneamento (_placarContraEscanearSinais, que roda em VÁRIOS jogos).
-function _placarContraAvaliarConfig(stats) {
+// Checa a 2ª condição (variável do StatArea/Hoje antigo) de uma regra
+// combinada, montada na Etapa 2 da ferramenta local — casa o jogo com o
+// StatArea pelo mesmo matcher já usado na Leitura da Partida (Hoje).
+// Devolve true (bate), false (não bate) ou null (não achou correspondência
+// no StatArea pra esse jogo — nesse caso o chamador NÃO conta como sinal,
+// em vez de arriscar aplicar só a 1ª condição como se fosse a taxa
+// combinada completa, que seria enganoso).
+function _placarContraCheckCondicao2(m, c) {
+  if (!c.variavel2) return true; // regra de 1 condição só — nada a checar
+  if (!m) return null;
+  const sa = _today2FindStatAreaMatch(m);
+  if (!sa) return null;
+  const val = parseFloat(sa[c.variavel2]);
+  if (isNaN(val)) return null;
+  return val >= c.min2 && val <= c.max2;
+}
+
+// Dado um objeto de stats já calculado (statsPorPrefixo de um jogo) e o
+// próprio jogo `m` (necessário pra casar com o StatArea quando a regra tem
+// 2ª condição), devolve só os placares configurados que estão DENTRO da
+// faixa agora — usada pelo escaneamento (_placarContraEscanearSinais, que
+// roda em VÁRIOS jogos).
+function _placarContraAvaliarConfig(stats, m) {
   const config = _placarContraGetConfig();
   const prefixos4 = ['mandante_geral', 'mandante_casa', 'visitante_geral', 'visitante_fora'];
   const hits = [];
@@ -9684,7 +9733,9 @@ function _placarContraAvaliarConfig(stats) {
     const campo = prefixoReal ? c.variavel.slice(prefixoReal.length + 1) : null;
     const valorAtual = prefixoReal ? stats?.[prefixoReal]?.[campo] : undefined;
     const temValor = valorAtual !== undefined && valorAtual !== null && !isNaN(valorAtual);
-    if (temValor && valorAtual >= c.min && valorAtual <= c.max) hits.push({ score, valorAtual });
+    if (!(temValor && valorAtual >= c.min && valorAtual <= c.max)) return;
+    if (_placarContraCheckCondicao2(m, c) !== true) return; // sem match no StatArea (null) ou fora da faixa (false) — não conta
+    hits.push({ score, valorAtual, combinado: !!c.variavel2 });
   });
   return hits;
 }
@@ -9738,7 +9789,7 @@ async function _placarContraEscanearSinais() {
     for (const m of candidatos) {
       let stats = null;
       try { stats = await _hojeJogoStatsDoJogo(m); } catch (e) { /* segue pro próximo */ }
-      const hits = stats ? _placarContraAvaliarConfig(stats) : [];
+      const hits = stats ? _placarContraAvaliarConfig(stats, m) : [];
       if (hits.length) encontrados.push({ m, hits });
       feitos++;
       if (btn) btn.innerHTML = `⏳ ${feitos}/${candidatos.length}`;
@@ -9764,7 +9815,7 @@ async function _placarContraEscanearSinais() {
         <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga)} (${_bt2EscXml(m.pais)}) — ${hora}</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-          ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">lay ${h.score}</span>`).join('')}
+          ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">lay ${h.score}${h.combinado ? ' 🔗' : ''}</span>`).join('')}
         </div>
       </div>`;
   }).join('');
