@@ -6114,32 +6114,22 @@ def _uni_fetch_team_streaks(eid, home_tid, away_tid, start_ts):
         return {"geral": [], "confronto_direto": []}
 
 
-def _uni_dados_from_form(matches, team_name):
-    """Mesmo cálculo da aba Leitura, mas usando o /recent-form do Uniscore (que já
-    inclui escanteio/cartão por jogo) — só os últimos jogos em que o time apareceu."""
-    total_gols, total_corners, total_cards, over25, over15, btts = [], [], [], 0, 0, 0
-    n = 0
-    for m in (matches or [])[:10]:
-        hs, aws = m.get("homeScore", {}) or {}, m.get("awayScore", {}) or {}
-        gh, ga = hs.get("current", 0) or 0, aws.get("current", 0) or 0
-        ch, ca = hs.get("corner", 0) or 0, aws.get("corner", 0) or 0
-        yh, ya = hs.get("yellow_card", 0) or 0, aws.get("yellow_card", 0) or 0
-        rh, ra = hs.get("red_card", 0) or 0, aws.get("red_card", 0) or 0
-        n += 1
-        total_gols.append(gh + ga)
-        total_corners.append(ch + ca)
-        total_cards.append(yh + ya + rh + ra)
-        if gh + ga > 2.5: over25 += 1
-        if gh + ga > 1.5: over15 += 1
-        if gh > 0 and ga > 0: btts += 1
-    if not n:
+def _uni_fetch_analytics(eid):
+    """Aba 'Dados' de verdade — achado interceptando a rede do uniscore.com. Vem
+    pronto do próprio Uniscore (fonte deles é season-long, tipo FootyStats), não é
+    cálculo nosso — por isso os números batem exatamente com o app deles."""
+    try:
+        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/analytics?language=pt-BR",
+                         headers=UNISCORE_HEADERS, timeout=6)
+        d = r.json().get("data", r.json())
+        return {
+            "home_ppg": d.get("home_ppg"), "away_ppg": d.get("away_ppg"),
+            "over25_pct": d.get("o25_potential"), "over15_pct": d.get("o15_potential"),
+            "btts_pct": d.get("btts_potential"), "gols_jogo": d.get("avg_potential"),
+            "escanteios": d.get("corners_potential"), "cartoes": d.get("cards_potential"),
+        }
+    except Exception:
         return None
-    avg = lambda arr: round(sum(arr) / len(arr), 1) if arr else 0
-    return {
-        "gols_jogo": avg(total_gols), "escanteios": avg(total_corners), "cartoes": avg(total_cards),
-        "over25_pct": round(100 * over25 / n), "over15_pct": round(100 * over15 / n),
-        "btts_pct": round(100 * btts / n), "n": n,
-    }
 
 
 def _uni_cd_dados_one(casa, fora):
@@ -6152,20 +6142,11 @@ def _uni_cd_dados_one(casa, fora):
     start_ts = ev.get("startTimestamp", 0)
 
     streaks = _uni_fetch_team_streaks(eid, home_tid, away_tid, start_ts)
-
-    dados_casa, dados_fora = None, None
-    try:
-        r = http_req.get(f"{UNISCORE_BASE}/football/event/{eid}/recent-form?language=pt-BR",
-                         headers=UNISCORE_HEADERS, timeout=6)
-        d = r.json().get("data", {})
-        dados_casa = _uni_dados_from_form(d.get("home", {}).get("latest_matches", []), ev.get("homeTeam", {}).get("name"))
-        dados_fora = _uni_dados_from_form(d.get("away", {}).get("latest_matches", []), ev.get("awayTeam", {}).get("name"))
-    except Exception:
-        pass
+    analytics = _uni_fetch_analytics(eid)
 
     return {
         "found": True, "casa": ev.get("homeTeam", {}).get("name"), "fora": ev.get("awayTeam", {}).get("name"),
-        "streaks": streaks, "dados_casa": dados_casa, "dados_fora": dados_fora,
+        "streaks": streaks, "dados": analytics,
     }
 
 
