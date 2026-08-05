@@ -1238,6 +1238,19 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
                 return stale
             return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
 
+        # Anexa (quando encontrado) o link direto pra Betfair Exchange / Bolsa de
+        # Aposta daquela partida específica, reaproveitando os links que o
+        # RadarFutebol já resolve no feed público dele (casando por nome dos
+        # times). Ver _find_radar_links — nunca derruba o carregamento do painel
+        # se o RadarFutebol estiver fora do ar, só fica sem os links dessa vez.
+        try:
+            for m in matches:
+                lb, lba = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
+                m["link_betfair"] = lb
+                m["link_bolsa"] = lba
+        except Exception as e:
+            print(f"[radar-links] Erro anexando links: {e}")
+
         leagues_map = {}
         for m in matches:
             key = m["league_key"]
@@ -1266,6 +1279,108 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
         data = {"leagues": leagues, "updated_at": now, "date": date_str}
         _painel_cache[cache_key] = {"ts": now, "data": data}
         return data
+
+
+# ── Links diretos pra Betfair Exchange / Bolsa de Aposta ───────────────────────
+# O RadarFutebol expõe publicamente (sem login) um feed SSE com os links já
+# resolvidos pra cada partida — inclusive o "affid=radarfutebol" no link da
+# Bolsa de Aposta (afiliado deles; usamos o mesmo código a pedido do usuário).
+# Como não temos os IDs internos de cada partida nessas 2 plataformas, casar
+# por nome dos times (mesmo _name_match usado pra SofaScore/Uniscore/FotMob)
+# é o jeito de ligar nosso jogo ao link certo sem precisar integrar direto com
+# Betfair/Bolsa (o Betfair, inclusive, bloqueia scraping direto por política).
+_RADAR_LINKS_URL = (
+    "https://www.radarfutebol.com/sse/home"
+    "?idioma=pt-br&campoBusca=&somLigado=false&mostrarApenasJogosLive=false"
+    "&mostrarApenasJogosFavoritos=false&countJogosMostrar=300"
+    "&mostrarFiltroAcrescimo=false&filtroAcrescimoHt=1&filtroAcrescimoFt=1"
+    "&filtroAcrescimoHtOperador=%3E%3D&filtroAcrescimoFtOperador=%3E%3D"
+    "&filtroAcrescimoCondicao=ou&mostrarApenasJogosOraculo=false"
+    "&mostrarApenasJogosBolsa=false&mostrarApenasJogosBetfair=false"
+    "&mostrarApenasJogosOver=false&mostrarApenasJogosLayCs=false"
+    "&favoritoVencendo=false&favoritoPerdendo=false&casaVencendo=false"
+    "&visitanteVencendo=false&empatado=false&filtroAlertas=false"
+    "&filtroDiferencaXg=false&ordemInicio=false"
+)
+_RADAR_LINKS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer":    "https://www.radarfutebol.com/",
+    "Accept":     "text/event-stream",
+}
+_RADAR_LINKS_TTL = 90  # feed muda pouco de um minuto pro outro, evita bater toda hora
+_radar_links_cache = {"ts": 0.0, "events": []}
+_radar_links_lock = threading.Lock()
+
+
+def _get_radar_futebol_links():
+    """Busca o feed público (SSE) do RadarFutebol e extrai, de cada partida,
+    o link pronto pra Betfair Exchange e pra Bolsa de Aposta. Só lê a primeira
+    linha 'data: {...}' do stream e fecha a conexão — não fica pendurado
+    esperando os próximos eventos ao vivo do SSE."""
+    with _radar_links_lock:
+        if time.time() - _radar_links_cache["ts"] < _RADAR_LINKS_TTL and _radar_links_cache["events"]:
+            return _radar_links_cache["events"]
+    try:
+        r = http_req.get(_RADAR_LINKS_URL, headers=_RADAR_LINKS_HEADERS, stream=True, timeout=15)
+        payload = None
+        for raw_line in r.iter_lines(decode_unicode=True):
+            if raw_line and raw_line.startswith("data:"):
+                payload = raw_line[len("data:"):].strip()
+                break
+        r.close()
+        if not payload:
+            return _radar_links_cache["events"]
+
+        obj = json.loads(payload)
+        events = []
+        for camp in obj.get("campeonatos", []):
+            for ev in (camp.get("eventos") or {}).values():
+                link_betfair = ev.get("linkBetfair")
+                link_bolsa = ev.get("linkBolsadeaposta")
+                if not (link_betfair or link_bolsa):
+                    continue
+                ts = None
+                inicio = ev.get("inicio")
+                if inicio:
+                    try:
+                        ts = datetime.strptime(inicio, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except ValueError:
+                        ts = None
+                events.append({
+                    "home": ev.get("timeCasa") or "",
+                    "away": ev.get("timeFora") or "",
+                    "ts": ts,
+                    "link_betfair": link_betfair,
+                    "link_bolsa": link_bolsa,
+                })
+
+        with _radar_links_lock:
+            _radar_links_cache["ts"] = time.time()
+            _radar_links_cache["events"] = events
+        print(f"[radar-links] {len(events)} jogos com link Betfair/Bolsa de Aposta")
+        return events
+    except Exception as e:
+        print(f"[radar-links] Erro buscando feed do RadarFutebol: {e}")
+        return _radar_links_cache["events"]
+
+
+def _find_radar_links(home, away, ts=None):
+    """Casa (home, away) do nosso feed com os eventos do RadarFutebol. Quando
+    o nome bate em mais de uma partida (raro — 2 times com nome parecido
+    jogando no mesmo dia), desempata pelo horário mais próximo; se mesmo assim
+    a diferença passar de 3h, não arrisca linkar pro jogo errado."""
+    if not home or not away:
+        return None, None
+    events = _get_radar_futebol_links()
+    candidates = [ev for ev in events if _name_match(home, ev["home"]) and _name_match(away, ev["away"])]
+    if not candidates:
+        return None, None
+    if len(candidates) > 1 and ts:
+        candidates.sort(key=lambda ev: abs((ev["ts"] or 0) - ts))
+        if abs((candidates[0]["ts"] or 0) - ts) > 3 * 3600:
+            return None, None
+    ev = candidates[0]
+    return ev.get("link_betfair"), ev.get("link_bolsa")
 
 
 # ── Mapa de Oportunidades — varre os jogos AO VIVO comparando o placar/escanteios

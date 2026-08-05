@@ -1165,15 +1165,23 @@
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .painel-league-cols {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 50px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 50px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
+  .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .painel-plat-icon {
+    width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; text-decoration: none; flex-shrink: 0; line-height: 1;
+  }
+  .painel-plat-icon:hover { filter: brightness(1.15); transform: scale(1.08); }
+  .painel-plat-betfair { background: #ffb80c; color: #05262b; }
+  .painel-plat-bolsa { background: #17a94c; color: #fff; }
   .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
   .painel-match-ht { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-match-corners { text-align: center; font-size: 11px; color: var(--text2); }
@@ -1193,11 +1201,11 @@
   @media (max-width: 480px) {
     .painel-league-cols, .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
     .painel-league-cols span:nth-child(n+3):not(:last-child),
-    .painel-match-ht, .painel-match-corners, .painel-odd { display: none; }
+    .painel-match-ht, .painel-match-corners, .painel-odd, .painel-plat-icons { display: none; }
   }
   body.force-mobile .painel-league-cols, body.force-mobile .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
   body.force-mobile .painel-league-cols span:nth-child(n+3):not(:last-child),
-  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd { display: none !important; }
+  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd, body.force-mobile .painel-plat-icons { display: none !important; }
   .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; justify-self: center; }
   .painel-match-teams .painel-team {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
@@ -6128,7 +6136,7 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span><span></span>
               </div>
               ${rows}
             </div>
@@ -6184,6 +6192,10 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_2)}
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
+      <span class="painel-plat-icons">
+        ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
+        ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
+      </span>
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
         : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}',${m.odd_1 ?? 'null'},${m.odd_2 ?? 'null'})">📊</button>`}
