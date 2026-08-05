@@ -5190,6 +5190,14 @@ function _painelForcaMedian(arr) {
 // period: 'ft' (padrão, placar+escanteio+odd de tempo todo, linha over/under
 // em 2.5) ou 'ht' (só 1º tempo: score_ht/corner_ht, linha over em 0.5 — não
 // calcula odd, o NowGoal não traz odd separada de 1º tempo nessas linhas).
+// 'Últimos 4' (padrão antigo) | 'Últimos 10' | 'Todos' — controla quantos jogos
+// (próprio lado + mesma liga) entram no cálculo da aba Leitura.
+let _painelForcaLeituraSample = 'all';
+function _painelForcaLeituraSetSample(v) {
+  _painelForcaLeituraSample = v;
+  _painelForcaLeituraRender();
+}
+
 function _painelForcaLastFullStats(key, period) {
   period = period || 'ft';
   const isHt = period === 'ht';
@@ -5201,7 +5209,8 @@ function _painelForcaLastFullStats(key, period) {
   if (!tbl || !tbl.rows || !tbl.rows.length) return null;
   const filtered = tbl.rows.filter(m => m[cfg.field] === cfg.teamName
     && (!_painelForcaLeague || (m.league || '').trim().toLowerCase() === _painelForcaLeague.trim().toLowerCase()));
-  const last4 = filtered.slice(0, 4);
+  const last4 = _painelForcaLeituraSample === 'all' ? filtered
+    : filtered.slice(0, _painelForcaLeituraSample === '10' ? 10 : 4);
   if (!last4.length) return null;
 
   const marcados = [], sofridos = [], golsTotais = [], escanteiosTotais = [], odds = [];
@@ -5273,6 +5282,16 @@ function _painelForcaLeituraRender() {
   const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
   if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
 
+  const sampleSelect = `
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px">
+      <span style="font-size:12px;color:var(--text2)">Amostra:</span>
+      <select onchange="_painelForcaLeituraSetSample(this.value)" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px">
+        <option value="4" ${_painelForcaLeituraSample === '4' ? 'selected' : ''}>Últimos 4</option>
+        <option value="10" ${_painelForcaLeituraSample === '10' ? 'selected' : ''}>Últimos 10</option>
+        <option value="all" ${_painelForcaLeituraSample === 'all' ? 'selected' : ''}>Todos</option>
+      </select>
+    </div>`;
+
   const fmt = (v, suffix) => v == null ? '—' : `${v}${suffix || ''}`;
   const row = (label, homeVal, awayVal) => `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -5280,10 +5299,10 @@ function _painelForcaLeituraRender() {
       <span style="flex:1;text-align:center;font-size:12px;color:var(--text2)">${label}</span>
       <span style="width:70px;text-align:left;font-weight:700;color:#ef4444">${awayVal}</span>
     </div>`;
-  const LEITURA_SAMPLE_ALVO = 4; // "Últimos 4" — mesmo recorte usado em Pontuações Anteriores
+  const LEITURA_SAMPLE_ALVO = _painelForcaLeituraSample === 'all' ? null : (_painelForcaLeituraSample === '10' ? 10 : 4);
   const amostraLabel = (t) => {
     if (!t) return ' — sem amostra';
-    const faltando = t.n < LEITURA_SAMPLE_ALVO;
+    const faltando = LEITURA_SAMPLE_ALVO != null && t.n < LEITURA_SAMPLE_ALVO;
     return `, ${t.n} jogo${t.n > 1 ? 's' : ''}${faltando ? ` <span style="color:var(--yellow)" title="Pediu os últimos ${LEITURA_SAMPLE_ALVO}, mas só achou ${t.n} jogo${t.n > 1 ? 's' : ''} no próprio lado + mesma liga — os % acima vêm de uma amostra menor que o normal">⚠️ só ${t.n}/${LEITURA_SAMPLE_ALVO}</span>` : ''}`;
   };
   const cornerLineRows = (home, away, lines, suffix) => lines.map(line => `
@@ -5354,7 +5373,7 @@ function _painelForcaLeituraRender() {
       </div>`;
   }
 
-  el.innerHTML = header + cardFt + cardHt;
+  el.innerHTML = header + sampleSelect + cardFt + cardHt;
 }
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
