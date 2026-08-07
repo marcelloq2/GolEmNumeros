@@ -5305,16 +5305,17 @@ function _painelForcaOddBucketTableHtml(name, data) {
     ${widenNote}`;
 }
 
-// ── Over 0.5 HT cruzado por faixa de odd dos 2 times — ex: "quando o
-// favorito (~1.30-1.70) pega um azarão (~7.50), quantas vezes saiu gol no 1º
-// tempo?". Olha o histórico dos 2 lados (não só o de hoje): pros jogos
-// passados do time da casa, filtra os que o PRÓPRIO time estava na mesma
-// faixa de odd de hoje E o adversário DAQUELE jogo também estava na faixa do
-// adversário de hoje (cada linha de resultado já tem odd_hw/odd_aw dos 2
-// lados do jogo) — e o mesmo pro time visitante, olhando o histórico dele.
-// Combina as 2 listas (mesma combinação de faixas, vista pelos 2 lados) pra
-// não ficar com amostra pequena demais logo de cara.
-function _painelForcaCruzadoOverHt() {
+// ── Mercados cruzados por faixa de odd dos 2 times — ex: "quando o favorito
+// (~1.30-1.70) pega um azarão (~7.50), quantas vezes bateu Over 2.5 FT?".
+// Olha o histórico dos 2 lados (não só o de hoje): pros jogos passados do
+// time da casa, filtra os que o PRÓPRIO time estava na mesma faixa de odd de
+// hoje E o adversário DAQUELE jogo também estava na faixa do adversário de
+// hoje (cada linha de resultado já tem odd_hw/odd_aw dos 2 lados do jogo) —
+// e o mesmo pro time visitante, olhando o histórico dele. Combina as 2 listas
+// (mesma combinação de faixas, vista pelos 2 lados) pra não ficar com amostra
+// pequena demais logo de cara. `scoreField` é 'score_ht' ou 'score_ft', e
+// `condicaoFn(golsCasa, golsFora)` decide se aquele jogo bateu o mercado.
+function _painelForcaCruzadoMercado(scoreField, condicaoFn) {
   if (_painelForcaOddHome == null || _painelForcaOddAway == null) return null;
   const bucketHomeIdx = _painelForcaOddBucketFind(_painelForcaOddHome);
   const bucketAwayIdx = _painelForcaOddBucketFind(_painelForcaOddAway);
@@ -5333,9 +5334,9 @@ function _painelForcaCruzadoOverHt() {
       if (isNaN(meuOdd) || isNaN(oppOdd)) return;
       if (_painelForcaOddBucketFind(meuOdd) !== meuBucketAlvo) return;
       if (_painelForcaOddBucketFind(oppOdd) !== oppBucketAlvo) return;
-      const parts = String(m.score_ht || '').split('-').map(Number);
+      const parts = String(m[scoreField] || '').split('-').map(Number);
       if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
-      jogos.push(parts[0] + parts[1] > 0.5);
+      jogos.push(condicaoFn(parts[0], parts[1]));
     });
   };
   coletar('home', bucketHomeIdx, bucketAwayIdx); // histórico do time da casa, contra adversário na faixa de hoje do visitante
@@ -5343,12 +5344,23 @@ function _painelForcaCruzadoOverHt() {
 
   if (!jogos.length) return null;
   const n = jogos.length;
-  const overCount = jogos.filter(Boolean).length;
+  const hitCount = jogos.filter(Boolean).length;
   return {
-    n, overPct: Math.round(100 * overCount / n),
+    n, pct: Math.round(100 * hitCount / n),
     labelHome: _ODD_BUCKETS[bucketHomeIdx][2], labelAway: _ODD_BUCKETS[bucketAwayIdx][2],
   };
 }
+
+// Lista dos mercados mostrados na tabela cruzada — fácil acrescentar mais um
+// no futuro, só adicionando uma linha aqui.
+const _CRUZADO_MERCADOS = [
+  { nome: 'Over 0.5 HT', scoreField: 'score_ht', cond: (h, a) => (h + a) > 0.5 },
+  { nome: 'Over 1.5 HT', scoreField: 'score_ht', cond: (h, a) => (h + a) > 1.5 },
+  { nome: 'Over 1.5 FT', scoreField: 'score_ft', cond: (h, a) => (h + a) > 1.5 },
+  { nome: 'Over 2.5 FT', scoreField: 'score_ft', cond: (h, a) => (h + a) > 2.5 },
+  { nome: 'Ambas Marcam Sim', scoreField: 'score_ft', cond: (h, a) => h > 0 && a > 0 },
+  { nome: 'Ambas Marcam Não', scoreField: 'score_ft', cond: (h, a) => h === 0 || a === 0 },
+];
 
 function _painelForcaLeituraRender() {
   const el = document.getElementById('painelForcaViewLeitura');
@@ -5385,32 +5397,46 @@ function _painelForcaLeituraRender() {
       </div>`;
   }
 
-  // ── Estudo cruzado: Over 0.5 HT quando as odds de hoje dos 2 times batem
-  // numa combinação parecida no histórico (ex: favorito ~1.30-1.70 x azarão
-  // ~7.50) ──
-  const cruzado = _painelForcaCruzadoOverHt();
+  // ── Mercados cruzados: taxa de cada mercado quando as odds de hoje dos 2
+  // times batem numa combinação parecida no histórico (ex: favorito
+  // ~1.30-1.70 x azarão ~7.50) ──
+  const resultadosCruzados = _CRUZADO_MERCADOS.map(m => ({ ...m, r: _painelForcaCruzadoMercado(m.scoreField, m.cond) }));
+  const algumComDado = resultadosCruzados.some(m => m.r);
   let cardCruzado;
-  if (!cruzado) {
+  if (!algumComDado) {
     cardCruzado = `
       <div class="cenario-block" style="margin-top:10px">
-        <div class="cenario-icon">🥅</div>
+        <div class="cenario-icon">🎲</div>
         <div class="cenario-content">
-          <div class="cenario-label">Over 0.5 HT — combinação de faixas de odd</div>
+          <div class="cenario-label">Mercados cruzados — combinação de faixas de odd</div>
           <div style="color:var(--text2);font-size:13px;padding:8px 0">Sem odd disponível hoje pros 2 times, ou nenhum jogo no histórico deles bate com essa combinação de faixas ainda.</div>
         </div>
       </div>`;
   } else {
-    const cor = cruzado.overPct >= 70 ? '#22c55e' : cruzado.overPct >= 50 ? '#f59e0b' : '#ef4444';
+    const primeiroComDado = resultadosCruzados.find(m => m.r).r;
+    const linhas = resultadosCruzados.map(m => {
+      if (!m.r) return `<tr><td style="padding:5px 6px">${m.nome}</td><td colspan="2" style="padding:5px 6px;text-align:center;color:var(--text2)">sem jogos nessa combinação</td></tr>`;
+      const cor = m.r.pct >= 70 ? '#22c55e' : m.r.pct >= 50 ? '#f59e0b' : '#ef4444';
+      const aviso = m.r.n < 5 ? ` <span style="color:var(--yellow)" title="Amostra pequena — desconfie desse número até a base ter mais jogos nessa combinação">⚠️</span>` : '';
+      return `
+        <tr>
+          <td style="padding:5px 6px">${m.nome}</td>
+          <td style="padding:5px 6px;text-align:center;font-weight:700;color:${cor}">${m.r.pct}%</td>
+          <td style="padding:5px 6px;text-align:center;color:var(--text2)">${m.r.n} jogo${m.r.n > 1 ? 's' : ''}${aviso}</td>
+        </tr>`;
+    }).join('');
     cardCruzado = `
       <div class="cenario-block" style="margin-top:10px">
-        <div class="cenario-icon">🥅</div>
+        <div class="cenario-icon">🎲</div>
         <div class="cenario-content">
-          <div class="cenario-label">Over 0.5 HT — ${_painelForcaHome} (odd ${cruzado.labelHome}) x ${_painelForcaAway} (odd ${cruzado.labelAway})</div>
-          <div style="margin-top:8px;text-align:center">
-            <span style="font-size:28px;font-weight:800;color:${cor}">${cruzado.overPct}%</span>
-            <span style="color:var(--text2);font-size:12px"> em ${cruzado.n} jogo${cruzado.n > 1 ? 's' : ''} do histórico dos 2 times nessa combinação de faixas de odd</span>
-          </div>
-          ${cruzado.n < 5 ? `<div style="font-size:11px;color:var(--yellow);margin-top:6px">⚠️ amostra pequena (${cruzado.n} jogo${cruzado.n > 1 ? 's' : ''}) — desconfie desse número até a base ter mais jogos nessa combinação</div>` : ''}
+          <div class="cenario-label">Mercados cruzados — ${_painelForcaHome} (odd ${primeiroComDado.labelHome}) x ${_painelForcaAway} (odd ${primeiroComDado.labelAway})</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Histórico dos 2 times combinado, só jogos em que o adversário também estava numa faixa de odd parecida com a de hoje</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+            <thead><tr style="color:var(--text2);text-align:center">
+              <th style="text-align:left;padding:5px 6px">Mercado</th><th style="padding:5px 6px">Taxa</th><th style="padding:5px 6px">Amostra</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
         </div>
       </div>`;
   }
