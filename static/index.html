@@ -5305,6 +5305,51 @@ function _painelForcaOddBucketTableHtml(name, data) {
     ${widenNote}`;
 }
 
+// ── Over 0.5 HT cruzado por faixa de odd dos 2 times — ex: "quando o
+// favorito (~1.30-1.70) pega um azarão (~7.50), quantas vezes saiu gol no 1º
+// tempo?". Olha o histórico dos 2 lados (não só o de hoje): pros jogos
+// passados do time da casa, filtra os que o PRÓPRIO time estava na mesma
+// faixa de odd de hoje E o adversário DAQUELE jogo também estava na faixa do
+// adversário de hoje (cada linha de resultado já tem odd_hw/odd_aw dos 2
+// lados do jogo) — e o mesmo pro time visitante, olhando o histórico dele.
+// Combina as 2 listas (mesma combinação de faixas, vista pelos 2 lados) pra
+// não ficar com amostra pequena demais logo de cara.
+function _painelForcaCruzadoOverHt() {
+  if (_painelForcaOddHome == null || _painelForcaOddAway == null) return null;
+  const bucketHomeIdx = _painelForcaOddBucketFind(_painelForcaOddHome);
+  const bucketAwayIdx = _painelForcaOddBucketFind(_painelForcaOddAway);
+
+  const jogos = [];
+  const coletar = (key, meuBucketAlvo, oppBucketAlvo) => {
+    const cfg = _painelForcaSideConfig(key);
+    const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
+    if (!tbl || !tbl.rows) return;
+    const oddField = key === 'home' ? 'odd_hw' : 'odd_aw';
+    const oppOddField = key === 'home' ? 'odd_aw' : 'odd_hw';
+    tbl.rows.forEach(m => {
+      if (m[cfg.field] !== cfg.teamName) return;
+      const meuOdd = parseFloat(m[oddField]);
+      const oppOdd = parseFloat(m[oppOddField]);
+      if (isNaN(meuOdd) || isNaN(oppOdd)) return;
+      if (_painelForcaOddBucketFind(meuOdd) !== meuBucketAlvo) return;
+      if (_painelForcaOddBucketFind(oppOdd) !== oppBucketAlvo) return;
+      const parts = String(m.score_ht || '').split('-').map(Number);
+      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+      jogos.push(parts[0] + parts[1] > 0.5);
+    });
+  };
+  coletar('home', bucketHomeIdx, bucketAwayIdx); // histórico do time da casa, contra adversário na faixa de hoje do visitante
+  coletar('away', bucketAwayIdx, bucketHomeIdx); // histórico do visitante, contra adversário na faixa de hoje do time da casa
+
+  if (!jogos.length) return null;
+  const n = jogos.length;
+  const overCount = jogos.filter(Boolean).length;
+  return {
+    n, overPct: Math.round(100 * overCount / n),
+    labelHome: _ODD_BUCKETS[bucketHomeIdx][2], labelAway: _ODD_BUCKETS[bucketAwayIdx][2],
+  };
+}
+
 function _painelForcaLeituraRender() {
   const el = document.getElementById('painelForcaViewLeitura');
   if (!el) return;
@@ -5340,7 +5385,37 @@ function _painelForcaLeituraRender() {
       </div>`;
   }
 
-  el.innerHTML = header + cardOddSimilar;
+  // ── Estudo cruzado: Over 0.5 HT quando as odds de hoje dos 2 times batem
+  // numa combinação parecida no histórico (ex: favorito ~1.30-1.70 x azarão
+  // ~7.50) ──
+  const cruzado = _painelForcaCruzadoOverHt();
+  let cardCruzado;
+  if (!cruzado) {
+    cardCruzado = `
+      <div class="cenario-block" style="margin-top:10px">
+        <div class="cenario-icon">🥅</div>
+        <div class="cenario-content">
+          <div class="cenario-label">Over 0.5 HT — combinação de faixas de odd</div>
+          <div style="color:var(--text2);font-size:13px;padding:8px 0">Sem odd disponível hoje pros 2 times, ou nenhum jogo no histórico deles bate com essa combinação de faixas ainda.</div>
+        </div>
+      </div>`;
+  } else {
+    const cor = cruzado.overPct >= 70 ? '#22c55e' : cruzado.overPct >= 50 ? '#f59e0b' : '#ef4444';
+    cardCruzado = `
+      <div class="cenario-block" style="margin-top:10px">
+        <div class="cenario-icon">🥅</div>
+        <div class="cenario-content">
+          <div class="cenario-label">Over 0.5 HT — ${_painelForcaHome} (odd ${cruzado.labelHome}) x ${_painelForcaAway} (odd ${cruzado.labelAway})</div>
+          <div style="margin-top:8px;text-align:center">
+            <span style="font-size:28px;font-weight:800;color:${cor}">${cruzado.overPct}%</span>
+            <span style="color:var(--text2);font-size:12px"> em ${cruzado.n} jogo${cruzado.n > 1 ? 's' : ''} do histórico dos 2 times nessa combinação de faixas de odd</span>
+          </div>
+          ${cruzado.n < 5 ? `<div style="font-size:11px;color:var(--yellow);margin-top:6px">⚠️ amostra pequena (${cruzado.n} jogo${cruzado.n > 1 ? 's' : ''}) — desconfie desse número até a base ter mais jogos nessa combinação</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = header + cardOddSimilar + cardCruzado;
 }
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
