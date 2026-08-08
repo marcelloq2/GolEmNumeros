@@ -875,6 +875,7 @@
     transition: all .15s;
   }
   .live-refresh-btn:hover { background: var(--bg3); color: var(--text); }
+  .live-refresh-btn.active { background: #a855f7; color: #fff; border-color: #a855f7; }
   .live-league-group { border-bottom: 1px solid #1e2235; }
   .live-league-header {
     padding: 6px 12px; background: var(--bg3); font-size: 10px; font-weight: 700;
@@ -2073,6 +2074,8 @@
                    color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                    white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
+          <button class="live-refresh-btn" id="live2OrdemAscBtn" onclick="_live2SetOrdemMinuto('asc')" title="Ordenar por minuto — crescente (jogo mais no começo primeiro)">▲ Minuto</button>
+          <button class="live-refresh-btn" id="live2OrdemDescBtn" onclick="_live2SetOrdemMinuto('desc')" title="Ordenar por minuto — decrescente (jogo mais perto do fim primeiro)">▼ Minuto</button>
           <button class="live-refresh-btn" onclick="loadLive2Matches()" title="Atualizar">↻</button>
         </span>
       </div>
@@ -11431,11 +11434,36 @@ function toggleLive2Pin(id) {
   }
 }
 
+// Ordenação por minuto do jogo (além do "favoritos primeiro" de sempre) —
+// null = sem ordenação por minuto (só favoritos), 'asc'/'desc' = crescente/
+// decrescente. Clicar de novo no botão já ativo desliga (volta pra null).
+let _live2OrdemMinuto = null;
+
+function _live2MinutoNum(m) {
+  const v = parseInt(m.minuto, 10); // m.minuto vem tipo "70'" — parseInt já para no "'"
+  return isNaN(v) ? null : v;
+}
+
+function _live2SetOrdemMinuto(ordem) {
+  _live2OrdemMinuto = _live2OrdemMinuto === ordem ? null : ordem;
+  const ascBtn = document.getElementById('live2OrdemAscBtn');
+  const descBtn = document.getElementById('live2OrdemDescBtn');
+  if (ascBtn) ascBtn.classList.toggle('active', _live2OrdemMinuto === 'asc');
+  if (descBtn) descBtn.classList.toggle('active', _live2OrdemMinuto === 'desc');
+  loadLive2Matches();
+}
+
 function _live2SortByPin(matches) {
   return [...matches].sort((a, b) => {
     const pa = _pinnedLive2.has(String(a.id)) ? 0 : 1;
     const pb = _pinnedLive2.has(String(b.id)) ? 0 : 1;
-    return pa - pb;
+    if (pa !== pb) return pa - pb;
+    if (!_live2OrdemMinuto) return 0;
+    const ma = _live2MinutoNum(a), mb = _live2MinutoNum(b);
+    if (ma == null && mb == null) return 0;
+    if (ma == null) return 1;  // sem minuto (ainda sem dado) vai pro final do grupo
+    if (mb == null) return -1;
+    return _live2OrdemMinuto === 'asc' ? ma - mb : mb - ma;
   });
 }
 
