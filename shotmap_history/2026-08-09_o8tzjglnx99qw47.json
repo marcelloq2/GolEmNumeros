@@ -1,0 +1,289 @@
+{
+  "event_id": "o8tzjglnx99qw47",
+  "date": "2026-08-09",
+  "casa": "San Jose Oruro",
+  "fora": "Always Ready",
+  "liga": "Primeira Divisão",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2953562159",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Godoy",
+      "x": 13.8,
+      "y": 52.2
+    },
+    {
+      "id": "2953560641",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Saucedo",
+      "x": 15.1,
+      "y": 40.7
+    },
+    {
+      "id": "2953557093",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "Jesús Maximiliano Maraude Cano",
+      "x": 9.7,
+      "y": 33
+    },
+    {
+      "id": "2953554449",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Saucedo",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2953551257",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Godoy",
+      "x": 8.8,
+      "y": 43.1
+    },
+    {
+      "id": "2953546995",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Caceres",
+      "x": 12,
+      "y": 26.7
+    },
+    {
+      "id": "2953546293",
+      "minute": 65,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Jesús Maximiliano Maraude Cano",
+      "x": 32,
+      "y": 31.3
+    },
+    {
+      "id": "2953544709",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Caceres",
+      "x": 2.6,
+      "y": 43.5
+    },
+    {
+      "id": "2953537885",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Amoroso",
+      "x": 15.8,
+      "y": 71.8
+    },
+    {
+      "id": "2953537457",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C.Medina",
+      "x": 19.4,
+      "y": 50.7
+    },
+    {
+      "id": "2953536659",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Triverio",
+      "x": 10.7,
+      "y": 38
+    },
+    {
+      "id": "2953518749",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Jesús Maximiliano Maraude Cano",
+      "x": 23.5,
+      "y": 34.2
+    },
+    {
+      "id": "2953510581",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "C.Algarañaz",
+      "x": 4.3,
+      "y": 47
+    },
+    {
+      "id": "2953507705",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Caceres",
+      "x": 7.6,
+      "y": 29.5
+    },
+    {
+      "id": "2953505261",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Quiroga",
+      "x": 12,
+      "y": 46.3
+    },
+    {
+      "id": "2953504513",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "C.Algarañaz",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2953495653",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Quiroga",
+      "x": 35.6,
+      "y": 48.8
+    },
+    {
+      "id": "2953493397",
+      "minute": 25,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "L.Zeballos",
+      "x": 28.1,
+      "y": 38.5
+    },
+    {
+      "id": "2953491375",
+      "minute": 22,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Amoroso",
+      "x": 10.6,
+      "y": 63.7
+    },
+    {
+      "id": "2953481541",
+      "minute": 10,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Jesús Maximiliano Maraude Cano",
+      "x": 15.9,
+      "y": 66.6
+    },
+    {
+      "id": "2953479159",
+      "minute": 8,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Amoroso",
+      "x": 13.1,
+      "y": 59.1
+    },
+    {
+      "id": "2953477801",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lima",
+      "x": 29.5,
+      "y": 71.8
+    },
+    {
+      "id": "2953476989",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "W.Araujo",
+      "x": 12.5,
+      "y": 65.1
+    },
+    {
+      "id": "2953474245",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "A. Landa Medreno",
+      "x": 4.9,
+      "y": 54.3
+    },
+    {
+      "id": "2953473667",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "L.Zeballos",
+      "x": 13.2,
+      "y": 41.1
+    }
+  ]
+}
