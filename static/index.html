@@ -1823,7 +1823,6 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_leitura" onclick="_painelForcaSetView('leitura', this)">📝 Leitura</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -4313,7 +4312,6 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
 // Playwright e repassa como veio, sem reprocessar nada aqui.
 let _painelForcaData = null;
 let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
-let _painelForcaOddHome = null, _painelForcaOddAway = null; // odd 1/2 do jogo atual (Painel Principal), usadas no estudo "odd parecida" da Leitura
 let _painelForcaTab = 'battle';
 let _painelForcaView = 'main';
 
@@ -4321,7 +4319,6 @@ const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
-  leitura: 'painelForcaViewLeitura',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -4336,8 +4333,6 @@ function _painelForcaSetView(view, btn) {
 
 function _painelOpenForca(eventId, home, away, league, oddHome, oddAway) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
-  _painelForcaOddHome = (oddHome != null && !isNaN(oddHome)) ? parseFloat(oddHome) : null;
-  _painelForcaOddAway = (oddAway != null && !isNaN(oddAway)) ? parseFloat(oddAway) : null;
   _painelForcaLastSide = 'home';
   _painelForcaTableState = {
     h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
@@ -4562,13 +4557,11 @@ function _painelForcaRender() {
     <div id="painelForcaViewSameOdds" style="display:none"></div>
     <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>
-    <div id="painelForcaViewLeitura" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
   _painelForcaCenariosRender();
-  _painelForcaLeituraRender();
 
   // O innerHTML acima recria os containers do zero, sempre com "Comparação de
   // força" visível por padrão — se o usuário já tinha clicado noutra aba
@@ -5214,272 +5207,6 @@ function _painelForcaLastRender() {
     ${_painelForcaBuildTableBlock(tbl, side)}`;
 }
 
-// Estudo "por faixa de odd": em vez de filtrar só os jogos com odd bem parecida
-// (amostra pequena), agrupa TODO o histórico do time (próprio lado, qualquer liga)
-// em faixas fixas de odd 1/2 e mostra Vence/Empate/Perde + média de gols marcados/
-// sofridos em CADA faixa — destacando a faixa em que a odd de hoje cai. Se a faixa
-// de hoje tiver poucos jogos (<5), amplia automaticamente juntando com a faixa
-// vizinha (acima ou abaixo) que tiver mais jogos.
-// Limite superior de cada faixa é 0.01 acima do topo "redondo" (ex: 2.01, não
-// 2.00) pra odd exatamente X.00 cair na faixa de baixo (1.01–2.00 inclui até
-// 2.00; 2.01–3.00 começa só em 2.01) — combina com odds sempre vindo com 2
-// casas decimais.
-const _ODD_BUCKETS = [
-  [1.00, 2.01, '1.01–2.00'], [2.01, 3.01, '2.01–3.00'], [3.01, 4.01, '3.01–4.00'],
-  [4.01, 5.01, '4.01–5.00'], [5.01, Infinity, '5.01+'],
-];
-function _painelForcaOddBucketFind(odd) {
-  for (let i = 0; i < _ODD_BUCKETS.length; i++) {
-    if (odd >= _ODD_BUCKETS[i][0] && odd < _ODD_BUCKETS[i][1]) return i;
-  }
-  return _ODD_BUCKETS.length - 1;
-}
-function _painelForcaOddBucketStat(b) {
-  const n = b.wins + b.draws + b.losses;
-  if (!n) return null;
-  const avg = arr => arr.length ? (arr.reduce((a, x) => a + x, 0) / arr.length) : null;
-  return {
-    n, vencePct: Math.round(100 * b.wins / n), empatePct: Math.round(100 * b.draws / n), percePct: Math.round(100 * b.losses / n),
-    golsMarcadosMedia: avg(b.golsMarcados), golsSofridosMedia: avg(b.golsSofridos),
-  };
-}
-// "Últimos 4"/"Últimos 10" precisam ter pelo menos essa quantidade de jogos
-// disponíveis (depois do filtro Casa/Ausente + Mesma liga) pra valer a pena
-// mostrar; "Todos" (count >= 9999) exige MAIS de 10 (pelo menos 11) — mesmo
-// no modo "todo o histórico" não faz sentido confiar numa amostra pequena.
-function _painelForcaOddMinGames(count) {
-  return count >= 9999 ? 11 : count;
-}
-
-function _painelForcaOddBucketStats(key, period) {
-  // Só existe odd 1/2 de tempo todo (o NowGoal não traz odd separada de 1º tempo) —
-  // então pra period='ht' as faixas continuam sendo pela odd FT, só o resultado
-  // (Vence/Empate/Perde + gols) que é olhado no placar do 1º tempo (score_ht).
-  const isHt = period === 'ht';
-  const scoreField = isHt ? 'score_ht' : 'score_ft';
-  const cfg = _painelForcaSideConfig(key);
-  const currentOdd = key === 'home' ? _painelForcaOddHome : _painelForcaOddAway;
-  if (currentOdd == null) return null;
-  const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
-  if (!tbl || !tbl.rows || !tbl.rows.length) return null;
-  const oddField = key === 'home' ? 'odd_hw' : 'odd_aw';
-  const isHomeRow = key === 'home';
-
-  // Mesmos filtros (Casa/Ausente, Mesma liga, Últimos N) já configurados na
-  // aba Pontuações Anteriores pra esse lado — cada time guarda seu próprio
-  // estado em _painelForcaTableState, então ajustar lá já reflete aqui.
-  const st = _painelForcaTableState[key];
-  const filtered = _painelForcaFilterRows(tbl.rows, key, st);
-  const rows = filtered.slice(0, st.count);
-  if (rows.length < _painelForcaOddMinGames(st.count)) return { insuficiente: true, n: rows.length, needed: _painelForcaOddMinGames(st.count) };
-
-  const perBucket = _ODD_BUCKETS.map(() => ({ wins: 0, draws: 0, losses: 0, golsMarcados: [], golsSofridos: [] }));
-  rows.forEach(m => {
-    const o = parseFloat(m[oddField]);
-    if (isNaN(o)) return;
-    const parts = String(m[scoreField] || '').split('-').map(Number);
-    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
-    const teamGoals = isHomeRow ? parts[0] : parts[1];
-    const oppGoals = isHomeRow ? parts[1] : parts[0];
-    const b = perBucket[_painelForcaOddBucketFind(o)];
-    b.golsMarcados.push(teamGoals); b.golsSofridos.push(oppGoals);
-    if (teamGoals > oppGoals) b.wins++; else if (oppGoals > teamGoals) b.losses++; else b.draws++;
-  });
-
-  const currentIdx = _painelForcaOddBucketFind(currentOdd);
-  const allBuckets = _ODD_BUCKETS.map((b, i) => ({ label: b[2], idx: i, stat: _painelForcaOddBucketStat(perBucket[i]) })).filter(b => b.stat);
-  return { currentOdd, currentIdx, allBuckets };
-}
-function _painelForcaOddBucketTableHtml(name, data) {
-  if (!data) return `<div style="color:var(--text2);font-size:12px;text-align:center;padding:8px 0">${name}: sem odd disponível hoje</div>`;
-  if (data.insuficiente) return `<div style="color:var(--text2);font-size:12px;text-align:center;padding:8px 0">${name}: só ${data.n} jogo${data.n === 1 ? '' : 's'} disponível (precisa de pelo menos ${data.needed})</div>`;
-  if (!data.allBuckets.length) return `<div style="color:var(--text2);font-size:12px;text-align:center;padding:8px 0">${name}: sem histórico de odds pra montar a distribuição</div>`;
-  const rows = data.allBuckets.map(b => {
-    const isToday = b.idx === data.currentIdx;
-    return `
-      <tr style="${isToday ? 'background:rgba(59,130,246,.12)' : ''}">
-        <td style="padding:5px 6px;font-weight:${isToday ? '800' : '400'}">${b.label}${isToday ? ' (hoje)' : ''}</td>
-        <td style="padding:5px 6px;text-align:center">${b.stat.n}</td>
-        <td style="padding:5px 6px;text-align:center;color:#22c55e">${b.stat.vencePct}%</td>
-        <td style="padding:5px 6px;text-align:center">${b.stat.empatePct}%</td>
-        <td style="padding:5px 6px;text-align:center;color:#ef4444">${b.stat.percePct}%</td>
-        <td style="padding:5px 6px;text-align:center">${b.stat.golsMarcadosMedia != null ? b.stat.golsMarcadosMedia.toFixed(1) : '—'}</td>
-        <td style="padding:5px 6px;text-align:center">${b.stat.golsSofridosMedia != null ? b.stat.golsSofridosMedia.toFixed(1) : '—'}</td>
-      </tr>`;
-  }).join('');
-  return `
-    <div style="margin-bottom:6px;font-weight:700;font-size:13px">${name} <span style="font-weight:400;color:var(--text2)">— odd hoje: ${data.currentOdd.toFixed(2)}</span></div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px">
-        <thead><tr style="color:var(--text2);text-align:center">
-          <th style="text-align:left;padding:5px 6px">Faixa</th><th style="padding:5px 6px">Jogos</th><th style="padding:5px 6px">Vence</th><th style="padding:5px 6px">Empate</th><th style="padding:5px 6px">Perde</th><th style="padding:5px 6px">Gols marc.</th><th style="padding:5px 6px">Gols sofr.</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-}
-
-// ── Mercados cruzados por faixa de odd dos 2 times — ex: "quando o favorito
-// (~1.30-1.70) pega um azarão (~7.50), quantas vezes bateu Over 2.5 FT?".
-// Olha o histórico dos 2 lados (não só o de hoje): pros jogos passados do
-// time da casa, filtra os que o PRÓPRIO time estava na mesma faixa de odd de
-// hoje E o adversário DAQUELE jogo também estava na faixa do adversário de
-// hoje (cada linha de resultado já tem odd_hw/odd_aw dos 2 lados do jogo) —
-// e o mesmo pro time visitante, olhando o histórico dele. Combina as 2 listas
-// (mesma combinação de faixas, vista pelos 2 lados) pra não ficar com amostra
-// pequena demais logo de cara. `scoreField` é 'score_ht' ou 'score_ft', e
-// `condicaoFn(golsCasa, golsFora)` decide se aquele jogo bateu o mercado.
-function _painelForcaCruzadoMercado(scoreField, condicaoFn) {
-  if (_painelForcaOddHome == null || _painelForcaOddAway == null) return null;
-  const bucketHomeIdx = _painelForcaOddBucketFind(_painelForcaOddHome);
-  const bucketAwayIdx = _painelForcaOddBucketFind(_painelForcaOddAway);
-
-  const jogos = [];
-  const coletar = (key, meuBucketAlvo, oppBucketAlvo) => {
-    const cfg = _painelForcaSideConfig(key);
-    const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
-    if (!tbl || !tbl.rows) return;
-    const oddField = key === 'home' ? 'odd_hw' : 'odd_aw';
-    const oppOddField = key === 'home' ? 'odd_aw' : 'odd_hw';
-    tbl.rows.forEach(m => {
-      if (m[cfg.field] !== cfg.teamName) return;
-      const meuOdd = parseFloat(m[oddField]);
-      const oppOdd = parseFloat(m[oppOddField]);
-      if (isNaN(meuOdd) || isNaN(oppOdd)) return;
-      if (_painelForcaOddBucketFind(meuOdd) !== meuBucketAlvo) return;
-      if (_painelForcaOddBucketFind(oppOdd) !== oppBucketAlvo) return;
-      const parts = String(m[scoreField] || '').split('-').map(Number);
-      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
-      jogos.push(condicaoFn(parts[0], parts[1]));
-    });
-  };
-  coletar('home', bucketHomeIdx, bucketAwayIdx); // histórico do time da casa, contra adversário na faixa de hoje do visitante
-  coletar('away', bucketAwayIdx, bucketHomeIdx); // histórico do visitante, contra adversário na faixa de hoje do time da casa
-
-  if (!jogos.length) return null;
-  const n = jogos.length;
-  const hitCount = jogos.filter(Boolean).length;
-  return {
-    n, pct: Math.round(100 * hitCount / n),
-    labelHome: _ODD_BUCKETS[bucketHomeIdx][2], labelAway: _ODD_BUCKETS[bucketAwayIdx][2],
-  };
-}
-
-// Lista dos mercados mostrados na tabela cruzada — fácil acrescentar mais um
-// no futuro, só adicionando uma linha aqui.
-const _CRUZADO_MERCADOS = [
-  { nome: 'Over 0.5 HT', scoreField: 'score_ht', cond: (h, a) => (h + a) > 0.5 },
-  { nome: 'Over 1.5 HT', scoreField: 'score_ht', cond: (h, a) => (h + a) > 1.5 },
-  { nome: 'Over 1.5 FT', scoreField: 'score_ft', cond: (h, a) => (h + a) > 1.5 },
-  { nome: 'Over 2.5 FT', scoreField: 'score_ft', cond: (h, a) => (h + a) > 2.5 },
-  { nome: 'Ambas Marcam Sim', scoreField: 'score_ft', cond: (h, a) => h > 0 && a > 0 },
-  { nome: 'Ambas Marcam Não', scoreField: 'score_ft', cond: (h, a) => h === 0 || a === 0 },
-];
-
-function _painelForcaLeituraRender() {
-  const el = document.getElementById('painelForcaViewLeitura');
-  if (!el) return;
-  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
-  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
-
-  // ── Estudo "por faixa de odd" — desempenho histórico do time agrupado pelas
-  // faixas de odd 1/2, destacando a faixa de hoje (FT e 1º Tempo) ──
-  let cardOddSimilar = '';
-  if (_painelForcaOddHome == null && _painelForcaOddAway == null) {
-    cardOddSimilar = `<div class="cenario-block"><div class="cenario-icon">🎯</div><div class="cenario-content"><div class="cenario-label">Desempenho histórico por faixa de odd</div><div style="color:var(--text2);font-size:13px;padding:8px 0">Esse jogo não tem odd 1/2 disponível no Painel Principal, então não dá pra comparar.</div></div></div>`;
-  } else {
-    const oddHomeFt = _painelForcaOddBucketStats('home', 'ft');
-    const oddAwayFt = _painelForcaOddBucketStats('away', 'ft');
-    const oddHomeHt = _painelForcaOddBucketStats('home', 'ht');
-    const oddAwayHt = _painelForcaOddBucketStats('away', 'ht');
-
-    // Segue os mesmos filtros (Casa/Ausente, Mesma liga, Últimos N) da aba
-    // Pontuações Anteriores — cada time tem seu próprio _painelForcaTableState,
-    // então o filtro escolhido lá já reflete aqui. Regra "tudo ou nada": se
-    // QUALQUER um dos 2 times não tiver jogos suficientes pro filtro atual
-    // (Últimos 4 → mín 4, Últimos 10 → mín 10, Todos → mín 11), não mostra a
-    // comparação de NENHUM dos 2 — não faz sentido comparar 1 time com
-    // amostra boa contra outro com amostra ruim. FT e HT usam o mesmo filtro
-    // por time, então o resultado é igual nos 2 blocos.
-    const faltando = oddHomeFt?.insuficiente ? { nome: _painelForcaHome, ...oddHomeFt }
-      : oddAwayFt?.insuficiente ? { nome: _painelForcaAway, ...oddAwayFt } : null;
-
-    if (faltando) {
-      cardOddSimilar = `
-        <div class="cenario-block">
-          <div class="cenario-icon">🎯</div>
-          <div class="cenario-content">
-            <div class="cenario-label">Desempenho histórico por faixa de odd</div>
-            <div style="color:var(--text2);font-size:13px;padding:8px 0">Amostra insuficiente pra comparar os 2 times com o filtro atual — <strong>${faltando.nome}</strong> só tem ${faltando.n} jogo${faltando.n === 1 ? '' : 's'} disponível (precisa de pelo menos ${faltando.needed}). Ajuste "Últimos N"/"Casa"/"Ausente"/"Mesma liga" na aba Pontuações Anteriores.</div>
-          </div>
-        </div>`;
-    } else {
-      cardOddSimilar = `
-        <div class="cenario-block">
-          <div class="cenario-icon">🎯</div>
-          <div class="cenario-content">
-            <div class="cenario-label">Desempenho histórico por faixa de odd — segue os filtros de Pontuações Anteriores (tempo todo)</div>
-            <div style="margin-top:8px">${_painelForcaOddBucketTableHtml(_painelForcaHome, oddHomeFt)}</div>
-            <div style="margin-top:14px">${_painelForcaOddBucketTableHtml(_painelForcaAway, oddAwayFt)}</div>
-          </div>
-        </div>
-        <div class="cenario-block" style="margin-top:10px">
-          <div class="cenario-icon">🕐</div>
-          <div class="cenario-content">
-            <div class="cenario-label">Desempenho histórico por faixa de odd — segue os filtros de Pontuações Anteriores (1º tempo, faixa pela odd de tempo todo)</div>
-            <div style="margin-top:8px">${_painelForcaOddBucketTableHtml(_painelForcaHome, oddHomeHt)}</div>
-            <div style="margin-top:14px">${_painelForcaOddBucketTableHtml(_painelForcaAway, oddAwayHt)}</div>
-          </div>
-        </div>`;
-    }
-  }
-
-  // ── Mercados cruzados: taxa de cada mercado quando as odds de hoje dos 2
-  // times batem numa combinação parecida no histórico (ex: favorito
-  // ~1.30-1.70 x azarão ~7.50) ──
-  const resultadosCruzados = _CRUZADO_MERCADOS.map(m => ({ ...m, r: _painelForcaCruzadoMercado(m.scoreField, m.cond) }));
-  const algumComDado = resultadosCruzados.some(m => m.r);
-  let cardCruzado;
-  if (!algumComDado) {
-    cardCruzado = `
-      <div class="cenario-block" style="margin-top:10px">
-        <div class="cenario-icon">🎲</div>
-        <div class="cenario-content">
-          <div class="cenario-label">Mercados cruzados — combinação de faixas de odd</div>
-          <div style="color:var(--text2);font-size:13px;padding:8px 0">Sem odd disponível hoje pros 2 times, ou nenhum jogo no histórico deles bate com essa combinação de faixas ainda.</div>
-        </div>
-      </div>`;
-  } else {
-    const primeiroComDado = resultadosCruzados.find(m => m.r).r;
-    const linhas = resultadosCruzados.map(m => {
-      if (!m.r) return `<tr><td style="padding:5px 6px">${m.nome}</td><td colspan="2" style="padding:5px 6px;text-align:center;color:var(--text2)">sem jogos nessa combinação</td></tr>`;
-      const cor = m.r.pct >= 70 ? '#22c55e' : m.r.pct >= 50 ? '#f59e0b' : '#ef4444';
-      const aviso = m.r.n < 5 ? ` <span style="color:var(--yellow)" title="Amostra pequena — desconfie desse número até a base ter mais jogos nessa combinação">⚠️</span>` : '';
-      return `
-        <tr>
-          <td style="padding:5px 6px">${m.nome}</td>
-          <td style="padding:5px 6px;text-align:center;font-weight:700;color:${cor}">${m.r.pct}%</td>
-          <td style="padding:5px 6px;text-align:center;color:var(--text2)">${m.r.n} jogo${m.r.n > 1 ? 's' : ''}${aviso}</td>
-        </tr>`;
-    }).join('');
-    cardCruzado = `
-      <div class="cenario-block" style="margin-top:10px">
-        <div class="cenario-icon">🎲</div>
-        <div class="cenario-content">
-          <div class="cenario-label">Mercados cruzados — ${_painelForcaHome} (odd ${primeiroComDado.labelHome}) x ${_painelForcaAway} (odd ${primeiroComDado.labelAway})</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">Histórico dos 2 times combinado, só jogos em que o adversário também estava numa faixa de odd parecida com a de hoje</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-            <thead><tr style="color:var(--text2);text-align:center">
-              <th style="text-align:left;padding:5px 6px">Mercado</th><th style="padding:5px 6px">Taxa</th><th style="padding:5px 6px">Amostra</th>
-            </tr></thead>
-            <tbody>${linhas}</tbody>
-          </table>
-        </div>
-      </div>`;
-  }
-
-  el.innerHTML = header + cardOddSimilar + cardCruzado;
-}
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
 let _painelForcaSameOddsTab = 'AH';
