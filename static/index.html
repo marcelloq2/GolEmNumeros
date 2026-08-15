@@ -4729,9 +4729,16 @@ function _painelForcaBuildTableBlock(tbl, key) {
   const st = _painelForcaTableState[key];
   const cfg = _painelForcaSideConfig(key);
   const filtered = _painelForcaFilterRows(tbl.rows, key, st);
-  const filterActive = st.onlySide || st.sameLeague || st.ht;
-  const s = filterActive ? _painelForcaComputeSummary(filtered, key, st.ht) : tbl.summary;
   const rows = filtered.slice(0, st.count);
+  // Sempre recalcula em cima do MESMO conjunto de linhas mostrado na tabela
+  // abaixo (já filtrado por Casa/Mesma liga e já cortado pelo "Últimos N") —
+  // nunca usa o resumo cru do NowGoal (tbl.summary), que é sempre sobre TODAS
+  // as linhas originais e por isso não acompanhava nem o contador Últimos N
+  // nem o toggle HT. tbl.summary é calculado pelo NowGoal em cima do mesmo
+  // conjunto de tbl.rows (confirmado no scraper), então recalcular aqui dá o
+  // mesmo resultado no caso padrão (sem filtro nenhum) e passa a acompanhar
+  // os filtros nos outros casos.
+  const s = _painelForcaComputeSummary(rows, key, st.ht);
   const notaTempoTodo = st.ht ? ' <span style="font-size:10px;color:var(--text2);font-weight:400">(tempo todo — sem dado de handicap/O-U pro 1º tempo)</span>' : '';
   return `
     <div class="painel-forca-h2h-controls">
