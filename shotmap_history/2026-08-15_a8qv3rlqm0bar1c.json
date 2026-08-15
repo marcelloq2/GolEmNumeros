@@ -1,0 +1,234 @@
+{
+  "event_id": "a8qv3rlqm0bar1c",
+  "date": "2026-08-15",
+  "casa": "Rostov",
+  "fora": "Rubin Kazan",
+  "liga": "Premier League",
+  "score": {
+    "home": 1,
+    "away": 0
+  },
+  "total_shots": 20,
+  "shotmap": [
+    {
+      "id": "2955191605",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Sako",
+      "x": 12,
+      "y": 59
+    },
+    {
+      "id": "2955187955",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "Teslenko",
+      "x": 7.9,
+      "y": 56.3
+    },
+    {
+      "id": "2955187333",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Hodza",
+      "x": 14.4,
+      "y": 58.4
+    },
+    {
+      "id": "2955179175",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Golenkov",
+      "x": 4.6,
+      "y": 35
+    },
+    {
+      "id": "2955168951",
+      "minute": 69,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Langovich",
+      "x": 27.2,
+      "y": 39.8
+    },
+    {
+      "id": "2955167325",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Komarov",
+      "x": 15.1,
+      "y": 76
+    },
+    {
+      "id": "2955165149",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Suleymanov",
+      "x": 9.1,
+      "y": 51.6
+    },
+    {
+      "id": "2955160835",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Ignatjev",
+      "x": 19.2,
+      "y": 36.2
+    },
+    {
+      "id": "2955160779",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Hodza",
+      "x": 13.3,
+      "y": 64.8
+    },
+    {
+      "id": "2955157247",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Siwe",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2955133731",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Vuyachich",
+      "x": 12.1,
+      "y": 55.7
+    },
+    {
+      "id": "2955131893",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Olusegun",
+      "x": 28.8,
+      "y": 44.6
+    },
+    {
+      "id": "2955124407",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Komarov",
+      "x": 13.3,
+      "y": 40.3
+    },
+    {
+      "id": "2955122381",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Suleymanov",
+      "x": 12.9,
+      "y": 59.3
+    },
+    {
+      "id": "2955120183",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Komarov",
+      "x": 25.5,
+      "y": 62.3
+    },
+    {
+      "id": "2955116077",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Olusegun",
+      "x": 9.9,
+      "y": 47.8
+    },
+    {
+      "id": "2955110355",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Mironov",
+      "x": 13.9,
+      "y": 26.8
+    },
+    {
+      "id": "2955110273",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Mironov",
+      "x": 10.4,
+      "y": 16.8
+    },
+    {
+      "id": "2955102403",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "U.Iwu",
+      "x": 13.1,
+      "y": 67.3
+    },
+    {
+      "id": "2955083407",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Kuchaev",
+      "x": 20.7,
+      "y": 39.1
+    }
+  ]
+}
