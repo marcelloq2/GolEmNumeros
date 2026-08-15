@@ -4676,22 +4676,31 @@ function _painelForcaFilterRows(rows, key, st) {
 
 // Os percentuais/medias que o NowGoal manda (win/draw/lose, gols por jogo,
 // distribuição de handicap/O-U) são calculados lá pro filtro padrão deles —
-// quando o usuário liga "Casa"/"Ausente" ou "Mesma liga" aqui, recalcula tudo
-// em cima só das linhas que sobraram, senão os números ficam inconsistentes
-// com a tabela filtrada.
-function _painelForcaComputeSummary(rows, key) {
+// quando o usuário liga "Casa"/"Ausente", "Mesma liga" ou "Mostrar 1º tempo"
+// aqui, recalcula tudo em cima só das linhas que sobraram (e do placar certo),
+// senão os números ficam inconsistentes com a tabela filtrada.
+//
+// Ganhe/Empate/Perca e Gols por jogo são recalculados direto do placar
+// (score_ht ou score_ft, conforme `useHt`) em vez de usar o wl_badge do
+// NowGoal — que é sempre baseado no placar de tempo todo, então não dava pra
+// reaproveitar pro 1º tempo. Já o Handicap Asiático e o Over/Under CONTINUAM
+// sempre de tempo todo mesmo com o HT ligado: o NowGoal só manda linha e
+// resultado de handicap/O-U pro jogo inteiro, não existe o equivalente pro
+// 1º tempo nesses dados — por isso a UI avisa "(tempo todo)" nesses 2 quando
+// o HT está marcado, em vez de fingir que mudou.
+function _painelForcaComputeSummary(rows, key, useHt) {
   const cfg = _painelForcaSideConfig(key);
+  const scoreField = useHt ? 'score_ht' : 'score_ft';
   let win = 0, draw = 0, lose = 0, goalsFor = 0, goalsAgainst = 0, goalGames = 0;
   let ahHome = 0, ahDraw = 0, ahAway = 0, ahN = 0, ouOver = 0, ouUnder = 0, ouN = 0;
   rows.forEach(m => {
     const isHomeRow = m.home === cfg.teamName;
-    if (m.wl_badge === 'D') draw++;
-    else if (m.wl_badge === 'W') { if (isHomeRow) win++; else lose++; }
-    else if (m.wl_badge === 'L') { if (isHomeRow) lose++; else win++; }
-    const parts = (m.score_ft || '').split('-').map(Number);
+    const parts = (m[scoreField] || '').split('-').map(Number);
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
       goalGames++;
-      if (isHomeRow) { goalsFor += parts[0]; goalsAgainst += parts[1]; } else { goalsFor += parts[1]; goalsAgainst += parts[0]; }
+      const teamGoals = isHomeRow ? parts[0] : parts[1], oppGoals = isHomeRow ? parts[1] : parts[0];
+      goalsFor += teamGoals; goalsAgainst += oppGoals;
+      if (teamGoals > oppGoals) win++; else if (oppGoals > teamGoals) lose++; else draw++;
     }
     if (m.ah_badge === 'D') { ahDraw++; ahN++; }
     else if (m.ah_badge === 'W') { ahN++; if (isHomeRow) ahHome++; else ahAway++; }
@@ -4720,9 +4729,10 @@ function _painelForcaBuildTableBlock(tbl, key) {
   const st = _painelForcaTableState[key];
   const cfg = _painelForcaSideConfig(key);
   const filtered = _painelForcaFilterRows(tbl.rows, key, st);
-  const filterActive = st.onlySide || st.sameLeague;
-  const s = filterActive ? _painelForcaComputeSummary(filtered, key) : tbl.summary;
+  const filterActive = st.onlySide || st.sameLeague || st.ht;
+  const s = filterActive ? _painelForcaComputeSummary(filtered, key, st.ht) : tbl.summary;
   const rows = filtered.slice(0, st.count);
+  const notaTempoTodo = st.ht ? ' <span style="font-size:10px;color:var(--text2);font-weight:400">(tempo todo — sem dado de handicap/O-U pro 1º tempo)</span>' : '';
   return `
     <div class="painel-forca-h2h-controls">
       <label><input type="checkbox" onchange="_painelForcaTableToggleSide('${key}', this.checked)" ${st.onlySide ? 'checked' : ''}> ${cfg.label}</label>
@@ -4738,10 +4748,10 @@ function _painelForcaBuildTableBlock(tbl, key) {
     ${_painelForcaBarRow('Ganhe/Empate/Perca', s.win || '-', s.lose || '-', null, null)}
     ${_painelForcaBarRow('Gols por jogo', s.goal_avg_home || '-', s.goal_avg_away || '-', null, null)}
     <div class="painel-forca-h2h-dist">
-      <div><span class="painel-forca-group-title">Handicap Asiático ${s.ah_count || ''}</span>
+      <div><span class="painel-forca-group-title">Handicap Asiático ${s.ah_count || ''}${notaTempoTodo}</span>
         <div class="painel-forca-h2h-dist-row"><span>Casa ${s.ah_home_pct || '-'}</span><span>Empate ${s.ah_draw_pct || '-'}</span><span>Fora ${s.ah_away_pct || '-'}</span></div>
       </div>
-      <div><span class="painel-forca-group-title">Over/Under ${s.ou_count || ''}</span>
+      <div><span class="painel-forca-group-title">Over/Under ${s.ou_count || ''}${notaTempoTodo}</span>
         <div class="painel-forca-h2h-dist-row"><span>Over ${s.ou_over_pct || '-'}</span><span>Empate ${s.ou_draw_pct || '-'}</span><span>Under ${s.ou_under_pct || '-'}</span></div>
       </div>
     </div>
