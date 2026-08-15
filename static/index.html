@@ -1823,6 +1823,7 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_leitura" onclick="_painelForcaSetView('leitura', this)">📝 Leitura</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -4319,6 +4320,7 @@ const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
+  leitura: 'painelForcaViewLeitura',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -4557,11 +4559,13 @@ function _painelForcaRender() {
     <div id="painelForcaViewSameOdds" style="display:none"></div>
     <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>
+    <div id="painelForcaViewLeitura" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
   _painelForcaSameOddsRender();
   _painelForcaCenariosRender();
+  _painelForcaLeituraRender();
 
   // O innerHTML acima recria os containers do zero, sempre com "Comparação de
   // força" visível por padrão — se o usuário já tinha clicado noutra aba
@@ -5205,6 +5209,67 @@ function _painelForcaLastRender() {
       <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
     </div>
     ${_painelForcaBuildTableBlock(tbl, side)}`;
+}
+
+// ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
+// calculam. 1º estudo: em quantos dos últimos jogos NO PRÓPRIO LADO (mandante
+// jogando em casa, visitante jogando fora — fixo, não depende do toggle
+// Casa/Ausente da aba Pontuações Anteriores) o time marcou pelo menos 1 gol.
+// "Últimos N" reaproveita o mesmo _painelForcaTableState[key].count já
+// configurado pra aquele time na aba Pontuações Anteriores (ex: se lá está
+// em "Últimos 4", aqui também olha só os últimos 4 jogos no próprio lado).
+function _painelForcaScoredRatio(key) {
+  const cfg = _painelForcaSideConfig(key);
+  const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
+  if (!tbl || !tbl.rows || !tbl.rows.length) return null;
+  const st = _painelForcaTableState[key];
+  const isHomeRow = key === 'home';
+  const ownSide = tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
+  const rows = ownSide.slice(0, st.count);
+  if (!rows.length) return null;
+
+  let scored = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    if (teamGoals > 0) scored++;
+  });
+  if (!total) return null;
+  return { scored, total };
+}
+
+function _painelForcaLeituraRow(nome, r, ladoLabel) {
+  if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
+  const pct = Math.round(100 * r.scored / r.total);
+  const cor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${nome} <span style="color:var(--text2);font-size:11px">(${ladoLabel})</span></span>
+      <span style="font-weight:800;color:${cor}">${r.scored}/${r.total} <span style="font-weight:400;color:var(--text2);font-size:11px">(${pct}%)</span></span>
+    </div>`;
+}
+
+function _painelForcaLeituraRender() {
+  const el = document.getElementById('painelForcaViewLeitura');
+  if (!el) return;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+
+  const homeScored = _painelForcaScoredRatio('home');
+  const awayScored = _painelForcaScoredRatio('away');
+
+  el.innerHTML = `
+    ${header}
+    <div class="cenario-block">
+      <div class="cenario-icon">⚽</div>
+      <div class="cenario-content">
+        <div class="cenario-label">Jogos em que marcou gol (tempo todo)</div>
+        ${_painelForcaLeituraRow(_painelForcaHome, homeScored, 'jogando em casa')}
+        ${_painelForcaLeituraRow(_painelForcaAway, awayScored, 'jogando fora')}
+      </div>
+    </div>`;
 }
 
 
