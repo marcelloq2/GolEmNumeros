@@ -1294,6 +1294,8 @@
   .painel-forca-grade { font-size: 26px; font-weight: 800; }
   .painel-forca-grade.home { color: #e8622c; }
   .painel-forca-grade.away { color: #2c7fe8; }
+  .painel-forca-diff { text-align: center; font-size: 12px; color: var(--text2); margin: -6px 0 14px; }
+  .painel-forca-diff strong { font-size: 14px; }
   .painel-forca-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; }
   .painel-forca-tab {
     background: var(--bg2); border: 1px solid var(--border); color: var(--text2); border-radius: 14px;
@@ -4536,6 +4538,10 @@ function _painelForcaRender() {
   const body = document.getElementById('painelForcaBody');
   if (!d) { body.innerHTML = `<div class="live-loading">Sem dados.</div>`; return; }
   const grades = _painelForcaOverallGrades(d);
+  const diff = grades.home - grades.away;
+  const diffHtml = diff === 0
+    ? `<div class="painel-forca-diff">Empate técnico — força bem parecida entre os 2 times</div>`
+    : `<div class="painel-forca-diff">Diferença de <strong style="color:${diff > 0 ? '#e8622c' : '#2c7fe8'}">${Math.abs(diff)}</strong> pontos — <strong style="color:${diff > 0 ? '#e8622c' : '#2c7fe8'}">${diff > 0 ? _painelForcaHome : _painelForcaAway}</strong> na frente</div>`;
   body.innerHTML = `
     <div id="painelForcaViewMain">
       <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
@@ -4544,6 +4550,7 @@ function _painelForcaRender() {
         ${_painelForcaRadarSvg(d, grades.homeVals, grades.awayVals)}
         <span class="painel-forca-grade away">${grades.away}</span>
       </div>
+      ${diffHtml}
       <div class="painel-forca-tabs">
         ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
       </div>
