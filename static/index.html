@@ -5272,38 +5272,8 @@ function _painelForcaOddBucketStats(key, period) {
   });
 
   const currentIdx = _painelForcaOddBucketFind(currentOdd);
-  let highlightLabel = _ODD_BUCKETS[currentIdx][2];
-  let highlightStat = _painelForcaOddBucketStat(perBucket[currentIdx]);
-  let widened = false;
-
-  if (!highlightStat || highlightStat.n < 5) {
-    const neighbors = [currentIdx - 1, currentIdx + 1].filter(i => i >= 0 && i < _ODD_BUCKETS.length);
-    let best = null;
-    neighbors.forEach(ni => {
-      const s = _painelForcaOddBucketStat(perBucket[ni]);
-      if (s && (!best || s.n > best.s.n)) best = { idx: ni, s };
-    });
-    if (best) {
-      const merged = {
-        wins: perBucket[currentIdx].wins + perBucket[best.idx].wins,
-        draws: perBucket[currentIdx].draws + perBucket[best.idx].draws,
-        losses: perBucket[currentIdx].losses + perBucket[best.idx].losses,
-        golsMarcados: [...perBucket[currentIdx].golsMarcados, ...perBucket[best.idx].golsMarcados],
-        golsSofridos: [...perBucket[currentIdx].golsSofridos, ...perBucket[best.idx].golsSofridos],
-      };
-      const mergedStat = _painelForcaOddBucketStat(merged);
-      if (mergedStat && (!highlightStat || mergedStat.n > highlightStat.n)) {
-        highlightStat = mergedStat;
-        widened = true;
-        const lo = Math.min(_ODD_BUCKETS[currentIdx][0], _ODD_BUCKETS[best.idx][0]);
-        const hi = Math.max(_ODD_BUCKETS[currentIdx][1], _ODD_BUCKETS[best.idx][1]);
-        highlightLabel = `${lo.toFixed(2)}–${hi === Infinity ? '+' : hi.toFixed(2)}`;
-      }
-    }
-  }
-
   const allBuckets = _ODD_BUCKETS.map((b, i) => ({ label: b[2], idx: i, stat: _painelForcaOddBucketStat(perBucket[i]) })).filter(b => b.stat);
-  return { currentOdd, currentIdx, highlightLabel, highlightStat, widened, allBuckets };
+  return { currentOdd, currentIdx, allBuckets };
 }
 function _painelForcaOddBucketTableHtml(name, data) {
   if (!data) return `<div style="color:var(--text2);font-size:12px;text-align:center;padding:8px 0">${name}: sem odd disponível hoje</div>`;
@@ -5321,7 +5291,6 @@ function _painelForcaOddBucketTableHtml(name, data) {
         <td style="padding:5px 6px;text-align:center">${b.stat.golsSofridosMedia != null ? b.stat.golsSofridosMedia.toFixed(1) : '—'}</td>
       </tr>`;
   }).join('');
-  const widenNote = data.widened ? `<div style="font-size:11px;color:var(--yellow);margin-top:4px">⚠️ faixa de hoje tinha poucos jogos — ampliada pra ${data.highlightLabel} (${data.highlightStat.n} jogos)</div>` : '';
   return `
     <div style="margin-bottom:6px;font-weight:700;font-size:13px">${name} <span style="font-weight:400;color:var(--text2)">— odd hoje: ${data.currentOdd.toFixed(2)}</span></div>
     <div style="overflow-x:auto">
@@ -5331,8 +5300,7 @@ function _painelForcaOddBucketTableHtml(name, data) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>
-    ${widenNote}`;
+    </div>`;
 }
 
 // ── Mercados cruzados por faixa de odd dos 2 times — ex: "quando o favorito
