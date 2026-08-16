@@ -11785,11 +11785,15 @@ let _live2ShotsCache = {}; // { [matchId]: shots[] } — array completo, usado p
 // 2) trava pra não deixar 2 varreduras rodando ao mesmo tempo — se a anterior
 //    ainda não terminou, esse ciclo simplesmente não dispara outra.
 let _live2ShotmapRunning = false;
+let _live2ShotmapStartedAt = 0;
 const _LIVE2_SHOTMAP_CONCURRENCY = 8;
+const _LIVE2_SHOTMAP_STUCK_MS = 60000; // trava presa por mais que isso = ignora e roda de novo mesmo assim
 
 async function _loadLive2Shotmap(matches) {
-  if (_live2ShotmapRunning) return;
+  const presoFaz = _live2ShotmapRunning && (Date.now() - _live2ShotmapStartedAt) > _LIVE2_SHOTMAP_STUCK_MS;
+  if (_live2ShotmapRunning && !presoFaz) return;
   _live2ShotmapRunning = true;
+  _live2ShotmapStartedAt = Date.now();
   try {
     let newlyVisible = false;
     for (let i = 0; i < matches.length; i += _LIVE2_SHOTMAP_CONCURRENCY) {
@@ -11797,8 +11801,20 @@ async function _loadLive2Shotmap(matches) {
       const results = await Promise.all(chunk.map(async (m) => {
         try {
           const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
-          const res    = await fetch(`/api/radar/shotmap/${m.id}?${params}`);
-          const data   = await res.json();
+          // fetch() não tem timeout por padrão — se UM jogo travar sem nunca
+          // resolver nem dar erro, o Promise.all do lote inteiro fica esperando
+          // pra sempre, e a trava _live2ShotmapRunning nunca é liberada (bloqueia
+          // TODAS as atualizações de mapa de chutes dali pra frente, em silêncio).
+          // 12s é generoso pra uma chamada HTTP simples.
+          const ctrl = new AbortController();
+          const timeoutId = setTimeout(() => ctrl.abort(), 12000);
+          let res;
+          try {
+            res = await fetch(`/api/radar/shotmap/${m.id}?${params}`, { signal: ctrl.signal });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+          const data = await res.json();
           return { m, shots: data.shots || [] };
         } catch (e) { return null; }
       }));
