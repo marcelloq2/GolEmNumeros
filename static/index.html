@@ -3290,12 +3290,20 @@ function _painelIsSelectedMatch(m) {
 }
 
 // ── Filtro por odds (1 / X / 2 / Over / Under) — operadores ≤ ≥ > < = entre ──
+// "Força" é tratada igual às odds no filtro (mesmos operadores/UI), mas o valor
+// não vem direto de m[key] — vem de _painelForcaDiffCache (diferença de força
+// já calculada pela coluna "Força" da listagem, só disponível pros jogos já em
+// cache — ver _painelLoadForcaDiffs). Jogo sem força ainda cacheada falha o
+// filtro (mesmo comportamento de odd ausente/NaN), então some da lista até a
+// pré-carga em segundo plano conseguir analisar ele.
 const PAINEL_ODDS_FILTER_COLS = [
   { key: 'odd_1', label: '1' }, { key: 'odd_x', label: 'X' }, { key: 'odd_2', label: '2' },
   { key: 'odd_over', label: 'Over' }, { key: 'odd_under', label: 'Under' },
+  { key: 'forca_diff', label: 'Força', step: '1' },
 ];
 let _painelOddsFilters = {};  // key -> {op, val1, val2}
 PAINEL_ODDS_FILTER_COLS.forEach(c => { _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' }; });
+let _painelForcaDiffCache = {};  // match_id -> diferença de força (número absoluto), preenchido por _painelLoadForcaDiffs
 
 function _painelBuildOddsFilterBar() {
   const bar = document.getElementById('painelOddsFilterBar');
@@ -3314,10 +3322,10 @@ function _painelBuildOddsFilterBar() {
           <option value="eq">=</option>
           <option value="between">entre</option>
         </select>
-        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelOddsFilterVal1_${c.key}"
+        <input type="number" step="${c.step || '0.01'}" placeholder="valor" style="display:none" id="painelOddsFilterVal1_${c.key}"
           oninput="_painelOddsFilterChange('${c.key}', 'val1', this.value)">
         <span id="painelOddsFilterAnd_${c.key}" style="display:none;color:var(--text2)">e</span>
-        <input type="number" step="0.01" placeholder="valor" style="display:none" id="painelOddsFilterVal2_${c.key}"
+        <input type="number" step="${c.step || '0.01'}" placeholder="valor" style="display:none" id="painelOddsFilterVal2_${c.key}"
           oninput="_painelOddsFilterChange('${c.key}', 'val2', this.value)">
       </div>
     </div>
@@ -3465,8 +3473,8 @@ function _painelMatchPassesOddsFilters(m) {
   for (const c of PAINEL_ODDS_FILTER_COLS) {
     const f = _painelOddsFilters[c.key];
     if (!f.op) continue;
-    const odd = parseFloat(m[c.key]);
-    if (isNaN(odd)) return false;
+    const odd = c.key === 'forca_diff' ? _painelForcaDiffCache[m.event_id] : parseFloat(m[c.key]);
+    if (odd === undefined || odd === null || isNaN(odd)) return false;
     if (f.op === 'between') {
       const v1 = parseFloat(f.val1), v2 = parseFloat(f.val2);
       if (isNaN(v1) || isNaN(v2)) continue;
@@ -5904,10 +5912,11 @@ function _painelLoadForcaDiffs(leaguesFiltered) {
     .then(r => r.json())
     .then(cached => {
       Object.keys(cached).forEach(matchId => {
-        const el = document.getElementById(`painelForcaDiff_${matchId}`);
-        if (!el) return;
         const grades = _painelForcaOverallGrades(cached[matchId]);
         const diff = Math.abs(grades.home - grades.away);
+        _painelForcaDiffCache[matchId] = diff;
+        const el = document.getElementById(`painelForcaDiff_${matchId}`);
+        if (!el) return;
         el.textContent = grades.home === grades.away ? '=' : (grades.home > grades.away ? `C+${diff}` : `F+${diff}`);
         el.classList.add('has-value');
         el.title = `Casa ${grades.home} x ${grades.away} Fora`;
