@@ -1,0 +1,256 @@
+{
+  "event_id": "9zuz9plcswnmrm3",
+  "date": "2026-08-16",
+  "casa": "Spokane Velocity",
+  "fora": "Corpus Christi",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 3
+  },
+  "total_shots": 22,
+  "shotmap": [
+    {
+      "id": "2955584127",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "J.Keegan",
+      "x": 6.3,
+      "y": 58.4
+    },
+    {
+      "id": "2955581651",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A. Elmasnaouy",
+      "x": 28.5,
+      "y": 36
+    },
+    {
+      "id": "2955578883",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "A. Peláez Paba",
+      "x": 9.4,
+      "y": 52.5
+    },
+    {
+      "id": "2955576877",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Arthur Medina",
+      "x": 9.5,
+      "y": 49.4
+    },
+    {
+      "id": "2955573481",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "E.Kwakwa",
+      "x": 27.2,
+      "y": 43.7
+    },
+    {
+      "id": "2955571131",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "N.Vinyals",
+      "x": 3.7,
+      "y": 47.8
+    },
+    {
+      "id": "2955564409",
+      "minute": 57,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Keaney",
+      "x": 4.5,
+      "y": 44.3
+    },
+    {
+      "id": "2955561881",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A. Elmasnaouy",
+      "x": 18.5,
+      "y": 43.3
+    },
+    {
+      "id": "2955561375",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "S.Roscoe",
+      "x": 10.5,
+      "y": 49.8
+    },
+    {
+      "id": "2955560243",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "N.Vinyals",
+      "x": 28.8,
+      "y": 63.9
+    },
+    {
+      "id": "2955558041",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "N.Brett",
+      "x": 18,
+      "y": 42.8
+    },
+    {
+      "id": "2955549177",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Pondeca",
+      "x": 8.8,
+      "y": 40
+    },
+    {
+      "id": "2955546699",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Gallardo",
+      "x": 27.8,
+      "y": 46.3
+    },
+    {
+      "id": "2955544859",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "J.Gallardo",
+      "x": 9.6,
+      "y": 31
+    },
+    {
+      "id": "2955541677",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Gallardo",
+      "x": 27.2,
+      "y": 37.6
+    },
+    {
+      "id": "2955540919",
+      "minute": 32,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "K. Thomas",
+      "x": 9.6,
+      "y": 62.9
+    },
+    {
+      "id": "2955540259",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "S.Roscoe",
+      "x": 9.9,
+      "y": 62.5
+    },
+    {
+      "id": "2955534975",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ibrahim",
+      "x": 41.2,
+      "y": 65.5
+    },
+    {
+      "id": "2955533937",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "J.Gallardo",
+      "x": 26.5,
+      "y": 36.3
+    },
+    {
+      "id": "2955531725",
+      "minute": 16,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Keegan",
+      "x": 7,
+      "y": 51.9
+    },
+    {
+      "id": "2955524809",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "N.Brett",
+      "x": 11.3,
+      "y": 49.5
+    },
+    {
+      "id": "2955520981",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L.Opara",
+      "x": 9.3,
+      "y": 55.1
+    }
+  ]
+}
