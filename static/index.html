@@ -11542,9 +11542,9 @@ function renderLive2Card(m) {
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
       </div>
+      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
-        <button class="live-card-tab-btn" onclick="_live2OpenShotmapModal('${m.id}')">Mapa de Chutes</button>
         <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
@@ -11554,12 +11554,11 @@ function renderLive2Card(m) {
     </div>`;
 }
 
-// Rastreia qual widget (Estatísticas+Odds / Escalações / CD-Dados / Mapa de
-// Chutes) está aberto agora, e de qual partida — usado só pra saber se uma
-// atualização em segundo plano (ex: escalação ou chute novo chegando depois)
-// deve refletir no modal aberto ou não, já que todos dividem o mesmo
-// overlay/corpo.
-let _live2OpenModal = null; // { matchId, type: 'stats' | 'lineup' | 'unicd' | 'shotmap' }
+// Rastreia qual widget (Estatísticas+Odds / Escalações) está aberto agora, e de
+// qual partida — usado só pra saber se uma atualização em segundo plano (ex:
+// escalação chegando depois) deve refletir no modal aberto ou não, já que os 2
+// dividem o mesmo overlay/corpo.
+let _live2OpenModal = null; // { matchId, type: 'stats' | 'lineup' }
 
 function _live2OpenModalCommon(matchId, type, titleSuffix) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
@@ -11583,14 +11582,6 @@ function _live2OpenStatsModal(matchId) {
 function _live2OpenLineupModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'lineup', 'Escalações');
   body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
-}
-
-function _live2OpenShotmapModal(matchId) {
-  const { m, body } = _live2OpenModalCommon(matchId, 'shotmap', 'Mapa de Chutes');
-  const shots = _live2ShotsCache[matchId] || [];
-  body.innerHTML = shots.length
-    ? buildShotMapHtml(shots, m?.casa, m?.fora, matchId)
-    : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhum chute registrado ainda pra essa partida</div>';
 }
 
 // CD (Sequências do time) + Dados (Over/BTTS/médias) — reaproveita o mesmo
@@ -11818,14 +11809,11 @@ async function _loadLive2Shotmap(matches) {
         const isVisible  = shots.length > 0;
         if (!wasVisible && isVisible) newlyVisible = true;
 
-        // O mapa de chutes não fica mais embutido no card (virou widget, aberto
-        // pelo botão "Mapa de Chutes") — só atualiza aqui se o widget desse jogo
-        // estiver aberto agora, pra quem tá com ele na tela ver os chutes novos
-        // sem precisar fechar e abrir de novo.
-        if (shots.length !== _live2ShotsCountCache[m.id]
-            && _live2OpenModal && _live2OpenModal.type === 'shotmap' && String(_live2OpenModal.matchId) === String(m.id)) {
-          const body = document.getElementById('live2StatsModalBody');
-          if (body) body.innerHTML = buildShotMapHtml(shots, m.casa, m.fora, m.id);
+        const wrap = document.getElementById(`live2ShotmapWrap_${m.id}`);
+        // Só redesenha se a quantidade de chutes mudou — evita "piscar" o SVG
+        // do zero a cada ciclo de refresh quando nada de novo aconteceu
+        if (wrap && !(_live2ShotsCountCache[m.id] === shots.length && wrap.innerHTML.trim())) {
+          wrap.innerHTML = shots.length ? buildShotMapHtml(shots, m.casa, m.fora, m.id) : '';
         }
         _live2ShotsCountCache[m.id] = shots.length;
         _live2ShotsCache[m.id] = shots;
