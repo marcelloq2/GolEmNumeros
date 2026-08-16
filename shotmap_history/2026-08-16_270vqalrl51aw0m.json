@@ -1,0 +1,289 @@
+{
+  "event_id": "270vqalrl51aw0m",
+  "date": "2026-08-16",
+  "casa": "Başakşehir",
+  "fora": "Kocaelispor",
+  "liga": "Superliga",
+  "score": {
+    "home": 2,
+    "away": 0
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2955944657",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mustafa",
+      "x": 14.9,
+      "y": 43.2
+    },
+    {
+      "id": "2955942779",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Mustafa",
+      "x": 25.4,
+      "y": 47.1
+    },
+    {
+      "id": "2955939159",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "J. Kaluzinski",
+      "x": 18.8,
+      "y": 27.1
+    },
+    {
+      "id": "2955937307",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Şahiner",
+      "x": 25,
+      "y": 59.2
+    },
+    {
+      "id": "2955934915",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "A. S. Olsen",
+      "x": 13.8,
+      "y": 53
+    },
+    {
+      "id": "2955933837",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Operi",
+      "x": 16.7,
+      "y": 25.2
+    },
+    {
+      "id": "2955933339",
+      "minute": 74,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A. S. Olsen",
+      "x": 24.8,
+      "y": 36.2
+    },
+    {
+      "id": "2955931803",
+      "minute": 72,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Shomurodov",
+      "x": 3.1,
+      "y": 50
+    },
+    {
+      "id": "2955930857",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y. Sari",
+      "x": 17.1,
+      "y": 70.3
+    },
+    {
+      "id": "2955926961",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Y. Sari",
+      "x": 0.3,
+      "y": 99.7
+    },
+    {
+      "id": "2955920431",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Shomurodov",
+      "x": 12.8,
+      "y": 60.9
+    },
+    {
+      "id": "2955919463",
+      "minute": 57,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Haïdara",
+      "x": 13.3,
+      "y": 45.2
+    },
+    {
+      "id": "2955916465",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Shomurodov",
+      "x": 19.1,
+      "y": 43.2
+    },
+    {
+      "id": "2955915773",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "U.Kaan Yildiz",
+      "x": 23.6,
+      "y": 43.6
+    },
+    {
+      "id": "2955882569",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "J. Kaluzinski",
+      "x": 19.7,
+      "y": 34.6
+    },
+    {
+      "id": "2955873989",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Yildirim",
+      "x": 10.7,
+      "y": 53.2
+    },
+    {
+      "id": "2955872953",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "U.Kaan Yildiz",
+      "x": 9.5,
+      "y": 76
+    },
+    {
+      "id": "2955872805",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Bingöl",
+      "x": 22.5,
+      "y": 48.1
+    },
+    {
+      "id": "2955868207",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J. Kaluzinski",
+      "x": 29.2,
+      "y": 35.5
+    },
+    {
+      "id": "2955863627",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Operi",
+      "x": 10.1,
+      "y": 38.7
+    },
+    {
+      "id": "2955861387",
+      "minute": 12,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Opoku",
+      "x": 4.6,
+      "y": 60.7
+    },
+    {
+      "id": "2955860737",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Shomurodov",
+      "x": 15.6,
+      "y": 52.9
+    },
+    {
+      "id": "2955859351",
+      "minute": 10,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D. Agyei",
+      "x": 25.6,
+      "y": 62.2
+    },
+    {
+      "id": "2955858753",
+      "minute": 9,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Yildirim",
+      "x": 7.9,
+      "y": 49.2
+    },
+    {
+      "id": "2955855617",
+      "minute": 5,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D. Agyei",
+      "x": 20.2,
+      "y": 55
+    }
+  ]
+}
