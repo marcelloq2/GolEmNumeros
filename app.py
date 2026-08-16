@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue
+import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback
 import requests as http_req
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -862,23 +862,22 @@ _PAINEL_FORCA_RADAR_AXES = ("battle", "state", "attack", "defend", "market")
 @app.route("/api/painel/ng_strength_cached", methods=["POST"])
 def api_painel_ng_strength_cached():
     """Devolve a força (só os 5 eixos usados pro grade geral) dos match_ids
-    que JÁ estiverem em cache — nunca dispara um Playwright novo aqui, só lê o
-    que a pré-carga em segundo plano (_ng_strength_prefetch_loop) ou alguém
-    abrindo a Comparação de força já colocou em _ng_strength_cache. Não filtra
-    por "fresco" (< 15min) como o resto do sistema faz: pra essa coluna, é
-    melhor mostrar um valor um pouco desatualizado (força de time muda pouco
-    de uma passada pra outra) do que a coluna piscar entre valor e "—" toda
-    vez que o cache expira antes da pré-carga conseguir passar de novo."""
+    que JÁ estiverem em cache (de alguém ter aberto a Comparação de Força
+    antes) — nunca dispara um Playwright novo aqui. É o que permite mostrar
+    a diferença de força na listagem inteira sem custo extra: os jogos ainda
+    não abertos simplesmente não aparecem na resposta, e a listagem mostra
+    "—" pra eles até alguém abrir o modal daquele jogo alguma vez."""
     body = request.get_json(force=True, silent=True) or {}
     match_ids = body.get("match_ids") or []
     if not isinstance(match_ids, list):
         return jsonify({}), 400
+    now = time.time()
     result = {}
     with _ng_strength_lock:
         for mid in match_ids:
             mid = str(mid)
             cached = _ng_strength_cache.get(mid)
-            if cached:
+            if cached and (now - cached["ts"]) < _NG_STRENGTH_TTL:
                 d = cached["data"]
                 result[mid] = {k: d[k] for k in _PAINEL_FORCA_RADAR_AXES if k in d}
     return jsonify(result)
@@ -1670,73 +1669,6 @@ def api_painel_opportunities_scan_now():
 
     threading.Thread(target=run, daemon=True, name="OpportunitiesScanNow").start()
     return jsonify({"status": "started"})
-
-
-# ── Pré-carga de Força — enche o _ng_strength_cache com TODOS os jogos do dia
-# (não só os ao vivo, ao contrário do Mapa de Oportunidades acima) em segundo
-# plano, pra coluna "Força" do Painel Principal conseguir mostrar a diferença
-# de qualquer jogo sem o usuário precisar abrir a Comparação de força na mão.
-# Fila + 2 workers persistentes (mesmo teto do _ng_playwright_semaphore — mais
-# que isso não acelera nada, só faria fila no próprio semáforo) em vez de 1
-# busca de cada vez: com o volume de jogos de um dia cheio (pode passar de
-# 700), 1 por vez levaria horas pra cobrir tudo. Um "enchedor" roda a cada
-# _NG_STRENGTH_PREFETCH_CYCLE_GAP checando o que ainda falta (não em cache ou
-# expirado) e não já enfileirado, e bota na fila — os workers vão consumindo
-# continuamente, sempre no máx. 2 Playwright simultâneos.
-_NG_STRENGTH_PREFETCH_WORKERS = 2
-_NG_STRENGTH_PREFETCH_CYCLE_GAP = 60  # segundos entre uma checagem "o que falta" e a próxima
-_ng_strength_prefetch_queue = queue.Queue()
-_ng_strength_prefetch_queued = set()  # dedup — evita enfileirar o mesmo jogo 2x antes dele ser processado
-_ng_strength_prefetch_queued_lock = threading.Lock()
-
-
-def _ng_strength_prefetch_worker():
-    while True:
-        mid = _ng_strength_prefetch_queue.get()
-        try:
-            with _ng_strength_lock:
-                cached = _ng_strength_cache.get(mid)
-                fresh = cached and (time.time() - cached["ts"]) < _NG_STRENGTH_TTL
-            if not fresh:
-                try:
-                    _ng_fetch_strength(mid)
-                except Exception as e:
-                    print(f"[forca-prefetch] Erro no jogo {mid}: {e}")
-        finally:
-            with _ng_strength_prefetch_queued_lock:
-                _ng_strength_prefetch_queued.discard(mid)
-            _ng_strength_prefetch_queue.task_done()
-
-
-def _ng_strength_prefetch_filler_loop():
-    _github_sync_done.wait(timeout=120)
-    while True:
-        try:
-            matches_data = _painel_fetch_matches_nowgoal()
-            now = time.time()
-            added = 0
-            for lg in matches_data.get("leagues", []):
-                for m in lg["matches"]:
-                    mid = m.get("event_id")
-                    if not mid:
-                        continue
-                    mid = str(mid)
-                    with _ng_strength_lock:
-                        cached = _ng_strength_cache.get(mid)
-                        fresh = cached and (now - cached["ts"]) < _NG_STRENGTH_TTL
-                    if fresh:
-                        continue
-                    with _ng_strength_prefetch_queued_lock:
-                        if mid in _ng_strength_prefetch_queued:
-                            continue
-                        _ng_strength_prefetch_queued.add(mid)
-                    _ng_strength_prefetch_queue.put(mid)
-                    added += 1
-            if added:
-                print(f"[forca-prefetch] {added} jogo(s) enfileirado(s) (fila atual: {_ng_strength_prefetch_queue.qsize()})")
-        except Exception as e:
-            print(f"[forca-prefetch] Erro buscando jogos do dia: {e}")
-        time.sleep(_NG_STRENGTH_PREFETCH_CYCLE_GAP)
 
 
 def _painel_fetch_matches(force=False, date_str=None):
@@ -10077,9 +10009,6 @@ def api_lay_placar_config():
 
 threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
 threading.Thread(target=_opportunities_loop, daemon=True, name="Opportunities").start()
-threading.Thread(target=_ng_strength_prefetch_filler_loop, daemon=True, name="ForcaPrefetchFiller").start()
-for _i in range(_NG_STRENGTH_PREFETCH_WORKERS):
-    threading.Thread(target=_ng_strength_prefetch_worker, daemon=True, name=f"ForcaPrefetchWorker{_i}").start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
