@@ -11964,12 +11964,14 @@ function _live2RateStatsHtml(m) {
   const rate = (v) => (v / minutos).toFixed(2);
   // Mesma regra da bolinha de domínio já usada na pressão: time com pelo menos o
   // dobro do valor do outro nessa estatística específica.
-  const dotHtml = (h, a) => {
-    const cor = h >= a * 2 && h > 0 ? '#3b82f6' : (a >= h * 2 && a > 0 ? '#ef4444' : null);
-    if (!cor) return '';
+  const dotHtml = (h, a, slot) => {
+    const side = h >= a * 2 && h > 0 ? 'casa' : (a >= h * 2 && a > 0 ? 'fora' : null);
+    _live2TallyDot(m.id, slot, side);
+    if (!side) return '';
+    const cor = side === 'casa' ? '#3b82f6' : '#ef4444';
     return `<span class="live2-stat-dot" style="background:${cor}"></span>`;
   };
-  const row = (label, pair, tituloBase) => {
+  const row = (label, pair, tituloBase, slot) => {
     if (!pair) return '';
     const [h, a] = pair;
     return `
@@ -11978,12 +11980,12 @@ function _live2RateStatsHtml(m) {
       <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
       <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
       <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
-      <span>${dotHtml(h, a)}</span>
+      <span>${dotHtml(h, a, slot)}</span>
     </div>`;
   };
-  const rows = row('Ataque perigoso', gv('dangerous_attacks'), 'Ataques perigosos')
-    + row('Toques na área', gv('touches_in_box'), 'Toques na área adversária')
-    + row('Chutes na área', gv('shots_inside_box'), 'Chutes de dentro da área');
+  const rows = row('Ataque perigoso', gv('dangerous_attacks'), 'Ataques perigosos', 'ataque')
+    + row('Toques na área', gv('touches_in_box'), 'Toques na área adversária', 'toques')
+    + row('Chutes na área', gv('shots_inside_box'), 'Chutes de dentro da área', 'chutes');
   if (!rows) return '';
   return `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">${rows}</div>`;
 }
@@ -11999,13 +12001,41 @@ function _live2ThermoDominance(score) {
   return null;
 }
 
-function _live2ThermoDominanceIconHtml(full, w10, w5) {
+// ── Contador de bolinhas — quantas vezes, ao longo da partida, cada lado
+// "acendeu" um sinal de domínio (qualquer uma das 4 bolinhas: consistência nas
+// 3 janelas, ataque perigoso, toques na área, chutes na área). Cada card
+// atualiza a cada ~20s (_loadLive2Momentum); contar toda atualização em que a
+// bolinha aparece inflaria demais (pode chegar a centenas numa partida
+// inteira), então só soma quando o sinal MUDA de estado (apareceu de novo
+// depois de ter sumido, ou trocou de lado) — isso conta "quantas vezes
+// aconteceu", não "em quantos ciclos ficou ligado".
+let _live2DotState = {};   // { [matchId]: { [slot]: 'casa'|'fora'|null } }
+let _live2DotCounts = {};  // { [matchId]: { casa, fora } }
+function _live2TallyDot(matchId, slot, side) {
+  const state = _live2DotState[matchId] || (_live2DotState[matchId] = {});
+  const counts = _live2DotCounts[matchId] || (_live2DotCounts[matchId] = { casa: 0, fora: 0 });
+  if (side && side !== state[slot]) counts[side]++;
+  state[slot] = side || null;
+}
+function _live2DotCounterHtml(matchId) {
+  const c = _live2DotCounts[matchId];
+  if (!c || (!c.casa && !c.fora)) return '';
+  return `<div style="display:flex;justify-content:center;gap:12px;font-size:9px;font-weight:700;margin-bottom:4px"
+    title="Quantas vezes um sinal de domínio (bolinha azul/vermelha) apareceu de novo pra cada lado durante a partida">
+    <span style="color:#3b82f6">🔵 Casa ${c.casa}</span>
+    <span style="color:#ef4444">🔴 Visitante ${c.fora}</span>
+  </div>`;
+}
+
+function _live2ThermoDominanceIconHtml(matchId, full, w10, w5) {
   const dFull = _live2ThermoDominance(full);
   const d10   = _live2ThermoDominance(w10);
   const d5    = _live2ThermoDominance(w5);
-  if (!dFull || !d10 || !d5 || dFull !== d10 || d10 !== d5) return '';
-  const cor = dFull === 'casa' ? '#3b82f6' : '#ef4444';
-  const lado = dFull === 'casa' ? 'Casa' : 'Visitante';
+  const side  = (dFull && d10 && d5 && dFull === d10 && d10 === d5) ? dFull : null;
+  _live2TallyDot(matchId, 'thermo', side);
+  if (!side) return '';
+  const cor = side === 'casa' ? '#3b82f6' : '#ef4444';
+  const lado = side === 'casa' ? 'Casa' : 'Visitante';
   return `<span class="live2-stat-dot" title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)"
     style="display:inline-flex;background:${cor}"></span>`;
 }
@@ -12039,11 +12069,14 @@ async function _live2RefreshBadges(matchId) {
     const full = _live2ThermometerScore(points, shots, m, null);
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
-    thermoEl.innerHTML = `
+    const thermoInner = `
       ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
       ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
-      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(full, w10, w5))}
+      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(matchId, full, w10, w5))}
       ${_live2RateStatsHtml(m)}`;
+    // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
+    // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
+    thermoEl.innerHTML = _live2DotCounterHtml(matchId) + thermoInner;
   }
 }
 
