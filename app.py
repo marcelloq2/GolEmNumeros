@@ -2,7 +2,7 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback
+import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue
 import requests as http_req
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -1669,6 +1669,80 @@ def api_painel_opportunities_scan_now():
 
     threading.Thread(target=run, daemon=True, name="OpportunitiesScanNow").start()
     return jsonify({"status": "started"})
+
+
+# ── Pré-carga de Força (versão leve) — enche o _ng_strength_cache sozinho, em
+# segundo plano, pra coluna "Força" do Painel Principal não depender de
+# alguém abrir a Comparação de força manualmente. Uma 1ª versão tentava cobrir
+# TODOS os jogos do dia com 2 workers simultâneos e derrubou o app em produção
+# (Chromium headless nas costas um do outro, sem pausa, estourou a memória do
+# container do Railway). Essa versão é bem mais cautelosa: só 1 Playwright por
+# vez (nunca mais que 1 rodando junto com o que alguém abrir na hora, então no
+# pior caso são 2 simultâneos — dentro do limite já usado em todo o resto do
+# sistema), com uma pausa entre cada partida, e só cobre uma JANELA de horário
+# (jogos ao vivo + começando nas próximas horas) em vez do dia inteiro — jogo
+# muito distante no futuro não interessa agora mesmo, e entra na janela
+# conforme o horário dele se aproxima.
+_NG_STRENGTH_PREFETCH_WINDOW_PAST = 2 * 3600    # cobre jogos que começaram até 2h atrás (ainda podem estar ao vivo)
+_NG_STRENGTH_PREFETCH_WINDOW_FUTURE = 3 * 3600  # e que começam nas próximas 3h
+_NG_STRENGTH_PREFETCH_DELAY = 6        # segundos de respiro entre uma partida e a próxima
+_NG_STRENGTH_PREFETCH_CYCLE_GAP = 45   # segundos entre uma checagem "o que falta" e a próxima
+_ng_strength_prefetch_queue = queue.Queue()
+_ng_strength_prefetch_queued = set()  # dedup — evita enfileirar o mesmo jogo 2x antes dele ser processado
+_ng_strength_prefetch_queued_lock = threading.Lock()
+
+
+def _ng_strength_prefetch_worker():
+    while True:
+        mid = _ng_strength_prefetch_queue.get()
+        try:
+            with _ng_strength_lock:
+                cached = _ng_strength_cache.get(mid)
+                fresh = cached and (time.time() - cached["ts"]) < _NG_STRENGTH_TTL
+            if not fresh:
+                try:
+                    _ng_fetch_strength(mid)
+                except Exception as e:
+                    print(f"[forca-prefetch] Erro no jogo {mid}: {e}")
+        finally:
+            with _ng_strength_prefetch_queued_lock:
+                _ng_strength_prefetch_queued.discard(mid)
+            _ng_strength_prefetch_queue.task_done()
+        time.sleep(_NG_STRENGTH_PREFETCH_DELAY)
+
+
+def _ng_strength_prefetch_filler_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            matches_data = _painel_fetch_matches_nowgoal()
+            now = time.time()
+            added = 0
+            for lg in matches_data.get("leagues", []):
+                for m in lg["matches"]:
+                    ts = m.get("ts")
+                    if not ts or not (now - _NG_STRENGTH_PREFETCH_WINDOW_PAST <= ts <= now + _NG_STRENGTH_PREFETCH_WINDOW_FUTURE):
+                        continue
+                    mid = m.get("event_id")
+                    if not mid:
+                        continue
+                    mid = str(mid)
+                    with _ng_strength_lock:
+                        cached = _ng_strength_cache.get(mid)
+                        fresh = cached and (now - cached["ts"]) < _NG_STRENGTH_TTL
+                    if fresh:
+                        continue
+                    with _ng_strength_prefetch_queued_lock:
+                        if mid in _ng_strength_prefetch_queued:
+                            continue
+                        _ng_strength_prefetch_queued.add(mid)
+                    _ng_strength_prefetch_queue.put(mid)
+                    added += 1
+            if added:
+                print(f"[forca-prefetch] {added} jogo(s) da janela atual enfileirado(s)")
+        except Exception as e:
+            print(f"[forca-prefetch] Erro buscando jogos do dia: {e}")
+        time.sleep(_NG_STRENGTH_PREFETCH_CYCLE_GAP)
 
 
 def _painel_fetch_matches(force=False, date_str=None):
@@ -10009,6 +10083,8 @@ def api_lay_placar_config():
 
 threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
 threading.Thread(target=_opportunities_loop, daemon=True, name="Opportunities").start()
+threading.Thread(target=_ng_strength_prefetch_filler_loop, daemon=True, name="ForcaPrefetchFiller").start()
+threading.Thread(target=_ng_strength_prefetch_worker, daemon=True, name="ForcaPrefetchWorker").start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
