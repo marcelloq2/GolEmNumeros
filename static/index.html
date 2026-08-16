@@ -1199,7 +1199,7 @@
   .painel-match-time.live { color: #ef4444; font-weight: 700; }
   .painel-match-teams {
     display: grid; align-items: center; gap: 6px; overflow: hidden;
-    grid-template-columns: 14px minmax(0,1fr) auto 40px auto minmax(0,1fr) 14px;
+    grid-template-columns: 14px 15px minmax(0,1fr) auto 40px auto minmax(0,1fr) 15px 14px;
   }
   /* Em telas estreitas as colunas de H-T/Escanteio/odds sobram pouco espaço pro
      nome dos times (o "Jogo" só recebe o que sobra das colunas fixas) — esconde
@@ -1224,6 +1224,11 @@
     padding: 0 2px; flex-shrink: 0; line-height: 1; justify-self: center;
   }
   .painel-team-star.selected { color: #f9a825; }
+  .painel-team-tag {
+    background: none; border: none; cursor: pointer; font-size: 10px; opacity: .45;
+    padding: 0; flex-shrink: 0; line-height: 1; justify-self: center;
+  }
+  .painel-team-tag.tagged, .painel-team-tag:hover { opacity: 1; }
   .painel-match-score {
     display: block; text-align: center; white-space: nowrap;
     font-family: var(--font-body);
@@ -1613,6 +1618,9 @@
         oninput="_painelSetSearch(this.value)">
       <select id="painelLeagueFilterSelect" class="painel-search-select" onchange="_painelSetLeagueFilter(this.value)">
         <option value="">🏆 Todas as ligas</option>
+      </select>
+      <select id="painelMethodFilterSelect" class="painel-search-select" style="display:none" onchange="_painelSetMethodFilter(this.value)">
+        <option value="">🏷️ Todos os métodos</option>
       </select>
       <button class="painel-sort-time-btn" id="painelSortTimeBtn" onclick="_painelToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
@@ -3265,23 +3273,73 @@ function _painelIsFinished(m) {
   return !_painelIsLive(m) && !_painelIsNext(m);
 }
 
-// ── Minhas Seleções — times marcados com estrela, salvos no navegador ─────────
-let _painelSelectedTeams = new Set();
+// ── Minhas Seleções — times marcados com estrela, salvos no navegador, com uma
+// tag opcional de "método" (texto livre, o que o usuário quiser escrever —
+// não é a mesma coisa das metodologias de trading que já foram removidas do
+// app antes) pra depois filtrar a lista de Minhas Seleções por método.
+// Formato antigo era um array simples de nomes ["Time A","Time B"] — migra
+// pra objeto {"Time A":"","Time B":"Lay Goleada"} na primeira leitura.
+let _painelSelectedTeams = {};
 try {
-  _painelSelectedTeams = new Set(JSON.parse(localStorage.getItem('painel_selected_teams') || '[]'));
-} catch (e) { _painelSelectedTeams = new Set(); }
+  const _painelSelRaw = JSON.parse(localStorage.getItem('painel_selected_teams') || '{}');
+  _painelSelectedTeams = Array.isArray(_painelSelRaw)
+    ? Object.fromEntries(_painelSelRaw.map(n => [n, '']))
+    : _painelSelRaw;
+} catch (e) { _painelSelectedTeams = {}; }
 
+function _painelSaveSelectedTeams() {
+  localStorage.setItem('painel_selected_teams', JSON.stringify(_painelSelectedTeams));
+}
 function _painelIsTeamSelected(name) {
-  return _painelSelectedTeams.has(name);
+  return Object.prototype.hasOwnProperty.call(_painelSelectedTeams, name);
 }
 function _painelToggleTeamSelection(name) {
-  if (_painelSelectedTeams.has(name)) _painelSelectedTeams.delete(name);
-  else _painelSelectedTeams.add(name);
-  localStorage.setItem('painel_selected_teams', JSON.stringify([..._painelSelectedTeams]));
+  if (_painelIsTeamSelected(name)) delete _painelSelectedTeams[name];
+  else _painelSelectedTeams[name] = '';
+  _painelSaveSelectedTeams();
   if (_painelLastData) _painelRender(_painelLastData);
 }
+function _painelSetTeamMethod(name) {
+  const atual = _painelSelectedTeams[name] || '';
+  const novo = prompt(`Método/tag para "${name}" (deixe em branco pra remover a tag):`, atual);
+  if (novo === null) return; // cancelou
+  _painelSelectedTeams[name] = novo.trim();
+  _painelSaveSelectedTeams();
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+// value vazio ('') = "Todos os métodos", sem filtrar por tag
+let _painelMethodFilterValue = '';
+function _painelMethodFilterOptions() {
+  return [...new Set(Object.values(_painelSelectedTeams).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+function _painelRefreshMethodFilterOptions() {
+  const sel = document.getElementById('painelMethodFilterSelect');
+  if (!sel) return;
+  const options = _painelMethodFilterOptions();
+  if (_painelMethodFilterValue && !options.includes(_painelMethodFilterValue)) _painelMethodFilterValue = '';
+  sel.innerHTML = `<option value="">🏷️ Todos os métodos</option>`
+    + options.map(o => `<option value="${o.replace(/"/g, '&quot;')}"${o === _painelMethodFilterValue ? ' selected' : ''}>${o}</option>`).join('');
+}
+function _painelSetMethodFilter(value) {
+  _painelMethodFilterValue = value;
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+// Botão da tag/método — só aparece pros times já favoritados (☆ virou ★);
+// pra time não favoritado fica um <span> vazio só pra manter as colunas do
+// grid alinhadas entre as linhas. Clicar sempre abre o prompt (funciona tanto
+// pra definir a primeira tag quanto pra editar uma já existente).
+function _painelTeamTagBtnHtml(teamName, teamEsc) {
+  if (!_painelIsTeamSelected(teamName)) return '<span></span>';
+  const tag = _painelSelectedTeams[teamName] || '';
+  const titleEsc = (tag ? `Método: ${tag}` : 'Definir método/tag').replace(/"/g, '&quot;');
+  return `<button class="painel-team-tag${tag ? ' tagged' : ''}" title="${titleEsc}" onclick="event.stopPropagation();_painelSetTeamMethod('${teamEsc}')">🏷️</button>`;
+}
 function _painelIsSelectedMatch(m) {
-  return _painelSelectedTeams.has(m.home) || _painelSelectedTeams.has(m.away);
+  const homeSel = _painelIsTeamSelected(m.home), awaySel = _painelIsTeamSelected(m.away);
+  if (!homeSel && !awaySel) return false;
+  if (!_painelMethodFilterValue) return true;
+  return (homeSel && _painelSelectedTeams[m.home] === _painelMethodFilterValue)
+      || (awaySel && _painelSelectedTeams[m.away] === _painelMethodFilterValue);
 }
 
 // ── Filtro por odds (1 / X / 2 / Over / Under) — operadores ≤ ≥ > < = entre ──
@@ -3329,10 +3387,10 @@ function _painelBuildOddsFilterBar() {
 }
 
 function _painelClearFavorites() {
-  if (!_painelSelectedTeams.size) return;
+  if (!Object.keys(_painelSelectedTeams).length) return;
   if (!confirm('Remover todos os times marcados em Minhas Seleções?')) return;
-  _painelSelectedTeams.clear();
-  localStorage.setItem('painel_selected_teams', JSON.stringify([]));
+  _painelSelectedTeams = {};
+  _painelSaveSelectedTeams();
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -3536,12 +3594,18 @@ function _painelSetFilter(filter, btn) {
 
   const isMeth = filter === 'methodologies';
   const isOpp = filter === 'opportunities';
+  const isSelected = filter === 'selected';
   if (!isOpp) clearInterval(_painelOppRefreshTimer);
   document.getElementById('painelMatches').style.display = (isMeth || isOpp) ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
   document.getElementById('painelOpportunitiesView').style.display = isOpp ? '' : 'none';
   document.querySelector('.painel-search-bar').style.display = (isMeth || isOpp) ? 'none' : '';
   document.getElementById('painelOddsFilterBar').style.display = (isMeth || isOpp) ? 'none' : '';
+  const methodSel = document.getElementById('painelMethodFilterSelect');
+  if (methodSel) {
+    methodSel.style.display = isSelected ? '' : 'none';
+    if (isSelected) _painelRefreshMethodFilterOptions();
+  }
 
   if (isMeth) {
     _painelLoadMethodologies();
@@ -5954,11 +6018,13 @@ function _painelMatchRowHtml(m, leagueName) {
       <span class="${timeClass}">${m.time || ''}${minuteHtml}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
+        ${_painelTeamTagBtnHtml(m.home, homeEsc)}
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
         <span>${rowLogos.home ? `<img src="${rowLogos.home}" alt="" onerror="this.style.display='none'">` : ''}</span>
         ${scoreHtml ? scoreHtml : '<span style="color:var(--text2)">-</span>'}
         <span>${rowLogos.away ? `<img src="${rowLogos.away}" alt="" onerror="this.style.display='none'">` : ''}</span>
         <span class="painel-team away" title="${awayEsc}">${m.away}</span>
+        ${_painelTeamTagBtnHtml(m.away, awayEsc)}
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
       <span class="painel-match-ht">${htHtml}</span>
