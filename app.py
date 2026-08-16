@@ -854,6 +854,35 @@ def api_painel_ng_strength():
     return jsonify(data)
 
 
+# Grades por eixo (H2H/Estado/Ataque/Defesa/Valor) — só o suficiente pra
+# calcular a "diferença de força" mostrada na listagem do Painel Principal.
+_PAINEL_FORCA_RADAR_AXES = ("battle", "state", "attack", "defend", "market")
+
+
+@app.route("/api/painel/ng_strength_cached", methods=["POST"])
+def api_painel_ng_strength_cached():
+    """Devolve a força (só os 5 eixos usados pro grade geral) dos match_ids
+    que JÁ estiverem em cache (de alguém ter aberto a Comparação de Força
+    antes) — nunca dispara um Playwright novo aqui. É o que permite mostrar
+    a diferença de força na listagem inteira sem custo extra: os jogos ainda
+    não abertos simplesmente não aparecem na resposta, e a listagem mostra
+    "—" pra eles até alguém abrir o modal daquele jogo alguma vez."""
+    body = request.get_json(force=True, silent=True) or {}
+    match_ids = body.get("match_ids") or []
+    if not isinstance(match_ids, list):
+        return jsonify({}), 400
+    now = time.time()
+    result = {}
+    with _ng_strength_lock:
+        for mid in match_ids:
+            mid = str(mid)
+            cached = _ng_strength_cache.get(mid)
+            if cached and (now - cached["ts"]) < _NG_STRENGTH_TTL:
+                d = cached["data"]
+                result[mid] = {k: d[k] for k in _PAINEL_FORCA_RADAR_AXES if k in d}
+    return jsonify(result)
+
+
 # ── Metodologias — ranking de tipsters do tips.nowgoal.net ────────────────────
 # Ao contrário dos widgets de análise (window._strength etc), o ranking e os
 # palpites de cada usuário são JSON puro servido direto pelo backend deles —

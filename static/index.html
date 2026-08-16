@@ -1173,15 +1173,17 @@
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .painel-league-cols {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 72px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 44px 72px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 72px 26px;
+    display: grid; grid-template-columns: 52px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 44px 72px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
+  .painel-match-forca-diff { text-align: center; font-size: 11px; font-weight: 700; color: var(--text2); }
+  .painel-match-forca-diff.has-value { color: var(--text); }
   .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
   .painel-plat-icon {
     width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
@@ -1210,11 +1212,11 @@
   @media (max-width: 480px) {
     .painel-league-cols, .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
     .painel-league-cols span:nth-child(n+3):not(:last-child),
-    .painel-match-ht, .painel-match-corners, .painel-odd, .painel-plat-icons { display: none; }
+    .painel-match-ht, .painel-match-corners, .painel-odd, .painel-plat-icons, .painel-match-forca-diff { display: none; }
   }
   body.force-mobile .painel-league-cols, body.force-mobile .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
   body.force-mobile .painel-league-cols span:nth-child(n+3):not(:last-child),
-  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd, body.force-mobile .painel-plat-icons { display: none !important; }
+  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd, body.force-mobile .painel-plat-icons, body.force-mobile .painel-match-forca-diff { display: none !important; }
   .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; justify-self: center; }
   .painel-match-teams .painel-team {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
@@ -5875,12 +5877,43 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span><span></span>
+                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span title="Diferença de comparação de força (só aparece pros jogos já analisados)">Força</span><span></span><span></span>
               </div>
               ${rows}
             </div>
           </div>`;
       }).join(''));
+
+  _painelLoadForcaDiffs(leaguesFiltered);
+}
+
+// Preenche a coluna "Força" da listagem só com o que já estiver em cache no
+// backend (de alguém ter aberto "Comparação de força" desse jogo antes) — não
+// dispara nenhuma busca nova no NowGoal, então nunca aumenta o risco de
+// rate-limit mesmo com a lista inteira visível. Jogos ainda não abertos ficam
+// com "–" até serem abertos alguma vez.
+function _painelLoadForcaDiffs(leaguesFiltered) {
+  const matchIds = [];
+  leaguesFiltered.forEach(lg => lg.matches.forEach(m => { if (m.event_id) matchIds.push(m.event_id); }));
+  if (!matchIds.length) return;
+  fetch('/api/painel/ng_strength_cached', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ match_ids: matchIds }),
+  })
+    .then(r => r.json())
+    .then(cached => {
+      Object.keys(cached).forEach(matchId => {
+        const el = document.getElementById(`painelForcaDiff_${matchId}`);
+        if (!el) return;
+        const grades = _painelForcaOverallGrades(cached[matchId]);
+        const diff = Math.abs(grades.home - grades.away);
+        el.textContent = grades.home === grades.away ? '=' : (grades.home > grades.away ? `C+${diff}` : `F+${diff}`);
+        el.classList.add('has-value');
+        el.title = `Casa ${grades.home} x ${grades.away} Fora`;
+      });
+    })
+    .catch(() => {}); // silencioso — coluna simplesmente fica com "–"
 }
 
 function _painelKickoffTime(m) {
@@ -5931,6 +5964,7 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelOddCell(m.odd_2)}
       ${_painelOddCell(m.odd_over)}
       ${_painelOddCell(m.odd_under)}
+      <span class="painel-match-forca-diff" id="painelForcaDiff_${m.event_id}">–</span>
       <span class="painel-plat-icons">
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
@@ -5950,7 +5984,7 @@ function _painelRenderFlatByTime(leaguesFiltered) {
   return `
     <div class="painel-league">
       <div class="painel-league-cols">
-        <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span></span>
+        <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span title="Diferença de comparação de força (só aparece pros jogos já analisados)">Força</span><span></span>
       </div>
       ${rows}
     </div>`;
