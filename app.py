@@ -10083,8 +10083,14 @@ def api_lay_placar_config():
 
 threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
 threading.Thread(target=_opportunities_loop, daemon=True, name="Opportunities").start()
-threading.Thread(target=_ng_strength_prefetch_filler_loop, daemon=True, name="ForcaPrefetchFiller").start()
-threading.Thread(target=_ng_strength_prefetch_worker, daemon=True, name="ForcaPrefetchWorker").start()
+# Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
+# worker + pausa entre partidas, o Playwright rodando quase sem parar em
+# segundo plano parece estar competindo por CPU com o resto do site num
+# container com recursos limitados (site voltou a ficar lento, 15-40s pra
+# responder, depois desse deploy). A coluna "Força" e o filtro continuam
+# funcionando normalmente, só que cache-only (sem pré-carga automática).
+# threading.Thread(target=_ng_strength_prefetch_filler_loop, daemon=True, name="ForcaPrefetchFiller").start()
+# threading.Thread(target=_ng_strength_prefetch_worker, daemon=True, name="ForcaPrefetchWorker").start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
