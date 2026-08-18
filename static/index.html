@@ -5287,16 +5287,24 @@ function _painelForcaLastRender() {
 // "Últimos N" reaproveita o mesmo _painelForcaTableState[key].count já
 // configurado pra aquele time na aba Pontuações Anteriores (ex: se lá está
 // em "Últimos 4", aqui também olha só os últimos 4 jogos no próprio lado).
-function _painelForcaScoredRatio(key, period) {
+// Últimos N jogos NO PRÓPRIO LADO (mandante jogando em casa, visitante jogando
+// fora), já cortados pelo mesmo _painelForcaTableState[key].count configurado
+// pra esse time na aba Pontuações Anteriores — base compartilhada por todos os
+// estudos da Leitura (marcou gol, Over/Under, Ambas Marcam, Vence/Perde 1T...).
+function _painelForcaOwnSideRows(key) {
   const cfg = _painelForcaSideConfig(key);
   const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
-  if (!tbl || !tbl.rows || !tbl.rows.length) return null;
+  if (!tbl || !tbl.rows || !tbl.rows.length) return [];
   const st = _painelForcaTableState[key];
+  const ownSide = tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
+  return ownSide.slice(0, st.count);
+}
+
+function _painelForcaScoredRatio(key, period) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
   const isHomeRow = key === 'home';
   const scoreField = period === 'ht' ? 'score_ht' : 'score_ft';
-  const ownSide = tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
-  const rows = ownSide.slice(0, st.count);
-  if (!rows.length) return null;
 
   let scored = 0, total = 0;
   rows.forEach(m => {
@@ -5308,6 +5316,59 @@ function _painelForcaScoredRatio(key, period) {
   });
   if (!total) return null;
   return { scored, total };
+}
+
+// Generaliza o mesmo cálculo (jogos no próprio lado → % que bateram uma
+// condição) pra mercados de Over/Under, Ambas Marcam e Vence/Perde 1T — testFn
+// recebe (golsDoTime, golsDoAdversario, totalDeGolsNaPartida) do período
+// escolhido (FT ou HT) e devolve true/false pra cada jogo do histórico.
+function _painelForcaMarketRatio(key, period, testFn) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
+  const isHomeRow = key === 'home';
+  const scoreField = period === 'ht' ? 'score_ht' : 'score_ft';
+
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m[scoreField] || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    const oppGoals  = isHomeRow ? parts[1] : parts[0];
+    if (testFn(teamGoals, oppGoals, parts[0] + parts[1])) hit++;
+  });
+  if (!total) return null;
+  return { scored: hit, total };
+}
+
+// Mercados extras da Leitura — mesmo formato (2 linhas: mandante em casa /
+// visitante fora) dos estudos acima, um bloco por mercado.
+const _PAINEL_LEITURA_MARKETS = [
+  { label: 'Over 0.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 1 },
+  { label: 'Over 1.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 2 },
+  { label: 'Over 2.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 3 },
+  { label: 'Under 2.5 FT', period: 'ft', test: (t, o, tot) => tot <= 2 },
+  { label: 'Under 3.5 FT', period: 'ft', test: (t, o, tot) => tot <= 3 },
+  { label: 'Ambas Equipes Marcam — Sim', period: 'ft', test: (t, o) => t > 0 && o > 0 },
+  { label: 'Ambas Equipes Marcam — Não', period: 'ft', test: (t, o) => !(t > 0 && o > 0) },
+  { label: 'Over 0.5 HT',  period: 'ht', test: (t, o, tot) => tot >= 1 },
+  { label: 'Over 1.5 HT',  period: 'ht', test: (t, o, tot) => tot >= 2 },
+  { label: 'Vence 1T',     period: 'ht', test: (t, o) => t > o },
+  { label: 'Perde 1T',     period: 'ht', test: (t, o) => t < o },
+];
+
+function _painelForcaLeituraMarketBlockHtml(cfg) {
+  const homeR = _painelForcaMarketRatio('home', cfg.period, cfg.test);
+  const awayR = _painelForcaMarketRatio('away', cfg.period, cfg.test);
+  return `
+    <div class="cenario-block">
+      <div class="cenario-icon">⚽</div>
+      <div class="cenario-content">
+        <div class="cenario-label">${cfg.label}</div>
+        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
+        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+      </div>
+    </div>`;
 }
 
 function _painelForcaLeituraRow(nome, r, ladoLabel) {
@@ -5349,7 +5410,8 @@ function _painelForcaLeituraRender() {
         ${_painelForcaLeituraRow(_painelForcaHome, homeScoredHt, 'jogando em casa')}
         ${_painelForcaLeituraRow(_painelForcaAway, awayScoredHt, 'jogando fora')}
       </div>
-    </div>`;
+    </div>
+    ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}`;
 }
 
 
