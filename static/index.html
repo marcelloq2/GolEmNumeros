@@ -5518,33 +5518,54 @@ function _painelForcaLeituraViradaBlockHtml(cfg) {
     </div>`;
 }
 
-// Handicap Asiático — reaproveita m.ah_badge (W=cobriu/D=push/L=não cobriu),
-// já calculado pelo NowGoal pra cada jogo do histórico em relação ao lado que
-// jogou (mesma fonte usada em _painelForcaComputeSummary/_painelForcaAhLineStats,
-// nas abas Pontuações Anteriores/Cenários de Jogo) — aqui resumido num número só:
-// % de vezes que o time cobriu a linha oferecida naquele jogo, seja qual for.
-function _painelForcaHandicapRatio(key) {
+// Handicap Asiático POR LINHA — cada jogo do histórico teve sua própria linha
+// oferecida (m.ah_line, ex: "-1.5", "+0.5" — varia conforme a diferença de
+// força na época), com m.ah_badge (W/D/L) já calculado pelo NowGoal indicando
+// se o time cobriu. Agrupa por linha em vez de misturar tudo num número só,
+// pra mostrar "das vezes que a linha foi -1.5, cobriu quantas vezes" separado
+// de "das vezes que foi +0.5" etc.
+function _painelForcaHandicapByLine(key) {
   const rows = _painelForcaOwnSideRows(key);
-  if (!rows.length) return null;
-  let covered = 0, total = 0;
+  if (!rows.length) return [];
+  const groups = {};
   rows.forEach(m => {
-    if (m.ah_badge === 'W') { covered++; total++; }
-    else if (m.ah_badge === 'L' || m.ah_badge === 'D') { total++; }
+    const line = m.ah_line;
+    if (line == null || line === '' || !m.ah_badge) return;
+    const g = groups[line] || (groups[line] = { covered: 0, n: 0 });
+    if (m.ah_badge === 'W') { g.covered++; g.n++; }
+    else if (m.ah_badge === 'L' || m.ah_badge === 'D') { g.n++; }
   });
-  if (!total) return null;
-  return { scored: covered, total };
+  return Object.entries(groups)
+    .map(([line, g]) => ({ line, n: g.n, pct: g.n ? Math.round(100 * g.covered / g.n) : 0 }))
+    .sort((a, b) => b.n - a.n);
+}
+
+function _painelForcaLeituraHandicapLineTableHtml(teamLabel, lines) {
+  if (!lines.length) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${teamLabel}: sem linhas suficientes ainda.</div>`;
+  return `
+    <div style="font-size:13px;font-weight:700;margin:10px 0 4px">${teamLabel}</div>
+    <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse">
+      <thead><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">Linha</th><th>Jogos</th><th>Cobriu</th></tr></thead>
+      <tbody>
+        ${lines.map(l => `<tr>
+          <td style="text-align:left;padding:4px 8px">${l.line}</td>
+          <td>${l.n}</td>
+          <td style="font-weight:700;color:${l.pct >= 70 ? '#22c55e' : l.pct >= 40 ? '#f59e0b' : '#ef4444'}">${l.pct}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 function _painelForcaLeituraHandicapBlockHtml() {
-  const homeR = _painelForcaHandicapRatio('home');
-  const awayR = _painelForcaHandicapRatio('away');
+  const homeLines = _painelForcaHandicapByLine('home');
+  const awayLines = _painelForcaHandicapByLine('away');
   return `
     <div class="cenario-block">
       <div class="cenario-icon">📐</div>
       <div class="cenario-content">
-        <div class="cenario-label">Handicap Asiático — cobriu a linha</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+        <div class="cenario-label">Handicap Asiático — por linha</div>
+        ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaHome} (jogando em casa)`, homeLines)}
+        ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaAway} (jogando fora)`, awayLines)}
       </div>
     </div>`;
 }
