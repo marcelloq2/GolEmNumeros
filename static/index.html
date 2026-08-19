@@ -1594,7 +1594,6 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
-        <button class="painel-subtab" onclick="_painelSetFilter('opportunities', this)">MAPA DE OPORTUNIDADES LIVE</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0">
         <button onclick="switchView('placarcontra', this)"
@@ -1627,7 +1626,6 @@
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
     <div id="painelMethodologiesView" style="display:none;padding:10px"></div>
-    <div id="painelOpportunitiesView" style="display:none;padding:10px"></div>
   </div>
 
   <div id="painelUserTipsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseUserTips()">
@@ -3593,14 +3591,11 @@ function _painelSetFilter(filter, btn) {
   btn.classList.add('active');
 
   const isMeth = filter === 'methodologies';
-  const isOpp = filter === 'opportunities';
   const isSelected = filter === 'selected';
-  if (!isOpp) clearInterval(_painelOppRefreshTimer);
-  document.getElementById('painelMatches').style.display = (isMeth || isOpp) ? 'none' : '';
+  document.getElementById('painelMatches').style.display = isMeth ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
-  document.getElementById('painelOpportunitiesView').style.display = isOpp ? '' : 'none';
-  document.querySelector('.painel-search-bar').style.display = (isMeth || isOpp) ? 'none' : '';
-  document.getElementById('painelOddsFilterBar').style.display = (isMeth || isOpp) ? 'none' : '';
+  document.querySelector('.painel-search-bar').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = isMeth ? 'none' : '';
   const methodSel = document.getElementById('painelMethodFilterSelect');
   if (methodSel) {
     methodSel.style.display = isSelected ? '' : 'none';
@@ -3609,109 +3604,9 @@ function _painelSetFilter(filter, btn) {
 
   if (isMeth) {
     _painelLoadMethodologies();
-  } else if (isOpp) {
-    _painelLoadOpportunities();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
-}
-
-// Mapa de Oportunidades — mostra os jogos AO VIVO onde algum time bateu 100%
-// em alguma linha de Over de escanteios (FT 7-15 / HT 4-6) ou de mercado de
-// gol (Over 1.5/2.5, Under 2.5 FT, Over 0.5/1.5 HT), no mesmo recorte da aba
-// Leitura (próprio lado, mesma liga, últimos 4 jogos). Os dados vêm de uma
-// varredura que já roda sozinha no servidor a cada ~5min (backend, sequencial)
-// — aqui só busca o resultado pronto e fica atualizando a tela sozinha
-// enquanto a aba estiver aberta.
-let _painelOppRefreshTimer = null;
-
-function _painelLoadOpportunities() {
-  const el = document.getElementById('painelOpportunitiesView');
-  el.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  // Dispara uma varredura na hora (sem esperar o ciclo automático de 5min) e
-  // busca o resultado com mais frequência por um tempo, pra aparecer assim
-  // que a varredura sob demanda terminar — depois volta pro ritmo normal.
-  fetch('/api/painel/opportunities/scan_now', { method: 'POST' }).catch(() => {});
-  _painelFetchOpportunities();
-  clearInterval(_painelOppRefreshTimer);
-  let _oppFastTicks = 0;
-  _painelOppRefreshTimer = setInterval(() => {
-    _painelFetchOpportunities();
-    _oppFastTicks++;
-    if (_oppFastTicks === 6) { // ~30s no ritmo rápido, depois cai pro normal (60s)
-      clearInterval(_painelOppRefreshTimer);
-      _painelOppRefreshTimer = setInterval(_painelFetchOpportunities, 60000);
-    }
-  }, 5000);
-}
-
-function _painelFetchOpportunities() {
-  fetch('/api/painel/opportunities')
-    .then(r => r.json())
-    .then(_painelRenderOpportunities)
-    .catch(err => {
-      const el = document.getElementById('painelOpportunitiesView');
-      if (el) el.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`;
-    });
-}
-
-let _painelOppLastData = null;
-let _painelOppSortMode = 'default'; // 'default' | 'minute_asc' | 'minute_desc'
-
-function _painelOppSetSort(mode) {
-  _painelOppSortMode = mode;
-  if (_painelOppLastData) _painelRenderOpportunities(_painelOppLastData);
-}
-
-function _painelOppSortItems(items) {
-  if (_painelOppSortMode === 'default') return items;
-  const withMinute = items.filter(it => it.minute != null);
-  const withoutMinute = items.filter(it => it.minute == null);
-  withMinute.sort((a, b) => _painelOppSortMode === 'minute_asc' ? a.minute - b.minute : b.minute - a.minute);
-  return [...withMinute, ...withoutMinute];
-}
-
-function _painelRenderOpportunities(d) {
-  const el = document.getElementById('painelOpportunitiesView');
-  if (!el) return;
-  _painelOppLastData = d;
-  const items = _painelOppSortItems(d.items || []);
-  const updated = d.updated_at ? new Date(d.updated_at * 1000).toLocaleTimeString('pt-BR') : '— (primeira varredura ainda não terminou)';
-  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:14px">Última varredura: <b style="color:var(--text)">${updated}</b> — escaneia os jogos ao vivo a cada ~5min, procurando times que bateram 100% em alguma linha de Over de escanteios ou de gol na aba Leitura (próprio lado, mesma liga, últimos 4 jogos).</div>
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <span style="font-size:12px;color:var(--text2)">Ordenar por horário:</span>
-      <button class="painel-forca-tab${_painelOppSortMode === 'default' ? ' active' : ''}" onclick="_painelOppSetSort('default')">Padrão</button>
-      <button class="painel-forca-tab${_painelOppSortMode === 'minute_asc' ? ' active' : ''}" onclick="_painelOppSetSort('minute_asc')">Menor minuto</button>
-      <button class="painel-forca-tab${_painelOppSortMode === 'minute_desc' ? ' active' : ''}" onclick="_painelOppSetSort('minute_desc')">Maior minuto</button>
-    </div>`;
-
-  if (!items.length) {
-    el.innerHTML = header + `<div style="color:var(--text2);text-align:center;padding:24px 0">Nenhuma oportunidade encontrada nos jogos ao vivo agora.</div>`;
-    return;
-  }
-
-  el.innerHTML = header + items.map(it => {
-    const logos = typeof _painelFindToday2MatchByNames === 'function' ? _painelFindToday2MatchByNames(it.home, it.away) : null;
-    return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <b style="font-size:14px;display:flex;align-items:center;gap:6px">${_today2EscudoImg(logos?.escudo_casa)}${it.home} ${it.score ? it.score.replace('-', ' : ') : ''} ${it.away}${_today2EscudoImg(logos?.escudo_fora)}${it.minute != null ? `<span style="font-size:11px;font-weight:400;color:var(--text2)">${it.minute}'</span>` : ''}</b>
-        <span style="font-size:11px;color:var(--text2)">${it.league || ''} · ${it.status || ''}${it.minute != null ? ' ' + it.minute + "'" : ''}</span>
-      </div>
-      ${(it.corner_over100 || []).map(c => `
-        <div style="font-size:13px;padding:5px 0;color:#38bdf8">
-          🚩 Escanteios Over ${c.line}.5 ${c.period}: <b>${c.team}</b> (${c.side}) bateu em 100% dos últimos jogos (${c.n} jogos)
-        </div>`).join('')}
-      ${(it.goal_rate100 || []).map(g => `
-        <div style="font-size:13px;padding:5px 0;color:#a78bfa">
-          ⚽ Gols ${g.kind === 'over' ? 'Over' : 'Under'} ${g.line}.5 ${g.period}: <b>${g.team}</b> (${g.side}) bateu em 100% dos últimos jogos (${g.n} jogos)
-        </div>`).join('')}
-      ${(it.result100 || []).map(r => `
-        <div style="font-size:13px;padding:5px 0;color:#facc15">
-          🏆 ${r.label} ${r.period}: <b>${r.team}</b> (${r.side}) bateu em 100% dos últimos jogos (${r.n} jogos)
-        </div>`).join('')}
-    </div>`;
-  }).join('');
 }
 
 // ── Metodologias — ranking de tipsters (tips.nowgoal.net) ─────────────────────
