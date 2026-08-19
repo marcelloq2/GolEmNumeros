@@ -5318,6 +5318,60 @@ function _painelForcaScoredRatio(key, period) {
   return { scored, total };
 }
 
+// Sequência atual — a partir do jogo mais recente (no próprio lado) pra trás,
+// conta quantos jogos SEGUIDOS bateram a condição, parando no primeiro que não
+// bater (ou que não tenha placar). Fica limitada pelo mesmo "Últimos N"
+// configurado pra esse time — se a sequência inteira da amostra bateu a
+// condição, pode ser mais longa de verdade, só não dá pra saber sem olhar mais
+// jogos (ver o "+" no _painelForcaLeituraStreakRow).
+function _painelForcaCurrentStreak(key, testFn) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
+  const isHomeRow = key === 'home';
+  let streak = 0;
+  for (const m of rows) {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) break;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    const oppGoals  = isHomeRow ? parts[1] : parts[0];
+    if (!testFn(teamGoals, oppGoals)) break;
+    streak++;
+  }
+  return { streak, sample: rows.length };
+}
+
+const _PAINEL_LEITURA_STREAKS = [
+  { label: 'Marcando gol',        icon: '🔥', test: (t, o) => t > 0 },
+  { label: 'Sem sofrer gol',      icon: '🛡️', test: (t, o) => o === 0 },
+  { label: 'Vencendo',            icon: '🏆', test: (t, o) => t > o },
+  { label: 'Sem perder (invicto)', icon: '💪', test: (t, o) => t >= o },
+];
+
+function _painelForcaLeituraStreakRow(nome, r, ladoLabel) {
+  if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
+  const atLimit = r.streak > 0 && r.streak === r.sample;
+  const cor = r.streak >= 3 ? '#22c55e' : r.streak >= 1 ? '#f59e0b' : '#ef4444';
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${nome} <span style="color:var(--text2);font-size:11px">(${ladoLabel})</span></span>
+      <span style="font-weight:800;color:${cor}">${r.streak} jogo${r.streak === 1 ? '' : 's'}${atLimit ? '+' : ''}</span>
+    </div>`;
+}
+
+function _painelForcaLeituraStreakBlockHtml(cfg) {
+  const homeR = _painelForcaCurrentStreak('home', cfg.test);
+  const awayR = _painelForcaCurrentStreak('away', cfg.test);
+  return `
+    <div class="cenario-block">
+      <div class="cenario-icon">${cfg.icon}</div>
+      <div class="cenario-content">
+        <div class="cenario-label">Sequência atual — ${cfg.label}</div>
+        ${_painelForcaLeituraStreakRow(_painelForcaHome, homeR, 'jogando em casa')}
+        ${_painelForcaLeituraStreakRow(_painelForcaAway, awayR, 'jogando fora')}
+      </div>
+    </div>`;
+}
+
 // Generaliza o mesmo cálculo (jogos no próprio lado → % que bateram uma
 // condição) pra mercados de Over/Under, Ambas Marcam e Vence/Perde 1T — testFn
 // recebe (golsDoTime, golsDoAdversario, totalDeGolsNaPartida) do período
@@ -5459,6 +5513,7 @@ function _painelForcaLeituraRender() {
         ${_painelForcaLeituraRow(_painelForcaAway, awayScoredHt, 'jogando fora')}
       </div>
     </div>
+    ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
     ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${_PAINEL_LEITURA_CORNER_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(_painelForcaLeituraPlacarBlockHtml).join('')}`;
