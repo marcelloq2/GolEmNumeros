@@ -5473,6 +5473,51 @@ function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
     </div>`;
 }
 
+// Virada — cruza HT e FT do mesmo jogo (diferente de _painelForcaMarketRatio,
+// que só olha um período por vez): "fez virada" = perdia no intervalo e
+// terminou vencendo; "sofreu virada" = vencia no intervalo e terminou
+// perdendo (empate no FT não conta como virada em nenhum dos 2 casos — a
+// vantagem só evaporou, não virou de fato).
+function _painelForcaViradaRatio(key, testFn) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
+  const isHomeRow = key === 'home';
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const ftParts = String(m.score_ft || '').split('-').map(Number);
+    const htParts = String(m.score_ht || '').split('-').map(Number);
+    if (ftParts.length !== 2 || isNaN(ftParts[0]) || isNaN(ftParts[1])) return;
+    if (htParts.length !== 2 || isNaN(htParts[0]) || isNaN(htParts[1])) return;
+    total++;
+    const teamFt = isHomeRow ? ftParts[0] : ftParts[1];
+    const oppFt  = isHomeRow ? ftParts[1] : ftParts[0];
+    const teamHt = isHomeRow ? htParts[0] : htParts[1];
+    const oppHt  = isHomeRow ? htParts[1] : htParts[0];
+    if (testFn(teamHt, oppHt, teamFt, oppFt)) hit++;
+  });
+  if (!total) return null;
+  return { scored: hit, total };
+}
+
+const _PAINEL_LEITURA_VIRADA = [
+  { label: 'Fez virada (perdia no 1º tempo e venceu)',   test: (tHt, oHt, tFt, oFt) => tHt < oHt && tFt > oFt },
+  { label: 'Sofreu virada (vencia no 1º tempo e perdeu)', test: (tHt, oHt, tFt, oFt) => tHt > oHt && tFt < oFt },
+];
+
+function _painelForcaLeituraViradaBlockHtml(cfg) {
+  const homeR = _painelForcaViradaRatio('home', cfg.test);
+  const awayR = _painelForcaViradaRatio('away', cfg.test);
+  return `
+    <div class="cenario-block">
+      <div class="cenario-icon">🔄</div>
+      <div class="cenario-content">
+        <div class="cenario-label">${cfg.label}</div>
+        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
+        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+      </div>
+    </div>`;
+}
+
 // Handicap Asiático — reaproveita m.ah_badge (W=cobriu/D=push/L=não cobriu),
 // já calculado pelo NowGoal pra cada jogo do histórico em relação ao lado que
 // jogou (mesma fonte usada em _painelForcaComputeSummary/_painelForcaAhLineStats,
@@ -5545,6 +5590,7 @@ function _painelForcaLeituraRender() {
       </div>
     </div>
     ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
+    ${_PAINEL_LEITURA_VIRADA.map(_painelForcaLeituraViradaBlockHtml).join('')}
     ${_painelForcaLeituraHandicapBlockHtml()}
     ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${_PAINEL_LEITURA_CORNER_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
