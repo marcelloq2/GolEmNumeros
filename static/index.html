@@ -5473,6 +5473,37 @@ function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
     </div>`;
 }
 
+// Handicap Asiático — reaproveita m.ah_badge (W=cobriu/D=push/L=não cobriu),
+// já calculado pelo NowGoal pra cada jogo do histórico em relação ao lado que
+// jogou (mesma fonte usada em _painelForcaComputeSummary/_painelForcaAhLineStats,
+// nas abas Pontuações Anteriores/Cenários de Jogo) — aqui resumido num número só:
+// % de vezes que o time cobriu a linha oferecida naquele jogo, seja qual for.
+function _painelForcaHandicapRatio(key) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
+  let covered = 0, total = 0;
+  rows.forEach(m => {
+    if (m.ah_badge === 'W') { covered++; total++; }
+    else if (m.ah_badge === 'L' || m.ah_badge === 'D') { total++; }
+  });
+  if (!total) return null;
+  return { scored: covered, total };
+}
+
+function _painelForcaLeituraHandicapBlockHtml() {
+  const homeR = _painelForcaHandicapRatio('home');
+  const awayR = _painelForcaHandicapRatio('away');
+  return `
+    <div class="cenario-block">
+      <div class="cenario-icon">📐</div>
+      <div class="cenario-content">
+        <div class="cenario-label">Handicap Asiático — cobriu a linha</div>
+        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
+        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+      </div>
+    </div>`;
+}
+
 function _painelForcaLeituraRow(nome, r, ladoLabel) {
   if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
   const pct = Math.round(100 * r.scored / r.total);
@@ -5514,6 +5545,7 @@ function _painelForcaLeituraRender() {
       </div>
     </div>
     ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
+    ${_painelForcaLeituraHandicapBlockHtml()}
     ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${_PAINEL_LEITURA_CORNER_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(_painelForcaLeituraPlacarBlockHtml).join('')}`;
