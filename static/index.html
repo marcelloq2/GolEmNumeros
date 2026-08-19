@@ -5371,6 +5371,43 @@ function _painelForcaLeituraMarketBlockHtml(cfg) {
     </div>`;
 }
 
+// % dos jogos (no próprio lado) em que o placar exato NÃO foi um determinado
+// bucket — reaproveita a mesma classificação de 19 caixas (16 placares fixos +
+// 3 "qualquer outro") já usada no Placar Exato do Backtest (PLACAR_EXATO_
+// BUCKETS_ORDER/_placarExatoBucketKey), pra manter a mesma definição em todo o
+// site. Ao contrário de _painelForcaMarketRatio, usa h/a crus (não golsDoTime/
+// golsDoAdversario) porque "vitória em casa" é sempre relativo ao mandante do
+// jogo histórico, não ao lado que está sendo analisado.
+function _painelForcaPlacarNotOccurredRatio(key, bucketLabel) {
+  const rows = _painelForcaOwnSideRows(key);
+  if (!rows.length) return null;
+  let notOccurred = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    if (_placarExatoBucketKey(parts[0], parts[1]) !== bucketLabel) notOccurred++;
+  });
+  if (!total) return null;
+  return { scored: notOccurred, total };
+}
+
+function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
+  const homeR = _painelForcaPlacarNotOccurredRatio('home', bucketLabel);
+  const awayR = _painelForcaPlacarNotOccurredRatio('away', bucketLabel);
+  const isScore = /^\d+-\d+$/.test(bucketLabel);
+  const label = `${isScore ? 'Placar ' : ''}${bucketLabel} — não ocorreu`;
+  return `
+    <div class="cenario-block">
+      <div class="cenario-icon">🚫</div>
+      <div class="cenario-content">
+        <div class="cenario-label">${label}</div>
+        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
+        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+      </div>
+    </div>`;
+}
+
 function _painelForcaLeituraRow(nome, r, ladoLabel) {
   if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
   const pct = Math.round(100 * r.scored / r.total);
@@ -5411,7 +5448,8 @@ function _painelForcaLeituraRender() {
         ${_painelForcaLeituraRow(_painelForcaAway, awayScoredHt, 'jogando fora')}
       </div>
     </div>
-    ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}`;
+    ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
+    ${PLACAR_EXATO_BUCKETS_ORDER.map(_painelForcaLeituraPlacarBlockHtml).join('')}`;
 }
 
 
