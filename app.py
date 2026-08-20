@@ -8,6 +8,22 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import github_storage
 
+# ── Sentry — captura erro do backend automaticamente (exceção não tratada em
+# qualquer rota vira um evento no Sentry, com traceback completo), sem
+# depender de print() que pode se perder no buffer do log do Railway. Só liga
+# se SENTRY_DSN estiver configurado (variável de ambiente no Railway) — sem
+# isso, roda normal, sem captura nenhuma (não trava nada em dev local).
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=0.1,  # amostra 10% das requisições pra tracing de performance (fica dentro do free tier)
+        environment=os.environ.get("RAILWAY_ENVIRONMENT_NAME", "production"),
+    )
+
 FOTMOB_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer": "https://www.fotmob.com/",
@@ -19,9 +35,11 @@ DATA_DIR     = os.path.dirname(__file__)
 MOMENTUM_DIR = os.path.join(DATA_DIR, "momentum_history")
 SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
 MAPA_CACHE_DIR = os.path.join(DATA_DIR, "mapa_cache")
+FORCA_HISTORY_DIR = os.path.join(DATA_DIR, "forca_history")
 os.makedirs(MOMENTUM_DIR, exist_ok=True)
 os.makedirs(SHOTMAP_DIR,  exist_ok=True)
 os.makedirs(MAPA_CACHE_DIR, exist_ok=True)
+os.makedirs(FORCA_HISTORY_DIR, exist_ok=True)
 
 # ── Cache em memória dos arquivos de momentum_history — evita reler e reparsear os
 # +2000 arquivos do disco a cada busca de padrão (aba Análise/CS do Ao Vivo).
@@ -1495,6 +1513,89 @@ def _ng_strength_prefetch_filler_loop():
         except Exception as e:
             print(f"[forca-prefetch] Erro buscando jogos do dia: {e}")
         time.sleep(_NG_STRENGTH_PREFETCH_CYCLE_GAP)
+
+
+# ── Backup de Força — arquiva em disco (JSON, um arquivo por jogo, sincronizado
+# com o GitHub igual momentum_history/shotmap_history) os dados de H-T,
+# escanteio, odds (1/X/2/Over/Under) e força (H2H/Estado/Ataque/Defesa/Valor)
+# de todo jogo do dia que já ENCERROU. Diferente da pré-carga acima (que
+# re-varria jogos ao vivo sem parar e derrubou o app em produção), aqui cada
+# jogo só entra na fila UMA VEZ — placar de jogo encerrado não muda mais, e se
+# o arquivo já existe no disco nem tenta de novo — então o volume total fica
+# limitado a "quantos jogos terminam por dia", nunca cresce sem limite. Mesmo
+# assim usa só 1 worker + pausa entre partidas, pela mesma cautela de sempre
+# com o Playwright.
+_FORCA_BACKUP_DELAY = 8           # segundos de respiro entre uma partida e a próxima
+_FORCA_BACKUP_SCAN_INTERVAL = 120 # segundos entre uma varredura "quem terminou" e a próxima
+_forca_backup_queue = queue.Queue()
+_forca_backup_queued = set()   # event_id em fila — evita duplicar antes de processar
+_forca_backup_queued_lock = threading.Lock()
+
+
+def _forca_backup_path(date_str, event_id):
+    return os.path.join(FORCA_HISTORY_DIR, f"{date_str}_{event_id}.json")
+
+
+def _forca_backup_worker():
+    while True:
+        date_str, m = _forca_backup_queue.get()
+        event_id = str(m.get("event_id"))
+        try:
+            path = _forca_backup_path(date_str, event_id)
+            if not os.path.exists(path):
+                strength = _ng_fetch_strength(event_id)
+                axes = {k: strength[k] for k in ("battle", "state", "attack", "defend", "market") if k in strength}
+                payload = {
+                    "event_id": event_id, "date": date_str,
+                    "league": m.get("league_name"), "country": m.get("country"),
+                    "home": m.get("home"), "away": m.get("away"),
+                    "score_home": m.get("score_home"), "score_away": m.get("score_away"),
+                    "ht_home": m.get("ht_home"), "ht_away": m.get("ht_away"),
+                    "corner_home": m.get("corner_home"), "corner_away": m.get("corner_away"),
+                    "odd_1": m.get("odd_1"), "odd_x": m.get("odd_x"), "odd_2": m.get("odd_2"),
+                    "odd_over": m.get("odd_over"), "odd_under": m.get("odd_under"),
+                    "forca": axes,
+                }
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+                github_storage.push_file_bg(path, f"forca_history/{date_str}_{event_id}.json")
+                print(f"[forca-backup] Salvo: {date_str}_{event_id}.json ({m.get('home')} x {m.get('away')})")
+        except Exception as e:
+            print(f"[forca-backup] Erro no jogo {event_id}: {e}")
+        finally:
+            with _forca_backup_queued_lock:
+                _forca_backup_queued.discard(event_id)
+            _forca_backup_queue.task_done()
+        time.sleep(_FORCA_BACKUP_DELAY)
+
+
+def _forca_backup_scan_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            data = _painel_fetch_matches_nowgoal()
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            added = 0
+            for lg in data.get("leagues", []):
+                for m in lg["matches"]:
+                    if m.get("time") != "Encerrado":
+                        continue
+                    event_id = str(m.get("event_id") or "")
+                    if not event_id:
+                        continue
+                    if os.path.exists(_forca_backup_path(date_str, event_id)):
+                        continue
+                    with _forca_backup_queued_lock:
+                        if event_id in _forca_backup_queued:
+                            continue
+                        _forca_backup_queued.add(event_id)
+                    _forca_backup_queue.put((date_str, m))
+                    added += 1
+            if added:
+                print(f"[forca-backup] {added} jogo(s) finalizado(s) novo(s) enfileirado(s)")
+        except Exception as e:
+            print(f"[forca-backup] Erro escaneando jogos finalizados: {e}")
+        time.sleep(_FORCA_BACKUP_SCAN_INTERVAL)
 
 
 def _painel_fetch_matches(force=False, date_str=None):
@@ -3609,6 +3710,7 @@ _github_sync_done = threading.Event()
 def _github_sync_on_startup_then_flag():
     try:
         github_storage.sync_on_startup(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR)
+        github_storage.pull_directory("forca_history", FORCA_HISTORY_DIR)
     finally:
         _github_sync_done.set()
 
