@@ -17,12 +17,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #070911;
-    --bg2: #10131f;
-    --bg3: #191d2f;
-    --border: #262b42;
-    --accent: #6d5bff;
-    --accent2: #22d3ee;
+    --bg: #0a0c10;
+    --bg2: #14171d;
+    --bg3: #1c2027;
+    --border: #2a2e37;
+    --accent: #d1a13e;
+    --accent2: #3f8fc4;
     --green: #22c55e;
     --red: #ef4444;
     --yellow: #f59e0b;
@@ -33,24 +33,24 @@
     --font-display: 'Sora', 'Inter', system-ui, sans-serif;
   }
   html[data-theme="light"] {
-    --bg: #f3f5fb;
+    --bg: #f6f5f2;
     --bg2: #ffffff;
-    --bg3: #edf0f9;
-    --border: #dde2ee;
-    --accent: #5b47e0;
-    --accent2: #0891b2;
+    --bg3: #efece5;
+    --border: #e0ddd3;
+    --accent: #a8791f;
+    --accent2: #2569a0;
     --green: #15803d;
     --red: #dc2626;
     --yellow: #b45309;
     --gray: #6b7280;
-    --text: #171b2b;
-    --text2: #5b6472;
+    --text: #1a1a1a;
+    --text2: #5c5850;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px;
-    background-image: radial-gradient(circle at 15% 0%, rgba(109,91,255,.10), transparent 45%),
-                       radial-gradient(circle at 100% 20%, rgba(34,211,238,.07), transparent 40%);
+    background-image: radial-gradient(circle at 15% 0%, rgba(209,161,62,.08), transparent 45%),
+                       radial-gradient(circle at 100% 20%, rgba(63,143,196,.06), transparent 40%);
     background-attachment: fixed;
   }
   ::selection { background: var(--accent); color: #fff; }
@@ -81,7 +81,7 @@
   .logo-em { font-weight: 400; color: #c0c0c0; font-size: 0.9em; }
   .logo-numeros {
     font-weight: 800;
-    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 60%, #a855f7 100%);
+    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 60%, #2f9e8f 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
     letter-spacing: -1px;
@@ -430,7 +430,7 @@
   }
   .analise-section::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent2));
+    background: linear-gradient(90deg, var(--accent), #2f9e8f, var(--accent2));
   }
   .analise-title {
     font-size: 13px; font-weight: 600; color: var(--accent2);
@@ -448,7 +448,7 @@
   .cenario-block.green { border-left-color: var(--green); }
   .cenario-block.yellow { border-left-color: var(--yellow); }
   .cenario-block.red { border-left-color: var(--red); }
-  .cenario-block.purple { border-left-color: #a855f7; }
+  .cenario-block.purple { border-left-color: #2f9e8f; }
   .cenario-icon { font-size: 18px; margin-top: 1px; flex-shrink: 0; }
   .cenario-content { flex: 1; }
   .cenario-label {
@@ -820,11 +820,11 @@
     border-radius: 5px; color: var(--text2); font-size: 10px; font-weight: 600;
     cursor: pointer; transition: all .1s;
   }
-  .fav-score-btn.selected { background: #6d5bff; border-color: #6d5bff; color: #fff; }
+  .fav-score-btn.selected { background: #d1a13e; border-color: #d1a13e; color: #fff; }
   .fav-market-badge {
     font-size: 9px; font-weight: 700; padding: 1px 5px;
-    border-radius: 4px; background: #6d5bff44; color: #9c8cff;
-    border: 1px solid #6d5bff44; white-space: nowrap;
+    border-radius: 4px; background: #d1a13e44; color: #e8c46e;
+    border: 1px solid #d1a13e44; white-space: nowrap;
   }
   .match-row { position: relative; }
   .fav-count-badge {
@@ -834,11 +834,11 @@
   }
 
   /* Scrollbar visível no painel de detalhe ao vivo */
-  .live-detail { scrollbar-width: thin; scrollbar-color: #6d5bff #1a1d27; }
+  .live-detail { scrollbar-width: thin; scrollbar-color: #d1a13e #1a1d27; }
   .live-detail::-webkit-scrollbar { width: 6px; }
   .live-detail::-webkit-scrollbar-track { background: #1a1d27; border-radius: 3px; }
-  .live-detail::-webkit-scrollbar-thumb { background: #6d5bff; border-radius: 3px; }
-  .live-detail::-webkit-scrollbar-thumb:hover { background: #9c8cff; }
+  .live-detail::-webkit-scrollbar-thumb { background: #d1a13e; border-radius: 3px; }
+  .live-detail::-webkit-scrollbar-thumb:hover { background: #e8c46e; }
 
   /* ── AO VIVO ── */
   .live-panel { display: none; flex: 1; overflow: hidden; position: relative; }
@@ -878,7 +878,7 @@
     transition: all .15s;
   }
   .live-refresh-btn:hover { background: var(--bg3); color: var(--text); }
-  .live-refresh-btn.active { background: #a855f7; color: #fff; border-color: #a855f7; }
+  .live-refresh-btn.active { background: #2f9e8f; color: #fff; border-color: #2f9e8f; }
   .live-league-group { border-bottom: 1px solid #1e2235; }
   .live-league-header {
     padding: 6px 12px; background: var(--bg3); font-size: 10px; font-weight: 700;
@@ -932,7 +932,7 @@
     background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
     overflow: hidden; cursor: pointer; transition: border-color .15s;
   }
-  .live-card:hover { border-color: #6d5bff; }
+  .live-card:hover { border-color: #d1a13e; }
   .live-card-pinned { border-color: #f59e0b88; box-shadow: 0 0 0 1px #f59e0b44; }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
@@ -993,7 +993,7 @@
     font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px 6px 0 0;
     cursor: pointer; border-bottom: none; text-transform: uppercase; letter-spacing: .3px;
   }
-  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #6d5bff; }
+  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #d1a13e; }
   /* Linhas de termômetro / estatística por minuto — colunas fixas pra a "bolinha"
      de domínio cair sempre na mesma posição horizontal em todas as linhas, em vez
      de deslocar conforme o tamanho do texto (que era o problema com justify-content:center) */
@@ -1010,7 +1010,7 @@
     background: transparent; border: none; color: var(--text2); font-size: 11px;
     font-weight: 700; padding: 4px 9px; cursor: pointer;
   }
-  .live-view-toggle button.active { background: #6d5bff; color: #fff; }
+  .live-view-toggle button.active { background: #d1a13e; color: #fff; }
 
   /* Painel de detalhes ao vivo */
   .live-detail {
@@ -1195,7 +1195,7 @@
   .painel-plat-icon:hover { filter: brightness(1.15); transform: scale(1.08); }
   .painel-plat-betfair { background: #ffb80c; color: #05262b; }
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
-  .painel-plat-radar { background: #a855f7; color: #fff; }
+  .painel-plat-radar { background: #2f9e8f; color: #fff; }
   .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
   .painel-match-ht { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-match-corners { text-align: center; font-size: 11px; color: var(--text2); }
@@ -2080,7 +2080,7 @@
   <div class="live-panel" id="live2Panel">
     <div class="live-grid-view active" id="live2GridView" style="width:100%">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px">
-        <span style="font-size:12px;font-weight:700;color:#a855f7">🔴 Ao Vivo</span>
+        <span style="font-size:12px;font-weight:700;color:#2f9e8f">🔴 Ao Vivo</span>
         <span style="display:flex;align-items:center;gap:8px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
             style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
@@ -2404,7 +2404,7 @@ const FAV_MKT_COLORS = {
   btts_yes:'#a78bfa', btts_no:'#6b7280',
   back_home:'#3b82f6', back_away:'#f97316',
   lay_home:'#06b6d4',  lay_away:'#f59e0b',
-  back_cs:'#6d5bff',   lay_cs:'#ec4899',
+  back_cs:'#d1a13e',   lay_cs:'#ec4899',
 };
 
 let _favModalUrl = null;
@@ -2617,8 +2617,8 @@ function favMatchRowHtml(m) {
         ${mktInfo.label}
       </span>
       ${fd.scores && fd.scores.length ? fd.scores.map(sc =>
-        `<span style="font-size:9px;font-weight:700;background:#6d5bff22;color:#9c8cff;
-                      border:1px solid #6d5bff44;border-radius:3px;padding:0 4px">${sc}</span>`
+        `<span style="font-size:9px;font-weight:700;background:#d1a13e22;color:#e8c46e;
+                      border:1px solid #d1a13e44;border-radius:3px;padding:0 4px">${sc}</span>`
       ).join('') : ''}
     </div>` : '';
   return `
@@ -11686,7 +11686,7 @@ function _live2UpdateCardNumbers(m) {
 // (ex: odds do BetExplorer, prognósticos da Academia das Apostas) sem tocar no Ao Vivo original
 function renderLive2Card(m) {
   return `
-    <div class="live-card" style="border-color:#a855f766">
+    <div class="live-card" style="border-color:#2f9e8f66">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
@@ -13713,8 +13713,8 @@ function buildStatAreaPrognosisHtml(detalhes, m) {
     <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:8px 0 2px">${label}</div>`;
 
   return `
-    <div style="background:var(--bg3);border:1px solid #a855f766;border-radius:8px;padding:10px 12px;margin-bottom:12px">
-      <div style="font-size:10px;font-weight:800;color:#a855f7;text-transform:uppercase;margin-bottom:6px">
+    <div style="background:var(--bg3);border:1px solid #2f9e8f66;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;color:#2f9e8f;text-transform:uppercase;margin-bottom:6px">
         🎯 Prognóstico
       </div>
       ${groupTitle('Resultado Final', _1x2Conf)}
@@ -14335,7 +14335,7 @@ function buildCsResultHtml(data, m) {
       <span style="width:52px;font-weight:800;font-size:14px;text-align:center;
                    background:var(--bg3);border-radius:5px;padding:3px 0">${s.score}</span>
       <div style="flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${s.pct}%;background:#6d5bff;border-radius:4px"></div>
+        <div style="height:100%;width:${s.pct}%;background:#d1a13e;border-radius:4px"></div>
       </div>
       <span style="width:32px;text-align:right;font-size:12px;font-weight:700;color:var(--text2)">${s.pct}%</span>
     </div>`).join('');
@@ -14436,7 +14436,7 @@ function renderLiveGrid(matches) {
         <div class="live-card-shotmap-wrap" id="cardShotmapWrap_${m.id}"></div>
         <div class="live-card-tabs live-card-tabs-narrow" id="cardTabs_${m.id}">
           <button class="live-card-tab-btn" onclick="openScoreStudy('${m.id}')" title="Estatísticas Pré"
-            style="color:#a855f7;border-color:#a855f766">📈</button>
+            style="color:#2f9e8f;border-color:#2f9e8f66">📈</button>
           <button class="live-card-tab-btn active" onclick="setCardTab('${m.id}','geral',this)">Geral</button>
           <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','escalacoes',this)">Escalações</button>
           <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','odds',this)">Odds</button>
@@ -16768,7 +16768,7 @@ function buildIndicatorsHtml(d, homeName, awayName) {
     if (v === null || v === undefined) return '#2e3249';
     if (v >= 65) return '#22c55e';
     if (v >= 50) return '#f59e0b';
-    if (v >= 35) return '#6d5bff';
+    if (v >= 35) return '#d1a13e';
     return '#ef4444';
   };
   const fmtVal = (v) => v === null || v === undefined ? '—' : `${Math.round(v)}`;
@@ -17127,9 +17127,9 @@ function _renderUniscore(d) {
   const xgHPct    = (xgH + xgA) > 0 ? Math.round(xgH / (xgH + xgA) * 100) : 50;
   const xgAPct    = 100 - xgHPct;
   const xgHtml = (xgH > 0 || xgA > 0) ? `
-    <div style="background:var(--bg3);border:1px solid #6366f133;border-radius:7px;
+    <div style="background:var(--bg3);border:1px solid #3f8fc433;border-radius:7px;
                 padding:6px 10px;margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:#6366f1;letter-spacing:.5px;margin-bottom:5px">⚽ xG — GOLS ESPERADOS</div>
+      <div style="font-size:9px;font-weight:700;color:#3f8fc4;letter-spacing:.5px;margin-bottom:5px">⚽ xG — GOLS ESPERADOS</div>
       <div style="display:grid;grid-template-columns:36px 1fr auto 1fr 36px;align-items:center;gap:4px">
         <span style="font-size:14px;font-weight:800;color:${xgHColor};text-align:right">${xgH.toFixed(2)}</span>
         <div style="height:7px;background:var(--bg);border-radius:4px;overflow:hidden;display:flex;justify-content:flex-end">
@@ -17357,7 +17357,7 @@ function _renderUniscore(d) {
 
   return `
     <div style="padding:7px 10px;background:var(--bg3);border:1px solid var(--border);
-                border-radius:8px;border-left:3px solid #6366f1">
+                border-radius:8px;border-left:3px solid #3f8fc4">
       ${graphHtml}
       ${xgHtml}
       ${statsHtml}
@@ -19568,7 +19568,7 @@ function gerarBlocoHistorico(m) {
 
   const nDatas = btPatterns.datas?.length || 0;
   return `
-    <div class="cenario-block" style="border-left-color:#a855f7;background:var(--bg3)">
+    <div class="cenario-block" style="border-left-color:#2f9e8f;background:var(--bg3)">
       <div class="cenario-icon">📅</div>
       <div class="cenario-content">
         <div class="cenario-label">Padrões Históricos — ${btPatterns.total_partidas} partidas (${nDatas} dia${nDatas > 1 ? 's' : ''})</div>
