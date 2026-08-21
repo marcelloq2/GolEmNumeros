@@ -3386,6 +3386,10 @@ function _replayStatsRenderForm() {
       <div style="font-size:11px;color:var(--text2);margin-bottom:14px">
         Analisa UM tipo de sinal por vez contra toda a base de partidas salvas — sem combinar tipos, pra não correr o risco de "achar" um padrão que não é real (quanto mais combinações se testam, maior a chance de uma parecer forte só por acaso).
       </div>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button id="replayStatsViewResumoBtn" class="filter-btn active" onclick="_replayStatsSetView('resumo')">Resumo por período</button>
+        <button id="replayStatsViewMinutoBtn" class="filter-btn" onclick="_replayStatsSetView('minuto')">Por minuto</button>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <div>
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Tipo de sinal</div>
@@ -3395,7 +3399,7 @@ function _replayStatsRenderForm() {
             <option value="under">❄️ Momento Under</option>
           </select>
         </div>
-        <div>
+        <div id="replayStatsPeriodoWrap">
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Período</div>
           <select id="replayStatsPeriodo" onchange="_replayStatsFetch()" style="${selStyle}">
             <option value="">Qualquer momento</option>
@@ -3454,6 +3458,18 @@ function _replayStatsToggleWindowVisibility() {
   wrap.style.display = metrica === 'gol' ? '' : 'none';
 }
 
+let _replayStatsView = 'resumo'; // 'resumo' | 'minuto'
+
+function _replayStatsSetView(view) {
+  _replayStatsView = view;
+  document.getElementById('replayStatsViewResumoBtn').classList.toggle('active', view === 'resumo');
+  document.getElementById('replayStatsViewMinutoBtn').classList.toggle('active', view === 'minuto');
+  // "Período" não faz sentido no modo por minuto — o resultado já É a
+  // quebra por período, no nível mais fino possível (bucket de minuto)
+  document.getElementById('replayStatsPeriodoWrap').style.display = view === 'minuto' ? 'none' : '';
+  _replayStatsFetch();
+}
+
 async function _replayStatsFetch() {
   const tipo      = document.getElementById('replayStatsTipo').value;
   const periodo   = document.getElementById('replayStatsPeriodo').value;
@@ -3463,13 +3479,73 @@ async function _replayStatsFetch() {
   const resultEl = document.getElementById('replayStatsResult');
   resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>`;
   try {
-    const params = new URLSearchParams({ tipo, periodo, time: timeSel, metrica, window: windowMin });
-    const res = await fetch(`/api/momentum/signal_stats?${params}`);
-    const d = await res.json();
-    resultEl.innerHTML = _replayStatsResultHtml(d);
+    if (_replayStatsView === 'minuto') {
+      const params = new URLSearchParams({ tipo, time: timeSel, metrica, window: windowMin, bucket: 5 });
+      const res = await fetch(`/api/momentum/signal_stats_by_minute?${params}`);
+      const d = await res.json();
+      resultEl.innerHTML = _replayStatsMinuteHtml(d);
+    } else {
+      const params = new URLSearchParams({ tipo, periodo, time: timeSel, metrica, window: windowMin });
+      const res = await fetch(`/api/momentum/signal_stats?${params}`);
+      const d = await res.json();
+      resultEl.innerHTML = _replayStatsResultHtml(d);
+    }
   } catch (e) {
     resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">Erro ao calcular.</div>`;
   }
+}
+
+function _replayStatsMinuteHtml(d) {
+  const buckets = d.buckets || [];
+  if (!buckets.length) {
+    return `<div style="font-size:12px;color:var(--text2)">Sem ocorrências suficientes na base pra esse filtro.</div>`;
+  }
+  const nomeTipo = d.tipo === 'chance' ? 'Grande Chance' : d.tipo === 'over' ? 'Momento Over' : 'Momento Under';
+  const outcomeLabel = d.metrica === 'placar' ? 'placar se manteve' : 'saiu gol depois';
+  return `
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${nomeTipo} · por minuto (${outcomeLabel}${d.window_min ? ', ' + d.window_min + 'min' : ''})</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Base: ${d.matches_used} partidas salvas</div>
+    ${_replayStatsMinuteChartSvg(buckets)}`;
+}
+
+function _replayStatsMinuteChartSvg(buckets) {
+  const W = 640, H = 190, padL = 4, padB = 22, padT = 18, padR = 4;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxRate  = Math.max(...buckets.map(b => b.rate), 0.02);
+  const maxTotal = Math.max(...buckets.map(b => b.total), 1);
+  const barW   = chartW / buckets.length;
+  const barGap = Math.max(0.5, barW * 0.12);
+  const barNet = barW - barGap;
+  const totalOcorrencias = buckets.reduce((a, b) => a + b.total, 0);
+  const avgRate = totalOcorrencias ? buckets.reduce((a, b) => a + b.rate * b.total, 0) / totalOcorrencias : 0;
+  const avgY = padT + chartH - (avgRate / maxRate) * chartH;
+
+  const bars = buckets.map((b, i) => {
+    const x = padL + i * barW + barGap / 2;
+    const h = (b.rate / maxRate) * chartH;
+    const y = padT + chartH - h;
+    const opacity = (0.3 + 0.7 * Math.min(1, b.total / (maxTotal * 0.5))).toFixed(2);
+    const title = `${b.minute_start}'–${b.minute_end}': ${(b.rate * 100).toFixed(1)}% (${b.hits}/${b.total} ocorrências)`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barNet.toFixed(1)}" height="${Math.max(1, h).toFixed(1)}"
+      fill="var(--accent)" opacity="${opacity}" rx="2"><title>${title}</title></rect>`;
+  }).join('');
+
+  const labelEvery = Math.max(1, Math.round(3 * (buckets.length > 25 ? 2 : 1)));
+  const xLabels = buckets.map((b, i) => {
+    if (i % labelEvery !== 0) return '';
+    const x = padL + i * barW + barW / 2;
+    return `<text x="${x.toFixed(1)}" y="${H - 6}" font-size="9" fill="var(--text2)" text-anchor="middle">${b.minute_start}'</text>`;
+  }).join('');
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+      <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}" stroke="var(--text2)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+      <text x="${padL}" y="${(avgY - 4).toFixed(1)}" font-size="9" fill="var(--text2)">média geral ${(avgRate * 100).toFixed(1)}%</text>
+      ${bars}
+      ${xLabels}
+    </svg>
+    <div style="font-size:9px;color:var(--text2);margin-top:2px">Barras mais claras = menos ocorrências naquela faixa de minutos (passe o mouse pra ver o número exato)</div>`;
 }
 
 function _replayPeriodoLabel(p) {

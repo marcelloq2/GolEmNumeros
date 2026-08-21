@@ -4154,6 +4154,96 @@ def api_momentum_signal_stats():
     return jsonify(data)
 
 
+_SIGNAL_STATS_MINUTE_CACHE = {}     # (tipo, time, metrica, window_min, bucket) -> {"ts":, "data":}
+_SIGNAL_STATS_MINUTE_TTL = 10 * 60
+
+@app.route("/api/momentum/signal_stats_by_minute")
+def api_momentum_signal_stats_by_minute():
+    """Mesma análise do /api/momentum/signal_stats, mas quebrada por faixa de
+    minuto (buckets de N minutos, padrão 5) em vez de um número único agregado
+    pro jogo todo — pra ver EM QUAIS minutos o sinal costuma virar gol (ou
+    manter o placar), não só a média geral. Não usa filtro de período (não faz
+    sentido aqui — o resultado já É quebrado por período, no nível mais fino
+    possível)."""
+    tipo    = request.args.get("tipo", "chance")
+    time_f  = request.args.get("time", "")
+    metrica = request.args.get("metrica", "gol")
+    try:
+        window_min = max(1, min(30, int(request.args.get("window", 10))))
+    except ValueError:
+        window_min = 10
+    try:
+        bucket = max(1, min(15, int(request.args.get("bucket", 5))))
+    except ValueError:
+        bucket = 5
+
+    if tipo not in ("chance", "over", "under"):
+        return jsonify({"error": "tipo inválido"}), 400
+    if metrica not in ("gol", "placar"):
+        return jsonify({"error": "métrica inválida"}), 400
+
+    cache_key = (tipo, time_f, metrica, window_min, bucket)
+    now = time.time()
+    cached = _SIGNAL_STATS_MINUTE_CACHE.get(cache_key)
+    if cached and (now - cached["ts"]) < _SIGNAL_STATS_MINUTE_TTL:
+        return jsonify(cached["data"])
+
+    matches = _momentum_load_all_matches()
+    cfg = _CHANCE_PATTERN_CACHE["data"] or {}
+    chance_pct = cfg.get("chance_pct", 0.8)
+    over_pct   = cfg.get("over_pct", 0.6)
+
+    def placar_se_manteve(goals, ref_minute):
+        return not any((g.get("minute") or 0) > ref_minute for g in goals)
+
+    buckets = {}  # minute_start -> {"total":, "hits":}
+    def add(minute, is_hit):
+        b_start = (int(minute) // bucket) * bucket
+        b = buckets.setdefault(b_start, {"total": 0, "hits": 0})
+        b["total"] += 1
+        if is_hit:
+            b["hits"] += 1
+
+    for points, goals in matches:
+        if tipo == "chance":
+            for sp in _momentum_detect_chance_spikes(points, chance_pct, over_pct):
+                team = "home" if sp["is_home"] else "away"
+                if time_f and team != time_f:
+                    continue
+                if metrica == "placar":
+                    hit = placar_se_manteve(goals, sp["minute"])
+                else:
+                    hit = any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals)
+                add(sp["minute"], hit)
+        else:
+            over_mk, under_mk = _momentum_detect_over_under_windows(points, over_pct)
+            for mk in (over_mk if tipo == "over" else under_mk):
+                if metrica == "placar":
+                    hit = placar_se_manteve(goals, mk["end_minute"])
+                else:
+                    saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
+                    hit = saiu_gol if tipo == "over" else not saiu_gol
+                add(mk["minute"], hit)
+
+    result = [
+        {
+            "minute_start": b_start, "minute_end": b_start + bucket - 1,
+            "total": b["total"], "hits": b["hits"],
+            "rate": round(b["hits"] / b["total"], 4) if b["total"] else 0.0,
+        }
+        for b_start, b in sorted(buckets.items())
+    ]
+
+    data = {
+        "tipo": tipo, "time": time_f or "qualquer", "metrica": metrica,
+        "window_min": (window_min if metrica == "gol" else None),
+        "bucket_size": bucket, "matches_used": len(matches),
+        "buckets": result,
+    }
+    _SIGNAL_STATS_MINUTE_CACHE[cache_key] = {"ts": now, "data": data}
+    return jsonify(data)
+
+
 @app.route("/api/momentum/history/<event_id>")
 def api_momentum_history_match(event_id):
     """Retorna dados completos de um evento salvo."""
