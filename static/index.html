@@ -3299,6 +3299,7 @@ function switchView(view, btn) {
   clearInterval(_placarContraAutoRefresh);
   clearInterval(_painelAutoRefresh);
   clearInterval(_replayTimer); _replayTimer = null;
+  clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3343,6 +3344,7 @@ let _replayTimer         = null;
 let _replaySpeed         = 3;     // pontos avançados por tick
 let _replayList          = [];
 let _replaySearchTimeout = null;
+let _replayStatsAutoRefresh = null;
 
 function toggleReplaySidebar() {
   const sb = document.getElementById('replaySidebar');
@@ -3363,9 +3365,15 @@ function _replaySetMode(mode) {
     matchMode.style.display = 'none'; statsMode.style.display = 'block';
     clearInterval(_replayTimer); _replayTimer = null;
     if (!statsMode.dataset.rendered) { _replayStatsRenderForm(); statsMode.dataset.rendered = '1'; }
+    clearInterval(_replayStatsAutoRefresh);
+    // A base no servidor já se atualiza sozinha (cache de 10min), mas sem isso
+    // a tela ficava parada no número antigo até o usuário mexer num filtro —
+    // aqui só refaz a mesma consulta que já está selecionada, sem resetar nada.
+    _replayStatsAutoRefresh = setInterval(_replayStatsFetch, 60000);
   } else {
     statsBtn.classList.remove('active'); matchBtn.classList.add('active');
     statsMode.style.display = 'none'; matchMode.style.display = 'flex';
+    clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
   }
 }
 
