@@ -4069,7 +4069,7 @@ def api_momentum_chance_pattern_stats():
     return jsonify(data)
 
 
-_SIGNAL_STATS_CACHE = {}       # (tipo, periodo, time, window_min) -> {"ts":, "data":}
+_SIGNAL_STATS_CACHE = {}       # (tipo, periodo, time, window_min, metrica) -> {"ts":, "data":}
 _SIGNAL_STATS_TTL = 10 * 60    # 10min — mesmo TTL do cache da base (_momentum_load_all_matches)
 
 @app.route("/api/momentum/signal_stats")
@@ -4079,10 +4079,17 @@ def api_momentum_signal_stats():
     tipos de sinal entre si (isso é uma decisão deliberada: combinações têm risco
     real de comparações múltiplas / achar padrão que não é real, então por
     enquanto só analisa um tipo por vez). Sempre devolve o tamanho da amostra
-    junto com a taxa, pra quem estiver olhando poder julgar a confiança."""
+    junto com a taxa, pra quem estiver olhando poder julgar a confiança.
+
+    metrica='gol' (padrão): saiu gol dentro da janela pós-sinal (window_min).
+    metrica='placar': o placar do momento exato do sinal (contando só os gols
+    até ali) se manteve como placar FINAL da partida — nenhum gol de nenhum
+    time depois disso. window_min não se aplica aqui (é "até o fim", não uma
+    janela fixa)."""
     tipo    = request.args.get("tipo", "chance")     # chance | over | under
     periodo = request.args.get("periodo", "")        # early | ht | second | late | '' (qualquer)
     time_f  = request.args.get("time", "")            # home | away | '' (qualquer, só vale pra 'chance')
+    metrica = request.args.get("metrica", "gol")      # gol | placar
     try:
         window_min = max(1, min(30, int(request.args.get("window", 10))))
     except ValueError:
@@ -4090,8 +4097,10 @@ def api_momentum_signal_stats():
 
     if tipo not in ("chance", "over", "under"):
         return jsonify({"error": "tipo inválido"}), 400
+    if metrica not in ("gol", "placar"):
+        return jsonify({"error": "métrica inválida"}), 400
 
-    cache_key = (tipo, periodo, time_f, window_min)
+    cache_key = (tipo, periodo, time_f, window_min, metrica)
     now = time.time()
     cached = _SIGNAL_STATS_CACHE.get(cache_key)
     if cached and (now - cached["ts"]) < _SIGNAL_STATS_TTL:
@@ -4101,6 +4110,9 @@ def api_momentum_signal_stats():
     cfg = _CHANCE_PATTERN_CACHE["data"] or {}
     chance_pct = cfg.get("chance_pct", 0.8)
     over_pct   = cfg.get("over_pct", 0.6)
+
+    def placar_se_manteve(goals, ref_minute):
+        return not any((g.get("minute") or 0) > ref_minute for g in goals)
 
     total = hits = 0
     for points, goals in matches:
@@ -4112,7 +4124,10 @@ def api_momentum_signal_stats():
                 if time_f and team != time_f:
                     continue
                 total += 1
-                if any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals):
+                if metrica == "placar":
+                    if placar_se_manteve(goals, sp["minute"]):
+                        hits += 1
+                elif any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals):
                     hits += 1
         else:
             over_mk, under_mk = _momentum_detect_over_under_windows(points, over_pct)
@@ -4120,13 +4135,18 @@ def api_momentum_signal_stats():
                 if periodo and _minute_range(mk["minute"]) != periodo:
                     continue
                 total += 1
-                saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
-                if (tipo == "over" and saiu_gol) or (tipo == "under" and not saiu_gol):
-                    hits += 1
+                if metrica == "placar":
+                    if placar_se_manteve(goals, mk["end_minute"]):
+                        hits += 1
+                else:
+                    saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
+                    if (tipo == "over" and saiu_gol) or (tipo == "under" and not saiu_gol):
+                        hits += 1
 
     data = {
         "tipo": tipo, "periodo": periodo or "qualquer", "time": time_f or "qualquer",
-        "window_min": window_min, "matches_used": len(matches),
+        "metrica": metrica, "window_min": (window_min if metrica == "gol" else None),
+        "matches_used": len(matches),
         "total": total, "hits": hits,
         "rate": round(hits / total, 4) if total else 0.0,
     }

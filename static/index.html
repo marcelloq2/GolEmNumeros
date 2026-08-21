@@ -3414,6 +3414,13 @@ function _replayStatsRenderForm() {
           </select>
         </div>
         <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">O que medir</div>
+          <select id="replayStatsMetrica" onchange="_replayStatsToggleWindowVisibility(); _replayStatsFetch()" style="${selStyle}">
+            <option value="gol">Saiu gol depois</option>
+            <option value="placar">Placar se manteve até o fim</option>
+          </select>
+        </div>
+        <div id="replayStatsWindowWrap">
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Janela pós-sinal</div>
           <select id="replayStatsWindow" onchange="_replayStatsFetch()" style="${selStyle}">
             <option value="5">5 min</option>
@@ -3428,6 +3435,7 @@ function _replayStatsRenderForm() {
       </div>
     </div>`;
   _replayStatsToggleTimeVisibility();
+  _replayStatsToggleWindowVisibility();
   _replayStatsFetch();
 }
 
@@ -3437,15 +3445,25 @@ function _replayStatsToggleTimeVisibility() {
   wrap.style.display = tipo === 'chance' ? '' : 'none';
 }
 
+// A janela pós-sinal (5/10/15/20min) só faz sentido pra métrica "saiu gol
+// depois" — "placar se manteve até o fim" olha o resto da partida inteiro,
+// não uma janela fixa, então esconde o seletor pra não confundir.
+function _replayStatsToggleWindowVisibility() {
+  const metrica = document.getElementById('replayStatsMetrica').value;
+  const wrap = document.getElementById('replayStatsWindowWrap');
+  wrap.style.display = metrica === 'gol' ? '' : 'none';
+}
+
 async function _replayStatsFetch() {
-  const tipo     = document.getElementById('replayStatsTipo').value;
-  const periodo  = document.getElementById('replayStatsPeriodo').value;
-  const timeSel  = tipo === 'chance' ? document.getElementById('replayStatsTime').value : '';
+  const tipo      = document.getElementById('replayStatsTipo').value;
+  const periodo   = document.getElementById('replayStatsPeriodo').value;
+  const timeSel   = tipo === 'chance' ? document.getElementById('replayStatsTime').value : '';
+  const metrica   = document.getElementById('replayStatsMetrica').value;
   const windowMin = document.getElementById('replayStatsWindow').value;
   const resultEl = document.getElementById('replayStatsResult');
   resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>`;
   try {
-    const params = new URLSearchParams({ tipo, periodo, time: timeSel, window: windowMin });
+    const params = new URLSearchParams({ tipo, periodo, time: timeSel, metrica, window: windowMin });
     const res = await fetch(`/api/momentum/signal_stats?${params}`);
     const d = await res.json();
     resultEl.innerHTML = _replayStatsResultHtml(d);
@@ -3462,11 +3480,13 @@ function _replayStatsResultHtml(d) {
   const icone    = d.tipo === 'chance' ? _icoZap() : d.tipo === 'over' ? _icoFlame() : '❄️';
   const nomeTipo = d.tipo === 'chance' ? 'Grande Chance' : d.tipo === 'over' ? 'Momento Over' : 'Momento Under';
   const pct      = (d.rate * 100).toFixed(1);
-  const outcomeLabel = d.tipo === 'under'
-    ? `não teve gol de nenhum time nos ${d.window_min} minutos seguintes`
-    : d.tipo === 'chance'
-      ? `o time sinalizado marcou gol dentro de ${d.window_min} minutos`
-      : `saiu gol (de qualquer time) dentro de ${d.window_min} minutos`;
+  const outcomeLabel = d.metrica === 'placar'
+    ? 'o placar do momento do sinal foi o placar final da partida'
+    : d.tipo === 'under'
+      ? `não teve gol de nenhum time nos ${d.window_min} minutos seguintes`
+      : d.tipo === 'chance'
+        ? `o time sinalizado marcou gol dentro de ${d.window_min} minutos`
+        : `saiu gol (de qualquer time) dentro de ${d.window_min} minutos`;
   const amostraBaixa = d.total > 0 && d.total < 20;
 
   const filtrosLabel = [
