@@ -3732,6 +3732,12 @@ threading.Thread(
     name="GitHubSyncMapa"
 ).start()
 
+# Backup de Força — estava totalmente pronto desde a sessão em que foi desenhado,
+# mas os threads nunca tinham sido iniciados (ficou parado, pasta forca_history/
+# vazia). Ativado agora a pedido do usuário, pra alimentar odds pré-jogo no Replay.
+threading.Thread(target=_forca_backup_worker, daemon=True, name="ForcaBackupWorker").start()
+threading.Thread(target=_forca_backup_scan_loop, daemon=True, name="ForcaBackupScan").start()
+
 
 @app.route("/api/radar/momentum/<event_id>")
 def api_radar_momentum(event_id):
@@ -4124,6 +4130,29 @@ def api_shotmap_history_detail(event_id):
             return jsonify(json.load(f))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/forca/history/match")
+def api_forca_history_match():
+    """Busca odds pré-jogo/força salvos no Backup de Força casando por time+data.
+    forca_history vem do NowGoal (event_id próprio dele) enquanto momentum/shotmap
+    vêm de outra fonte — não dá pra confiar que o event_id bata entre os dois, então
+    casa pelo nome dos times (mesmo critério fuzzy usado em _find_radar_links)."""
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    date_str = request.args.get("date", "")
+    if not casa or not fora or not date_str:
+        return jsonify({"error": "casa, fora e date são obrigatórios"}), 400
+    files = glob.glob(os.path.join(FORCA_HISTORY_DIR, f"{date_str}_*.json"))
+    for fpath in files:
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            if _name_match(casa, d.get("home", "")) and _name_match(fora, d.get("away", "")):
+                return jsonify(d)
+        except Exception:
+            continue
+    return jsonify({"error": "not found"}), 404
 
 
 @app.route("/api/shotmap/patterns")

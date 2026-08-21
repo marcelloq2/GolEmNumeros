@@ -3373,6 +3373,9 @@ async function _loadReplayList(q) {
   }
 }
 
+let _replayShotmap = null;  // array de chutes salvos (shotmap_history) ou null se não tiver
+let _replayForca    = null; // odds pré-jogo salvas (forca_history) ou null se não tiver
+
 async function _openReplayMatch(eventId, rowEl) {
   document.querySelectorAll('#replayMatchList .live-match-row').forEach(r => r.classList.remove('active'));
   if (rowEl) rowEl.classList.add('active');
@@ -3388,8 +3391,23 @@ async function _openReplayMatch(eventId, rowEl) {
     }
     _replayData      = data;
     _replayMinuteIdx = 0;
+    _replayShotmap   = null;
+    _replayForca     = null;
+
+    // Mapa de chutes e odds pré-jogo são fontes separadas (nem sempre existem
+    // pra toda partida) — busca em paralelo, sem travar o gráfico principal
+    // se alguma faltar ou demorar.
+    const shotmapP = fetch(`/api/shotmap/history/${eventId}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const forcaP   = fetch(`/api/forca/history/match?casa=${encodeURIComponent(data.casa || '')}&fora=${encodeURIComponent(data.fora || '')}&date=${encodeURIComponent(data.date || '')}`)
+      .then(r => r.ok ? r.json() : null).catch(() => null);
+
     _replayRenderShell();
     _replayDrawFrame();
+
+    const [sm, fc] = await Promise.all([shotmapP, forcaP]);
+    if (sm && sm.shotmap && sm.shotmap.length) _replayShotmap = sm.shotmap;
+    if (fc && !fc.error) _replayForca = fc;
+    if (_replayData === data) _replayRenderExtras(); // só redesenha se ainda for a partida ativa
   } catch (e) {
     detail.innerHTML = `<div class="live-detail-placeholder"><div style="font-size:12px;color:var(--text2)">Erro ao carregar dados.</div></div>`;
   }
@@ -3442,7 +3460,65 @@ function _replayRenderShell() {
         </div>
         ${goalBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">${goalBtns}</div>` : ''}
       </div>
+    </div>
+    <div id="replayExtras">
+      <div style="padding:12px;font-size:11px;color:var(--text2)">⏳ Buscando odds pré-jogo e mapa de chutes...</div>
     </div>`;
+}
+
+// Odds pré-jogo (Backup de Força) e Mapa de Chutes (shotmap_history) são fontes
+// à parte do momentum — só existem pra algumas partidas. Renderizados depois,
+// num container próprio, pra não atrasar o gráfico principal (que já usa os
+// dados do momentum, sempre disponíveis nas partidas listadas no Replay).
+function _replayRenderExtras() {
+  const el = document.getElementById('replayExtras');
+  if (!el) return;
+  const d = _replayData;
+
+  let html = '';
+
+  if (_replayForca) {
+    const oddCell = (label, val) => `
+      <div class="live-odds-card">
+        <div class="live-odds-label">${label}</div>
+        <div class="live-odds-value">${val ?? '—'}</div>
+      </div>`;
+    html += `
+      <div class="live-section">
+        <div class="live-section-title">${_icoChart()} Odds Pré-jogo</div>
+        <div style="display:flex;gap:8px;padding:8px 12px 12px;flex-wrap:wrap">
+          ${oddCell('1', _replayForca.odd_1)}
+          ${oddCell('X', _replayForca.odd_x)}
+          ${oddCell('2', _replayForca.odd_2)}
+          ${oddCell('Over', _replayForca.odd_over)}
+          ${oddCell('Under', _replayForca.odd_under)}
+        </div>
+      </div>`;
+  } else {
+    html += `
+      <div class="live-section">
+        <div class="live-section-title">${_icoChart()} Odds Pré-jogo</div>
+        <div style="padding:8px 12px 12px;font-size:11px;color:var(--text2)">
+          Sem odds salvas pra essa partida (arquivamento de odds começou depois dela ser jogada).
+        </div>
+      </div>`;
+  }
+
+  if (_replayShotmap && _replayShotmap.length) {
+    html += `
+      <div class="live-section">
+        <div class="live-section-title">🗺️ Mapa de Chutes</div>
+        <div style="padding:8px 12px 12px">${buildShotMapHtml(_replayShotmap, d.casa, d.fora, 'replay')}</div>
+      </div>`;
+  } else {
+    html += `
+      <div class="live-section">
+        <div class="live-section-title">🗺️ Mapa de Chutes</div>
+        <div style="padding:8px 12px 12px;font-size:11px;color:var(--text2)">Sem mapa de chutes salvo pra essa partida.</div>
+      </div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 function _replayScoreAtIdx(idx) {
