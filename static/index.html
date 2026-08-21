@@ -3435,7 +3435,7 @@ function _replayRenderShell() {
     <div class="live-section">
       <div class="live-section-title">${_icoTrend()} Replay do Momentum</div>
       <div style="padding:8px 12px 12px">
-        <div style="position:relative;min-height:90px">
+        <div id="replayMomentumWrap" style="position:relative;min-height:90px">
           <canvas id="replayCanvas" height="90" style="width:100%;border-radius:6px"></canvas>
         </div>
         <input id="replaySeekBar" type="range" min="0" max="${d.graphPoints.length - 1}" value="0"
@@ -3610,6 +3610,45 @@ function _replayDrawCanvas(canvas, points, goals) {
   });
 }
 
+// Marcadores de "Momento Over" (🔥), "Momento Under" (❄️) e "Grande Chance"
+// (⚡) — reaproveita 100% a detecção já usada na aba Ao Vivo
+// (_live2DetectPressureMarkers, só depende do array de points) e desenha por
+// cima do canvas do jeito que _live2RenderMomentumMarkers já faz, só que com
+// IDs próprios do Replay e tooltip nativo (title) em vez do balão customizado
+// do Ao Vivo, pra não precisar arrastar aquela infraestrutura extra pra cá.
+function _replayRenderMarkers(points) {
+  const wrap = document.getElementById('replayMomentumWrap');
+  if (!wrap || !points || !points.length) return;
+
+  // "Grande Chance" só é validado depois que a base carrega (cacheada 30min,
+  // compartilhada com a aba Ao Vivo) — se ainda não chegou, redesenha este
+  // frame assim que a resposta cair, igual o Ao Vivo já faz.
+  if (!_live2ChancePatternStats) {
+    _live2GetChancePatternStats().then(() => _replayRenderMarkers(points));
+  }
+
+  const markers = _live2DetectPressureMarkers(points);
+  const prev = document.getElementById('replayMarkersOverlay');
+  if (prev) prev.remove();
+  if (!markers.length) return;
+
+  const minMinute = points[0].minute || 0;
+  const maxMinute = points[points.length - 1].minute || 90;
+  const span = Math.max(1, maxMinute - minMinute);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'replayMarkersOverlay';
+  overlay.style.cssText = 'position:absolute;left:16px;right:16px;top:10px;height:90px;pointer-events:none';
+  overlay.innerHTML = markers.map(mk => {
+    const pct = Math.min(97, Math.max(1, ((mk.minute - minMinute) / span) * 100));
+    const topPx = mk.type === 'chance' ? (mk.isHome ? 2 : 74) : 2;
+    return `<span title="${mk.label}"
+      style="position:absolute;left:${pct}%;top:${topPx}px;transform:translateX(-50%);
+      cursor:default;font-size:13px;line-height:1;user-select:none;pointer-events:auto">${mk.icon}</span>`;
+  }).join('');
+  wrap.appendChild(overlay);
+}
+
 // Indicador de sinal (raio/gelo) — mesma fórmula (tail + trend + peak sobre a
 // janela de W minutos) e mesmo desenho usados no gráfico ao vivo, só que
 // calculado sobre o trecho já reproduzido no replay em vez do trecho ao vivo.
@@ -3725,6 +3764,7 @@ async function _replayDrawFrame() {
   const requestIdx = _replayMinuteIdx;
 
   _replayDrawCanvas(canvas, points, visibleGoals);
+  _replayRenderMarkers(points);
   await _replayDrawSignal(canvas, points);
   // Se o usuário já avançou/voltou enquanto o await rodava, não sobrescreve
   // o frame mais novo com um cálculo de sinal desatualizado.
