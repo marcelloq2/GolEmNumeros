@@ -47,6 +47,10 @@
     --text2: #5c5850;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Ícones SVG inline (fase 2 da troca de visual — substituem os emojis
+     puramente decorativos por ícones de linha, herdam a cor do texto ao
+     redor via currentColor) */
+  svg.ico { width: 1em; height: 1em; display: inline-block; vertical-align: -0.15em; flex-shrink: 0; }
   body {
     background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px;
     background-image: radial-gradient(circle at 15% 0%, rgba(209,161,62,.08), transparent 45%),
@@ -2346,6 +2350,36 @@
 </div>
 
 <script>
+// ── Ícones SVG inline — substituem os emojis puramente decorativos (⚽📊📈🎯🔥🏆⚡)
+// por ícones de linha, fase 2 da troca de visual (fase 1 foi a paleta de
+// cores). Cada função devolve uma string <svg> pronta pra interpolar em
+// template literal (ex: `${_icoBall()} Jogos em que marcou gol`). Usam
+// currentColor, então herdam a cor do texto ao redor automaticamente — não
+// precisa escolher cor por contexto. Só aplicados em textos/labels
+// decorativos; emoji usado em lógica de estado (⭐ favorito, 🌙 tema) ou
+// desenhado em <canvas> (ctx.fillText) foi deixado como está de propósito.
+function _icoBall() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M12 7.6l3.4 2.5-1.3 4h-4.2l-1.3-4z" fill="currentColor" stroke="none"/><path d="M12 3v4.2M12 20.4v-4.4M4.3 9l3.3 1.1M16.4 10.1L19.7 9M6.2 16.8l2.6-3.3M17.2 13.5l2.6 3.3"/></svg>';
+}
+function _icoChart() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="12"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="16"/><line x1="2" y1="20" x2="22" y2="20"/></svg>';
+}
+function _icoTrend() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,11 13,15 21,6"/><polyline points="15,6 21,6 21,12"/></svg>';
+}
+function _icoTarget() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.3"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg>';
+}
+function _icoFlame() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 2 1 3 3 3 6a6 6 0 0 1-12 0c0-4 2-6 4-10z"/></svg>';
+}
+function _icoTrophy() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4"/><path d="M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/><path d="M12 14v3"/><path d="M9 20h6"/><path d="M10 17h4l.5 3h-5z"/></svg>';
+}
+function _icoZap() {
+  return '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>';
+}
+
 // ── Modo claro/escuro ────────────────────────────────────────────────────────
 function _themeApplyIcon() {
   const btn = document.getElementById('themeToggleBtn');
@@ -5244,9 +5278,9 @@ function _painelForcaCurrentStreak(key, testFn) {
 }
 
 const _PAINEL_LEITURA_STREAKS = [
-  { label: 'Marcando gol',        icon: '🔥', test: (t, o) => t > 0 },
+  { label: 'Marcando gol',        icon: _icoFlame(), test: (t, o) => t > 0 },
   { label: 'Sem sofrer gol',      icon: '🛡️', test: (t, o) => o === 0 },
-  { label: 'Vencendo',            icon: '🏆', test: (t, o) => t > o },
+  { label: 'Vencendo',            icon: _icoTrophy(), test: (t, o) => t > o },
   { label: 'Sem perder (invicto)', icon: '💪', test: (t, o) => t >= o },
 ];
 
@@ -5339,7 +5373,7 @@ function _painelForcaLeituraMarketBlockHtml(cfg) {
   const awayR = _painelForcaMarketRatio('away', cfg.period, cfg.test, cfg.metric);
   return `
     <div class="cenario-block">
-      <div class="cenario-icon">${cfg.metric === 'corner' ? '🚩' : '⚽'}</div>
+      <div class="cenario-icon">${cfg.metric === 'corner' ? '🚩' : _icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">${cfg.label}</div>
         ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
@@ -5507,7 +5541,7 @@ function _painelForcaLeituraRender() {
   el.innerHTML = `
     ${header}
     <div class="cenario-block">
-      <div class="cenario-icon">⚽</div>
+      <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">Jogos em que marcou gol (tempo todo)</div>
         ${_painelForcaLeituraRow(_painelForcaHome, homeScored, 'jogando em casa')}
@@ -5515,7 +5549,7 @@ function _painelForcaLeituraRender() {
       </div>
     </div>
     <div class="cenario-block">
-      <div class="cenario-icon">⚽</div>
+      <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">Jogos em que marcou gol (1º tempo)</div>
         ${_painelForcaLeituraRow(_painelForcaHome, homeScoredHt, 'jogando em casa')}
@@ -19175,7 +19209,7 @@ function gerarAnalise(m) {
     const nivel = conf >= 65 ? 'Alta' : conf >= 50 ? 'Moderada' : 'Baixa';
     blocos.push(`
       <div class="cenario-block ${cor}">
-        <div class="cenario-icon">🎯</div>
+        <div class="cenario-icon">${_icoTarget()}</div>
         <div class="cenario-content">
           <div class="cenario-label">Cenário Principal</div>
           <div class="cenario-text">${desc}
@@ -19211,7 +19245,7 @@ function gerarAnalise(m) {
     const corGol = over25 >= 60 ? 'green' : over25 <= 35 ? 'purple' : 'yellow';
     blocos.push(`
       <div class="cenario-block ${corGol}">
-        <div class="cenario-icon">⚽</div>
+        <div class="cenario-icon">${_icoBall()}</div>
         <div class="cenario-content">
           <div class="cenario-label">Cenário de Gols</div>
           <div class="cenario-text">${golsTexto}</div>
@@ -19252,7 +19286,7 @@ function gerarAnalise(m) {
                     `<b>${m.fora}</b> com forma ${fa.label} (${faStats.wins}V ${faStats.draws}E ${faStats.loses}D) ${fa.tag}`;
       blocos.push(`
         <div class="cenario-block yellow">
-          <div class="cenario-icon">📈</div>
+          <div class="cenario-icon">${_icoTrend()}</div>
           <div class="cenario-content">
             <div class="cenario-label">Momento dos Times</div>
             <div class="cenario-text">${texto}</div>
@@ -19295,7 +19329,7 @@ function gerarAnalise(m) {
       else if (diff <= 3) ligaTexto += ` Times muito próximos na tabela — apenas ${diff} ponto(s) de diferença.`;
       blocos.push(`
         <div class="cenario-block">
-          <div class="cenario-icon">🏆</div>
+          <div class="cenario-icon">${_icoTrophy()}</div>
           <div class="cenario-content">
             <div class="cenario-label">Contexto na Liga</div>
             <div class="cenario-text">${ligaTexto}</div>
@@ -19331,7 +19365,7 @@ function gerarAnalise(m) {
       const corStat = (avg1 + avg2) >= 3.5 ? 'green' : 'yellow';
       blocos.push(`
         <div class="cenario-block ${corStat}">
-          <div class="cenario-icon">📊</div>
+          <div class="cenario-icon">${_icoChart()}</div>
           <div class="cenario-content">
             <div class="cenario-label">Desempenho Ofensivo</div>
             <div class="cenario-text">${statTexto}</div>
