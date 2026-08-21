@@ -3437,6 +3437,9 @@ function _replayRenderShell() {
             style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);
                    font-size:12px;padding:6px 10px;cursor:pointer">⟲</button>
         </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:8px">
+          Raio azul/vermelho = sinal de gol casa/visitante · Raio amarelo = possível gol · Bola cinza = sem padrão no momento
+        </div>
         ${goalBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">${goalBtns}</div>` : ''}
       </div>
     </div>`;
@@ -3531,7 +3534,109 @@ function _replayDrawCanvas(canvas, points, goals) {
   });
 }
 
-function _replayDrawFrame() {
+// Indicador de sinal (raio/gelo) — mesma fórmula (tail + trend + peak sobre a
+// janela de W minutos) e mesmo desenho usados no gráfico ao vivo, só que
+// calculado sobre o trecho já reproduzido no replay em vez do trecho ao vivo.
+async function _replayDrawSignal(canvas, points) {
+  if (!canvas || points.length < 3) return;
+  const analysis = await _getAnalysis();
+  if (!analysis) return;
+
+  const ctx   = canvas.getContext('2d');
+  const W_px  = canvas.width;
+  const CHART = canvas.height;
+  const barW  = W_px / points.length;
+
+  const W = analysis.window || 8;
+  const T = analysis.threshold || 10;
+  const win = points.slice(-W);
+  if (win.length < 3) return;
+
+  const vals  = win.map(p => p.value || 0);
+  const tail  = vals.slice(-4).reduce((a, b) => a + b, 0) / Math.min(vals.length, 4);
+  const trend = vals[vals.length - 1] - vals[0];
+  const peak  = vals.reduce((a, b) => Math.abs(b) > Math.abs(a) ? b : a, 0);
+  const score = tail + 0.3 * trend + 0.2 * peak;
+
+  const winStart = points.length - win.length;
+  const xStart    = winStart * barW;
+  const lastMin  = points[points.length - 1]?.minute || 0;
+  const isHT     = lastMin <= 45;
+
+  let sigColor, sigLabel, sigEmoji;
+  if (score > T) {
+    sigColor = '#3b82f6'; sigLabel = isHT ? '⚽🚨 1T' : '⚽🚨 2T'; sigEmoji = 'home';
+  } else if (score < -T) {
+    sigColor = '#ef4444'; sigLabel = isHT ? '⚽🚨 1T' : '⚽🚨 2T'; sigEmoji = 'away';
+  } else if (Math.abs(score) > T * 0.6) {
+    sigColor = '#fbbf24'; sigLabel = '⚡'; sigEmoji = 'any';
+  } else {
+    sigColor = '#64748b'; sigLabel = '🧊'; sigEmoji = 'none';
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = sigColor;
+  ctx.fillRect(xStart, 0, barW * W, CHART);
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = sigColor;
+  ctx.lineWidth   = 2;
+  ctx.globalAlpha = 0.7;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath();
+  ctx.moveTo(xStart, 2);
+  ctx.lineTo(xStart, CHART - 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  const iconSize = 14;
+  const iconX    = W_px > 0 ? xStart + barW * W - iconSize * 0.5 : W_px - iconSize;
+  const iconY    = sigEmoji === 'away' ? CHART - iconSize - 4 : 4;
+
+  if (sigEmoji !== 'none') {
+    ctx.save();
+    ctx.shadowColor = sigColor;
+    ctx.shadowBlur  = 10;
+    ctx.fillStyle   = sigColor;
+    const s = iconSize / 24;
+    ctx.translate(iconX, iconY);
+    ctx.scale(s, s);
+    ctx.beginPath();
+    ctx.moveTo(13, 2);
+    ctx.lineTo(4.5, 13.5);
+    ctx.lineTo(11, 13.5);
+    ctx.lineTo(10, 22);
+    ctx.lineTo(20.5, 9.5);
+    ctx.lineTo(14, 9.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.fillStyle   = sigColor;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(xStart + barW * W - 8, CHART / 2, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.font        = `bold 9px sans-serif`;
+  ctx.fillStyle   = sigColor;
+  ctx.shadowColor = sigColor;
+  ctx.shadowBlur  = 6;
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = sigEmoji === 'away' ? 'bottom' : 'top';
+  ctx.fillText(sigLabel, xStart + barW * W - 2, sigEmoji === 'away' ? CHART - 2 : 2);
+  ctx.restore();
+}
+
+async function _replayDrawFrame() {
   const d = _replayData;
   if (!d) return;
   const canvas = document.getElementById('replayCanvas');
@@ -3541,8 +3646,13 @@ function _replayDrawFrame() {
   const curMinute = points[points.length - 1]?.minute ?? 0;
   const allGoals = d.goals || [];
   const visibleGoals = allGoals.filter(g => g.minute <= curMinute);
+  const requestIdx = _replayMinuteIdx;
 
   _replayDrawCanvas(canvas, points, visibleGoals);
+  await _replayDrawSignal(canvas, points);
+  // Se o usuário já avançou/voltou enquanto o await rodava, não sobrescreve
+  // o frame mais novo com um cálculo de sinal desatualizado.
+  if (requestIdx !== _replayMinuteIdx) return;
 
   const { h, a } = _replayScoreAtIdx(_replayMinuteIdx);
   const scoreEl = document.getElementById('replayScoreBig');
