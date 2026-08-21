@@ -2806,7 +2806,7 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('Estatísticas de Confronto Direto', 'Ganhe/Empate/Perca, gols por jogo, distribuição de Handicap Asiático e Over/Under, tabela dos últimos confrontos — com filtros de Casa/Fora, Mesma liga, 1º tempo e quantidade de jogos')}
         ${_guiaRow('Estatísticas de Pontuações Anteriores', 'Mesmo formato, mas olhando os últimos jogos de cada time separadamente (não só os confrontos diretos)')}`),
 
-      _guiaSec('🏆', 'Metodologias — ranking de tipsters', `
+      _guiaSec(_icoTrophy(), 'Metodologias — ranking de tipsters', `
         Filtros no topo: <b>Semana/Mês</b> (período) e <b>Taxa de Vitória/ROI</b> (métrica de ordenação) — pra lucrar mais, ROI costuma ser o filtro mais confiável, já que Taxa de Vitória sozinha não pesa o tamanho da odd. Um terceiro botão, <b>"Previsões mais acertivas"</b>, troca a lista pra mostrar o mercado (Handicap Asiático/Over-Under/1X2) em que cada tipster mais acerta.<br><br>
         Clique num tipster pra abrir os prognósticos recentes dele, com liga, confronto, placar, resultado (✓/✗) e o palpite real (não a descrição bloqueada/paga).<br><br>
         <b>🔔 Sino:</b> ativa o acompanhamento daquele tipster — você recebe uma mensagem no Telegram assim que ele publicar um prognóstico novo (checagem a cada 5min). Clique de novo pra parar de receber.`),
@@ -2847,7 +2847,7 @@ const APP_GUIA_SECTIONS = {
         <b>⭐ Favoritar:</b> clique na estrela pra marcar aquele jogo — fica salvo no seu navegador (não sincroniza entre dispositivos) e pode ser filtrado com o botão "Favoritos" logo acima da lista.<br><br>
         Clique em qualquer partida pra abrir o painel de detalhe à direita, com as abas descritas abaixo.`),
 
-      _guiaSec('⚽', 'Aba "Jogo" — estatísticas dos últimos jogos de cada time', `
+      _guiaSec(_icoBall(), 'Aba "Jogo" — estatísticas dos últimos jogos de cada time', `
         Alterna entre 3 recortes no topo: <b>Geral</b> (últimos jogos de cada time, casa+fora misturado), <b>Casa</b> (só os jogos do mandante jogando em casa) e <b>Fora</b> (só os jogos do visitante jogando fora) — o recorte Casa/Fora é o mais relevante pro jogo de hoje.<br><br>
         <b>Cada estatística mostra "méd: X"</b> ao lado do valor do time — é a média entre TODOS os times que jogam hoje, recalculada 1x por dia. O valor do time fica <span style="color:#22c55e;font-weight:700">verde</span> se estiver acima dessa média, <span style="color:#ef4444;font-weight:700">vermelho</span> se estiver abaixo (comparação numérica pura, sem julgar se "acima" é bom ou ruim pra aquela estatística específica).<br><br>
         <b>Estatísticas listadas:</b><br>
@@ -2875,7 +2875,7 @@ const APP_GUIA_SECTIONS = {
         Histórico dos confrontos diretos entre os dois times (quando existir), mais os últimos jogos de cada time separadamente — é a fonte de dados crua que alimenta as abas Jogo, Profit, Placares Corretos e Leitura da Partida.<br><br>
         <b>📋 Confronto Direto — Estatísticas:</b> logo no topo, as mesmas estatísticas detalhadas da aba Jogo (vitórias/empates/derrotas, médias, Valor do Gol, Custo do Gol 2.0, Saldo de Gols etc), mas calculadas só em cima dos últimos 5 jogos entre esses dois times específicos — não do histórico geral de cada um. Só aparece com pelo menos 3 confrontos diretos no histórico.`),
 
-      _guiaSec('🏆', 'Aba "Classificações"', `
+      _guiaSec(_icoTrophy(), 'Aba "Classificações"', `
         Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.<br><br>
         <b>⚠️ Aviso de "must win":</b> quando um dos dois times está na zona de rebaixamento ou brigando por vaga de classificação, aparece um aviso no topo da aba. Não aparece em partidas sem tabela de pontos corridos (copas, grupos, mata-mata).`),
 
@@ -2902,9 +2902,9 @@ const APP_GUIA_SECTIONS = {
         <b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade — favoritos marcados aqui são os mesmos usados/adicionados na aba Hoje.<br><br>
         <b>Efeito de gol:</b> quando o placar muda, o número pisca em verde e aparece um banner "⚽ GOL!" no card correspondente.`),
 
-      _guiaSec('📈', 'Gráfico de pressão', `
+      _guiaSec(_icoTrend(), 'Gráfico de pressão', `
         Mostra, minuto a minuto, quem está "empurrando" o jogo (pressão de ataque de cada lado). Em cima do gráfico podem aparecer até 5 selos automáticos, cada um sinalizando um padrão diferente:<br><br>
-        ${_guiaRow('🔥 Pressão + chute', 'O sinal mais forte — o mesmo time que está pressionando também acabou de finalizar. Maior chance de o gol sair logo ali.')}
+        ${_guiaRow(_icoFlame() + ' Pressão + chute', 'O sinal mais forte — o mesmo time que está pressionando também acabou de finalizar. Maior chance de o gol sair logo ali.')}
         ${_guiaRow('▲ / ▼ Pressão sustentada', 'Um dos dois times vem empurrando o jogo de forma consistente por vários minutos seguidos (não é só um pico isolado).')}
         ${_guiaRow('🗺️ Zona do último chute', 'Mostra em que zona do campo (perigosa ou não) saiu a última finalização.')}
         ${_guiaRow('🧠 xG em dobro (oficial)', 'O xG (gol esperado) oficial da partida já está acima do dobro do que seria "normal" pro tempo de jogo até agora — sinal de jogo mais aberto que o esperado.')}
@@ -2914,7 +2914,7 @@ const APP_GUIA_SECTIONS = {
       _guiaSec('🗺️', 'Mapa de chutes', `
         Campo de futebol desenhado com a posição exata de cada finalização da partida até agora — dá pra ver rapidamente se as chances estão vindo de dentro da área (mais perigosas) ou de longe.`),
 
-      _guiaSec('📊', 'Aba do card — Geral', `
+      _guiaSec(_icoChart(), 'Aba do card — Geral', `
         Estatísticas detalhadas ao vivo: Destaques, Finalizações, Ataque, Passes, Defesa e mais. Também mostra o xG estimado da partida (oficial + calculado pelos chutes mapeados) e as odds 1X2 atuais. Tem um botão pra ocultar/mostrar essa aba sem precisar buscar os dados de novo (evita re-fetch desnecessário).`),
 
       _guiaSec('👕', 'Aba do card — Escalações', `
@@ -3025,7 +3025,7 @@ function openHojeGuia() {
       ${pill('Equilibrado','#000','#d97706')} Jogo com incerteza &nbsp;
       ${pill('Jogo Fechado','#fff','#7f1d1d')} Poucos gols esperados`),
 
-    sec('🎯','TIP — A Previsão do Sistema', `
+    sec(_icoTarget(),'TIP — A Previsão do Sistema', `
       O TIP é a dica de resultado mais provável, calculada a partir das probabilidades da plataforma.<br><br>
       ${row(pill('TIP 1','#fff','#166534'),'A previsão favorece a vitória do <b>time da casa</b>')}
       ${row(pill('TIP X','#000','#854d0e'),'A previsão aponta <b>Empate</b> como resultado mais provável')}
@@ -3038,7 +3038,7 @@ function openHojeGuia() {
       <br>
       <b>Importante:</b> O TIP é baseado em dados estatísticos históricos, não é garantia de resultado.`),
 
-    sec('⚡','Momento dos Times', `
+    sec(_icoZap(),'Momento dos Times', `
       O Momento indica a fase atual de cada time com base nas últimas partidas registradas.<br><br>
       ${row('🔼 Em Alta','Time em boa sequência de resultados — principal candidato a vencer')}
       ${row('➡️ Estável','Regularidade média — resultados equilibrados recentemente')}
@@ -3047,7 +3047,7 @@ function openHojeGuia() {
       <br>
       O Momento é um dos componentes do Score Casa/Visitante e pode indicar times em ascensão ou queda mesmo que as probabilidades ainda não reflitam isso completamente.`),
 
-    sec('📊','Probabilidades e Análise de Cenários', `
+    sec(_icoChart(),'Probabilidades e Análise de Cenários', `
       Ao clicar em qualquer partida, o painel de detalhes mostra:<br><br>
       <b>Probabilidades (%):</b><br>
       ${row('1 (Casa) / X / 2','% de chance para cada resultado final')}
@@ -3062,9 +3062,9 @@ function openHojeGuia() {
       ${pill('<40%','#fff','#7f1d1d')} Baixa
       <br><br>
       <b>Análise de Cenários (texto automático):</b><br>
-      ${row('🎯 Cenário Principal','Resume o TIP com nível de confiança em barra visual')}
-      ${row('⚽ Cenário de Gols','Interpreta Over 2.5, BTS e Over 3.5 em linguagem natural')}
-      ${row('📈 Momento dos Times','Compara a forma recente das duas equipes com análise textual')}`),
+      ${row(_icoTarget() + ' Cenário Principal','Resume o TIP com nível de confiança em barra visual')}
+      ${row(_icoBall() + ' Cenário de Gols','Interpreta Over 2.5, BTS e Over 3.5 em linguagem natural')}
+      ${row(_icoTrend() + ' Momento dos Times','Compara a forma recente das duas equipes com análise textual')}`),
 
     sec('📅','Últimas Partidas e Estatísticas', `
       <b>H2H (Histórico direto):</b> Barra colorida mostrando % de vitórias Casa / Empate / Visitante nos confrontos anteriores entre os dois times.<br><br>
@@ -3077,7 +3077,7 @@ function openHojeGuia() {
       <b>Estatísticas — Últimas 10 Partidas:</b> Médias de indicadores como gols marcados/sofridos, gols no 1º/2º tempo, Over/Under, BTS por time.<br><br>
       <b>Estatísticas de Apostas:</b> Gráficos de barra mostrando % histórico de resultados por categoria (casa, fora, ambos, etc.) — útil para identificar padrões de comportamento de cada time.`),
 
-    sec('🏆','Classificação e Favoritos', `
+    sec(_icoTrophy(),'Classificação e Favoritos', `
       <b>Classificação:</b> Tabela da posição atual dos dois times no campeonato, com pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. O time atual aparece destacado.<br><br>
       <b>⭐ Favoritos:</b><br>
       Clique no ⭐ ao lado de qualquer partida para adicioná-la à aba <b>Favoritos</b>.<br>
@@ -3133,14 +3133,14 @@ function openLiveGuia() {
       <b>Cada card na lista mostra:</b><br>
       ${row('Times e placar','Placar atual em tempo real')}
       ${row('Tempo ⏱','Minuto atual com relógio local entre atualizações')}
-      ${row('🎯 Chutes','Chutes totais Casa–Visitante (dados Uniscore)')}
+      ${row(_icoTarget() + ' Chutes','Chutes totais Casa–Visitante (dados Uniscore)')}
       ${row('🔄 Escanteios','Escanteios Casa–Visitante')}
       ${row('🟨 Amarelos','Cartões amarelos Casa–Visitante')}
       ${row('⭐ Favorito','Se a partida está nos seus favoritos do Hoje')}
       <br>
       <b>Efeito de Gol:</b> Quando um gol é marcado, o placar pulsa com animação verde e um banner ⚽ aparece no card.`),
 
-    sec('📈','Attack Momentum — O Gráfico Central', `
+    sec(_icoTrend(),'Attack Momentum — O Gráfico Central', `
       O gráfico de momentum mostra a <b>pressão de ataque</b> de cada time minuto a minuto ao longo da partida.<br><br>
       <b>Como ler o gráfico:</b><br>
       ${row('Barras azuis (↑)','Pressão de ataque do time da CASA')}
@@ -3152,7 +3152,7 @@ function openLiveGuia() {
       <b>Dados:</b> Alimentado pela API SofaScore via nosso backend. Atualiza a cada ciclo de refresh.<br><br>
       <b>Badge 💾 Salvo:</b> Aparece quando a partida encerra — os dados foram gravados no histórico para análise futura.`),
 
-    sec('⚡','Indicador de Sinal de Gol', `
+    sec(_icoZap(),'Indicador de Sinal de Gol', `
       Abaixo do gráfico, o sistema analisa os últimos minutos de momentum e emite um sinal:<br><br>
       ${row(pill('⚡ Gol Casa','#fff','#1e3a5f'),'Score de pressão positivo acima do threshold — casa atacando forte')}
       ${row(pill('⚡ Gol Visitante','#fff','#3f1515'),'Score de pressão negativo abaixo do threshold — visitante atacando forte')}
@@ -3173,20 +3173,20 @@ function openLiveGuia() {
       A lista detalha cada partida similar: time casa, time fora, data, minuto em que estava o sinal e resultado (gol ou não).<br><br>
       <b>Utilidade:</b> Se 8 de 10 partidas com padrão similar terminaram com gol do time da casa, isso reforça o sinal atual.`),
 
-    sec('⚽','Índice de Gol', `
+    sec(_icoBall(),'Índice de Gol', `
       Barra única de <b>0% a 100%</b> que combina 4 fontes de dados históricas para estimar a probabilidade de mais gols na partida atual. Quanto maior, maior o sinal de jogo aberto.<br><br>
       <b>Cada fonte contribui com 25% do índice:</b><br><br>
       ${row('🧠 xG','xG (gols esperados) combinado dos dois times projetado para 90 minutos. 100% = xG ≥ 2.5, que é a média típica de jogos Over 2.5. Se xG não estiver disponível, usa o ritmo de gols atual.')}
-      ${row('📊 Stats','Similaridade Gaussiana entre as estatísticas ao vivo (chutes, grandes chances, posse, escanteios) e o perfil histórico médio de partidas Over 2.5. As stats são projetadas para 90 min antes da comparação.')}
+      ${row(_icoChart() + ' Stats','Similaridade Gaussiana entre as estatísticas ao vivo (chutes, grandes chances, posse, escanteios) e o perfil histórico médio de partidas Over 2.5. As stats são projetadas para 90 min antes da comparação.')}
       ${row('🗺️ Zonas','Conta os chutes ao vivo em zonas perigosas (Área Pequena e Grande) e multiplica pela taxa de conversão histórica de cada zona. Gera um xG por zona. 1.5 xGZ = 100%.')}
-      ${row('📈 Odds','Busca a faixa de odd de abertura da casa (ex: 1.31–1.60) e aplica a taxa histórica de Over 2.5 registrada nessa faixa nas partidas do banco de dados.')}
+      ${row(_icoTrend() + ' Odds','Busca a faixa de odd de abertura da casa (ex: 1.31–1.60) e aplica a taxa histórica de Over 2.5 registrada nessa faixa nas partidas do banco de dados.')}
       <br>
       <b>Escala de leitura:</b><br>
       ${pill('❄️ MUITO BAIXO','#fff','#1e3a8a')} 0–24% &nbsp;
       ${pill('🔵 BAIXO','#fff','#374151')} 25–39% &nbsp;
       ${pill('🟡 MÉDIO','#000','#854d0e')} 40–59%<br>
       ${pill('🟠 ALTO','#fff','#7c2d12')} 60–74% &nbsp;
-      ${pill('🔥 MUITO ALTO','#fff','#14532d')} 75–100%<br><br>
+      ${pill(_icoFlame() + ' MUITO ALTO','#fff','#14532d')} 75–100%<br><br>
       <b>Auto-aprendizado:</b> O índice melhora automaticamente conforme mais partidas são monitoradas. As taxas históricas de cada fonte são recalculadas a cada novo jogo salvo, sem intervenção manual.`),
 
     sec('📡','Dados Uniscore', `
@@ -3729,7 +3729,7 @@ function _painelMethItemShell(u, statsHtml) {
       </div>
       ${statsHtml}
       <button class="painel-meth-watch-btn" title="Ver gráfico de profit acumulado"
-        onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">📈</button>
+        onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">${_icoTrend()}</button>
       <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
         onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
     </div>`;
@@ -6264,8 +6264,8 @@ function _painelMatchRowHtml(m, leagueName) {
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
       </span>
       ${m.match_url
-        ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">📊</button>`
-        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}',${m.odd_1 ?? 'null'},${m.odd_2 ?? 'null'})">📊</button>`}
+        ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">${_icoChart()}</button>`
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}',${m.odd_1 ?? 'null'},${m.odd_2 ?? 'null'})">${_icoChart()}</button>`}
     </div>`;
 }
 
@@ -8133,7 +8133,7 @@ function _bt2OddRangesHtml(selected) {
       <button onclick="_bt2OpenOddRangesWidget()" title="Abre um gráfico com o lucro esperado a cada 100 apostas, por faixa de odd"
         style="margin-left:auto;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;
         border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
-        📊 Unidades a cada 100 jogos
+        ${_icoChart()} Unidades a cada 100 jogos
       </button>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
@@ -8201,7 +8201,7 @@ function _bt2OpenOddRangesWidget() {
     <div style="max-width:700px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
                 border:1px solid var(--border);border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px">
-        <span style="font-size:14px;font-weight:800">📊 Profit a cada 100 jogos — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}</span>
+        <span style="font-size:14px;font-weight:800">${_icoChart()} Profit a cada 100 jogos — ${_bt2EscXml(selected.market_label + ' → ' + selected.selection)}</span>
         <button onclick="document.getElementById('bt2OddRangesOverlay').remove()"
           style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
                  width:26px;height:26px;cursor:pointer;flex-shrink:0">×</button>
@@ -8322,7 +8322,7 @@ async function _bt2LoadMatchesForSelected() {
 }
 
 function _bt2MatchesHtml(m, matches) {
-  const titulo = `🎯 Jogos de hoje que ainda não aconteceram e se encaixam em "${_bt2EscXml(m.market_label + ' → ' + m.selection)}"`;
+  const titulo = `${_icoTarget()} Jogos de hoje que ainda não aconteceram e se encaixam em "${_bt2EscXml(m.market_label + ' → ' + m.selection)}"`;
   if (!matches.length) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px">
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px">${titulo}</div>
@@ -8625,7 +8625,7 @@ function _btcsMatchesSortBy(key) {
 }
 
 function _btcsMatchesHtml(m, matches) {
-  const titulo = `🎯 Jogos de hoje que ainda não aconteceram e se encaixam no placar "${_bt2EscXml(m.bucket)}"`;
+  const titulo = `${_icoTarget()} Jogos de hoje que ainda não aconteceram e se encaixam no placar "${_bt2EscXml(m.bucket)}"`;
   if (!matches.length) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px">
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px">${titulo}</div>
@@ -8827,7 +8827,7 @@ function _btcsRender() {
   content.innerHTML = `
     <div id="btcsSelectedInfo">
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 8px">
-        ${p ? `🎯 Jogos de hoje que se encaixam — placar ${_bt2EscXml(p.bucket)}` : 'Clique numa linha de padrão abaixo pra ver os jogos de hoje'}
+        ${p ? `${_icoTarget()} Jogos de hoje que se encaixam — placar ${_bt2EscXml(p.bucket)}` : 'Clique numa linha de padrão abaixo pra ver os jogos de hoje'}
       </div>
       <div id="btcsMatchesBox"></div>
     </div>
@@ -9077,7 +9077,7 @@ function _jogoComputeStats(rows) {
 }
 
 function _jogoStatsCardHtml(teamName, s, media) {
-  if (!s) return `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName || '—'}</div><div style="color:var(--text2);font-size:15px">sem jogos suficientes</div>`;
+  if (!s) return `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">${_icoBall()} ${teamName || '—'}</div><div style="color:var(--text2);font-size:15px">sem jogos suficientes</div>`;
   // cmpVal/cmpMedia são os números CRUS (não formatados) usados só pra decidir
   // a cor do valor do time (verde se maior que a média, vermelho se menor) —
   // value/mediaVal continuam sendo o texto já formatado pra exibir.
@@ -9094,7 +9094,7 @@ function _jogoStatsCardHtml(teamName, s, media) {
     </div>`;
   };
   return `
-    <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName} <span style="font-weight:400;color:var(--text2)">(${s.n} jogos)</span></div>
+    <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">${_icoBall()} ${teamName} <span style="font-weight:400;color:var(--text2)">(${s.n} jogos)</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:420px;margin-bottom:16px">
       ${row('Número de vitórias FT', `${s.vitFT} (${(s.vitFT/s.n*100).toFixed(0)}%)`, null, media ? `${media.vitFT_pct}%` : null, s.vitFT/s.n*100, media?.vitFT_pct)}
       ${row('Número de vitórias HT', s.nHt ? s.vitHT : '—', s.nHt ? `de ${s.nHt} jogos com dado de 1º tempo` : 'placar do intervalo não encontrado')}
@@ -9553,7 +9553,7 @@ async function _placarContraLoadOdds(id, m) {
     const markets = d.markets || {};
     const placar = markets.placar_exato;
     box.innerHTML = `
-      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">🎯 Placar Exato — odds (back)</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">${_icoTarget()} Placar Exato — odds (back)</div>
       ${placar ? _renderToday2OddsMarket('placar_exato', placar) : '<div style="color:var(--text2)">sem odds de Placar Exato disponíveis pra esse jogo</div>'}`;
     const cache = _placarContraTabCache[id] || (_placarContraTabCache[id] = {});
     cache.placarExatoBuckets = placar ? _placarExatoBuckets(placar.items || []) : [];
@@ -9752,7 +9752,7 @@ function _placarContraRenderConfig(id) {
   }).join('');
 
   box.innerHTML = `
-    <div style="font-size:14px;font-weight:700;margin-bottom:6px">🎯 Previsão — sua configuração</div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:6px">${_icoTarget()} Previsão — sua configuração</div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">${linhas}</div>`;
 }
 
@@ -10404,7 +10404,7 @@ async function _renderToday2Profit(matchId) {
   const aggs = blocks.map(b => _profitAggregate(b.rows, PROFIT_MARKET_LABELS_TRADICIONAL));
   const highlightsSummary = _profitHighlightsSummaryHtml(blocks, aggs, PROFIT_MARKET_LABELS_TRADICIONAL, cache._oddsMarkets);
   const blockHtml = (b, agg) => `
-    <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 2px">⚽ ${b.teamName || '—'} <span style="font-weight:400;color:var(--text2)">(${b.rows.length} jogos c/ odds encontradas: ${b.rows.filter(r => _profitOddsCache[r.id]?.markets).length})</span></div>
+    <div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 2px">${_icoBall()} ${b.teamName || '—'} <span style="font-weight:400;color:var(--text2)">(${b.rows.length} jogos c/ odds encontradas: ${b.rows.filter(r => _profitOddsCache[r.id]?.markets).length})</span></div>
     ${_profitTableHtml(agg, PROFIT_MARKET_LABELS_TRADICIONAL, cache._oddsMarkets)}`;
   const tablesHtml = blocks.length > 1
     ? `<div style="display:flex;gap:16px;align-items:flex-start">
@@ -10432,7 +10432,7 @@ function _profitHighlightsSummaryHtml(blocks, aggs, marketLabels, currentMarkets
   });
   if (!highlights.length) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;max-width:520px">
-      <div style="font-size:12px;color:var(--text2)">⚡ Nenhum sinal de valor (ROI ≥20% com 8+ jogos) encontrado nesses times/mercados.</div>
+      <div style="font-size:12px;color:var(--text2)">${_icoZap()} Nenhum sinal de valor (ROI ≥20% com 8+ jogos) encontrado nesses times/mercados.</div>
     </div>`;
   }
   // Melhor sinal = menor CV (mais consistente) entre os que têm odd disponível hoje —
@@ -10452,7 +10452,7 @@ function _profitHighlightsSummaryHtml(blocks, aggs, marketLabels, currentMarkets
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:900px">
       <div style="font-size:13px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
-        ⚡ ${highlights.length} sinal(is) de valor encontrado(s) — resumo de todos os mercados
+        ${_icoZap()} ${highlights.length} sinal(is) de valor encontrado(s) — resumo de todos os mercados
       </div>
       ${avisoPoucosSinais}
       <table style="width:100%;font-size:14px;text-align:center;border-collapse:collapse;table-layout:fixed">
@@ -10468,7 +10468,7 @@ function _profitHighlightsSummaryHtml(blocks, aggs, marketLabels, currentMarkets
             <tr style="background:${isMelhor ? 'rgba(34,197,94,.16)' : (i % 2 ? 'rgba(255,255,255,.02)' : 'transparent')};${isMelhor ? 'box-shadow:inset 3px 0 0 #22c55e' : ''}">
               <td style="text-align:left;padding:6px 10px;color:var(--text)">${h.teamName}</td>
               <td style="text-align:left;color:var(--text2)">${h.market}</td>
-              <td style="text-align:left;color:var(--text)">${h.label}${isMelhor ? ' <span title="Melhor sinal: menor CV entre os que têm odd disponível hoje" style="cursor:help">🏆</span>' : ''}</td>
+              <td style="text-align:left;color:var(--text)">${h.label}${isMelhor ? ` <span title="Melhor sinal: menor CV entre os que têm odd disponível hoje" style="cursor:help">${_icoTrophy()}</span>` : ''}</td>
               <td style="color:var(--text2)">${h.r.bets}</td>
               <td style="color:var(--text2)">${h.r.wins}/${h.r.bets} (${(h.r.wins / h.r.bets * 100).toFixed(0)}%)</td>
               <td style="color:#22c55e;font-weight:700">${h.r.profit >= 0 ? '+' : ''}${h.r.profit.toFixed(2)}u</td>
@@ -10508,7 +10508,7 @@ function _csBucketFrequency(rows) {
 }
 
 function _csFrequencyTableHtml(freq, teamName) {
-  const titulo = `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">⚽ ${teamName || '—'} <span style="font-weight:400;color:var(--text2)">(${freq.n} jogos)</span></div>`;
+  const titulo = `<div style="font-size:15px;font-weight:700;text-align:left;margin:6px 0 8px">${_icoBall()} ${teamName || '—'} <span style="font-weight:400;color:var(--text2)">(${freq.n} jogos)</span></div>`;
   if (!freq.n) return titulo + '<div style="color:var(--text2);font-size:15px">sem jogos suficientes</div>';
   return titulo + `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:520px;margin-bottom:16px">
@@ -10543,18 +10543,18 @@ function _csImprovaveisSummaryHtml(blocks, freqs) {
   ) : [];
   if (!amostraCompleta) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;max-width:520px">
-      <div style="font-size:12px;color:var(--text2)">🎯 Resumo de improváveis exige amostra de 30 jogos por time — aqui tem menos (${freqs.map(f=>f.n).join(', ')}), então não é exibido.</div>
+      <div style="font-size:12px;color:var(--text2)">${_icoTarget()} Resumo de improváveis exige amostra de 30 jogos por time — aqui tem menos (${freqs.map(f=>f.n).join(', ')}), então não é exibido.</div>
     </div>`;
   }
   if (!improvaveis.length) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;max-width:520px">
-      <div style="font-size:12px;color:var(--text2)">🎯 Nenhum placar com 0 ocorrências em ${freqs.length > 1 ? 'ambos os times' : 'esse time'}.</div>
+      <div style="font-size:12px;color:var(--text2)">${_icoTarget()} Nenhum placar com 0 ocorrências em ${freqs.length > 1 ? 'ambos os times' : 'esse time'}.</div>
     </div>`;
   }
   return `
     <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:700px">
       <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
-        🎯 Placares mais improváveis — nunca ocorreram${freqs.length > 1 ? ' em nenhum dos dois times' : ' nesse time'}
+        ${_icoTarget()} Placares mais improváveis — nunca ocorreram${freqs.length > 1 ? ' em nenhum dos dois times' : ' nesse time'}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;padding:12px">
         ${improvaveis.map(key => `
@@ -11003,7 +11003,7 @@ async function _renderToday2Insights(matchId) {
         title="Baixa 'Estatísticas acima da média (aba Jogo)' de todos os jogos de hoje que tiverem os 2 lados (casa e fora) com dado suficiente, num único TXT"
         style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
                border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer">
-        ⬇️ Baixar TXT (📈 acima da média — todas as partidas)
+        ⬇️ Baixar TXT (${_icoTrend()} acima da média — todas as partidas)
       </button>
     </div>
     ${_today2InsightsGridHtml(cards)}
@@ -11022,7 +11022,7 @@ async function _renderToday2Insights(matchId) {
     const destaque = _today2DestaqueAcimaMediaCard(grupos);
     wrap.innerHTML = `
       ${destaque ? _today2InsightsGridInner([destaque]) : ''}
-      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin:${destaque ? '14px' : '0'} 0 8px">📈 Estatísticas acima da média (aba Jogo)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin:${destaque ? '14px' : '0'} 0 8px">${_icoTrend()} Estatísticas acima da média (aba Jogo)</div>
       ${_today2AcimaMediaCompactHtml(grupos)}`;
   });
 
@@ -11495,7 +11495,7 @@ function _today2AcimaMediaPorTime({ m, homeHomeBlock, awayAwayBlock, mediaCasa, 
 function _today2AcimaMediaCompactHtml(grupos) {
   if (!grupos.length) return '';
   return grupos.map(g => `
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin:10px 0 6px">⚽ ${_bt2EscXml(g.team)} <span style="font-weight:400;color:var(--text2)">(${g.lado})</span></div>
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin:10px 0 6px">${_icoBall()} ${_bt2EscXml(g.team)} <span style="font-weight:400;color:var(--text2)">(${g.lado})</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:520px;margin-bottom:14px">
       ${g.rows.map(r => {
         const diff = r.val - r.mediaVal;
@@ -11763,7 +11763,7 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val">${m.odd_under || '-'}</span></div>
       </div>` : ''}
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
-        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
+        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
@@ -11772,7 +11772,7 @@ function renderLive2Card(m) {
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
-        <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">📊</button>
+        <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()}</button>
       </div>
     </div>`;
 }
@@ -12137,7 +12137,7 @@ function _live2CombinedSignalBadgeHtml(points, shots, m) {
 
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;
     color:${color};background:${color}22;border:1px solid ${color}66;border-radius:10px;padding:2px 8px">
-    🔥 ${who} pressionando e finalizando
+    ${_icoFlame()} ${who} pressionando e finalizando
   </span>`;
 }
 
@@ -12243,7 +12243,7 @@ function _live2RateStatsHtml(m) {
     const [h, a] = pair;
     return `
     <div class="live2-stat-row" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
-      <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">📊 ${label}:</span>
+      <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">${_icoChart()} ${label}:</span>
       <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
       <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
       <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
@@ -12525,7 +12525,7 @@ function _live2DetectPressureMarkers(points) {
     const mStart = Math.floor(points[w.startIdx].minute);
     const mEnd   = Math.floor(points[w.endIdx].minute);
     markers.push({
-      type: 'over', icon: '🔥', minute: (mStart + mEnd) / 2,
+      type: 'over', icon: _icoFlame(), minute: (mStart + mEnd) / 2,
       label: `${mStart}' à ${mEnd}' — Momento Over`,
     });
   });
@@ -12584,7 +12584,7 @@ function _live2DetectPressureMarkers(points) {
         const minute = Math.floor(points[i].minute);
         const isHome = (points[i].value || 0) >= 0;
         markers.push({
-          type: 'chance', icon: '⚡', minute, isHome,
+          type: 'chance', icon: _icoZap(), minute, isHome,
           label: `${minute}' — Grande Chance (${isHome ? 'Casa' : 'Fora'}) · validado na base (lift ${_live2ChancePatternStats.lift}x)`,
         });
       }
@@ -13169,7 +13169,7 @@ async function loadLiveMatches(silent = false) {
           if (v === null) return '';
           const info = goalScoreInfo(v);
           return `<span title="⚽ ${info.label}" style="font-size:9px;font-weight:700;color:${info.color};
-            background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px;margin-left:4px;flex-shrink:0">⚽${v}</span>`;
+            background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px;margin-left:4px;flex-shrink:0">${_icoBall()}${v}</span>`;
         };
 
         html += `
@@ -13446,11 +13446,11 @@ function openScoreStudy(matchId) {
     <div style="max-width:420px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
                 border:1px solid var(--border);border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span style="font-size:14px;font-weight:800">📈 Estatísticas Pré — ${m.casa} × ${m.fora}</span>
+        <span style="font-size:14px;font-weight:800">${_icoTrend()} Estatísticas Pré — ${m.casa} × ${m.fora}</span>
         <div style="display:flex;gap:6px;align-items:center">
           <button onclick="openProgHistory()" title="Histórico de acertos"
             style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
-                   font-size:11px;padding:4px 8px;cursor:pointer">📈 Histórico</button>
+                   font-size:11px;padding:4px 8px;cursor:pointer">${_icoTrend()} Histórico</button>
           <button onclick="_closeScoreStudy()"
             style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
                    width:26px;height:26px;cursor:pointer">×</button>
@@ -13749,7 +13749,7 @@ function buildStatAreaPrognosisHtml(detalhes, m) {
   return `
     <div style="background:var(--bg3);border:1px solid #2f9e8f66;border-radius:8px;padding:10px 12px;margin-bottom:12px">
       <div style="font-size:10px;font-weight:800;color:#2f9e8f;text-transform:uppercase;margin-bottom:6px">
-        🎯 Prognóstico
+        ${_icoTarget()} Prognóstico
       </div>
       ${groupTitle('Resultado Final', _1x2Conf)}
       ${barRow(`${m.casa} vencer`, pCasa, pCasa >= 45 ? '#22c55e' : null)}
@@ -13792,7 +13792,7 @@ function buildStatAreaPrognosisHtml(detalhes, m) {
           </span>`;
         return `
         <div style="margin-top:8px">
-          <div style="font-size:9px;color:var(--text2);margin-bottom:4px">🎯 placares mais prováveis</div>
+          <div style="font-size:9px;color:var(--text2);margin-bottom:4px">${_icoTarget()} placares mais prováveis</div>
           <div style="display:flex;gap:5px;flex-wrap:wrap">${placaresProvaveis.map(e => chip(e, '#22c55e')).join('')}</div>
           <div style="font-size:9px;color:var(--text2);margin:6px 0 4px">🧊 placares menos prováveis</div>
           <div style="display:flex;gap:5px;flex-wrap:wrap">${placaresImprovaveis.map(e => chip(e, '#ef4444')).join('')}</div>
@@ -13931,7 +13931,7 @@ async function openProgHistory() {
     <div style="max-width:460px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg2);
                 border:1px solid var(--border);border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span style="font-size:14px;font-weight:800">📈 Histórico de Acertos</span>
+        <span style="font-size:14px;font-weight:800">${_icoTrend()} Histórico de Acertos</span>
         <button onclick="document.getElementById('progHistoryOverlay').remove()"
           style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);
                  width:26px;height:26px;cursor:pointer">×</button>
@@ -14007,7 +14007,7 @@ function buildGoalScorersHtml(m) {
     const color = g.isHome ? '#60a5fa' : '#f87171';
     const name = g.player ? g.player : who;
     const og = g.ownGoal ? ' (contra)' : '';
-    return `<span style="font-size:9px;color:${color};white-space:nowrap">⚽ ${g.minute}' ${name}${og}</span>`;
+    return `<span style="font-size:9px;color:${color};white-space:nowrap">${_icoBall()} ${g.minute}' ${name}${og}</span>`;
   }).join('<span style="color:var(--text2);font-size:9px"> · </span>');
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${rows}</div>`;
 }
@@ -14039,7 +14039,7 @@ function _cardStatSection(label) {
 // Primeira seção (Posse & Ataque) — sempre visível
 function _buildStatsRowsPrimary(stObj) {
   return [
-    _cardStatSection('⚽ Posse & Ataque'),
+    _cardStatSection(_icoBall() + ' Posse & Ataque'),
     _cardStatRow('Posse de Bola',           'ball_possession',      'pct', stObj),
     _cardStatRow('Total de Chutes',         'shots',                '',    stObj),
     _cardStatRow('Chutes no Alvo',          'shots_on_target',      '',    stObj),
@@ -14058,7 +14058,7 @@ function _buildStatsRowsPrimary(stObj) {
 // Demais seções — ocultas por padrão, reveladas pelo botão "Ver mais"
 function _buildStatsRowsRest(stObj) {
   return [
-    _cardStatSection('🎯 Passes'),
+    _cardStatSection(_icoTarget() + ' Passes'),
     _cardStatRow('Total de Passes',         'passes',               '',    stObj, 'passes_accuracy'),
     _cardStatRow('Arremesso Lateral',       'throw_in',             '',    stObj),
     _cardStatRow('Entradas no Últ. Terço',  'final_third_entries',  '',    stObj),
@@ -14317,7 +14317,7 @@ function buildLiveOddsHtml(m) {
       </div>
       ${od.ou_line ? `
       <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">
-        ⚽ Over/Under ${od.ou_line}
+        ${_icoBall()} Over/Under ${od.ou_line}
       </div>
       <div style="display:flex;gap:8px">
         ${oddBox(`Over ${od.ou_line}`, od.ou_over)}
@@ -14376,7 +14376,7 @@ function buildCsResultHtml(data, m) {
 
   return `
     <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
-      🎯 de ${data.total} partidas do histórico, <b>${data.stat_n}</b> tiveram o placar
+      ${_icoTarget()} de ${data.total} partidas do histórico, <b>${data.stat_n}</b> tiveram o placar
       <b>${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</b> em algum momento — esses foram os placares finais mais comuns entre elas
     </div>
     ${rows}`;
@@ -14407,7 +14407,7 @@ function renderLiveGrid(matches) {
     if (v === null) return '';
     const info = goalScoreInfo(v);
     return `<span style="font-size:9px;font-weight:700;color:${info.color};
-      background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px">⚽${v}</span>`;
+      background:var(--bg3);border:1px solid ${info.color}44;border-radius:3px;padding:0 4px">${_icoBall()}${v}</span>`;
   };
   // Remove a mensagem de "nenhum jogo" que possa ter ficado de uma atualização anterior vazia
   wrap.querySelectorAll('.live-empty').forEach(el => el.remove());
@@ -14465,12 +14465,12 @@ function renderLiveGrid(matches) {
           <div id="cardGoals_${m.id}" style="text-align:center;margin-top:4px"></div>
         </div>
         <div class="live-card-momentum-wrap" id="cardMomentumWrap_${m.id}">
-          <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 pressão — carregando...</div>
+          <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
         </div>
         <div class="live-card-shotmap-wrap" id="cardShotmapWrap_${m.id}"></div>
         <div class="live-card-tabs live-card-tabs-narrow" id="cardTabs_${m.id}">
           <button class="live-card-tab-btn" onclick="openScoreStudy('${m.id}')" title="Estatísticas Pré"
-            style="color:#2f9e8f;border-color:#2f9e8f66">📈</button>
+            style="color:#2f9e8f;border-color:#2f9e8f66">${_icoTrend()}</button>
           <button class="live-card-tab-btn active" onclick="setCardTab('${m.id}','geral',this)">Geral</button>
           <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','escalacoes',this)">Escalações</button>
           <button class="live-card-tab-btn" onclick="setCardTab('${m.id}','odds',this)">Odds</button>
@@ -14608,7 +14608,7 @@ function buildCardStandingsHtml(standings, m) {
   return `
     <div style="padding:6px 4px">
       <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px">
-        🏆 ${standings[0]?.competicao || ''}
+        ${_icoTrophy()} ${standings[0]?.competicao || ''}
       </div>
       <table class="standings-table" style="font-size:11px">
         <thead>
@@ -14700,7 +14700,7 @@ function buildShotAnaliseHtml(shotSim, m) {
   const list = shotSim.similar || [];
   if (!list.length) {
     return `<div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px;
-                border-top:1px solid var(--border);padding-top:10px">🎯 Padrão de Chutes</div>
+                border-top:1px solid var(--border);padding-top:10px">${_icoTarget()} Padrão de Chutes</div>
       <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px 0">
         ainda sem histórico de mapa de chutes parecido suficiente</div>`;
   }
@@ -14722,7 +14722,7 @@ function buildShotAnaliseHtml(shotSim, m) {
 
   return `
     <div style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 6px;
-                border-top:1px solid var(--border);padding-top:10px">🎯 Padrão de Chutes</div>
+                border-top:1px solid var(--border);padding-top:10px">${_icoTarget()} Padrão de Chutes</div>
     <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
       comparando as zonas de chute atuais com ${shotSim.total || list.length} partidas parecidas
       (estatística sobre ${statN}${statN < 15 ? ' — amostra pequena ainda' : ''})
@@ -14761,7 +14761,7 @@ function buildCardAnaliseHtml(sim, m) {
 
   return `
     <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:10px">
-      📈 comparando o padrão dos últimos 5 min do gráfico de <b>${m.casa}</b> × <b>${m.fora}</b>
+      ${_icoTrend()} comparando o padrão dos últimos 5 min do gráfico de <b>${m.casa}</b> × <b>${m.fora}</b>
       com ${sim.total || list.length} partidas passadas parecidas (estatística sobre ${statN})
     </div>
     ${pctBar(`${m.casa} marcar nos próximos 5min`, pctH, '#3b82f6')}
@@ -14815,7 +14815,7 @@ async function _loadGridExtras(m) {
         const badgeEl = document.getElementById(`cardPressureBadge_${m.id}`);
         if (badgeEl) badgeEl.innerHTML = buildPressureBadgeHtml(points, m);
       } else {
-        wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">📈 sem dados de pressão ainda</div>`;
+        wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} sem dados de pressão ainda</div>`;
       }
     }
 
@@ -15004,7 +15004,7 @@ function buildCombinedSignalBadgeHtml(points, shots, m) {
 
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;
     color:${color};background:${color}22;border:1px solid ${color}66;border-radius:10px;padding:2px 8px">
-    🔥 ${who} pressionando e finalizando
+    ${_icoFlame()} ${who} pressionando e finalizando
   </span>`;
 }
 
@@ -15259,7 +15259,7 @@ function _injectUniDataToRows(matches) {
     const mini = document.createElement('div');
     mini.className = 'uni-mini';
     mini.innerHTML = `
-      <span title="Total de Chutes">🎯 ${shotsH}<span style="color:var(--text2)">-</span>${shotsA}</span>
+      <span title="Total de Chutes">${_icoTarget()} ${shotsH}<span style="color:var(--text2)">-</span>${shotsA}</span>
       <span title="Escanteios">🔄 ${cornH}<span style="color:var(--text2)">-</span>${cornA}</span>
       <span title="Cartões Amarelos">🟨 ${yellowH}<span style="color:var(--text2)">-</span>${yellowA}</span>
     `;
@@ -15426,7 +15426,7 @@ function renderLiveDetail(m) {
   // ── Attack Momentum (canvas — dados SofaScore) ──
   html += `
     <div class="live-section">
-      <div class="live-section-title">📈 Attack Momentum</div>
+      <div class="live-section-title">${_icoTrend()} Attack Momentum</div>
       <div style="padding:8px 12px 4px">
         <div style="margin-bottom:4px">
           <div style="font-size:10px;display:flex;justify-content:space-between">
@@ -15852,7 +15852,7 @@ async function loadMomentumChart(eventId, homeName, awayName, liga) {
         row.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;gap:4px;width:100%;margin-top:4px;font-size:10px;line-height:1.4';
         row.innerHTML = `
           <div style="text-align:right;color:rgba(147,197,253,0.9)">${homeLines.join('<br>')}</div>
-          <div style="color:#ef444480;font-size:9px;padding-top:2px">⚽</div>
+          <div style="color:#ef444480;font-size:9px;padding-top:2px">${_icoBall()}</div>
           <div style="text-align:left;color:rgba(253,186,116,0.9)">${awayLines.join('<br>')}</div>`;
         scoreBlock.appendChild(row);
       }
@@ -16530,7 +16530,7 @@ async function _updateStatsPatternPanel(d) {
     <div style="padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
         <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.5px">
-          ⚽ ÍNDICE DE GOL
+          ${_icoBall()} ÍNDICE DE GOL
           <span style="font-weight:400;margin-left:4px">min ${safeMin}'${sLabel}</span>
         </div>
         <div style="font-size:12px;font-weight:800;color:${grade.color}">${grade.text}</div>
@@ -16546,9 +16546,9 @@ async function _updateStatsPatternPanel(d) {
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
         ${miniSub(idx1, '🧠 xG',    'xG combinado projetado a 90min vs média Over 2.5')}
-        ${miniSub(idx2, '📊 Stats', 'Similaridade das estatísticas ao perfil histórico Over 2.5')}
+        ${miniSub(idx2, _icoChart() + ' Stats', 'Similaridade das estatísticas ao perfil histórico Over 2.5')}
         ${miniSub(idx3, '🗺️ Zonas','xG esperado pelos chutes em zonas perigosas')}
-        ${miniSub(idx4, '📈 Odds',  'Taxa histórica Over 2.5 para esta faixa de odd de abertura')}
+        ${miniSub(idx4, _icoTrend() + ' Odds',  'Taxa histórica Over 2.5 para esta faixa de odd de abertura')}
       </div>
     </div>`;
 }
@@ -16644,7 +16644,7 @@ function _shotmapStatBar(label, total, goals, color) {
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
       <span style="color:var(--text2)">${label}</span>
       <span style="font-weight:700;color:var(--text1)">${total} chutes</span>
-      <span style="color:#22c55e;font-weight:700">${goals} ⚽</span>
+      <span style="color:#22c55e;font-weight:700">${goals} ${_icoBall()}</span>
     </div>`;
 }
 
@@ -16759,7 +16759,7 @@ function _buildShotMapHtmlInner(shots, homeName, awayName, mapKey, period) {
   return `
   <div id="shotmapWrap_${mapKey}" style="margin-top:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
-      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">⚽ MAPA DE CHUTES</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">${_icoBall()} MAPA DE CHUTES</div>
       <div style="display:flex;align-items:center;gap:4px">
         ${periodBtn('all', 'Geral')}${periodBtn('1', '1º Tempo')}${periodBtn('2', '2º Tempo')}
         <button class="shotmap-toggle-btn" onclick="_toggleShotmapBody('${mapKey}', this)"
@@ -16850,7 +16850,7 @@ function buildIndicatorsHtml(d, homeName, awayName) {
   return `
   <div style="border:1px solid #2e3249;border-radius:8px;padding:10px 12px;background:#1a1d27;margin-top:2px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">📊 INDICADORES</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.05em">${_icoChart()} INDICADORES</span>
       <span style="font-size:9px;color:#64748b">${totalHist} partidas histórico</span>
     </div>
 
@@ -17100,7 +17100,7 @@ function _renderUniscore(d) {
     return `
       <div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">📊 Pressão</span>
+          <span style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase">${_icoChart()} Pressão</span>
           <span style="font-size:9px;color:var(--text2)">${domLabel} · <span style="color:#6b7280">min ${pts[pts.length-1].m}'</span></span>
         </div>
         <!-- Barra de pressão total -->
@@ -17126,7 +17126,7 @@ function _renderUniscore(d) {
   const liveOddsHtml = (lo.h && lo.changed) ? `
     <div style="background:#1a1a2e;border:1px solid #f59e0b88;border-radius:7px;
                 padding:5px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:10px;font-weight:700;color:#f59e0b">⚡ ODDS MUDANDO</span>
+      <span style="font-size:10px;font-weight:700;color:#f59e0b">${_icoZap()} ODDS MUDANDO</span>
       <span style="font-size:11px;font-weight:800;color:#60a5fa">1: ${lo.h}</span>
       <span style="font-size:11px;font-weight:800;color:var(--text2)">X: ${lo.x}</span>
       <span style="font-size:11px;font-weight:800;color:#f87171">2: ${lo.a}</span>
@@ -17163,7 +17163,7 @@ function _renderUniscore(d) {
   const xgHtml = (xgH > 0 || xgA > 0) ? `
     <div style="background:var(--bg3);border:1px solid #3f8fc433;border-radius:7px;
                 padding:6px 10px;margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:#3f8fc4;letter-spacing:.5px;margin-bottom:5px">⚽ xG — GOLS ESPERADOS</div>
+      <div style="font-size:9px;font-weight:700;color:#3f8fc4;letter-spacing:.5px;margin-bottom:5px">${_icoBall()} xG — GOLS ESPERADOS</div>
       <div style="display:grid;grid-template-columns:36px 1fr auto 1fr 36px;align-items:center;gap:4px">
         <span style="font-size:14px;font-weight:800;color:${xgHColor};text-align:right">${xgH.toFixed(2)}</span>
         <div style="height:7px;background:var(--bg);border-radius:4px;overflow:hidden;display:flex;justify-content:flex-end">
@@ -17186,7 +17186,7 @@ function _renderUniscore(d) {
   // Função que gera as linhas de stats para um objeto de período específico
   const buildStatsRows = (stObj) => [
     // ── Posse ──────────────────────────────────────────────────────────
-    statSection('⚽ Posse & Ataque'),
+    statSection(_icoBall() + ' Posse & Ataque'),
     statRow('Posse de Bola',           'ball_possession',      'pct', stObj),
     statRow('Total de Chutes',         'shots',                '',    stObj),
     statRow('Chutes no Alvo',          'shots_on_target',      '',    stObj),
@@ -17201,7 +17201,7 @@ function _renderUniscore(d) {
     statRow('Cobranças de Falta',      'freekicks',            '',    stObj),
     statRow('Impedimentos',            'offsides',             '',    stObj),
     // ── Passes ─────────────────────────────────────────────────────────
-    statSection('🎯 Passes'),
+    statSection(_icoTarget() + ' Passes'),
     statRow('Total de Passes',         'passes',               '',    stObj, 'passes_accuracy'),
     statRow('Arremesso Lateral',        'throw_in',            '',    stObj),
     statRow('Entradas no Últ. Terço',  'final_third_entries',  '',    stObj),
@@ -17280,7 +17280,7 @@ function _renderUniscore(d) {
   const statsHtml = statsRows || _hasPeriods ? `
     <div style="padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-        <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.4px">📊 ESTATÍSTICAS</div>
+        <div style="font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.4px">${_icoChart()} ESTATÍSTICAS</div>
         <button class="stats-toggle-btn" onclick="(function(){var b=document.getElementById('uniStatsBody');var btn=this;if(b.style.display==='none'){b.style.display='';btn.textContent='Ocultar';localStorage.setItem('liveStatsHidden','0');}else{b.style.display='none';btn.textContent='Mostrar';localStorage.setItem('liveStatsHidden','1');}}).call(this)"
                 style="font-size:8px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;cursor:pointer">Ocultar</button>
       </div>
@@ -17291,8 +17291,8 @@ function _renderUniscore(d) {
     </div>` : `
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-around;
                 padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:6px">
-      ${[['⚽','Escanteios',s.escanteios_casa,s.escanteios_fora],
-         ['🎯','Chutes',s.chutes_casa,s.chutes_fora],
+      ${[[_icoBall(),'Escanteios',s.escanteios_casa,s.escanteios_fora],
+         [_icoTarget(),'Chutes',s.chutes_casa,s.chutes_fora],
          ['🟨','Amarelos',s.amarelos_casa,s.amarelos_fora],
          ['🟥','Vermelhos',s.vermelhos_casa,s.vermelhos_fora]].map(([ic,lb,h,a]) =>
         `<div style="display:flex;flex-direction:column;align-items:center;min-width:52px">
@@ -17350,7 +17350,7 @@ function _renderUniscore(d) {
 
   const formHtml = (d.forma_casa?.length || d.forma_fora?.length) ? `
     <div style="margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:4px;letter-spacing:.4px">📊 ÚLTIMOS 5 JOGOS</div>
+      <div style="font-size:9px;font-weight:700;color:var(--text2);margin-bottom:4px;letter-spacing:.4px">${_icoChart()} ÚLTIMOS 5 JOGOS</div>
       <div style="display:flex;flex-direction:column;gap:4px">
         ${formRow('Casa', d.forma_casa, true)}
         ${formRow('Fora', d.forma_fora, false)}
@@ -17565,7 +17565,7 @@ function btGoalScoreBadge(m) {
   if (gs === null) return '';
   const { label, color } = goalScoreInfo(gs);
   return `<span title="⚽ ${label}" style="font-size:10px;font-weight:700;color:${color};
-    background:var(--bg);border:1px solid ${color}44;border-radius:4px;padding:1px 5px">⚽${gs}</span>`;
+    background:var(--bg);border:1px solid ${color}44;border-radius:4px;padding:1px 5px">${_icoBall()}${gs}</span>`;
 }
 
 function renderBtMatchRow(m, handler) {
@@ -18252,7 +18252,7 @@ function renderGoalScore(m) {
   return `
     <div class="goal-score-widget">
       <div class="goal-score-inner">
-        <span class="goal-score-label-left">⚽ Score Gols</span>
+        <span class="goal-score-label-left">${_icoBall()} Score Gols</span>
         <div class="goal-score-bar-track">
           <div class="goal-score-bar-fill" style="width:${s}%;background:${color}"></div>
         </div>
@@ -18673,7 +18673,7 @@ function convictionBadge(s, title) {
   const cor = s >= 75 ? '#22c55e' : s >= 55 ? '#84cc16' : s >= 35 ? '#f59e0b' : '#ef4444';
   const bg  = s >= 75 ? '#0d2d0d' : s >= 55 ? '#1a2a0a' : s >= 35 ? '#2a1f00' : '#2d0a0a';
   return `<span title="${title}" style="font-size:10px;font-weight:700;color:${cor};background:${bg};
-    border-radius:4px;padding:1px 5px;white-space:nowrap">🎯${s}</span>`;
+    border-radius:4px;padding:1px 5px;white-space:nowrap">${_icoTarget()}${s}</span>`;
 }
 
 function renderConvictionWidget(m, isHome) {
@@ -18944,9 +18944,9 @@ function gerarConvergencia(m) {
   const tip = m.tip;
 
   // 1. TIP do site
-  if (tip === '1') sinais.casa.push({ label: 'TIP do site', icon: '🎯' });
-  else if (tip === 'X') sinais.empate.push({ label: 'TIP do site', icon: '🎯' });
-  else if (tip === '2') sinais.fora.push({ label: 'TIP do site', icon: '🎯' });
+  if (tip === '1') sinais.casa.push({ label: 'TIP do site', icon: _icoTarget() });
+  else if (tip === 'X') sinais.empate.push({ label: 'TIP do site', icon: _icoTarget() });
+  else if (tip === '2') sinais.fora.push({ label: 'TIP do site', icon: _icoTarget() });
 
   // 2. H2H dominância
   const h2h = d.grafico_h2h || {};
@@ -18969,8 +18969,8 @@ function gerarConvergencia(m) {
     if (fh && fa) {
       const wH = (fh.match(/W/g) || []).length;
       const wA = (fa.match(/W/g) || []).length;
-      if (wH > wA + 1) sinais.casa.push({ label: `Forma: ${wH}V vs ${wA}V fora`, icon: '📈' });
-      else if (wA > wH + 1) sinais.fora.push({ label: `Forma: ${wA}V vs ${wH}V casa`, icon: '📈' });
+      if (wH > wA + 1) sinais.casa.push({ label: `Forma: ${wH}V vs ${wA}V fora`, icon: _icoTrend() });
+      else if (wA > wH + 1) sinais.fora.push({ label: `Forma: ${wA}V vs ${wH}V casa`, icon: _icoTrend() });
     }
   }
 
@@ -18980,8 +18980,8 @@ function gerarConvergencia(m) {
   if (allHL.length >= 2) {
     const pts1 = parseInt(allHL[0].pontos) || 0;
     const pts2 = parseInt(allHL[1].pontos) || 0;
-    if (pts1 > pts2 + 5) sinais.casa.push({ label: `Tabela: +${pts1 - pts2} pts a frente`, icon: '🏆' });
-    else if (pts2 > pts1 + 5) sinais.fora.push({ label: `Tabela: +${pts2 - pts1} pts a frente`, icon: '🏆' });
+    if (pts1 > pts2 + 5) sinais.casa.push({ label: `Tabela: +${pts1 - pts2} pts a frente`, icon: _icoTrophy() });
+    else if (pts2 > pts1 + 5) sinais.fora.push({ label: `Tabela: +${pts2 - pts1} pts a frente`, icon: _icoTrophy() });
   }
 
   // 5. Ataque vs Defesa
@@ -18995,19 +18995,19 @@ function gerarConvergencia(m) {
     const gc1 = parseFloat(s1['Average conceded goals per match']) || 0;
     const gc2 = parseFloat(s2['Average conceded goals per match']) || 0;
     if (avg1 > 0 && gc2 > 0 && avg1 > gc2 + 0.4)
-      sinais.casa.push({ label: `Ataque ${avg1.toFixed(1)} vs defesa ${gc2.toFixed(1)} gc/j`, icon: '📊' });
+      sinais.casa.push({ label: `Ataque ${avg1.toFixed(1)} vs defesa ${gc2.toFixed(1)} gc/j`, icon: _icoChart() });
     else if (avg2 > 0 && gc1 > 0 && avg2 > gc1 + 0.4)
-      sinais.fora.push({ label: `Ataque ${avg2.toFixed(1)} vs defesa ${gc1.toFixed(1)} gc/j`, icon: '📊' });
+      sinais.fora.push({ label: `Ataque ${avg2.toFixed(1)} vs defesa ${gc1.toFixed(1)} gc/j`, icon: _icoChart() });
     const totalAvg = avg1 + avg2;
-    if (totalAvg >= 2.5) golSinais.muitos.push({ label: `Média ${totalAvg.toFixed(1)} gols/jogo`, icon: '📊' });
-    else if (totalAvg > 0 && totalAvg < 1.8) golSinais.poucos.push({ label: `Média ${totalAvg.toFixed(1)} gols/jogo`, icon: '📊' });
+    if (totalAvg >= 2.5) golSinais.muitos.push({ label: `Média ${totalAvg.toFixed(1)} gols/jogo`, icon: _icoChart() });
+    else if (totalAvg > 0 && totalAvg < 1.8) golSinais.poucos.push({ label: `Média ${totalAvg.toFixed(1)} gols/jogo`, icon: _icoChart() });
   }
 
   // 6. Over 2.5 / BTS
   const over25v = parseInt(m.over_2_5) || 0;
   const btsV = parseInt(m.bts) || 0;
-  if (over25v >= 65) golSinais.muitos.push({ label: `Over 2.5: ${over25v}%`, icon: '⚽' });
-  else if (over25v > 0 && over25v <= 35) golSinais.poucos.push({ label: `Under 2.5: ${100 - over25v}%`, icon: '⚽' });
+  if (over25v >= 65) golSinais.muitos.push({ label: `Over 2.5: ${over25v}%`, icon: _icoBall() });
+  else if (over25v > 0 && over25v <= 35) golSinais.poucos.push({ label: `Under 2.5: ${100 - over25v}%`, icon: _icoBall() });
   if (btsV >= 60) golSinais.muitos.push({ label: `BTS: ${btsV}%`, icon: '🥅' });
 
   // 7. Padrão histórico subvalorado reforça TIP
@@ -19058,7 +19058,7 @@ function gerarConvergencia(m) {
   if (golSinais.muitos.length > 0 || golSinais.poucos.length > 0) {
     const maxG = Math.max(golSinais.muitos.length, golSinais.poucos.length, 1);
     golHtml = `
-      <div class="conv-divider">⚽ Direção de Gols</div>
+      <div class="conv-divider">${_icoBall()} Direção de Gols</div>
       ${renderBar('Muitos gols (+2.5)', golSinais.muitos.length, 'var(--green)', golSinais.muitos, maxG)}
       ${renderBar('Poucos gols (-2.5)', golSinais.poucos.length, 'var(--gray)', golSinais.poucos, maxG)}`;
   }
@@ -19506,7 +19506,7 @@ function gerarAnalise(m) {
 
   return `
     <div class="analise-section">
-      <div class="analise-title">⚡ Análise de Cenários</div>
+      <div class="analise-title">${_icoZap()} Análise de Cenários</div>
       ${convergenciaHtml}
       ${blocos.join('')}
       ${alertasHtml}
@@ -19581,21 +19581,21 @@ function gerarBlocoHistorico(m) {
   if (tipAcc && tipOdds) {
     const ins = patternInsight(tipAcc, tipOdds);
     if (ins && ins.total >= 3)
-      linhas.push(histRow('🎯', `TIP <b>${tip}</b> com ${tipOdds}% de prob. (faixa ${ins.rng}%) → acerto`, ins, tipOdds));
+      linhas.push(histRow(_icoTarget(), `TIP <b>${tip}</b> com ${tipOdds}% de prob. (faixa ${ins.rng}%) → acerto`, ins, tipOdds));
   }
 
   // Over 2.5 histórico
   if (o25) {
     const ins = patternInsight(btPatterns.over_2_5, o25);
     if (ins && ins.total >= 3)
-      linhas.push(histRow('⚽', `Over 2.5 com ${o25}% (faixa ${ins.rng}%) → tiveram +2.5 gols`, ins, o25));
+      linhas.push(histRow(_icoBall(), `Over 2.5 com ${o25}% (faixa ${ins.rng}%) → tiveram +2.5 gols`, ins, o25));
   }
 
   // BTS histórico
   if (btsVal) {
     const ins = patternInsight(btPatterns.bts, btsVal);
     if (ins && ins.total >= 3)
-      linhas.push(histRow('🎯', `Ambos Marcam com ${btsVal}% (faixa ${ins.rng}%) → ambos marcaram`, ins, btsVal));
+      linhas.push(histRow(_icoTarget(), `Ambos Marcam com ${btsVal}% (faixa ${ins.rng}%) → ambos marcaram`, ins, btsVal));
   }
 
   if (!linhas.length) return '';
