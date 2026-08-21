@@ -3808,26 +3808,39 @@ def api_shotmap(event_id):
 
 @app.route("/api/momentum/history")
 def api_momentum_history():
-    """Lista partidas com momentum salvo (mais recentes primeiro)."""
+    """Lista partidas com momentum salvo (mais recentes primeiro).
+    Sem 'q': retorna só as 200 mais recentes (browse rápido). Com 'q': varre
+    todo o histórico salvo procurando o texto no time/liga (usado pela busca
+    da aba Replay)."""
+    q = (request.args.get("q") or "").strip().lower()
     files = sorted(glob.glob(os.path.join(MOMENTUM_DIR, "*.json")), reverse=True)
+    if not q:
+        files = files[:200]
     matches = []
-    for fpath in files[:200]:
+    for fpath in files:
         try:
             with open(fpath, encoding="utf-8") as f:
                 d = json.load(f)
+            casa = d.get("casa", "")
+            fora = d.get("fora", "")
+            liga = d.get("liga", "")
+            if q and q not in casa.lower() and q not in fora.lower() and q not in liga.lower():
+                continue
             pts   = d.get("graphPoints", [])
             total = len(pts)
             matches.append({
                 "event_id":  d.get("event_id"),
                 "date":      d.get("date"),
                 "saved_at":  d.get("saved_at"),
-                "casa":      d.get("casa", ""),
-                "fora":      d.get("fora", ""),
-                "liga":      d.get("liga", ""),
+                "casa":      casa,
+                "fora":      fora,
+                "liga":      liga,
                 "goals":     d.get("goals", []),
                 "points":    total,
                 "filename":  os.path.basename(fpath),
             })
+            if q and len(matches) >= 300:
+                break
         except Exception:
             pass
     return jsonify({"matches": matches, "total": len(matches)})

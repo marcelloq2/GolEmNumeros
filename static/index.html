@@ -1566,6 +1566,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
+    <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2097,6 +2098,40 @@
         </span>
       </div>
       <div class="live-grid-wrap" id="live2GridWrap"></div>
+    </div>
+  </div>
+
+  <!-- REPLAY — reproduz partidas encerradas usando os dados já salvos em
+       momentum_history (graphPoints + goals), sem nenhuma requisição nova de
+       raspagem: só lê o JSON já gravado e alimenta o mesmo tipo de gráfico de
+       barras usado na aba Ao Vivo, avançando ponto a ponto num timer local. -->
+  <div class="live-panel" id="replayPanel">
+    <div class="live-sidebar" id="replaySidebar">
+      <div class="live-sidebar-top">
+        <span class="live-sidebar-title">▶️ Replay</span>
+        <span class="live-count-badge" id="replayCountBadge" style="background:#3f8fc4">0</span>
+        <button class="live-sidebar-toggle" onclick="toggleReplaySidebar()" title="Ocultar barra">◀</button>
+      </div>
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+        <input id="replaySearchInput" type="text" placeholder="🔍 Buscar time ou liga..." oninput="_replaySearch(this.value)"
+          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box">
+        <div style="font-size:10px;color:var(--text2);margin-top:5px">Sem busca mostra as 200 partidas mais recentes salvas</div>
+      </div>
+      <div id="replayMatchList">
+        <div class="live-empty">
+          <div style="font-size:32px">⏳</div>
+          <div style="font-size:12px">Carregando...</div>
+        </div>
+      </div>
+    </div>
+    <div class="live-detail" id="replayDetail">
+      <div class="live-detail-placeholder">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+          <circle cx="12" cy="12" r="10"/><path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+        <div style="font-size:13px;color:var(--text2)">Selecione uma partida encerrada pra reproduzir</div>
+      </div>
     </div>
   </div>
 
@@ -3236,6 +3271,7 @@ function switchView(view, btn) {
   const favsPanel       = document.getElementById('favsPanel');
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
+  const replayPanel     = document.getElementById('replayPanel');
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
@@ -3245,6 +3281,7 @@ function switchView(view, btn) {
   favsPanel.classList.remove('active');
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
+  replayPanel.classList.remove('active');
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
@@ -3254,6 +3291,7 @@ function switchView(view, btn) {
   clearInterval(_today2AutoRefresh);
   clearInterval(_placarContraAutoRefresh);
   clearInterval(_painelAutoRefresh);
+  clearInterval(_replayTimer); _replayTimer = null;
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3281,7 +3319,282 @@ function switchView(view, btn) {
     placarContraWrapper.style.display = 'flex';
     _placarContraLoad();
     _placarContraAutoRefresh = setInterval(_placarContraLoad, 20000);
+  } else if (view === 'replay') {
+    replayPanel.classList.add('active');
+    _loadReplayList();
   }
+}
+
+// ── REPLAY — reproduz partidas encerradas usando os dados já salvos em
+// momentum_history (graphPoints + goals). Não faz nenhuma raspagem nova: só
+// lê o JSON já gravado no servidor e alimenta o mesmo tipo de gráfico de
+// barras da aba Ao Vivo, avançando ponto a ponto num timer local em vez de
+// via polling. ────────────────────────────────────────────────────────────
+let _replayData          = null;  // {event_id, casa, fora, liga, date, graphPoints, goals}
+let _replayMinuteIdx     = 0;     // índice atual dentro de graphPoints
+let _replayTimer         = null;
+let _replaySpeed         = 3;     // pontos avançados por tick
+let _replayList          = [];
+let _replaySearchTimeout = null;
+
+function toggleReplaySidebar() {
+  const sb = document.getElementById('replaySidebar');
+  if (sb) sb.classList.toggle('hidden');
+}
+
+function _replaySearch(q) {
+  clearTimeout(_replaySearchTimeout);
+  _replaySearchTimeout = setTimeout(() => _loadReplayList(q.trim()), 300);
+}
+
+async function _loadReplayList(q) {
+  const listEl = document.getElementById('replayMatchList');
+  const badge  = document.getElementById('replayCountBadge');
+  try {
+    const url = q ? `/api/momentum/history?q=${encodeURIComponent(q)}` : '/api/momentum/history';
+    const res  = await fetch(url);
+    const data = await res.json();
+    _replayList = data.matches || [];
+    if (badge) badge.textContent = _replayList.length;
+    if (!_replayList.length) {
+      listEl.innerHTML = `<div class="live-empty"><div style="font-size:32px">📭</div><div style="font-size:12px">Nenhuma partida salva encontrada</div></div>`;
+      return;
+    }
+    listEl.innerHTML = _replayList.map(m => `
+      <div class="live-match-row" onclick="_openReplayMatch('${m.event_id}', this)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.casa} × ${m.fora}</div>
+          <div style="font-size:10px;color:var(--text2);flex-shrink:0">${(m.goals || []).length} ${_icoBall()}</div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:2px">${m.liga || ''} · ${m.date || ''}</div>
+      </div>`).join('');
+  } catch (e) {
+    listEl.innerHTML = `<div class="live-empty"><div style="font-size:12px">Erro ao carregar</div></div>`;
+  }
+}
+
+async function _openReplayMatch(eventId, rowEl) {
+  document.querySelectorAll('#replayMatchList .live-match-row').forEach(r => r.classList.remove('active'));
+  if (rowEl) rowEl.classList.add('active');
+  clearInterval(_replayTimer); _replayTimer = null;
+  const detail = document.getElementById('replayDetail');
+  detail.innerHTML = `<div class="live-detail-placeholder"><div class="spinner"></div><div style="font-size:12px;color:var(--text2);margin-top:8px">Carregando partida...</div></div>`;
+  try {
+    const res  = await fetch(`/api/momentum/history/${eventId}`);
+    const data = await res.json();
+    if (!data || !data.graphPoints || !data.graphPoints.length) {
+      detail.innerHTML = `<div class="live-detail-placeholder"><div style="font-size:12px;color:var(--text2)">Sem dados salvos pra essa partida.</div></div>`;
+      return;
+    }
+    _replayData      = data;
+    _replayMinuteIdx = 0;
+    _replayRenderShell();
+    _replayDrawFrame();
+  } catch (e) {
+    detail.innerHTML = `<div class="live-detail-placeholder"><div style="font-size:12px;color:var(--text2)">Erro ao carregar dados.</div></div>`;
+  }
+}
+
+function _replayRenderShell() {
+  const d = _replayData;
+  const detail = document.getElementById('replayDetail');
+  const goalBtns = (d.goals || []).slice().sort((a, b) => a.minute - b.minute).map(g => `
+    <button onclick="_replaySeekMinute(${g.minute})" title="Ir pro gol aos ${g.minute}'"
+      style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+             color:${g.team === 'home' ? '#3b82f6' : '#ef4444'};font-size:10px;font-weight:700;
+             padding:2px 7px;cursor:pointer;white-space:nowrap">${_icoBall()} ${g.minute}'</button>`).join('');
+
+  detail.innerHTML = `
+    <div class="live-match-header">
+      <div class="live-team-block"><div class="live-team-name-big">${d.casa}</div></div>
+      <div class="live-score-block">
+        <div class="live-score-big" id="replayScoreBig">0-0</div>
+        <div class="live-minute-big" style="font-size:12px" id="replayMinuteDisplay">0'</div>
+        <div class="live-league-badge">${d.liga || ''}</div>
+      </div>
+      <div class="live-team-block"><div class="live-team-name-big">${d.fora}</div></div>
+    </div>
+    <div class="live-section">
+      <div class="live-section-title">${_icoTrend()} Replay do Momentum</div>
+      <div style="padding:8px 12px 12px">
+        <div style="position:relative;min-height:90px">
+          <canvas id="replayCanvas" height="90" style="width:100%;border-radius:6px"></canvas>
+        </div>
+        <input id="replaySeekBar" type="range" min="0" max="${d.graphPoints.length - 1}" value="0"
+          oninput="_replaySeekIdx(+this.value)" style="width:100%;margin-top:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button id="replayPlayBtn" onclick="_replayToggle()"
+            style="background:var(--accent);border:none;border-radius:6px;color:#0a0c10;font-weight:700;
+                   font-size:12px;padding:6px 16px;cursor:pointer">▶ Play</button>
+          <select onchange="_replaySpeed = +this.value"
+            style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+                   color:var(--text);font-size:11px;padding:5px 8px">
+            <option value="1">1x</option>
+            <option value="3" selected>3x</option>
+            <option value="10">10x</option>
+          </select>
+          <button onclick="_replaySeekMinute(0)" title="Reiniciar"
+            style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);
+                   font-size:12px;padding:6px 10px;cursor:pointer">⟲</button>
+        </div>
+        ${goalBtns ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">${goalBtns}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function _replayScoreAtIdx(idx) {
+  const d = _replayData;
+  const curMinute = d.graphPoints[idx]?.minute ?? 0;
+  let h = 0, a = 0;
+  (d.goals || []).forEach(g => { if (g.minute <= curMinute) { g.team === 'home' ? h++ : a++; } });
+  return { h, a, minute: curMinute };
+}
+
+function _replayDrawCanvas(canvas, points, goals) {
+  if (!canvas || !points.length) return;
+  const W = canvas.parentElement.offsetWidth || 500;
+  canvas.width  = W;
+  canvas.height = 90;
+  const ctx   = canvas.getContext('2d');
+  const CHART = canvas.height;
+  const mid   = CHART / 2;
+
+  ctx.clearRect(0, 0, W, CHART);
+
+  const maxVal = Math.max(...points.map(d => Math.abs(d.value || 0)), 1);
+  const barW   = W / points.length;
+  const gap    = Math.max(0.5, barW * 0.15);
+  const barNet = barW - gap;
+
+  ctx.fillStyle = 'rgba(59,130,246,0.05)';
+  ctx.fillRect(0, 0, W, mid);
+  ctx.fillStyle = 'rgba(220,80,80,0.05)';
+  ctx.fillRect(0, mid, W, mid);
+
+  ctx.strokeStyle = '#3a3f5a';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+  ctx.setLineDash([]);
+
+  points.forEach((d, i) => {
+    const x    = i * barW + gap / 2;
+    const val  = d.value || 0;
+    const barH = Math.abs(val / maxVal) * mid * 0.88;
+    if (val >= 0) {
+      const grad = ctx.createLinearGradient(0, mid - barH, 0, mid);
+      grad.addColorStop(0, 'rgba(59,130,246,0.95)');
+      grad.addColorStop(1, 'rgba(59,130,246,0.5)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, mid - barH, barNet, barH, [2, 2, 0, 0]);
+      ctx.fill();
+    } else {
+      const grad = ctx.createLinearGradient(0, mid, 0, mid + barH);
+      grad.addColorStop(0, 'rgba(220,80,80,0.5)');
+      grad.addColorStop(1, 'rgba(220,80,80,0.85)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, mid, barNet, barH, [0, 0, 2, 2]);
+      ctx.fill();
+    }
+  });
+
+  const htIdx = points.findIndex(d => d.minute >= 45);
+  if (htIdx > 0) {
+    const htX = (htIdx * barW) + barW / 2;
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(htX, 2); ctx.lineTo(htX, CHART - 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  goals.forEach(g => {
+    let closest = 0, bestDiff = Infinity;
+    points.forEach((d, i) => {
+      const dif = Math.abs(Math.floor(d.minute) - g.minute);
+      if (dif < bestDiff) { bestDiff = dif; closest = i; }
+    });
+    const gx = closest * barW + barW / 2;
+    const isHome = g.team === 'home';
+
+    ctx.strokeStyle = isHome ? 'rgba(96,165,250,0.6)' : 'rgba(220,80,80,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, CHART); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = '13px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const gy = isHome ? 8 : CHART - 8;
+    ctx.fillText('⚽', gx, gy);
+  });
+}
+
+function _replayDrawFrame() {
+  const d = _replayData;
+  if (!d) return;
+  const canvas = document.getElementById('replayCanvas');
+  if (!canvas) return;
+
+  const points = d.graphPoints.slice(0, _replayMinuteIdx + 1);
+  const curMinute = points[points.length - 1]?.minute ?? 0;
+  const allGoals = d.goals || [];
+  const visibleGoals = allGoals.filter(g => g.minute <= curMinute);
+
+  _replayDrawCanvas(canvas, points, visibleGoals);
+
+  const { h, a } = _replayScoreAtIdx(_replayMinuteIdx);
+  const scoreEl = document.getElementById('replayScoreBig');
+  const minEl   = document.getElementById('replayMinuteDisplay');
+  if (scoreEl) scoreEl.textContent = `${h}-${a}`;
+  if (minEl)   minEl.textContent   = `${curMinute}'`;
+  const seek = document.getElementById('replaySeekBar');
+  if (seek) seek.value = _replayMinuteIdx;
+
+  // Flash de gol quando o avanço cruza o minuto exato de um gol
+  const justScored = allGoals.find(g => g.minute === curMinute);
+  if (justScored && scoreEl) {
+    scoreEl.classList.remove('goal-flash');
+    void scoreEl.offsetWidth; // força reiniciar a animação CSS
+    scoreEl.classList.add('goal-flash');
+  }
+}
+
+function _replayToggle() {
+  if (_replayTimer) _replayPause(); else _replayPlay();
+}
+
+function _replayPlay() {
+  if (!_replayData) return;
+  const btn = document.getElementById('replayPlayBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  clearInterval(_replayTimer);
+  _replayTimer = setInterval(() => {
+    const maxIdx = _replayData.graphPoints.length - 1;
+    _replayMinuteIdx = Math.min(_replayMinuteIdx + _replaySpeed, maxIdx);
+    _replayDrawFrame();
+    if (_replayMinuteIdx >= maxIdx) _replayPause();
+  }, 400);
+}
+
+function _replayPause() {
+  clearInterval(_replayTimer); _replayTimer = null;
+  const btn = document.getElementById('replayPlayBtn');
+  if (btn) btn.textContent = '▶ Play';
+}
+
+function _replaySeekIdx(idx) {
+  if (!_replayData) return;
+  _replayPause();
+  _replayMinuteIdx = Math.max(0, Math.min(idx, _replayData.graphPoints.length - 1));
+  _replayDrawFrame();
+}
+
+function _replaySeekMinute(minute) {
+  if (!_replayData) return;
+  const idx = _replayData.graphPoints.findIndex(p => p.minute >= minute);
+  _replaySeekIdx(idx === -1 ? _replayData.graphPoints.length - 1 : idx);
 }
 
 // ── PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) do BetExplorer ──────────
