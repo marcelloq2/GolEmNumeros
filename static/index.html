@@ -2105,34 +2105,41 @@
        momentum_history (graphPoints + goals), sem nenhuma requisição nova de
        raspagem: só lê o JSON já gravado e alimenta o mesmo tipo de gráfico de
        barras usado na aba Ao Vivo, avançando ponto a ponto num timer local. -->
-  <div class="live-panel" id="replayPanel">
-    <div class="live-sidebar" id="replaySidebar">
-      <div class="live-sidebar-top">
-        <span class="live-sidebar-title">▶️ Replay</span>
-        <span class="live-count-badge" id="replayCountBadge" style="background:#3f8fc4">0</span>
-        <button class="live-sidebar-toggle" onclick="toggleReplaySidebar()" title="Ocultar barra">◀</button>
+  <div class="live-panel" id="replayPanel" style="flex-direction:column">
+    <div style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0">
+      <button id="replayModeMatchBtn" class="filter-btn active" onclick="_replaySetMode('match')">▶️ Partidas</button>
+      <button id="replayModeStatsBtn" class="filter-btn" onclick="_replaySetMode('stats')">📊 Estatísticas de Sinais</button>
+    </div>
+    <div id="replayMatchMode" style="display:flex;flex:1;overflow:hidden">
+      <div class="live-sidebar" id="replaySidebar">
+        <div class="live-sidebar-top">
+          <span class="live-sidebar-title">▶️ Replay</span>
+          <span class="live-count-badge" id="replayCountBadge" style="background:#3f8fc4">0</span>
+          <button class="live-sidebar-toggle" onclick="toggleReplaySidebar()" title="Ocultar barra">◀</button>
+        </div>
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+          <input id="replaySearchInput" type="text" placeholder="🔍 Buscar time ou liga..." oninput="_replaySearch(this.value)"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+                   color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box">
+          <div style="font-size:10px;color:var(--text2);margin-top:5px">Sem busca mostra as 200 partidas mais recentes salvas</div>
+        </div>
+        <div id="replayMatchList">
+          <div class="live-empty">
+            <div style="font-size:32px">⏳</div>
+            <div style="font-size:12px">Carregando...</div>
+          </div>
+        </div>
       </div>
-      <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
-        <input id="replaySearchInput" type="text" placeholder="🔍 Buscar time ou liga..." oninput="_replaySearch(this.value)"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
-                 color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box">
-        <div style="font-size:10px;color:var(--text2);margin-top:5px">Sem busca mostra as 200 partidas mais recentes salvas</div>
-      </div>
-      <div id="replayMatchList">
-        <div class="live-empty">
-          <div style="font-size:32px">⏳</div>
-          <div style="font-size:12px">Carregando...</div>
+      <div class="live-detail" id="replayDetail">
+        <div class="live-detail-placeholder">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+            <circle cx="12" cy="12" r="10"/><path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+          <div style="font-size:13px;color:var(--text2)">Selecione uma partida encerrada pra reproduzir</div>
         </div>
       </div>
     </div>
-    <div class="live-detail" id="replayDetail">
-      <div class="live-detail-placeholder">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
-          <circle cx="12" cy="12" r="10"/><path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-        <div style="font-size:13px;color:var(--text2)">Selecione uma partida encerrada pra reproduzir</div>
-      </div>
-    </div>
+    <div id="replayStatsMode" style="display:none;flex:1;overflow-y:auto;padding:16px"></div>
   </div>
 
   <!-- HOJE 2 — cópia independente do Hoje pra experimentos, sem nenhum código
@@ -3340,6 +3347,141 @@ let _replaySearchTimeout = null;
 function toggleReplaySidebar() {
   const sb = document.getElementById('replaySidebar');
   if (sb) sb.classList.toggle('hidden');
+}
+
+// ── Estatística individual de sinal — analisa UM tipo de sinal por vez (sem
+// combinar tipos, de propósito, pra evitar achar padrão que não é real por
+// comparações múltiplas) contra toda a base salva em momentum_history.
+// Sub-aba dentro do Replay, alterna com o modo player. ──────────────────────
+function _replaySetMode(mode) {
+  const matchBtn  = document.getElementById('replayModeMatchBtn');
+  const statsBtn  = document.getElementById('replayModeStatsBtn');
+  const matchMode = document.getElementById('replayMatchMode');
+  const statsMode = document.getElementById('replayStatsMode');
+  if (mode === 'stats') {
+    matchBtn.classList.remove('active'); statsBtn.classList.add('active');
+    matchMode.style.display = 'none'; statsMode.style.display = 'block';
+    clearInterval(_replayTimer); _replayTimer = null;
+    if (!statsMode.dataset.rendered) { _replayStatsRenderForm(); statsMode.dataset.rendered = '1'; }
+  } else {
+    statsBtn.classList.remove('active'); matchBtn.classList.add('active');
+    statsMode.style.display = 'none'; matchMode.style.display = 'flex';
+  }
+}
+
+function _replayStatsRenderForm() {
+  const el = document.getElementById('replayStatsMode');
+  const selStyle = 'background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px';
+  el.innerHTML = `
+    <div style="max-width:640px">
+      <div class="live-section-title" style="margin-bottom:6px">${_icoChart()} Estatística individual de sinal</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:14px">
+        Analisa UM tipo de sinal por vez contra toda a base de partidas salvas — sem combinar tipos, pra não correr o risco de "achar" um padrão que não é real (quanto mais combinações se testam, maior a chance de uma parecer forte só por acaso).
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Tipo de sinal</div>
+          <select id="replayStatsTipo" onchange="_replayStatsToggleTimeVisibility(); _replayStatsFetch()" style="${selStyle}">
+            <option value="chance">⚡ Grande Chance</option>
+            <option value="over">🔥 Momento Over</option>
+            <option value="under">❄️ Momento Under</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Período</div>
+          <select id="replayStatsPeriodo" onchange="_replayStatsFetch()" style="${selStyle}">
+            <option value="">Qualquer momento</option>
+            <option value="early">0' — 30'</option>
+            <option value="ht">31' — 45' (fim do 1º T)</option>
+            <option value="second">46' — 70'</option>
+            <option value="late">71'+</option>
+          </select>
+        </div>
+        <div id="replayStatsTimeWrap">
+          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Time</div>
+          <select id="replayStatsTime" onchange="_replayStatsFetch()" style="${selStyle}">
+            <option value="">Qualquer</option>
+            <option value="home">Casa</option>
+            <option value="away">Visitante</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Janela pós-sinal</div>
+          <select id="replayStatsWindow" onchange="_replayStatsFetch()" style="${selStyle}">
+            <option value="5">5 min</option>
+            <option value="10" selected>10 min</option>
+            <option value="15">15 min</option>
+            <option value="20">20 min</option>
+          </select>
+        </div>
+      </div>
+      <div id="replayStatsResult" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>
+      </div>
+    </div>`;
+  _replayStatsToggleTimeVisibility();
+  _replayStatsFetch();
+}
+
+function _replayStatsToggleTimeVisibility() {
+  const tipo = document.getElementById('replayStatsTipo').value;
+  const wrap = document.getElementById('replayStatsTimeWrap');
+  wrap.style.display = tipo === 'chance' ? '' : 'none';
+}
+
+async function _replayStatsFetch() {
+  const tipo     = document.getElementById('replayStatsTipo').value;
+  const periodo  = document.getElementById('replayStatsPeriodo').value;
+  const timeSel  = tipo === 'chance' ? document.getElementById('replayStatsTime').value : '';
+  const windowMin = document.getElementById('replayStatsWindow').value;
+  const resultEl = document.getElementById('replayStatsResult');
+  resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>`;
+  try {
+    const params = new URLSearchParams({ tipo, periodo, time: timeSel, window: windowMin });
+    const res = await fetch(`/api/momentum/signal_stats?${params}`);
+    const d = await res.json();
+    resultEl.innerHTML = _replayStatsResultHtml(d);
+  } catch (e) {
+    resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">Erro ao calcular.</div>`;
+  }
+}
+
+function _replayPeriodoLabel(p) {
+  return { early: "0-30'", ht: "31-45'", second: "46-70'", late: "71'+" }[p] || p;
+}
+
+function _replayStatsResultHtml(d) {
+  const icone    = d.tipo === 'chance' ? _icoZap() : d.tipo === 'over' ? _icoFlame() : '❄️';
+  const nomeTipo = d.tipo === 'chance' ? 'Grande Chance' : d.tipo === 'over' ? 'Momento Over' : 'Momento Under';
+  const pct      = (d.rate * 100).toFixed(1);
+  const outcomeLabel = d.tipo === 'under'
+    ? `não teve gol de nenhum time nos ${d.window_min} minutos seguintes`
+    : d.tipo === 'chance'
+      ? `o time sinalizado marcou gol dentro de ${d.window_min} minutos`
+      : `saiu gol (de qualquer time) dentro de ${d.window_min} minutos`;
+  const amostraBaixa = d.total > 0 && d.total < 20;
+
+  const filtrosLabel = [
+    d.periodo !== 'qualquer' ? _replayPeriodoLabel(d.periodo) : '',
+    d.time !== 'qualquer' ? (d.time === 'home' ? 'Casa' : 'Visitante') : '',
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:20px">${icone}</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${nomeTipo}${filtrosLabel ? ' · ' + filtrosLabel : ''}</div>
+        <div style="font-size:10px;color:var(--text2)">Base: ${d.matches_used} partidas salvas</div>
+      </div>
+    </div>
+    ${d.total === 0 ? `
+      <div style="font-size:12px;color:var(--text2)">Esse padrão não apareceu nenhuma vez na base com esses filtros.</div>
+    ` : `
+      <div style="font-size:28px;font-weight:800;color:${amostraBaixa ? 'var(--text2)' : 'var(--accent)'}">${pct}%</div>
+      <div style="font-size:12px;color:var(--text)">${outcomeLabel}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:8px">Amostra: <b>${d.total}</b> ocorrências (${d.hits} bateram o critério)</div>
+      ${amostraBaixa ? `<div style="font-size:10px;color:#f59e0b;margin-top:6px">⚠️ Amostra pequena (menos de 20) — taxa pouco confiável, trate como indicativo só</div>` : ''}
+    `}`;
 }
 
 function _replaySearch(q) {

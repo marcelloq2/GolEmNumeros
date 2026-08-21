@@ -3899,6 +3899,49 @@ def _momentum_detect_chance_spikes(points, chance_pct=0.8, over_pct=0.6):
     return spikes
 
 
+def _momentum_detect_over_under_windows(points, over_pct=0.6, under_pct=0.15):
+    """Porta das janelas sustentadas 'Momento Over'/'Momento Under' de
+    _live2DetectPressureMarkers (JS) — >=4 pontos consecutivos acima (over) ou
+    abaixo (under) do limiar, em % do pico daquele jogo. Ao contrário do 'Grande
+    Chance', essas janelas não têm time associado no marcador (o Ao Vivo também
+    não mostra time nelas) — o sinal é "pressão sustentada" ou "sem pressão",
+    não "pressão de X"."""
+    n = len(points)
+    if n < 4:
+        return [], []
+    max_val = max((abs(p.get("value") or 0) for p in points), default=1) or 1
+    over_thresh  = max_val * over_pct
+    under_thresh = max_val * under_pct
+
+    def find_windows(cond):
+        windows = []
+        i = 0
+        while i < n:
+            if cond(points[i]):
+                j = i
+                while j < n and cond(points[j]):
+                    j += 1
+                if j - i >= 4:
+                    windows.append((i, j - 1))
+                i = j
+            else:
+                i += 1
+        return windows
+
+    over_idx  = find_windows(lambda p: abs(p.get("value") or 0) >= over_thresh)
+    under_idx = find_windows(lambda p: abs(p.get("value") or 0) <= under_thresh)
+
+    def to_markers(idx_windows):
+        out = []
+        for s, e in idx_windows:
+            m_start = points[s].get("minute") or 0
+            m_end   = points[e].get("minute") or 0
+            out.append({"minute": (m_start + m_end) / 2, "end_minute": m_end})
+        return out
+
+    return to_markers(over_idx), to_markers(under_idx)
+
+
 _MOMENTUM_ALL_MATCHES_CACHE = {"ts": 0, "data": None}
 _MOMENTUM_ALL_MATCHES_TTL = 10 * 60  # 10min — evita reler ~2500 arquivos do disco
 # a cada request, já que o único consumidor hoje (Grande Chance) também tem seu
@@ -4023,6 +4066,71 @@ def api_momentum_chance_pattern_stats():
     }
     _CHANCE_PATTERN_CACHE["data"] = data
     _CHANCE_PATTERN_CACHE["ts"]   = now
+    return jsonify(data)
+
+
+_SIGNAL_STATS_CACHE = {}       # (tipo, periodo, time, window_min) -> {"ts":, "data":}
+_SIGNAL_STATS_TTL = 10 * 60    # 10min — mesmo TTL do cache da base (_momentum_load_all_matches)
+
+@app.route("/api/momentum/signal_stats")
+def api_momentum_signal_stats():
+    """Estatística INDIVIDUAL de um tipo de sinal (Grande Chance / Momento Over /
+    Momento Under) contra toda a base salva em momentum_history — sem combinar
+    tipos de sinal entre si (isso é uma decisão deliberada: combinações têm risco
+    real de comparações múltiplas / achar padrão que não é real, então por
+    enquanto só analisa um tipo por vez). Sempre devolve o tamanho da amostra
+    junto com a taxa, pra quem estiver olhando poder julgar a confiança."""
+    tipo    = request.args.get("tipo", "chance")     # chance | over | under
+    periodo = request.args.get("periodo", "")        # early | ht | second | late | '' (qualquer)
+    time_f  = request.args.get("time", "")            # home | away | '' (qualquer, só vale pra 'chance')
+    try:
+        window_min = max(1, min(30, int(request.args.get("window", 10))))
+    except ValueError:
+        window_min = 10
+
+    if tipo not in ("chance", "over", "under"):
+        return jsonify({"error": "tipo inválido"}), 400
+
+    cache_key = (tipo, periodo, time_f, window_min)
+    now = time.time()
+    cached = _SIGNAL_STATS_CACHE.get(cache_key)
+    if cached and (now - cached["ts"]) < _SIGNAL_STATS_TTL:
+        return jsonify(cached["data"])
+
+    matches = _momentum_load_all_matches()
+    cfg = _CHANCE_PATTERN_CACHE["data"] or {}
+    chance_pct = cfg.get("chance_pct", 0.8)
+    over_pct   = cfg.get("over_pct", 0.6)
+
+    total = hits = 0
+    for points, goals in matches:
+        if tipo == "chance":
+            for sp in _momentum_detect_chance_spikes(points, chance_pct, over_pct):
+                if periodo and _minute_range(sp["minute"]) != periodo:
+                    continue
+                team = "home" if sp["is_home"] else "away"
+                if time_f and team != time_f:
+                    continue
+                total += 1
+                if any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals):
+                    hits += 1
+        else:
+            over_mk, under_mk = _momentum_detect_over_under_windows(points, over_pct)
+            for mk in (over_mk if tipo == "over" else under_mk):
+                if periodo and _minute_range(mk["minute"]) != periodo:
+                    continue
+                total += 1
+                saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
+                if (tipo == "over" and saiu_gol) or (tipo == "under" and not saiu_gol):
+                    hits += 1
+
+    data = {
+        "tipo": tipo, "periodo": periodo or "qualquer", "time": time_f or "qualquer",
+        "window_min": window_min, "matches_used": len(matches),
+        "total": total, "hits": hits,
+        "rate": round(hits / total, 4) if total else 0.0,
+    }
+    _SIGNAL_STATS_CACHE[cache_key] = {"ts": now, "data": data}
     return jsonify(data)
 
 
