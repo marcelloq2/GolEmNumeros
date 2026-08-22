@@ -925,8 +925,11 @@
   }
   .live-grid-view.active { display: block; }
   .live-grid-wrap {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
-    gap: 18px;
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 980px) {
+    .live-grid-wrap { grid-template-columns: 1fr; }
   }
   @media (max-width: 720px) {
     .live-grid-wrap { grid-template-columns: 1fr; gap: 12px; }
@@ -989,6 +992,11 @@
   .live-card-odds-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .live-card-odds-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; }
   .live-card-odds-val { font-size: 13px; font-weight: 800; color: var(--text); }
+  .live-card-odds-val.o1 { color: var(--accent2); }
+  .live-card-odds-val.ox { color: var(--text2); }
+  .live-card-odds-val.o2 { color: #ef4444; }
+  .live-card-odds-val.oover { color: #22c55e; }
+  .live-card-odds-val.ounder { color: #f59e0b; }
   .live-card-tabs {
     display: flex; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
   }
@@ -12514,11 +12522,11 @@ function renderLive2Card(m) {
       </div>
       ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
       <div class="live-card-odds-row">
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val">${m.odd_1 || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val">${m.odd_x || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val">${m.odd_2 || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val">${m.odd_over || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val">${m.odd_under || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${m.odd_1 || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val ox">${m.odd_x || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val o2">${m.odd_2 || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
