@@ -7349,11 +7349,23 @@ async function loadToday2Matches() {
       <div style="font-size:13px;font-weight:600">Carregando jogos de hoje...</div>
     </div>`;
   }
+  const cacheEstavaVazio = !today2MatchesCache.length;
   try {
     const res = await fetch('/api/flashscore/today');
     const data = await res.json();
     const matches = data.matches || [];
     today2MatchesCache = matches;
+
+    // O escudo dos times no Painel Principal vem por fuzzy-match contra esse
+    // cache (_painelRowLogos) — se o Painel já tinha renderizado ANTES desse
+    // cache existir (corrida comum no carregamento inicial da página: as duas
+    // buscas disparam quase juntas e o Painel costuma terminar primeiro),
+    // ficava sem escudo até o próximo refresh automático (60s). Redesenha o
+    // Painel uma vez, só na primeira vez que o cache passa de vazio pra
+    // cheio, pra não esperar esse ciclo inteiro.
+    if (cacheEstavaVazio && matches.length && _painelLastData) {
+      _painelRender(_painelLastData);
+    }
 
     const badge = document.getElementById('today2CountBadge');
     if (badge) badge.textContent = matches.length;
