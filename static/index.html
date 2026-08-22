@@ -3351,10 +3351,11 @@ function toggleReplaySidebar() {
   if (sb) sb.classList.toggle('hidden');
 }
 
-// ── Estatística individual de sinal — analisa UM tipo de sinal por vez (sem
-// combinar tipos, de propósito, pra evitar achar padrão que não é real por
+// ── Padrões por minuto — analisa UM tipo de sinal por vez (sem combinar
+// tipos, de propósito, pra evitar achar padrão que não é real por
 // comparações múltiplas) contra toda a base salva em momentum_history.
-// Sub-aba dentro do Replay, alterna com o modo player. ──────────────────────
+// Mostra um gráfico de barras por faixa de minuto; clicar numa barra abre o
+// detalhe com os padrões daquela faixa. Sub-aba dentro do Replay. ──────────
 function _replaySetMode(mode) {
   const matchBtn  = document.getElementById('replayModeMatchBtn');
   const statsBtn  = document.getElementById('replayModeStatsBtn');
@@ -3367,7 +3368,7 @@ function _replaySetMode(mode) {
     if (!statsMode.dataset.rendered) { _replayStatsRenderForm(); statsMode.dataset.rendered = '1'; }
     clearInterval(_replayStatsAutoRefresh);
     // A base no servidor já se atualiza sozinha (cache de 10min), mas sem isso
-    // a tela ficava parada no número antigo até o usuário mexer num filtro —
+    // a tela ficava parada no gráfico antigo até o usuário mexer num filtro —
     // aqui só refaz a mesma consulta que já está selecionada, sem resetar nada.
     _replayStatsAutoRefresh = setInterval(_replayStatsFetch, 60000);
   } else {
@@ -3377,18 +3378,16 @@ function _replaySetMode(mode) {
   }
 }
 
+let _replayStatsData = null; // último payload de /api/momentum/signal_stats_by_minute
+
 function _replayStatsRenderForm() {
   const el = document.getElementById('replayStatsMode');
   const selStyle = 'background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px';
   el.innerHTML = `
-    <div style="max-width:640px">
-      <div class="live-section-title" style="margin-bottom:6px">${_icoChart()} Estatística individual de sinal</div>
+    <div style="max-width:680px">
+      <div class="live-section-title" style="margin-bottom:6px">${_icoChart()} Padrões por minuto</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:14px">
-        Analisa UM tipo de sinal por vez contra toda a base de partidas salvas — sem combinar tipos, pra não correr o risco de "achar" um padrão que não é real (quanto mais combinações se testam, maior a chance de uma parecer forte só por acaso).
-      </div>
-      <div style="display:flex;gap:6px;margin-bottom:12px">
-        <button id="replayStatsViewResumoBtn" class="filter-btn active" onclick="_replayStatsSetView('resumo')">Resumo por período</button>
-        <button id="replayStatsViewMinutoBtn" class="filter-btn" onclick="_replayStatsSetView('minuto')">Por minuto</button>
+        Mostra em quais minutos cada sinal apareceu na base salva. Clique numa barra pra ver os padrões daquela faixa (sem combinar tipos de sinal — cada consulta olha só um por vez, pra não achar padrão que não é real).
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <div>
@@ -3399,16 +3398,6 @@ function _replayStatsRenderForm() {
             <option value="under">❄️ Momento Under</option>
           </select>
         </div>
-        <div id="replayStatsPeriodoWrap">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Período</div>
-          <select id="replayStatsPeriodo" onchange="_replayStatsFetch()" style="${selStyle}">
-            <option value="">Qualquer momento</option>
-            <option value="early">0' — 30'</option>
-            <option value="ht">31' — 45' (fim do 1º T)</option>
-            <option value="second">46' — 70'</option>
-            <option value="late">71'+</option>
-          </select>
-        </div>
         <div id="replayStatsTimeWrap">
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Time</div>
           <select id="replayStatsTime" onchange="_replayStatsFetch()" style="${selStyle}">
@@ -3417,29 +3406,13 @@ function _replayStatsRenderForm() {
             <option value="away">Visitante</option>
           </select>
         </div>
-        <div>
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">O que medir</div>
-          <select id="replayStatsMetrica" onchange="_replayStatsToggleWindowVisibility(); _replayStatsFetch()" style="${selStyle}">
-            <option value="gol">Saiu gol depois</option>
-            <option value="placar">Placar se manteve até o fim</option>
-          </select>
-        </div>
-        <div id="replayStatsWindowWrap">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Janela pós-sinal</div>
-          <select id="replayStatsWindow" onchange="_replayStatsFetch()" style="${selStyle}">
-            <option value="5">5 min</option>
-            <option value="10" selected>10 min</option>
-            <option value="15">15 min</option>
-            <option value="20">20 min</option>
-          </select>
-        </div>
       </div>
-      <div id="replayStatsResult" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div id="replayStatsChart" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
         <div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>
       </div>
+      <div id="replayStatsDetail"></div>
     </div>`;
   _replayStatsToggleTimeVisibility();
-  _replayStatsToggleWindowVisibility();
   _replayStatsFetch();
 }
 
@@ -3449,86 +3422,55 @@ function _replayStatsToggleTimeVisibility() {
   wrap.style.display = tipo === 'chance' ? '' : 'none';
 }
 
-// A janela pós-sinal (5/10/15/20min) só faz sentido pra métrica "saiu gol
-// depois" — "placar se manteve até o fim" olha o resto da partida inteiro,
-// não uma janela fixa, então esconde o seletor pra não confundir.
-function _replayStatsToggleWindowVisibility() {
-  const metrica = document.getElementById('replayStatsMetrica').value;
-  const wrap = document.getElementById('replayStatsWindowWrap');
-  wrap.style.display = metrica === 'gol' ? '' : 'none';
-}
-
-let _replayStatsView = 'resumo'; // 'resumo' | 'minuto'
-
-function _replayStatsSetView(view) {
-  _replayStatsView = view;
-  document.getElementById('replayStatsViewResumoBtn').classList.toggle('active', view === 'resumo');
-  document.getElementById('replayStatsViewMinutoBtn').classList.toggle('active', view === 'minuto');
-  // "Período" não faz sentido no modo por minuto — o resultado já É a
-  // quebra por período, no nível mais fino possível (bucket de minuto)
-  document.getElementById('replayStatsPeriodoWrap').style.display = view === 'minuto' ? 'none' : '';
-  _replayStatsFetch();
-}
-
 async function _replayStatsFetch() {
-  const tipo      = document.getElementById('replayStatsTipo').value;
-  const periodo   = document.getElementById('replayStatsPeriodo').value;
-  const timeSel   = tipo === 'chance' ? document.getElementById('replayStatsTime').value : '';
-  const metrica   = document.getElementById('replayStatsMetrica').value;
-  const windowMin = document.getElementById('replayStatsWindow').value;
-  const resultEl = document.getElementById('replayStatsResult');
-  resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>`;
+  const tipo    = document.getElementById('replayStatsTipo').value;
+  const timeSel = tipo === 'chance' ? document.getElementById('replayStatsTime').value : '';
+  const chartEl  = document.getElementById('replayStatsChart');
+  const detailEl = document.getElementById('replayStatsDetail');
+  chartEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">⏳ Calculando...</div>`;
+  detailEl.innerHTML = '';
   try {
-    if (_replayStatsView === 'minuto') {
-      const params = new URLSearchParams({ tipo, time: timeSel, metrica, window: windowMin, bucket: 5 });
-      const res = await fetch(`/api/momentum/signal_stats_by_minute?${params}`);
-      const d = await res.json();
-      resultEl.innerHTML = _replayStatsMinuteHtml(d);
-    } else {
-      const params = new URLSearchParams({ tipo, periodo, time: timeSel, metrica, window: windowMin });
-      const res = await fetch(`/api/momentum/signal_stats?${params}`);
-      const d = await res.json();
-      resultEl.innerHTML = _replayStatsResultHtml(d);
-    }
+    const params = new URLSearchParams({ tipo, time: timeSel, window: 10, bucket: 5 });
+    const res = await fetch(`/api/momentum/signal_stats_by_minute?${params}`);
+    const d = await res.json();
+    _replayStatsData = d;
+    chartEl.innerHTML = _replayStatsChartHtml(d);
   } catch (e) {
-    resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">Erro ao calcular.</div>`;
+    chartEl.innerHTML = `<div style="font-size:12px;color:var(--text2)">Erro ao calcular.</div>`;
   }
 }
 
-function _replayStatsMinuteHtml(d) {
+function _replayStatsChartHtml(d) {
   const buckets = d.buckets || [];
   if (!buckets.length) {
     return `<div style="font-size:12px;color:var(--text2)">Sem ocorrências suficientes na base pra esse filtro.</div>`;
   }
   const nomeTipo = d.tipo === 'chance' ? 'Grande Chance' : d.tipo === 'over' ? 'Momento Over' : 'Momento Under';
-  const outcomeLabel = d.metrica === 'placar' ? 'placar se manteve' : 'saiu gol depois';
   return `
-    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${nomeTipo} · por minuto (${outcomeLabel}${d.window_min ? ', ' + d.window_min + 'min' : ''})</div>
-    <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Base: ${d.matches_used} partidas salvas</div>
-    ${_replayStatsMinuteChartSvg(buckets)}`;
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${nomeTipo}${d.time !== 'qualquer' ? ' · ' + (d.time === 'home' ? 'Casa' : 'Visitante') : ''}</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Base: ${d.matches_used} partidas salvas · altura da barra = % que saiu gol até ${d.window_min}min depois</div>
+    ${_replayStatsMinuteChartSvg(buckets)}
+    <div style="font-size:9px;color:var(--text2);margin-top:6px">Clique numa barra pra ver o detalhe · barras mais claras = menos ocorrências naquela faixa</div>`;
 }
 
 function _replayStatsMinuteChartSvg(buckets) {
-  const W = 640, H = 190, padL = 4, padB = 22, padT = 18, padR = 4;
+  const W = 640, H = 190, padL = 4, padB = 22, padT = 10, padR = 4;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
-  const maxRate  = Math.max(...buckets.map(b => b.rate), 0.02);
+  const maxRate  = Math.max(...buckets.map(b => b.rate_gol), 0.02);
   const maxTotal = Math.max(...buckets.map(b => b.total), 1);
   const barW   = chartW / buckets.length;
   const barGap = Math.max(0.5, barW * 0.12);
   const barNet = barW - barGap;
-  const totalOcorrencias = buckets.reduce((a, b) => a + b.total, 0);
-  const avgRate = totalOcorrencias ? buckets.reduce((a, b) => a + b.rate * b.total, 0) / totalOcorrencias : 0;
-  const avgY = padT + chartH - (avgRate / maxRate) * chartH;
 
   const bars = buckets.map((b, i) => {
     const x = padL + i * barW + barGap / 2;
-    const h = (b.rate / maxRate) * chartH;
+    const h = (b.rate_gol / maxRate) * chartH;
     const y = padT + chartH - h;
     const opacity = (0.3 + 0.7 * Math.min(1, b.total / (maxTotal * 0.5))).toFixed(2);
-    const title = `${b.minute_start}'–${b.minute_end}': ${(b.rate * 100).toFixed(1)}% (${b.hits}/${b.total} ocorrências)`;
+    const title = `${b.minute_start}'–${b.minute_end}': ${(b.rate_gol * 100).toFixed(1)}% saiu gol (${b.hits_gol}/${b.total} ocorrências)`;
     return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barNet.toFixed(1)}" height="${Math.max(1, h).toFixed(1)}"
-      fill="var(--accent)" opacity="${opacity}" rx="2"><title>${title}</title></rect>`;
+      fill="var(--accent)" opacity="${opacity}" rx="2" style="cursor:pointer" onclick="_replayStatsShowDetail(${i})"><title>${title}</title></rect>`;
   }).join('');
 
   const labelEvery = Math.max(1, Math.round(3 * (buckets.length > 25 ? 2 : 1)));
@@ -3540,52 +3482,35 @@ function _replayStatsMinuteChartSvg(buckets) {
 
   return `
     <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
-      <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}" stroke="var(--text2)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-      <text x="${padL}" y="${(avgY - 4).toFixed(1)}" font-size="9" fill="var(--text2)">média geral ${(avgRate * 100).toFixed(1)}%</text>
       ${bars}
       ${xLabels}
-    </svg>
-    <div style="font-size:9px;color:var(--text2);margin-top:2px">Barras mais claras = menos ocorrências naquela faixa de minutos (passe o mouse pra ver o número exato)</div>`;
+    </svg>`;
 }
 
-function _replayPeriodoLabel(p) {
-  return { early: "0-30'", ht: "31-45'", second: "46-70'", late: "71'+" }[p] || p;
-}
-
-function _replayStatsResultHtml(d) {
-  const icone    = d.tipo === 'chance' ? _icoZap() : d.tipo === 'over' ? _icoFlame() : '❄️';
-  const nomeTipo = d.tipo === 'chance' ? 'Grande Chance' : d.tipo === 'over' ? 'Momento Over' : 'Momento Under';
-  const pct      = (d.rate * 100).toFixed(1);
-  const outcomeLabel = d.metrica === 'placar'
-    ? 'o placar do momento do sinal foi o placar final da partida'
-    : d.tipo === 'under'
-      ? `não teve gol de nenhum time nos ${d.window_min} minutos seguintes`
-      : d.tipo === 'chance'
-        ? `o time sinalizado marcou gol dentro de ${d.window_min} minutos`
-        : `saiu gol (de qualquer time) dentro de ${d.window_min} minutos`;
-  const amostraBaixa = d.total > 0 && d.total < 20;
-
-  const filtrosLabel = [
-    d.periodo !== 'qualquer' ? _replayPeriodoLabel(d.periodo) : '',
-    d.time !== 'qualquer' ? (d.time === 'home' ? 'Casa' : 'Visitante') : '',
-  ].filter(Boolean).join(' · ');
-
-  return `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:20px">${icone}</span>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)">${nomeTipo}${filtrosLabel ? ' · ' + filtrosLabel : ''}</div>
-        <div style="font-size:10px;color:var(--text2)">Base: ${d.matches_used} partidas salvas</div>
+function _replayStatsShowDetail(i) {
+  const d = _replayStatsData;
+  const b = d.buckets[i];
+  const detailEl = document.getElementById('replayStatsDetail');
+  const amostraBaixa = b.total > 0 && b.total < 20;
+  detailEl.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--accent);border-radius:10px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px">Minuto ${b.minute_start}' – ${b.minute_end}'</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px">
+        Amostra: <b>${b.total}</b> ocorrências${amostraBaixa ? ' · <span style="color:#f59e0b">⚠️ amostra pequena, trate como indicativo só</span>' : ''}
       </div>
-    </div>
-    ${d.total === 0 ? `
-      <div style="font-size:12px;color:var(--text2)">Esse padrão não apareceu nenhuma vez na base com esses filtros.</div>
-    ` : `
-      <div style="font-size:28px;font-weight:800;color:${amostraBaixa ? 'var(--text2)' : 'var(--accent)'}">${pct}%</div>
-      <div style="font-size:12px;color:var(--text)">${outcomeLabel}</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:8px">Amostra: <b>${d.total}</b> ocorrências (${d.hits} bateram o critério)</div>
-      ${amostraBaixa ? `<div style="font-size:10px;color:#f59e0b;margin-top:6px">⚠️ Amostra pequena (menos de 20) — taxa pouco confiável, trate como indicativo só</div>` : ''}
-    `}`;
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:26px;font-weight:800;color:var(--accent)">${(b.rate_gol * 100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text)">saiu gol dentro de ${d.window_min}min depois</div>
+          <div style="font-size:10px;color:var(--text2)">(${b.hits_gol}/${b.total})</div>
+        </div>
+        <div>
+          <div style="font-size:26px;font-weight:800;color:var(--accent2)">${(b.rate_placar * 100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text)">placar do momento se manteve até o fim</div>
+          <div style="font-size:10px;color:var(--text2)">(${b.hits_placar}/${b.total})</div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function _replaySearch(q) {

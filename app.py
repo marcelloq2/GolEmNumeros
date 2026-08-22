@@ -4069,105 +4069,25 @@ def api_momentum_chance_pattern_stats():
     return jsonify(data)
 
 
-_SIGNAL_STATS_CACHE = {}       # (tipo, periodo, time, window_min, metrica) -> {"ts":, "data":}
-_SIGNAL_STATS_TTL = 10 * 60    # 10min — mesmo TTL do cache da base (_momentum_load_all_matches)
-
-@app.route("/api/momentum/signal_stats")
-def api_momentum_signal_stats():
-    """Estatística INDIVIDUAL de um tipo de sinal (Grande Chance / Momento Over /
-    Momento Under) contra toda a base salva em momentum_history — sem combinar
-    tipos de sinal entre si (isso é uma decisão deliberada: combinações têm risco
-    real de comparações múltiplas / achar padrão que não é real, então por
-    enquanto só analisa um tipo por vez). Sempre devolve o tamanho da amostra
-    junto com a taxa, pra quem estiver olhando poder julgar a confiança.
-
-    metrica='gol' (padrão): saiu gol dentro da janela pós-sinal (window_min).
-    metrica='placar': o placar do momento exato do sinal (contando só os gols
-    até ali) se manteve como placar FINAL da partida — nenhum gol de nenhum
-    time depois disso. window_min não se aplica aqui (é "até o fim", não uma
-    janela fixa)."""
-    tipo    = request.args.get("tipo", "chance")     # chance | over | under
-    periodo = request.args.get("periodo", "")        # early | ht | second | late | '' (qualquer)
-    time_f  = request.args.get("time", "")            # home | away | '' (qualquer, só vale pra 'chance')
-    metrica = request.args.get("metrica", "gol")      # gol | placar
-    try:
-        window_min = max(1, min(30, int(request.args.get("window", 10))))
-    except ValueError:
-        window_min = 10
-
-    if tipo not in ("chance", "over", "under"):
-        return jsonify({"error": "tipo inválido"}), 400
-    if metrica not in ("gol", "placar"):
-        return jsonify({"error": "métrica inválida"}), 400
-
-    cache_key = (tipo, periodo, time_f, window_min, metrica)
-    now = time.time()
-    cached = _SIGNAL_STATS_CACHE.get(cache_key)
-    if cached and (now - cached["ts"]) < _SIGNAL_STATS_TTL:
-        return jsonify(cached["data"])
-
-    matches = _momentum_load_all_matches()
-    cfg = _CHANCE_PATTERN_CACHE["data"] or {}
-    chance_pct = cfg.get("chance_pct", 0.8)
-    over_pct   = cfg.get("over_pct", 0.6)
-
-    def placar_se_manteve(goals, ref_minute):
-        return not any((g.get("minute") or 0) > ref_minute for g in goals)
-
-    total = hits = 0
-    for points, goals in matches:
-        if tipo == "chance":
-            for sp in _momentum_detect_chance_spikes(points, chance_pct, over_pct):
-                if periodo and _minute_range(sp["minute"]) != periodo:
-                    continue
-                team = "home" if sp["is_home"] else "away"
-                if time_f and team != time_f:
-                    continue
-                total += 1
-                if metrica == "placar":
-                    if placar_se_manteve(goals, sp["minute"]):
-                        hits += 1
-                elif any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals):
-                    hits += 1
-        else:
-            over_mk, under_mk = _momentum_detect_over_under_windows(points, over_pct)
-            for mk in (over_mk if tipo == "over" else under_mk):
-                if periodo and _minute_range(mk["minute"]) != periodo:
-                    continue
-                total += 1
-                if metrica == "placar":
-                    if placar_se_manteve(goals, mk["end_minute"]):
-                        hits += 1
-                else:
-                    saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
-                    if (tipo == "over" and saiu_gol) or (tipo == "under" and not saiu_gol):
-                        hits += 1
-
-    data = {
-        "tipo": tipo, "periodo": periodo or "qualquer", "time": time_f or "qualquer",
-        "metrica": metrica, "window_min": (window_min if metrica == "gol" else None),
-        "matches_used": len(matches),
-        "total": total, "hits": hits,
-        "rate": round(hits / total, 4) if total else 0.0,
-    }
-    _SIGNAL_STATS_CACHE[cache_key] = {"ts": now, "data": data}
-    return jsonify(data)
-
-
-_SIGNAL_STATS_MINUTE_CACHE = {}     # (tipo, time, metrica, window_min, bucket) -> {"ts":, "data":}
-_SIGNAL_STATS_MINUTE_TTL = 10 * 60
+_SIGNAL_STATS_MINUTE_CACHE = {}     # (tipo, time, window_min, bucket) -> {"ts":, "data":}
+_SIGNAL_STATS_MINUTE_TTL = 10 * 60  # 10min — mesmo TTL do cache da base (_momentum_load_all_matches)
 
 @app.route("/api/momentum/signal_stats_by_minute")
 def api_momentum_signal_stats_by_minute():
-    """Mesma análise do /api/momentum/signal_stats, mas quebrada por faixa de
-    minuto (buckets de N minutos, padrão 5) em vez de um número único agregado
-    pro jogo todo — pra ver EM QUAIS minutos o sinal costuma virar gol (ou
-    manter o placar), não só a média geral. Não usa filtro de período (não faz
-    sentido aqui — o resultado já É quebrado por período, no nível mais fino
-    possível)."""
-    tipo    = request.args.get("tipo", "chance")
-    time_f  = request.args.get("time", "")
-    metrica = request.args.get("metrica", "gol")
+    """Estatística de um tipo de sinal (Grande Chance / Momento Over / Momento
+    Under) quebrada por faixa de minuto (buckets de N minutos, padrão 5) contra
+    toda a base salva em momentum_history — sem combinar tipos de sinal entre si
+    (decisão deliberada: combinações têm risco real de comparações múltiplas /
+    achar padrão que não é real). Cada faixa já vem com as duas métricas juntas:
+
+    - hits_gol/rate_gol: saiu gol dentro da janela pós-sinal (window_min).
+    - hits_placar/rate_placar: o placar do momento exato do sinal (contando só
+      os gols até ali) se manteve como placar FINAL da partida.
+
+    Vêm as duas de uma vez pra poder mostrar o detalhe de uma faixa (ex: ao
+    clicar numa barra do gráfico) sem precisar de uma segunda consulta."""
+    tipo   = request.args.get("tipo", "chance")
+    time_f = request.args.get("time", "")
     try:
         window_min = max(1, min(30, int(request.args.get("window", 10))))
     except ValueError:
@@ -4179,10 +4099,8 @@ def api_momentum_signal_stats_by_minute():
 
     if tipo not in ("chance", "over", "under"):
         return jsonify({"error": "tipo inválido"}), 400
-    if metrica not in ("gol", "placar"):
-        return jsonify({"error": "métrica inválida"}), 400
 
-    cache_key = (tipo, time_f, metrica, window_min, bucket)
+    cache_key = (tipo, time_f, window_min, bucket)
     now = time.time()
     cached = _SIGNAL_STATS_MINUTE_CACHE.get(cache_key)
     if cached and (now - cached["ts"]) < _SIGNAL_STATS_MINUTE_TTL:
@@ -4196,13 +4114,15 @@ def api_momentum_signal_stats_by_minute():
     def placar_se_manteve(goals, ref_minute):
         return not any((g.get("minute") or 0) > ref_minute for g in goals)
 
-    buckets = {}  # minute_start -> {"total":, "hits":}
-    def add(minute, is_hit):
+    buckets = {}  # minute_start -> {"total":, "hits_gol":, "hits_placar":}
+    def add(minute, hit_gol, hit_placar):
         b_start = (int(minute) // bucket) * bucket
-        b = buckets.setdefault(b_start, {"total": 0, "hits": 0})
+        b = buckets.setdefault(b_start, {"total": 0, "hits_gol": 0, "hits_placar": 0})
         b["total"] += 1
-        if is_hit:
-            b["hits"] += 1
+        if hit_gol:
+            b["hits_gol"] += 1
+        if hit_placar:
+            b["hits_placar"] += 1
 
     for points, goals in matches:
         if tipo == "chance":
@@ -4210,34 +4130,30 @@ def api_momentum_signal_stats_by_minute():
                 team = "home" if sp["is_home"] else "away"
                 if time_f and team != time_f:
                     continue
-                if metrica == "placar":
-                    hit = placar_se_manteve(goals, sp["minute"])
-                else:
-                    hit = any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals)
-                add(sp["minute"], hit)
+                hit_gol = any(g.get("team") == team and 0 <= (g.get("minute") or 0) - sp["minute"] <= window_min for g in goals)
+                hit_placar = placar_se_manteve(goals, sp["minute"])
+                add(sp["minute"], hit_gol, hit_placar)
         else:
             over_mk, under_mk = _momentum_detect_over_under_windows(points, over_pct)
             for mk in (over_mk if tipo == "over" else under_mk):
-                if metrica == "placar":
-                    hit = placar_se_manteve(goals, mk["end_minute"])
-                else:
-                    saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
-                    hit = saiu_gol if tipo == "over" else not saiu_gol
-                add(mk["minute"], hit)
+                saiu_gol = any(0 <= (g.get("minute") or 0) - mk["end_minute"] <= window_min for g in goals)
+                hit_gol = saiu_gol if tipo == "over" else not saiu_gol
+                hit_placar = placar_se_manteve(goals, mk["end_minute"])
+                add(mk["minute"], hit_gol, hit_placar)
 
     result = [
         {
             "minute_start": b_start, "minute_end": b_start + bucket - 1,
-            "total": b["total"], "hits": b["hits"],
-            "rate": round(b["hits"] / b["total"], 4) if b["total"] else 0.0,
+            "total": b["total"],
+            "hits_gol": b["hits_gol"], "rate_gol": round(b["hits_gol"] / b["total"], 4) if b["total"] else 0.0,
+            "hits_placar": b["hits_placar"], "rate_placar": round(b["hits_placar"] / b["total"], 4) if b["total"] else 0.0,
         }
         for b_start, b in sorted(buckets.items())
     ]
 
     data = {
-        "tipo": tipo, "time": time_f or "qualquer", "metrica": metrica,
-        "window_min": (window_min if metrica == "gol" else None),
-        "bucket_size": bucket, "matches_used": len(matches),
+        "tipo": tipo, "time": time_f or "qualquer",
+        "window_min": window_min, "bucket_size": bucket, "matches_used": len(matches),
         "buckets": result,
     }
     _SIGNAL_STATS_MINUTE_CACHE[cache_key] = {"ts": now, "data": data}
