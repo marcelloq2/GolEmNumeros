@@ -6093,7 +6093,7 @@ function _painelForcaLeituraStreakBlockHtml(cfg) {
     <div class="cenario-block">
       <div class="cenario-icon">${cfg.icon}</div>
       <div class="cenario-content">
-        <div class="cenario-label">Sequência atual — ${cfg.label}</div>
+        <div class="cenario-label" style="text-align:center">Sequência atual — ${cfg.label}</div>
         ${_painelForcaLeituraStreakRow(homeR, awayR)}
       </div>
     </div>`;
@@ -6165,7 +6165,7 @@ function _painelForcaLeituraMarketBlockHtml(cfg) {
     <div class="cenario-block">
       <div class="cenario-icon">${cfg.metric === 'corner' ? '🚩' : _icoBall()}</div>
       <div class="cenario-content">
-        <div class="cenario-label">${cfg.label}</div>
+        <div class="cenario-label" style="text-align:center">${cfg.label}</div>
         ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
@@ -6201,7 +6201,7 @@ function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
     <div class="cenario-block">
       <div class="cenario-icon">🚫</div>
       <div class="cenario-content">
-        <div class="cenario-label">${label}</div>
+        <div class="cenario-label" style="text-align:center">${label}</div>
         ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
@@ -6245,7 +6245,7 @@ function _painelForcaLeituraViradaBlockHtml(cfg) {
     <div class="cenario-block">
       <div class="cenario-icon">🔄</div>
       <div class="cenario-content">
-        <div class="cenario-label">${cfg.label}</div>
+        <div class="cenario-label" style="text-align:center">${cfg.label}</div>
         ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
@@ -6296,7 +6296,7 @@ function _painelForcaLeituraHandicapBlockHtml() {
     <div class="cenario-block">
       <div class="cenario-icon">📐</div>
       <div class="cenario-content">
-        <div class="cenario-label">Handicap Asiático — por linha</div>
+        <div class="cenario-label" style="text-align:center">Handicap Asiático — por linha</div>
         ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaHome} (jogando em casa)`, homeLines)}
         ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaAway} (jogando fora)`, awayLines)}
       </div>
@@ -6345,14 +6345,14 @@ function _painelForcaLeituraRender() {
     <div class="cenario-block">
       <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
-        <div class="cenario-label">Jogos em que marcou gol (tempo todo)</div>
+        <div class="cenario-label" style="text-align:center">Jogos em que marcou gol (tempo todo)</div>
         ${_painelForcaLeituraRow(homeScored, awayScored)}
       </div>
     </div>
     <div class="cenario-block">
       <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
-        <div class="cenario-label">Jogos em que marcou gol (1º tempo)</div>
+        <div class="cenario-label" style="text-align:center">Jogos em que marcou gol (1º tempo)</div>
         ${_painelForcaLeituraRow(homeScoredHt, awayScoredHt)}
       </div>
     </div>
