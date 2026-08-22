@@ -6067,6 +6067,7 @@ function _painelForcaLeituraStreakRow(homeR, awayR) {
   const awayPct = awayR && awayR.sample ? Math.round(100 * awayR.streak / awayR.sample) : 0;
   const corHome = homeR ? corStreak(homeR.streak) : 'var(--text2)';
   const corAway = awayR ? corStreak(awayR.streak) : 'var(--text2)';
+  const corMeio = corHome === corAway ? corHome : 'var(--border)';
   const fmt = r => {
     if (!r) return `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
     const atLimit = r.streak > 0 && r.streak === r.sample;
@@ -6080,7 +6081,7 @@ function _painelForcaLeituraStreakRow(homeR, awayR) {
       </div>
       <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
         <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
-        <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
+        <div style="width:2px;flex-shrink:0;background:${corMeio}"></div>
         <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
       </div>
     </div>`;
@@ -6313,6 +6314,7 @@ function _painelForcaLeituraRow(homeR, awayR) {
   const homePct = homeR ? Math.round(100 * homeR.scored / homeR.total) : 0;
   const awayPct = awayR ? Math.round(100 * awayR.scored / awayR.total) : 0;
   const corHome = corPct(homePct), corAway = corPct(awayPct);
+  const corMeio = corHome === corAway ? corHome : 'var(--border)';
   const homeTxt = homeR ? `${homeR.scored}/${homeR.total} <span style="font-weight:400;color:var(--text2)">(${homePct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
   const awayTxt = awayR ? `${awayR.scored}/${awayR.total} <span style="font-weight:400;color:var(--text2)">(${awayPct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
   return `
@@ -6323,7 +6325,7 @@ function _painelForcaLeituraRow(homeR, awayR) {
       </div>
       <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
         <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
-        <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
+        <div style="width:2px;flex-shrink:0;background:${corMeio}"></div>
         <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
       </div>
     </div>`;
