@@ -4188,6 +4188,30 @@ function _painelSetTurno(turno, btn) {
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
+// Filtro de dia (hoje/amanhã) — o Painel Principal traz jogos de mais de um
+// dia de uma vez (ex: partidas de amanhã já aparecem cedo), sem forma de
+// separar. Compara ano/mês/dia local de m.ts contra hoje e amanhã.
+let _painelDiaFiltro = 'all';
+function _painelCalcDia(m) {
+  if (!m.ts) return 'outro';
+  const d = new Date(m.ts * 1000);
+  const hoje = new Date();
+  const amanha = new Date(hoje); amanha.setDate(hoje.getDate() + 1);
+  const mesmoDia = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (mesmoDia(d, hoje)) return 'hoje';
+  if (mesmoDia(d, amanha)) return 'amanha';
+  return 'outro';
+}
+function _painelPassesDia(m) {
+  return _painelDiaFiltro === 'all' || _painelCalcDia(m) === _painelDiaFiltro;
+}
+function _painelSetDia(dia, btn) {
+  _painelDiaFiltro = dia;
+  document.querySelectorAll('#painelOddsFilterBar .painel-dia-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
 function _painelBuildOddsFilterBar() {
   const bar = document.getElementById('painelOddsFilterBar');
   if (!bar || bar.dataset.built) return;
@@ -4213,6 +4237,14 @@ function _painelBuildOddsFilterBar() {
       </div>
     </div>
   `).join('') + `
+    <div class="painel-odds-filter-group">
+      <span class="painel-odds-filter-label">Dia</span>
+      <div class="painel-odds-filter-controls">
+        <button class="filter-btn painel-dia-btn active" onclick="_painelSetDia('all', this)">Todos</button>
+        <button class="filter-btn painel-dia-btn" onclick="_painelSetDia('hoje', this)">Hoje</button>
+        <button class="filter-btn painel-dia-btn" onclick="_painelSetDia('amanha', this)">Amanhã</button>
+      </div>
+    </div>
     <div class="painel-odds-filter-group">
       <span class="painel-odds-filter-label">Turno</span>
       <div class="painel-odds-filter-controls">
@@ -4363,6 +4395,10 @@ function _painelOddsFilterClear() {
   document.querySelectorAll('#painelOddsFilterBar .painel-turno-btn').forEach(b => b.classList.remove('active'));
   const btnTodoDia = document.querySelector('#painelOddsFilterBar .painel-turno-btn');
   if (btnTodoDia) btnTodoDia.classList.add('active');
+  _painelDiaFiltro = 'all';
+  document.querySelectorAll('#painelOddsFilterBar .painel-dia-btn').forEach(b => b.classList.remove('active'));
+  const btnTodosDias = document.querySelector('#painelOddsFilterBar .painel-dia-btn');
+  if (btnTodosDias) btnTodosDias.classList.add('active');
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -6976,7 +7012,7 @@ function _painelRender(data) {
     .map(lg => ({
       ...lg,
       matches: lg.matches.filter(m =>
-        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelPassesTurno(m) && _painelMatchPassesSearch(m, lg.league_name)),
+        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelPassesTurno(m) && _painelPassesDia(m) && _painelMatchPassesSearch(m, lg.league_name)),
     }))
     .filter(lg => lg.matches.length);
 
