@@ -925,11 +925,8 @@
   }
   .live-grid-view.active { display: block; }
   .live-grid-wrap {
-    display: grid; grid-template-columns: repeat(2, 1fr);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
     gap: 16px;
-  }
-  @media (max-width: 980px) {
-    .live-grid-wrap { grid-template-columns: 1fr; }
   }
   @media (max-width: 720px) {
     .live-grid-wrap { grid-template-columns: 1fr; gap: 12px; }
