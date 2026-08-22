@@ -6059,9 +6059,14 @@ const _PAINEL_LEITURA_STREAKS = [
 
 // Mesmo estilo de barra dupla divergente do _painelForcaLeituraRow, escalando
 // a barra por streak/sample (quanto da amostra recente a sequência cobre).
+// Cor volta a ser a semântica original (verde/amarelo/vermelho conforme o
+// tamanho da sequência), igual _painelForcaLeituraRow.
 function _painelForcaLeituraStreakRow(homeR, awayR) {
+  const corStreak = s => s >= 3 ? '#22c55e' : s >= 1 ? '#f59e0b' : '#ef4444';
   const homePct = homeR && homeR.sample ? Math.round(100 * homeR.streak / homeR.sample) : 0;
   const awayPct = awayR && awayR.sample ? Math.round(100 * awayR.streak / awayR.sample) : 0;
+  const corHome = homeR ? corStreak(homeR.streak) : 'var(--text2)';
+  const corAway = awayR ? corStreak(awayR.streak) : 'var(--text2)';
   const fmt = r => {
     if (!r) return `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
     const atLimit = r.streak > 0 && r.streak === r.sample;
@@ -6070,13 +6075,13 @@ function _painelForcaLeituraStreakRow(homeR, awayR) {
   return `
     <div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
-        <span style="color:#e8622c">${fmt(homeR)}</span>
-        <span style="color:#2c7fe8">${fmt(awayR)}</span>
+        <span style="color:${corHome}">${fmt(homeR)}</span>
+        <span style="color:${corAway}">${fmt(awayR)}</span>
       </div>
       <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
-        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:#e8622c"></div></div>
+        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
         <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
-        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:#2c7fe8"></div></div>
+        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
       </div>
     </div>`;
 }
@@ -6298,24 +6303,28 @@ function _painelForcaLeituraHandicapBlockHtml() {
     </div>`;
 }
 
-// Barra dupla divergente (casa/fora crescendo do centro pra fora) — mesmas
-// cores do cabeçalho do modal (.painel-forca-header .home/.away), pra ligar
-// visualmente a barra ao time sem precisar repetir o nome em cada linha.
+// Barra dupla divergente (casa/fora crescendo do centro pra fora). Cor de
+// cada lado volta a ser a semântica original (verde/amarelo/vermelho
+// conforme o próprio percentual daquele lado), não mais fixa por time —
+// usuário preferiu manter esse significado (bom/médio/ruim) em vez de só
+// identificar quem é casa/quem é fora.
 function _painelForcaLeituraRow(homeR, awayR) {
+  const corPct = pct => pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
   const homePct = homeR ? Math.round(100 * homeR.scored / homeR.total) : 0;
   const awayPct = awayR ? Math.round(100 * awayR.scored / awayR.total) : 0;
+  const corHome = corPct(homePct), corAway = corPct(awayPct);
   const homeTxt = homeR ? `${homeR.scored}/${homeR.total} <span style="font-weight:400;color:var(--text2)">(${homePct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
   const awayTxt = awayR ? `${awayR.scored}/${awayR.total} <span style="font-weight:400;color:var(--text2)">(${awayPct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
   return `
     <div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
-        <span style="color:#e8622c">${homeTxt}</span>
-        <span style="color:#2c7fe8">${awayTxt}</span>
+        <span style="color:${corHome}">${homeTxt}</span>
+        <span style="color:${corAway}">${awayTxt}</span>
       </div>
       <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
-        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:#e8622c"></div></div>
+        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
         <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
-        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:#2c7fe8"></div></div>
+        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
       </div>
     </div>`;
 }
