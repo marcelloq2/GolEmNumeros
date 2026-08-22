@@ -1367,7 +1367,7 @@
   .painel-forca-h2h-badge.lose { background: #c62828; }
   .painel-forca-h2h-badge.draw { background: #f9a825; }
 
-  /* ── Metodologias (ranking de tipsters do tips.nowgoal.net) ── */
+  /* ── Metodologias (ranking de tipsters do tips.nowgoal.net) — grade de cards ── */
   .painel-meth-tabs { display: flex; gap: 16px; margin-bottom: 14px; }
   .painel-meth-tab-group { display: flex; background: var(--bg2); border-radius: 16px; padding: 2px; }
   .painel-meth-tab-group button {
@@ -1375,25 +1375,38 @@
     padding: 5px 14px; border-radius: 14px; cursor: pointer;
   }
   .painel-meth-tab-group button.active { background: var(--accent); color: #fff; }
-  .painel-meth-item {
-    display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer;
+  #painelMethList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
   }
-  .painel-meth-item:hover { background: var(--bg2); }
-  .painel-meth-rank { width: 22px; text-align: center; font-weight: 700; color: var(--text2); flex-shrink: 0; }
-  .painel-meth-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg2); }
+  .painel-meth-item {
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .painel-meth-item:hover { border-color: var(--accent); background: var(--bg3); }
+  .painel-meth-item-head { display: flex; align-items: center; gap: 10px; }
+  .painel-meth-rank { font-size: 20px; font-weight: 800; color: var(--accent); flex-shrink: 0; min-width: 26px; }
+  .painel-meth-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg3); border: 1px solid var(--border); }
   .painel-meth-name-col { flex: 1 1 auto; min-width: 0; }
-  .painel-meth-name { font-weight: 700; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .painel-meth-badge { font-size: 10px; color: #2e7d32; font-weight: 700; margin-left: 6px; }
-  .painel-meth-stats { display: flex; gap: 14px; flex-shrink: 0; }
-  .painel-meth-stat { text-align: center; min-width: 44px; }
-  .painel-meth-stat .v { font-weight: 700; font-size: 12px; color: #e8622c; }
+  .painel-meth-name { display: block; font-weight: 700; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel-meth-badge { font-size: 10px; color: #2e7d32; font-weight: 700; }
+  .painel-meth-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .painel-meth-stat { text-align: center; min-width: 0; }
+  .painel-meth-stat .v { font-weight: 700; font-size: 12px; color: var(--accent2); }
   .painel-meth-stat .l { font-size: 9px; color: var(--text2); display: block; }
+  .painel-meth-item-footer { display: flex; justify-content: flex-end; gap: 6px; }
   .painel-meth-watch-btn {
     flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
     background: transparent; font-size: 14px; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s;
   }
-  .painel-meth-watch-btn:hover { opacity: 1; background: var(--bg2); }
+  .painel-meth-watch-btn:hover { opacity: 1; background: var(--bg3); }
   .painel-meth-watch-btn.active { opacity: 1; border-color: #0088cc; background: rgba(0,136,204,.12); }
+  @media (max-width: 720px) {
+    #painelMethList { grid-template-columns: 1fr; }
+  }
+  body.force-mobile #painelMethList { grid-template-columns: 1fr; }
   .painel-meth-tip { padding: 10px 4px; border-bottom: 1px solid var(--border); }
   .painel-meth-tip-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
   .painel-meth-tip-match { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 4px; }
@@ -4449,17 +4462,21 @@ function _painelMethItemShell(u, statsHtml) {
   const isWatched = _painelWatchedTipsters.has(String(u.uid));
   return `
     <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
-      <div class="painel-meth-rank">${u.rank}</div>
-      <img class="painel-meth-avatar" src="${u.uimg || ''}" alt="" onerror="this.style.visibility='hidden'">
-      <div class="painel-meth-name-col">
-        <span class="painel-meth-name">${u.uname}</span>
-        ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
+      <div class="painel-meth-item-head">
+        <div class="painel-meth-rank">${u.rank}</div>
+        <img class="painel-meth-avatar" src="${u.uimg || ''}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="painel-meth-name-col">
+          <span class="painel-meth-name">${u.uname}</span>
+          ${u.rrc ? `<span class="painel-meth-badge">${u.rrc}</span>` : ''}
+        </div>
       </div>
       ${statsHtml}
-      <button class="painel-meth-watch-btn" title="Ver gráfico de profit acumulado"
-        onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">${_icoTrend()}</button>
-      <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
-        onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
+      <div class="painel-meth-item-footer">
+        <button class="painel-meth-watch-btn" title="Ver gráfico de profit acumulado"
+          onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">${_icoTrend()}</button>
+        <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
+          onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
+      </div>
     </div>`;
 }
 
