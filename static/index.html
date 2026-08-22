@@ -6057,14 +6057,27 @@ const _PAINEL_LEITURA_STREAKS = [
   { label: 'Sem perder (invicto)', icon: '💪', test: (t, o) => t >= o },
 ];
 
-function _painelForcaLeituraStreakRow(nome, r, ladoLabel) {
-  if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
-  const atLimit = r.streak > 0 && r.streak === r.sample;
-  const cor = r.streak >= 3 ? '#22c55e' : r.streak >= 1 ? '#f59e0b' : '#ef4444';
+// Mesmo estilo de barra dupla divergente do _painelForcaLeituraRow, escalando
+// a barra por streak/sample (quanto da amostra recente a sequência cobre).
+function _painelForcaLeituraStreakRow(homeR, awayR) {
+  const homePct = homeR && homeR.sample ? Math.round(100 * homeR.streak / homeR.sample) : 0;
+  const awayPct = awayR && awayR.sample ? Math.round(100 * awayR.streak / awayR.sample) : 0;
+  const fmt = r => {
+    if (!r) return `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
+    const atLimit = r.streak > 0 && r.streak === r.sample;
+    return `${r.streak} jogo${r.streak === 1 ? '' : 's'}${atLimit ? '+' : ''}`;
+  };
   return `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:13px">${nome} <span style="color:var(--text2);font-size:11px">(${ladoLabel})</span></span>
-      <span style="font-weight:800;color:${cor}">${r.streak} jogo${r.streak === 1 ? '' : 's'}${atLimit ? '+' : ''}</span>
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
+        <span style="color:#e8622c">${fmt(homeR)}</span>
+        <span style="color:#2c7fe8">${fmt(awayR)}</span>
+      </div>
+      <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
+        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:#e8622c"></div></div>
+        <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
+        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:#2c7fe8"></div></div>
+      </div>
     </div>`;
 }
 
@@ -6076,8 +6089,7 @@ function _painelForcaLeituraStreakBlockHtml(cfg) {
       <div class="cenario-icon">${cfg.icon}</div>
       <div class="cenario-content">
         <div class="cenario-label">Sequência atual — ${cfg.label}</div>
-        ${_painelForcaLeituraStreakRow(_painelForcaHome, homeR, 'jogando em casa')}
-        ${_painelForcaLeituraStreakRow(_painelForcaAway, awayR, 'jogando fora')}
+        ${_painelForcaLeituraStreakRow(homeR, awayR)}
       </div>
     </div>`;
 }
@@ -6149,8 +6161,7 @@ function _painelForcaLeituraMarketBlockHtml(cfg) {
       <div class="cenario-icon">${cfg.metric === 'corner' ? '🚩' : _icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">${cfg.label}</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+        ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
 }
@@ -6186,8 +6197,7 @@ function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
       <div class="cenario-icon">🚫</div>
       <div class="cenario-content">
         <div class="cenario-label">${label}</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+        ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
 }
@@ -6231,8 +6241,7 @@ function _painelForcaLeituraViradaBlockHtml(cfg) {
       <div class="cenario-icon">🔄</div>
       <div class="cenario-content">
         <div class="cenario-label">${cfg.label}</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeR, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayR, 'jogando fora')}
+        ${_painelForcaLeituraRow(homeR, awayR)}
       </div>
     </div>`;
 }
@@ -6289,14 +6298,25 @@ function _painelForcaLeituraHandicapBlockHtml() {
     </div>`;
 }
 
-function _painelForcaLeituraRow(nome, r, ladoLabel) {
-  if (!r) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${nome} (${ladoLabel}): sem jogos suficientes ainda.</div>`;
-  const pct = Math.round(100 * r.scored / r.total);
-  const cor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+// Barra dupla divergente (casa/fora crescendo do centro pra fora) — mesmas
+// cores do cabeçalho do modal (.painel-forca-header .home/.away), pra ligar
+// visualmente a barra ao time sem precisar repetir o nome em cada linha.
+function _painelForcaLeituraRow(homeR, awayR) {
+  const homePct = homeR ? Math.round(100 * homeR.scored / homeR.total) : 0;
+  const awayPct = awayR ? Math.round(100 * awayR.scored / awayR.total) : 0;
+  const homeTxt = homeR ? `${homeR.scored}/${homeR.total} <span style="font-weight:400;color:var(--text2)">(${homePct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
+  const awayTxt = awayR ? `${awayR.scored}/${awayR.total} <span style="font-weight:400;color:var(--text2)">(${awayPct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
   return `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:13px">${nome} <span style="color:var(--text2);font-size:11px">(${ladoLabel})</span></span>
-      <span style="font-weight:800;color:${cor}">${r.scored}/${r.total} <span style="font-weight:400;color:var(--text2);font-size:11px">(${pct}%)</span></span>
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
+        <span style="color:#e8622c">${homeTxt}</span>
+        <span style="color:#2c7fe8">${awayTxt}</span>
+      </div>
+      <div style="display:flex;align-items:center;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
+        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:#e8622c"></div></div>
+        <div style="width:2px;flex-shrink:0;background:var(--border)"></div>
+        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:#2c7fe8"></div></div>
+      </div>
     </div>`;
 }
 
@@ -6317,16 +6337,14 @@ function _painelForcaLeituraRender() {
       <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">Jogos em que marcou gol (tempo todo)</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeScored, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayScored, 'jogando fora')}
+        ${_painelForcaLeituraRow(homeScored, awayScored)}
       </div>
     </div>
     <div class="cenario-block">
       <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
         <div class="cenario-label">Jogos em que marcou gol (1º tempo)</div>
-        ${_painelForcaLeituraRow(_painelForcaHome, homeScoredHt, 'jogando em casa')}
-        ${_painelForcaLeituraRow(_painelForcaAway, awayScoredHt, 'jogando fora')}
+        ${_painelForcaLeituraRow(homeScoredHt, awayScoredHt)}
       </div>
     </div>
     ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
