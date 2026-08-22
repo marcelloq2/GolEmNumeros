@@ -1,0 +1,278 @@
+{
+  "event_id": "ykcv4illw4g1w5u",
+  "date": "2026-08-22",
+  "casa": "Genoa",
+  "fora": "Napoli",
+  "liga": "Serie A",
+  "score": {
+    "home": 0,
+    "away": 2
+  },
+  "total_shots": 24,
+  "shotmap": [
+    {
+      "id": "2958335709",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "A.Vergara",
+      "x": 10.7,
+      "y": 33.2
+    },
+    {
+      "id": "2958331271",
+      "minute": 82,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "De Bruyne",
+      "x": 8.9,
+      "y": 55.1
+    },
+    {
+      "id": "2958328177",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "D.Sow",
+      "x": 12.3,
+      "y": 67.8
+    },
+    {
+      "id": "2958327675",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Vergara",
+      "x": 14.7,
+      "y": 47.3
+    },
+    {
+      "id": "2958324681",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Spinazzola",
+      "x": 6.4,
+      "y": 32.8
+    },
+    {
+      "id": "2958321075",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S. Lobotka",
+      "x": 23.3,
+      "y": 41.8
+    },
+    {
+      "id": "2958309493",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Baldanzi",
+      "x": 24.1,
+      "y": 40
+    },
+    {
+      "id": "2958308425",
+      "minute": 64,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "A. Rrahmani",
+      "x": 29.7,
+      "y": 51.9
+    },
+    {
+      "id": "2958308349",
+      "minute": 64,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S. Lobotka",
+      "x": 18.4,
+      "y": 49.3
+    },
+    {
+      "id": "2958306465",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "McTominay",
+      "x": 26.9,
+      "y": 58.5
+    },
+    {
+      "id": "2958304805",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Santos",
+      "x": 21.3,
+      "y": 23.4
+    },
+    {
+      "id": "2958297385",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "A.Santos",
+      "x": 27.3,
+      "y": 49.3
+    },
+    {
+      "id": "2958294935",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Baldanzi",
+      "x": 14.6,
+      "y": 64.2
+    },
+    {
+      "id": "2958294301",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Ellertsson",
+      "x": 13,
+      "y": 29.1
+    },
+    {
+      "id": "2958265645",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Spinazzola",
+      "x": 20.2,
+      "y": 37.5
+    },
+    {
+      "id": "2958259495",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Santos",
+      "x": 17.8,
+      "y": 29.4
+    },
+    {
+      "id": "2958258063",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vitinha",
+      "x": 28.5,
+      "y": 42.8
+    },
+    {
+      "id": "2958257591",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Baldanzi",
+      "x": 12.7,
+      "y": 51.5
+    },
+    {
+      "id": "2958237513",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Amorim",
+      "x": 25.9,
+      "y": 29.7
+    },
+    {
+      "id": "2958234743",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Baldanzi",
+      "x": 11.5,
+      "y": 60.6
+    },
+    {
+      "id": "2958229721",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "A. Rrahmani",
+      "x": 32.4,
+      "y": 50.4
+    },
+    {
+      "id": "2958218003",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vitinha",
+      "x": 16.9,
+      "y": 56
+    },
+    {
+      "id": "2958217063",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Vitinha",
+      "x": 10.7,
+      "y": 32.7
+    },
+    {
+      "id": "2958216577",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Frendrup",
+      "x": 22,
+      "y": 44.5
+    }
+  ]
+}
