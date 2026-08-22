@@ -4167,6 +4167,27 @@ let _painelOddsFilters = {};  // key -> {op, val1, val2}
 PAINEL_ODDS_FILTER_COLS.forEach(c => { _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' }; });
 let _painelForcaDiffCache = {};  // match_id -> diferença de força (número absoluto), preenchido por _painelLoadForcaDiffs
 
+// Filtro de turno (manhã/tarde/noite) — mesmo critério de horário já usado
+// no Hoje 2 (_calcToday2Turno), só que em cima de m.ts (campo de timestamp
+// do Painel Principal) em vez de m.kickoff_ts.
+let _painelTurnoFiltro = 'all';
+function _painelCalcTurno(m) {
+  if (!m.ts) return 'all';
+  const h = new Date(m.ts * 1000).getHours();
+  if (h >= 5 && h < 12) return 'manha';
+  if (h >= 12 && h < 18) return 'tarde';
+  return 'noite';
+}
+function _painelPassesTurno(m) {
+  return _painelTurnoFiltro === 'all' || _painelCalcTurno(m) === _painelTurnoFiltro;
+}
+function _painelSetTurno(turno, btn) {
+  _painelTurnoFiltro = turno;
+  document.querySelectorAll('#painelOddsFilterBar .painel-turno-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (_painelLastData) _painelRender(_painelLastData);
+}
+
 function _painelBuildOddsFilterBar() {
   const bar = document.getElementById('painelOddsFilterBar');
   if (!bar || bar.dataset.built) return;
@@ -4191,7 +4212,17 @@ function _painelBuildOddsFilterBar() {
           oninput="_painelOddsFilterChange('${c.key}', 'val2', this.value)">
       </div>
     </div>
-  `).join('') + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`
+  `).join('') + `
+    <div class="painel-odds-filter-group">
+      <span class="painel-odds-filter-label">Turno</span>
+      <div class="painel-odds-filter-controls">
+        <button class="filter-btn painel-turno-btn active" onclick="_painelSetTurno('all', this)">Dia todo</button>
+        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('manha', this)" title="Manhã (5h-12h)">🌅</button>
+        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('tarde', this)" title="Tarde (12h-18h)">☀️</button>
+        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('noite', this)" title="Noite (18h-5h)">🌙</button>
+      </div>
+    </div>`
+    + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`
     + `<button class="painel-odds-filter-clear" id="painelClearFavBtn" onclick="_painelClearFavorites()">☆ Remover Minhas Seleções</button>`;
 }
 
@@ -4328,6 +4359,10 @@ function _painelOddsFilterClear() {
     document.getElementById('painelOddsFilterVal2_' + c.key).style.display = 'none';
     document.getElementById('painelOddsFilterAnd_' + c.key).style.display = 'none';
   });
+  _painelTurnoFiltro = 'all';
+  document.querySelectorAll('#painelOddsFilterBar .painel-turno-btn').forEach(b => b.classList.remove('active'));
+  const btnTodoDia = document.querySelector('#painelOddsFilterBar .painel-turno-btn');
+  if (btnTodoDia) btnTodoDia.classList.add('active');
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
@@ -6941,7 +6976,7 @@ function _painelRender(data) {
     .map(lg => ({
       ...lg,
       matches: lg.matches.filter(m =>
-        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelMatchPassesSearch(m, lg.league_name)),
+        viewFilterFn(m) && _painelMatchPassesOddsFilters(m) && _painelPassesTurno(m) && _painelMatchPassesSearch(m, lg.league_name)),
     }))
     .filter(lg => lg.matches.length);
 
