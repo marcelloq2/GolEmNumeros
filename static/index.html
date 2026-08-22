@@ -856,6 +856,10 @@
     transition: width .2s, min-width .2s;
   }
   .live-sidebar.hidden { width: 0; min-width: 0; overflow: hidden; border-right: none; }
+  /* Sidebar do Replay é um pouco mais estreita que as outras — :not(.hidden)
+     garante que essa largura própria não sobreponha o colapso acima (um
+     seletor com ID sozinho venceria .hidden por especificidade). */
+  #replaySidebar:not(.hidden) { width: 280px; min-width: 240px; }
   .live-sidebar-toggle {
     background: none; border: 1px solid var(--border); color: var(--text2);
     border-radius: 6px; padding: 3px 7px; cursor: pointer; font-size: 12px;
@@ -2133,7 +2137,7 @@
       <button id="replayModeMatchBtn" class="filter-btn active" onclick="_replaySetMode('match')">▶️ Partidas</button>
       <button id="replayModeStatsBtn" class="filter-btn" onclick="_replaySetMode('stats')">📊 Estatísticas de Sinais</button>
     </div>
-    <div id="replayMatchMode" style="display:flex;flex:1;overflow:hidden">
+    <div id="replayMatchMode" style="display:flex;flex:1;overflow:hidden;position:relative">
       <div class="live-sidebar" id="replaySidebar">
         <div class="live-sidebar-top">
           <span class="live-sidebar-title">▶️ Replay</span>
@@ -2143,7 +2147,7 @@
         <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
           <input id="replaySearchInput" type="text" placeholder="🔍 Buscar time ou liga..." oninput="_replaySearch(this.value)"
             style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
-                   color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box">
+                   color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box;height:44px">
           <div style="font-size:10px;color:var(--text2);margin-top:5px">Sem busca mostra as 200 partidas mais recentes salvas</div>
         </div>
         <div id="replayMatchList">
@@ -2153,6 +2157,12 @@
           </div>
         </div>
       </div>
+      <button id="replaySidebarFab" onclick="toggleReplaySidebar()"
+        style="display:none;position:absolute;top:12px;left:12px;z-index:20;
+               background:var(--bg3);border:1px solid var(--border);color:var(--text2);
+               border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px">
+        ▶ Partidas
+      </button>
       <div class="live-detail" id="replayDetail">
         <div class="live-detail-placeholder">
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
@@ -3371,7 +3381,15 @@ let _replayStatsAutoRefresh = null;
 
 function toggleReplaySidebar() {
   const sb = document.getElementById('replaySidebar');
-  if (sb) sb.classList.toggle('hidden');
+  if (!sb) return;
+  const btn    = sb.querySelector('.live-sidebar-toggle');
+  const hidden = sb.classList.toggle('hidden');
+  if (btn) btn.textContent = hidden ? '▶' : '◀';
+  // Sem o botão flutuante, colapsar a sidebar no celular derrubava junto o
+  // único jeito de reabri-la (o botão ◀ que some com ela) — mesmo problema
+  // e mesma solução já usados no toggleLiveSidebar().
+  const fab = document.getElementById('replaySidebarFab');
+  if (fab) fab.style.display = hidden ? 'flex' : 'none';
 }
 
 // ── Padrões por minuto — analisa UM tipo de sinal por vez (sem combinar
@@ -3680,7 +3698,7 @@ function _replayRenderExtras() {
     html += `
       <div class="live-section">
         <div class="live-section-title">${_icoChart()} Odds Pré-jogo</div>
-        <div style="display:flex;gap:8px;padding:8px 12px 12px;flex-wrap:wrap">
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;padding:8px 12px 12px">
           ${oddCell('1', _replayForca.odd_1)}
           ${oddCell('X', _replayForca.odd_x)}
           ${oddCell('2', _replayForca.odd_2)}
