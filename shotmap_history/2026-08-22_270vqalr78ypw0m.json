@@ -1,0 +1,311 @@
+{
+  "event_id": "270vqalr78ypw0m",
+  "date": "2026-08-22",
+  "casa": "FC Zurich",
+  "fora": "Basel",
+  "liga": "Super League",
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2958328143",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "L. Kamberi",
+      "x": 6.5,
+      "y": 43.5
+    },
+    {
+      "id": "2958326055",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "U.Emmanuel",
+      "x": 10.6,
+      "y": 35.8
+    },
+    {
+      "id": "2958325961",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "L.Comenencia",
+      "x": 10.8,
+      "y": 73
+    },
+    {
+      "id": "2958320567",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "U.Emmanuel",
+      "x": 23.8,
+      "y": 50.4
+    },
+    {
+      "id": "2958317195",
+      "minute": 85,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Ž. Celar",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2958304189",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "A.Sow",
+      "x": 4.9,
+      "y": 39.2
+    },
+    {
+      "id": "2958303551",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "X. Shaqiri",
+      "x": 25.2,
+      "y": 49.8
+    },
+    {
+      "id": "2958291839",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Olaigbe",
+      "x": 10.7,
+      "y": 66.6
+    },
+    {
+      "id": "2958289297",
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Walker",
+      "x": 7.4,
+      "y": 28.8
+    },
+    {
+      "id": "2958282497",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Sow",
+      "x": 6.6,
+      "y": 68.7
+    },
+    {
+      "id": "2958281459",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "M.Reichmuth",
+      "x": 26.6,
+      "y": 61.3
+    },
+    {
+      "id": "2958277229",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Ž. Celar",
+      "x": 18.1,
+      "y": 37.2
+    },
+    {
+      "id": "2958274419",
+      "minute": 48,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Keny",
+      "x": 5.7,
+      "y": 35.2
+    },
+    {
+      "id": "2958247077",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "B. Omeragić",
+      "x": 6.7,
+      "y": 47.8
+    },
+    {
+      "id": "2958241347",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "K.Tsunemoto",
+      "x": 19.9,
+      "y": 56.2
+    },
+    {
+      "id": "2958238357",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Sow",
+      "x": 8.2,
+      "y": 61.2
+    },
+    {
+      "id": "2958235769",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "F.Daniliuc",
+      "x": 4.2,
+      "y": 60.9
+    },
+    {
+      "id": "2958226325",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "K. Spadanuda",
+      "x": 7.3,
+      "y": 70.1
+    },
+    {
+      "id": "2958224303",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "F.Daniliuc",
+      "x": 6.9,
+      "y": 44
+    },
+    {
+      "id": "2958223739",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Olaigbe",
+      "x": 7.4,
+      "y": 24.9
+    },
+    {
+      "id": "2958220641",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Olaigbe",
+      "x": 10.5,
+      "y": 39
+    },
+    {
+      "id": "2958219491",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L. Kamberi",
+      "x": 12.6,
+      "y": 44.8
+    },
+    {
+      "id": "2958218769",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "U.Emmanuel",
+      "x": 8.7,
+      "y": 74.4
+    },
+    {
+      "id": "2958217395",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "A. Hack",
+      "x": 9.3,
+      "y": 40
+    },
+    {
+      "id": "2958206565",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L. Kamberi",
+      "x": 7.8,
+      "y": 66.3
+    },
+    {
+      "id": "2958200593",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Keny",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2958197375",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Victory",
+      "x": 28,
+      "y": 49.8
+    }
+  ]
+}
