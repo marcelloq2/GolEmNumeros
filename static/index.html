@@ -9547,31 +9547,50 @@ function _btcsMatchesHtml(m, matches) {
       <div style="font-size:12px;color:var(--text2)">Nenhum jogo de hoje (ainda não iniciado) tem esse bucket disponível nas odds atuais.</div>
     </div>`;
   }
+  // Taxa do modelo pra comparar com a odd de cada jogo: se o padrão clicado
+  // (com variável+segmento) bate com esse bucket, usa a taxa condicionada
+  // dele (mais precisa); senão cai pra taxa geral do bucket.
+  const modelRate = (_btcsSelectedPattern && _btcsSelectedPattern.bucket === m.bucket)
+    ? _btcsSelectedPattern.segment_rate : m.winrate;
   const key = _btcsMatchesSortKey, dir = _btcsMatchesSortDir;
+  const evOf = (mt) => {
+    const implied = _btcsImpliedProb(mt.odd);
+    return implied == null ? null : (modelRate - implied) * 100;
+  };
   const sorted = matches.slice().sort((a, b) => {
-    let va = a[key], vb = b[key];
+    let va, vb;
+    if (key === '_ev') { va = evOf(a) ?? -999; vb = evOf(b) ?? -999; }
+    else { va = a[key]; vb = b[key]; }
     if (key === 'kickoff_ts') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; }
     if (typeof va === 'string') return dir * va.localeCompare(vb);
     return dir * (va - vb);
   });
   const arrow = (k) => _btcsMatchesSortKey === k ? (_btcsMatchesSortDir === 1 ? ' ▴' : ' ▾') : '';
-  const rows = sorted.map(mt => `
+  const rows = sorted.map(mt => {
+    const ev = evOf(mt);
+    const evHtml = ev == null ? '' : (ev >= 3
+      ? `<span style="color:#22c55e;font-weight:700">⚡ ${ev >= 0 ? '+' : ''}${ev.toFixed(1)}pp</span>`
+      : `<span style="color:var(--text2)">${ev >= 0 ? '+' : ''}${ev.toFixed(1)}pp</span>`);
+    return `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:13px;border-radius:6px"
          onmouseover="this.style.background='rgba(79,110,247,.08)'" onmouseout="this.style.background='transparent'">
       <span style="width:90px;flex-shrink:0;color:var(--text2)">${_bt2FmtHora(mt.kickoff_ts)}</span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(mt.home)} <span style="color:var(--text2)">x</span> ${_bt2EscXml(mt.away)}
         <span style="color:var(--text2);font-size:11px">(${_bt2EscXml(mt.liga || '')})</span></span>
-      <span style="font-weight:700;color:var(--accent);flex-shrink:0">@${mt.odd.toFixed(2)}</span>
-    </div>`).join('');
+      <span style="font-weight:700;color:var(--accent);flex-shrink:0;width:56px;text-align:right">@${mt.odd.toFixed(2)}</span>
+      <span style="flex-shrink:0;width:80px;text-align:right;font-size:12px">${evHtml}</span>
+    </div>`;
+  }).join('');
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-top:10px">
       <div style="font-size:12px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
-        ${titulo} — ${matches.length} jogo(s)
+        ${titulo} — ${matches.length} jogo(s) · taxa do modelo ${(modelRate * 100).toFixed(1)}%
       </div>
       <div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:11px;color:var(--text2)">
         <span onclick="_btcsMatchesSortBy('kickoff_ts')" style="width:90px;flex-shrink:0;cursor:pointer;user-select:none">Horário${arrow('kickoff_ts')}</span>
         <span style="flex:1"></span>
-        <span onclick="_btcsMatchesSortBy('odd')" style="flex-shrink:0;cursor:pointer;user-select:none">Odd${arrow('odd')}</span>
+        <span onclick="_btcsMatchesSortBy('odd')" style="flex-shrink:0;cursor:pointer;user-select:none;width:56px;text-align:right">Odd${arrow('odd')}</span>
+        <span onclick="_btcsMatchesSortBy('_ev')" style="flex-shrink:0;cursor:pointer;user-select:none;width:80px;text-align:right">EV${arrow('_ev')}</span>
       </div>
       <div style="padding:4px">${rows}</div>
     </div>`;
@@ -9649,7 +9668,37 @@ const _BTCS_PATTERNS_COLUMNS = [
   { key: 'baseline_rate', label: 'Taxa Geral' },
   { key: 'lift', label: 'Lift' },
   { key: '_odd', label: 'Odd Média' },
+  { key: '_ev', label: 'EV' },
 ];
+
+// Probabilidade implícita da odd (1/odd, sem remover margem da casa — é uma
+// aproximação conservadora: a margem real deixaria a odd "justa" ainda mais
+// alta, então se já EV+ contra a odd bruta, é EV+ de verdade).
+function _btcsImpliedProb(odd) {
+  return (odd && odd > 1) ? 1 / odd : null;
+}
+
+// EV em pontos percentuais: quanto a taxa do modelo (segment_rate) supera a
+// probabilidade que a odd de hoje está implicitamente oferecendo. Positivo =
+// a casa está pagando mais barato do que o modelo diz que deveria (EV+).
+function _btcsEvPct(bucket, segmentRate) {
+  const odd = _btcsBucketOdds && _btcsBucketOdds[bucket];
+  const implied = _btcsImpliedProb(odd);
+  if (implied == null) return null;
+  return (segmentRate - implied) * 100;
+}
+
+// Célula da coluna EV: "—" sem odd hoje pra esse placar; senão mostra a
+// diferença em pontos percentuais, com ⚡ EV+ quando o modelo diz mais
+// provável do que a odd está pagando.
+function _btcsEvCellHtml(bucket, segmentRate) {
+  const ev = _btcsEvPct(bucket, segmentRate);
+  if (ev == null) return '<span style="color:var(--text2)">—</span>';
+  const sign = ev >= 0 ? '+' : '';
+  if (ev >= 3) return `<span style="color:#22c55e">⚡ EV+ ${sign}${ev.toFixed(1)}pp</span>`;
+  if (ev <= -3) return `<span style="color:var(--text2)">${sign}${ev.toFixed(1)}pp</span>`;
+  return `<span style="color:var(--text2)">${sign}${ev.toFixed(1)}pp</span>`;
+}
 
 function _btcsPatternsSortBy(key) {
   if (_btcsPatternsSortKey === key) { _btcsPatternsSortDir *= -1; } else { _btcsPatternsSortKey = key; _btcsPatternsSortDir = 1; }
@@ -9669,8 +9718,14 @@ function _btcsPatternsTableHtml(patterns, opts) {
   }
   const key = _btcsPatternsSortKey, dir = _btcsPatternsSortDir;
   const sorted = patterns.slice().sort((a, b) => {
-    let va = key === '_odd' ? (_btcsBucketOdds?.[a.bucket] ?? -1) : a[key];
-    let vb = key === '_odd' ? (_btcsBucketOdds?.[b.bucket] ?? -1) : b[key];
+    let va, vb;
+    if (key === '_odd') {
+      va = _btcsBucketOdds?.[a.bucket] ?? -1; vb = _btcsBucketOdds?.[b.bucket] ?? -1;
+    } else if (key === '_ev') {
+      va = _btcsEvPct(a.bucket, a.segment_rate) ?? -999; vb = _btcsEvPct(b.bucket, b.segment_rate) ?? -999;
+    } else {
+      va = a[key]; vb = b[key];
+    }
     if (typeof va === 'string') return dir * va.localeCompare(vb);
     return dir * (va - vb);
   });
@@ -9691,6 +9746,7 @@ function _btcsPatternsTableHtml(patterns, opts) {
       <td style="padding:7px 10px;font-size:12px;color:var(--text2)">${(p.baseline_rate * 100).toFixed(1)}%</td>
       <td style="padding:7px 10px;font-size:13px;font-weight:700;color:${liftColorFn(p.lift)}">${p.lift.toFixed(2)}x</td>
       <td style="padding:7px 10px;font-size:13px;color:var(--text2)">${_btcsBucketOdds && _btcsBucketOdds[p.bucket] != null ? '@' + _btcsBucketOdds[p.bucket].toFixed(2) : '—'}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:700">${_btcsEvCellHtml(p.bucket, p.segment_rate)}</td>
     </tr>`;
   }).join('');
   return `
