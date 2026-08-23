@@ -3513,13 +3513,25 @@ function _scannerRenderMonitor() {
   box.innerHTML = watched.map(_scannerMatchCardHtml).join('');
 }
 
-// Desenha o estado atual e dispara 1 rodada de análise pros jogos marcados —
-// chamado pelo refresh de 15s e ao marcar/desmarcar um jogo.
-function _scannerRefreshWatched() {
+// Quantos jogos analisar ao mesmo tempo, no máximo — se o usuário marcar
+// TODOS os jogos da lista pra monitorar, sem isso cada um dispararia sua
+// própria busca ao vivo no UniScore ao mesmo tempo (rajada de N requisições
+// simultâneas no servidor). Mesma técnica/valor de referência já usado no
+// mapa de chutes da Ao Vivo (_LIVE2_SHOTMAP_CONCURRENCY = 8), um pouco mais
+// conservador aqui porque cada análise também escaneia o momentum_history
+// inteiro (barato, mas soma).
+const _SCANNER_ANALYZE_CONCURRENCY = 4;
+
+// Desenha o estado atual e dispara a análise pros jogos marcados, em lotes
+// pequenos (não todos de uma vez) — chamado pelo refresh de 15s e ao marcar/
+// desmarcar um jogo.
+async function _scannerRefreshWatched() {
   _scannerRenderMonitor();
-  _scannerMatchesCache
-    .filter(m => _scannerWatchSet.has(String(m.id)))
-    .forEach(_scannerAnalyzeMatch);
+  const watched = _scannerMatchesCache.filter(m => _scannerWatchSet.has(String(m.id)));
+  for (let i = 0; i < watched.length; i += _SCANNER_ANALYZE_CONCURRENCY) {
+    const lote = watched.slice(i, i + _SCANNER_ANALYZE_CONCURRENCY);
+    await Promise.all(lote.map(_scannerAnalyzeMatch));
+  }
 }
 
 function _scannerMatchCardHtml(m) {
