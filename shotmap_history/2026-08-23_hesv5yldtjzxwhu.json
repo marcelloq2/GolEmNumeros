@@ -1,0 +1,311 @@
+{
+  "event_id": "hesv5yldtjzxwhu",
+  "date": "2026-08-23",
+  "casa": "Genk U23",
+  "fora": "Liege",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2958880213",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Koma",
+      "x": 10.8,
+      "y": 55.8
+    },
+    {
+      "id": "2958878787",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "J.Coenen",
+      "x": 10.6,
+      "y": 30.9
+    },
+    {
+      "id": "2958873811",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Koma",
+      "x": 17.3,
+      "y": 51.1
+    },
+    {
+      "id": "2958871553",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Camara",
+      "x": 3.2,
+      "y": 68.1
+    },
+    {
+      "id": "2958867427",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "K.R.Atil",
+      "x": 22,
+      "y": 31.5
+    },
+    {
+      "id": "2958864343",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "W.Kapers",
+      "x": 20.8,
+      "y": 62
+    },
+    {
+      "id": "2958860289",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "R.Mirisola",
+      "x": 7.6,
+      "y": 52.2
+    },
+    {
+      "id": "2958856035",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "own_goal",
+      "bodyPart": "other_body_part",
+      "situation": "own_goal",
+      "player": "E.Doucoure",
+      "x": 1.8,
+      "y": 52.3
+    },
+    {
+      "id": "2958855305",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Rambok Ryan Wesley Ogam",
+      "x": 3.2,
+      "y": 56.3
+    },
+    {
+      "id": "2958855181",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "E.N'jo",
+      "x": 5.3,
+      "y": 57.5
+    },
+    {
+      "id": "2958852707",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "R.Mirisola",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2958847071",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "V.Guillaume",
+      "x": 22.9,
+      "y": 40.9
+    },
+    {
+      "id": "2958832305",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Pierre",
+      "x": 13.2,
+      "y": 70.1
+    },
+    {
+      "id": "2958828189",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "S.Paulet",
+      "x": 7.4,
+      "y": 53.9
+    },
+    {
+      "id": "2958821895",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "R.Mirisola",
+      "x": 17.6,
+      "y": 39.5
+    },
+    {
+      "id": "2958821665",
+      "minute": 34,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "N.Dendani",
+      "x": 19.5,
+      "y": 62
+    },
+    {
+      "id": "2958819361",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "B.Bruggeman",
+      "x": 8.3,
+      "y": 39.5
+    },
+    {
+      "id": "2958818957",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Mirisola",
+      "x": 9.9,
+      "y": 44.2
+    },
+    {
+      "id": "2958818259",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "K.R.Atil",
+      "x": 19.8,
+      "y": 49.1
+    },
+    {
+      "id": "2958817395",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "A.DeWannemacker",
+      "x": 8.6,
+      "y": 45
+    },
+    {
+      "id": "2958816795",
+      "minute": 26,
+      "isHome": true,
+      "shotType": "crossbar",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Kim",
+      "x": 9.3,
+      "y": 54.5
+    },
+    {
+      "id": "2958815981",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "R.Mirisola",
+      "x": 9.9,
+      "y": 50
+    },
+    {
+      "id": "2958810339",
+      "minute": 15,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Nzoko",
+      "x": 14.9,
+      "y": 69.4
+    },
+    {
+      "id": "2958808139",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "S.Paulet",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2958806275",
+      "minute": 9,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J. D'Ostilio",
+      "x": 19.6,
+      "y": 49.3
+    },
+    {
+      "id": "2958805781",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "N.Adedeji",
+      "x": 19.3,
+      "y": 51.5
+    },
+    {
+      "id": "2958802693",
+      "minute": 4,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "K.R.Atil",
+      "x": 24.8,
+      "y": 43
+    }
+  ]
+}
