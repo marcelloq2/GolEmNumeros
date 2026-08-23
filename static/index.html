@@ -1861,6 +1861,7 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_cd" onclick="_painelOpenForcaCD()">CD / Dados</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_leitura" onclick="_painelForcaSetView('leitura', this)">📝 Leitura</button>
       </div>
       <div id="painelForcaBody">
@@ -5740,6 +5741,7 @@ const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
+  cd: 'painelForcaViewCD',
   leitura: 'painelForcaViewLeitura',
 };
 
@@ -5835,6 +5837,30 @@ async function _painelOpenForcaHojeTab(tab) {
     _renderToday2Content(m.id, bodyId);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+
+// Aba "CD / Dados" na Análise da partida do Painel Principal — mesmo card já
+// usado na Ao Vivo (_live2OpenUniscoreCDModal), só que carregado inline aqui
+// em vez de abrir outro modal por cima. Reaproveita 100% o endpoint
+// (/api/uniscore/cd_dados), o render (_renderUniscoreCD) e até o cache
+// (_live2CDCache, mesma chave "casa|fora") — se o jogo já foi aberto na Ao
+// Vivo antes, aparece na hora aqui também, sem nova requisição.
+async function _painelOpenForcaCD() {
+  const btn = document.getElementById('painelForcaViewTab_cd');
+  _painelForcaSetView('cd', btn);
+  const container = document.getElementById('painelForcaViewCD');
+  if (!container) return;
+  const cacheKey = `${_painelForcaHome}|${_painelForcaAway}`;
+  if (_live2CDCache[cacheKey]) { container.innerHTML = _renderUniscoreCD(_live2CDCache[cacheKey]); return; }
+  container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando dados do Uniscore...</div>`;
+  try {
+    const r = await fetch(`/api/uniscore/cd_dados?casa=${encodeURIComponent(_painelForcaHome)}&fora=${encodeURIComponent(_painelForcaAway)}`);
+    const d = await r.json();
+    _live2CDCache[cacheKey] = d;
+    if (_painelForcaView === 'cd') container.innerHTML = _renderUniscoreCD(d);
+  } catch (e) {
+    container.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
   }
 }
 
@@ -5980,6 +6006,7 @@ function _painelForcaRender() {
     <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
     <div id="painelForcaViewHojePower" style="display:none"></div>
+    <div id="painelForcaViewCD" style="display:none"></div>
     <div id="painelForcaViewLeitura" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
