@@ -3413,9 +3413,26 @@ function _scannerSaveWatch() {
   localStorage.setItem('statarea_scanner_watch', JSON.stringify([..._scannerWatchSet]));
 }
 
+// Teto rígido de jogos monitorados ao mesmo tempo — o Scanner e a Ao Vivo
+// dividem o mesmo servidor, e cada jogo monitorado soma trabalho de análise
+// a cada ciclo de 15s. O limite de concorrência (_SCANNER_ANALYZE_CONCURRENCY)
+// já evita uma rajada de requisições simultâneas, mas não evita que MUITOS
+// jogos monitorados ocupem o servidor quase o ciclo inteiro — por pedido
+// explícito do usuário ("não quero que nada prejudique a Ao Vivo"), em vez
+// de confiar em bom senso, o site simplesmente não deixa passar desse número.
+const _SCANNER_MAX_WATCH = 8;
+
 function _scannerToggleWatch(id, checked) {
   id = String(id);
-  if (checked) _scannerWatchSet.add(id); else _scannerWatchSet.delete(id);
+  if (checked) {
+    if (_scannerWatchSet.size >= _SCANNER_MAX_WATCH) {
+      alert(`Máximo de ${_SCANNER_MAX_WATCH} jogos monitorados ao mesmo tempo (limite pra não sobrecarregar o servidor, que é dividido com a aba Ao Vivo). Desmarque algum antes de adicionar outro.`);
+      return; // nada foi alterado ainda (_scannerWatchSet só muda depois desse if) — sem precisar redesenhar nada
+    }
+    _scannerWatchSet.add(id);
+  } else {
+    _scannerWatchSet.delete(id);
+  }
   _scannerSaveWatch();
   _scannerRefreshWatched();
 }
