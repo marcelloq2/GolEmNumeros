@@ -8127,6 +8127,14 @@ def _background_backtest_daily_backup():
             print("[backtest-backup] Rodando simulação diária do Backtest (Tradicional + CS)...")
             _bt2_compute_ranking()
             _btcs_compute_ranking()
+            # _btcs_compute_patterns() é a ÚNICA função que popula btcs_pattern_rows
+            # (usada pela aba Padrões do Placar Exato) — sem chamar ela aqui, essa
+            # tabela nunca crescia: o frontend só bate em mode=acumulado (leitura
+            # pura, de propósito, pra não travar o worker) e mais ninguém disparava
+            # o modo caro que persiste as linhas. Resultado: "amostra: 0 times, 0
+            # jogos" pra sempre, mesmo com Backtest Tradicional e Placar Exato
+            # (ranking) acumulando normalmente.
+            _btcs_compute_patterns()
             github_storage.push_file_bg(_BT2_DB_PATH, "backtest2.db")
             print("[backtest-backup] Concluído — backtest2.db atualizado e enviado pro GitHub.")
         except Exception as e:
