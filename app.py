@@ -2990,11 +2990,21 @@ def _find_uniscore_id(casa, fora):
     matches = _get_uniscore_live_matches()
     for m in matches:
         if _name_match(casa, m["home"]) and _name_match(fora, m["away"]):
-            print(f"[uniscore] Match: {m['home']} vs {m['away']} id={m['id']}")
+            # try/except só no print: nomes com caracteres fora do cp1252 (ş, Č
+            # etc) derrubavam a requisição inteira com UnicodeEncodeError no
+            # console do Windows local — é só diagnóstico, não pode quebrar o
+            # endpoint por causa disso.
+            try:
+                print(f"[uniscore] Match: {m['home']} vs {m['away']} id={m['id']}")
+            except UnicodeEncodeError:
+                pass
             return {"id": m["id"], "homeId": m["homeId"], "awayId": m["awayId"]}
     if matches:
         sample = [(m["home"], m["away"]) for m in matches[:5]]
-        print(f"[uniscore] Sem match p/ '{casa}' vs '{fora}'. Amostra: {sample}")
+        try:
+            print(f"[uniscore] Sem match p/ '{casa}' vs '{fora}'. Amostra: {sample}")
+        except UnicodeEncodeError:
+            pass
     return None
 
 

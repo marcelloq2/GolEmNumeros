@@ -3443,11 +3443,19 @@ async function _scannerLoadMatches() {
   try {
     const r = await fetch('/api/radar/live');
     const d = await r.json();
-    _scannerMatchesCache = d.live || [];
+    const allMatches = d.live || [];
+    // Mesmo filtro da aba Ao Vivo (só jogos com mapa de chutes confirmado,
+    // via _live2ShotsCountCache) — o usuário só quer ver aqui os mesmos jogos
+    // que aparecem lá, não a lista bruta do radarfutebol. Reaproveita
+    // _loadLive2Shotmap pra manter esse cache atualizado mesmo se a aba Ao
+    // Vivo nunca tiver sido aberta nessa sessão — a função já é segura de
+    // chamar fora do contexto Ao Vivo (só escreve em elementos que existem).
+    _scannerMatchesCache = allMatches.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
+    _loadLive2Shotmap(allMatches);
     const countEl = document.getElementById('scannerLiveCount');
     if (countEl) countEl.textContent = `${_scannerMatchesCache.length} ao vivo`;
     if (!_scannerMatchesCache.length) {
-      list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo ao vivo agora</div></div>`;
+      list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
     } else {
       list.innerHTML = _scannerMatchesCache.map(_scannerMatchRowHtml).join('');
     }
