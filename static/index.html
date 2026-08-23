@@ -2294,7 +2294,7 @@
       <button class="filter-btn" id="scannerMinutoBtn_2t" onclick="_scannerSetMinutoFiltro('2t', this)">2º Tempo</button>
       <button class="filter-btn" id="scannerMinutoBtn_final" onclick="_scannerSetMinutoFiltro('final', this)">Reta final (75'+)</button>
     </div>
-    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 24px"></div>
+    <div id="scannerMatchList" class="live-grid-wrap" style="margin:10px 0 24px"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3476,7 +3476,9 @@ function _scannerPctOfBase(n, total) {
 }
 
 // Card único: compacto quando não marcado, expande pra largura cheia do grid
-// (grid-column:1/-1) e mostra gráfico de pressão + alertas quando marcado —
+// e mostra gráfico de pressão + alertas quando marcado, sem tomar a linha
+// inteira — mesmo comportamento de grid da aba Ao Vivo (nenhum card lá vira
+// full-width, só a coluna já é generosa o bastante: minmax(420px,1fr)) —
 // a pedido do usuário, pra não duplicar informação num painel "Monitorando"
 // separado. Mesmo estilo visual da aba Ao Vivo (.live-card, igual
 // renderLive2Card) — sem escudo/posição de tabela (esses vêm de
@@ -3538,7 +3540,7 @@ function _scannerMatchRowHtml(m) {
   }
 
   return `
-    <div class="live-card" style="border-color:#2f9e8f66;border-left:3px solid ${accentColor};cursor:pointer;${watched ? 'grid-column:1/-1' : ''}"
+    <div class="live-card" style="border-color:#2f9e8f66;border-left:3px solid ${accentColor};cursor:pointer"
          onclick="_scannerToggleWatch('${m.id}', ${!watched})">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${_bt2EscXml(m.liga || '')} <span style="color:var(--text2);font-weight:400">(${_bt2EscXml(m.pais)})</span>` : _bt2EscXml(m.liga || '')}</span>
