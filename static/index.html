@@ -3425,9 +3425,8 @@ function _scannerParseMinuto(m) {
 // Mesmo padrão do botão "Ordenar por horário" já usado no Painel Principal
 // (_painelToggleSortByTime/.painel-sort-time-btn) — aqui "horário" só pode
 // ser o minuto corrido (/api/radar/live não traz horário de início, jogo já
-// em andamento). Desligado = ordem que a API devolveu; ligado = mais
-// avançado no jogo primeiro (jogos perto do fim são os mais urgentes de
-// olhar pra scalping).
+// em andamento). Desligado = ordem que a API devolveu; ligado = ordem
+// crescente por minuto (jogo que começou agora primeiro).
 let _scannerSortByTime = false;
 
 function _scannerToggleSortByTime() {
@@ -3449,7 +3448,7 @@ function _scannerSortMatches(matches) {
     if (ma == null && mb == null) return 0;
     if (ma == null) return 1;  // sem minuto corrido (ex: intervalo) vai pro final do grupo
     if (mb == null) return -1;
-    return mb - ma; // mais avançado no jogo primeiro
+    return ma - mb; // crescente: jogo que começou agora primeiro
   });
 }
 
