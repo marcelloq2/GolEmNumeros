@@ -3698,6 +3698,21 @@ async function _scannerLoadMatches() {
     // atualizado mesmo se a aba Ao Vivo nunca tiver sido aberta nessa sessão
     // — a função já é segura de chamar fora desse contexto.
     _scannerMatchesCache = allMatches.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
+    // Poda o watch set: remove qualquer jogo marcado que não está mais na
+    // lista ao vivo (partida terminou). Sem isso, jogos "fantasma" ficavam
+    // presos ocupando vaga no teto de _SCANNER_MAX_WATCH pra sempre, sem
+    // aparecer como card (não tem mais como desmarcar pela estrela) — o
+    // usuário via poucos jogos monitorados na tela mas não conseguia marcar
+    // um novo porque o limite já estava "cheio" de jogos que já acabaram.
+    const _scannerLiveIds = new Set(allMatches.map(m => String(m.id)));
+    let _scannerWatchPruned = false;
+    for (const id of [..._scannerWatchSet]) {
+      if (!_scannerLiveIds.has(id)) {
+        _scannerWatchSet.delete(id);
+        _scannerWatchPruned = true;
+      }
+    }
+    if (_scannerWatchPruned) _scannerSaveWatch();
     // _loadLive2Shotmap busca o mapa de chutes de CADA jogo ao vivo (1
     // request por jogo) só pra saber se já tem pelo menos 1 chute — não
     // precisa ser tão frequente quanto o placar/minuto. Throttle pra no
