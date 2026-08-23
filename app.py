@@ -3572,6 +3572,15 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         # O endpoint de shotmap só funciona durante o jogo; ao FT fica vazio.
         # Guardamos no disco para sobreviver a restarts/redeploys do Railway.
         live_shots = udata.get("shotmap", [])
+        # DIAGNÓSTICO TEMPORÁRIO — investigando por que shotmap_history/ tem tão
+        # poucas partidas salvas (12) comparado a momentum_history/ (2600+).
+        # Hipótese: o Uniscore só manda chute-a-chute pra uma fatia das ligas
+        # cobertas. Sem custo/chamada nova — só loga o que já veio na busca de
+        # momentum, que já roda de qualquer jeito. Remover depois de confirmar
+        # o padrão em alguns dias de log.
+        if not udata.get("finished"):
+            ja_teve_chutes = event_id in _shotmap_live_cache
+            print(f"[shotmap-diag] liga='{liga}' | {casa} x {fora} | chutes_agora={len(live_shots)} | ja_teve_antes={ja_teve_chutes}")
         if live_shots:
             with _shotmap_lock:
                 prev = _shotmap_live_cache.get(event_id, [])
