@@ -2288,11 +2288,7 @@
       <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
-      <span style="font-size:11px;color:var(--text2);margin-right:2px">Minuto:</span>
-      <button class="filter-btn active" id="scannerMinutoBtn_all" onclick="_scannerSetMinutoFiltro('all', this)">Todos</button>
-      <button class="filter-btn" id="scannerMinutoBtn_1t" onclick="_scannerSetMinutoFiltro('1t', this)">1º Tempo</button>
-      <button class="filter-btn" id="scannerMinutoBtn_2t" onclick="_scannerSetMinutoFiltro('2t', this)">2º Tempo</button>
-      <button class="filter-btn" id="scannerMinutoBtn_final" onclick="_scannerSetMinutoFiltro('final', this)">Reta final (75'+)</button>
+      <button class="painel-sort-time-btn" id="scannerSortTimeBtn" onclick="_scannerToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
     <div id="scannerMatchList" class="live-grid-wrap" style="margin:10px 0 24px"></div>
   </div>
@@ -3412,11 +3408,6 @@ let _scannerAutoRefresh = null;
 let _scannerMatchesCache = [];
 let _scannerLastShotmapScan = 0;
 let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
-// Filtro por estágio da partida — 'horário' aqui só pode ser o minuto corrido,
-// já que /api/radar/live não traz horário de início (jogo já está em
-// andamento, ver comentário em api_radar_live no app.py).
-let _scannerMinutoFiltro = 'all'; // 'all' | '1t' | '2t' | 'final'
-
 function _scannerSaveWatch() {
   localStorage.setItem('statarea_scanner_watch', JSON.stringify([..._scannerWatchSet]));
 }
@@ -3426,21 +3417,18 @@ function _scannerParseMinuto(m) {
   return isNaN(n) ? null : n;
 }
 
-function _scannerPassesMinutoFiltro(m) {
-  if (_scannerMinutoFiltro === 'all') return true;
-  const min = _scannerParseMinuto(m);
-  if (min == null) return false; // intervalo/pênaltis sem minuto corrido — só aparece em "Todos"
-  if (_scannerMinutoFiltro === '1t') return min <= 45;
-  if (_scannerMinutoFiltro === '2t') return min > 45;
-  if (_scannerMinutoFiltro === 'final') return min >= 75;
-  return true;
-}
+// Mesmo padrão do botão "Ordenar por horário" já usado no Painel Principal
+// (_painelToggleSortByTime/.painel-sort-time-btn) — aqui "horário" só pode
+// ser o minuto corrido (/api/radar/live não traz horário de início, jogo já
+// em andamento). Desligado = ordem que a API devolveu; ligado = mais
+// avançado no jogo primeiro (jogos perto do fim são os mais urgentes de
+// olhar pra scalping).
+let _scannerSortByTime = false;
 
-function _scannerSetMinutoFiltro(val, btn) {
-  _scannerMinutoFiltro = val;
-  document.querySelectorAll('[id^="scannerMinutoBtn_"]').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  _scannerRenderList(); // só filtra o que já está carregado, sem precisar buscar de novo
+function _scannerToggleSortByTime() {
+  _scannerSortByTime = !_scannerSortByTime;
+  document.getElementById('scannerSortTimeBtn').classList.toggle('active', _scannerSortByTime);
+  _scannerRenderList(); // só reordena o que já está carregado, sem precisar buscar de novo
 }
 
 // Teto rígido de jogos monitorados ao mesmo tempo — o Scanner e a Ao Vivo
@@ -3726,15 +3714,18 @@ let _scannerAnalysisCache = {};
 function _scannerRenderList() {
   const list = document.getElementById('scannerMatchList');
   if (!list) return;
-  const visiveis = _scannerMatchesCache.filter(_scannerPassesMinutoFiltro);
-  if (!visiveis.length) {
-    list.innerHTML = _scannerMatchesCache.length
-      ? `<div class="live-empty"><div style="font-size:32px">🕐</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo nesse filtro de minuto agora</div></div>`
-      : `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
+  if (!_scannerMatchesCache.length) {
+    list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
     return;
   }
-  list.innerHTML = visiveis.map(_scannerMatchRowHtml).join('');
-  _scannerDrawCharts(visiveis.filter(m => _scannerWatchSet.has(String(m.id))));
+  // "Ordenar por horário" ligado: jogo mais avançado primeiro (sem minuto
+  // corrido, ex. intervalo, vai pro fim da lista) — desligado: ordem que a
+  // API devolveu.
+  const ordenados = _scannerSortByTime
+    ? [..._scannerMatchesCache].sort((a, b) => (_scannerParseMinuto(b) ?? -1) - (_scannerParseMinuto(a) ?? -1))
+    : _scannerMatchesCache;
+  list.innerHTML = ordenados.map(_scannerMatchRowHtml).join('');
+  _scannerDrawCharts(ordenados.filter(m => _scannerWatchSet.has(String(m.id))));
 }
 
 // Quantos jogos analisar ao mesmo tempo, no máximo — se o usuário marcar
