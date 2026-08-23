@@ -1,0 +1,322 @@
+{
+  "event_id": "b1ta1ll5xjgavff",
+  "date": "2026-08-23",
+  "casa": "Cesena",
+  "fora": "Sampdoria",
+  "liga": "Serie B",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2959210261",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Frabotta",
+      "x": 7.4,
+      "y": 52.2
+    },
+    {
+      "id": "2959208339",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Verschaeren",
+      "x": 21.2,
+      "y": 35.7
+    },
+    {
+      "id": "2959199679",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 6.1,
+      "y": 55.8
+    },
+    {
+      "id": "2959199541",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gartenmann",
+      "x": 13.2,
+      "y": 68.8
+    },
+    {
+      "id": "2959196507",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 13.9,
+      "y": 50.9
+    },
+    {
+      "id": "2959195229",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "l.schirone",
+      "x": 25.1,
+      "y": 62.9
+    },
+    {
+      "id": "2959190375",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sinani",
+      "x": 21.9,
+      "y": 62.6
+    },
+    {
+      "id": "2959189069",
+      "minute": 73,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Cicconi",
+      "x": 19.2,
+      "y": 33.3
+    },
+    {
+      "id": "2959188417",
+      "minute": 73,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Tutino",
+      "x": 15,
+      "y": 44.5
+    },
+    {
+      "id": "2959186707",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 30.4,
+      "y": 58.7
+    },
+    {
+      "id": "2959185173",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 20.2,
+      "y": 61.7
+    },
+    {
+      "id": "2959182021",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sinani",
+      "x": 9.8,
+      "y": 75
+    },
+    {
+      "id": "2959180963",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Begic",
+      "x": 18.1,
+      "y": 32.8
+    },
+    {
+      "id": "2959176867",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Sinani",
+      "x": 17.3,
+      "y": 72
+    },
+    {
+      "id": "2959175565",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "T.Begic",
+      "x": 11.6,
+      "y": 46.4
+    },
+    {
+      "id": "2959170081",
+      "minute": 57,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 31.9,
+      "y": 60.6
+    },
+    {
+      "id": "2959163047",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "S.Esposito",
+      "x": 20.5,
+      "y": 34.3
+    },
+    {
+      "id": "2959159737",
+      "minute": 48,
+      "isHome": true,
+      "shotType": "post_left",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C.Shpendi",
+      "x": 11,
+      "y": 65.8
+    },
+    {
+      "id": "2959158391",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "crossbar",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Fiori",
+      "x": 9.2,
+      "y": 38
+    },
+    {
+      "id": "2959142991",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Sinani",
+      "x": 14.1,
+      "y": 53.6
+    },
+    {
+      "id": "2959142961",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Sinani",
+      "x": 15.1,
+      "y": 52.1
+    },
+    {
+      "id": "2959140589",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Gartenmann",
+      "x": 12.4,
+      "y": 47.2
+    },
+    {
+      "id": "2959118445",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Henderson",
+      "x": 15.6,
+      "y": 62.7
+    },
+    {
+      "id": "2959110109",
+      "minute": 17,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "C.Shpendi",
+      "x": 3.2,
+      "y": 54.3
+    },
+    {
+      "id": "2959109965",
+      "minute": 17,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Guidi",
+      "x": 10.9,
+      "y": 49
+    },
+    {
+      "id": "2959109843",
+      "minute": 17,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Guidi",
+      "x": 18.4,
+      "y": 41.4
+    },
+    {
+      "id": "2959102733",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "G.Tutino",
+      "x": 10.1,
+      "y": 40.9
+    },
+    {
+      "id": "2959093301",
+      "minute": 5,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Depaoli",
+      "x": 28.7,
+      "y": 33.6
+    }
+  ]
+}
