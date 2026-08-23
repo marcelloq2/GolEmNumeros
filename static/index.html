@@ -2284,19 +2284,17 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.3"/><circle cx="12" cy="12" r="1.8" fill="var(--accent)" stroke="none"/></svg>
         Scanner
       </div>
-      <span style="font-size:11px;color:var(--text2)">jogos ao vivo — marque os que quer acompanhar</span>
+      <span style="font-size:11px;color:var(--text2)">clique num jogo pra marcar/desmarcar e ver os padrões parecidos direto no card</span>
       <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
     </div>
-    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 24px"></div>
-
-    <div style="display:flex;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex-shrink:0"><polyline points="3,17 9,11 13,15 21,6"/><polyline points="15,6 21,6 21,12"/></svg>
-        Monitorando
-      </div>
-      <span id="scannerWatchCount" style="font-size:11px;color:var(--text2)"></span>
+    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
+      <span style="font-size:11px;color:var(--text2);margin-right:2px">Minuto:</span>
+      <button class="filter-btn active" id="scannerMinutoBtn_all" onclick="_scannerSetMinutoFiltro('all', this)">Todos</button>
+      <button class="filter-btn" id="scannerMinutoBtn_1t" onclick="_scannerSetMinutoFiltro('1t', this)">1º Tempo</button>
+      <button class="filter-btn" id="scannerMinutoBtn_2t" onclick="_scannerSetMinutoFiltro('2t', this)">2º Tempo</button>
+      <button class="filter-btn" id="scannerMinutoBtn_final" onclick="_scannerSetMinutoFiltro('final', this)">Reta final (75'+)</button>
     </div>
-    <div id="scannerAlertsBox"></div>
+    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 24px"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3403,20 +3401,46 @@ function switchView(view, btn) {
   }
 }
 
-// ── SCANNER — etapa 1 (estrutura): mostra os jogos ao vivo (mesma fonte do
-// Ao Vivo, /api/radar/live) com um checkbox pra marcar quais acompanhar. A
-// seleção fica só no navegador (localStorage) — é "olho nesse jogo agora",
-// não uma lista permanente como Favoritos. O painel de baixo (Monitorando)
-// por enquanto só mostra os jogos marcados com um spinner — a etapa 2 (busca
-// de padrões parecidos no momentum_history + emissão de alerta ≥95% de
-// segurança) ainda não foi implementada.
+// ── SCANNER — mostra os jogos ao vivo (mesma fonte do Ao Vivo, /api/radar/live,
+// que já é UniScore) com um clique pra marcar quais acompanhar. A seleção fica
+// só no navegador (localStorage) — é "olho nesse jogo agora", não uma lista
+// permanente como Favoritos. Card do jogo marcado expande no próprio grid
+// (largura cheia) mostrando gráfico de pressão + alertas de scalping direto
+// nele — sem painel "Monitorando" separado (removido a pedido do usuário,
+// pra não duplicar informação).
 let _scannerAutoRefresh = null;
 let _scannerMatchesCache = [];
 let _scannerLastShotmapScan = 0;
 let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
+// Filtro por estágio da partida — 'horário' aqui só pode ser o minuto corrido,
+// já que /api/radar/live não traz horário de início (jogo já está em
+// andamento, ver comentário em api_radar_live no app.py).
+let _scannerMinutoFiltro = 'all'; // 'all' | '1t' | '2t' | 'final'
 
 function _scannerSaveWatch() {
   localStorage.setItem('statarea_scanner_watch', JSON.stringify([..._scannerWatchSet]));
+}
+
+function _scannerParseMinuto(m) {
+  const n = parseInt(m.minuto, 10); // "54'" -> 54; null/"--" -> NaN
+  return isNaN(n) ? null : n;
+}
+
+function _scannerPassesMinutoFiltro(m) {
+  if (_scannerMinutoFiltro === 'all') return true;
+  const min = _scannerParseMinuto(m);
+  if (min == null) return false; // intervalo/pênaltis sem minuto corrido — só aparece em "Todos"
+  if (_scannerMinutoFiltro === '1t') return min <= 45;
+  if (_scannerMinutoFiltro === '2t') return min > 45;
+  if (_scannerMinutoFiltro === 'final') return min >= 75;
+  return true;
+}
+
+function _scannerSetMinutoFiltro(val, btn) {
+  _scannerMinutoFiltro = val;
+  document.querySelectorAll('[id^="scannerMinutoBtn_"]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  _scannerRenderList(); // só filtra o que já está carregado, sem precisar buscar de novo
 }
 
 // Teto rígido de jogos monitorados ao mesmo tempo — o Scanner e a Ao Vivo
@@ -3443,17 +3467,79 @@ function _scannerToggleWatch(id, checked) {
   _scannerRefreshWatched();
 }
 
-// Card compacto no mesmo estilo visual da aba Ao Vivo (mesma classe .live-card
-// já usada em renderLive2Card) — a pedido do usuário, que mandou print de lá
-// como referência. Sem escudo/posição de tabela por enquanto (esses vêm de
+// "X jogos parecidos" sozinho não diz se é muito ou pouco — mostra também
+// quanto isso representa da base toda de momentum_history (ex: "40 jogos
+// parecidos (3% da base)"), dando noção de quão raro/comum é esse cenário.
+function _scannerPctOfBase(n, total) {
+  if (!total) return '';
+  return ` (${(n / total * 100).toFixed(1)}% da base)`;
+}
+
+// Card único: compacto quando não marcado, expande pra largura cheia do grid
+// (grid-column:1/-1) e mostra gráfico de pressão + alertas quando marcado —
+// a pedido do usuário, pra não duplicar informação num painel "Monitorando"
+// separado. Mesmo estilo visual da aba Ao Vivo (.live-card, igual
+// renderLive2Card) — sem escudo/posição de tabela (esses vêm de
 // _loadLive2Escudos/_loadLive2Standings, que escrevem em ids fixos
 // "live2Escudo*"/"live2Pos*" — reaproveitar direto colidiria com os elementos
 // escondidos da própria aba Ao Vivo, que continuam no DOM mesmo ocultos).
-// O card inteiro é clicável pra marcar/desmarcar (a estrela é só indicativa).
 function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
+  const st = watched ? _scannerAnalysisCache[m.id] : null;
+  const hasAlerts = st && !st.loading && !st.error && st.data.alerts && st.data.alerts.length;
+  // Cor de destaque à esquerda: dourado quando tem alerta ativo (chama mais
+  // atenção — o que importa não compete visualmente com o resto), verde-azulado
+  // discreto pros demais marcados, neutro pros não marcados.
+  const accentColor = hasAlerts ? 'var(--accent)' : (watched ? '#2f9e8f' : 'transparent');
+
+  // O placar/minuto da linha e o que a análise usou às vezes divergem por
+  // causa de janelas de cache diferentes entre o endpoint de lista (90s) e o
+  // de análise (também 90s, mas atualiza em momentos distintos) — mesma fonte
+  // (UniScore), só timing. Mostra os dois quando isso acontece, pra deixar
+  // claro sobre qual estado o alerta foi calculado.
+  const analisadoComo = (st && st.data && st.data.placar && st.data.placar !== `${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}`)
+    ? `<div style="font-size:10px;color:var(--text2)">(analisado como ${_bt2EscXml(st.data.placar)} aos ${st.data.minuto}')</div>` : '';
+
+  const chartWrapHtml = (st && st.data && st.data.graphPoints && st.data.graphPoints.length)
+    // position:relative pro overlay dos marcadores (_scannerRenderMarkers) se
+    // posicionar por cima do canvas. _replayDrawCanvas fixa canvas.height=90
+    // internamente — mesma altura aqui pra não distorcer o desenho.
+    ? `<div id="scannerChartWrap_${m.id}" style="position:relative;margin-top:8px">
+         <canvas id="scannerChart_${m.id}" style="width:100%;height:90px;display:block"></canvas>
+       </div>` : '';
+
+  let extraHtml = '';
+  if (watched) {
+    if (!st || st.loading) {
+      extraHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <div class="spinner" style="width:14px;height:14px;flex-shrink:0"></div>
+        <span style="font-size:11px;color:var(--text2)">procurando padrões parecidos no histórico...</span>
+      </div>`;
+    } else if (st.error) {
+      extraHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">${_bt2EscXml(st.error)}</div>`;
+    } else if (!hasAlerts) {
+      extraHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s)${_scannerPctOfBase(st.data.cohort_size, st.data.total_base)} · nenhum padrão ≥95% seguro agora</div>`;
+    } else {
+      extraHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
+        st.data.alerts.map(a => `
+          <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
+            <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
+              <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
+            </div>
+            <div style="flex-shrink:0;text-align:center">
+              <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
+              <div style="font-size:9px;color:var(--text2)">seguro</div>
+            </div>
+          </div>`).join('') +
+        `</div>`;
+    }
+  }
+
   return `
-    <div class="live-card" style="border-color:#2f9e8f66;cursor:pointer" onclick="_scannerToggleWatch('${m.id}', ${!watched})">
+    <div class="live-card" style="border-color:#2f9e8f66;border-left:3px solid ${accentColor};cursor:pointer;${watched ? 'grid-column:1/-1' : ''}"
+         onclick="_scannerToggleWatch('${m.id}', ${!watched})">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${_bt2EscXml(m.liga || '')} <span style="color:var(--text2);font-weight:400">(${_bt2EscXml(m.pais)})</span>` : _bt2EscXml(m.liga || '')}</span>
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px">${watched ? '⭐' : '☆'}</span>
@@ -3467,9 +3553,13 @@ function _scannerMatchRowHtml(m) {
           </div>
           <div class="live-card-team" style="flex:1;min-width:0;justify-content:flex-end;text-align:right"><span class="tname">${_bt2EscXml(m.fora)}</span></div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:center;margin-top:4px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
+          <span class="status-dot" style="margin-right:0"></span>
           <div class="live-card-meta">⏱ ${m.minuto || '--'}'</div>
         </div>
+        ${analisadoComo}
+        ${chartWrapHtml}
+        ${extraHtml}
       </div>
     </div>`;
 }
@@ -3486,10 +3576,9 @@ async function _scannerLoadMatches() {
     const allMatches = d.live || [];
     // Mesmo filtro da aba Ao Vivo (só jogos com mapa de chutes confirmado,
     // via _live2ShotsCountCache) — o usuário só quer ver aqui os mesmos jogos
-    // que aparecem lá, não a lista bruta do radarfutebol. Reaproveita
-    // _loadLive2Shotmap pra manter esse cache atualizado mesmo se a aba Ao
-    // Vivo nunca tiver sido aberta nessa sessão — a função já é segura de
-    // chamar fora do contexto Ao Vivo (só escreve em elementos que existem).
+    // que aparecem lá. Reaproveita _loadLive2Shotmap pra manter esse cache
+    // atualizado mesmo se a aba Ao Vivo nunca tiver sido aberta nessa sessão
+    // — a função já é segura de chamar fora desse contexto.
     _scannerMatchesCache = allMatches.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
     // _loadLive2Shotmap busca o mapa de chutes de CADA jogo ao vivo (1
     // request por jogo) só pra saber se já tem pelo menos 1 chute — não
@@ -3504,37 +3593,33 @@ async function _scannerLoadMatches() {
     }
     const countEl = document.getElementById('scannerLiveCount');
     if (countEl) countEl.textContent = `${_scannerMatchesCache.length} ao vivo`;
-    if (!_scannerMatchesCache.length) {
-      list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
-    } else {
-      list.innerHTML = _scannerMatchesCache.map(_scannerMatchRowHtml).join('');
-    }
   } catch (e) {
     list.innerHTML = `<div class="live-empty"><div style="font-size:12px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div></div>`;
+    return;
   }
-  _scannerRefreshWatched();
+  _scannerRefreshWatched(); // já chama _scannerRenderList() internamente
 }
 
 // Etapa 2: resultado da última análise por jogo — { [id]: {loading, data, error} }
 let _scannerAnalysisCache = {};
 
-// Só desenha o painel a partir do que já está em cache — NUNCA dispara fetch
-// (isso é papel de _scannerRefreshWatched). Separar os dois é o que evita um
-// loop: _scannerAnalyzeMatch chama isso ao terminar pra atualizar o card, e
-// se essa função também disparasse fetch de novo, cada análise terminando
-// dispararia outra rodada pra TODOS os jogos, sem parar nunca.
-function _scannerRenderMonitor() {
-  const box = document.getElementById('scannerAlertsBox');
-  const countEl = document.getElementById('scannerWatchCount');
-  if (!box) return;
-  const watched = _scannerMatchesCache.filter(m => _scannerWatchSet.has(String(m.id)));
-  if (countEl) countEl.textContent = watched.length ? `(${watched.length})` : '';
-  if (!watched.length) {
-    box.innerHTML = `<div class="live-empty"><div style="font-size:32px">🔍</div><div style="font-size:12px;color:var(--text2)">Marque jogos acima pra começar a monitorar</div></div>`;
+// Só desenha a partir do que já está em cache — NUNCA dispara fetch (isso é
+// papel de _scannerRefreshWatched). Separar os dois é o que evita um loop:
+// _scannerAnalyzeMatch chama isso ao terminar pra atualizar o card, e se essa
+// função também disparasse fetch de novo, cada análise terminando dispararia
+// outra rodada pra TODOS os jogos, sem parar nunca.
+function _scannerRenderList() {
+  const list = document.getElementById('scannerMatchList');
+  if (!list) return;
+  const visiveis = _scannerMatchesCache.filter(_scannerPassesMinutoFiltro);
+  if (!visiveis.length) {
+    list.innerHTML = _scannerMatchesCache.length
+      ? `<div class="live-empty"><div style="font-size:32px">🕐</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo nesse filtro de minuto agora</div></div>`
+      : `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
     return;
   }
-  box.innerHTML = watched.map(_scannerMatchCardHtml).join('');
-  _scannerDrawCharts(watched);
+  list.innerHTML = visiveis.map(_scannerMatchRowHtml).join('');
+  _scannerDrawCharts(visiveis.filter(m => _scannerWatchSet.has(String(m.id))));
 }
 
 // Quantos jogos analisar ao mesmo tempo, no máximo — se o usuário marcar
@@ -3550,7 +3635,7 @@ const _SCANNER_ANALYZE_CONCURRENCY = 4;
 // pequenos (não todos de uma vez) — chamado pelo refresh de 15s e ao marcar/
 // desmarcar um jogo.
 async function _scannerRefreshWatched() {
-  _scannerRenderMonitor();
+  _scannerRenderList();
   const watched = _scannerMatchesCache.filter(m => _scannerWatchSet.has(String(m.id)));
   for (let i = 0; i < watched.length; i += _SCANNER_ANALYZE_CONCURRENCY) {
     const lote = watched.slice(i, i + _SCANNER_ANALYZE_CONCURRENCY);
@@ -3558,95 +3643,57 @@ async function _scannerRefreshWatched() {
   }
 }
 
-// "X jogos parecidos" sozinho não diz se é muito ou pouco — mostra também
-// quanto isso representa da base toda de momentum_history (ex: "40 jogos
-// parecidos (3% da base)"), dando noção de quão raro/comum é esse cenário.
-function _scannerPctOfBase(n, total) {
-  if (!total) return '';
-  return ` (${(n / total * 100).toFixed(1)}% da base)`;
-}
-
-function _scannerMatchCardHtml(m) {
-  const st = _scannerAnalysisCache[m.id];
-  const hasAlerts = st && !st.loading && !st.error && st.data.alerts && st.data.alerts.length;
-  // Cor de destaque à esquerda do card: dourado (padrão da marca) quando tem
-  // alerta ativo — chama mais atenção — neutro nos outros estados, pra não
-  // competir visualmente com o que realmente importa (mesmo princípio do
-  // "cara de sistema pro": hierarquia visual clara, não tudo do mesmo peso).
-  const accentColor = hasAlerts ? 'var(--accent)' : 'var(--border)';
-
-  // O placar/minuto da linha vem do radarfutebol (mesma fonte do Ao Vivo);
-  // a análise usa o UniScore (fonte independente pro momentum). Às vezes um
-  // fica alguns segundos atrasado em relação ao outro — pra não confundir
-  // (o rótulo do alerta usa SEMPRE o placar que o UniScore viu, já que é
-  // sobre esse estado que o cohort foi calculado), mostra os dois quando
-  // divergem.
-  const analisadoComo = (st && st.data && st.data.placar && st.data.placar !== `${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}`)
-    ? ` <span style="color:var(--text2);font-weight:400">(analisado como ${_bt2EscXml(st.data.placar)} aos ${st.data.minuto}')</span>` : '';
-  const header = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-        ${_bt2EscXml(m.casa)} <span style="color:var(--text2);font-weight:400">${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</span> ${_bt2EscXml(m.fora)}${analisadoComo}
-      </div>
-      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-        <span class="status-dot" style="margin-right:0"></span>
-        <span style="font-size:11px;color:var(--text2)">${m.minuto || '--'}'</span>
-      </div>
-    </div>
-    <div style="font-size:10px;color:var(--text2);margin-top:1px">${_bt2EscXml(m.liga || '')}</div>`;
-
-  // _replayDrawCanvas fixa a altura real do canvas em 90px (canvas.height=90)
-  // — mesma altura aqui pra não distorcer o desenho (CSS height diferente do
-  // atributo real do canvas estica/esmaga o conteúdo já desenhado).
-  const chartHtml = (st && st.data && st.data.graphPoints && st.data.graphPoints.length)
-    ? `<canvas id="scannerChart_${m.id}" style="width:100%;height:90px;display:block;margin-top:8px"></canvas>` : '';
-
-  let bodyHtml;
-  if (!st || st.loading) {
-    bodyHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-      <div class="spinner" style="width:14px;height:14px;flex-shrink:0"></div>
-      <span style="font-size:11px;color:var(--text2)">procurando padrões parecidos no histórico...</span>
-    </div>`;
-  } else if (st.error) {
-    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">${_bt2EscXml(st.error)}</div>`;
-  } else if (!hasAlerts) {
-    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s)${_scannerPctOfBase(st.data.cohort_size, st.data.total_base)} · nenhum padrão ≥95% seguro agora</div>`;
-  } else {
-    bodyHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
-      st.data.alerts.map(a => `
-        <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
-          <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
-            <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
-          </div>
-          <div style="flex-shrink:0;text-align:center">
-            <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
-            <div style="font-size:9px;color:var(--text2)">seguro</div>
-          </div>
-        </div>`).join('') +
-      `</div>`;
-  }
-
-  return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${accentColor};border-radius:10px;padding:12px;margin-bottom:8px">
-      ${header}
-      ${chartHtml}
-      ${bodyHtml}
-    </div>`;
-}
-
-// Depois de trocar o innerHTML do painel Monitorando, os <canvas> ficam em
-// branco até desenhar de verdade (innerHTML não roda JS) — chamado logo
-// depois de montar o HTML, reaproveitando o mesmo desenhista do Replay
-// (_replayDrawCanvas), só passando os dados que a análise já trouxe.
+// Depois de trocar o innerHTML da lista, os <canvas> ficam em branco até
+// desenhar de verdade (innerHTML não roda JS) — chamado logo depois de montar
+// o HTML, reaproveitando o mesmo desenhista do Replay (_replayDrawCanvas), só
+// passando os dados que a análise já trouxe. Também desenha por cima os
+// marcadores de sinal (⚡ Grande Chance / 🔥 Momento Over / ❄️ Momento Under),
+// reaproveitando 100% a detecção já usada na Ao Vivo, igual o Replay já faz.
 function _scannerDrawCharts(watched) {
   watched.forEach(m => {
     const st = _scannerAnalysisCache[m.id];
     if (!st || !st.data || !st.data.graphPoints || !st.data.graphPoints.length) return;
     const canvas = document.getElementById(`scannerChart_${m.id}`);
-    if (canvas) _replayDrawCanvas(canvas, st.data.graphPoints, st.data.goals || []);
+    if (!canvas) return;
+    _replayDrawCanvas(canvas, st.data.graphPoints, st.data.goals || []);
+    _scannerRenderMarkers(m.id, st.data.graphPoints);
   });
+}
+
+// Marcadores de sinal sobre o gráfico de pressão — mesma técnica de
+// _replayRenderMarkers (Replay), só que aponta pro wrapper próprio do Scanner
+// (scannerChartWrap_${id}) em vez do replayMomentumWrap fixo.
+function _scannerRenderMarkers(matchId, points) {
+  const wrap = document.getElementById(`scannerChartWrap_${matchId}`);
+  if (!wrap || !points || !points.length) return;
+
+  // "Grande Chance" só é validado depois que a base carrega (cacheada 30min,
+  // compartilhada com a Ao Vivo/Replay) — se ainda não chegou, redesenha
+  // assim que a resposta cair.
+  if (!_live2ChancePatternStats) {
+    _live2GetChancePatternStats().then(() => _scannerRenderMarkers(matchId, points));
+  }
+
+  const markers = _live2DetectPressureMarkers(points);
+  const prev = document.getElementById(`scannerMarkersOverlay_${matchId}`);
+  if (prev) prev.remove();
+  if (!markers.length) return;
+
+  const minMinute = points[0].minute || 0;
+  const maxMinute = points[points.length - 1].minute || 90;
+  const span = Math.max(1, maxMinute - minMinute);
+
+  const overlay = document.createElement('div');
+  overlay.id = `scannerMarkersOverlay_${matchId}`;
+  overlay.style.cssText = 'position:absolute;left:0;right:0;top:0;height:90px;pointer-events:none';
+  overlay.innerHTML = markers.map(mk => {
+    const pct = Math.min(97, Math.max(1, ((mk.minute - minMinute) / span) * 100));
+    const topPx = mk.type === 'chance' ? (mk.isHome ? 2 : 74) : 2;
+    return `<span title="${mk.label}"
+      style="position:absolute;left:${pct}%;top:${topPx}px;transform:translateX(-50%);
+      cursor:default;font-size:13px;line-height:1;user-select:none;pointer-events:auto">${mk.icon}</span>`;
+  }).join('');
+  wrap.appendChild(overlay);
 }
 
 async function _scannerAnalyzeMatch(m) {
@@ -3661,9 +3708,9 @@ async function _scannerAnalyzeMatch(m) {
   } catch (e) {
     _scannerAnalysisCache[m.id] = { loading: false, error: 'erro ao analisar' };
   }
-  // Só redesenha se o jogo ainda estiver marcado e visível (evita escrever
-  // num card que já saiu da tela por causa de um refresh nesse meio tempo)
-  if (_scannerWatchSet.has(String(m.id))) _scannerRenderMonitor();
+  // Só redesenha se o jogo ainda estiver marcado (evita escrever num card já
+  // desmarcado por um clique nesse meio tempo)
+  if (_scannerWatchSet.has(String(m.id))) _scannerRenderList();
 }
 
 // ── REPLAY — reproduz partidas encerradas usando os dados já salvos em
