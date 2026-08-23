@@ -74,34 +74,48 @@ def push_file(local_path: str, remote_path: str = None) -> bool:
         with open(local_path, "rb") as f:
             content_b64 = base64.b64encode(f.read()).decode()
 
-        # Verifica SHA existente (necessário para update)
-        sha = None
-        r = http_req.get(
-            f"{GITHUB_API}/repos/{repo}/contents/{remote_path}",
-            headers=_headers(), params={"ref": DATA_BRANCH}, timeout=10
-        )
-        if r.status_code == 200:
-            sha = r.json().get("sha")
-
-        body = {
-            "message": f"data: {os.path.basename(remote_path)} [{datetime.now().strftime('%Y-%m-%d %H:%M')}]",
-            "content": content_b64,
-            "branch":  DATA_BRANCH,
-        }
-        if sha:
-            body["sha"] = sha
-
+        # O lock cobre da checagem do SHA até o PUT: se outra thread push desse
+        # mesmo arquivo (ex: backtest2.db, pushado 3x seguidas por chamadores
+        # diferentes) rodar entre o GET do SHA e o PUT, o GitHub rejeita o
+        # segundo PUT (SHA divergente) e o push falha silenciosamente — foi o
+        # que fazia o histórico acumulado do Backtest nunca sobreviver direito
+        # a um redeploy do Railway. Serializando os dois passos junto, cada
+        # push sempre PUT com o SHA mais recente.
         with _push_lock:
-            r = http_req.put(
-                f"{GITHUB_API}/repos/{repo}/contents/{remote_path}",
-                headers=_headers(), json=body, timeout=20
-            )
+            for attempt in range(2):
+                sha = None
+                r = http_req.get(
+                    f"{GITHUB_API}/repos/{repo}/contents/{remote_path}",
+                    headers=_headers(), params={"ref": DATA_BRANCH}, timeout=10
+                )
+                if r.status_code == 200:
+                    sha = r.json().get("sha")
 
-        if r.status_code in (200, 201):
-            print(f"[github] ✓ Push: {remote_path}")
-            return True
-        print(f"[github] Erro push {remote_path}: {r.status_code} {r.text[:200]}")
-        return False
+                body = {
+                    "message": f"data: {os.path.basename(remote_path)} [{datetime.now().strftime('%Y-%m-%d %H:%M')}]",
+                    "content": content_b64,
+                    "branch":  DATA_BRANCH,
+                }
+                if sha:
+                    body["sha"] = sha
+
+                # Timeout maior que o antigo (20s) — arquivos como backtest2.db
+                # crescem pra dezenas de MB, e um PUT desse tamanho pode legitimamente
+                # levar mais que 20s pra completar.
+                r = http_req.put(
+                    f"{GITHUB_API}/repos/{repo}/contents/{remote_path}",
+                    headers=_headers(), json=body, timeout=60
+                )
+
+                if r.status_code in (200, 201):
+                    print(f"[github] ✓ Push: {remote_path}")
+                    return True
+                if r.status_code in (409, 422) and attempt == 0:
+                    # SHA ficou desatualizado entre o GET e o PUT (outra escrita
+                    # concorrente na branch) — tenta de novo uma vez com SHA fresco.
+                    continue
+                print(f"[github] Erro push {remote_path}: {r.status_code} {r.text[:200]}")
+                return False
 
     except Exception as e:
         print(f"[github] Exceção push {remote_path}: {e}")
