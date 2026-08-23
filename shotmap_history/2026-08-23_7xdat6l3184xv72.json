@@ -1,0 +1,245 @@
+{
+  "event_id": "7xdat6l3184xv72",
+  "date": "2026-08-23",
+  "casa": "PAOK",
+  "fora": "Levadiakos",
+  "liga": "",
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "total_shots": 21,
+  "shotmap": [
+    {
+      "id": "2959148507",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "O.Ozegović",
+      "x": 18.5,
+      "y": 51.6
+    },
+    {
+      "id": "2959144263",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "A.Živković",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2959140445",
+      "minute": 86,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Mythou",
+      "x": 8.2,
+      "y": 49.9
+    },
+    {
+      "id": "2959135737",
+      "minute": 83,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "K. Thymianis",
+      "x": 30,
+      "y": 35.8
+    },
+    {
+      "id": "2959130261",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "O.Ozegović",
+      "x": 11.3,
+      "y": 67.5
+    },
+    {
+      "id": "2959126773",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "A.Mythou",
+      "x": 22.6,
+      "y": 56.3
+    },
+    {
+      "id": "2959123169",
+      "minute": 72,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "A.Mythou",
+      "x": 4.6,
+      "y": 33
+    },
+    {
+      "id": "2959112347",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "O.Ozegović",
+      "x": 12.5,
+      "y": 53.9
+    },
+    {
+      "id": "2959103585",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Živković",
+      "x": 11.5,
+      "y": 61.2
+    },
+    {
+      "id": "2959100193",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Pelkas",
+      "x": 21.5,
+      "y": 44.9
+    },
+    {
+      "id": "2959095923",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "O.Ozegović",
+      "x": 11.6,
+      "y": 72.6
+    },
+    {
+      "id": "2959066679",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "D.Pelkas",
+      "x": 18.4,
+      "y": 46.6
+    },
+    {
+      "id": "2959060917",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Shoretire",
+      "x": 6.8,
+      "y": 47
+    },
+    {
+      "id": "2959059437",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "D.Emmanouilidis",
+      "x": 7.7,
+      "y": 49.7
+    },
+    {
+      "id": "2959045183",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "A.Živković",
+      "x": 20.3,
+      "y": 71.5
+    },
+    {
+      "id": "2959036817",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Urzi",
+      "x": 11.7,
+      "y": 49.1
+    },
+    {
+      "id": "2959035397",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "A.Živković",
+      "x": 26.9,
+      "y": 62.4
+    },
+    {
+      "id": "2959033647",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "C.Papadopoulos",
+      "x": 24.8,
+      "y": 35.2
+    },
+    {
+      "id": "2959033489",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Emmanouilidis",
+      "x": 14.3,
+      "y": 58.1
+    },
+    {
+      "id": "2959030091",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "G.Michailidis",
+      "x": 3.7,
+      "y": 41.1
+    },
+    {
+      "id": "2959027891",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Baba",
+      "x": 1.4,
+      "y": 66.7
+    }
+  ]
+}
