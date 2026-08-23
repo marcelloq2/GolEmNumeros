@@ -1,0 +1,267 @@
+{
+  "event_id": "hesv5yld0yz2whu",
+  "date": "2026-08-23",
+  "casa": "D. Concepcion",
+  "fora": "Coquimbo Unido",
+  "liga": "Primeira Divisão",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "total_shots": 23,
+  "shotmap": [
+    {
+      "id": "2959021463",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Cavalleri",
+      "x": 11.8,
+      "y": 36.6
+    },
+    {
+      "id": "2959017767",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Jara",
+      "x": 21.4,
+      "y": 60
+    },
+    {
+      "id": "2959013845",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Cornejo",
+      "x": 22.9,
+      "y": 37.1
+    },
+    {
+      "id": "2959007545",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "E.Espinoza",
+      "x": 31.1,
+      "y": 30.8
+    },
+    {
+      "id": "2959000369",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "E.Espinoza",
+      "x": 12.1,
+      "y": 45.2
+    },
+    {
+      "id": "2958998407",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Soza",
+      "x": 8.3,
+      "y": 55.7
+    },
+    {
+      "id": "2958995957",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "C.Escobar",
+      "x": 12.1,
+      "y": 40
+    },
+    {
+      "id": "2958988735",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "E.Espinoza",
+      "x": 7.3,
+      "y": 41.3
+    },
+    {
+      "id": "2958984217",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Jara",
+      "x": 22,
+      "y": 34
+    },
+    {
+      "id": "2958983003",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Sandoval",
+      "x": 25.3,
+      "y": 36.6
+    },
+    {
+      "id": "2958978683",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Cáceres",
+      "x": 18.5,
+      "y": 65.8
+    },
+    {
+      "id": "2958969167",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "J.Henríquez",
+      "x": 22.5,
+      "y": 60.9
+    },
+    {
+      "id": "2958969121",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Henríquez",
+      "x": 21.5,
+      "y": 74.4
+    },
+    {
+      "id": "2958965583",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D.Carrasco",
+      "x": 12.7,
+      "y": 44.2
+    },
+    {
+      "id": "2958937315",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Montecinos",
+      "x": 15.4,
+      "y": 68.3
+    },
+    {
+      "id": "2958930271",
+      "minute": 40,
+      "isHome": true,
+      "shotType": "crossbar",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Espinoza",
+      "x": 10.9,
+      "y": 32.3
+    },
+    {
+      "id": "2958919473",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Espinoza",
+      "x": 12.3,
+      "y": 37.4
+    },
+    {
+      "id": "2958915145",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "F.Pons",
+      "x": 13.6,
+      "y": 38.2
+    },
+    {
+      "id": "2958913497",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "J.Henríquez",
+      "x": 23.2,
+      "y": 43.5
+    },
+    {
+      "id": "2958909285",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Y.Rodríguez",
+      "x": 31.5,
+      "y": 33.9
+    },
+    {
+      "id": "2958906877",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Y.Rodríguez",
+      "x": 23.8,
+      "y": 41.3
+    },
+    {
+      "id": "2958899109",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Cordero",
+      "x": 23.5,
+      "y": 43.9
+    },
+    {
+      "id": "2958892079",
+      "minute": 7,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Camargo",
+      "x": 25.4,
+      "y": 54.2
+    }
+  ]
+}
