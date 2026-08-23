@@ -4143,7 +4143,16 @@ def api_scanner_analyze():
     points = data["graphPoints"]
     goals = data.get("goals") or []
     minuto_atual = int(max((p.get("minute") or 0) for p in points)) if points else 0
-    placar_h, placar_a = _scanner_score_at_minute(goals, minuto_atual)
+    # Prefere o placar OFICIAL do UniScore (score_h/score_a, vem direto do
+    # status da partida) em vez de reconstruir contando a lista de gols —
+    # essa lista pode perder gol (achado testando: Barracas Central 1x0
+    # aparecia como 0x0 na análise porque o gol de pênalti não batia o
+    # filtro incidentType=="goal" de _fetch_uniscore_graph). Só cai pro
+    # cálculo via goals se o placar oficial não vier.
+    if data.get("score_h") is not None and data.get("score_a") is not None:
+        placar_h, placar_a = int(data["score_h"]), int(data["score_a"])
+    else:
+        placar_h, placar_a = _scanner_score_at_minute(goals, minuto_atual)
 
     all_matches = _momentum_load_all_matches()
     cohort = _scanner_find_cohort(all_matches, placar_h, placar_a, minuto_atual)
