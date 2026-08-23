@@ -3475,16 +3475,15 @@ function _scannerPctOfBase(n, total) {
   return ` (${(n / total * 100).toFixed(1)}% da base)`;
 }
 
-// Card único: compacto quando não marcado, expande pra largura cheia do grid
-// e mostra gráfico de pressão + alertas quando marcado, sem tomar a linha
-// inteira — mesmo comportamento de grid da aba Ao Vivo (nenhum card lá vira
-// full-width, só a coluna já é generosa o bastante: minmax(420px,1fr)) —
-// a pedido do usuário, pra não duplicar informação num painel "Monitorando"
-// separado. Mesmo estilo visual da aba Ao Vivo (.live-card, igual
-// renderLive2Card) — sem escudo/posição de tabela (esses vêm de
-// _loadLive2Escudos/_loadLive2Standings, que escrevem em ids fixos
-// "live2Escudo*"/"live2Pos*" — reaproveitar direto colidiria com os elementos
-// escondidos da própria aba Ao Vivo, que continuam no DOM mesmo ocultos).
+// Card único: compacto quando não marcado, cresce (só na própria coluna, não
+// a linha inteira) mostrando gráfico de pressão + alertas quando marcado — a
+// pedido do usuário, pra não duplicar informação num painel "Monitorando"
+// separado. Réplica fiel do card da Ao Vivo (renderLive2Card): escudo, posição
+// na tabela, forma recente (bolinhas V/D/E) e odds 1X2/O-U, todos vindos dos
+// mesmos caches compartilhados (_live2EscudoCache/_live2PosCache/
+// _live2FsFormCache) — só com elementos de ID próprio (scannerEscudo*/
+// scannerPos*/scannerFormWrap*) porque os ids "live2*" já existem escondidos
+// no DOM da própria aba Ao Vivo (permanecem lá mesmo ocultos) e colidiriam.
 function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
   const st = watched ? _scannerAnalysisCache[m.id] : null;
@@ -3547,19 +3546,41 @@ function _scannerMatchRowHtml(m) {
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px">${watched ? '⭐' : '☆'}</span>
       </div>
       <div class="live-card-body">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-          <div class="live-card-team" style="flex:1;min-width:0;justify-content:flex-start"><span class="tname">${_bt2EscXml(m.casa)}</span></div>
-          <div style="text-align:center;flex-shrink:0;padding:0 8px">
-            <div style="font-size:20px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start">
+            <div class="live-card-team" style="justify-content:flex-start">
+              <span id="scannerEscudoCasa_${m.id}">${_today2EscudoImg(_live2EscudoCache[m.id] && _live2EscudoCache[m.id].casa)}</span>
+              <span class="tname">${_bt2EscXml(m.casa)}</span>
+              <span id="scannerPosCasa_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700">${(_live2PosCache[m.id] && _live2PosCache[m.id].casa) || ''}</span>
+            </div>
+            <div id="scannerFormWrapCasa_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.casa || ''}</div>
+          </div>
+          <div style="text-align:center;flex-shrink:0;padding:0 10px">
+            <div style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
             <div style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
           </div>
-          <div class="live-card-team" style="flex:1;min-width:0;justify-content:flex-end;text-align:right"><span class="tname">${_bt2EscXml(m.fora)}</span></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end">
+            <div class="live-card-team" style="justify-content:flex-end;text-align:right">
+              <span id="scannerPosFora_${m.id}" style="color:#f59e0b;font-size:11px;font-weight:700">${(_live2PosCache[m.id] && _live2PosCache[m.id].fora) || ''}</span>
+              <span class="tname">${_bt2EscXml(m.fora)}</span>
+              <span id="scannerEscudoFora_${m.id}">${_today2EscudoImg(_live2EscudoCache[m.id] && _live2EscudoCache[m.id].fora)}</span>
+            </div>
+            <div id="scannerFormWrapFora_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.fora || ''}</div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <span class="status-dot" style="margin-right:0"></span>
           <div class="live-card-meta">⏱ ${m.minuto || '--'}'</div>
         </div>
         ${analisadoComo}
+        ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
+        <div class="live-card-odds-row">
+          <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${m.odd_1 || '-'}</span></div>
+          <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val ox">${m.odd_x || '-'}</span></div>
+          <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val o2">${m.odd_2 || '-'}</span></div>
+          <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
+          <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
+        </div>` : ''}
         ${chartWrapHtml}
         ${extraHtml}
       </div>
@@ -3588,10 +3609,28 @@ async function _scannerLoadMatches() {
     // máximo 1x/min, senão cada ciclo de 15s desse refresh soma com o de Ao
     // Vivo (se aberto em outra aba) e pode sobrecarregar o worker único do
     // servidor à toa.
+    // Escudo/posição/forma são decorativos (não mudam a cada 15s) e cada um é
+    // 1 request por jogo — mesmo throttle de 1x/min do mapa de chutes, pra não
+    // somar mais uma fonte de carga recorrente no servidor que a Ao Vivo
+    // também depende. Depois da 1ª rodada, os caches compartilhados
+    // (_live2EscudoCache/_live2PosCache/_live2FsFormCache) deixam as próximas
+    // chamadas praticamente grátis (só aplica no DOM, sem novo fetch).
     const now = Date.now();
     if (now - _scannerLastShotmapScan > 60000) {
       _scannerLastShotmapScan = now;
       _loadLive2Shotmap(allMatches);
+      _scannerLoadEscudos(_scannerMatchesCache);
+      _scannerLoadStandings(_scannerMatchesCache);
+      _scannerLoadForms(_scannerMatchesCache);
+    } else {
+      // Mesmo sem disparar fetch novo, aplica o que já tiver em cache (ex:
+      // Ao Vivo já carregou esse jogo em paralelo) nos elementos que acabaram
+      // de ser recriados por esse innerHTML.
+      _scannerMatchesCache.forEach(m => {
+        if (_live2EscudoCache[m.id] !== undefined) _scannerApplyEscudo(m.id, _live2EscudoCache[m.id]);
+        if (_live2PosCache[m.id]) _scannerApplyPos(m.id, _live2PosCache[m.id]);
+        if (_live2FsFormCache[m.id] !== undefined) _scannerApplyForm(m.id, _live2FsFormCache[m.id]);
+      });
     }
     const countEl = document.getElementById('scannerLiveCount');
     if (countEl) countEl.textContent = `${_scannerMatchesCache.length} ao vivo`;
@@ -3600,6 +3639,80 @@ async function _scannerLoadMatches() {
     return;
   }
   _scannerRefreshWatched(); // já chama _scannerRenderList() internamente
+}
+
+// Escudo, posição na tabela e forma recente — mesma fonte/cache compartilhado
+// da Ao Vivo (_live2EscudoCache/_live2PosCache/_live2FsFormCache), só que
+// aplicados em elementos com ID próprio do Scanner (scannerEscudo*/scannerPos*/
+// scannerFormWrap*) porque os ids "live2*" já existem escondidos no DOM da Ao
+// Vivo e colidiriam. _loadLive2Escudos em si é seguro de chamar direto (não
+// depende dos elementos existirem pra popular o cache), mas standings/forms
+// (_loadLive2Standings/_live2AutoLoadForms) pulam de vez se os ids "live2*"
+// não existirem — por isso precisam de versão própria aqui.
+async function _scannerLoadEscudos(matches) {
+  await _loadLive2Escudos(matches); // popula _live2EscudoCache
+  matches.forEach(m => _scannerApplyEscudo(m.id, _live2EscudoCache[m.id]));
+}
+function _scannerApplyEscudo(matchId, escudos) {
+  const casaEl = document.getElementById(`scannerEscudoCasa_${matchId}`);
+  const foraEl = document.getElementById(`scannerEscudoFora_${matchId}`);
+  if (casaEl) casaEl.innerHTML = _today2EscudoImg(escudos && escudos.casa);
+  if (foraEl) foraEl.innerHTML = _today2EscudoImg(escudos && escudos.fora);
+}
+
+async function _scannerLoadStandings(matches) {
+  for (const m of matches) {
+    if (_live2PosCache[m.id]) { _scannerApplyPos(m.id, _live2PosCache[m.id]); continue; }
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/standings?${params}`);
+      const d = await r.json();
+      const rows = d.rows || [];
+      const norm = s => (s || '').trim().toLowerCase();
+      const rowCasa = rows.find(row => norm(row.team) === norm(m.casa));
+      const rowFora = rows.find(row => norm(row.team) === norm(m.fora));
+      _live2PosCache[m.id] = {
+        casa: rowCasa?.pos ? `${rowCasa.pos}º` : '',
+        fora: rowFora?.pos ? `${rowFora.pos}º` : '',
+      };
+      _scannerApplyPos(m.id, _live2PosCache[m.id]);
+    } catch (e) {}
+  }
+}
+function _scannerApplyPos(matchId, pos) {
+  const casaEl = document.getElementById(`scannerPosCasa_${matchId}`);
+  const foraEl = document.getElementById(`scannerPosFora_${matchId}`);
+  if (casaEl) casaEl.textContent = pos.casa || '';
+  if (foraEl) foraEl.textContent = pos.fora || '';
+}
+
+async function _scannerLoadForms(matches) {
+  for (const m of matches) {
+    if (_live2FsFormCache[m.id] !== undefined) { _scannerApplyForm(m.id, _live2FsFormCache[m.id]); continue; }
+    try {
+      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '' });
+      const r = await fetch(`/api/flashscore/h2h?${params}`);
+      const h2hData = await r.json();
+      const tabs = h2hData.tabs || [];
+      const tab0 = tabs[0];
+      let casaHtml = '', foraHtml = '';
+      if (tab0) {
+        const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
+        const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
+        const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
+        casaHtml = _live2FormRowHtml(homeRows);
+        foraHtml = _live2FormRowHtml(awayRows);
+      }
+      _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
+      _scannerApplyForm(m.id, _live2FsFormCache[m.id]);
+    } catch (e) {}
+  }
+}
+function _scannerApplyForm(matchId, f) {
+  const casaEl = document.getElementById(`scannerFormWrapCasa_${matchId}`);
+  const foraEl = document.getElementById(`scannerFormWrapFora_${matchId}`);
+  if (casaEl) casaEl.innerHTML = f.casa;
+  if (foraEl) foraEl.innerHTML = f.fora;
 }
 
 // Etapa 2: resultado da última análise por jogo — { [id]: {loading, data, error} }
