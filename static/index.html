@@ -1588,7 +1588,7 @@
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
-    <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
+    <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2264,25 +2264,33 @@
     </div>
   </div>
 
-  <!-- BACKTEST — fusão do antigo "Backtest Tradicional" (mercado+seleção por ROI) com
-       o antigo "Backtest CS" (19 buckets de placar exato por taxa de acerto) numa aba
-       só, com sub-abas internas — os dois rankings continuam com lógica própria (ROI
-       não é comparável com taxa de acerto), só a navegação é unificada. Reativada a
-       pedido do usuário depois de ~1 mês acumulando dado sozinha em background
-       (_background_backtest_daily_backup no app.py). -->
-  <div id="backtestWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
-    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
-      <button class="filter-btn active" id="backtestSubTabTradicional" onclick="_setBacktestSubTab('tradicional')">🧪 Mercados Tradicionais</button>
-      <button class="filter-btn" id="backtestSubTabCs" onclick="_setBacktestSubTab('cs')">🎯 Placar Exato</button>
+  <!-- SCANNER — substitui a aba Backtest por completo (a pedido do usuário,
+       2026-08-23). O motor de Backtest 2/CS continua rodando por baixo (ver
+       app.py, _background_backtest_daily_backup) — as taxas históricas por
+       placar exato que ele já calcula servem de insumo pro Scanner — só a
+       apresentação em UI (ranking/padrões) saiu daqui. As funções
+       _bt2*/_btcs* ficam órfãs no arquivo, mesmo padrão já usado da vez
+       anterior que o Backtest saiu da navegação (mais seguro que arrancar).
+
+       Fluxo: mostra os jogos ao vivo, o usuário marca quais quer acompanhar
+       (guardado em localStorage, não é favorito permanente — é só "olho
+       nesse jogo agora"), e o painel de baixo monitora só os marcados,
+       emitindo alerta quando achar uma condição de scalping de baixo risco
+       (etapa 2 — ainda não implementada, esse painel por enquanto só mostra
+       "monitorando" como placeholder). -->
+  <div id="scannerWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">🔍 Scanner — jogos ao vivo</div>
+      <span style="font-size:11px;color:var(--text2)">marque os jogos que quer acompanhar</span>
+      <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
     </div>
-    <div id="backtestSubTradicional" style="display:flex;flex-direction:column">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
-      <div id="bt2Content"></div>
+    <div id="scannerMatchList" style="display:flex;flex-direction:column;gap:6px;margin:10px 0 22px"></div>
+
+    <div style="display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px solid var(--border);margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">📡 Monitorando</div>
+      <span id="scannerWatchCount" style="font-size:11px;color:var(--text2)"></span>
     </div>
-    <div id="backtestSubCs" style="display:none;flex-direction:column">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🎯 Backtest CS — ranking global de placares exatos por taxa de acerto</div>
-      <div id="btcsContent"></div>
-    </div>
+    <div id="scannerAlertsBox"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3331,7 +3339,7 @@ function switchView(view, btn) {
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
-  const backtestWrapper = document.getElementById('backtestWrapper');
+  const scannerWrapper = document.getElementById('scannerWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3342,7 +3350,7 @@ function switchView(view, btn) {
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
-  backtestWrapper.style.display = 'none';
+  scannerWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3351,6 +3359,7 @@ function switchView(view, btn) {
   clearInterval(_painelAutoRefresh);
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
+  clearInterval(_scannerAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3381,16 +3390,93 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'backtest') {
-    backtestWrapper.style.display = 'flex';
-    // carrega só a sub-aba ativa no momento (padrão: Mercados Tradicionais) — a
-    // outra carrega sob demanda quando o usuário clicar em _setBacktestSubTab
-    if (_backtestSubTab === 'cs') {
-      _btcsLoadRanking();
-    } else {
-      _bt2LoadRanking();
-    }
+  } else if (view === 'scanner') {
+    scannerWrapper.style.display = 'flex';
+    _scannerLoadMatches();
+    _scannerAutoRefresh = setInterval(_scannerLoadMatches, 15000);
   }
+}
+
+// ── SCANNER — etapa 1 (estrutura): mostra os jogos ao vivo (mesma fonte do
+// Ao Vivo, /api/radar/live) com um checkbox pra marcar quais acompanhar. A
+// seleção fica só no navegador (localStorage) — é "olho nesse jogo agora",
+// não uma lista permanente como Favoritos. O painel de baixo (Monitorando)
+// por enquanto só mostra os jogos marcados com um spinner — a etapa 2 (busca
+// de padrões parecidos no momentum_history + emissão de alerta ≥95% de
+// segurança) ainda não foi implementada.
+let _scannerAutoRefresh = null;
+let _scannerMatchesCache = [];
+let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
+
+function _scannerSaveWatch() {
+  localStorage.setItem('statarea_scanner_watch', JSON.stringify([..._scannerWatchSet]));
+}
+
+function _scannerToggleWatch(id, checked) {
+  id = String(id);
+  if (checked) _scannerWatchSet.add(id); else _scannerWatchSet.delete(id);
+  _scannerSaveWatch();
+  _scannerRenderMonitor();
+}
+
+function _scannerMatchRowHtml(m) {
+  const watched = _scannerWatchSet.has(String(m.id));
+  return `
+    <label class="live-match-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <input type="checkbox" ${watched ? 'checked' : ''} onchange="_scannerToggleWatch('${m.id}', this.checked)"
+        style="cursor:pointer;flex-shrink:0;width:16px;height:16px">
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${_bt2EscXml(m.casa)} <span style="color:var(--text2)">${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</span> ${_bt2EscXml(m.fora)}
+        </div>
+        <div style="font-size:10px;color:var(--text2)">${_bt2EscXml(m.liga || '')} · ⏱ ${m.minuto || '--'}'</div>
+      </div>
+    </label>`;
+}
+
+async function _scannerLoadMatches() {
+  const list = document.getElementById('scannerMatchList');
+  if (!list) return;
+  if (!_scannerMatchesCache.length) {
+    list.innerHTML = `<div class="live-empty"><div class="spinner"></div><div style="font-size:12px;color:var(--text2);margin-top:6px">Carregando jogos ao vivo...</div></div>`;
+  }
+  try {
+    const r = await fetch('/api/radar/live');
+    const d = await r.json();
+    _scannerMatchesCache = d.live || [];
+    const countEl = document.getElementById('scannerLiveCount');
+    if (countEl) countEl.textContent = `${_scannerMatchesCache.length} ao vivo`;
+    if (!_scannerMatchesCache.length) {
+      list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo ao vivo agora</div></div>`;
+    } else {
+      list.innerHTML = _scannerMatchesCache.map(_scannerMatchRowHtml).join('');
+    }
+  } catch (e) {
+    list.innerHTML = `<div class="live-empty"><div style="font-size:12px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div></div>`;
+  }
+  _scannerRenderMonitor();
+}
+
+function _scannerRenderMonitor() {
+  const box = document.getElementById('scannerAlertsBox');
+  const countEl = document.getElementById('scannerWatchCount');
+  if (!box) return;
+  const watched = _scannerMatchesCache.filter(m => _scannerWatchSet.has(String(m.id)));
+  if (countEl) countEl.textContent = watched.length ? `(${watched.length})` : '';
+  if (!watched.length) {
+    box.innerHTML = `<div class="live-empty"><div style="font-size:32px">🔍</div><div style="font-size:12px;color:var(--text2)">Marque jogos acima pra começar a monitorar</div></div>`;
+    return;
+  }
+  box.innerHTML = watched.map(m => `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <div class="spinner" style="width:16px;height:16px;flex-shrink:0"></div>
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${_bt2EscXml(m.casa)} ${m.golCasaFt ?? 0}-${m.golForaFt ?? 0} ${_bt2EscXml(m.fora)}
+        </div>
+        <div style="font-size:11px;color:var(--text2)">⏱ ${m.minuto || '--'}' · procurando padrões parecidos no histórico...</div>
+      </div>
+    </div>`).join('');
 }
 
 // ── REPLAY — reproduz partidas encerradas usando os dados já salvos em
