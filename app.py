@@ -4155,6 +4155,11 @@ def api_scanner_analyze():
         "placar": f"{placar_h}-{placar_a}",
         "cohort_size": len(cohort),
         "alerts": alerts,
+        # graphPoints/goals já vieram nessa mesma busca (_process_momentum) —
+        # devolve pro frontend desenhar o gráfico de pressão nos jogos
+        # monitorados sem precisar de uma requisição extra.
+        "graphPoints": points,
+        "goals": goals,
     })
 
 

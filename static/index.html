@@ -2278,16 +2278,22 @@
        emitindo alerta quando achar uma condição de scalping de baixo risco
        (etapa 2 — ainda não implementada, esse painel por enquanto só mostra
        "monitorando" como placeholder). -->
-  <div id="scannerWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
+  <div id="scannerWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">🔍 Scanner — jogos ao vivo</div>
-      <span style="font-size:11px;color:var(--text2)">marque os jogos que quer acompanhar</span>
+      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.3"/><circle cx="12" cy="12" r="1.8" fill="var(--accent)" stroke="none"/></svg>
+        Scanner
+      </div>
+      <span style="font-size:11px;color:var(--text2)">jogos ao vivo — marque os que quer acompanhar</span>
       <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
     </div>
-    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 22px"></div>
+    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 24px"></div>
 
-    <div style="display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px solid var(--border);margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">📡 Monitorando</div>
+    <div style="display:flex;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex-shrink:0"><polyline points="3,17 9,11 13,15 21,6"/><polyline points="15,6 21,6 21,12"/></svg>
+        Monitorando
+      </div>
       <span id="scannerWatchCount" style="font-size:11px;color:var(--text2)"></span>
     </div>
     <div id="scannerAlertsBox"></div>
@@ -3528,6 +3534,7 @@ function _scannerRenderMonitor() {
     return;
   }
   box.innerHTML = watched.map(_scannerMatchCardHtml).join('');
+  _scannerDrawCharts(watched);
 }
 
 // Quantos jogos analisar ao mesmo tempo, no máximo — se o usuário marcar
@@ -3553,6 +3560,13 @@ async function _scannerRefreshWatched() {
 
 function _scannerMatchCardHtml(m) {
   const st = _scannerAnalysisCache[m.id];
+  const hasAlerts = st && !st.loading && !st.error && st.data.alerts && st.data.alerts.length;
+  // Cor de destaque à esquerda do card: dourado (padrão da marca) quando tem
+  // alerta ativo — chama mais atenção — neutro nos outros estados, pra não
+  // competir visualmente com o que realmente importa (mesmo princípio do
+  // "cara de sistema pro": hierarquia visual clara, não tudo do mesmo peso).
+  const accentColor = hasAlerts ? 'var(--accent)' : 'var(--border)';
+
   // O placar/minuto da linha vem do radarfutebol (mesma fonte do Ao Vivo);
   // a análise usa o UniScore (fonte independente pro momentum). Às vezes um
   // fica alguns segundos atrasado em relação ao outro — pra não confundir
@@ -3560,38 +3574,71 @@ function _scannerMatchCardHtml(m) {
   // sobre esse estado que o cohort foi calculado), mostra os dois quando
   // divergem.
   const analisadoComo = (st && st.data && st.data.placar && st.data.placar !== `${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}`)
-    ? ` <span style="color:var(--text2)">(analisado como ${_bt2EscXml(st.data.placar)} aos ${st.data.minuto}')</span>` : '';
+    ? ` <span style="color:var(--text2);font-weight:400">(analisado como ${_bt2EscXml(st.data.placar)} aos ${st.data.minuto}')</span>` : '';
   const header = `
-    <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-      ${_bt2EscXml(m.casa)} ${m.golCasaFt ?? 0}-${m.golForaFt ?? 0} ${_bt2EscXml(m.fora)}${analisadoComo}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${_bt2EscXml(m.casa)} <span style="color:var(--text2);font-weight:400">${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</span> ${_bt2EscXml(m.fora)}${analisadoComo}
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <span class="status-dot" style="margin-right:0"></span>
+        <span style="font-size:11px;color:var(--text2)">${m.minuto || '--'}'</span>
+      </div>
     </div>
-    <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga || '')} · ⏱ ${m.minuto || '--'}'</div>`;
+    <div style="font-size:10px;color:var(--text2);margin-top:1px">${_bt2EscXml(m.liga || '')}</div>`;
+
+  // _replayDrawCanvas fixa a altura real do canvas em 90px (canvas.height=90)
+  // — mesma altura aqui pra não distorcer o desenho (CSS height diferente do
+  // atributo real do canvas estica/esmaga o conteúdo já desenhado).
+  const chartHtml = (st && st.data && st.data.graphPoints && st.data.graphPoints.length)
+    ? `<canvas id="scannerChart_${m.id}" style="width:100%;height:90px;display:block;margin-top:8px"></canvas>` : '';
 
   let bodyHtml;
   if (!st || st.loading) {
-    bodyHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+    bodyHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">
       <div class="spinner" style="width:14px;height:14px;flex-shrink:0"></div>
       <span style="font-size:11px;color:var(--text2)">procurando padrões parecidos no histórico...</span>
     </div>`;
   } else if (st.error) {
-    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:6px">${_bt2EscXml(st.error)}</div>`;
-  } else if (!st.data.alerts || !st.data.alerts.length) {
-    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:6px">amostra parecida: ${st.data.cohort_size} jogo(s) · nenhum padrão ≥95% seguro agora</div>`;
+    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">${_bt2EscXml(st.error)}</div>`;
+  } else if (!hasAlerts) {
+    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s) · nenhum padrão ≥95% seguro agora</div>`;
   } else {
     bodyHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
       st.data.alerts.map(a => `
-        <div style="background:rgba(34,197,94,.10);border:1px solid #22c55e55;border-radius:8px;padding:8px 10px">
-          <div style="font-size:12px;font-weight:700;color:#22c55e">⚡ ${_bt2EscXml(a.label)}</div>
-          <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${(a.rate * 100).toFixed(1)}% seguro em ${a.sample} jogos parecidos</div>
+        <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
+          <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
+            <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos</div>
+          </div>
+          <div style="flex-shrink:0;text-align:center">
+            <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:var(--text2)">seguro</div>
+          </div>
         </div>`).join('') +
       `</div>`;
   }
 
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${accentColor};border-radius:10px;padding:12px;margin-bottom:8px">
       ${header}
+      ${chartHtml}
       ${bodyHtml}
     </div>`;
+}
+
+// Depois de trocar o innerHTML do painel Monitorando, os <canvas> ficam em
+// branco até desenhar de verdade (innerHTML não roda JS) — chamado logo
+// depois de montar o HTML, reaproveitando o mesmo desenhista do Replay
+// (_replayDrawCanvas), só passando os dados que a análise já trouxe.
+function _scannerDrawCharts(watched) {
+  watched.forEach(m => {
+    const st = _scannerAnalysisCache[m.id];
+    if (!st || !st.data || !st.data.graphPoints || !st.data.graphPoints.length) return;
+    const canvas = document.getElementById(`scannerChart_${m.id}`);
+    if (canvas) _replayDrawCanvas(canvas, st.data.graphPoints, st.data.goals || []);
+  });
 }
 
 async function _scannerAnalyzeMatch(m) {
