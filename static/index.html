@@ -2284,7 +2284,7 @@
       <span style="font-size:11px;color:var(--text2)">marque os jogos que quer acompanhar</span>
       <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
     </div>
-    <div id="scannerMatchList" style="display:flex;flex-direction:column;gap:6px;margin:10px 0 22px"></div>
+    <div id="scannerMatchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 22px"></div>
 
     <div style="display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px solid var(--border);margin-bottom:10px">
       <div style="font-size:13px;font-weight:700;color:var(--text)">📡 Monitorando</div>
@@ -3420,19 +3420,35 @@ function _scannerToggleWatch(id, checked) {
   _scannerRefreshWatched();
 }
 
+// Card compacto no mesmo estilo visual da aba Ao Vivo (mesma classe .live-card
+// já usada em renderLive2Card) — a pedido do usuário, que mandou print de lá
+// como referência. Sem escudo/posição de tabela por enquanto (esses vêm de
+// _loadLive2Escudos/_loadLive2Standings, que escrevem em ids fixos
+// "live2Escudo*"/"live2Pos*" — reaproveitar direto colidiria com os elementos
+// escondidos da própria aba Ao Vivo, que continuam no DOM mesmo ocultos).
+// O card inteiro é clicável pra marcar/desmarcar (a estrela é só indicativa).
 function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
   return `
-    <label class="live-match-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
-      <input type="checkbox" ${watched ? 'checked' : ''} onchange="_scannerToggleWatch('${m.id}', this.checked)"
-        style="cursor:pointer;flex-shrink:0;width:16px;height:16px">
-      <div style="flex:1;overflow:hidden">
-        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-          ${_bt2EscXml(m.casa)} <span style="color:var(--text2)">${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}</span> ${_bt2EscXml(m.fora)}
-        </div>
-        <div style="font-size:10px;color:var(--text2)">${_bt2EscXml(m.liga || '')} · ⏱ ${m.minuto || '--'}'</div>
+    <div class="live-card" style="border-color:#2f9e8f66;cursor:pointer" onclick="_scannerToggleWatch('${m.id}', ${!watched})">
+      <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
+        <span>${m.pais ? `${_bt2EscXml(m.liga || '')} <span style="color:var(--text2);font-weight:400">(${_bt2EscXml(m.pais)})</span>` : _bt2EscXml(m.liga || '')}</span>
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px">${watched ? '⭐' : '☆'}</span>
       </div>
-    </label>`;
+      <div class="live-card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <div class="live-card-team" style="flex:1;min-width:0;justify-content:flex-start"><span class="tname">${_bt2EscXml(m.casa)}</span></div>
+          <div style="text-align:center;flex-shrink:0;padding:0 8px">
+            <div style="font-size:20px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
+            <div style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
+          </div>
+          <div class="live-card-team" style="flex:1;min-width:0;justify-content:flex-end;text-align:right"><span class="tname">${_bt2EscXml(m.fora)}</span></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;margin-top:4px">
+          <div class="live-card-meta">⏱ ${m.minuto || '--'}'</div>
+        </div>
+      </div>
+    </div>`;
 }
 
 async function _scannerLoadMatches() {
