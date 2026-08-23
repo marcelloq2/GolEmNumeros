@@ -4,7 +4,7 @@ Servidor Flask — API + frontend para exibir dados do StatArea
 from flask import Flask, jsonify, send_from_directory, abort, request
 import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue
 import requests as http_req
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import github_storage
 
@@ -7964,6 +7964,15 @@ def _btcs_db_conn():
         conn.execute("ALTER TABLE btcs_pattern_rows ADD COLUMN opp_odd REAL")
     except sqlite3.OperationalError:
         pass  # coluna já existe
+    # Migração pra base de "away_name" — precisamos dos DOIS times do jogo
+    # histórico (não só o mandante) pra casar com o backtest/ do StatArea
+    # (fonte diferente, sem ID em comum, casamento é por nome+data — ver
+    # _statarea_lookup). Sem essa coluna só dava pra recuperar o nome do
+    # adversário quando o time da seção era o visitante daquele jogo.
+    try:
+        conn.execute("ALTER TABLE btcs_pattern_rows ADD COLUMN away_name TEXT")
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
     return conn
 
 
@@ -7990,13 +7999,13 @@ def _btcs_persist_results(rows):
 
 
 def _btcs_persist_pattern_rows(rows):
-    """Grava [(event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd), ...]
+    """Grava [(event_id, team_key, team_name, h, a, home_name, away_name, match_date, odd, opp_odd), ...]
     via upsert — chave é (event_id, team_key), então o mesmo jogo reaparecendo em
     janelas futuras de 'últimos 30' não duplica pro mesmo time. Em conflito,
-    COALESCE mantém a odd/opp_odd já salva se a nova vier vazia (ex: rodada em
-    que a busca de odds falhou), mas PREENCHE se a linha antiga não tinha esse
-    dado ainda — sem isso, linhas salvas antes do opp_odd existir ficavam pra
-    sempre sem esse dado (INSERT OR IGNORE nunca atualiza linha já existente)."""
+    COALESCE mantém odd/opp_odd/away_name já salvos se a nova rodada vier vazia
+    nesses campos, mas PREENCHE se a linha antiga não tinha esse dado ainda —
+    sem isso, linhas salvas antes de um campo existir ficavam pra sempre sem
+    esse dado (INSERT OR IGNORE nunca atualiza linha já existente)."""
     if not rows:
         return
     now = datetime.utcnow().isoformat() + "Z"
@@ -8005,12 +8014,14 @@ def _btcs_persist_pattern_rows(rows):
         try:
             conn.executemany(
                 """INSERT INTO btcs_pattern_rows
-                   (event_id, team_key, team_name, h, a, home_name, match_date, inserted_at, odd, opp_odd)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)
+                   (event_id, team_key, team_name, h, a, home_name, away_name, match_date, inserted_at, odd, opp_odd)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(event_id, team_key) DO UPDATE SET
                      odd = COALESCE(btcs_pattern_rows.odd, excluded.odd),
-                     opp_odd = COALESCE(btcs_pattern_rows.opp_odd, excluded.opp_odd)""",
-                [(eid, tk, tn, h, a, home, date, now, odd, opp_odd) for (eid, tk, tn, h, a, home, date, odd, opp_odd) in rows],
+                     opp_odd = COALESCE(btcs_pattern_rows.opp_odd, excluded.opp_odd),
+                     away_name = COALESCE(btcs_pattern_rows.away_name, excluded.away_name)""",
+                [(eid, tk, tn, h, a, home, away, date, now, odd, opp_odd)
+                 for (eid, tk, tn, h, a, home, away, date, odd, opp_odd) in rows],
             )
             conn.commit()
         finally:
@@ -8171,6 +8182,12 @@ _BTCS_PATTERN_VARIABLES = {
     "valor_gol": "Valor do Gol",
     "valor_saldo": "Valor do Saldo",
     "custo_gol2": "Custo do Gol 2.0",
+    # Row-level, só conta nos jogos onde achamos o par no backtest/ do StatArea
+    # (casamento por time+data, fonte diferente do FlashScore — ver
+    # _statarea_lookup) — probabilidade que o PRÓPRIO StatArea deu pro time
+    # daquele jogo vencer, testando se a previsão deles é sinal de verdade
+    # pro placar exato ou não.
+    "previsao_statarea": "Previsão StatArea (vitória do time)",
 }
 
 _BTCS_SALDO_RANGES = [(-0.3, "<-0.3"), (0.3, "-0.3–0.3"), (None, "≥0.3")]
@@ -8203,6 +8220,10 @@ _BTCS_AVG_RANGES = [(1.5, "<1.5 gols/jogo"), (2.5, "1.5–2.5 gols/jogo"),
                      (3.5, "2.5–3.5 gols/jogo"), (None, "≥3.5 gols/jogo")]
 _BTCS_PCT_RANGES = [(0.70, "<70%"), (0.90, "70–90%"), (None, "≥90%")]
 _BTCS_OVER_RANGES = [(0.40, "<40%"), (0.60, "40–60%"), (None, "≥60%")]
+# Diferente de _BTCS_PCT_RANGES (usada pra taxas medidas sobre 30 jogos, que
+# tendem a ficar altas) — probabilidade de VITÓRIA pra um jogo só raramente
+# passa de 70%, então as faixas são mais granuladas na base.
+_BTCS_STATAREA_PROB_RANGES = [(0.30, "<30%"), (0.50, "30–50%"), (0.70, "50–70%"), (None, "≥70%")]
 
 
 def _btcs_norm_name(s):
@@ -8214,6 +8235,81 @@ def _btcs_norm_name(s):
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     s = re.sub(r"[^a-z0-9 ]", " ", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+# ── Cruzamento com backtest/ do StatArea — fonte independente do FlashScore,
+# sem ID em comum, então o casamento é por time+data (fuzzy, mesma técnica do
+# _name_match já usado em momentum_history↔forca_history). Quando não acha um
+# par confiável (nome muito diferente, StatArea não cobriu aquele jogo etc.),
+# retorna None — não força casamento errado, só deixa aquele jogo de fora da
+# variável nova (ver [[reference_trading_metodologias_esportivas]] pro mesmo
+# princípio aplicado antes).
+_statarea_backtest_index_cache = {"ts": 0, "data": None}
+_STATAREA_INDEX_TTL = 6 * 3600  # 6h — só ~100 arquivos, recarregar é barato, mas não precisa toda hora
+
+
+def _statarea_backtest_index():
+    """Carrega todo backtest/*.json (previsões diárias do StatArea, já com
+    resultado real anexado) num índice {data_partida: [linhas]} pra consulta
+    rápida em memória."""
+    now = time.time()
+    cache = _statarea_backtest_index_cache
+    if cache["data"] is not None and (now - cache["ts"]) < _STATAREA_INDEX_TTL:
+        return cache["data"]
+    index = {}
+    for path in glob.glob(os.path.join(BACKTEST_DIR, "*.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                rows = json.load(f)
+        except Exception:
+            continue
+        if not isinstance(rows, list):
+            continue
+        for r in rows:
+            date = r.get("data_partida")
+            if not date:
+                continue
+            index.setdefault(date, []).append(r)
+    cache["ts"] = now
+    cache["data"] = index
+    return index
+
+
+def _statarea_lookup(ts, home_name, away_name):
+    """Acha a linha do backtest/ (StatArea) correspondente a um jogo histórico
+    do FlashScore, dado seu timestamp (campo KC, unix UTC) e os dois nomes de
+    time. Tenta a data exata +-1 dia (KC é UTC; o StatArea grava a data local
+    do jogo, então partidas perto da meia-noite podem cair no dia seguinte/
+    anterior). Retorna a linha (dict com tip/odds_1/odds_x/odds_2/etc) ou None."""
+    if not ts or not home_name or not away_name:
+        return None
+    try:
+        base = datetime.utcfromtimestamp(int(ts))
+    except (TypeError, ValueError, OSError):
+        return None
+    index = _statarea_backtest_index()
+    for delta in (0, -1, 1):
+        date_str = (base + timedelta(days=delta)).strftime("%Y-%m-%d")
+        for cand in index.get(date_str, []):
+            if _name_match(home_name, cand.get("casa", "")) and _name_match(away_name, cand.get("fora", "")):
+                return cand
+    return None
+
+
+def _statarea_own_win_prob(statarea_row, is_home):
+    """Probabilidade (0-1) que o StatArea deu pra vitória do time da
+    perspectiva atual (odds_1 se ele jogou em casa, odds_2 se jogou fora) —
+    apesar do nome do campo ('odds_1'), é uma probabilidade em % que o
+    StatArea calcula, não uma odd decimal de casa de aposta."""
+    if not statarea_row:
+        return None
+    val = statarea_row.get("odds_1" if is_home else "odds_2")
+    if val is None:
+        return None
+    try:
+        return float(val) / 100.0
+    except (TypeError, ValueError):
+        return None
 
 
 def _btcs_segment_range(value, ranges):
@@ -8263,14 +8359,16 @@ def _btcs_build_patterns_from_teams(teams):
                          "pct_ambas_marcam", "saldo")
     # valor_ponto/valor_gol/valor_saldo/custo_gol2 são row-level como "odd" (só
     # contam nos jogos com odd própria E do adversário conhecidas — ver
-    # _btcs_row_valor_segs) — mesmas fórmulas da aba Jogo (Aulas 09/10).
-    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante", "odd", "valor_ponto", "valor_gol", "valor_saldo", "custo_gol2")
+    # _btcs_row_valor_segs). previsao_statarea também é row-level, só conta nos
+    # jogos em que achamos o par no backtest/ do StatArea (ver _statarea_lookup).
+    _ALL_PATTERN_VARS = _TEAM_LEVEL_VARS + ("mandante", "odd", "valor_ponto", "valor_gol", "valor_saldo",
+                                             "custo_gol2", "previsao_statarea")
     # Combinações de 2 a 3 variáveis ao mesmo tempo (ex: média de gols marcados
-    # + chance de sofrer gol + mandante). Com 11 variáveis disponíveis agora
-    # (dobrou desde a versão original de 7), combos de tamanho 4 explodiriam o
-    # tempo de cálculo (C(11,4) = 330 vs C(11,3) = 165) sem ganho relevante de
-    # sinal — cortado por segurança de performance (mesma lição aprendida com o
-    # travamento do fetch de odds do Mapa de Sugestões).
+    # + chance de sofrer gol + mandante). Com 12 variáveis disponíveis agora,
+    # combos de tamanho 4 explodiriam o tempo de cálculo (C(12,4) = 495 vs
+    # C(12,3) = 220) sem ganho relevante de sinal — cortado por segurança de
+    # performance (mesma lição aprendida com o travamento do fetch de odds do
+    # Mapa de Sugestões).
     _COMBO_SIZES = (2, 3)
     _VAR_COMBOS = [c for size in _COMBO_SIZES for c in itertools.combinations(_ALL_PATTERN_VARS, size)]
 
@@ -8339,6 +8437,7 @@ def _btcs_build_patterns_from_teams(teams):
         # segmento. Monta o perfil row-level UMA VEZ e reaproveita tanto pro
         # acúmulo individual quanto pras combinações abaixo.
         row_valor_segs = []
+        row_statarea_segs = []
         for row, is_home in zip(rows, row_is_home):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             segment = "Jogando em casa" if is_home else "Jogando fora"
@@ -8353,14 +8452,21 @@ def _btcs_build_patterns_from_teams(teams):
                 for v, seg in valor_segs.items():
                     _accum(v, seg, bucket)
             row_valor_segs.append(valor_segs)
+            sa_row = _statarea_lookup(row.get("date"), row.get("home"), row.get("away"))
+            sa_prob = _statarea_own_win_prob(sa_row, is_home)
+            sa_label = _btcs_segment_range(sa_prob, _BTCS_STATAREA_PROB_RANGES) if sa_prob is not None else None
+            if sa_label:
+                _accum("previsao_statarea", sa_label, bucket)
+            row_statarea_segs.append(sa_label)
 
         # Combinações de 2-3 variáveis: monta o "perfil" completo de CADA jogo
         # (segmento de todas as variáveis team-level, que são as mesmas em
-        # todos os jogos do time, + mandante/odd/valor daquele jogo específico)
-        # e acumula em cada combinação de variáveis que existir. Jogos sem odd
-        # (própria ou do adversário) só ficam de fora das combinações que
+        # todos os jogos do time, + mandante/odd/valor/previsão StatArea
+        # daquele jogo específico) e acumula em cada combinação de variáveis
+        # que existir. Jogos sem odd (própria ou do adversário) ou sem par
+        # achado no backtest/ do StatArea só ficam de fora das combinações que
         # incluem essas variáveis.
-        for row, is_home, valor_segs in zip(rows, row_is_home, row_valor_segs):
+        for row, is_home, valor_segs, sa_label in zip(rows, row_is_home, row_valor_segs, row_statarea_segs):
             bucket = _btcs_bucket_key(row["h"], row["a"])
             row_segs = dict(team_segs)
             row_segs["mandante"] = "Jogando em casa" if is_home else "Jogando fora"
@@ -8369,6 +8475,8 @@ def _btcs_build_patterns_from_teams(teams):
                 row_segs["odd"] = odd_label
             if valor_segs:
                 row_segs.update(valor_segs)
+            if sa_label:
+                row_segs["previsao_statarea"] = sa_label
             for var_combo in _VAR_COMBOS:
                 if any(v not in row_segs for v in var_combo):
                     continue
@@ -8554,7 +8662,8 @@ def _btcs_compute_patterns():
                         row["opp_odd"] = sel["odd"]
 
     persist_rows = [
-        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("date"), row.get("odd"), row.get("opp_odd"))
+        (row["id"], key, entry["name"], row["h"], row["a"], row.get("home"), row.get("away"),
+         row.get("date"), row.get("odd"), row.get("opp_odd"))
         for key, entry in teams.items()
         for row in entry["rows"]
     ]
@@ -8575,16 +8684,17 @@ def _btcs_compute_patterns_acumulado():
         conn = _btcs_db_conn()
         try:
             cur = conn.execute(
-                "SELECT event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd FROM btcs_pattern_rows"
+                "SELECT event_id, team_key, team_name, h, a, home_name, away_name, match_date, odd, opp_odd FROM btcs_pattern_rows"
             )
             all_rows = cur.fetchall()
         finally:
             conn.close()
 
     teams = {}
-    for event_id, team_key, team_name, h, a, home_name, match_date, odd, opp_odd in all_rows:
+    for event_id, team_key, team_name, h, a, home_name, away_name, match_date, odd, opp_odd in all_rows:
         entry = teams.setdefault(team_key, {"name": team_name, "rows": []})
-        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "date": match_date, "odd": odd, "opp_odd": opp_odd})
+        entry["rows"].append({"id": event_id, "h": h, "a": a, "home": home_name, "away": away_name,
+                               "date": match_date, "odd": odd, "opp_odd": opp_odd})
 
     return _btcs_build_patterns_from_teams(teams)
 
