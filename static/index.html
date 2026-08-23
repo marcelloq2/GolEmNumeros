@@ -1588,6 +1588,7 @@
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
+    <button class="nav-tab" onclick="switchView('backtest', this)">🔬 Backtest</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2260,6 +2261,27 @@
       </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="today2DetailTabs" style="padding:10px 16px 0"></div>
       <div id="today2DetailBody" style="padding:12px 16px 16px;font-size:15px;color:var(--text2)"></div>
+    </div>
+  </div>
+
+  <!-- BACKTEST — fusão do antigo "Backtest Tradicional" (mercado+seleção por ROI) com
+       o antigo "Backtest CS" (19 buckets de placar exato por taxa de acerto) numa aba
+       só, com sub-abas internas — os dois rankings continuam com lógica própria (ROI
+       não é comparável com taxa de acerto), só a navegação é unificada. Reativada a
+       pedido do usuário depois de ~1 mês acumulando dado sozinha em background
+       (_background_backtest_daily_backup no app.py). -->
+  <div id="backtestWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:14px;box-sizing:border-box">
+    <div style="display:flex;gap:6px;margin-bottom:12px;align-items:center">
+      <button class="filter-btn active" id="backtestSubTabTradicional" onclick="_setBacktestSubTab('tradicional')">🧪 Mercados Tradicionais</button>
+      <button class="filter-btn" id="backtestSubTabCs" onclick="_setBacktestSubTab('cs')">🎯 Placar Exato</button>
+    </div>
+    <div id="backtestSubTradicional" style="display:flex;flex-direction:column">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🧪 Backtest Tradicional — ranking global de metodologias</div>
+      <div id="bt2Content"></div>
+    </div>
+    <div id="backtestSubCs" style="display:none;flex-direction:column">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🎯 Backtest CS — ranking global de placares exatos por taxa de acerto</div>
+      <div id="btcsContent"></div>
     </div>
   </div>
 
@@ -3309,6 +3331,7 @@ function switchView(view, btn) {
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
+  const backtestWrapper = document.getElementById('backtestWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3319,6 +3342,7 @@ function switchView(view, btn) {
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
+  backtestWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3357,6 +3381,15 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
+  } else if (view === 'backtest') {
+    backtestWrapper.style.display = 'flex';
+    // carrega só a sub-aba ativa no momento (padrão: Mercados Tradicionais) — a
+    // outra carrega sob demanda quando o usuário clicar em _setBacktestSubTab
+    if (_backtestSubTab === 'cs') {
+      _btcsLoadRanking();
+    } else {
+      _bt2LoadRanking();
+    }
   }
 }
 
@@ -9263,7 +9296,10 @@ let _btcsSortKey = 'winrate';
 let _btcsSortDir = -1;      // -1 = desc, 1 = asc
 let _btcsSelectedIdx = -1; // -1 = nada selecionado ainda (só depois de clicar num padrão)
 
-let _btcsMode = 'recente'; // 'recente' | 'acumulado'
+// Travado em 'acumulado' pelo mesmo motivo do _bt2Mode (ver comentário acima):
+// o modo 'recente' busca H2H de centenas de jogos históricos na hora e já foi
+// gatilho de queda do site (prendia o único worker do servidor).
+let _btcsMode = 'acumulado'; // 'recente' | 'acumulado'
 let _btcsDataByMode = { recente: null, acumulado: null };
 
 async function _btcsLoadRanking(refresh) {
