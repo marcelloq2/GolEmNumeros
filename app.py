@@ -4163,6 +4163,10 @@ def api_scanner_analyze():
         "minuto": minuto_atual,
         "placar": f"{placar_h}-{placar_a}",
         "cohort_size": len(cohort),
+        # Total de partidas na base (momentum_history) — o frontend usa isso
+        # pra mostrar "N jogos parecidos (X% da base)", dando noção de quão
+        # raro/comum é esse cenário, não só o número bruto.
+        "total_base": len(all_matches),
         "alerts": alerts,
         # graphPoints/goals já vieram nessa mesma busca (_process_momentum) —
         # devolve pro frontend desenhar o gráfico de pressão nos jogos

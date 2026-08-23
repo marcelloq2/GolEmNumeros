@@ -3558,6 +3558,14 @@ async function _scannerRefreshWatched() {
   }
 }
 
+// "X jogos parecidos" sozinho não diz se é muito ou pouco — mostra também
+// quanto isso representa da base toda de momentum_history (ex: "40 jogos
+// parecidos (3% da base)"), dando noção de quão raro/comum é esse cenário.
+function _scannerPctOfBase(n, total) {
+  if (!total) return '';
+  return ` (${(n / total * 100).toFixed(1)}% da base)`;
+}
+
 function _scannerMatchCardHtml(m) {
   const st = _scannerAnalysisCache[m.id];
   const hasAlerts = st && !st.loading && !st.error && st.data.alerts && st.data.alerts.length;
@@ -3602,7 +3610,7 @@ function _scannerMatchCardHtml(m) {
   } else if (st.error) {
     bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">${_bt2EscXml(st.error)}</div>`;
   } else if (!hasAlerts) {
-    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s) · nenhum padrão ≥95% seguro agora</div>`;
+    bodyHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s)${_scannerPctOfBase(st.data.cohort_size, st.data.total_base)} · nenhum padrão ≥95% seguro agora</div>`;
   } else {
     bodyHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
       st.data.alerts.map(a => `
@@ -3610,7 +3618,7 @@ function _scannerMatchCardHtml(m) {
           <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
           <div style="flex:1;min-width:0">
             <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
-            <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos</div>
+            <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
           </div>
           <div style="flex-shrink:0;text-align:center">
             <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
