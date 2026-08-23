@@ -4093,11 +4093,17 @@ def _scanner_build_alerts(evaluated, placar_h, placar_a):
     """Converte a grade janela→taxas num punhado de alertas prontos pra UI —
     só os que bateram o limiar de ≥95%, com o texto já explicando o mercado
     (placar exato / under / contra o time), ordenados por janela (os mais
-    imediatos primeiro)."""
+    imediatos primeiro).
+
+    Por pedido do usuário (2026-08-23): só Under por enquanto — validar esse
+    mercado sozinho antes de abrir pros outros dois (placar exato / contra um
+    time). _scanner_evaluate_cohort já calcula os 3 sinais (é barato, mesmo
+    laço), só não surgem como alerta ainda — pra reativar, é só descomentar
+    as 2 linhas abaixo."""
     labels = {
         "sem_mais_gols":  f"Under {placar_h + placar_a}.5 gols (sem mais nenhum gol)",
-        "casa_nao_marca": f"Lay {placar_h + 1}x{placar_a} / contra a Casa marcar de novo",
-        "fora_nao_marca": f"Lay {placar_h}x{placar_a + 1} / contra o Visitante marcar de novo",
+        # "casa_nao_marca": f"Lay {placar_h + 1}x{placar_a} / contra a Casa marcar de novo",
+        # "fora_nao_marca": f"Lay {placar_h}x{placar_a + 1} / contra o Visitante marcar de novo",
     }
     alerts = []
     for w in sorted(evaluated.keys()):
