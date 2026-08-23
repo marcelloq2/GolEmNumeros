@@ -2,11 +2,22 @@
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request
-import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue
+import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue, sys
 import requests as http_req
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import github_storage
+
+# O console do Windows usa cp1252 por padrão, que não cobre nomes de time com
+# caracteres como ş/ğ/č/đ (comuns em ligas turcas, balcânicas etc) — qualquer
+# print(f"...{nome_do_time}...") com um desses derrubava a requisição inteira
+# com UnicodeEncodeError (achado testando o Scanner: _find_uniscore_id e
+# _process_momentum já tinham prints assim). Forçar UTF-8 aqui corrige de vez
+# pra qualquer print futuro também, em vez de remendar um por um. Sem efeito
+# em produção (Railway/Linux já usa UTF-8 por padrão).
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ── Sentry — captura erro do backend automaticamente (exceção não tratada em
 # qualquer rota vira um evento no Sentry, com traceback completo), sem
@@ -3990,6 +4001,155 @@ def _momentum_load_all_matches():
     _MOMENTUM_ALL_MATCHES_CACHE["data"] = matches
     _MOMENTUM_ALL_MATCHES_CACHE["ts"] = now
     return matches
+
+
+# ── SCANNER — etapa 2: motor de similaridade ao vivo ────────────────────────
+# Dado o estado atual de uma partida (placar + minuto), busca no
+# momentum_history partidas passadas que tiveram o MESMO placar num minuto
+# parecido, e mede — daquele ponto em diante — a chance de cada time marcar
+# de novo em cada janela de tempo. Os 3 tipos de scalping que o usuário
+# descreveu (Under no placar limite, placar exato limite, contra uma equipe)
+# são todos derivados dos mesmos 2 sinais binários por analog (casa marcou?
+# fora marcou?):
+#   - "sem_mais_gols"   (nem casa nem fora marcou) → Under no placar atual+0.5
+#   - "casa_nao_marca"  → placar exato limite pro lado de cima (ex: 2-1→3-1
+#     fica de fora) OU scalping contra a casa
+#   - "fora_nao_marca"  → idem pro lado de baixo (ex: 2-1→2-2 fica de fora)
+#     OU scalping contra o visitante
+# Não decide um mercado/janela fixos — testa uma grade de janelas e devolve
+# QUALQUER combinação que bata o limiar de segurança, deixando o "padrão
+# dinâmico" (ideia do usuário) emergir dos dados em vez de forçar uma regra.
+_SCANNER_MINUTE_TOLERANCE = 3     # cohort: mesmo placar dentro de ±3min do minuto atual
+_SCANNER_WINDOWS = (3, 5, 7, 10)  # janelas de scalping testadas, em minutos
+_SCANNER_MIN_SAMPLE = 20          # amostra mínima pro percentual valer alguma coisa
+_SCANNER_SAFE_THRESHOLD = 0.95    # confirmado com o usuário: ≥95% = "seguro"
+
+
+def _scanner_score_at_minute(goals, minute):
+    """Reconstrói o placar (h, a) num minuto específico, a partir da lista de
+    gols {minute, team}. Mesma técnica já usada em outros pontos do projeto
+    (ex: reconstrução de placar por minuto nas metodologias antigas)."""
+    h = sum(1 for g in goals if g.get("team") == "home" and (g.get("minute") or 0) <= minute)
+    a = sum(1 for g in goals if g.get("team") == "away" and (g.get("minute") or 0) <= minute)
+    return h, a
+
+
+def _scanner_find_cohort(all_matches, target_h, target_a, target_minute):
+    """Varre momentum_history procurando partidas que tiveram o placar
+    (target_h, target_a) em algum minuto dentro de ±_SCANNER_MINUTE_TOLERANCE
+    de target_minute. Cada partida entra no máximo 1x (o primeiro minuto em
+    que bateu), guardando esse minuto (pra medir 'dali pra frente' na
+    linha do tempo DELA, não na da partida atual) + o minuto máximo
+    rastreado (pra saber se ela viu o suficiente pra contar em cada janela)."""
+    cohort = []
+    target_minute = int(target_minute)
+    lo = max(0, target_minute - _SCANNER_MINUTE_TOLERANCE)
+    hi = target_minute + _SCANNER_MINUTE_TOLERANCE
+    for points, goals in all_matches:
+        # minute às vezes vem fracionário (ex: 45.5, ponto de intervalo) — arredonda
+        # pra baixo, range() exige int.
+        max_minute = int(max((p.get("minute") or 0) for p in points)) if points else 0
+        if max_minute < lo:
+            continue  # não rastreou nem até o começo da janela de tolerância
+        for m in range(lo, min(hi, max_minute) + 1):
+            h, a = _scanner_score_at_minute(goals, m)
+            if h == target_h and a == target_a:
+                cohort.append((goals, m, max_minute))
+                break
+    return cohort
+
+
+def _scanner_evaluate_cohort(cohort):
+    """Pra cada janela candidata, mede — entre as partidas do cohort que
+    foram rastreadas até o fim da janela — a fração que NÃO teve gol de cada
+    time (e de nenhum dos dois) dali em diante. Só devolve janelas com
+    amostra suficiente."""
+    out = {}
+    for w in _SCANNER_WINDOWS:
+        total = casa_safe = fora_safe = ambos_safe = 0
+        for goals, m2, max_minute in cohort:
+            if max_minute < m2 + w:
+                continue  # não deu pra observar a janela inteira nessa partida
+            total += 1
+            casa_marcou = any(g.get("team") == "home" and m2 < (g.get("minute") or 0) <= m2 + w for g in goals)
+            fora_marcou = any(g.get("team") == "away" and m2 < (g.get("minute") or 0) <= m2 + w for g in goals)
+            if not casa_marcou:
+                casa_safe += 1
+            if not fora_marcou:
+                fora_safe += 1
+            if not casa_marcou and not fora_marcou:
+                ambos_safe += 1
+        if total >= _SCANNER_MIN_SAMPLE:
+            out[w] = {
+                "total": total,
+                "casa_nao_marca": round(casa_safe / total, 4),
+                "fora_nao_marca": round(fora_safe / total, 4),
+                "sem_mais_gols":  round(ambos_safe / total, 4),
+            }
+    return out
+
+
+def _scanner_build_alerts(evaluated, placar_h, placar_a):
+    """Converte a grade janela→taxas num punhado de alertas prontos pra UI —
+    só os que bateram o limiar de ≥95%, com o texto já explicando o mercado
+    (placar exato / under / contra o time), ordenados por janela (os mais
+    imediatos primeiro)."""
+    labels = {
+        "sem_mais_gols":  f"Under {placar_h + placar_a}.5 gols (sem mais nenhum gol)",
+        "casa_nao_marca": f"Lay {placar_h + 1}x{placar_a} / contra a Casa marcar de novo",
+        "fora_nao_marca": f"Lay {placar_h}x{placar_a + 1} / contra o Visitante marcar de novo",
+    }
+    alerts = []
+    for w in sorted(evaluated.keys()):
+        stats = evaluated[w]
+        for signal, label in labels.items():
+            rate = stats[signal]
+            if rate >= _SCANNER_SAFE_THRESHOLD:
+                alerts.append({
+                    "window_min": w,
+                    "signal": signal,
+                    "label": label,
+                    "rate": rate,
+                    "sample": stats["total"],
+                })
+    return alerts
+
+
+@app.route("/api/scanner/analyze")
+def api_scanner_analyze():
+    """Motor de similaridade do Scanner: pega o estado ao vivo atual (via
+    _process_momentum, o mesmo dado que já alimenta Ao Vivo/momentum) e busca
+    no momentum_history partidas com o mesmo placar num minuto parecido,
+    devolvendo qualquer combinação janela+mercado que bateu ≥95% de segurança
+    na amostra encontrada. Chamado periodicamente pelo frontend só pros jogos
+    marcados como 'watch' (não pra todos os jogos ao vivo — custo)."""
+    event_id = request.args.get("event_id", "")
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    liga = request.args.get("liga", "")
+    if not event_id or not casa or not fora:
+        return jsonify({"error": "faltam parâmetros (event_id, casa, fora)"}), 400
+
+    data = _process_momentum(event_id, casa, fora, liga)
+    if not data or not data.get("graphPoints"):
+        return jsonify({"error": "sem dados ao vivo pra essa partida ainda"}), 404
+
+    points = data["graphPoints"]
+    goals = data.get("goals") or []
+    minuto_atual = int(max((p.get("minute") or 0) for p in points)) if points else 0
+    placar_h, placar_a = _scanner_score_at_minute(goals, minuto_atual)
+
+    all_matches = _momentum_load_all_matches()
+    cohort = _scanner_find_cohort(all_matches, placar_h, placar_a, minuto_atual)
+    evaluated = _scanner_evaluate_cohort(cohort)
+    alerts = _scanner_build_alerts(evaluated, placar_h, placar_a)
+
+    return jsonify({
+        "minuto": minuto_atual,
+        "placar": f"{placar_h}-{placar_a}",
+        "cohort_size": len(cohort),
+        "alerts": alerts,
+    })
 
 
 def _momentum_eval_pattern(matches, chance_pct, over_pct, window_min):
