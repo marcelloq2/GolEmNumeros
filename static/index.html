@@ -2290,6 +2290,7 @@
     <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
       <button class="painel-sort-time-btn" id="scannerSortTimeBtn" onclick="_scannerToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
+    <div id="scannerHistoryBox" style="margin:8px 0 4px"></div>
     <div id="scannerMatchList" class="live-grid-wrap" style="margin:10px 0 24px"></div>
   </div>
 
@@ -3360,6 +3361,7 @@ function switchView(view, btn) {
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
   clearInterval(_scannerAutoRefresh);
+  clearInterval(_scannerHistoryAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3394,6 +3396,8 @@ function switchView(view, btn) {
     scannerWrapper.style.display = 'flex';
     _scannerLoadMatches();
     _scannerAutoRefresh = setInterval(_scannerLoadMatches, 15000);
+    _scannerLoadAlertsHistory();
+    _scannerHistoryAutoRefresh = setInterval(_scannerLoadAlertsHistory, 60000);
   }
 }
 
@@ -3405,6 +3409,7 @@ function switchView(view, btn) {
 // nele — sem painel "Monitorando" separado (removido a pedido do usuário,
 // pra não duplicar informação).
 let _scannerAutoRefresh = null;
+let _scannerHistoryAutoRefresh = null;
 let _scannerMatchesCache = [];
 let _scannerLastShotmapScan = 0;
 let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
@@ -3480,6 +3485,89 @@ function _scannerPctOfBase(n, total) {
   return ` (${(n / total * 100).toFixed(1)}% da base)`;
 }
 
+// Selo de confiança pelo tamanho da amostra — 40 jogos parecidos e 400 jogos
+// parecidos não deveriam pesar igual visualmente, mesmo com a mesma taxa de
+// segurança. _SCANNER_MIN_SAMPLE (backend) já garante ≥20 pra aparecer alerta
+// algum; aqui só qualifica visualmente o que já passou desse piso.
+function _scannerConfidenceBadge(sample) {
+  const alto = sample >= 100;
+  const cor = alto ? '#22c55e' : '#f59e0b';
+  const texto = alto ? 'Alta confiança' : 'Confiança média';
+  return `<span style="font-size:9px;font-weight:700;color:${cor};background:${cor}22;border:1px solid ${cor}55;border-radius:4px;padding:1px 5px;white-space:nowrap">${texto}</span>`;
+}
+
+// ── Histórico de alertas — mede a taxa de acerto do SISTEMA rodando ao vivo
+// (cada alerta que disparou, checado depois se realmente segurou ou não),
+// não só a calibração contra o histórico salvo. Expansível: por padrão só
+// mostra o resumo, clique pra ver a lista dos últimos alertas.
+let _scannerHistoryData = null;
+let _scannerHistoryExpanded = false;
+
+async function _scannerLoadAlertsHistory() {
+  try {
+    const r = await fetch('/api/scanner/alerts_history');
+    _scannerHistoryData = await r.json();
+  } catch (e) {
+    _scannerHistoryData = null;
+  }
+  _scannerRenderHistory();
+}
+
+function _scannerToggleHistoryExpanded() {
+  _scannerHistoryExpanded = !_scannerHistoryExpanded;
+  _scannerRenderHistory();
+}
+
+function _scannerOutcomeBadge(row) {
+  if (!row.resolved) return `<span style="color:var(--text2)">⏳ aguardando</span>`;
+  return row.outcome === 1
+    ? `<span style="color:#22c55e;font-weight:700">✅ segurou</span>`
+    : `<span style="color:#ef4444;font-weight:700">❌ furou</span>`;
+}
+
+function _scannerRenderHistory() {
+  const box = document.getElementById('scannerHistoryBox');
+  if (!box) return;
+  const d = _scannerHistoryData;
+  if (!d || !d.alerts || !d.alerts.length) {
+    box.innerHTML = `<div style="font-size:11px;color:var(--text2)">📊 Histórico: nenhum alerta disparado ainda</div>`;
+    return;
+  }
+  const pendentes = d.alerts.length - d.total_resolved;
+  const resumo = d.accuracy == null
+    ? `📊 Histórico: ${d.alerts.length} alerta(s) disparado(s), nenhum resolvido ainda (aguardando a janela passar)`
+    : `📊 Histórico: <b style="color:${d.accuracy >= 0.9 ? '#22c55e' : '#f59e0b'}">${(d.accuracy * 100).toFixed(1)}% de acerto real</b> em ${d.total_resolved} alerta(s) resolvido(s)${pendentes ? ` · ${pendentes} pendente(s)` : ''}`;
+
+  let listaHtml = '';
+  if (_scannerHistoryExpanded) {
+    listaHtml = `<div style="margin-top:8px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2)">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="color:var(--text2);text-align:left">
+          <th style="padding:6px 8px">Jogo</th><th style="padding:6px 8px">Placar/min</th>
+          <th style="padding:6px 8px">Alerta</th><th style="padding:6px 8px">Prometeu</th><th style="padding:6px 8px">Resultado</th>
+        </tr></thead>
+        <tbody>
+          ${d.alerts.map(row => `
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px">${_bt2EscXml(row.casa)} x ${_bt2EscXml(row.fora)}</td>
+              <td style="padding:6px 8px;color:var(--text2)">${_bt2EscXml(row.placar)} aos ${row.minuto}'</td>
+              <td style="padding:6px 8px">${_bt2EscXml(row.label)}</td>
+              <td style="padding:6px 8px">${(row.rate * 100).toFixed(1)}% (${row.sample})</td>
+              <td style="padding:6px 8px">${_scannerOutcomeBadge(row)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="_scannerToggleHistoryExpanded()">
+      <span style="font-size:11px;color:var(--text)">${resumo}</span>
+      <span style="font-size:10px;color:var(--text2)">${_scannerHistoryExpanded ? '▲ ocultar' : '▼ ver últimos'}</span>
+    </div>
+    ${listaHtml}`;
+}
+
 // Card único: compacto quando não marcado, cresce (só na própria coluna, não
 // a linha inteira) mostrando gráfico de pressão + alertas quando marcado — a
 // pedido do usuário, pra não duplicar informação num painel "Monitorando"
@@ -3531,7 +3619,10 @@ function _scannerMatchRowHtml(m) {
           <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
             <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
             <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
+                ${_scannerConfidenceBadge(a.sample)}
+              </div>
               <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
             </div>
             <div style="flex-shrink:0;text-align:center">

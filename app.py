@@ -4121,6 +4121,176 @@ def _scanner_build_alerts(evaluated, placar_h, placar_a):
     return alerts
 
 
+# _BT2_DB_PATH/_bt2_db_lock precisam existir aqui em cima (não só lá embaixo
+# na seção "BACKTEST 2") porque o _scanner_resolve_alerts_loop já inicia sua
+# thread de fundo logo abaixo — se essas globals só fossem definidas depois no
+# arquivo, a thread rodava em paralelo com o resto do módulo ainda carregando
+# e batia um NameError na primeira iteração do loop.
+_BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
+_bt2_db_lock = threading.Lock()
+
+
+# ── Histórico de alertas do Scanner — registra cada alerta que disparou e,
+# depois que a janela prometida passa, checa se realmente se confirmou (sem
+# gol) ou não. Mede a taxa de acerto do SISTEMA rodando ao vivo, não só a
+# calibração contra o histórico — pedido explícito do usuário, é a forma mais
+# direta de saber se o ≥95% se sustenta na prática. Reaproveita o mesmo
+# arquivo/lock do backtest2.db (mesmo padrão de persistência+backup pro
+# GitHub já usado em todo o resto do projeto), só numa tabela própria.
+def _scanner_db_conn():
+    conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scanner_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL,
+            casa TEXT, fora TEXT, liga TEXT,
+            minuto INTEGER, placar TEXT,
+            window_min INTEGER NOT NULL,
+            signal TEXT NOT NULL,
+            label TEXT,
+            rate REAL, sample INTEGER,
+            fired_at TEXT NOT NULL,
+            check_after REAL NOT NULL,
+            resolved INTEGER DEFAULT 0,
+            outcome INTEGER,
+            checked_at TEXT,
+            UNIQUE(event_id, window_min, signal, minuto)
+        )
+    """)
+    return conn
+
+
+def _scanner_log_alerts(event_id, casa, fora, liga, minuto, placar, alerts):
+    """Grava cada alerta novo (INSERT OR IGNORE — a chave única evita duplicar
+    o mesmo alerta a cada poll de 15s enquanto ele continuar valendo). Só
+    grava, não bloqueia a resposta do endpoint por causa disso."""
+    if not alerts:
+        return
+    now_ts = time.time()
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    rows = [
+        (event_id, casa, fora, liga, minuto, placar, a["window_min"], a["signal"], a["label"],
+         a["rate"], a["sample"], now_iso, now_ts + a["window_min"] * 60)
+        for a in alerts
+    ]
+    try:
+        with _bt2_db_lock:
+            conn = _scanner_db_conn()
+            try:
+                conn.executemany("""
+                    INSERT OR IGNORE INTO scanner_alerts
+                    (event_id, casa, fora, liga, minuto, placar, window_min, signal, label, rate, sample, fired_at, check_after)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
+                conn.commit()
+            finally:
+                conn.close()
+    except Exception as e:
+        print(f"[scanner-alerts] Erro gravando: {e}")
+
+
+def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min):
+    """Retorna (resolvido, segurou). resolvido=False quando ainda não dá pra
+    saber (partida não chegou no minuto+window_min ainda). Tenta o dado ao
+    vivo primeiro (_process_momentum, cache de 90s); se a partida já não
+    estiver mais sendo rastreada (encerrou faz tempo), cai pro arquivo já
+    salvo em momentum_history/*_{event_id}.json."""
+    points, goals = None, None
+    try:
+        data = _process_momentum(event_id, casa, fora, liga)
+        if data:
+            points = data.get("graphPoints") or []
+            goals = data.get("goals") or []
+    except Exception:
+        pass
+    if not points:
+        for fpath in glob.glob(os.path.join(MOMENTUM_DIR, f"*_{event_id}.json")):
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    d = json.load(f)
+                points = d.get("graphPoints") or []
+                goals = d.get("goals") or []
+                break
+            except Exception:
+                continue
+    if not points:
+        return False, None
+    minuto_atual = int(max((p.get("minute") or 0) for p in points))
+    if minuto_atual < minuto + window_min:
+        return False, None  # partida ainda não passou da janela prometida
+    teve_gol = any(minuto < (g.get("minute") or 0) <= minuto + window_min for g in (goals or []))
+    return True, (not teve_gol)
+
+
+_SCANNER_RESOLVE_INTERVAL = 120  # 2min — não precisa ser mais frequente que isso
+
+
+def _scanner_resolve_alerts_loop():
+    while True:
+        try:
+            with _bt2_db_lock:
+                conn = _scanner_db_conn()
+                try:
+                    cur = conn.execute(
+                        "SELECT id, event_id, casa, fora, liga, minuto, window_min FROM scanner_alerts "
+                        "WHERE resolved=0 AND check_after<=?", (time.time(),)
+                    )
+                    pending = cur.fetchall()
+                finally:
+                    conn.close()
+            resolved_count = 0
+            for (row_id, event_id, casa, fora, liga, minuto, window_min) in pending:
+                resolvido, segurou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min)
+                if not resolvido:
+                    continue
+                with _bt2_db_lock:
+                    conn = _scanner_db_conn()
+                    try:
+                        conn.execute(
+                            "UPDATE scanner_alerts SET resolved=1, outcome=?, checked_at=? WHERE id=?",
+                            (1 if segurou else 0, datetime.utcnow().isoformat() + "Z", row_id)
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
+                resolved_count += 1
+            if resolved_count:
+                print(f"[scanner-alerts] {resolved_count} alerta(s) resolvido(s)")
+                _bt2_push_db_bg()
+        except Exception as e:
+            print(f"[scanner-alerts] Erro resolvendo: {e}")
+        time.sleep(_SCANNER_RESOLVE_INTERVAL)
+
+
+threading.Thread(target=_scanner_resolve_alerts_loop, daemon=True, name="ScannerAlertsResolve").start()
+
+
+@app.route("/api/scanner/alerts_history")
+def api_scanner_alerts_history():
+    """Histórico de alertas já disparados + taxa de acerto real (resolvidos
+    de verdade, checando se saiu gol ou não na janela prometida) — mede o
+    sistema rodando ao vivo, não só a calibração contra o histórico salvo."""
+    with _bt2_db_lock:
+        conn = _scanner_db_conn()
+        try:
+            cur = conn.execute("""
+                SELECT event_id, casa, fora, liga, minuto, placar, window_min, signal, label,
+                       rate, sample, fired_at, resolved, outcome, checked_at
+                FROM scanner_alerts ORDER BY fired_at DESC LIMIT 200
+            """)
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        finally:
+            conn.close()
+    resolved = [r for r in rows if r["resolved"]]
+    hits = sum(1 for r in resolved if r["outcome"] == 1)
+    return jsonify({
+        "alerts": rows,
+        "total_resolved": len(resolved),
+        "hits": hits,
+        "accuracy": round(hits / len(resolved), 4) if resolved else None,
+    })
+
+
 @app.route("/api/scanner/analyze")
 def api_scanner_analyze():
     """Motor de similaridade do Scanner: pega o estado ao vivo atual (via
@@ -4158,6 +4328,7 @@ def api_scanner_analyze():
     cohort = _scanner_find_cohort(all_matches, placar_h, placar_a, minuto_atual)
     evaluated = _scanner_evaluate_cohort(cohort)
     alerts = _scanner_build_alerts(evaluated, placar_h, placar_a)
+    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}", alerts)
 
     return jsonify({
         "minuto": minuto_atual,
@@ -7663,8 +7834,8 @@ def _bt2_market_selections(market_key, o, h, a):
 # Além do snapshot "últimos 30 jogos" (em memória, recalculado a cada 30min),
 # guardamos cada aposta histórica individual num SQLite pra construir um ranking
 # ACUMULADO que cresce com o tempo (não se limita ao histórico dos jogos de hoje).
-_BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
-_bt2_db_lock = threading.Lock()
+# (_BT2_DB_PATH/_bt2_db_lock ficam definidos mais acima, perto do Scanner —
+# ver comentário lá em cima explicando por quê.)
 
 
 def _bt2_push_db_bg():
