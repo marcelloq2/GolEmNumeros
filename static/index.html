@@ -3431,6 +3431,23 @@ function _scannerToggleSortByTime() {
   _scannerRenderList(); // só reordena o que já está carregado, sem precisar buscar de novo
 }
 
+// Mesmo padrão de _live2SortByPin (Ao Vivo): jogos marcados sempre primeiro,
+// e dentro de cada grupo (marcados / não marcados) aplica "Ordenar por
+// horário" se estiver ligado.
+function _scannerSortMatches(matches) {
+  return [...matches].sort((a, b) => {
+    const wa = _scannerWatchSet.has(String(a.id)) ? 0 : 1;
+    const wb = _scannerWatchSet.has(String(b.id)) ? 0 : 1;
+    if (wa !== wb) return wa - wb;
+    if (!_scannerSortByTime) return 0;
+    const ma = _scannerParseMinuto(a), mb = _scannerParseMinuto(b);
+    if (ma == null && mb == null) return 0;
+    if (ma == null) return 1;  // sem minuto corrido (ex: intervalo) vai pro final do grupo
+    if (mb == null) return -1;
+    return mb - ma; // mais avançado no jogo primeiro
+  });
+}
+
 // Teto rígido de jogos monitorados ao mesmo tempo — o Scanner e a Ao Vivo
 // dividem o mesmo servidor, e cada jogo monitorado soma trabalho de análise
 // a cada ciclo de 15s. O limite de concorrência (_SCANNER_ANALYZE_CONCURRENCY)
@@ -3718,12 +3735,7 @@ function _scannerRenderList() {
     list.innerHTML = `<div class="live-empty"><div style="font-size:32px">😴</div><div style="font-size:12px;color:var(--text2)">Nenhum jogo com mapa de chutes disponível agora</div></div>`;
     return;
   }
-  // "Ordenar por horário" ligado: jogo mais avançado primeiro (sem minuto
-  // corrido, ex. intervalo, vai pro fim da lista) — desligado: ordem que a
-  // API devolveu.
-  const ordenados = _scannerSortByTime
-    ? [..._scannerMatchesCache].sort((a, b) => (_scannerParseMinuto(b) ?? -1) - (_scannerParseMinuto(a) ?? -1))
-    : _scannerMatchesCache;
+  const ordenados = _scannerSortMatches(_scannerMatchesCache);
   list.innerHTML = ordenados.map(_scannerMatchRowHtml).join('');
   _scannerDrawCharts(ordenados.filter(m => _scannerWatchSet.has(String(m.id))));
 }
