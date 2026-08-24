@@ -1647,6 +1647,11 @@
                  white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">⬇️ Análises
           <span id="painelExportBadge" class="live-count-badge" style="margin:0" title="Partidas salvas">0</span>
         </button>
+        <button id="painelExportScanBtn" onclick="_painelExportScanAll()"
+          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez — sem precisar clicar em cada jogo"
+          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
+                 color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">🔍 Coletar todas</button>
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
         <button class="live-refresh-btn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' (dados da Hoje) procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
         <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
@@ -5978,7 +5983,7 @@ function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status,
       if (d.error) { body.innerHTML = `<div class="live-loading">${d.error}</div>`; return; }
       _painelForcaData = d;
       _painelForcaRender();
-      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts);
+      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, _painelForcaData);
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
 }
@@ -6010,10 +6015,13 @@ function _painelExportSlug(s) {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'sem_nome';
 }
 
-async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts) {
+// `forca` é passado explicitamente (não lê _painelForcaData direto) pra essa
+// função funcionar tanto no fluxo normal (clique abre o modal) quanto no
+// scan em lote (_painelExportScanAll), que roda sem abrir modal nenhum.
+async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, forca) {
   try {
-    if (status === 'ao_vivo') { console.log('[export] partida ao vivo — auto-save desativado'); return; }
-    if (!home || !away) return;
+    if (status === 'ao_vivo') { console.log('[export] partida ao vivo — auto-save desativado'); return false; }
+    if (!home || !away) return false;
 
     const dt = ts ? new Date(ts * 1000) : null;
     const dataStr = dt ? dt.toISOString().slice(0, 10) : null;
@@ -6021,9 +6029,8 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
     const id = `${_painelExportSlug(home)}_${_painelExportSlug(away)}_${dataStr ? dataStr.replace(/-/g, '') : 'semdata'}_${horarioStr ? horarioStr.replace(':', '') : 'semhora'}`;
 
     const idsSalvos = JSON.parse(localStorage.getItem('gol_em_numeros_ids_salvos') || '[]');
-    if (idsSalvos.includes(id)) return; // já salvo, não duplica
+    if (idsSalvos.includes(id)) return false; // já salvo, não duplica
 
-    const forca = _painelForcaData;
     const grades = forca ? _painelForcaOverallGrades(forca) : null;
 
     // CD/Dados — busca em paralelo, reaproveitando o mesmo cache da Ao Vivo
@@ -6092,8 +6099,10 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
 
     _painelExportUpdateBadge();
     _showToast(status === 'finalizada' ? '✓ Partida finalizada salva no histórico' : '✓ Próxima partida salva no histórico');
+    return true;
   } catch (e) {
     console.warn('[export] erro no auto-save:', e);
+    return false;
   }
 }
 
@@ -6116,6 +6125,74 @@ function _painelExportDownload() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Escaneia TODAS as partidas visíveis (Painel Principal), uma de cada vez —
+// o usuário pediu isso pra não ter que clicar em cada jogo manualmente.
+// Sequencial de propósito (não em paralelo): o endpoint de força já é
+// lento sozinho (scraping ao vivo, alguns segundos por jogo) e mandar N
+// de uma vez saturaria o mesmo pool de threads que os outros usuários do
+// site dependem — mesma razão/técnica já usada em _hojeJogoExportarTxt
+// (LOTE=1, "processar vários jogos ao mesmo tempo deixava o site lento
+// pra todo mundo").
+let _painelExportScanEmAndamento = false;
+
+function _painelExportScanCandidates() {
+  if (!_painelLastData || !_painelLastData.leagues) return [];
+  const idsSalvos = new Set(JSON.parse(localStorage.getItem('gol_em_numeros_ids_salvos') || '[]'));
+  const out = [];
+  for (const lg of _painelLastData.leagues) {
+    for (const m of lg.matches) {
+      if (m.match_url) continue; // essas usam o outro modal (_painelOpenAnalysis), sem Comparação de força/CD-Dados
+      if (_painelIsLive(m)) continue; // auto-save ignora ao vivo mesmo, nem tenta
+      const status = _painelIsNext(m) ? 'proxima' : 'finalizada';
+      const dt = m.ts ? new Date(m.ts * 1000) : null;
+      const dataStr = dt ? dt.toISOString().slice(0, 10) : null;
+      const horarioStr = dt ? `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}` : null;
+      const id = `${_painelExportSlug(m.home)}_${_painelExportSlug(m.away)}_${dataStr ? dataStr.replace(/-/g, '') : 'semdata'}_${horarioStr ? horarioStr.replace(':', '') : 'semhora'}`;
+      if (idsSalvos.has(id)) continue; // já salvo, pula sem gastar requisição
+      out.push({ m, league: lg.league_name, status });
+    }
+  }
+  return out;
+}
+
+async function _painelExportScanAll() {
+  if (_painelExportScanEmAndamento) return;
+  const candidatos = _painelExportScanCandidates();
+  if (!candidatos.length) {
+    alert('Nada novo pra coletar agora — todas as partidas visíveis já estão salvas (ou são ao vivo/sem esse tipo de análise).');
+    return;
+  }
+  const estimativaMin = Math.ceil(candidatos.length * 8 / 60); // ~8s/jogo, chute conservador
+  if (!confirm(`Isso vai abrir a análise de ${candidatos.length} partida(s), uma de cada vez (pra não sobrecarregar o site pros outros usuários) — deve levar uns ${estimativaMin} minuto(s). Continuar?`)) return;
+
+  _painelExportScanEmAndamento = true;
+  const btn = document.getElementById('painelExportScanBtn');
+  const btnHtmlOriginal = btn ? btn.innerHTML : null;
+  if (btn) btn.disabled = true;
+
+  let salvas = 0, falhas = 0;
+  try {
+    for (let i = 0; i < candidatos.length; i++) {
+      const { m, league, status } = candidatos[i];
+      if (btn) btn.innerHTML = `⏳ ${i + 1}/${candidatos.length}`;
+      try {
+        const r = await fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(m.event_id));
+        const d = await r.json();
+        const forca = d.error ? null : d;
+        const ok = await _painelExportAutoSave(m.event_id, m.home, m.away, league, m.odd_1 ?? null, m.odd_2 ?? null, status, m.ts ?? null, forca);
+        if (ok) salvas++; else falhas++;
+      } catch (e) {
+        console.warn('[export] falha escaneando', m.home, 'x', m.away, e);
+        falhas++;
+      }
+    }
+  } finally {
+    _painelExportScanEmAndamento = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
+  }
+  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''}`);
 }
 
 function _painelExportUpdateBadge() {
