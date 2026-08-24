@@ -1641,17 +1641,13 @@
           style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
-        <button onclick="_painelExportDownload()" title="Baixar histórico de análises exportadas (Comparação de força + CD/Dados salvos automaticamente ao abrir cada partida)"
+        <button id="painelExportScanBtn" onclick="_painelExportScanAll()"
+          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez, e baixa o JSON completo no final — sem precisar clicar em cada jogo nem baixar separado"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
                  color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-                 white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">⬇️ Análises
+                 white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">🔍⬇️ Coletar e baixar
           <span id="painelExportBadge" class="live-count-badge" style="margin:0" title="Partidas salvas">0</span>
         </button>
-        <button id="painelExportScanBtn" onclick="_painelExportScanAll()"
-          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez — sem precisar clicar em cada jogo"
-          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-                 color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-                 white-space:nowrap;flex-shrink:0">🔍 Coletar todas</button>
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
         <button class="live-refresh-btn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' (dados da Hoje) procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
         <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
@@ -6178,7 +6174,7 @@ async function _painelExportScanAll() {
     return;
   }
   const estimativaMin = Math.ceil(candidatos.length * 8 / 60); // ~8s/jogo, chute conservador
-  if (!confirm(`Isso vai abrir a análise de ${candidatos.length} partida(s), uma de cada vez (pra não sobrecarregar o site pros outros usuários) — deve levar uns ${estimativaMin} minuto(s). Continuar?`)) return;
+  if (!confirm(`Isso vai abrir a análise de ${candidatos.length} partida(s), uma de cada vez (pra não sobrecarregar o site pros outros usuários) — deve levar uns ${estimativaMin} minuto(s). No final baixa o JSON completo automaticamente. Continuar?`)) return;
 
   _painelExportScanEmAndamento = true;
   const btn = document.getElementById('painelExportScanBtn');
@@ -6206,7 +6202,8 @@ async function _painelExportScanAll() {
     _painelExportScanEmAndamento = false;
     if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
   }
-  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''}`);
+  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''} — baixando JSON...`);
+  _painelExportDownload(); // botão único: coleta e já entrega o arquivo, sem passo manual a mais
 }
 
 function _painelExportUpdateBadge() {
