@@ -4415,6 +4415,91 @@ def api_scanner_alerts_history():
     })
 
 
+# Largura do bucket de calibração (rate prometido → taxa real) varia por aba
+# porque a faixa de rate possível é bem diferente: Under só promete 95-100%
+# (5 pontos de amplitude — bucket fino de 1pp pra não virar só 1 grupo),
+# Over/Comeback promete 65-100%/40-100% (amplitude bem maior — bucket de 5pp).
+_SCANNER_CALIBRATION_BUCKET = {"under": 0.01, "over": 0.05, "comeback": 0.05}
+
+
+@app.route("/api/scanner/performance")
+def api_scanner_performance():
+    """Painel de Desempenho — agrega TODO o histórico já resolvido de uma aba
+    (Under/Over/Vira o Jogo) em 3 vistas: calibração real vs prometida (o
+    teste mais rigoroso — agrupa por faixa do % prometido e compara com o
+    que realmente aconteceu), taxa de acerto por sinal/janela, e volume+
+    tendência por dia. Não recalcula nada do motor — só lê o que já está
+    em scanner_alerts (mesma tabela do histórico), então cresce sozinho
+    conforme mais alertas disparam e resolvem, sem manutenção nenhuma."""
+    mode = request.args.get("mode", "under")
+    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
+    placeholders = ",".join("?" * len(signals))
+    with _bt2_db_lock:
+        conn = _scanner_db_conn()
+        try:
+            cur = conn.execute(f"""
+                SELECT window_min, rate, resolved, outcome, fired_at
+                FROM scanner_alerts WHERE signal IN ({placeholders})
+            """, signals)
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    total_fired = len(rows)
+    resolved_rows = [r for r in rows if r[2]]
+    total_resolved = len(resolved_rows)
+    hits = sum(1 for r in resolved_rows if r[3] == 1)
+
+    # Por sinal/janela — window_min=0 é o sentinela "até o fim do jogo" do
+    # Vira o Jogo (ver _scanner_build_alerts_comeback), fica como único grupo.
+    by_window_acc = {}
+    for window_min, rate, resolved, outcome, fired_at in resolved_rows:
+        d = by_window_acc.setdefault(window_min, {"total": 0, "hits": 0})
+        d["total"] += 1
+        d["hits"] += 1 if outcome == 1 else 0
+    by_window = [
+        {"window_min": k, "sample": v["total"], "accuracy": round(v["hits"] / v["total"], 4)}
+        for k, v in sorted(by_window_acc.items(), key=lambda kv: kv[0])
+    ]
+
+    bucket_width = _SCANNER_CALIBRATION_BUCKET.get(mode, 0.05)
+    buckets = {}
+    for window_min, rate, resolved, outcome, fired_at in resolved_rows:
+        b = round(math.floor(rate / bucket_width) * bucket_width, 4)
+        d = buckets.setdefault(b, {"total": 0, "hits": 0})
+        d["total"] += 1
+        d["hits"] += 1 if outcome == 1 else 0
+    calibration = [
+        {"promised_from": round(k * 100, 1), "promised_to": round((k + bucket_width) * 100, 1),
+         "sample": v["total"], "real_accuracy": round(v["hits"] / v["total"], 4)}
+        for k, v in sorted(buckets.items())
+    ]
+
+    by_day_acc = {}
+    for window_min, rate, resolved, outcome, fired_at in rows:
+        day = (fired_at or "")[:10]
+        d = by_day_acc.setdefault(day, {"fired": 0, "resolved": 0, "hits": 0})
+        d["fired"] += 1
+        if resolved:
+            d["resolved"] += 1
+            d["hits"] += 1 if outcome == 1 else 0
+    trend = [
+        {"date": k, "fired": v["fired"], "resolved": v["resolved"],
+         "accuracy": round(v["hits"] / v["resolved"], 4) if v["resolved"] else None}
+        for k, v in sorted(by_day_acc.items())
+    ]
+
+    return jsonify({
+        "mode": mode,
+        "total_fired": total_fired,
+        "total_resolved": total_resolved,
+        "overall_accuracy": round(hits / total_resolved, 4) if total_resolved else None,
+        "by_window": by_window,
+        "calibration": calibration,
+        "trend": trend,
+    })
+
+
 @app.route("/api/scanner/analyze")
 def api_scanner_analyze():
     """Motor de similaridade do Scanner: pega o estado ao vivo atual (via
