@@ -1590,6 +1590,7 @@
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
     <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
     <button class="nav-tab" onclick="switchView('scanner_over', this)">📈 Scanner Over</button>
+    <button class="nav-tab" onclick="switchView('scanner_comeback', this)">🔄 Vira o Jogo</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -3394,12 +3395,12 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'scanner' || view === 'scanner_over') {
-    // Scanner Under e Scanner Over são a MESMA lista/wrapper por baixo — só
-    // trocam qual sinal do resultado da análise aparece no card (mesmo
+  } else if (view === 'scanner' || view === 'scanner_over' || view === 'scanner_comeback') {
+    // Scanner Under / Over / Vira o Jogo são a MESMA lista/wrapper por baixo
+    // — só trocam qual sinal do resultado da análise aparece no card (mesmo
     // cohort, ver _scannerViewMode). Evita duplicar toda a infra de
     // lista/watch/gráfico só pra mudar o texto do alerta.
-    _scannerViewMode = view === 'scanner_over' ? 'over' : 'under';
+    _scannerViewMode = view === 'scanner_over' ? 'over' : view === 'scanner_comeback' ? 'comeback' : 'under';
     _scannerApplyViewMode();
     scannerWrapper.style.display = 'flex';
     _scannerLoadMatches();
@@ -3431,8 +3432,9 @@ function _scannerSaveWatch() {
 // switchView antes de cada render.
 let _scannerViewMode = 'under';
 const _SCANNER_MODE_TEXT = {
-  under: { title: 'Scanner Under', badge: 'seguro', emptyHint: 'nenhum padrão ≥95% seguro agora' },
-  over:  { title: 'Scanner Over', badge: 'chance', emptyHint: 'nenhum padrão de gol forte (≥65%) agora' },
+  under:    { title: 'Scanner Under', badge: 'seguro', emptyHint: 'nenhum padrão ≥95% seguro agora' },
+  over:     { title: 'Scanner Over', badge: 'chance', emptyHint: 'nenhum padrão de gol forte (≥65%) agora' },
+  comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'jogo empatado ou sem padrão de recuperação (≥40%) agora' },
 };
 function _scannerApplyViewMode() {
   const t = document.getElementById('scannerHeaderTitle');
@@ -3546,6 +3548,11 @@ function _scannerOutcomeBadge(row) {
       ? `<span style="color:#22c55e;font-weight:700">✅ saiu gol</span>`
       : `<span style="color:#ef4444;font-weight:700">❌ não saiu</span>`;
   }
+  if (_scannerViewMode === 'comeback') {
+    return row.outcome === 1
+      ? `<span style="color:#22c55e;font-weight:700">✅ não perdeu</span>`
+      : `<span style="color:#ef4444;font-weight:700">❌ perdeu</span>`;
+  }
   return row.outcome === 1
     ? `<span style="color:#22c55e;font-weight:700">✅ segurou</span>`
     : `<span style="color:#ef4444;font-weight:700">❌ furou</span>`;
@@ -3606,9 +3613,11 @@ function _scannerRenderHistory() {
 function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
   const st = watched ? _scannerAnalysisCache[m.id] : null;
-  // Under e Over reaproveitam a MESMA análise (mesmo cohort) — só o campo
-  // muda: alerts (sem_mais_gols) pro Under, alerts_over (sai_gol) pro Over.
-  const modeAlertsField = _scannerViewMode === 'over' ? 'alerts_over' : 'alerts';
+  // Under/Over/Vira o Jogo reaproveitam a MESMA análise (mesmo cohort) — só
+  // o campo muda: alerts (sem_mais_gols) pro Under, alerts_over (sai_gol)
+  // pro Over, alerts_comeback (nao_perde_mais) pro Vira o Jogo.
+  const modeAlertsField = _scannerViewMode === 'over' ? 'alerts_over'
+    : _scannerViewMode === 'comeback' ? 'alerts_comeback' : 'alerts';
   const modeAlerts = st && st.data ? st.data[modeAlertsField] : null;
   const modeTxt = _SCANNER_MODE_TEXT[_scannerViewMode];
   const hasAlerts = st && !st.loading && !st.error && modeAlerts && modeAlerts.length;
@@ -3654,7 +3663,7 @@ function _scannerMatchRowHtml(m) {
                 <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(a.label)}</div>
                 ${_scannerConfidenceBadge(a.sample)}
               </div>
-              <div style="font-size:11px;color:var(--text2)">próximos ${a.window_min}min · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
+              <div style="font-size:11px;color:var(--text2)">${a.window_min ? `próximos ${a.window_min}min` : 'até o fim do jogo'} · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
             </div>
             <div style="flex-shrink:0;text-align:center">
               <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>

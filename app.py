@@ -4031,6 +4031,18 @@ _SCANNER_SAFE_THRESHOLD = 0.95    # confirmado com o usuário: ≥95% = "seguro"
 # como ponto de partida (bem acima da média solta) — não confirmado com o
 # usuário ainda, ajustar se sair raro/frequente demais na prática.
 _SCANNER_OVER_THRESHOLD = 0.65
+# Scanner "Vira o Jogo" — estruturalmente diferente do Under/Over: o alvo não
+# é uma janela curta de minutos, é o placar FINAL da partida (virar/empatar é
+# um processo que leva o resto do jogo, não os próximos minutos). Por isso
+# precisa de um cohort mais rigoroso: só conta partida histórica que foi
+# rastreada até perto do fim de verdade (senão o "placar final" não é
+# confiável) — usa o minuto máximo rastreado como aproximação de "acabou".
+_SCANNER_COMEBACK_MIN_MINUTE = 85
+# 40% escolhido como ponto de partida (estimativa minha, não confirmada) —
+# a chance real de não perder varia MUITO por quanto tempo falta e por
+# quantos gols de diferença (perder de 1 aos 10' recupera bem mais que
+# perder de 3 aos 70'), um limiar único é só um primeiro corte grosseiro.
+_SCANNER_COMEBACK_THRESHOLD = 0.40
 
 
 def _scanner_score_at_minute(goals, minute):
@@ -4150,6 +4162,48 @@ def _scanner_build_alerts_over(evaluated, placar_h, placar_a):
     return alerts
 
 
+def _scanner_build_alerts_comeback(cohort, placar_h, placar_a):
+    """Scanner 'Vira o Jogo' — dado o MESMO cohort já achado por
+    _scanner_find_cohort (mesmo placar+minuto, nenhuma busca nova), mede a
+    fração de partidas históricas em que o time que estava perdendo NÃO
+    perdeu no final (empatou ou virou). Só entra em cohort quem foi
+    rastreado até perto do fim de verdade (_SCANNER_COMEBACK_MIN_MINUTE) —
+    senão o placar final não é confiável. Sem alerta se o jogo está empatado
+    agora (não tem time perdendo pra "virar")."""
+    if placar_h == placar_a:
+        return []
+    trailing_casa = placar_h < placar_a
+
+    total = nao_perdeu = 0
+    for goals, m2, max_minute in cohort:
+        if max_minute < _SCANNER_COMEBACK_MIN_MINUTE:
+            continue
+        final_h, final_a = _scanner_score_at_minute(goals, max_minute)
+        total += 1
+        if (final_h >= final_a) if trailing_casa else (final_a >= final_h):
+            nao_perdeu += 1
+
+    if total < _SCANNER_MIN_SAMPLE:
+        return []
+    rate = round(nao_perdeu / total, 4)
+    if rate < _SCANNER_COMEBACK_THRESHOLD:
+        return []
+
+    label = ("Casa não perde mais até o fim (empata ou vira)" if trailing_casa
+              else "Visitante não perde mais até o fim (empata ou vira)")
+    # window_min=0 é sentinela de "até o fim do jogo", não uma janela curta
+    # de verdade — mantém o mesmo formato de linha da tabela (coluna é
+    # NOT NULL) sem precisar de migração de schema. _scanner_check_outcome
+    # trata esse sinal à parte, ignorando window_min de fato.
+    return [{
+        "window_min": 0,
+        "signal": "nao_perde_mais",
+        "label": label,
+        "rate": rate,
+        "sample": total,
+    }]
+
+
 # _BT2_DB_PATH/_bt2_db_lock precisam existir aqui em cima (não só lá embaixo
 # na seção "BACKTEST 2") porque o _scanner_resolve_alerts_loop já inicia sua
 # thread de fundo logo abaixo — se essas globals só fossem definidas depois no
@@ -4217,16 +4271,38 @@ def _scanner_log_alerts(event_id, casa, fora, liga, minuto, placar, alerts):
         print(f"[scanner-alerts] Erro gravando: {e}")
 
 
-def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal):
+def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal, placar):
     """Retorna (resolvido, acertou). resolvido=False quando ainda não dá pra
-    saber (partida não chegou no minuto+window_min ainda). Tenta o dado ao
-    vivo primeiro (_process_momentum, cache de 90s); se a partida já não
-    estiver mais sendo rastreada (encerrou faz tempo), cai pro arquivo já
-    salvo em momentum_history/*_{event_id}.json.
+    saber. Tenta o dado ao vivo primeiro (_process_momentum, cache de 90s);
+    se a partida já não estiver mais sendo rastreada (encerrou faz tempo),
+    cai pro arquivo já salvo em momentum_history/*_{event_id}.json.
 
     O que conta como "acertou" depende do sinal: pro Under (sem_mais_gols),
     acertou = NÃO saiu gol na janela; pro Over (sai_gol), é o oposto —
-    acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida."""
+    acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida. Pro
+    'Vira o Jogo' (nao_perde_mais) a lógica é bem diferente — não tem janela
+    curta, precisa esperar a partida chegar perto do fim
+    (_SCANNER_COMEBACK_MIN_MINUTE) e comparar o placar atual com quem estava
+    perdendo quando o alerta disparou (guardado em `placar`)."""
+    if signal == "nao_perde_mais":
+        data = None
+        try:
+            data = _process_momentum(event_id, casa, fora, liga)
+        except Exception:
+            pass
+        if not data or not data.get("graphPoints"):
+            return False, None
+        minuto_atual = int(max((p.get("minute") or 0) for p in data["graphPoints"]))
+        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
+            return False, None
+        if data.get("score_h") is not None and data.get("score_a") is not None:
+            cur_h, cur_a = int(data["score_h"]), int(data["score_a"])
+        else:
+            cur_h, cur_a = _scanner_score_at_minute(data.get("goals") or [], minuto_atual)
+        ph, pa = (int(x) for x in placar.split("-"))
+        trailing_casa = ph < pa
+        acertou = (cur_h >= cur_a) if trailing_casa else (cur_a >= cur_h)
+        return True, acertou
     points, goals = None, None
     try:
         data = _process_momentum(event_id, casa, fora, liga)
@@ -4264,15 +4340,15 @@ def _scanner_resolve_alerts_loop():
                 conn = _scanner_db_conn()
                 try:
                     cur = conn.execute(
-                        "SELECT id, event_id, casa, fora, liga, minuto, window_min, signal FROM scanner_alerts "
+                        "SELECT id, event_id, casa, fora, liga, minuto, window_min, signal, placar FROM scanner_alerts "
                         "WHERE resolved=0 AND check_after<=?", (time.time(),)
                     )
                     pending = cur.fetchall()
                 finally:
                     conn.close()
             resolved_count = 0
-            for (row_id, event_id, casa, fora, liga, minuto, window_min, signal) in pending:
-                resolvido, acertou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal)
+            for (row_id, event_id, casa, fora, liga, minuto, window_min, signal, placar) in pending:
+                resolvido, acertou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal, placar)
                 if not resolvido:
                     continue
                 with _bt2_db_lock:
@@ -4303,6 +4379,7 @@ threading.Thread(target=_scanner_resolve_alerts_loop, daemon=True, name="Scanner
 _SCANNER_MODE_SIGNALS = {
     "under": ("sem_mais_gols", "casa_nao_marca", "fora_nao_marca"),
     "over": ("sai_gol",),
+    "comeback": ("nao_perde_mais",),
 }
 
 
@@ -4376,7 +4453,9 @@ def api_scanner_analyze():
     evaluated = _scanner_evaluate_cohort(cohort)
     alerts = _scanner_build_alerts(evaluated, placar_h, placar_a)
     alerts_over = _scanner_build_alerts_over(evaluated, placar_h, placar_a)
-    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}", alerts + alerts_over)
+    alerts_comeback = _scanner_build_alerts_comeback(cohort, placar_h, placar_a)
+    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}",
+                         alerts + alerts_over + alerts_comeback)
 
     return jsonify({
         "minuto": minuto_atual,
@@ -4387,9 +4466,10 @@ def api_scanner_analyze():
         # raro/comum é esse cenário, não só o número bruto.
         "total_base": len(all_matches),
         "alerts": alerts,
-        # Scanner Over (aba irmã) reaproveita essa mesma análise — mesmo
-        # cohort, só o sinal complementar (ver _scanner_build_alerts_over).
+        # Scanner Over/Vira o Jogo (abas irmãs) reaproveitam essa mesma
+        # análise — mesmo cohort, só a leitura complementar/final do placar.
         "alerts_over": alerts_over,
+        "alerts_comeback": alerts_comeback,
         # graphPoints/goals já vieram nessa mesma busca (_process_momentum) —
         # devolve pro frontend desenhar o gráfico de pressão nos jogos
         # monitorados sem precisar de uma requisição extra.
