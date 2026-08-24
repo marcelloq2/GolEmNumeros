@@ -1,0 +1,311 @@
+{
+  "event_id": "gk7aeqls74a7v0f",
+  "date": "2026-08-24",
+  "casa": "Tigre",
+  "fora": "Central Cordoba",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 0
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2959648179",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Naya",
+      "x": 10.3,
+      "y": 43.3
+    },
+    {
+      "id": "2959644641",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Barrera",
+      "x": 28,
+      "y": 51.3
+    },
+    {
+      "id": "2959641393",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "I.Russo",
+      "x": 10.9,
+      "y": 36.8
+    },
+    {
+      "id": "2959641371",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "crossbar",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Méndez",
+      "x": 19.6,
+      "y": 50.6
+    },
+    {
+      "id": "2959639457",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Gonzalez",
+      "x": 10.7,
+      "y": 54.2
+    },
+    {
+      "id": "2959638973",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "S.Gonzalez",
+      "x": 15.9,
+      "y": 56.7
+    },
+    {
+      "id": "2959638917",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "M.Méndez",
+      "x": 3.4,
+      "y": 42.2
+    },
+    {
+      "id": "2959638913",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Villalba",
+      "x": 7,
+      "y": 53.1
+    },
+    {
+      "id": "2959638743",
+      "minute": 61,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Alvarez",
+      "x": 22,
+      "y": 47.6
+    },
+    {
+      "id": "2959637453",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Santos",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2959636751",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Tijanovich",
+      "x": 9.7,
+      "y": 39.4
+    },
+    {
+      "id": "2959633221",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Santos",
+      "x": 10,
+      "y": 50.7
+    },
+    {
+      "id": "2959633201",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Barrera",
+      "x": 27,
+      "y": 37.3
+    },
+    {
+      "id": "2959627061",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Saralegui",
+      "x": 14.1,
+      "y": 52.1
+    },
+    {
+      "id": "2959625229",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "regular",
+      "player": "Sequeira",
+      "x": 7.4,
+      "y": 59.4
+    },
+    {
+      "id": "2959625161",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Sequeira",
+      "x": 16.7,
+      "y": 53.4
+    },
+    {
+      "id": "2959624535",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Tijanovich",
+      "x": 9.8,
+      "y": 48.7
+    },
+    {
+      "id": "2959623279",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S.Gonzalez",
+      "x": 27.9,
+      "y": 45.9
+    },
+    {
+      "id": "2959622129",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S.Lopez",
+      "x": 15.9,
+      "y": 26.2
+    },
+    {
+      "id": "2959621715",
+      "minute": 30,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Barrera",
+      "x": 19.6,
+      "y": 28.6
+    },
+    {
+      "id": "2959621591",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "F.Martinez",
+      "x": 10.3,
+      "y": 72.4
+    },
+    {
+      "id": "2959620885",
+      "minute": 26,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "S.Lopez",
+      "x": 1.7,
+      "y": 46.4
+    },
+    {
+      "id": "2959619581",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Banegas",
+      "x": 14.4,
+      "y": 38.8
+    },
+    {
+      "id": "2959618929",
+      "minute": 15,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Méndez",
+      "x": 16.5,
+      "y": 44.2
+    },
+    {
+      "id": "2959618483",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Santos",
+      "x": 21.4,
+      "y": 51.5
+    },
+    {
+      "id": "2959616965",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "M.Méndez",
+      "x": 2,
+      "y": 53
+    },
+    {
+      "id": "2959616957",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Villalba",
+      "x": 7.3,
+      "y": 41.6
+    }
+  ]
+}
