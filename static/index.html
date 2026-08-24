@@ -1642,10 +1642,10 @@
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button id="painelExportScanBtn" onclick="_painelExportScanAll()"
-          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez, e baixa o JSON completo no final — sem precisar clicar em cada jogo nem baixar separado"
+          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez — finalizadas vão pro banco (permanente), próximas baixam como JSON no final"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
                  color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-                 white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">🔍⬇️ Coletar e baixar
+                 white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">🔍 Coletar todas
           <span id="painelExportBadge" class="live-count-badge" style="margin:0" title="Partidas salvas">0</span>
         </button>
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
@@ -6099,15 +6099,30 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
       },
     };
 
-    const storageKey = status === 'finalizada' ? 'gol_em_numeros_finalizadas' : 'gol_em_numeros_proximas';
-    const arr = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    arr.push(doc);
-    localStorage.setItem(storageKey, JSON.stringify(arr));
+    // Finalizada = registro permanente, vai pro banco (backend, com backup no
+    // GitHub) — não faz mais sentido acumular em localStorage, que tem limite
+    // de tamanho e não sobrevive a uma limpeza de cache. Próxima continua só
+    // um snapshot temporário no navegador (perde validade assim que o jogo
+    // acontece), baixado como arquivo quando o usuário quiser.
+    if (status === 'finalizada') {
+      try {
+        await fetch('/api/painel/export_finalizada', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc),
+        });
+      } catch (e) {
+        console.warn('[export] falha enviando pro banco:', e);
+        return false;
+      }
+    } else {
+      const arr = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]');
+      arr.push(doc);
+      localStorage.setItem('gol_em_numeros_proximas', JSON.stringify(arr));
+    }
     idsSalvos.push(id);
     localStorage.setItem('gol_em_numeros_ids_salvos', JSON.stringify(idsSalvos));
 
     _painelExportUpdateBadge();
-    _showToast(status === 'finalizada' ? '✓ Partida finalizada salva no histórico' : '✓ Próxima partida salva no histórico');
+    _showToast(status === 'finalizada' ? '✓ Partida finalizada enviada pro banco' : '✓ Próxima partida salva pra download');
     return true;
   } catch (e) {
     console.warn('[export] erro no auto-save:', e);
@@ -6115,21 +6130,21 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
   }
 }
 
-// Junta finalizadas+próximas num único arquivo (mais simples que baixar 2
-// arquivos separados) — cada item já carrega status_salva pra diferenciar.
-function _painelExportDownload() {
-  const finalizadas = JSON.parse(localStorage.getItem('gol_em_numeros_finalizadas') || '[]');
+// Só as PRÓXIMAS baixam como arquivo — finalizadas já foram pro banco
+// (_painelExportAutoSave manda via POST assim que salva, não acumula mais
+// aqui). Próxima é temporária (perde validade quando o jogo acontece), então
+// baixar como arquivo pra guardar fora do navegador é suficiente.
+function _painelExportDownload(silent) {
   const proximas = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]');
-  if (!finalizadas.length && !proximas.length) {
-    alert('Nenhuma partida salva ainda — abra a "Comparação de força" de algumas partidas (finalizadas ou próximas) primeiro.');
+  if (!proximas.length) {
+    if (!silent) alert('Nenhuma partida próxima salva ainda — as finalizadas já vão direto pro banco, não precisam de download.');
     return;
   }
-  const combined = [...finalizadas, ...proximas];
-  const blob = new Blob([JSON.stringify(combined, null, 2)], { type: 'application/json;charset=utf-8' });
+  const blob = new Blob([JSON.stringify(proximas, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `analises_gol_em_numeros_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `analises_proximas_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -6202,17 +6217,22 @@ async function _painelExportScanAll() {
     _painelExportScanEmAndamento = false;
     if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
   }
-  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''} — baixando JSON...`);
-  _painelExportDownload(); // botão único: coleta e já entrega o arquivo, sem passo manual a mais
+  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''} — finalizadas foram pro banco, próximas baixando...`);
+  _painelExportDownload(true); // botão único: coleta e já entrega o arquivo das próximas (finalizadas já foram pro banco durante o loop) — silencioso se não tiver nenhuma próxima nessa leva
 }
 
-function _painelExportUpdateBadge() {
+async function _painelExportUpdateBadge() {
   const badge = document.getElementById('painelExportBadge');
   if (!badge) return;
-  const finalizadas = JSON.parse(localStorage.getItem('gol_em_numeros_finalizadas') || '[]').length;
   const proximas = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]').length;
-  badge.textContent = finalizadas + proximas;
-  badge.title = `Partidas salvas: ${finalizadas} finalizadas, ${proximas} próximas`;
+  let finalizadasTotal = '?';
+  try {
+    const r = await fetch('/api/painel/export_finalizada');
+    const d = await r.json();
+    finalizadasTotal = d.total ?? '?';
+  } catch (e) { /* mantém "?" se o banco não responder */ }
+  badge.textContent = `${finalizadasTotal}+${proximas}`;
+  badge.title = `${finalizadasTotal} finalizadas no banco (permanente) · ${proximas} próximas pendentes de download nesse navegador`;
 }
 
 // Toast genérico (não existia nenhum sistema de notificação no app ainda) —

@@ -4213,6 +4213,99 @@ _BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
 _bt2_db_lock = threading.Lock()
 
 
+# ── Export de "Análise da partida" (Painel Principal) — partidas FINALIZADAS
+# viram registro permanente aqui (banco, com backup no GitHub, mesmo padrão de
+# tudo mais no projeto); PRÓXIMAS continuam só um snapshot temporário no
+# navegador do usuário (localStorage, baixado como arquivo) — elas perdem a
+# validade assim que o jogo acontece, não fazem sentido acumular pra sempre.
+# Guarda o JSON inteiro (doc_json) — a estrutura tem arrays aninhados
+# (sequências de confrontos, dimensões da força) que não valem a pena espalhar
+# em colunas — mas também extrai um punhado de campos planos (placar, times,
+# liga) pra filtrar/consultar sem precisar desserializar cada linha depois,
+# pensando no painel de prognósticos que o usuário quer construir em cima
+# dessa base.
+def _painel_export_db_conn():
+    conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS painel_analises_finalizadas (
+            id TEXT PRIMARY KEY,
+            time_casa TEXT, time_visitante TEXT, liga TEXT,
+            data TEXT, horario TEXT,
+            placar_ft_casa INTEGER, placar_ft_visitante INTEGER,
+            placar_ht_casa INTEGER, placar_ht_visitante INTEGER,
+            escanteios_casa INTEGER, escanteios_visitante INTEGER,
+            doc_json TEXT NOT NULL,
+            salvo_em TEXT NOT NULL
+        )
+    """)
+    return conn
+
+
+_painel_export_last_push = 0.0
+_PAINEL_EXPORT_PUSH_THROTTLE = 30  # segundos — evita martelar o GitHub durante um "Coletar todas" de 100+ partidas
+
+
+def _painel_export_push_throttled():
+    global _painel_export_last_push
+    now = time.time()
+    if now - _painel_export_last_push > _PAINEL_EXPORT_PUSH_THROTTLE:
+        _painel_export_last_push = now
+        _bt2_push_db_bg()
+
+
+@app.route("/api/painel/export_finalizada", methods=["POST"])
+def api_painel_export_finalizada():
+    """Recebe o JSON de UMA partida finalizada (montado no frontend, mesma
+    estrutura de gol_em_numeros_finalizadas) e persiste no banco. Idempotente
+    (INSERT OR IGNORE por id) — reenviar a mesma partida não duplica."""
+    body = request.get_json(force=True, silent=True) or {}
+    doc_id = body.get("id")
+    if not doc_id:
+        return jsonify({"error": "id obrigatório"}), 400
+    partida = body.get("partida") or {}
+    resultado = body.get("resultado") or {}
+    ft = resultado.get("placar_ft") or {}
+    ht = resultado.get("placar_ht") or {}
+    esc = resultado.get("escanteios") or {}
+    with _bt2_db_lock:
+        conn = _painel_export_db_conn()
+        try:
+            cur = conn.execute("""
+                INSERT OR IGNORE INTO painel_analises_finalizadas
+                (id, time_casa, time_visitante, liga, data, horario,
+                 placar_ft_casa, placar_ft_visitante, placar_ht_casa, placar_ht_visitante,
+                 escanteios_casa, escanteios_visitante, doc_json, salvo_em)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                doc_id, partida.get("time_casa"), partida.get("time_visitante"), partida.get("liga"),
+                partida.get("data"), partida.get("horario"),
+                ft.get("casa"), ft.get("visitante"), ht.get("casa"), ht.get("visitante"),
+                esc.get("casa"), esc.get("visitante"),
+                json.dumps(body, ensure_ascii=False), datetime.utcnow().isoformat() + "Z",
+            ))
+            conn.commit()
+            new = cur.rowcount > 0
+        finally:
+            conn.close()
+    if new:
+        _painel_export_push_throttled()
+    return jsonify({"ok": True, "new": new})
+
+
+@app.route("/api/painel/export_finalizada")
+def api_painel_export_finalizada_list():
+    """Lista as partidas finalizadas já salvas — usado pro badge de contagem
+    e, futuramente, pelo painel de prognósticos."""
+    with _bt2_db_lock:
+        conn = _painel_export_db_conn()
+        try:
+            cur = conn.execute("SELECT COUNT(*) FROM painel_analises_finalizadas")
+            total = cur.fetchone()[0]
+        finally:
+            conn.close()
+    return jsonify({"total": total})
+
+
 # ── Histórico de alertas do Scanner — registra cada alerta que disparou e,
 # depois que a janela prometida passa, checa se realmente se confirmou (sem
 # gol) ou não. Mede a taxa de acerto do SISTEMA rodando ao vivo, não só a
