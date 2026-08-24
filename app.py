@@ -4023,6 +4023,14 @@ _SCANNER_MINUTE_TOLERANCE = 3     # cohort: mesmo placar dentro de ±3min do min
 _SCANNER_WINDOWS = (3, 5, 7, 10)  # janelas de scalping testadas, em minutos
 _SCANNER_MIN_SAMPLE = 20          # amostra mínima pro percentual valer alguma coisa
 _SCANNER_SAFE_THRESHOLD = 0.95    # confirmado com o usuário: ≥95% = "seguro"
+# Limiar do Scanner Over — bem mais baixo que o do Under de propósito. "Sair
+# gol numa janela de poucos minutos" é estruturalmente mais raro que "não
+# sair gol" (a maioria das janelas curtas de fato não tem gol nenhum) — média
+# histórica solta gira em torno de 25-30% de chance de gol numa janela de
+# 10min qualquer. Exigir 95% aqui quase nunca dispararia nada. 65% escolhido
+# como ponto de partida (bem acima da média solta) — não confirmado com o
+# usuário ainda, ajustar se sair raro/frequente demais na prática.
+_SCANNER_OVER_THRESHOLD = 0.65
 
 
 def _scanner_score_at_minute(goals, minute):
@@ -4121,6 +4129,27 @@ def _scanner_build_alerts(evaluated, placar_h, placar_a):
     return alerts
 
 
+def _scanner_build_alerts_over(evaluated, placar_h, placar_a):
+    """Espelho de _scanner_build_alerts pro lado OVER — mesmo cohort/evaluated
+    (nenhum cálculo novo), só que o sinal é o COMPLEMENTO de sem_mais_gols
+    (chance de sair pelo menos +1 gol na janela, não de segurar sem gol) e o
+    limiar é o mais baixo _SCANNER_OVER_THRESHOLD (ver comentário na
+    constante pra entender por quê)."""
+    alerts = []
+    for w in sorted(evaluated.keys()):
+        stats = evaluated[w]
+        rate = round(1 - stats["sem_mais_gols"], 4)
+        if rate >= _SCANNER_OVER_THRESHOLD:
+            alerts.append({
+                "window_min": w,
+                "signal": "sai_gol",
+                "label": f"Over {placar_h + placar_a}.5 gols (sai mais um gol)",
+                "rate": rate,
+                "sample": stats["total"],
+            })
+    return alerts
+
+
 # _BT2_DB_PATH/_bt2_db_lock precisam existir aqui em cima (não só lá embaixo
 # na seção "BACKTEST 2") porque o _scanner_resolve_alerts_loop já inicia sua
 # thread de fundo logo abaixo — se essas globals só fossem definidas depois no
@@ -4188,12 +4217,16 @@ def _scanner_log_alerts(event_id, casa, fora, liga, minuto, placar, alerts):
         print(f"[scanner-alerts] Erro gravando: {e}")
 
 
-def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min):
-    """Retorna (resolvido, segurou). resolvido=False quando ainda não dá pra
+def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal):
+    """Retorna (resolvido, acertou). resolvido=False quando ainda não dá pra
     saber (partida não chegou no minuto+window_min ainda). Tenta o dado ao
     vivo primeiro (_process_momentum, cache de 90s); se a partida já não
     estiver mais sendo rastreada (encerrou faz tempo), cai pro arquivo já
-    salvo em momentum_history/*_{event_id}.json."""
+    salvo em momentum_history/*_{event_id}.json.
+
+    O que conta como "acertou" depende do sinal: pro Under (sem_mais_gols),
+    acertou = NÃO saiu gol na janela; pro Over (sai_gol), é o oposto —
+    acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida."""
     points, goals = None, None
     try:
         data = _process_momentum(event_id, casa, fora, liga)
@@ -4218,7 +4251,7 @@ def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min):
     if minuto_atual < minuto + window_min:
         return False, None  # partida ainda não passou da janela prometida
     teve_gol = any(minuto < (g.get("minute") or 0) <= minuto + window_min for g in (goals or []))
-    return True, (not teve_gol)
+    return True, (teve_gol if signal == "sai_gol" else not teve_gol)
 
 
 _SCANNER_RESOLVE_INTERVAL = 120  # 2min — não precisa ser mais frequente que isso
@@ -4231,15 +4264,15 @@ def _scanner_resolve_alerts_loop():
                 conn = _scanner_db_conn()
                 try:
                     cur = conn.execute(
-                        "SELECT id, event_id, casa, fora, liga, minuto, window_min FROM scanner_alerts "
+                        "SELECT id, event_id, casa, fora, liga, minuto, window_min, signal FROM scanner_alerts "
                         "WHERE resolved=0 AND check_after<=?", (time.time(),)
                     )
                     pending = cur.fetchall()
                 finally:
                     conn.close()
             resolved_count = 0
-            for (row_id, event_id, casa, fora, liga, minuto, window_min) in pending:
-                resolvido, segurou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min)
+            for (row_id, event_id, casa, fora, liga, minuto, window_min, signal) in pending:
+                resolvido, acertou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal)
                 if not resolvido:
                     continue
                 with _bt2_db_lock:
@@ -4247,7 +4280,7 @@ def _scanner_resolve_alerts_loop():
                     try:
                         conn.execute(
                             "UPDATE scanner_alerts SET resolved=1, outcome=?, checked_at=? WHERE id=?",
-                            (1 if segurou else 0, datetime.utcnow().isoformat() + "Z", row_id)
+                            (1 if acertou else 0, datetime.utcnow().isoformat() + "Z", row_id)
                         )
                         conn.commit()
                     finally:
@@ -4264,19 +4297,33 @@ def _scanner_resolve_alerts_loop():
 threading.Thread(target=_scanner_resolve_alerts_loop, daemon=True, name="ScannerAlertsResolve").start()
 
 
+# Quais sinais pertencem a cada aba — "sem_mais_gols" é o único do Under
+# ativo hoje (casa_nao_marca/fora_nao_marca seguem comentados em
+# _scanner_build_alerts); "sai_gol" é o único do Over.
+_SCANNER_MODE_SIGNALS = {
+    "under": ("sem_mais_gols", "casa_nao_marca", "fora_nao_marca"),
+    "over": ("sai_gol",),
+}
+
+
 @app.route("/api/scanner/alerts_history")
 def api_scanner_alerts_history():
     """Histórico de alertas já disparados + taxa de acerto real (resolvidos
     de verdade, checando se saiu gol ou não na janela prometida) — mede o
-    sistema rodando ao vivo, não só a calibração contra o histórico salvo."""
+    sistema rodando ao vivo, não só a calibração contra o histórico salvo.
+    ?mode=under|over filtra pra só os sinais daquela aba (Under e Over
+    disparam no mesmo endpoint de análise e ficam na mesma tabela)."""
+    mode = request.args.get("mode", "under")
+    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
+    placeholders = ",".join("?" * len(signals))
     with _bt2_db_lock:
         conn = _scanner_db_conn()
         try:
-            cur = conn.execute("""
+            cur = conn.execute(f"""
                 SELECT event_id, casa, fora, liga, minuto, placar, window_min, signal, label,
                        rate, sample, fired_at, resolved, outcome, checked_at
-                FROM scanner_alerts ORDER BY fired_at DESC LIMIT 200
-            """)
+                FROM scanner_alerts WHERE signal IN ({placeholders}) ORDER BY fired_at DESC LIMIT 200
+            """, signals)
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
         finally:
@@ -4328,7 +4375,8 @@ def api_scanner_analyze():
     cohort = _scanner_find_cohort(all_matches, placar_h, placar_a, minuto_atual)
     evaluated = _scanner_evaluate_cohort(cohort)
     alerts = _scanner_build_alerts(evaluated, placar_h, placar_a)
-    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}", alerts)
+    alerts_over = _scanner_build_alerts_over(evaluated, placar_h, placar_a)
+    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}", alerts + alerts_over)
 
     return jsonify({
         "minuto": minuto_atual,
@@ -4339,6 +4387,9 @@ def api_scanner_analyze():
         # raro/comum é esse cenário, não só o número bruto.
         "total_base": len(all_matches),
         "alerts": alerts,
+        # Scanner Over (aba irmã) reaproveita essa mesma análise — mesmo
+        # cohort, só o sinal complementar (ver _scanner_build_alerts_over).
+        "alerts_over": alerts_over,
         # graphPoints/goals já vieram nessa mesma busca (_process_momentum) —
         # devolve pro frontend desenhar o gráfico de pressão nos jogos
         # monitorados sem precisar de uma requisição extra.

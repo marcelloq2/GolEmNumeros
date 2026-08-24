@@ -1589,6 +1589,7 @@
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
     <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
+    <button class="nav-tab" onclick="switchView('scanner_over', this)">📈 Scanner Over</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2283,7 +2284,7 @@
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
       <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.3"/><circle cx="12" cy="12" r="1.8" fill="var(--accent)" stroke="none"/></svg>
-        Scanner Under
+        <span id="scannerHeaderTitle">Scanner Under</span>
       </div>
       <span style="font-size:11px;color:var(--text2)">clique num jogo pra marcar/desmarcar e ver os padrões parecidos direto no card</span>
       <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
@@ -3393,7 +3394,13 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'scanner') {
+  } else if (view === 'scanner' || view === 'scanner_over') {
+    // Scanner Under e Scanner Over são a MESMA lista/wrapper por baixo — só
+    // trocam qual sinal do resultado da análise aparece no card (mesmo
+    // cohort, ver _scannerViewMode). Evita duplicar toda a infra de
+    // lista/watch/gráfico só pra mudar o texto do alerta.
+    _scannerViewMode = view === 'scanner_over' ? 'over' : 'under';
+    _scannerApplyViewMode();
     scannerWrapper.style.display = 'flex';
     _scannerLoadMatches();
     _scannerAutoRefresh = setInterval(_scannerLoadMatches, 15000);
@@ -3416,6 +3423,20 @@ let _scannerLastShotmapScan = 0;
 let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
 function _scannerSaveWatch() {
   localStorage.setItem('statarea_scanner_watch', JSON.stringify([..._scannerWatchSet]));
+}
+
+// Scanner Under e Scanner Over dividem TUDO (lista, watch, análise, gráfico)
+// — só esse modo muda: qual campo do resultado da análise (alerts vs
+// alerts_over) aparece no card, e o texto do cabeçalho/histórico. Setado em
+// switchView antes de cada render.
+let _scannerViewMode = 'under';
+const _SCANNER_MODE_TEXT = {
+  under: { title: 'Scanner Under', badge: 'seguro', emptyHint: 'nenhum padrão ≥95% seguro agora' },
+  over:  { title: 'Scanner Over', badge: 'chance', emptyHint: 'nenhum padrão de gol forte (≥65%) agora' },
+};
+function _scannerApplyViewMode() {
+  const t = document.getElementById('scannerHeaderTitle');
+  if (t) t.textContent = _SCANNER_MODE_TEXT[_scannerViewMode].title;
 }
 
 function _scannerParseMinuto(m) {
@@ -3505,7 +3526,7 @@ let _scannerHistoryExpanded = false;
 
 async function _scannerLoadAlertsHistory() {
   try {
-    const r = await fetch('/api/scanner/alerts_history');
+    const r = await fetch(`/api/scanner/alerts_history?mode=${_scannerViewMode}`);
     _scannerHistoryData = await r.json();
   } catch (e) {
     _scannerHistoryData = null;
@@ -3520,6 +3541,11 @@ function _scannerToggleHistoryExpanded() {
 
 function _scannerOutcomeBadge(row) {
   if (!row.resolved) return `<span style="color:var(--text2)">⏳ aguardando</span>`;
+  if (_scannerViewMode === 'over') {
+    return row.outcome === 1
+      ? `<span style="color:#22c55e;font-weight:700">✅ saiu gol</span>`
+      : `<span style="color:#ef4444;font-weight:700">❌ não saiu</span>`;
+  }
   return row.outcome === 1
     ? `<span style="color:#22c55e;font-weight:700">✅ segurou</span>`
     : `<span style="color:#ef4444;font-weight:700">❌ furou</span>`;
@@ -3580,7 +3606,12 @@ function _scannerRenderHistory() {
 function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
   const st = watched ? _scannerAnalysisCache[m.id] : null;
-  const hasAlerts = st && !st.loading && !st.error && st.data.alerts && st.data.alerts.length;
+  // Under e Over reaproveitam a MESMA análise (mesmo cohort) — só o campo
+  // muda: alerts (sem_mais_gols) pro Under, alerts_over (sai_gol) pro Over.
+  const modeAlertsField = _scannerViewMode === 'over' ? 'alerts_over' : 'alerts';
+  const modeAlerts = st && st.data ? st.data[modeAlertsField] : null;
+  const modeTxt = _SCANNER_MODE_TEXT[_scannerViewMode];
+  const hasAlerts = st && !st.loading && !st.error && modeAlerts && modeAlerts.length;
   // Cor de destaque à esquerda: dourado quando tem alerta ativo (chama mais
   // atenção — o que importa não compete visualmente com o resto), verde-azulado
   // discreto pros demais marcados, neutro pros não marcados.
@@ -3612,10 +3643,10 @@ function _scannerMatchRowHtml(m) {
     } else if (st.error) {
       extraHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">${_bt2EscXml(st.error)}</div>`;
     } else if (!hasAlerts) {
-      extraHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s)${_scannerPctOfBase(st.data.cohort_size, st.data.total_base)} · nenhum padrão ≥95% seguro agora</div>`;
+      extraHtml = `<div style="font-size:11px;color:var(--text2);margin-top:8px">amostra parecida: ${st.data.cohort_size} jogo(s)${_scannerPctOfBase(st.data.cohort_size, st.data.total_base)} · ${modeTxt.emptyHint}</div>`;
     } else {
       extraHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
-        st.data.alerts.map(a => `
+        modeAlerts.map(a => `
           <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
             <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
             <div style="flex:1;min-width:0">
@@ -3627,7 +3658,7 @@ function _scannerMatchRowHtml(m) {
             </div>
             <div style="flex-shrink:0;text-align:center">
               <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
-              <div style="font-size:9px;color:var(--text2)">seguro</div>
+              <div style="font-size:9px;color:var(--text2)">${modeTxt.badge}</div>
             </div>
           </div>`).join('') +
         `</div>`;
