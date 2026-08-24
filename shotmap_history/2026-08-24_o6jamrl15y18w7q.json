@@ -1,0 +1,289 @@
+{
+  "event_id": "o6jamrl15y18w7q",
+  "date": "2026-08-24",
+  "casa": "River Plate",
+  "fora": "Velez Sarsfield",
+  "liga": "Division 1",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2959298953",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Pereyra",
+      "x": 25.4,
+      "y": 30.4
+    },
+    {
+      "id": "2959297417",
+      "minute": 86,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L.Pereyra",
+      "x": 17,
+      "y": 57.7
+    },
+    {
+      "id": "2959296299",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "T.Silvero",
+      "x": 13.9,
+      "y": 68.1
+    },
+    {
+      "id": "2959295571",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lanzini",
+      "x": 12.6,
+      "y": 42.9
+    },
+    {
+      "id": "2959294321",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Quarta",
+      "x": 11.6,
+      "y": 55.6
+    },
+    {
+      "id": "2959291873",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lanzini",
+      "x": 7.5,
+      "y": 48.5
+    },
+    {
+      "id": "2959288535",
+      "minute": 65,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Aliendro",
+      "x": 22.1,
+      "y": 62.1
+    },
+    {
+      "id": "2959288259",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Almada",
+      "x": 25.4,
+      "y": 47.7
+    },
+    {
+      "id": "2959287037",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Almada",
+      "x": 24,
+      "y": 33.6
+    },
+    {
+      "id": "2959286075",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Valdés",
+      "x": 10.7,
+      "y": 54.7
+    },
+    {
+      "id": "2959286297",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Pellegrini",
+      "x": 15.7,
+      "y": 51.7
+    },
+    {
+      "id": "2959281511",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Robertone",
+      "x": 31.3,
+      "y": 53.7
+    },
+    {
+      "id": "2959278861",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Freitas",
+      "x": 15,
+      "y": 63.4
+    },
+    {
+      "id": "2959277911",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Correa",
+      "x": 8.3,
+      "y": 31.7
+    },
+    {
+      "id": "2959266531",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lanzini",
+      "x": 15.5,
+      "y": 26.1
+    },
+    {
+      "id": "2959265597",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "own_goal",
+      "bodyPart": "head",
+      "situation": "own_goal",
+      "player": "T.Silvero",
+      "x": 5.3,
+      "y": 68.4
+    },
+    {
+      "id": "2959264427",
+      "minute": 40,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Correa",
+      "x": 25.3,
+      "y": 36.9
+    },
+    {
+      "id": "2959263417",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Otamendi",
+      "x": 15.8,
+      "y": 35.4
+    },
+    {
+      "id": "2959262159",
+      "minute": 34,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "S.Escobar",
+      "x": 3.5,
+      "y": 40.9
+    },
+    {
+      "id": "2959260183",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Aliendro",
+      "x": 31.9,
+      "y": 60.3
+    },
+    {
+      "id": "2959258949",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "T.Silvero",
+      "x": 14.7,
+      "y": 27.6
+    },
+    {
+      "id": "2959258465",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "J.Freitas",
+      "x": 13.2,
+      "y": 74.6
+    },
+    {
+      "id": "2959255051",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Correa",
+      "x": 13.8,
+      "y": 46.8
+    },
+    {
+      "id": "2959253853",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Almada",
+      "x": 20.4,
+      "y": 33.6
+    },
+    {
+      "id": "2959253837",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Almada",
+      "x": 24.6,
+      "y": 36.2
+    }
+  ]
+}
