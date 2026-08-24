@@ -5962,7 +5962,7 @@ function _painelForcaSetView(view, btn) {
   });
 }
 
-function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts) {
+function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts, resultado) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
   _painelForcaLastSide = 'home';
   _painelForcaTableState = {
@@ -5983,7 +5983,7 @@ function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status,
       if (d.error) { body.innerHTML = `<div class="live-loading">${d.error}</div>`; return; }
       _painelForcaData = d;
       _painelForcaRender();
-      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, _painelForcaData);
+      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, _painelForcaData, resultado);
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
 }
@@ -6018,7 +6018,11 @@ function _painelExportSlug(s) {
 // `forca` é passado explicitamente (não lê _painelForcaData direto) pra essa
 // função funcionar tanto no fluxo normal (clique abre o modal) quanto no
 // scan em lote (_painelExportScanAll), que roda sem abrir modal nenhum.
-async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, forca) {
+// `resultado` (placar FT/HT + escanteios do JOGO em si, já vem no objeto da
+// partida — sem requisição nova) só faz sentido pra partida finalizada; pra
+// "próxima" o jogo ainda não aconteceu, então fica null (mesmos campos de
+// força/CD-Dados que a "próxima" já tinha antes de começar).
+async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, forca, resultado) {
   try {
     if (status === 'ao_vivo') { console.log('[export] partida ao vivo — auto-save desativado'); return false; }
     if (!home || !away) return false;
@@ -6054,11 +6058,20 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
       visitante: s.team === 'Fora' ? `${cd.fora} ${s.value}` : '-',
     });
 
+    const numOrNull = v => (v === undefined || v === null || v === '') ? null : Number(v);
     const doc = {
       id,
       data_coleta: new Date().toISOString(),
       status_salva: status,
       partida: { data: dataStr, horario: horarioStr, liga: league || null, time_casa: home, time_visitante: away },
+      // Só existe pra partida finalizada — é o resultado real do jogo, não
+      // dado pré-jogo (que já está em comparacao_forca/cd_dados, igual em
+      // ambos os status).
+      resultado: (status !== 'finalizada' || !resultado) ? null : {
+        placar_ft: { casa: numOrNull(resultado.ft?.[0]), visitante: numOrNull(resultado.ft?.[1]) },
+        placar_ht: { casa: numOrNull(resultado.ht?.[0]), visitante: numOrNull(resultado.ht?.[1]) },
+        escanteios: { casa: numOrNull(resultado.corners?.[0]), visitante: numOrNull(resultado.corners?.[1]) },
+      },
       comparacao_forca: !forca ? null : {
         casa: { nome: home, valor_total: grades ? grades.home : null },
         visitante: { nome: away, valor_total: grades ? grades.away : null },
@@ -6181,7 +6194,8 @@ async function _painelExportScanAll() {
         const r = await fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(m.event_id));
         const d = await r.json();
         const forca = d.error ? null : d;
-        const ok = await _painelExportAutoSave(m.event_id, m.home, m.away, league, m.odd_1 ?? null, m.odd_2 ?? null, status, m.ts ?? null, forca);
+        const resultado = { ft: [m.score_home, m.score_away], ht: [m.ht_home, m.ht_away], corners: [m.corner_home, m.corner_away] };
+        const ok = await _painelExportAutoSave(m.event_id, m.home, m.away, league, m.odd_1 ?? null, m.odd_2 ?? null, status, m.ts ?? null, forca, resultado);
         if (ok) salvas++; else falhas++;
       } catch (e) {
         console.warn('[export] falha escaneando', m.home, 'x', m.away, e);
@@ -8177,7 +8191,7 @@ function _painelMatchRowHtml(m, leagueName) {
       </span>
       ${m.match_url
         ? `<button class="painel-match-analysis-btn" title="Análise da partida" onclick="_painelOpenAnalysis('${m.event_id}','${homeEsc}','${awayEsc}','${m.match_url}','${m.home_logo || ''}','${m.away_logo || ''}',${!_painelIsNext(m)},'${(m.score_home != null ? m.score_home + ':' + m.score_away : '')}',${_painelIsLive(m)})">${_icoChart()}</button>`
-        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick="_painelOpenForca('${m.event_id}','${homeEsc}','${awayEsc}','${String(leagueName || '').replace(/'/g, "\\'")}',${m.odd_1 ?? 'null'},${m.odd_2 ?? 'null'},'${_painelIsLive(m) ? 'ao_vivo' : _painelIsNext(m) ? 'proxima' : 'finalizada'}',${m.ts ?? 'null'})">${_icoChart()}</button>`}
+        : `<button class="painel-match-analysis-btn" title="Comparação de força" onclick='_painelOpenForca(${JSON.stringify(m.event_id)},${JSON.stringify(m.home)},${JSON.stringify(m.away)},${JSON.stringify(leagueName || "")},${m.odd_1 ?? "null"},${m.odd_2 ?? "null"},${JSON.stringify(_painelIsLive(m) ? "ao_vivo" : _painelIsNext(m) ? "proxima" : "finalizada")},${m.ts ?? "null"},${JSON.stringify({ft:[m.score_home,m.score_away],ht:[m.ht_home,m.ht_away],corners:[m.corner_home,m.corner_away]})})'>${_icoChart()}</button>`}
     </div>`;
 }
 
