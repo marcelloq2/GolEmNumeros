@@ -1649,9 +1649,12 @@
           <span id="painelExportBadge" class="live-count-badge" style="margin:0" title="Partidas salvas">0</span>
         </button>
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
-        <button class="live-refresh-btn" onclick="_hojeScanAbrir()" title="Escanear os jogos 'Próximos' (dados da Hoje) procurando estatísticas altas (Casa vence, Ambas Marcam, Over/Under...)">🔎</button>
-        <button class="live-refresh-btn" id="hojeJogoExportBtn" onclick="_hojeJogoExportarTxt()" title="Baixar TXT com estatísticas completas da aba Jogo (dados da Hoje) de todos os jogos encerrados hoje">⬇️</button>
-        <button class="live-refresh-btn" onclick="loadToday2Matches()" title="Atualizar dados da aba Hoje">↻</button>
+        <!-- Botões 🔎 (Escanear Próximos/_hojeScanAbrir), ⬇️ (Baixar TXT/
+             _hojeJogoExportarTxt) e ↻ (Atualizar Hoje/loadToday2Matches)
+             removidos a pedido do usuário (2026-08-24) — as funções continuam
+             existindo no código, só sem esses pontos de entrada na UI. O
+             refresh automático em segundo plano (_today2StartBackgroundRefresh)
+             não depende desse botão e continua rodando normalmente. -->
       </div>
     </div>
     <div style="border-bottom:1px solid var(--border)"></div>
