@@ -6065,11 +6065,17 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
       partida: { data: dataStr, horario: horarioStr, liga: league || null, time_casa: home, time_visitante: away },
       // Só existe pra partida finalizada — é o resultado real do jogo, não
       // dado pré-jogo (que já está em comparacao_forca/cd_dados, igual em
-      // ambos os status).
+      // ambos os status). Cartões vêm do mesmo fetch de CD/Dados (cd.cartoes_partida,
+      // achado investigando a metodologia das sequências — a Uniscore já manda
+      // isso de graça no evento, só não estava sendo aproveitado antes).
       resultado: (status !== 'finalizada' || !resultado) ? null : {
         placar_ft: { casa: numOrNull(resultado.ft?.[0]), visitante: numOrNull(resultado.ft?.[1]) },
         placar_ht: { casa: numOrNull(resultado.ht?.[0]), visitante: numOrNull(resultado.ht?.[1]) },
         escanteios: { casa: numOrNull(resultado.corners?.[0]), visitante: numOrNull(resultado.corners?.[1]) },
+        cartoes: (cd && cd.cartoes_partida) ? {
+          casa: { amarelo: numOrNull(cd.cartoes_partida.casa?.amarelo), vermelho: numOrNull(cd.cartoes_partida.casa?.vermelho) },
+          visitante: { amarelo: numOrNull(cd.cartoes_partida.visitante?.amarelo), vermelho: numOrNull(cd.cartoes_partida.visitante?.vermelho) },
+        } : null,
       },
       comparacao_forca: !forca ? null : {
         casa: { nome: home, valor_total: grades ? grades.home : null },

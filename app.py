@@ -7121,9 +7121,22 @@ def _uni_cd_dados_one(casa, fora):
     streaks = _uni_fetch_team_streaks(eid, home_tid, away_tid, start_ts)
     analytics = _uni_fetch_analytics(eid)
 
+    # Cartões (e escanteios/placar) da PARTIDA em si já vêm de graça nesse
+    # mesmo evento (achado investigando a metodologia das "sequências" pro
+    # usuário) — o app já usava esse objeto só pra achar o id/times, sem
+    # reparar que homeScore/awayScore trazem yellow_card/red_card prontos.
+    # Só faz sentido pra jogo ENCERRADO (senão vem tudo None/0 mesmo).
+    hs, as_ = ev.get("homeScore") or {}, ev.get("awayScore") or {}
+    cartoes_partida = None
+    if (ev.get("status") or {}).get("type") == "finished":
+        cartoes_partida = {
+            "casa": {"amarelo": hs.get("yellow_card"), "vermelho": hs.get("red_card")},
+            "visitante": {"amarelo": as_.get("yellow_card"), "vermelho": as_.get("red_card")},
+        }
+
     return {
         "found": True, "casa": ev.get("homeTeam", {}).get("name"), "fora": ev.get("awayTeam", {}).get("name"),
-        "streaks": streaks, "dados": analytics,
+        "streaks": streaks, "dados": analytics, "cartoes_partida": cartoes_partida,
     }
 
 
