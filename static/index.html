@@ -6295,9 +6295,15 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
     const dataStr = dt ? dt.toISOString().slice(0, 10) : null;
     const horarioStr = dt ? `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}` : null;
     const id = `${_painelExportSlug(home)}_${_painelExportSlug(away)}_${dataStr ? dataStr.replace(/-/g, '') : 'semdata'}_${horarioStr ? horarioStr.replace(':', '') : 'semhora'}`;
+    // Chave de dedupe inclui o status: sem isso, uma partida escaneada como
+    // "próxima" (antes de começar) marcava o id como salvo pra sempre, e
+    // quando ela terminava e virava "finalizada" (o dado que realmente
+    // importa, com placar real) o scan pulava ela achando que já tinha sido
+    // coletada — mesmo o servidor nunca tendo recebido essa finalizada.
+    const chaveSalva = `${id}::${status}`;
 
     const idsSalvos = JSON.parse(localStorage.getItem('gol_em_numeros_ids_salvos') || '[]');
-    if (idsSalvos.includes(id)) return false; // já salvo, não duplica
+    if (idsSalvos.includes(chaveSalva)) return false; // já salvo (nesse status), não duplica
 
     const grades = forca ? _painelForcaOverallGrades(forca) : null;
 
@@ -6389,10 +6395,11 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
       }
     } else {
       const arr = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]');
-      arr.push(doc);
+      const idx = arr.findIndex(d => d.id === id);
+      if (idx >= 0) arr[idx] = doc; else arr.push(doc); // substitui se já existir, evita duplicar
       localStorage.setItem('gol_em_numeros_proximas', JSON.stringify(arr));
     }
-    idsSalvos.push(id);
+    idsSalvos.push(chaveSalva);
     localStorage.setItem('gol_em_numeros_ids_salvos', JSON.stringify(idsSalvos));
 
     _painelExportUpdateBadge();
@@ -6448,7 +6455,7 @@ function _painelExportScanCandidates() {
       const dataStr = dt ? dt.toISOString().slice(0, 10) : null;
       const horarioStr = dt ? `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}` : null;
       const id = `${_painelExportSlug(m.home)}_${_painelExportSlug(m.away)}_${dataStr ? dataStr.replace(/-/g, '') : 'semdata'}_${horarioStr ? horarioStr.replace(':', '') : 'semhora'}`;
-      if (idsSalvos.has(id)) continue; // já salvo, pula sem gastar requisição
+      if (idsSalvos.has(`${id}::${status}`)) continue; // já salvo NESSE status, pula sem gastar requisição
       out.push({ m, league: lg.league_name, status });
     }
   }
