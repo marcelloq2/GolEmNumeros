@@ -1388,9 +1388,19 @@ def _get_radar_futebol_links():
         # o feed realmente manda).
         r.encoding = "utf-8"
         payload = None
+        # timeout=15 acima só limita cada LEITURA individual — se o servidor
+        # (é um endpoint SSE, feito pra ficar aberto) mandar keepalives de vez
+        # em quando sem nunca mandar a linha "data:" esperada, o loop reseta
+        # esse timeout a cada leitura e pode ficar preso por muito tempo,
+        # segurando uma das poucas threads do servidor. Prazo total próprio
+        # (não só por-leitura) garante que isso nunca passe de ~10s de verdade.
+        _radar_links_deadline = time.time() + 10
         for raw_line in r.iter_lines(decode_unicode=True):
             if raw_line and raw_line.startswith("data:"):
                 payload = raw_line[len("data:"):].strip()
+                break
+            if time.time() > _radar_links_deadline:
+                print("[radar-links] Prazo total estourado esperando a linha 'data:' do SSE — abortando essa busca.")
                 break
         r.close()
         if not payload:
