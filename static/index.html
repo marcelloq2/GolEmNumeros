@@ -3815,7 +3815,7 @@ async function _prognosticoLoad() {
     _prognosticoData = await rBase.json();
     _prognosticoSinaisData = await rSinais.json();
     _prognosticoSinaisMap = {};
-    for (const s of (_prognosticoSinaisData.sinais || [])) _prognosticoSinaisMap[s.descricao] = s;
+    for (const s of (_prognosticoSinaisData.sinais || [])) _prognosticoSinaisMap[`${s.descricao}::${s.fracao}`] = s;
   } catch (e) {
     body.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
     return;
@@ -3911,7 +3911,8 @@ function _prognosticoTeamSignalsHtml(cd, side) {
   if (!doTime.length) return '';
   return `<div style="display:flex;flex-direction:column;gap:3px">
     ${doTime.map(s => {
-      const hist = _prognosticoSinaisMap[s.descricao];
+      const fracaoM = (s[side] || '').match(/(\d+\/\d+)$/);
+      const hist = fracaoM ? _prognosticoSinaisMap[`${s.descricao}::${fracaoM[1]}`] : null;
       const oddJusta = hist && hist.taxa_vitoria > 0 ? ` · odd justa ${(1 / hist.taxa_vitoria).toFixed(2)}` : '';
       const histTxt = hist && hist.amostra >= 5
         ? ` <span style="color:${_prognosticoConfColor(hist.amostra, 20)}">(histórico: ${(hist.taxa_vitoria * 100).toFixed(0)}% vitória em ${hist.amostra} caso(s)${oddJusta})</span>`
@@ -3982,19 +3983,24 @@ function _prognosticoSinaisHtml() {
   const sd = _prognosticoSinaisData;
   if (!sd || !sd.sinais || !sd.sinais.length) return '';
   const minAmostra = sd.min_amostra || 20;
-  const linhas = sd.sinais.map(s => `
+  const linhas = sd.sinais.map(s => {
+    const oddJusta = s.taxa_vitoria > 0 ? (1 / s.taxa_vitoria).toFixed(2) : '—';
+    return `
     <tr style="border-top:1px solid var(--border)">
       <td style="padding:6px 8px">${_bt2EscXml(s.descricao)}</td>
+      <td style="padding:6px 8px;color:var(--text2)">${_bt2EscXml(s.fracao)}</td>
       <td style="padding:6px 8px;color:var(--text2)">${s.amostra}</td>
       <td style="padding:6px 8px;font-weight:700;color:${s.taxa_vitoria == null ? 'var(--text2)' : _prognosticoConfColor(s.amostra, minAmostra)}">${s.taxa_vitoria == null ? '—' : (s.taxa_vitoria * 100).toFixed(1) + '%'}</td>
-    </tr>`).join('');
+      <td style="padding:6px 8px;color:var(--text2)">${oddJusta}</td>
+    </tr>`;
+  }).join('');
   return `
     <div style="font-size:12px;font-weight:700;color:var(--text);margin:24px 0 4px">📊 Sinais do CD/Dados — taxa de vitória real</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Cada sinal (ex: "Ambas as equipes marcando") reflete a FORMA RECENTE do time — últimos jogos dele, não especificamente em casa ou fora (confirmado testando a Uniscore: a amostra mistura os dois). "Taxa de vitória" é quantas vezes o time que tinha esse sinal apontado antes do jogo realmente venceu.</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Cada sinal (ex: "Ambas as equipes marcando") reflete a FORMA RECENTE do time — últimos jogos dele, não especificamente em casa ou fora (confirmado testando a Uniscore: a amostra mistura os dois). A taxa é separada por FRAÇÃO específica (ex: 7/8 vs 5/8) — um time no limite (8/8) tende a se comportar diferente de um raspando (5/8). "Taxa de vitória" é quantas vezes o time que tinha esse sinal+fração apontado antes do jogo realmente venceu.</div>
     <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:340px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px">
         <thead><tr style="color:var(--text2);text-align:left">
-          <th style="padding:6px 8px">Sinal</th><th style="padding:6px 8px">Amostra</th><th style="padding:6px 8px">Taxa de vitória</th>
+          <th style="padding:6px 8px">Sinal</th><th style="padding:6px 8px">Fração</th><th style="padding:6px 8px">Amostra</th><th style="padding:6px 8px">Taxa de vitória</th><th style="padding:6px 8px">Odd justa</th>
         </tr></thead>
         <tbody>${linhas}</tbody>
       </table>

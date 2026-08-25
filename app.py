@@ -4452,6 +4452,9 @@ def api_painel_prognostico_base_rates():
     })
 
 
+_PROGNOSTICO_FRACAO_RE = re.compile(r"(\d+/\d+)$")
+
+
 @app.route("/api/painel/prognostico/sinais_cd_dados")
 def api_painel_prognostico_sinais_cd_dados():
     """Pra cada SINAL do CD/Dados (ex: "Menos de 2.5 gols", "Ambas as equipes
@@ -4462,7 +4465,12 @@ def api_painel_prognostico_sinais_cd_dados():
     filtrados por mandante/visitante), então isso é um estudo de FORMA
     RECENTE, não de casa/fora — diferente do bucket de força em
     /api/painel/prognostico/base_rates, que usa dado próprio e por isso
-    consegue ser casa/fora de verdade."""
+    consegue ser casa/fora de verdade.
+
+    A taxa é separada por FRAÇÃO específica (ex: "7/8" vs "5/8"), não só pela
+    descrição — um time que bateu o sinal 8/8 tende a se comportar diferente
+    de um que bateu 5/8 raspando, então juntar os dois na mesma média perdia
+    a informação mais útil (pedido do usuário, 2026-08-25)."""
     with _bt2_db_lock:
         conn = _painel_export_db_conn()
         try:
@@ -4475,7 +4483,7 @@ def api_painel_prognostico_sinais_cd_dados():
         finally:
             conn.close()
 
-    stats = {}  # descricao -> {"amostra": N, "vitorias": N}
+    stats = {}  # (descricao, fracao) -> {"amostra": N, "vitorias": N}
     for ft_h, ft_a, doc_json_str in rows:
         try:
             doc = json.loads(doc_json_str)
@@ -4491,20 +4499,22 @@ def api_painel_prognostico_sinais_cd_dados():
             desc = s.get("descricao")
             if not desc:
                 continue
-            st = stats.setdefault(desc, {"amostra": 0, "vitorias": 0})
-            if s.get("casa") and s.get("casa") != "-":
+            for valor, venceu in ((s.get("casa"), casa_venceu), (s.get("visitante"), fora_venceu)):
+                if not valor or valor == "-":
+                    continue
+                m = _PROGNOSTICO_FRACAO_RE.search(valor)
+                if not m:
+                    continue
+                key = (desc, m.group(1))
+                st = stats.setdefault(key, {"amostra": 0, "vitorias": 0})
                 st["amostra"] += 1
-                if casa_venceu:
-                    st["vitorias"] += 1
-            if s.get("visitante") and s.get("visitante") != "-":
-                st["amostra"] += 1
-                if fora_venceu:
+                if venceu:
                     st["vitorias"] += 1
 
     sinais = [
-        {"descricao": desc, "amostra": v["amostra"],
+        {"descricao": desc, "fracao": fracao, "amostra": v["amostra"],
          "taxa_vitoria": round(v["vitorias"] / v["amostra"], 4) if v["amostra"] else None}
-        for desc, v in stats.items() if v["amostra"] > 0
+        for (desc, fracao), v in stats.items() if v["amostra"] > 0
     ]
     sinais.sort(key=lambda s: s["amostra"], reverse=True)
 
