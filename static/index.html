@@ -1586,6 +1586,7 @@
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
+    <button class="nav-tab" onclick="switchView('prognostico', this)">📈 Prognósticos</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
     <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
@@ -2325,6 +2326,23 @@
       </div>
     </div>
     <div id="scannerPerfBody"></div>
+  </div>
+
+  <!-- PROGNÓSTICOS — passo 3 do plano combinado com o usuário: motor de
+       validação casa/fora em cima da base própria (painel_analises_finalizadas),
+       não dos números da Uniscore (confirmado que "Sequências do time" mistura
+       jogos em casa e fora, não dá pra confiar neles pra esse tipo de pergunta).
+       Hoje só mostra as taxas-base da base inteira (sem similaridade ainda —
+       isso é a próxima etapa, quando tiver volume). -->
+  <div id="prognosticoWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>
+        Prognósticos
+      </div>
+      <span style="font-size:11px;color:var(--text2)">taxas reais medidas na sua própria base de partidas finalizadas — cresce sozinho conforme mais jogos são coletados</span>
+    </div>
+    <div id="prognosticoBody"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3375,6 +3393,7 @@ function switchView(view, btn) {
   const painelWrapper = document.getElementById('painelWrapper');
   const scannerWrapper = document.getElementById('scannerWrapper');
   const scannerPerfWrapper = document.getElementById('scannerPerfWrapper');
+  const prognosticoWrapper = document.getElementById('prognosticoWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3387,6 +3406,7 @@ function switchView(view, btn) {
   painelWrapper.style.display = 'none';
   scannerWrapper.style.display = 'none';
   scannerPerfWrapper.style.display = 'none';
+  prognosticoWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3398,6 +3418,7 @@ function switchView(view, btn) {
   clearInterval(_scannerAutoRefresh);
   clearInterval(_scannerHistoryAutoRefresh);
   clearInterval(_scannerPerfAutoRefresh);
+  clearInterval(_prognosticoAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3444,6 +3465,10 @@ function switchView(view, btn) {
     scannerPerfWrapper.style.display = 'flex';
     _scannerPerfLoad();
     _scannerPerfAutoRefresh = setInterval(_scannerPerfLoad, 60000);
+  } else if (view === 'prognostico') {
+    prognosticoWrapper.style.display = 'flex';
+    _prognosticoLoad();
+    _prognosticoAutoRefresh = setInterval(_prognosticoLoad, 60000);
   }
 }
 
@@ -3765,6 +3790,97 @@ function _scannerPerfRender() {
     </div>`;
 
   body.innerHTML = summaryHtml + calibHtml + windowHtml + trendHtml;
+}
+
+// ── PROGNÓSTICOS — passo 3 do plano combinado com o usuário: taxas-base
+// (sem similaridade de força ainda — próxima etapa, quando tiver volume)
+// medidas na base PRÓPRIA de finalizadas, não nos números da Uniscore
+// (confirmado que "Sequências do time" mistura jogos em casa e fora, não dá
+// pra confiar neles pra pergunta casa/fora). Só leitura — cresce sozinho
+// conforme mais finalizadas entram no banco.
+let _prognosticoAutoRefresh = null;
+let _prognosticoData = null;
+
+async function _prognosticoLoad() {
+  const body = document.getElementById('prognosticoBody');
+  if (!body) return;
+  if (!_prognosticoData) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  try {
+    const r = await fetch('/api/painel/prognostico/base_rates');
+    _prognosticoData = await r.json();
+  } catch (e) {
+    body.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
+    return;
+  }
+  _prognosticoRender();
+}
+
+function _prognosticoConfColor(amostra, minAmostra) {
+  if (amostra >= minAmostra * 3) return '#22c55e';
+  if (amostra >= minAmostra) return '#f59e0b';
+  return '#ef4444';
+}
+
+const _PROGNOSTICO_LABELS = {
+  vitoria_casa: 'Vitória da casa',
+  empate: 'Empate',
+  vitoria_fora: 'Vitória do visitante',
+  ht_vitoria_casa: 'Vitória da casa no intervalo',
+  ht_empate: 'Empate no intervalo',
+  ht_vitoria_fora: 'Vitória do visitante no intervalo',
+  over_25: 'Mais de 2.5 gols',
+  btts: 'Ambas marcam (BTTS)',
+  casa_nao_marca: 'Casa não marca (visitante mantém o gol a zero)',
+  fora_nao_marca: 'Visitante não marca (casa mantém o gol a zero)',
+};
+
+function _prognosticoRender() {
+  const body = document.getElementById('prognosticoBody');
+  if (!body) return;
+  const d = _prognosticoData;
+  if (!d || !d.total_amostra) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:24px 0;text-align:center">Nenhuma partida finalizada na base ainda — colete algumas em "🔍 Coletar todas" (Painel Principal) que esse painel preenche sozinho.</div>`;
+    return;
+  }
+
+  const minAmostra = d.min_amostra || 20;
+  const summaryHtml = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;margin-bottom:18px;max-width:220px">
+      <div style="font-size:22px;font-weight:800;color:var(--text)">${d.total_amostra}</div>
+      <div style="font-size:11px;color:var(--text2)">partidas finalizadas na base</div>
+    </div>`;
+
+  const groups = [
+    { titulo: 'Resultado (tempo integral)', chaves: ['vitoria_casa', 'empate', 'vitoria_fora'] },
+    { titulo: 'Resultado do intervalo', chaves: ['ht_vitoria_casa', 'ht_empate', 'ht_vitoria_fora'] },
+    { titulo: 'Gols', chaves: ['over_25', 'btts', 'casa_nao_marca', 'fora_nao_marca'] },
+  ];
+
+  const groupsHtml = groups.map(g => `
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin:0 0 8px">${g.titulo}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:20px">
+      ${g.chaves.map(k => {
+        const t = d.taxas[k];
+        if (!t || t.taxa == null) return `
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px">
+            <div style="font-size:11px;color:var(--text2)">${_PROGNOSTICO_LABELS[k]}</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:4px">sem amostra ainda</div>
+          </div>`;
+        const cor = _prognosticoConfColor(t.amostra, minAmostra);
+        const baixa = t.amostra < minAmostra;
+        return `
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px">
+            <div style="font-size:11px;color:var(--text2)">${_PROGNOSTICO_LABELS[k]}</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px">
+              <div style="font-size:20px;font-weight:800;color:${cor}">${(t.taxa * 100).toFixed(1)}%</div>
+              <div style="font-size:10px;color:var(--text2)">${t.amostra} jogo(s)${baixa ? ' · amostra baixa' : ''}</div>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  body.innerHTML = summaryHtml + groupsHtml +
+    `<div style="font-size:11px;color:var(--text2);margin-top:4px">Essas são taxas-base da base inteira (ainda sem filtrar por perfil de força/CD-Dados do jogo — isso é a próxima etapa, quando tiver mais volume).</div>`;
 }
 
 // Card único: compacto quando não marcado, cresce (só na própria coluna, não

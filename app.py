@@ -4306,6 +4306,89 @@ def api_painel_export_finalizada_list():
     return jsonify({"total": total})
 
 
+# ── Painel de Prognósticos — passo 3 do plano combinado com o usuário: motor
+# de validação casa/fora EM CIMA DA BASE PRÓPRIA (painel_analises_finalizadas),
+# não dos números da Uniscore (confirmado empiricamente que "Sequências do
+# time" mistura jogos em casa e fora — não dá pra confiar neles pra esse tipo
+# de pergunta). Só cobre os mercados que já são validáveis com o que
+# capturamos (placar FT/HT) — "quem marca primeiro" fica de fora até capturar
+# gol por minuto, "cartões" fica de fora até ter volume suficiente.
+_PAINEL_PROGNOSTICO_MIN_SAMPLE = 20  # mesmo espírito do _SCANNER_MIN_SAMPLE — abaixo disso a taxa não significa nada
+
+
+@app.route("/api/painel/prognostico/base_rates")
+def api_painel_prognostico_base_rates():
+    """Taxas-base (sem filtro de similaridade ainda — isso é a próxima etapa,
+    quando tiver volume) calculadas em cima de TODAS as finalizadas salvas.
+    Cada taxa já vem com o tamanho da amostra que a gerou — o frontend decide
+    como sinalizar confiança baixa."""
+    with _bt2_db_lock:
+        conn = _painel_export_db_conn()
+        try:
+            cur = conn.execute("""
+                SELECT placar_ft_casa, placar_ft_visitante, placar_ht_casa, placar_ht_visitante
+                FROM painel_analises_finalizadas
+                WHERE placar_ft_casa IS NOT NULL AND placar_ft_visitante IS NOT NULL
+            """)
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    total = len(rows)
+    if total == 0:
+        return jsonify({"total_amostra": 0, "taxas": {}})
+
+    c = {k: 0 for k in (
+        "vitoria_casa", "empate", "vitoria_fora",
+        "ht_vitoria_casa", "ht_empate", "ht_vitoria_fora",
+        "over_25", "btts", "casa_nao_marca", "fora_nao_marca",
+    )}
+    ht_total = 0
+    for ft_h, ft_a, ht_h, ht_a in rows:
+        if ft_h > ft_a:
+            c["vitoria_casa"] += 1
+        elif ft_h < ft_a:
+            c["vitoria_fora"] += 1
+        else:
+            c["empate"] += 1
+        if (ft_h + ft_a) > 2.5:
+            c["over_25"] += 1
+        if ft_h > 0 and ft_a > 0:
+            c["btts"] += 1
+        if ft_h == 0:
+            c["casa_nao_marca"] += 1
+        if ft_a == 0:
+            c["fora_nao_marca"] += 1
+        if ht_h is not None and ht_a is not None:
+            ht_total += 1
+            if ht_h > ht_a:
+                c["ht_vitoria_casa"] += 1
+            elif ht_h < ht_a:
+                c["ht_vitoria_fora"] += 1
+            else:
+                c["ht_empate"] += 1
+
+    def stat(key, base):
+        return {"taxa": round(c[key] / base, 4) if base else None, "amostra": base}
+
+    taxas = {
+        "vitoria_casa": stat("vitoria_casa", total),
+        "empate": stat("empate", total),
+        "vitoria_fora": stat("vitoria_fora", total),
+        "ht_vitoria_casa": stat("ht_vitoria_casa", ht_total),
+        "ht_empate": stat("ht_empate", ht_total),
+        "ht_vitoria_fora": stat("ht_vitoria_fora", ht_total),
+        "over_25": stat("over_25", total),
+        "btts": stat("btts", total),
+        # casa_nao_marca é numericamente o mesmo evento que "fora mantém o
+        # gol a zero" (clean sheet fora) — e vice-versa. Não duplica o campo,
+        # só deixa isso documentado pro frontend rotular os dois sentidos.
+        "casa_nao_marca": stat("casa_nao_marca", total),
+        "fora_nao_marca": stat("fora_nao_marca", total),
+    }
+    return jsonify({"total_amostra": total, "min_amostra": _PAINEL_PROGNOSTICO_MIN_SAMPLE, "taxas": taxas})
+
+
 # ── Histórico de alertas do Scanner — registra cada alerta que disparou e,
 # depois que a janela prometida passa, checa se realmente se confirmou (sem
 # gol) ou não. Mede a taxa de acerto do SISTEMA rodando ao vivo, não só a
