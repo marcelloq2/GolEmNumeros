@@ -4452,6 +4452,65 @@ def api_painel_prognostico_base_rates():
     })
 
 
+@app.route("/api/painel/prognostico/sinais_cd_dados")
+def api_painel_prognostico_sinais_cd_dados():
+    """Pra cada SINAL do CD/Dados (ex: "Menos de 2.5 gols", "Ambas as equipes
+    marcando"...) — vindo tanto de "Sequências do time" quanto de "Sequências
+    de confrontos diretos" — mede a taxa de VITÓRIA real dos times que
+    tinham aquele sinal apontado antes do jogo. Importante: esses sinais são
+    "últimos jogos" do time (confirmado testando a Uniscore antes — não são
+    filtrados por mandante/visitante), então isso é um estudo de FORMA
+    RECENTE, não de casa/fora — diferente do bucket de força em
+    /api/painel/prognostico/base_rates, que usa dado próprio e por isso
+    consegue ser casa/fora de verdade."""
+    with _bt2_db_lock:
+        conn = _painel_export_db_conn()
+        try:
+            cur = conn.execute("""
+                SELECT placar_ft_casa, placar_ft_visitante, doc_json
+                FROM painel_analises_finalizadas
+                WHERE placar_ft_casa IS NOT NULL AND placar_ft_visitante IS NOT NULL
+            """)
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    stats = {}  # descricao -> {"amostra": N, "vitorias": N}
+    for ft_h, ft_a, doc_json_str in rows:
+        try:
+            doc = json.loads(doc_json_str)
+        except Exception:
+            continue
+        cd = doc.get("cd_dados")
+        if not cd:
+            continue
+        casa_venceu = ft_h > ft_a
+        fora_venceu = ft_a > ft_h
+        sequencias = (cd.get("sequencias_do_time") or []) + (cd.get("sequencias_confrontos_diretos") or [])
+        for s in sequencias:
+            desc = s.get("descricao")
+            if not desc:
+                continue
+            st = stats.setdefault(desc, {"amostra": 0, "vitorias": 0})
+            if s.get("casa") and s.get("casa") != "-":
+                st["amostra"] += 1
+                if casa_venceu:
+                    st["vitorias"] += 1
+            if s.get("visitante") and s.get("visitante") != "-":
+                st["amostra"] += 1
+                if fora_venceu:
+                    st["vitorias"] += 1
+
+    sinais = [
+        {"descricao": desc, "amostra": v["amostra"],
+         "taxa_vitoria": round(v["vitorias"] / v["amostra"], 4) if v["amostra"] else None}
+        for desc, v in stats.items() if v["amostra"] > 0
+    ]
+    sinais.sort(key=lambda s: s["amostra"], reverse=True)
+
+    return jsonify({"min_amostra": _PAINEL_PROGNOSTICO_MIN_SAMPLE, "sinais": sinais})
+
+
 # ── Histórico de alertas do Scanner — registra cada alerta que disparou e,
 # depois que a janela prometida passa, checa se realmente se confirmou (sem
 # gol) ou não. Mede a taxa de acerto do SISTEMA rodando ao vivo, não só a

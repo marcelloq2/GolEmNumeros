@@ -3800,14 +3800,22 @@ function _scannerPerfRender() {
 // conforme mais finalizadas entram no banco.
 let _prognosticoAutoRefresh = null;
 let _prognosticoData = null;
+let _prognosticoSinaisData = null;
+let _prognosticoSinaisMap = {}; // descricao -> {amostra, taxa_vitoria} — lookup rápido pro card "Jogos de hoje"
 
 async function _prognosticoLoad() {
   const body = document.getElementById('prognosticoBody');
   if (!body) return;
   if (!_prognosticoData) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
-    const r = await fetch('/api/painel/prognostico/base_rates');
-    _prognosticoData = await r.json();
+    const [rBase, rSinais] = await Promise.all([
+      fetch('/api/painel/prognostico/base_rates'),
+      fetch('/api/painel/prognostico/sinais_cd_dados'),
+    ]);
+    _prognosticoData = await rBase.json();
+    _prognosticoSinaisData = await rSinais.json();
+    _prognosticoSinaisMap = {};
+    for (const s of (_prognosticoSinaisData.sinais || [])) _prognosticoSinaisMap[s.descricao] = s;
   } catch (e) {
     body.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
     return;
@@ -3890,6 +3898,28 @@ function _prognosticoBucketFor(doc) {
 }
 const _PROGNOSTICO_EQUILIBRIO_LIMIAR = 15; // mesmo valor de _PAINEL_PROGNOSTICO_EQUILIBRIO_LIMIAR no backend
 
+// Lista os sinais BRUTOS do CD/Dados de um time (casa ou fora) num jogo de
+// hoje já coletado, anotados com a taxa de vitória histórica real desse
+// sinal (vinda de _prognosticoSinaisMap, calculada em cima de TODA a base).
+// São sinais de FORMA RECENTE do time (últimos jogos, não necessariamente
+// em casa/fora — confirmado testando a Uniscore), não confundir com o
+// bucket de força que é casa/fora de verdade.
+function _prognosticoTeamSignalsHtml(cd, side) {
+  if (!cd) return '';
+  const sequencias = [...(cd.sequencias_do_time || []), ...(cd.sequencias_confrontos_diretos || [])];
+  const doTime = sequencias.filter(s => s[side] && s[side] !== '-');
+  if (!doTime.length) return '';
+  return `<div style="display:flex;flex-direction:column;gap:3px">
+    ${doTime.map(s => {
+      const hist = _prognosticoSinaisMap[s.descricao];
+      const histTxt = hist && hist.amostra >= 5
+        ? ` <span style="color:${_prognosticoConfColor(hist.amostra, 20)}">(histórico: ${(hist.taxa_vitoria * 100).toFixed(0)}% vitória em ${hist.amostra} caso(s))</span>`
+        : '';
+      return `<div style="font-size:10px;color:var(--text2)">${_bt2EscXml(s.descricao)} — <span style="color:var(--text)">${_bt2EscXml(s[side])}</span>${histTxt}</div>`;
+    }).join('')}
+  </div>`;
+}
+
 // Jogos de hoje já coletados (localStorage — mesma chave que "Coletar
 // todas"/download usa) com o prognóstico aplicado automaticamente: acha o
 // bucket do jogo e mostra as taxas medidas nesse mesmo perfil, sem o usuário
@@ -3927,10 +3957,47 @@ function _prognosticoJogosHojeHtml(d) {
               <div style="font-size:10px;color:var(--text2)">${_PROGNOSTICO_LABELS[l.k]}</div>
             </div>`).join('')}
         </div>`}
+        ${(() => {
+          const casaHtml = _prognosticoTeamSignalsHtml(doc.cd_dados, 'casa');
+          const foraHtml = _prognosticoTeamSignalsHtml(doc.cd_dados, 'visitante');
+          if (!casaHtml && !foraHtml) return '';
+          return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+            <div>${casaHtml ? `<div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:3px">${_bt2EscXml(doc.partida.time_casa)}</div>${casaHtml}` : ''}</div>
+            <div>${foraHtml ? `<div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:3px">${_bt2EscXml(doc.partida.time_visitante)}</div>${foraHtml}` : ''}</div>
+          </div>`;
+        })()}
       </div>`;
   }).join('');
   return `<div style="font-size:12px;font-weight:700;color:var(--text);margin:20px 0 8px">Jogos de hoje (${proximas.length})</div>
     <div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Tabela agregada: pra cada sinal do CD/Dados (ex: "Ambas as equipes
+// marcando"), qual a taxa de VITÓRIA real dos times que tinham esse sinal
+// apontado antes do jogo — em cima de TODA a base de finalizadas. São
+// sinais de forma recente (últimos jogos do time, não casa/fora específico
+// — ver aviso no topo da seção).
+function _prognosticoSinaisHtml() {
+  const sd = _prognosticoSinaisData;
+  if (!sd || !sd.sinais || !sd.sinais.length) return '';
+  const minAmostra = sd.min_amostra || 20;
+  const linhas = sd.sinais.map(s => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 8px">${_bt2EscXml(s.descricao)}</td>
+      <td style="padding:6px 8px;color:var(--text2)">${s.amostra}</td>
+      <td style="padding:6px 8px;font-weight:700;color:${s.taxa_vitoria == null ? 'var(--text2)' : _prognosticoConfColor(s.amostra, minAmostra)}">${s.taxa_vitoria == null ? '—' : (s.taxa_vitoria * 100).toFixed(1) + '%'}</td>
+    </tr>`).join('');
+  return `
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin:24px 0 4px">📊 Sinais do CD/Dados — taxa de vitória real</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Cada sinal (ex: "Ambas as equipes marcando") reflete a FORMA RECENTE do time — últimos jogos dele, não especificamente em casa ou fora (confirmado testando a Uniscore: a amostra mistura os dois). "Taxa de vitória" é quantas vezes o time que tinha esse sinal apontado antes do jogo realmente venceu.</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:340px">
+        <thead><tr style="color:var(--text2);text-align:left">
+          <th style="padding:6px 8px">Sinal</th><th style="padding:6px 8px">Amostra</th><th style="padding:6px 8px">Taxa de vitória</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
 }
 
 function _prognosticoRender() {
@@ -3971,8 +4038,9 @@ function _prognosticoRender() {
     : `Taxas medidas só nos jogos históricos classificados como "${_PROGNOSTICO_BUCKET_LABELS[_prognosticoBucketAtivo]}" (diferença de força ${_prognosticoBucketAtivo === 'equilibrado' ? '≤15 pontos' : '>15 pontos, favorecendo esse lado'} — limiar escolhido por mim, ainda não validado).`;
 
   const jogosHojeHtml = _prognosticoJogosHojeHtml(d);
+  const sinaisHtml = _prognosticoSinaisHtml();
 
-  body.innerHTML = summaryHtml + groupsHtml + `<div style="font-size:11px;color:var(--text2);margin-top:4px">${nota}</div>` + jogosHojeHtml;
+  body.innerHTML = summaryHtml + groupsHtml + `<div style="font-size:11px;color:var(--text2);margin-top:4px">${nota}</div>` + jogosHojeHtml + sinaisHtml;
 }
 
 // Card único: compacto quando não marcado, cresce (só na própria coluna, não
