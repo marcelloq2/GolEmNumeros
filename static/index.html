@@ -3912,8 +3912,9 @@ function _prognosticoTeamSignalsHtml(cd, side) {
   return `<div style="display:flex;flex-direction:column;gap:3px">
     ${doTime.map(s => {
       const hist = _prognosticoSinaisMap[s.descricao];
+      const oddJusta = hist && hist.taxa_vitoria > 0 ? ` · odd justa ${(1 / hist.taxa_vitoria).toFixed(2)}` : '';
       const histTxt = hist && hist.amostra >= 5
-        ? ` <span style="color:${_prognosticoConfColor(hist.amostra, 20)}">(histórico: ${(hist.taxa_vitoria * 100).toFixed(0)}% vitória em ${hist.amostra} caso(s))</span>`
+        ? ` <span style="color:${_prognosticoConfColor(hist.amostra, 20)}">(histórico: ${(hist.taxa_vitoria * 100).toFixed(0)}% vitória em ${hist.amostra} caso(s)${oddJusta})</span>`
         : '';
       return `<div style="font-size:10px;color:var(--text2)">${_bt2EscXml(s.descricao)} — <span style="color:var(--text)">${_bt2EscXml(s[side])}</span>${histTxt}</div>`;
     }).join('')}
