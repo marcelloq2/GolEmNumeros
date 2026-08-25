@@ -6411,27 +6411,6 @@ async function _painelExportAutoSave(eventId, home, away, league, oddHome, oddAw
   }
 }
 
-// Só as PRÓXIMAS baixam como arquivo — finalizadas já foram pro banco
-// (_painelExportAutoSave manda via POST assim que salva, não acumula mais
-// aqui). Próxima é temporária (perde validade quando o jogo acontece), então
-// baixar como arquivo pra guardar fora do navegador é suficiente.
-function _painelExportDownload(silent) {
-  const proximas = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]');
-  if (!proximas.length) {
-    if (!silent) alert('Nenhuma partida próxima salva ainda — as finalizadas já vão direto pro banco, não precisam de download.');
-    return;
-  }
-  const blob = new Blob([JSON.stringify(proximas, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `analises_proximas_${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 // Escaneia TODAS as partidas visíveis (Painel Principal), uma de cada vez —
 // o usuário pediu isso pra não ter que clicar em cada jogo manualmente.
 // Sequencial de propósito (não em paralelo): o endpoint de força já é
@@ -6470,7 +6449,7 @@ async function _painelExportScanAll() {
     return;
   }
   const estimativaMin = Math.ceil(candidatos.length * 8 / 60); // ~8s/jogo, chute conservador
-  if (!confirm(`Isso vai abrir a análise de ${candidatos.length} partida(s), uma de cada vez (pra não sobrecarregar o site pros outros usuários) — deve levar uns ${estimativaMin} minuto(s). No final baixa o JSON completo automaticamente. Continuar?`)) return;
+  if (!confirm(`Isso vai abrir a análise de ${candidatos.length} partida(s), uma de cada vez (pra não sobrecarregar o site pros outros usuários) — deve levar uns ${estimativaMin} minuto(s). Continuar?`)) return;
 
   _painelExportScanEmAndamento = true;
   const btn = document.getElementById('painelExportScanBtn');
@@ -6498,8 +6477,7 @@ async function _painelExportScanAll() {
     _painelExportScanEmAndamento = false;
     if (btn) { btn.disabled = false; btn.innerHTML = btnHtmlOriginal; }
   }
-  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''} — finalizadas foram pro banco, próximas baixando...`);
-  _painelExportDownload(true); // botão único: coleta e já entrega o arquivo das próximas (finalizadas já foram pro banco durante o loop) — silencioso se não tiver nenhuma próxima nessa leva
+  _showToast(`✓ Coleta concluída: ${salvas} salva(s)${falhas ? `, ${falhas} sem dados suficientes` : ''} — finalizadas foram pro banco.`);
 }
 
 async function _painelExportUpdateBadge() {
