@@ -3877,6 +3877,62 @@ function _prognosticoGroupsHtml(taxas, minAmostra) {
     </div>`).join('');
 }
 
+// Mesma classificação do backend (_prognostico_bucket em app.py) — replicada
+// aqui pra classificar as PRÓXIMAS de hoje sem precisar de outra requisição:
+// elas já têm comparacao_forca completo desde que foram coletadas (mesmo
+// fluxo de "Coletar todas"/clique manual), só falta aplicar a mesma regra.
+function _prognosticoBucketFor(doc) {
+  const forca = doc && doc.comparacao_forca;
+  if (!forca || forca.diferenca_pontos == null) return null;
+  if (forca.diferenca_pontos <= _PROGNOSTICO_EQUILIBRIO_LIMIAR) return 'equilibrado';
+  const casa = doc.partida && doc.partida.time_casa;
+  return (forca.lider && casa && forca.lider === casa) ? 'favorito_casa' : 'favorito_fora';
+}
+const _PROGNOSTICO_EQUILIBRIO_LIMIAR = 15; // mesmo valor de _PAINEL_PROGNOSTICO_EQUILIBRIO_LIMIAR no backend
+
+// Jogos de hoje já coletados (localStorage — mesma chave que "Coletar
+// todas"/download usa) com o prognóstico aplicado automaticamente: acha o
+// bucket do jogo e mostra as taxas medidas nesse mesmo perfil, sem o usuário
+// ter que escolher manualmente. Não busca nada novo — só cruza dado que já
+// está no navegador com o que o endpoint de taxas já devolveu.
+function _prognosticoJogosHojeHtml(d) {
+  const proximas = JSON.parse(localStorage.getItem('gol_em_numeros_proximas') || '[]');
+  if (!proximas.length) {
+    return `<div style="font-size:12px;font-weight:700;color:var(--text);margin:20px 0 8px">Jogos de hoje</div>
+      <div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhuma próxima partida coletada ainda — vá no Painel Principal e clique em "🔍 Coletar todas" (ou abra a Comparação de força de um jogo específico) pra ver o prognóstico automático aqui.</div>`;
+  }
+  const minAmostra = d.min_amostra || 20;
+  const porBucket = d.por_bucket || {};
+  const cards = proximas.map(doc => {
+    const bucket = _prognosticoBucketFor(doc);
+    const fonte = (bucket && porBucket[bucket]) ? porBucket[bucket] : { amostra: d.total_amostra, taxas: d.taxas };
+    const bucketLabel = bucket ? _PROGNOSTICO_BUCKET_LABELS[bucket] : 'sem perfil de força calculado';
+    const destaque = ['vitoria_casa', 'empate', 'vitoria_fora']
+      .map(k => ({ k, ...fonte.taxas[k] }))
+      .filter(x => x.taxa != null)
+      .sort((a, b) => b.taxa - a.taxa)[0];
+    const linhas = [destaque, { k: 'over_25', ...fonte.taxas.over_25 }, { k: 'btts', ...fonte.taxas.btts }]
+      .filter(x => x && x.taxa != null);
+    return `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(doc.partida.time_casa)} x ${_bt2EscXml(doc.partida.time_visitante)}</div>
+          <div style="font-size:10px;color:var(--text2)">${_bt2EscXml(doc.partida.horario || '')} · ${bucketLabel}${bucket ? ` (${fonte.amostra} jogo(s) na amostra)` : ''}</div>
+        </div>
+        ${!linhas.length ? `<div style="font-size:11px;color:var(--text2);margin-top:6px">sem taxa com amostra suficiente ainda</div>` : `
+        <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+          ${linhas.map(l => `
+            <div>
+              <div style="font-size:15px;font-weight:800;color:${_prognosticoConfColor(l.amostra, minAmostra)}">${(l.taxa * 100).toFixed(1)}%</div>
+              <div style="font-size:10px;color:var(--text2)">${_PROGNOSTICO_LABELS[l.k]}</div>
+            </div>`).join('')}
+        </div>`}
+      </div>`;
+  }).join('');
+  return `<div style="font-size:12px;font-weight:700;color:var(--text);margin:20px 0 8px">Jogos de hoje (${proximas.length})</div>
+    <div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
 function _prognosticoRender() {
   const body = document.getElementById('prognosticoBody');
   if (!body) return;
@@ -3914,7 +3970,9 @@ function _prognosticoRender() {
     ? 'Taxas da base inteira, sem separar por perfil de favoritismo. Use os botões acima pra ver só os jogos com um perfil parecido com o que você está analisando.'
     : `Taxas medidas só nos jogos históricos classificados como "${_PROGNOSTICO_BUCKET_LABELS[_prognosticoBucketAtivo]}" (diferença de força ${_prognosticoBucketAtivo === 'equilibrado' ? '≤15 pontos' : '>15 pontos, favorecendo esse lado'} — limiar escolhido por mim, ainda não validado).`;
 
-  body.innerHTML = summaryHtml + groupsHtml + `<div style="font-size:11px;color:var(--text2);margin-top:4px">${nota}</div>`;
+  const jogosHojeHtml = _prognosticoJogosHojeHtml(d);
+
+  body.innerHTML = summaryHtml + groupsHtml + `<div style="font-size:11px;color:var(--text2);margin-top:4px">${nota}</div>` + jogosHojeHtml;
 }
 
 // Card único: compacto quando não marcado, cresce (só na própria coluna, não
