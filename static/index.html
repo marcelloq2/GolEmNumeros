@@ -5289,24 +5289,13 @@ function _painelBuildOddsFilterBar() {
           oninput="_painelOddsFilterChange('${c.key}', 'val2', this.value)">
       </div>
     </div>
-  `).join('') + `
-    <div class="painel-odds-filter-group">
-      <span class="painel-odds-filter-label">Dia</span>
-      <div class="painel-odds-filter-controls">
-        <button class="filter-btn painel-dia-btn active" onclick="_painelSetDia('all', this)">Todos</button>
-        <button class="filter-btn painel-dia-btn" onclick="_painelSetDia('hoje', this)">Hoje</button>
-        <button class="filter-btn painel-dia-btn" onclick="_painelSetDia('amanha', this)">Amanhã</button>
-      </div>
-    </div>
-    <div class="painel-odds-filter-group">
-      <span class="painel-odds-filter-label">Turno</span>
-      <div class="painel-odds-filter-controls">
-        <button class="filter-btn painel-turno-btn active" onclick="_painelSetTurno('all', this)">Dia todo</button>
-        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('manha', this)" title="Manhã (5h-12h)">🌅</button>
-        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('tarde', this)" title="Tarde (12h-18h)">☀️</button>
-        <button class="filter-btn painel-turno-btn" onclick="_painelSetTurno('noite', this)" title="Noite (18h-5h)">🌙</button>
-      </div>
-    </div>`
+  `).join('')
+    // Filtros "Dia" (Todos/Hoje/Amanhã) e "Turno" (Dia todo/Manhã/Tarde/Noite)
+    // removidos da UI a pedido do usuário (2026-08-25) — _painelSetDia/
+    // _painelSetTurno continuam existindo no código, só sem esses botões
+    // de entrada. Se algum filtro desses dois tiver sido deixado ativo
+    // antes da remoção, ele já vem resetado pro padrão ('all') aqui, já
+    // que os botões que o alternariam não existem mais.
     + `<button class="painel-odds-filter-clear" onclick="_painelOddsFilterClear()">Limpar filtros</button>`
     + `<button class="painel-odds-filter-clear" id="painelClearFavBtn" onclick="_painelClearFavorites()">☆ Remover Minhas Seleções</button>`;
 }
