@@ -174,7 +174,15 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
     """Baixa um único arquivo da branch data para local_path.
 
     force=True → sobrescreve mesmo se o arquivo já existir localmente.
-    """
+
+    Antes essa função falhava em SILÊNCIO em todo caminho de erro (sem
+    print nenhum) — isso escondeu um bug real: se essa chamada falhasse
+    (rede, GitHub fora do ar, o que for) durante o boot, o servidor seguia
+    em frente com um backtest2.db vazio/desatualizado sem avisar ninguém, e
+    qualquer push posterior sobrescrevia o backup bom no GitHub com esse
+    estado pequeno — destruindo dado acumulado de verdade. Logar cada
+    caminho de falha não previne o problema sozinho, mas garante que da
+    próxima vez apareça nos logs em vez de sumir sem rastro."""
     if not is_configured():
         return False
     if not force and os.path.exists(local_path):
@@ -186,10 +194,12 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
         headers=_headers(), params={"ref": DATA_BRANCH}, timeout=10
     )
     if r.status_code != 200:
+        print(f"[github] Falha ao baixar {remote_path}: GET contents retornou {r.status_code}")
         return False
 
     download_url = r.json().get("download_url")
     if not download_url:
+        print(f"[github] Falha ao baixar {remote_path}: resposta sem download_url")
         return False
 
     fr = http_req.get(download_url, timeout=15)
@@ -198,13 +208,30 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
         with open(local_path, "wb") as fp:
             fp.write(fr.content)
         action = "Pull (force)" if force else "Pull"
-        print(f"[github] {action}: {remote_path}")
+        print(f"[github] {action}: {remote_path} ({len(fr.content)} bytes)")
         return True
+    print(f"[github] Falha ao baixar {remote_path}: download retornou {fr.status_code}")
     return False
+
+
+# True só depois que o pull de backtest2.db no boot confirma sucesso. Enquanto
+# for False, push_file_bg RECUSA subir backtest2.db (ver guard lá embaixo) —
+# sem essa trava, um pull que falhasse silenciosamente deixava o container
+# rodando com um banco vazio/velho, e o primeiro push depois sobrescrevia o
+# backup bom no GitHub com esse estado pequeno. Foi exatamente isso que
+# apagou dado real de verdade (achado investigando com o usuário em
+# 2026-08-25) — o tamanho do arquivo na branch 'data' caiu de ~2.4MB pra
+# ~900KB de um commit pro outro, sem nenhum push nosso no meio.
+_backtest2_db_synced_ok = False
+
+
+def backtest2_db_sync_ok() -> bool:
+    return _backtest2_db_synced_ok
 
 
 def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap_dir: str = None):
     """Restaura todos os dados do GitHub ao iniciar o servidor."""
+    global _backtest2_db_synced_ok
     if not is_configured():
         print("[github] GITHUB_TOKEN não configurado — persistência desabilitada.")
         return
@@ -227,7 +254,11 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # backtest2.db (SQLite do Backtest 2/CS acumulado): igual predictions, sempre
         # baixa a versão mais recente — sem isso, cada redeploy no Railway apagava o
         # disco local e o histórico acumulado voltava a zero.
-        pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
+        _backtest2_db_synced_ok = pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
+        if not _backtest2_db_synced_ok:
+            print("[github] ⚠ Não deu pra confirmar a restauração de backtest2.db — "
+                  "pushes desse arquivo ficam BLOQUEADOS até o próximo boot bem-sucedido, "
+                  "pra não arriscar sobrescrever o backup bom no GitHub com um estado ruim.")
         # Configuração do Lay Placar (importada pelo usuário) — sempre baixa a mais
         # recente, senão um redeploy no Railway apagava a configuração do servidor
         # e cada aparelho ia depender só do que tinha salvo localmente de novo.

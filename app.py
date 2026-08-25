@@ -8367,9 +8367,22 @@ def _bt2_market_selections(market_key, o, h, a):
 
 def _bt2_push_db_bg():
     """Envia o backtest2.db pro GitHub (branch 'data') em segundo plano — sem isso,
-    o histórico acumulado (Backtest 2 e Backtest CS, que moram no mesmo arquivo)
-    se perdia a cada redeploy no Railway, porque o disco local não sobrevive entre
-    deploys. Restaurado de volta em github_storage.sync_on_startup."""
+    o histórico acumulado (Backtest 2, Backtest CS, Scanner e Painel Principal,
+    que moram no mesmo arquivo) se perdia a cada redeploy no Railway, porque o
+    disco local não sobrevive entre deploys. Restaurado de volta em
+    github_storage.sync_on_startup.
+
+    Recusa empurrar se essa restauração no boot não foi confirmada
+    (backtest2_db_sync_ok()==False) — sem essa trava, um pull que falhasse
+    silenciosamente no início deixava o container com um banco vazio/velho, e
+    o primeiro push depois sobrescrevia o backup bom no GitHub com esse
+    estado pequeno. Foi exatamente isso que apagou dado real (2026-08-25) —
+    o arquivo na branch 'data' caiu de ~2.4MB pra ~900KB sem nenhum push
+    nosso no meio, sinal de que o pull no boot tinha falhado sem avisar."""
+    if not github_storage.backtest2_db_sync_ok():
+        print("[github] ⚠ Push de backtest2.db BLOQUEADO — a restauração no boot não foi "
+              "confirmada, empurrar agora arriscaria sobrescrever o backup bom no GitHub.")
+        return
     github_storage.push_file_bg(_BT2_DB_PATH, "backtest2.db")
 
 
