@@ -4316,28 +4316,11 @@ def api_painel_export_finalizada_list():
 _PAINEL_PROGNOSTICO_MIN_SAMPLE = 20  # mesmo espírito do _SCANNER_MIN_SAMPLE — abaixo disso a taxa não significa nada
 
 
-@app.route("/api/painel/prognostico/base_rates")
-def api_painel_prognostico_base_rates():
-    """Taxas-base (sem filtro de similaridade ainda — isso é a próxima etapa,
-    quando tiver volume) calculadas em cima de TODAS as finalizadas salvas.
-    Cada taxa já vem com o tamanho da amostra que a gerou — o frontend decide
-    como sinalizar confiança baixa."""
-    with _bt2_db_lock:
-        conn = _painel_export_db_conn()
-        try:
-            cur = conn.execute("""
-                SELECT placar_ft_casa, placar_ft_visitante, placar_ht_casa, placar_ht_visitante
-                FROM painel_analises_finalizadas
-                WHERE placar_ft_casa IS NOT NULL AND placar_ft_visitante IS NOT NULL
-            """)
-            rows = cur.fetchall()
-        finally:
-            conn.close()
-
+def _prognostico_compute_rates(rows):
+    """rows: lista de (ft_h, ft_a, ht_h, ht_a). Devolve o mesmo dict de taxas
+    pra qualquer subconjunto de finalizadas — reaproveitado pra "todos" e pra
+    cada bucket de perfil de força."""
     total = len(rows)
-    if total == 0:
-        return jsonify({"total_amostra": 0, "taxas": {}})
-
     c = {k: 0 for k in (
         "vitoria_casa", "empate", "vitoria_fora",
         "ht_vitoria_casa", "ht_empate", "ht_vitoria_fora",
@@ -4371,7 +4354,7 @@ def api_painel_prognostico_base_rates():
     def stat(key, base):
         return {"taxa": round(c[key] / base, 4) if base else None, "amostra": base}
 
-    taxas = {
+    return {
         "vitoria_casa": stat("vitoria_casa", total),
         "empate": stat("empate", total),
         "vitoria_fora": stat("vitoria_fora", total),
@@ -4386,7 +4369,77 @@ def api_painel_prognostico_base_rates():
         "casa_nao_marca": stat("casa_nao_marca", total),
         "fora_nao_marca": stat("fora_nao_marca", total),
     }
-    return jsonify({"total_amostra": total, "min_amostra": _PAINEL_PROGNOSTICO_MIN_SAMPLE, "taxas": taxas})
+
+
+# Bucket de perfil de força — diferenca_pontos <= 15 é "sem favorito claro"
+# (limiar escolhido por mim, não validado, é só um primeiro corte). Acima
+# disso, o lado que a Comparação de força (NowGoal) apontou como líder vira
+# o "favorito" — separado por casa/fora porque jogar em casa sendo favorito
+# não é a mesma coisa que jogar em casa sendo azarão.
+_PAINEL_PROGNOSTICO_EQUILIBRIO_LIMIAR = 15
+
+
+def _prognostico_bucket(doc):
+    forca = (doc or {}).get("comparacao_forca")
+    if not forca or forca.get("diferenca_pontos") is None:
+        return None
+    diff = forca["diferenca_pontos"]
+    if diff <= _PAINEL_PROGNOSTICO_EQUILIBRIO_LIMIAR:
+        return "equilibrado"
+    lider = forca.get("lider")
+    casa = (doc.get("partida") or {}).get("time_casa")
+    if lider and casa and lider == casa:
+        return "favorito_casa"
+    return "favorito_fora"
+
+
+@app.route("/api/painel/prognostico/base_rates")
+def api_painel_prognostico_base_rates():
+    """Taxas-base calculadas em cima de TODAS as finalizadas salvas, e
+    também quebradas por bucket de perfil de força (favorito_casa/
+    favorito_fora/equilibrado) — a similaridade "de verdade" pedida pelo
+    usuário, feita em cima da base PRÓPRIA (não dos números da Uniscore,
+    confirmado que misturam casa/fora). Cada taxa já vem com o tamanho da
+    amostra que a gerou — o frontend decide como sinalizar confiança baixa."""
+    with _bt2_db_lock:
+        conn = _painel_export_db_conn()
+        try:
+            cur = conn.execute("""
+                SELECT placar_ft_casa, placar_ft_visitante, placar_ht_casa, placar_ht_visitante, doc_json
+                FROM painel_analises_finalizadas
+                WHERE placar_ft_casa IS NOT NULL AND placar_ft_visitante IS NOT NULL
+            """)
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    total = len(rows)
+    if total == 0:
+        return jsonify({"total_amostra": 0, "taxas": {}, "por_bucket": {}})
+
+    buckets = {"favorito_casa": [], "favorito_fora": [], "equilibrado": []}
+    all_scores = []
+    for ft_h, ft_a, ht_h, ht_a, doc_json_str in rows:
+        all_scores.append((ft_h, ft_a, ht_h, ht_a))
+        try:
+            doc = json.loads(doc_json_str)
+        except Exception:
+            continue
+        b = _prognostico_bucket(doc)
+        if b:
+            buckets[b].append((ft_h, ft_a, ht_h, ht_a))
+
+    por_bucket = {
+        nome: {"amostra": len(linhas), "taxas": _prognostico_compute_rates(linhas)}
+        for nome, linhas in buckets.items() if linhas
+    }
+
+    return jsonify({
+        "total_amostra": total,
+        "min_amostra": _PAINEL_PROGNOSTICO_MIN_SAMPLE,
+        "taxas": _prognostico_compute_rates(all_scores),
+        "por_bucket": por_bucket,
+    })
 
 
 # ── Histórico de alertas do Scanner — registra cada alerta que disparou e,

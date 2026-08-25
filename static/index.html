@@ -3834,33 +3834,30 @@ const _PROGNOSTICO_LABELS = {
   fora_nao_marca: 'Visitante não marca (casa mantém o gol a zero)',
 };
 
-function _prognosticoRender() {
-  const body = document.getElementById('prognosticoBody');
-  if (!body) return;
-  const d = _prognosticoData;
-  if (!d || !d.total_amostra) {
-    body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:24px 0;text-align:center">Nenhuma partida finalizada na base ainda — colete algumas em "🔍 Coletar todas" (Painel Principal) que esse painel preenche sozinho.</div>`;
-    return;
-  }
+const _PROGNOSTICO_BUCKET_LABELS = {
+  todos: 'Todos os jogos',
+  favorito_casa: 'Casa é favorita',
+  favorito_fora: 'Visitante é favorito',
+  equilibrado: 'Jogo equilibrado',
+};
+let _prognosticoBucketAtivo = 'todos';
 
-  const minAmostra = d.min_amostra || 20;
-  const summaryHtml = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;margin-bottom:18px;max-width:220px">
-      <div style="font-size:22px;font-weight:800;color:var(--text)">${d.total_amostra}</div>
-      <div style="font-size:11px;color:var(--text2)">partidas finalizadas na base</div>
-    </div>`;
+function _prognosticoSetBucket(bucket) {
+  _prognosticoBucketAtivo = bucket;
+  _prognosticoRender();
+}
 
+function _prognosticoGroupsHtml(taxas, minAmostra) {
   const groups = [
     { titulo: 'Resultado (tempo integral)', chaves: ['vitoria_casa', 'empate', 'vitoria_fora'] },
     { titulo: 'Resultado do intervalo', chaves: ['ht_vitoria_casa', 'ht_empate', 'ht_vitoria_fora'] },
     { titulo: 'Gols', chaves: ['over_25', 'btts', 'casa_nao_marca', 'fora_nao_marca'] },
   ];
-
-  const groupsHtml = groups.map(g => `
+  return groups.map(g => `
     <div style="font-size:12px;font-weight:700;color:var(--text);margin:0 0 8px">${g.titulo}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:20px">
       ${g.chaves.map(k => {
-        const t = d.taxas[k];
+        const t = taxas[k];
         if (!t || t.taxa == null) return `
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px">
             <div style="font-size:11px;color:var(--text2)">${_PROGNOSTICO_LABELS[k]}</div>
@@ -3878,9 +3875,46 @@ function _prognosticoRender() {
           </div>`;
       }).join('')}
     </div>`).join('');
+}
 
-  body.innerHTML = summaryHtml + groupsHtml +
-    `<div style="font-size:11px;color:var(--text2);margin-top:4px">Essas são taxas-base da base inteira (ainda sem filtrar por perfil de força/CD-Dados do jogo — isso é a próxima etapa, quando tiver mais volume).</div>`;
+function _prognosticoRender() {
+  const body = document.getElementById('prognosticoBody');
+  if (!body) return;
+  const d = _prognosticoData;
+  if (!d || !d.total_amostra) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:24px 0;text-align:center">Nenhuma partida finalizada na base ainda — colete algumas em "🔍 Coletar todas" (Painel Principal) que esse painel preenche sozinho.</div>`;
+    return;
+  }
+
+  const minAmostra = d.min_amostra || 20;
+  const porBucket = d.por_bucket || {};
+  const bucketsDisponiveis = ['todos', ...Object.keys(porBucket)];
+  if (!bucketsDisponiveis.includes(_prognosticoBucketAtivo)) _prognosticoBucketAtivo = 'todos';
+
+  const ativo = _prognosticoBucketAtivo === 'todos'
+    ? { amostra: d.total_amostra, taxas: d.taxas }
+    : porBucket[_prognosticoBucketAtivo];
+
+  const summaryHtml = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;min-width:150px">
+        <div style="font-size:22px;font-weight:800;color:var(--text)">${ativo.amostra}</div>
+        <div style="font-size:11px;color:var(--text2)">${_prognosticoBucketAtivo === 'todos' ? 'partidas finalizadas na base' : 'jogos nesse perfil'}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${bucketsDisponiveis.map(b => `
+          <button class="painel-sort-time-btn${b === _prognosticoBucketAtivo ? ' active' : ''}" onclick="_prognosticoSetBucket('${b}')">${_PROGNOSTICO_BUCKET_LABELS[b]}${b !== 'todos' ? ` (${porBucket[b].amostra})` : ''}</button>
+        `).join('')}
+      </div>
+    </div>`;
+
+  const groupsHtml = _prognosticoGroupsHtml(ativo.taxas, minAmostra);
+
+  const nota = _prognosticoBucketAtivo === 'todos'
+    ? 'Taxas da base inteira, sem separar por perfil de favoritismo. Use os botões acima pra ver só os jogos com um perfil parecido com o que você está analisando.'
+    : `Taxas medidas só nos jogos históricos classificados como "${_PROGNOSTICO_BUCKET_LABELS[_prognosticoBucketAtivo]}" (diferença de força ${_prognosticoBucketAtivo === 'equilibrado' ? '≤15 pontos' : '>15 pontos, favorecendo esse lado'} — limiar escolhido por mim, ainda não validado).`;
+
+  body.innerHTML = summaryHtml + groupsHtml + `<div style="font-size:11px;color:var(--text2);margin-top:4px">${nota}</div>`;
 }
 
 // Card único: compacto quando não marcado, cresce (só na própria coluna, não
