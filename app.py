@@ -6812,6 +6812,52 @@ def _sinalizador_calc_checkpoint(label, graph_points, statistics_periods):
     return None
 
 
+_SINALIZADOR_OVER_HT_RE = re.compile(r"over\s+(\d+(?:[.,]\d+)?)", re.IGNORECASE)
+
+
+def _sinalizador_mercado_resolvido(mercado, minuto_atual, goals):
+    """Decide se o RESULTADO do mercado já foi decidido — nesse caso o sinal
+    para de contar (some do painel), já que não tem mais decisão a tomar em
+    cima dele. Pedido do usuário (2026-08-26): "Over 1.5 HT" some quando já
+    saíram os gols que bastam pra bater a linha (mesmo antes do intervalo);
+    "Casa/Visitante vence HT" some quando o intervalo chega (o resultado do
+    1º tempo já fechou); "Casa/Visitante marca primeiro" some assim que sai
+    o 1º gol do jogo, seja de quem for.
+
+    `mercado` é texto livre (vem do .txt do usuário) — decide por HEURÍSTICA
+    no nome, não por uma lista fechada de mercados, pra funcionar com
+    qualquer variação de nome parecida sem precisar cadastrar cada uma."""
+    nome = (mercado or "").lower()
+
+    # "Casa marca primeiro" / "Visitante marca primeiro" — decidido assim
+    # que sai o 1º gol do jogo (de qualquer lado).
+    if "marca primeiro" in nome:
+        return len(goals or []) > 0
+
+    # Qualquer mercado "... HT" (Casa vence HT, Visitante vence HT, Empate
+    # HT, Over/Under X HT, Ambas Marcam HT etc.) — decidido quando o
+    # intervalo chega.
+    if re.search(r"\bht\b", nome):
+        if minuto_atual and minuto_atual > 45:
+            return True
+        # "Over X HT" especificamente também pode decidir ANTES do intervalo
+        # chegar de verdade, se os gols que faltavam pra bater a linha já
+        # saíram (ex: Over 1.5 HT com 2 gols aos 30' não precisa esperar o
+        # apito do intervalo pra saber que já bateu).
+        m = _SINALIZADOR_OVER_HT_RE.search(nome)
+        if m:
+            try:
+                linha = float(m.group(1).replace(",", "."))
+            except ValueError:
+                return False
+            gols_ht = sum(1 for g in (goals or []) if (g.get("minute") or 0) <= 45)
+            if gols_ht > linha:
+                return True
+        return False
+
+    return False
+
+
 _SINALIZADOR_MAX_JOGOS = 60      # teto de jogos ao vivo processados por chamada
 _SINALIZADOR_WORKERS = 10        # mesmo espírito de _uni_events_today: pool pequeno,
                                   # só pra não deixar dezenas de jogos sequenciais
@@ -6902,8 +6948,14 @@ def api_sinalizador_check():
         if not dj:
             continue
         m = dj["m"]
+        minuto_atual = int(max((p.get("minute") or 0) for p in dj["graph_points"])) if dj["graph_points"] else 0
         bateram = []
         for regra in rules:
+            # Mercado já decidido (ex: "Over 1.5 HT" já saiu, "HT" já
+            # terminou, já saiu o 1º gol) — pedido do usuário: some do
+            # painel, não tem mais decisão a tomar em cima dele.
+            if _sinalizador_mercado_resolvido(regra["mercado"], minuto_atual, dj["goals"]):
+                continue
             v_pre = _sinalizador_calc_pre_live(regra["variavel_pre_live"], dj["odds_uni"], dj["nowgoal"])
             if v_pre is None or not (regra["min_pre_live"] <= v_pre <= regra["max_pre_live"]):
                 continue
