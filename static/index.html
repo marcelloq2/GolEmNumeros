@@ -21675,10 +21675,15 @@ async function _sinalizadorLoadConfig() {
 }
 
 // Mostra o valor calculado de verdade ao lado da faixa que validou a
-// metodologia — pedido do usuário: não só "bateu", mostrar o indicador.
-function _sinalizadorIndicadorHtml(ind, casasDecimais) {
+// metodologia — pedido do usuário: não só "bateu", mostrar o indicador, e
+// identificar qual é pré-live e qual é ao vivo/checkpoint (mesmo pedido,
+// 2026-08-26 — antes ficavam empilhados sem rótulo nenhum).
+function _sinalizadorIndicadorHtml(ind, casasDecimais, rotulo, cor) {
   const fmt = v => v.toFixed(casasDecimais);
-  return `<div style="font-size:10px;color:var(--text2)">${_bt2EscXml(ind.nome)}: <span style="color:var(--text);font-weight:700">${fmt(ind.valor)}</span> (faixa ${fmt(ind.min)} a ${fmt(ind.max)})</div>`;
+  return `<div style="font-size:10px;color:var(--text2)">
+    <span style="font-size:8px;font-weight:700;color:${cor};border:1px solid ${cor}66;border-radius:3px;padding:0 3px;margin-right:3px">${rotulo}</span>
+    ${_bt2EscXml(ind.nome)}: <span style="color:var(--text);font-weight:700">${fmt(ind.valor)}</span> (faixa ${fmt(ind.min)} a ${fmt(ind.max)})
+  </div>`;
 }
 
 function _sinalizadorSinalHtml(s) {
@@ -21695,8 +21700,8 @@ function _sinalizadorSinalHtml(s) {
       </div>
     </div>
     <div style="margin-top:4px;padding-top:4px;border-top:1px solid #d1a13e33;display:flex;flex-direction:column;gap:1px">
-      ${_sinalizadorIndicadorHtml(s.indicador_pre_live, casasPreLive)}
-      ${_sinalizadorIndicadorHtml(s.indicador_checkpoint, 2)}
+      ${_sinalizadorIndicadorHtml(s.indicador_pre_live, casasPreLive, 'PRÉ', '#60a5fa')}
+      ${_sinalizadorIndicadorHtml(s.indicador_checkpoint, 2, 'AO VIVO', '#22c55e')}
     </div>
   </div>`;
 }
