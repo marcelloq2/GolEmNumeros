@@ -21677,9 +21677,26 @@ async function _sinalizadorLoadConfig() {
   } catch (e) { /* mantém o que já tinha na tela */ }
 }
 
+// Favoritar partida — só no navegador (localStorage), mesmo espírito do
+// "watch" do Scanner: favoritos sempre aparecem primeiro na lista, ligado
+// ou desligado o "Ordenar por horário".
+const _SINALIZADOR_FAVS_KEY = 'sinalizador_favoritos';
+function _sinalizadorGetFavs() {
+  try { return new Set(JSON.parse(localStorage.getItem(_SINALIZADOR_FAVS_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function _sinalizadorToggleFav(eventId) {
+  const favs = _sinalizadorGetFavs();
+  const id = String(eventId);
+  if (favs.has(id)) favs.delete(id); else favs.add(id);
+  localStorage.setItem(_SINALIZADOR_FAVS_KEY, JSON.stringify([...favs]));
+  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena/redesenha, sem novo fetch
+}
+
 // Mesmo padrão do botão "Ordenar por horário" já usado no Scanner/Painel
 // Principal — desligado = ordem que a API devolveu; ligado = crescente por
-// minuto corrido (jogo que começou agora primeiro).
+// minuto corrido (jogo que começou agora primeiro). Favoritos sempre vêm
+// primeiro, independente disso (checado antes na comparação).
 let _sinalizadorSortByTime = false;
 
 function _sinalizadorToggleSortByTime() {
@@ -21689,8 +21706,12 @@ function _sinalizadorToggleSortByTime() {
 }
 
 function _sinalizadorSortJogos(jogos) {
-  if (!_sinalizadorSortByTime) return jogos;
+  const favs = _sinalizadorGetFavs();
   return [...jogos].sort((a, b) => {
+    const fa = favs.has(String(a.event_id)) ? 0 : 1;
+    const fb = favs.has(String(b.event_id)) ? 0 : 1;
+    if (fa !== fb) return fa - fb; // favoritos sempre primeiro
+    if (!_sinalizadorSortByTime) return 0;
     const ma = _scannerParseMinuto(a), mb = _scannerParseMinuto(b);
     if (ma == null && mb == null) return 0;
     if (ma == null) return 1;
@@ -21760,9 +21781,13 @@ function _sinalizadorIndicadoresGraficoHtml(ind) {
 
 function _sinalizadorJogoHtml(j) {
   const canvasId = `sinalizadorChart_${j.event_id}`;
-  return `<div class="live-card" style="border-left:3px solid var(--accent)">
-    <div class="live-card-top" style="justify-content:center;text-align:center">
+  const favorito = _sinalizadorGetFavs().has(String(j.event_id));
+  return `<div class="live-card" style="border-left:3px solid ${favorito ? '#f59e0b' : 'var(--accent)'}">
+    <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
       <span>${_bt2EscXml(j.liga || '')}</span>
+      <span onclick="event.stopPropagation();_sinalizadorToggleFav('${j.event_id}')"
+        style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:14px;cursor:pointer"
+        title="${favorito ? 'Remover dos favoritos' : 'Favoritar (vai pro início da lista)'}">${favorito ? '⭐' : '☆'}</span>
     </div>
     <div class="live-card-body" style="padding:8px 10px">
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">

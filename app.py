@@ -6815,54 +6815,63 @@ def _sinalizador_calc_checkpoint(label, graph_points, statistics_periods):
 _SINALIZADOR_OVER_HT_RE = re.compile(r"over\s+(\d+(?:[.,]\d+)?)", re.IGNORECASE)
 
 
-def _sinalizador_mercado_resolvido(mercado, minuto_atual, goals):
+def _sinalizador_mercado_resolvido(mercado, minuto_atual, placar_casa, placar_fora, placar_ht_casa, placar_ht_fora):
     """Decide se a PREVISÃO do mercado já se confirmou/passou do ponto de
     fazer sentido continuar mostrando — nesse caso só ESSE sinal some do
     card (o jogo continua na lista se tiver outro sinal ainda válido).
     Pedido do usuário (2026-08-26), 3 heurísticas independentes (qualquer
     uma que valer já resolve):
 
-    1. "... marca primeiro" — some assim que sai o 1º gol do jogo, de
-       qualquer lado (o "quem marca primeiro" já ficou definido).
+    1. "... marca primeiro" — some assim que sair QUALQUER gol do jogo.
     2. "[Casa/Fora/Visitante] vence" (HT ou FT) — some assim que ESSE time
-       específico marca o 1º gol do jogo: "já se presume que pode vencer",
-       o indicador já cumpriu o papel de avisar antes de ficar óbvio.
+       específico está NA FRENTE no placar: "já se presume que pode
+       vencer", o indicador já cumpriu o papel de avisar antes de ficar
+       óbvio.
     3. Qualquer mercado "... HT" — some quando o intervalo passa (minuto >
-       45); "Over X HT" especificamente também some ANTES disso se os gols
-       que faltavam pra bater a linha já saíram.
+       45); "Over X HT" especificamente também some ANTES disso se o
+       placar do intervalo já bate a linha.
+
+    Usa o PLACAR OFICIAL (golCasaFt/golForaFt do UniScore, mesma fonte já
+    usada em toda a Ao Vivo) em vez da lista de incidentes "goals" — essa
+    lista pode perder gol (ex: pênalti que não bate o filtro
+    incidentType=="goal", o MESMO problema já achado antes nesse projeto
+    pra reconstrução de placar, ver comentário em _process_momentum sobre
+    "Barracas Central 1x0 aparecia como 0x0"). Achado com o usuário
+    (2026-08-26): Real Madrid 4x1 Real Sociedad aos 93' ainda mostrava
+    "Casa vence"/"Casa marca primeiro" — a lista de gols estava vazia
+    mesmo com o placar oficial mostrando 5 gols.
 
     `mercado` é texto livre (vem do .txt do usuário) — decide por HEURÍSTICA
     no nome, não por uma lista fechada de mercados, pra funcionar com
     qualquer variação de nome parecida sem precisar cadastrar cada uma."""
     nome = (mercado or "").lower()
-    goals = goals or []
+    placar_casa = placar_casa or 0
+    placar_fora = placar_fora or 0
 
     if "marca primeiro" in nome:
-        return len(goals) > 0
+        return (placar_casa + placar_fora) > 0
 
-    if "vence" in nome and goals:
-        primeiro_gol = min(goals, key=lambda g: g.get("minute") or 0)
-        time_1o_gol = primeiro_gol.get("team")
+    if "vence" in nome:
         eh_mercado_casa = "casa" in nome
         eh_mercado_visitante = "fora" in nome or "visitante" in nome
-        if eh_mercado_casa and time_1o_gol == "home":
+        if eh_mercado_casa and placar_casa > placar_fora:
             return True
-        if eh_mercado_visitante and time_1o_gol == "away":
+        if eh_mercado_visitante and placar_fora > placar_casa:
             return True
 
     if re.search(r"\bht\b", nome):
         if minuto_atual and minuto_atual > 45:
             return True
         # "Over X HT" especificamente também pode decidir ANTES do intervalo
-        # chegar de verdade, se os gols que faltavam pra bater a linha já
-        # saíram (ex: Over 1.5 HT com 2 gols aos 30' não precisa esperar o
-        # apito do intervalo pra saber que já bateu).
+        # chegar de verdade, se o placar do intervalo já bate a linha (ex:
+        # Over 1.5 HT com 2x0 no HT não precisa esperar o apito do
+        # intervalo pra saber que já bateu).
         m = _SINALIZADOR_OVER_HT_RE.search(nome)
         if m:
             try:
                 linha = float(m.group(1).replace(",", "."))
-                gols_ht = sum(1 for g in goals if (g.get("minute") or 0) <= 45)
-                if gols_ht > linha:
+                total_ht = (placar_ht_casa or 0) + (placar_ht_fora or 0)
+                if total_ht > linha:
                     return True
             except ValueError:
                 pass
@@ -6902,6 +6911,8 @@ def _sinalizador_buscar_dados_jogo(m, uni_odds, nowgoal_por_time):
         "goals": mom.get("goals") or [],
         "statistics_periods": mom.get("statistics_periods") or {},
         "pressure_summary": mom.get("pressure_summary") or {},
+        "placar_ht_casa": mom.get("score_ht_h"),
+        "placar_ht_fora": mom.get("score_ht_a"),
     }
 
 
@@ -6961,12 +6972,14 @@ def api_sinalizador_check():
             continue
         m = dj["m"]
         minuto_atual = int(max((p.get("minute") or 0) for p in dj["graph_points"])) if dj["graph_points"] else 0
+        placar_casa, placar_fora = m.get("golCasaFt"), m.get("golForaFt")
         bateram = []
         for regra in rules:
             # Mercado já decidido (ex: "Over 1.5 HT" já saiu, "HT" já
-            # terminou, já saiu o 1º gol) — pedido do usuário: some do
-            # painel, não tem mais decisão a tomar em cima dele.
-            if _sinalizador_mercado_resolvido(regra["mercado"], minuto_atual, dj["goals"]):
+            # terminou, esse time já está na frente) — pedido do usuário:
+            # some do painel, não tem mais decisão a tomar em cima dele.
+            if _sinalizador_mercado_resolvido(regra["mercado"], minuto_atual, placar_casa, placar_fora,
+                                               dj["placar_ht_casa"], dj["placar_ht_fora"]):
                 continue
             v_pre = _sinalizador_calc_pre_live(regra["variavel_pre_live"], dj["odds_uni"], dj["nowgoal"])
             if v_pre is None or not (regra["min_pre_live"] <= v_pre <= regra["max_pre_live"]):
