@@ -1592,7 +1592,6 @@
     <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
     <button class="nav-tab" onclick="switchView('scanner_over', this)">📈 Scanner Over</button>
     <button class="nav-tab" onclick="switchView('scanner_comeback', this)">🔄 Vira o Jogo</button>
-    <button class="nav-tab" onclick="switchView('scanner_perf', this)">📊 Desempenho</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2303,29 +2302,7 @@
     <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
       <button class="painel-sort-time-btn" id="scannerSortTimeBtn" onclick="_scannerToggleSortByTime()">🕐 Ordenar por horário</button>
     </div>
-    <div id="scannerHistoryBox" style="margin:8px 0 4px"></div>
     <div id="scannerMatchList" class="live-grid-wrap" style="margin:10px 0 24px"></div>
-  </div>
-
-  <!-- DESEMPENHO — agrega TODO o histórico já resolvido de scanner_alerts (as
-       3 abas do Scanner compartilham essa tabela) em 3 vistas: calibração
-       real vs prometida, taxa de acerto por sinal/janela, volume+tendência
-       por dia. Não recalcula nada do motor, só lê o que já tá sendo salvo —
-       cresce sozinho conforme mais alertas disparam/resolvem, sem manutenção. -->
-  <div id="scannerPerfWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>
-        Desempenho do Scanner
-      </div>
-      <span style="font-size:11px;color:var(--text2)">acerto real medido em cima dos alertas já resolvidos — sem dado nenhum novo, só análise do que já é salvo</span>
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button class="painel-sort-time-btn active" id="scannerPerfModeBtn_under" onclick="_scannerPerfSetMode('under')">Under</button>
-        <button class="painel-sort-time-btn" id="scannerPerfModeBtn_over" onclick="_scannerPerfSetMode('over')">Over</button>
-        <button class="painel-sort-time-btn" id="scannerPerfModeBtn_comeback" onclick="_scannerPerfSetMode('comeback')">Vira o Jogo</button>
-      </div>
-    </div>
-    <div id="scannerPerfBody"></div>
   </div>
 
   <!-- PROGNÓSTICOS — passo 3 do plano combinado com o usuário: motor de
@@ -3392,7 +3369,6 @@ function switchView(view, btn) {
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
   const scannerWrapper = document.getElementById('scannerWrapper');
-  const scannerPerfWrapper = document.getElementById('scannerPerfWrapper');
   const prognosticoWrapper = document.getElementById('prognosticoWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
@@ -3405,7 +3381,6 @@ function switchView(view, btn) {
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
   scannerWrapper.style.display = 'none';
-  scannerPerfWrapper.style.display = 'none';
   prognosticoWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -3416,8 +3391,6 @@ function switchView(view, btn) {
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
   clearInterval(_scannerAutoRefresh);
-  clearInterval(_scannerHistoryAutoRefresh);
-  clearInterval(_scannerPerfAutoRefresh);
   clearInterval(_prognosticoAutoRefresh);
 
   if (view === 'painel') {
@@ -3459,12 +3432,6 @@ function switchView(view, btn) {
     scannerWrapper.style.display = 'flex';
     _scannerLoadMatches();
     _scannerAutoRefresh = setInterval(_scannerLoadMatches, 15000);
-    _scannerLoadAlertsHistory();
-    _scannerHistoryAutoRefresh = setInterval(_scannerLoadAlertsHistory, 60000);
-  } else if (view === 'scanner_perf') {
-    scannerPerfWrapper.style.display = 'flex';
-    _scannerPerfLoad();
-    _scannerPerfAutoRefresh = setInterval(_scannerPerfLoad, 60000);
   } else if (view === 'prognostico') {
     prognosticoWrapper.style.display = 'flex';
     _prognosticoLoad();
@@ -3480,7 +3447,6 @@ function switchView(view, btn) {
 // nele — sem painel "Monitorando" separado (removido a pedido do usuário,
 // pra não duplicar informação).
 let _scannerAutoRefresh = null;
-let _scannerHistoryAutoRefresh = null;
 let _scannerMatchesCache = [];
 let _scannerLastShotmapScan = 0;
 let _scannerWatchSet = new Set(JSON.parse(localStorage.getItem('statarea_scanner_watch') || '[]'));
@@ -3496,7 +3462,7 @@ let _scannerViewMode = 'under';
 const _SCANNER_MODE_TEXT = {
   // "Under" mostra sempre a MELHOR janela achada pro placar/minuto atual —
   // sem limiar fixo de "seguro" (removido a pedido do usuário, 2026-08-25).
-  // A cor do % na tela (_scannerPerfAccColor) já comunica se é uma taxa alta
+  // A cor do % na tela (_scannerRateColor) já comunica se é uma taxa alta
   // ou baixa, não precisa mais de um corte binário decidindo se mostra ou não.
   under:    { title: 'Scanner Under', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
   // "Over 0.5 HT" (1º tempo) e "Over no 2º tempo" (várias linhas, mostra a
@@ -3590,215 +3556,13 @@ function _scannerConfidenceBadge(sample) {
   return `<span style="font-size:9px;font-weight:700;color:${cor};background:${cor}22;border:1px solid ${cor}55;border-radius:4px;padding:1px 5px;white-space:nowrap">${texto}</span>`;
 }
 
-// ── Histórico de alertas — mede a taxa de acerto do SISTEMA rodando ao vivo
-// (cada alerta que disparou, checado depois se realmente segurou ou não),
-// não só a calibração contra o histórico salvo. Expansível: por padrão só
-// mostra o resumo, clique pra ver a lista dos últimos alertas.
-let _scannerHistoryData = null;
-let _scannerHistoryExpanded = false;
-
-async function _scannerLoadAlertsHistory() {
-  try {
-    const r = await fetch(`/api/scanner/alerts_history?mode=${_scannerViewMode}`);
-    _scannerHistoryData = await r.json();
-  } catch (e) {
-    _scannerHistoryData = null;
-  }
-  _scannerRenderHistory();
-}
-
-function _scannerToggleHistoryExpanded() {
-  _scannerHistoryExpanded = !_scannerHistoryExpanded;
-  _scannerRenderHistory();
-}
-
-function _scannerOutcomeBadge(row) {
-  if (!row.resolved) return `<span style="color:var(--text2)">⏳ aguardando</span>`;
-  if (_scannerViewMode === 'over') {
-    return row.outcome === 1
-      ? `<span style="color:#22c55e;font-weight:700">✅ saiu gol</span>`
-      : `<span style="color:#ef4444;font-weight:700">❌ não saiu</span>`;
-  }
-  if (_scannerViewMode === 'comeback') {
-    return row.outcome === 1
-      ? `<span style="color:#22c55e;font-weight:700">✅ não perdeu</span>`
-      : `<span style="color:#ef4444;font-weight:700">❌ perdeu</span>`;
-  }
-  return row.outcome === 1
-    ? `<span style="color:#22c55e;font-weight:700">✅ segurou</span>`
-    : `<span style="color:#ef4444;font-weight:700">❌ furou</span>`;
-}
-
-function _scannerRenderHistory() {
-  const box = document.getElementById('scannerHistoryBox');
-  if (!box) return;
-  const d = _scannerHistoryData;
-  if (!d || !d.alerts || !d.alerts.length) {
-    box.innerHTML = `<div style="font-size:11px;color:var(--text2)">📊 Histórico: nenhum alerta disparado ainda</div>`;
-    return;
-  }
-  const pendentes = d.alerts.length - d.total_resolved;
-  const resumo = d.accuracy == null
-    ? `📊 Histórico: ${d.alerts.length} alerta(s) disparado(s), nenhum resolvido ainda (aguardando a janela passar)`
-    : `📊 Histórico: <b style="color:${d.accuracy >= 0.9 ? '#22c55e' : '#f59e0b'}">${(d.accuracy * 100).toFixed(1)}% de acerto real</b> em ${d.total_resolved} alerta(s) resolvido(s)${pendentes ? ` · ${pendentes} pendente(s)` : ''}`;
-
-  let listaHtml = '';
-  if (_scannerHistoryExpanded) {
-    listaHtml = `<div style="margin-top:8px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2)">
-      <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead><tr style="color:var(--text2);text-align:left">
-          <th style="padding:6px 8px">Jogo</th><th style="padding:6px 8px">Placar/min</th>
-          <th style="padding:6px 8px">Alerta</th><th style="padding:6px 8px">Prometeu</th><th style="padding:6px 8px">Resultado</th>
-        </tr></thead>
-        <tbody>
-          ${d.alerts.map(row => `
-            <tr style="border-top:1px solid var(--border)">
-              <td style="padding:6px 8px">${_bt2EscXml(row.casa)} x ${_bt2EscXml(row.fora)}</td>
-              <td style="padding:6px 8px;color:var(--text2)">${_bt2EscXml(row.placar)} aos ${row.minuto}'</td>
-              <td style="padding:6px 8px">${_bt2EscXml(row.label)}</td>
-              <td style="padding:6px 8px">${(row.rate * 100).toFixed(1)}% (${row.sample})</td>
-              <td style="padding:6px 8px">${_scannerOutcomeBadge(row)}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-  }
-
-  box.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="_scannerToggleHistoryExpanded()">
-      <span style="font-size:11px;color:var(--text)">${resumo}</span>
-      <span style="font-size:10px;color:var(--text2)">${_scannerHistoryExpanded ? '▲ ocultar' : '▼ ver últimos'}</span>
-    </div>
-    ${listaHtml}`;
-}
-
-// ── DESEMPENHO — agrega TODO o histórico já resolvido (scanner_alerts, mesma
-// tabela das 3 abas) em 3 vistas: calibração real vs prometida, taxa de
-// acerto por sinal/janela, volume+tendência por dia. Só leitura — nenhum
-// cálculo novo no motor, cresce sozinho conforme mais alertas resolvem.
-let _scannerPerfMode = 'under';
-let _scannerPerfAutoRefresh = null;
-let _scannerPerfData = null;
-
-function _scannerPerfSetMode(mode) {
-  _scannerPerfMode = mode;
-  ['under', 'over', 'comeback'].forEach(m => {
-    const b = document.getElementById(`scannerPerfModeBtn_${m}`);
-    if (b) b.classList.toggle('active', m === mode);
-  });
-  _scannerPerfLoad();
-}
-
-async function _scannerPerfLoad() {
-  const body = document.getElementById('scannerPerfBody');
-  if (!body) return;
-  if (!_scannerPerfData) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  try {
-    const r = await fetch(`/api/scanner/performance?mode=${_scannerPerfMode}`);
-    _scannerPerfData = await r.json();
-  } catch (e) {
-    body.innerHTML = `<div class="live-loading">Erro ao carregar: ${e}</div>`;
-    return;
-  }
-  _scannerPerfRender();
-}
-
-// Rótulo da janela — window_min=0 é o sentinela "até o fim do jogo" do Vira
-// o Jogo (ver _scanner_build_alerts_comeback no backend).
-function _scannerPerfWindowLabel(w) {
-  return w ? `próximos ${w}min` : 'até o fim do jogo';
-}
-
-function _scannerPerfAccColor(acc) {
-  if (acc >= 0.8) return '#22c55e';
-  if (acc >= 0.6) return '#f59e0b';
+// Cor por magnitude da taxa — usada nos cards do Scanner (Under/Over/Vira o
+// Jogo) pra comunicar visualmente se o % achado é alto ou baixo, já que os
+// 3 mercados não têm mais um limiar fixo de "seguro" decidindo o que mostrar.
+function _scannerRateColor(rate) {
+  if (rate >= 0.8) return '#22c55e';
+  if (rate >= 0.6) return '#f59e0b';
   return '#ef4444';
-}
-
-function _scannerPerfRender() {
-  const body = document.getElementById('scannerPerfBody');
-  if (!body) return;
-  const d = _scannerPerfData;
-  if (!d || !d.total_fired) {
-    body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:24px 0;text-align:center">Nenhum alerta disparado ainda nessa aba — o painel preenche sozinho conforme o Scanner ${_SCANNER_MODE_TEXT[_scannerPerfMode].title.replace('Scanner ', '')} for rodando.</div>`;
-    return;
-  }
-
-  const pendentes = d.total_fired - d.total_resolved;
-  const summaryHtml = `
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
-      <div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:${d.overall_accuracy == null ? 'var(--text2)' : _scannerPerfAccColor(d.overall_accuracy)}">${d.overall_accuracy == null ? '—' : (d.overall_accuracy * 100).toFixed(1) + '%'}</div>
-        <div style="font-size:11px;color:var(--text2)">acerto real geral</div>
-      </div>
-      <div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--text)">${d.total_fired}</div>
-        <div style="font-size:11px;color:var(--text2)">alertas disparados</div>
-      </div>
-      <div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--text)">${d.total_resolved}</div>
-        <div style="font-size:11px;color:var(--text2)">resolvidos${pendentes ? ` (${pendentes} pendente${pendentes === 1 ? '' : 's'})` : ''}</div>
-      </div>
-    </div>`;
-
-  const calibHtml = !d.calibration.length ? '' : `
-    <div style="font-size:12px;font-weight:700;color:var(--text);margin:0 0 4px">Calibração — % prometido vs acerto real</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">o teste mais rigoroso: se a faixa "95-96% prometido" só acertou 80% na prática, o sistema está otimista demais nessa faixa</div>
-    <div style="overflow-x:auto;margin-bottom:20px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:360px">
-        <thead><tr style="color:var(--text2);text-align:left">
-          <th style="padding:6px 8px">Prometido</th><th style="padding:6px 8px">Amostra</th><th style="padding:6px 8px">Acerto real</th><th style="padding:6px 8px"></th>
-        </tr></thead>
-        <tbody>
-          ${d.calibration.map(c => `
-            <tr style="border-top:1px solid var(--border)">
-              <td style="padding:6px 8px">${c.promised_from}–${c.promised_to}%</td>
-              <td style="padding:6px 8px;color:var(--text2)">${c.sample}</td>
-              <td style="padding:6px 8px;font-weight:700;color:${_scannerPerfAccColor(c.real_accuracy)}">${(c.real_accuracy * 100).toFixed(1)}%</td>
-              <td style="padding:6px 8px;width:120px"><div style="background:var(--bg);border-radius:4px;overflow:hidden;height:6px"><div style="width:${(c.real_accuracy * 100).toFixed(1)}%;height:100%;background:${_scannerPerfAccColor(c.real_accuracy)}"></div></div></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  const windowHtml = !d.by_window.length ? '' : `
-    <div style="font-size:12px;font-weight:700;color:var(--text);margin:0 0 8px">Acerto por sinal/janela</div>
-    <div style="overflow-x:auto;margin-bottom:20px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:280px">
-        <thead><tr style="color:var(--text2);text-align:left">
-          <th style="padding:6px 8px">Janela</th><th style="padding:6px 8px">Amostra</th><th style="padding:6px 8px">Acerto real</th>
-        </tr></thead>
-        <tbody>
-          ${d.by_window.map(w => `
-            <tr style="border-top:1px solid var(--border)">
-              <td style="padding:6px 8px">${_scannerPerfWindowLabel(w.window_min)}</td>
-              <td style="padding:6px 8px;color:var(--text2)">${w.sample}</td>
-              <td style="padding:6px 8px;font-weight:700;color:${_scannerPerfAccColor(w.accuracy)}">${(w.accuracy * 100).toFixed(1)}%</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  const trendHtml = !d.trend.length ? '' : `
-    <div style="font-size:12px;font-weight:700;color:var(--text);margin:0 0 8px">Volume e tendência por dia</div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:320px">
-        <thead><tr style="color:var(--text2);text-align:left">
-          <th style="padding:6px 8px">Data</th><th style="padding:6px 8px">Disparados</th><th style="padding:6px 8px">Resolvidos</th><th style="padding:6px 8px">Acerto</th>
-        </tr></thead>
-        <tbody>
-          ${d.trend.slice().reverse().map(t => `
-            <tr style="border-top:1px solid var(--border)">
-              <td style="padding:6px 8px">${_bt2EscXml(t.date)}</td>
-              <td style="padding:6px 8px;color:var(--text2)">${t.fired}</td>
-              <td style="padding:6px 8px;color:var(--text2)">${t.resolved}</td>
-              <td style="padding:6px 8px;font-weight:700;color:${t.accuracy == null ? 'var(--text2)' : _scannerPerfAccColor(t.accuracy)}">${t.accuracy == null ? '—' : (t.accuracy * 100).toFixed(1) + '%'}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  body.innerHTML = summaryHtml + calibHtml + windowHtml + trendHtml;
 }
 
 // ── PROGNÓSTICOS — passo 3 do plano combinado com o usuário: taxas-base
@@ -4134,7 +3898,7 @@ function _scannerMatchRowHtml(m) {
               <div style="font-size:11px;color:var(--text2)">${a.window_min ? `próximos ${a.window_min}min` : 'até o fim do jogo'} · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
             </div>
             <div style="flex-shrink:0;text-align:center">
-              <div style="font-size:14px;font-weight:800;color:${_scannerPerfAccColor(a.rate)}">${(a.rate * 100).toFixed(1)}%</div>
+              <div style="font-size:14px;font-weight:800;color:${_scannerRateColor(a.rate)}">${(a.rate * 100).toFixed(1)}%</div>
               <div style="font-size:9px;color:var(--text2)">${modeTxt.badge}</div>
             </div>
           </div>`).join('') +

@@ -2680,15 +2680,13 @@ def _uniscore_minuto(e):
         return None
     return f"{offset + elapsed_min}'"
 
-def _radar_fetch_live_matches():
-    """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre,
-    só sem o jsonify) — extraída pra ser reaproveitada pelo scan automático
-    do Scanner em segundo plano (_scanner_auto_scan_loop), que roda numa
-    thread sem contexto de request do Flask e não pode chamar jsonify()."""
+@app.route("/api/radar/live")
+def api_radar_live():
+    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
     # Cache de 90s para o endpoint público (mais curto que o cache interno)
     if time.time() - _uniscore_full_cache["ts"] < 90 and _uniscore_full_cache["live"]:
         live = _uniscore_full_cache["live"]
-        return {"live": live, "total": len(live)}
+        return jsonify({"live": live, "total": len(live)})
 
     live = []
     all_by_id = {}
@@ -2782,17 +2780,11 @@ def _radar_fetch_live_matches():
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
     if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):
         print(f"[live] API retornou 0 jogos — mantendo cache anterior com {len(_uniscore_full_cache['live'])} jogos")
-        return {"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True}
+        return jsonify({"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True})
 
     _uniscore_full_cache["ts"]   = time.time()
     _uniscore_full_cache["live"] = live
-    return {"live": live, "total": len(live), "stale": False}
-
-
-@app.route("/api/radar/live")
-def api_radar_live():
-    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
-    return jsonify(_radar_fetch_live_matches())
+    return jsonify({"live": live, "total": len(live), "stale": False})
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -4160,9 +4152,8 @@ def _scanner_build_alerts_over_ht(cohort, minuto_atual):
     placar+minuto, nenhuma busca nova), a fração de partidas históricas que
     tiveram PELO MENOS 1 gol (de qualquer lado) entre esse ponto e o
     intervalo (_SCANNER_HT_MINUTE). window_min guarda os minutos restantes
-    até o intervalo (não uma janela fixa) — isso faz o _scanner_check_outcome
-    genérico (minuto + window_min) resolver certinho na hora do intervalo,
-    sem precisar de um branch especial pra esse sinal."""
+    até o intervalo (não uma janela fixa) — informativo pra UI, não afeta
+    o cálculo."""
     if minuto_atual >= _SCANNER_HT_MINUTE:
         return []
     total = teve_gol = 0
@@ -4249,9 +4240,8 @@ def _scanner_build_alerts_comeback(cohort):
         return []
 
     # window_min=0 é sentinela de "até o fim do jogo", não uma janela curta
-    # de verdade. O placar projetado vai dentro do próprio signal (não no
-    # campo `placar`, que guarda o placar ATUAL no momento do disparo) —
-    # _scanner_check_outcome faz o parse de volta na hora de resolver.
+    # de verdade. O placar projetado vai embutido no próprio signal (padrão
+    # usado nos outros mercados também, ex: over_2t_<linha>).
     return [{
         "window_min": 0,
         "signal": f"placar_final_{melhor_h}_{melhor_a}",
@@ -4262,10 +4252,8 @@ def _scanner_build_alerts_comeback(cohort):
 
 
 # _BT2_DB_PATH/_bt2_db_lock precisam existir aqui em cima (não só lá embaixo
-# na seção "BACKTEST 2") porque o _scanner_resolve_alerts_loop já inicia sua
-# thread de fundo logo abaixo — se essas globals só fossem definidas depois no
-# arquivo, a thread rodava em paralelo com o resto do módulo ainda carregando
-# e batia um NameError na primeira iteração do loop.
+# na seção "BACKTEST 2") porque várias rotas definidas antes dessa seção
+# (export de finalizadas, prognósticos, etc.) já usam essas globals.
 _BT2_DB_PATH = os.path.join(DATA_DIR, "backtest2.db")
 _bt2_db_lock = threading.Lock()
 
@@ -4575,353 +4563,13 @@ def api_painel_prognostico_sinais_cd_dados():
     return jsonify({"min_amostra": _PAINEL_PROGNOSTICO_MIN_SAMPLE, "sinais": sinais})
 
 
-# ── Histórico de alertas do Scanner — registra cada alerta que disparou e,
-# depois que a janela prometida passa, checa se realmente se confirmou (sem
-# gol) ou não. Mede a taxa de acerto do SISTEMA rodando ao vivo, não só a
-# calibração contra o histórico — pedido explícito do usuário, é a forma mais
-# direta de saber se o ≥95% se sustenta na prática. Reaproveita o mesmo
-# arquivo/lock do backtest2.db (mesmo padrão de persistência+backup pro
-# GitHub já usado em todo o resto do projeto), só numa tabela própria.
-def _scanner_db_conn():
-    conn = sqlite3.connect(_BT2_DB_PATH, timeout=30)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS scanner_alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            event_id TEXT NOT NULL,
-            casa TEXT, fora TEXT, liga TEXT,
-            minuto INTEGER, placar TEXT,
-            window_min INTEGER NOT NULL,
-            signal TEXT NOT NULL,
-            label TEXT,
-            rate REAL, sample INTEGER,
-            fired_at TEXT NOT NULL,
-            check_after REAL NOT NULL,
-            resolved INTEGER DEFAULT 0,
-            outcome INTEGER,
-            checked_at TEXT,
-            UNIQUE(event_id, window_min, signal, minuto)
-        )
-    """)
-    return conn
-
-
-def _scanner_log_alerts(event_id, casa, fora, liga, minuto, placar, alerts):
-    """Grava cada alerta novo (INSERT OR IGNORE — a chave única evita duplicar
-    o mesmo alerta a cada poll de 15s enquanto ele continuar valendo). Só
-    grava, não bloqueia a resposta do endpoint por causa disso."""
-    if not alerts:
-        return
-    now_ts = time.time()
-    now_iso = datetime.utcnow().isoformat() + "Z"
-    rows = [
-        (event_id, casa, fora, liga, minuto, placar, a["window_min"], a["signal"], a["label"],
-         a["rate"], a["sample"], now_iso, now_ts + a["window_min"] * 60)
-        for a in alerts
-    ]
-    try:
-        with _bt2_db_lock:
-            conn = _scanner_db_conn()
-            try:
-                conn.executemany("""
-                    INSERT OR IGNORE INTO scanner_alerts
-                    (event_id, casa, fora, liga, minuto, placar, window_min, signal, label, rate, sample, fired_at, check_after)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
-                conn.commit()
-            finally:
-                conn.close()
-    except Exception as e:
-        print(f"[scanner-alerts] Erro gravando: {e}")
-
-
-def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal, placar):
-    """Retorna (resolvido, acertou). resolvido=False quando ainda não dá pra
-    saber. Tenta o dado ao vivo primeiro (_process_momentum, cache de 90s);
-    se a partida já não estiver mais sendo rastreada (encerrou faz tempo),
-    cai pro arquivo já salvo em momentum_history/*_{event_id}.json.
-
-    O que conta como "acertou" depende do sinal: pro Under (sem_mais_gols),
-    acertou = NÃO saiu gol na janela; pro Over (sai_gol, over_ht), é o
-    oposto — acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida.
-    Pro 'Over no 2º tempo' (over_2t_<linha>) é uma contagem de gols contra
-    uma linha (0.5/1.5/2.5), não um sim/não de "saiu gol". Pro 'Vira o Jogo'
-    (nao_perde_mais, sinal antigo mantido só pra alertas já salvos antes do
-    redesenho) a lógica é bem diferente — não tem janela curta, precisa
-    esperar a partida chegar perto do fim (_SCANNER_COMEBACK_MIN_MINUTE) e
-    comparar o placar atual com quem estava perdendo quando o alerta
-    disparou (guardado em `placar`). O sinal atual do 'Vira o Jogo'
-    (placar_final_<h>_<a>) projeta o placar final inteiro — acertou =
-    placar final bateu exatamente com o projetado."""
-    if signal == "nao_perde_mais":
-        data = None
-        try:
-            data = _process_momentum(event_id, casa, fora, liga)
-        except Exception:
-            pass
-        if not data or not data.get("graphPoints"):
-            return False, None
-        minuto_atual = int(max((p.get("minute") or 0) for p in data["graphPoints"]))
-        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
-            return False, None
-        if data.get("score_h") is not None and data.get("score_a") is not None:
-            cur_h, cur_a = int(data["score_h"]), int(data["score_a"])
-        else:
-            cur_h, cur_a = _scanner_score_at_minute(data.get("goals") or [], minuto_atual)
-        ph, pa = (int(x) for x in placar.split("-"))
-        trailing_casa = ph < pa
-        acertou = (cur_h >= cur_a) if trailing_casa else (cur_a >= cur_h)
-        return True, acertou
-
-    def _carrega_pontos_gols():
-        points, goals = None, None
-        try:
-            data = _process_momentum(event_id, casa, fora, liga)
-            if data:
-                points = data.get("graphPoints") or []
-                goals = data.get("goals") or []
-        except Exception:
-            pass
-        if not points:
-            for fpath in glob.glob(os.path.join(MOMENTUM_DIR, f"*_{event_id}.json")):
-                try:
-                    with open(fpath, encoding="utf-8") as f:
-                        d = json.load(f)
-                    points = d.get("graphPoints") or []
-                    goals = d.get("goals") or []
-                    break
-                except Exception:
-                    continue
-        return points, goals
-
-    if signal.startswith("over_2t_"):
-        linha = float(signal[len("over_2t_"):].replace("_", "."))
-        points, goals = _carrega_pontos_gols()
-        if not points:
-            return False, None
-        minuto_atual = int(max((p.get("minute") or 0) for p in points))
-        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
-            return False, None  # não rastreou até perto do fim -- contagem não é confiável ainda
-        gols_dali_pra_frente = sum(1 for g in (goals or []) if minuto < (g.get("minute") or 0) <= minuto_atual)
-        return True, gols_dali_pra_frente > linha
-
-    if signal.startswith("placar_final_"):
-        proj_h, proj_a = (int(x) for x in signal[len("placar_final_"):].split("_"))
-        points, goals = _carrega_pontos_gols()
-        if not points:
-            return False, None
-        minuto_atual = int(max((p.get("minute") or 0) for p in points))
-        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
-            return False, None  # placar ainda não é final de verdade
-        final_h, final_a = _scanner_score_at_minute(goals or [], minuto_atual)
-        return True, (final_h == proj_h and final_a == proj_a)
-
-    points, goals = _carrega_pontos_gols()
-    if not points:
-        return False, None
-    minuto_atual = int(max((p.get("minute") or 0) for p in points))
-    if minuto_atual < minuto + window_min:
-        return False, None  # partida ainda não passou da janela prometida
-    teve_gol = any(minuto < (g.get("minute") or 0) <= minuto + window_min for g in (goals or []))
-    return True, (teve_gol if signal in ("sai_gol", "over_ht") else not teve_gol)
-
-
-_SCANNER_RESOLVE_INTERVAL = 120  # 2min — não precisa ser mais frequente que isso
-
-
-def _scanner_resolve_alerts_loop():
-    while True:
-        try:
-            with _bt2_db_lock:
-                conn = _scanner_db_conn()
-                try:
-                    cur = conn.execute(
-                        "SELECT id, event_id, casa, fora, liga, minuto, window_min, signal, placar FROM scanner_alerts "
-                        "WHERE resolved=0 AND check_after<=?", (time.time(),)
-                    )
-                    pending = cur.fetchall()
-                finally:
-                    conn.close()
-            resolved_count = 0
-            for (row_id, event_id, casa, fora, liga, minuto, window_min, signal, placar) in pending:
-                resolvido, acertou = _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signal, placar)
-                if not resolvido:
-                    continue
-                with _bt2_db_lock:
-                    conn = _scanner_db_conn()
-                    try:
-                        conn.execute(
-                            "UPDATE scanner_alerts SET resolved=1, outcome=?, checked_at=? WHERE id=?",
-                            (1 if acertou else 0, datetime.utcnow().isoformat() + "Z", row_id)
-                        )
-                        conn.commit()
-                    finally:
-                        conn.close()
-                resolved_count += 1
-            if resolved_count:
-                print(f"[scanner-alerts] {resolved_count} alerta(s) resolvido(s)")
-                _bt2_push_db_bg()
-        except Exception as e:
-            print(f"[scanner-alerts] Erro resolvendo: {e}")
-        time.sleep(_SCANNER_RESOLVE_INTERVAL)
-
-
-threading.Thread(target=_scanner_resolve_alerts_loop, daemon=True, name="ScannerAlertsResolve").start()
-
-
-# Quais sinais pertencem a cada aba — "sem_mais_gols" é o único do Under
-# ativo hoje (casa_nao_marca/fora_nao_marca seguem comentados em
-# _scanner_build_alerts); "sai_gol" é o único do Over.
-_SCANNER_MODE_SIGNALS = {
-    "under": ("sem_mais_gols", "casa_nao_marca", "fora_nao_marca"),
-    # "sai_gol" é o sinal antigo (janela curta genérica), mantido na lista só
-    # pra alertas já salvos antes do redesenho (2026-08-25) continuarem
-    # contando no histórico/Desempenho — novos alertas usam over_ht/over_2t_*.
-    "over": ("sai_gol", "over_ht", "over_2t_0_5", "over_2t_1_5", "over_2t_2_5"),
-    "comeback": ("nao_perde_mais",),
-}
-
-
-def _scanner_mode_signal_where(mode):
-    """Monta a cláusula WHERE de signal pra um modo do Scanner + os params
-    pra passar junto. A maioria dos modos tem uma lista fixa e pequena de
-    sinais (IN); 'comeback', desde o redesenho de projeção de placar
-    (2026-08-25), usa sinais dinâmicos (placar_final_<h>_<a>, um por
-    combinação de placar final possível) — não dá pra enumerar num IN, usa
-    LIKE por prefixo pra esse caso. "nao_perde_mais" continua incluído pra
-    alertas antigos (salvos antes do redesenho) continuarem contando."""
-    if mode == "comeback":
-        return "(signal = ? OR signal LIKE ?)", ["nao_perde_mais", "placar_final_%"]
-    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
-    placeholders = ",".join("?" * len(signals))
-    return f"signal IN ({placeholders})", list(signals)
-
-
-@app.route("/api/scanner/alerts_history")
-def api_scanner_alerts_history():
-    """Histórico de alertas já disparados + taxa de acerto real (resolvidos
-    de verdade, checando se saiu gol ou não na janela prometida) — mede o
-    sistema rodando ao vivo, não só a calibração contra o histórico salvo.
-    ?mode=under|over filtra pra só os sinais daquela aba (Under e Over
-    disparam no mesmo endpoint de análise e ficam na mesma tabela)."""
-    mode = request.args.get("mode", "under")
-    where_sql, params = _scanner_mode_signal_where(mode)
-    with _bt2_db_lock:
-        conn = _scanner_db_conn()
-        try:
-            cur = conn.execute(f"""
-                SELECT event_id, casa, fora, liga, minuto, placar, window_min, signal, label,
-                       rate, sample, fired_at, resolved, outcome, checked_at
-                FROM scanner_alerts WHERE {where_sql} ORDER BY fired_at DESC LIMIT 200
-            """, params)
-            cols = [d[0] for d in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-        finally:
-            conn.close()
-    resolved = [r for r in rows if r["resolved"]]
-    hits = sum(1 for r in resolved if r["outcome"] == 1)
-    return jsonify({
-        "alerts": rows,
-        "total_resolved": len(resolved),
-        "hits": hits,
-        "accuracy": round(hits / len(resolved), 4) if resolved else None,
-    })
-
-
-# Largura do bucket de calibração (rate prometido → taxa real) varia por aba
-# porque a faixa de rate possível é bem diferente: Under só promete 95-100%
-# (5 pontos de amplitude — bucket fino de 1pp pra não virar só 1 grupo),
-# Over/Comeback promete 65-100%/40-100% (amplitude bem maior — bucket de 5pp).
-_SCANNER_CALIBRATION_BUCKET = {"under": 0.01, "over": 0.05, "comeback": 0.05}
-
-
-@app.route("/api/scanner/performance")
-def api_scanner_performance():
-    """Painel de Desempenho — agrega TODO o histórico já resolvido de uma aba
-    (Under/Over/Vira o Jogo) em 3 vistas: calibração real vs prometida (o
-    teste mais rigoroso — agrupa por faixa do % prometido e compara com o
-    que realmente aconteceu), taxa de acerto por sinal/janela, e volume+
-    tendência por dia. Não recalcula nada do motor — só lê o que já está
-    em scanner_alerts (mesma tabela do histórico), então cresce sozinho
-    conforme mais alertas disparam e resolvem, sem manutenção nenhuma."""
-    mode = request.args.get("mode", "under")
-    where_sql, params = _scanner_mode_signal_where(mode)
-    with _bt2_db_lock:
-        conn = _scanner_db_conn()
-        try:
-            cur = conn.execute(f"""
-                SELECT window_min, rate, resolved, outcome, fired_at
-                FROM scanner_alerts WHERE {where_sql}
-            """, params)
-            rows = cur.fetchall()
-        finally:
-            conn.close()
-
-    total_fired = len(rows)
-    resolved_rows = [r for r in rows if r[2]]
-    total_resolved = len(resolved_rows)
-    hits = sum(1 for r in resolved_rows if r[3] == 1)
-
-    # Por sinal/janela — window_min=0 é o sentinela "até o fim do jogo" do
-    # Vira o Jogo (ver _scanner_build_alerts_comeback), fica como único grupo.
-    by_window_acc = {}
-    for window_min, rate, resolved, outcome, fired_at in resolved_rows:
-        d = by_window_acc.setdefault(window_min, {"total": 0, "hits": 0})
-        d["total"] += 1
-        d["hits"] += 1 if outcome == 1 else 0
-    by_window = [
-        {"window_min": k, "sample": v["total"], "accuracy": round(v["hits"] / v["total"], 4)}
-        for k, v in sorted(by_window_acc.items(), key=lambda kv: kv[0])
-    ]
-
-    bucket_width = _SCANNER_CALIBRATION_BUCKET.get(mode, 0.05)
-    buckets = {}
-    for window_min, rate, resolved, outcome, fired_at in resolved_rows:
-        b = round(math.floor(rate / bucket_width) * bucket_width, 4)
-        d = buckets.setdefault(b, {"total": 0, "hits": 0})
-        d["total"] += 1
-        d["hits"] += 1 if outcome == 1 else 0
-    calibration = [
-        {"promised_from": round(k * 100, 1), "promised_to": round((k + bucket_width) * 100, 1),
-         "sample": v["total"], "real_accuracy": round(v["hits"] / v["total"], 4)}
-        for k, v in sorted(buckets.items())
-    ]
-
-    by_day_acc = {}
-    for window_min, rate, resolved, outcome, fired_at in rows:
-        day = (fired_at or "")[:10]
-        d = by_day_acc.setdefault(day, {"fired": 0, "resolved": 0, "hits": 0})
-        d["fired"] += 1
-        if resolved:
-            d["resolved"] += 1
-            d["hits"] += 1 if outcome == 1 else 0
-    trend = [
-        {"date": k, "fired": v["fired"], "resolved": v["resolved"],
-         "accuracy": round(v["hits"] / v["resolved"], 4) if v["resolved"] else None}
-        for k, v in sorted(by_day_acc.items())
-    ]
-
-    return jsonify({
-        "mode": mode,
-        "total_fired": total_fired,
-        "total_resolved": total_resolved,
-        "overall_accuracy": round(hits / total_resolved, 4) if total_resolved else None,
-        "by_window": by_window,
-        "calibration": calibration,
-        "trend": trend,
-    })
-
-
 def _scanner_analyze_one(event_id, casa, fora, liga):
     """Núcleo do motor de similaridade do Scanner: pega o estado ao vivo atual
     (via _process_momentum, o mesmo dado que já alimenta Ao Vivo/momentum) e
     busca no momentum_history partidas com o mesmo placar num minuto
-    parecido, devolvendo qualquer combinação janela+mercado que bateu ≥95%
-    de segurança na amostra encontrada — e já grava os alertas encontrados
-    (_scanner_log_alerts) antes de devolver.
-
-    Extraída de dentro de api_scanner_analyze pra ser reaproveitada tanto
-    pelo endpoint (chamado pelo frontend só pros jogos marcados manualmente
-    como 'watch') quanto pelo scan automático em segundo plano
-    (_scanner_auto_scan_loop, roda sozinho pra TODOS os jogos ao vivo)."""
+    parecido, devolvendo o melhor achado de cada mercado (Under/Over/Vira o
+    Jogo). Extraída de dentro de api_scanner_analyze só pra manter a rota
+    enxuta."""
     if not event_id or not casa or not fora:
         return {"error": "faltam parâmetros (event_id, casa, fora)"}
 
@@ -4952,8 +4600,6 @@ def _scanner_analyze_one(event_id, casa, fora, liga):
     # o mesmo formato "lista de 0 ou 1 melhor achado" usado em alerts/alerts_comeback.
     alerts_over = _scanner_build_alerts_over_ht(cohort, minuto_atual) + _scanner_build_alerts_over_2t(cohort, minuto_atual)
     alerts_comeback = _scanner_build_alerts_comeback(cohort)
-    _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}",
-                         alerts + alerts_over + alerts_comeback)
 
     return {
         "minuto": minuto_atual,
@@ -4979,10 +4625,7 @@ def _scanner_analyze_one(event_id, casa, fora, liga):
 @app.route("/api/scanner/analyze")
 def api_scanner_analyze():
     """Chamado periodicamente pelo frontend só pros jogos marcados como
-    'watch' na aba Scanner. O motor em si (_scanner_analyze_one) também roda
-    sozinho em segundo plano pra TODOS os jogos ao vivo, ver
-    _scanner_auto_scan_loop — a base de Desempenho cresce mesmo sem ninguém
-    de olho num jogo específico."""
+    'watch' na aba Scanner."""
     event_id = request.args.get("event_id", "")
     casa = request.args.get("casa", "")
     fora = request.args.get("fora", "")
@@ -4992,45 +4635,6 @@ def api_scanner_analyze():
         status = 400 if "faltam" in result["error"] else 404
         return jsonify(result), status
     return jsonify(result)
-
-
-_SCANNER_AUTO_SCAN_INTERVAL = 90      # segundos entre passadas completas
-_SCANNER_AUTO_SCAN_DELAY = 2          # segundos entre cada partida dentro da mesma passada
-_SCANNER_AUTO_SCAN_MAX_PER_PASS = 50  # teto por passada, pra dia com muito jogo simultâneo não virar um loop sem fim
-
-
-def _scanner_auto_scan_loop():
-    """Roda o motor de similaridade do Scanner sozinho, pra TODOS os jogos ao
-    vivo — não só os marcados manualmente na aba Scanner (pedido do usuário,
-    2026-08-25: a base de Desempenho só crescia enquanto alguém ficava de
-    olho num jogo específico com a aba aberta).
-
-    Sequencial e com pausa entre cada partida de propósito: o servidor só
-    tem 4 threads no total pra atender TUDO (Ao Vivo é a prioridade, não
-    pode competir por esse recurso escasso — ver decisão registrada com o
-    usuário sobre isso). Essa thread de fundo reaproveita os mesmos caches
-    que o resto do site já usa (radar/live 90s, momentum_history 10min), só
-    adiciona chamadas de rede por partida (_process_momentum) — nenhum
-    trabalho pesado de CPU novo."""
-    while True:
-        try:
-            live = _radar_fetch_live_matches().get("live") or []
-            analisadas = 0
-            for m in live[:_SCANNER_AUTO_SCAN_MAX_PER_PASS]:
-                try:
-                    r = _scanner_analyze_one(m.get("id"), m.get("casa"), m.get("fora"), m.get("liga"))
-                    if "error" not in r:
-                        analisadas += 1
-                except Exception as e:
-                    print(f"[scanner-autoscan] Erro em {m.get('casa')} x {m.get('fora')}: {e}")
-                time.sleep(_SCANNER_AUTO_SCAN_DELAY)
-            print(f"[scanner-autoscan] Passada concluída: {analisadas}/{len(live)} jogo(s) ao vivo analisado(s).")
-        except Exception as e:
-            print(f"[scanner-autoscan] Erro na passada: {e}")
-        time.sleep(_SCANNER_AUTO_SCAN_INTERVAL)
-
-
-threading.Thread(target=_scanner_auto_scan_loop, daemon=True, name="ScannerAutoScan").start()
 
 
 def _momentum_eval_pattern(matches, chance_pct, over_pct, window_min):
