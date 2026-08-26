@@ -2680,13 +2680,14 @@ def _uniscore_minuto(e):
         return None
     return f"{offset + elapsed_min}'"
 
-@app.route("/api/radar/live")
-def api_radar_live():
-    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
+def _radar_fetch_live_matches():
+    """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
+    sem o jsonify) — extraída pra ser reaproveitada também pelo Sinalizador
+    (/api/sinalizador/check), não só pelo endpoint público /api/radar/live."""
     # Cache de 90s para o endpoint público (mais curto que o cache interno)
     if time.time() - _uniscore_full_cache["ts"] < 90 and _uniscore_full_cache["live"]:
         live = _uniscore_full_cache["live"]
-        return jsonify({"live": live, "total": len(live)})
+        return {"live": live, "total": len(live)}
 
     live = []
     all_by_id = {}
@@ -2780,11 +2781,17 @@ def api_radar_live():
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
     if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):
         print(f"[live] API retornou 0 jogos — mantendo cache anterior com {len(_uniscore_full_cache['live'])} jogos")
-        return jsonify({"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True})
+        return {"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True}
 
     _uniscore_full_cache["ts"]   = time.time()
     _uniscore_full_cache["live"] = live
-    return jsonify({"live": live, "total": len(live), "stale": False})
+    return {"live": live, "total": len(live), "stale": False}
+
+
+@app.route("/api/radar/live")
+def api_radar_live():
+    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
+    return jsonify(_radar_fetch_live_matches())
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -6574,6 +6581,343 @@ def _uni_odds_today():
         return odds_map
     except Exception:
         return {}
+
+
+# ── SINALIZADOR DE METODOLOGIAS ──────────────────────────────────────────────
+# Importa o .txt exportado pela ferramenta local (scraping_statarea/
+# analise_padroes.html, aba Estudos > Funil pré-live → ao vivo) com
+# combinações pré-live+checkpoint validadas por k-fold + p-valor < 0.01, e
+# sinaliza em tempo real quando um jogo ao vivo bate uma delas.
+#
+# As fórmulas de cada variável abaixo são PORTADAS 1:1 de analise_padroes.html
+# (AUTO_VARIAVEIS/AUTO_VARIAVEIS_CHECKPOINT) — mesma matemática, pra o número
+# calculado aqui bater com o que validou a metodologia lá. Uma exceção
+# deliberada: "Pressão média (1º T)" NÃO reaproveita _pressure_summary()
+# .h1_avg — aquela função corta o gráfico no MEIO do que já foi rastreado até
+# agora (só coincide com o minuto 45 numa partida ENCERRADA, com ~90min
+# rastreados); pra um jogo ao vivo ainda em andamento isso cortaria num
+# minuto errado, então aqui o corte é sempre literal, minuto <= 45.
+_SINALIZADOR_CONFIG_FILE = os.path.join(DATA_DIR, "sinalizador_config.json")
+_sinalizador_lock = threading.Lock()
+_sinalizador_rules_cache = None
+
+
+def _sinalizador_load_rules():
+    global _sinalizador_rules_cache
+    with _sinalizador_lock:
+        if _sinalizador_rules_cache is not None:
+            return _sinalizador_rules_cache
+        try:
+            with open(_SINALIZADOR_CONFIG_FILE, encoding="utf-8") as f:
+                _sinalizador_rules_cache = json.load(f)
+        except Exception:
+            _sinalizador_rules_cache = []
+        return _sinalizador_rules_cache
+
+
+def _sinalizador_parse_txt(text):
+    """Parse do .txt exportado pela ferramenta local: TSV, com linhas de
+    comentário (#) no topo ignoradas, depois cabeçalho, depois 1 linha por
+    configuração forte."""
+    linhas = [l for l in text.splitlines() if l.strip() and not l.startswith("#")]
+    if len(linhas) < 2:
+        return []
+    header = linhas[0].split("\t")
+    rules = []
+    for linha in linhas[1:]:
+        campos = linha.split("\t")
+        if len(campos) != len(header):
+            continue
+        row = dict(zip(header, campos))
+        try:
+            rules.append({
+                "mercado":             row["mercado"],
+                "variavel_pre_live":   row["variavel_pre_live"],
+                "min_pre_live":        float(row["min_pre_live"]),
+                "max_pre_live":        float(row["max_pre_live"]),
+                "variavel_checkpoint": row["variavel_checkpoint"],
+                "min_checkpoint":      float(row["min_checkpoint"]),
+                "max_checkpoint":      float(row["max_checkpoint"]),
+                "taxa_final_pct":      float(row["taxa_final_pct"]),
+                "amostra":             int(row["amostra"]),
+            })
+        except (KeyError, ValueError):
+            continue
+    return rules
+
+
+@app.route("/api/sinalizador/import", methods=["POST"])
+def api_sinalizador_import():
+    """Recebe o .txt de configurações fortes (upload, campo 'file') e
+    SUBSTITUI as regras ativas — persiste em arquivo com backup no GitHub
+    (mesmo padrão do lay_placar_config.json), pra sobreviver a redeploy."""
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "nenhum arquivo enviado"}), 400
+    text = f.read().decode("utf-8", errors="replace")
+    rules = _sinalizador_parse_txt(text)
+    if not rules:
+        return jsonify({"error": "nenhuma configuração válida encontrada nesse arquivo"}), 400
+    global _sinalizador_rules_cache
+    with _sinalizador_lock:
+        _sinalizador_rules_cache = rules
+        with open(_SINALIZADOR_CONFIG_FILE, "w", encoding="utf-8") as fp:
+            json.dump(rules, fp, ensure_ascii=False, indent=2)
+    github_storage.push_file_bg(_SINALIZADOR_CONFIG_FILE, "sinalizador_config.json")
+    return jsonify({"ok": True, "total": len(rules)})
+
+
+@app.route("/api/sinalizador/config")
+def api_sinalizador_config():
+    return jsonify({"rules": _sinalizador_load_rules()})
+
+
+def _sinalizador_prob_implicita_3(h, x, a):
+    """Probabilidade implícita normalizada (tira a margem da casa) do 1X2 —
+    mesma fórmula de _probImplicita3Todas em analise_padroes.html."""
+    try:
+        h, x, a = float(h), float(x), float(a)
+        if not h or not x or not a:
+            return None
+        ih, ix, ia = 1 / h, 1 / x, 1 / a
+        total = ih + ix + ia
+        return {"casa": ih / total, "empate": ix / total, "fora": ia / total}
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _sinalizador_prob_implicita_2(over, under):
+    """Idem, pra Over/Under — mesma fórmula de _probImplicita."""
+    try:
+        o, u = float(over), float(under)
+        if not o or not u:
+            return None
+        io, iu = 1 / o, 1 / u
+        return io / (io + iu)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _sinalizador_pressao_janela(graph_points, ate_minuto):
+    """Intensidade (média de |value|) + trocas de lado da pressão até um
+    minuto — mesma fórmula de _pressaoJanelaInicial."""
+    pontos = [p for p in (graph_points or []) if (p.get("minute") or 0) <= ate_minuto]
+    if not pontos:
+        return None
+    soma_abs = sum(abs(p.get("value", 0)) for p in pontos)
+    swings, sinal_anterior = 0, None
+    for p in pontos:
+        v = p.get("value", 0)
+        if v == 0:
+            continue
+        sinal = 1 if v > 0 else -1
+        if sinal_anterior is not None and sinal != sinal_anterior:
+            swings += 1
+        sinal_anterior = sinal
+    return {"media_abs": soma_abs / len(pontos), "swings": swings, "n": len(pontos)}
+
+
+def _sinalizador_pressao_media_1t(graph_points):
+    """'Pressão média (1º T)' — média SIGNED (não abs) de value, minuto<=45
+    literal (ver aviso no comentário da seção sobre por que não reaproveita
+    _pressure_summary().h1_avg aqui)."""
+    pontos = [p for p in (graph_points or []) if (p.get("minute") or 0) <= 45]
+    if not pontos:
+        return None
+    return sum(p.get("value", 0) for p in pontos) / len(pontos)
+
+
+def _sinalizador_diff_stat_periodo(statistics_periods, key, periodo="1ST"):
+    """Diferença casa-fora de uma estatística num período — mesma fórmula
+    de _diffStat/_diffStat1T (via _statPar)."""
+    stats = (statistics_periods or {}).get(periodo) or (statistics_periods or {}).get("ALL") or {}
+    s = stats.get(key)
+    if not s:
+        return None
+    try:
+        hv = s.get("homeValue")
+        av = s.get("awayValue")
+        if hv is None:
+            hv = float(s.get("home"))
+        if av is None:
+            av = float(s.get("away"))
+        return float(hv) - float(av)
+    except (TypeError, ValueError):
+        return None
+
+
+# Rótulo (como aparece no .txt) -> eixo de Força (window._strength do NowGoal)
+_SINALIZADOR_FORCA_AXES = {
+    "Força — Confronto direto (dif. casa-fora)": "battle",
+    "Força — Estado atual (dif. casa-fora)":     "state",
+    "Força — Ataque (dif. casa-fora)":           "attack",
+    "Força — Defesa (dif. casa-fora)":           "defend",
+}
+# Rótulo (checkpoint) -> nome do stat no UniScore (statistics_periods)
+_SINALIZADOR_CHECKPOINT_DIFFS = {
+    "Finalizações — diferença (1º T)":         "shots",
+    "Finalizações no alvo — diferença (1º T)": "shots_on_target",
+    "Escanteios — diferença (1º T)":           "corner_kicks",
+    "Ataques — diferença (1º T)":              "attacks",
+    "Ataques perigosos — diferença (1º T)":    "dangerous_attacks",
+    "Grandes chances — diferença (1º T)":      "big_chances",
+    "Posse de bola — diferença (1º T)":        "ball_possession",
+}
+
+
+def _sinalizador_calc_pre_live(label, odds_uni, forca):
+    """odds_uni: {"h","x","a","ou_over","ou_under"} (_uni_odds_today).
+    forca: {"odd_1","odd_x","odd_2","forca":{battle,state,attack,defend}} do
+    NowGoal, ou {} se não achou/cache ainda vazio (o cruzamento nunca dispara
+    Playwright novo — só lê _ng_strength_cache, ver _achar_nowgoal dentro de
+    api_sinalizador_check)."""
+    if label == "Prob. implícita casa (1X2)":
+        p = _sinalizador_prob_implicita_3(odds_uni.get("h"), odds_uni.get("x"), odds_uni.get("a"))
+        return p["casa"] if p else None
+    if label == "Prob. implícita empate (1X2)":
+        p = _sinalizador_prob_implicita_3(odds_uni.get("h"), odds_uni.get("x"), odds_uni.get("a"))
+        return p["empate"] if p else None
+    if label == "Prob. implícita fora (1X2)":
+        p = _sinalizador_prob_implicita_3(odds_uni.get("h"), odds_uni.get("x"), odds_uni.get("a"))
+        return p["fora"] if p else None
+    if label == "Prob. implícita Over FT":
+        return _sinalizador_prob_implicita_2(odds_uni.get("ou_over"), odds_uni.get("ou_under"))
+    if label == "Prob. implícita casa (NowGoal, 2ª fonte)":
+        p = _sinalizador_prob_implicita_3(forca.get("odd_1"), forca.get("odd_x"), forca.get("odd_2"))
+        return p["casa"] if p else None
+    eixo_nome = _SINALIZADOR_FORCA_AXES.get(label)
+    if eixo_nome:
+        eixo = (forca.get("forca") or {}).get(eixo_nome)
+        if not eixo:
+            return None
+        try:
+            return float(eixo.get("hGrade")) - float(eixo.get("gGrade"))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _sinalizador_calc_checkpoint(label, graph_points, statistics_periods):
+    if label == "Pressão média (1º T)":
+        return _sinalizador_pressao_media_1t(graph_points)
+    if label == "Intensidade de pressão (0-30min)":
+        r = _sinalizador_pressao_janela(graph_points, 30)
+        return r["media_abs"] if r else None
+    if label == "Trocas de lado da pressão (0-30min)":
+        r = _sinalizador_pressao_janela(graph_points, 30)
+        return r["swings"] if r else None
+    stat_key = _SINALIZADOR_CHECKPOINT_DIFFS.get(label)
+    if stat_key:
+        return _sinalizador_diff_stat_periodo(statistics_periods, stat_key, "1ST")
+    return None
+
+
+_SINALIZADOR_MAX_JOGOS = 60      # teto de jogos ao vivo processados por chamada
+_SINALIZADOR_WORKERS = 10        # mesmo espírito de _uni_events_today: pool pequeno,
+                                  # só pra não deixar dezenas de jogos sequenciais
+                                  # (cada um com várias chamadas de rede) travarem a
+                                  # resposta por 1-2 minutos — sem isso, testado
+                                  # localmente, o endpoint passava de 90s sem responder.
+
+
+def _sinalizador_buscar_dados_jogo(m, uni_odds, nowgoal_por_time):
+    """Busca tudo que uma partida precisa (momentum + cruzamento NowGoal) —
+    roda em paralelo (ThreadPoolExecutor) por partida, chamado de dentro de
+    api_sinalizador_check."""
+    event_id = m.get("id")
+    casa = m.get("casa") or ""
+    fora = m.get("fora") or ""
+    if not event_id or not casa or not fora:
+        return None
+    mom = _process_momentum(event_id, casa, fora, m.get("liga") or "")
+    if not mom:
+        return None
+    return {
+        "m": m,
+        "odds_uni": uni_odds.get(event_id) or {},
+        "nowgoal": nowgoal_por_time(casa, fora),
+        "graph_points": mom.get("graphPoints") or [],
+        "statistics_periods": mom.get("statistics_periods") or {},
+    }
+
+
+@app.route("/api/sinalizador/check")
+def api_sinalizador_check():
+    """Pra cada jogo ao vivo (UniScore), calcula as variáveis pré-live +
+    checkpoint e testa contra as regras importadas — devolve só os jogos que
+    bateram pelo menos 1 regra, com quais bateram. Sob demanda (chamado pelo
+    frontend enquanto a aba estiver aberta) — sem loop de fundo próprio,
+    reaproveita os mesmos caches que Ao Vivo/Painel já usam (_process_momentum
+    cache 90s, _uni_odds_today cache 60s).
+
+    A BUSCA dos dados (rede) roda num pool pequeno em paralelo — sequencial
+    chegava a passar de 90s sem responder com dezenas de jogos ao vivo
+    (mesmo motivo/técnica de _uni_events_today). A COMPARAÇÃO com as regras
+    (só CPU, nenhuma rede) continua sequencial, é desprezível."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    rules = _sinalizador_load_rules()
+    if not rules:
+        return jsonify({"jogos": [], "total_regras": 0, "total_ao_vivo": 0})
+
+    live = (_radar_fetch_live_matches().get("live") or [])[:_SINALIZADOR_MAX_JOGOS]
+    uni_odds = _uni_odds_today()
+
+    # _painel_fetch_matches_nowgoal() já é cacheada — busca 1x fora do pool,
+    # em vez de cada thread repetir a mesma busca/varredura.
+    try:
+        nowgoal_data = _painel_fetch_matches_nowgoal()
+        nowgoal_matches = [nm for lg in nowgoal_data.get("leagues", []) for nm in lg["matches"]]
+    except Exception:
+        nowgoal_matches = []
+
+    def _achar_nowgoal(casa, fora):
+        for nm in nowgoal_matches:
+            if _name_match(casa, nm.get("home") or "") and _name_match(fora, nm.get("away") or ""):
+                mid = str(nm.get("event_id") or "")
+                if not mid:
+                    continue
+                resultado = {"odd_1": nm.get("odd_1"), "odd_x": nm.get("odd_x"), "odd_2": nm.get("odd_2")}
+                with _ng_strength_lock:
+                    cached = _ng_strength_cache.get(mid)
+                if cached:
+                    strength = cached["data"]
+                    resultado["forca"] = {k: strength.get(k) for k in _PAINEL_FORCA_RADAR_AXES if k in strength}
+                return resultado
+        return {}
+
+    with ThreadPoolExecutor(max_workers=_SINALIZADOR_WORKERS) as pool:
+        dados_jogos = list(pool.map(
+            lambda m: _sinalizador_buscar_dados_jogo(m, uni_odds, _achar_nowgoal), live
+        ))
+
+    resultados = []
+    for dj in dados_jogos:
+        if not dj:
+            continue
+        m = dj["m"]
+        bateram = []
+        for regra in rules:
+            v_pre = _sinalizador_calc_pre_live(regra["variavel_pre_live"], dj["odds_uni"], dj["nowgoal"])
+            if v_pre is None or not (regra["min_pre_live"] <= v_pre <= regra["max_pre_live"]):
+                continue
+            v_chk = _sinalizador_calc_checkpoint(regra["variavel_checkpoint"], dj["graph_points"], dj["statistics_periods"])
+            if v_chk is None or not (regra["min_checkpoint"] <= v_chk <= regra["max_checkpoint"]):
+                continue
+            bateram.append({
+                "mercado":        regra["mercado"],
+                "taxa_final_pct": regra["taxa_final_pct"],
+                "amostra":        regra["amostra"],
+            })
+        if bateram:
+            resultados.append({
+                "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
+                "liga": m.get("liga"), "minuto": m.get("minuto"),
+                "sinais": bateram,
+            })
+
+    return jsonify({"jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live)})
+
 
 def _uni_events_today():
     """Retorna lista de eventos de futebol do dia — TODOS os locales + paginação,
