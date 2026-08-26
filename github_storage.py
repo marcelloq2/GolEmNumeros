@@ -239,20 +239,20 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
     print("[github] Iniciando restauração de dados...")
     try:
         _ensure_data_branch()
-        pull_directory("momentum_history", momentum_dir)
-        pull_directory("backtest", backtest_dir)
-        # Shotmap history: restaura partidas salvas separadamente
-        if shotmap_dir:
-            pull_directory("shotmap_history", shotmap_dir)
-        # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
-        pull_file(".shotmap_cache.json",
-                  os.path.join(data_dir, ".shotmap_cache.json"), force=True)
-        # Predictions: SEMPRE baixa a versão mais recente do GitHub
-        # (force=True garante que o Railway nunca fique com dados velhos após redeploy)
+
+        # ── Arquivos pequenos primeiro, de propósito ────────────────────────
+        # Achado em produção (2026-08-26): com muitos deploys seguidos, os
+        # pull_directory abaixo (momentum_history sozinho tem MILHARES de
+        # arquivos, um GET por arquivo, sequencial) podiam levar minutos —
+        # tempo de sobra pra outro deploy interromper o boot ANTES da
+        # restauração chegar nos arquivos de configuração pequenos, que
+        # ficavam nulos/vazios até o próximo boot ter sorte de terminar tudo.
+        # Configs pequenas (poucos KB) restauram em milissegundos — não tem
+        # motivo pra esperar a fila de milhares de arquivos grandes primeiro.
         for fname in ("predictions_full.json", "predictions.json"):
             pull_file(fname, os.path.join(data_dir, fname), force=True)
-        # backtest2.db (SQLite do Backtest 2/CS acumulado): igual predictions, sempre
-        # baixa a versão mais recente — sem isso, cada redeploy no Railway apagava o
+        # backtest2.db (SQLite do Backtest 2/CS acumulado): sempre baixa a
+        # versão mais recente — sem isso, cada redeploy no Railway apagava o
         # disco local e o histórico acumulado voltava a zero.
         _backtest2_db_synced_ok = pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
         if not _backtest2_db_synced_ok:
@@ -269,9 +269,17 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
         # Configuração do Sinalizador (regras importadas do .txt) — mesmo
         # problema de novo: sem isso, cada redeploy apagava as regras
-        # importadas (achado testando em produção, 2026-08-26 — o push
-        # funcionava, mas faltava o pull de volta no boot).
+        # importadas.
         pull_file("sinalizador_config.json", os.path.join(data_dir, "sinalizador_config.json"), force=True)
+        # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
+        pull_file(".shotmap_cache.json",
+                  os.path.join(data_dir, ".shotmap_cache.json"), force=True)
+
+        # ── Diretórios grandes por último (podem levar minutos) ─────────────
+        pull_directory("momentum_history", momentum_dir)
+        pull_directory("backtest", backtest_dir)
+        if shotmap_dir:
+            pull_directory("shotmap_history", shotmap_dir)
         print("[github] Restauração concluída.")
     except Exception as e:
         print(f"[github] Erro na restauração: {e}")
