@@ -1586,12 +1586,8 @@
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
-    <button class="nav-tab" onclick="switchView('prognostico', this)">📈 Prognósticos</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
-    <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
-    <button class="nav-tab" onclick="switchView('scanner_over', this)">📈 Scanner Over</button>
-    <button class="nav-tab" onclick="switchView('scanner_comeback', this)">🎯 Placar Provável</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2274,52 +2270,6 @@
       <div class="live-card-tabs live-card-tabs-narrow" id="today2DetailTabs" style="padding:10px 16px 0"></div>
       <div id="today2DetailBody" style="padding:12px 16px 16px;font-size:15px;color:var(--text2)"></div>
     </div>
-  </div>
-
-  <!-- SCANNER — substitui a aba Backtest por completo (a pedido do usuário,
-       2026-08-23). O motor de Backtest 2/CS continua rodando por baixo (ver
-       app.py, _background_backtest_daily_backup) — as taxas históricas por
-       placar exato que ele já calcula servem de insumo pro Scanner — só a
-       apresentação em UI (ranking/padrões) saiu daqui. As funções
-       _bt2*/_btcs* ficam órfãs no arquivo, mesmo padrão já usado da vez
-       anterior que o Backtest saiu da navegação (mais seguro que arrancar).
-
-       Fluxo: mostra os jogos ao vivo, o usuário marca quais quer acompanhar
-       (guardado em localStorage, não é favorito permanente — é só "olho
-       nesse jogo agora"), e o painel de baixo monitora só os marcados,
-       emitindo alerta quando achar uma condição de scalping de baixo risco
-       (etapa 2 — ainda não implementada, esse painel por enquanto só mostra
-       "monitorando" como placeholder). -->
-  <div id="scannerWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.3"/><circle cx="12" cy="12" r="1.8" fill="var(--accent)" stroke="none"/></svg>
-        <span id="scannerHeaderTitle">Scanner Under</span>
-      </div>
-      <span style="font-size:11px;color:var(--text2)">clique num jogo pra marcar/desmarcar e ver os padrões parecidos direto no card</span>
-      <span id="scannerLiveCount" style="margin-left:auto;font-size:11px;color:var(--text2)"></span>
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
-      <button class="painel-sort-time-btn" id="scannerSortTimeBtn" onclick="_scannerToggleSortByTime()">🕐 Ordenar por horário</button>
-    </div>
-    <div id="scannerMatchList" class="live-grid-wrap" style="margin:10px 0 24px"></div>
-  </div>
-
-  <!-- PROGNÓSTICOS — passo 3 do plano combinado com o usuário: motor de
-       validação casa/fora em cima da base própria (painel_analises_finalizadas),
-       não dos números da Uniscore (confirmado que "Sequências do time" mistura
-       jogos em casa e fora, não dá pra confiar neles pra esse tipo de pergunta).
-       Hoje só mostra as taxas-base da base inteira (sem similaridade ainda —
-       isso é a próxima etapa, quando tiver volume). -->
-  <div id="prognosticoWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>
-        Prognósticos
-      </div>
-      <span style="font-size:11px;color:var(--text2)">taxas reais medidas na sua própria base de partidas finalizadas — cresce sozinho conforme mais jogos são coletados</span>
-    </div>
-    <div id="prognosticoBody"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3368,8 +3318,6 @@ function switchView(view, btn) {
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
-  const scannerWrapper = document.getElementById('scannerWrapper');
-  const prognosticoWrapper = document.getElementById('prognosticoWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3380,8 +3328,6 @@ function switchView(view, btn) {
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
-  scannerWrapper.style.display = 'none';
-  prognosticoWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3390,8 +3336,6 @@ function switchView(view, btn) {
   clearInterval(_painelAutoRefresh);
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
-  clearInterval(_scannerAutoRefresh);
-  clearInterval(_prognosticoAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3422,20 +3366,6 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'scanner' || view === 'scanner_over' || view === 'scanner_comeback') {
-    // Scanner Under / Over / Vira o Jogo são a MESMA lista/wrapper por baixo
-    // — só trocam qual sinal do resultado da análise aparece no card (mesmo
-    // cohort, ver _scannerViewMode). Evita duplicar toda a infra de
-    // lista/watch/gráfico só pra mudar o texto do alerta.
-    _scannerViewMode = view === 'scanner_over' ? 'over' : view === 'scanner_comeback' ? 'comeback' : 'under';
-    _scannerApplyViewMode();
-    scannerWrapper.style.display = 'flex';
-    _scannerLoadMatches();
-    _scannerAutoRefresh = setInterval(_scannerLoadMatches, 15000);
-  } else if (view === 'prognostico') {
-    prognosticoWrapper.style.display = 'flex';
-    _prognosticoLoad();
-    _prognosticoAutoRefresh = setInterval(_prognosticoLoad, 60000);
   }
 }
 
