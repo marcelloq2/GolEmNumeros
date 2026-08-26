@@ -4206,12 +4206,12 @@ def _scanner_build_alerts_over_2t(cohort, minuto_atual):
     return [max(candidatos, key=lambda c: c["rate"])]
 
 
-def _scanner_build_alerts_comeback(cohort):
-    """Scanner 'Vira o Jogo' redesenhado (2026-08-25, pedido do usuário): em
-    vez de medir só "o time que está perdendo não perde mais" com um
-    limiar fixo de 40%, projeta o PLACAR FINAL mais provável — no MESMO
-    cohort já achado por _scanner_find_cohort (mesmo placar+minuto atual,
-    nenhuma busca nova), conta qual placar final apareceu com mais
+def _scanner_build_alerts_comeback(cohort, minuto_atual):
+    """Scanner 'Placar Provável' redesenhado (2026-08-25, pedido do
+    usuário): em vez de medir só "o time que está perdendo não perde mais"
+    com um limiar fixo de 40%, projeta o PLACAR FINAL mais provável — no
+    MESMO cohort já achado por _scanner_find_cohort (mesmo placar+minuto
+    atual, nenhuma busca nova), conta qual placar final apareceu com mais
     frequência entre as partidas históricas parecidas, e devolve ele com a
     % real (ex: "FT mais provável: 3x1", visto em 40% dos 25 jogos
     parecidos). Funciona pra qualquer placar atual (inclusive empate), não
@@ -4219,9 +4219,18 @@ def _scanner_build_alerts_comeback(cohort):
     tende a ir" (apostas em placares maiores/back), não só "vai virar ou
     não".
 
+    Só ativa a partir do intervalo (_SCANNER_HT_MINUTE) — pedido do usuário,
+    2026-08-25: projetar com o placar do 1º TEMPO INTEIRO já fechado dá uma
+    base de comparação muito mais rica (o cohort concentra tudo num único
+    ponto de referência, minuto 45, em vez de se espalhar por qualquer
+    minuto aleatório do jogo) e é o que realmente interessa (projetar o 2º
+    tempo a partir do que já se sabe do 1º).
+
     Continua só contando partida histórica rastreada até perto do fim de
     verdade (_SCANNER_COMEBACK_MIN_MINUTE) — senão o placar final não é
     confiável."""
+    if minuto_atual < _SCANNER_HT_MINUTE:
+        return []
     total = 0
     contagem = {}  # (final_h, final_a) -> quantas vezes apareceu no cohort
     for goals, m2, max_minute in cohort:
@@ -4599,7 +4608,7 @@ def _scanner_analyze_one(event_id, casa, fora, liga):
     # (só um dos dois retorna não-vazio a cada chamada) — concatenar mantém
     # o mesmo formato "lista de 0 ou 1 melhor achado" usado em alerts/alerts_comeback.
     alerts_over = _scanner_build_alerts_over_ht(cohort, minuto_atual) + _scanner_build_alerts_over_2t(cohort, minuto_atual)
-    alerts_comeback = _scanner_build_alerts_comeback(cohort)
+    alerts_comeback = _scanner_build_alerts_comeback(cohort, minuto_atual)
 
     return {
         "minuto": minuto_atual,

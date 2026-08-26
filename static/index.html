@@ -3472,7 +3472,7 @@ const _SCANNER_MODE_TEXT = {
   // Ex-"Vira o Jogo", renomeado pra "Placar Provável" (2026-08-25) porque
   // virou projeção de placar final -- mostra sempre o placar mais frequente
   // achado no cohort, sem limiar fixo.
-  comeback: { title: 'Scanner Placar Provável', badge: 'chance', emptyHint: 'nenhuma amostra suficiente pra projetar o placar final ainda' },
+  comeback: { title: 'Scanner Placar Provável', badge: 'chance', emptyHint: 'só ativa a partir do intervalo (1º tempo precisa ter fechado) ou sem amostra suficiente ainda' },
 };
 function _scannerApplyViewMode() {
   const t = document.getElementById('scannerHeaderTitle');
