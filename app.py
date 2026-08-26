@@ -4040,7 +4040,6 @@ def _momentum_load_all_matches():
 _SCANNER_MINUTE_TOLERANCE = 3     # cohort: mesmo placar dentro de ±3min do minuto atual
 _SCANNER_WINDOWS = (3, 5, 7, 10)  # janelas de scalping testadas, em minutos
 _SCANNER_MIN_SAMPLE = 20          # amostra mínima pro percentual valer alguma coisa
-_SCANNER_SAFE_THRESHOLD = 0.95    # confirmado com o usuário: ≥95% = "seguro"
 # Limiar do Scanner Over — bem mais baixo que o do Under de propósito. "Sair
 # gol numa janela de poucos minutos" é estruturalmente mais raro que "não
 # sair gol" (a maioria das janelas curtas de fato não tem gol nenhum) — média
@@ -4128,35 +4127,31 @@ def _scanner_evaluate_cohort(cohort):
 
 
 def _scanner_build_alerts(evaluated, placar_h, placar_a):
-    """Converte a grade janela→taxas num punhado de alertas prontos pra UI —
-    só os que bateram o limiar de ≥95%, com o texto já explicando o mercado
-    (placar exato / under / contra o time), ordenados por janela (os mais
-    imediatos primeiro).
+    """Acha a MELHOR janela pro placar/minuto atual — sem limiar fixo de
+    "seguro" (removido a pedido do usuário, 2026-08-25: em vez de um corte
+    arbitrário de confiança tipo ≥95%, o Scanner sempre mostra a melhor
+    combinação de janela encontrada pra esse jogo agora, com a taxa real na
+    tela). Vira ranking/recomendação, não mais um alerta binário sim/não —
+    quem decide se a taxa mostrada é boa o suficiente é o usuário, olhando o
+    % e a amostra junto.
+
+    Continua avaliando só janela mínima de amostra (_SCANNER_MIN_SAMPLE) —
+    isso não é o limiar de "segurança" que foi removido, é sobre a própria
+    validade estatística do percentual (abaixo disso o número é ruído, não
+    vale nem mostrar como candidato).
 
     Por pedido do usuário (2026-08-23): só Under por enquanto — validar esse
     mercado sozinho antes de abrir pros outros dois (placar exato / contra um
-    time). _scanner_evaluate_cohort já calcula os 3 sinais (é barato, mesmo
-    laço), só não surgem como alerta ainda — pra reativar, é só descomentar
-    as 2 linhas abaixo."""
-    labels = {
-        "sem_mais_gols":  f"Under {placar_h + placar_a}.5 gols (sem mais nenhum gol)",
-        # "casa_nao_marca": f"Lay {placar_h + 1}x{placar_a} / contra a Casa marcar de novo",
-        # "fora_nao_marca": f"Lay {placar_h}x{placar_a + 1} / contra o Visitante marcar de novo",
-    }
-    alerts = []
-    for w in sorted(evaluated.keys()):
-        stats = evaluated[w]
-        for signal, label in labels.items():
-            rate = stats[signal]
-            if rate >= _SCANNER_SAFE_THRESHOLD:
-                alerts.append({
-                    "window_min": w,
-                    "signal": signal,
-                    "label": label,
-                    "rate": rate,
-                    "sample": stats["total"],
-                })
-    return alerts
+    time)."""
+    label = f"Under {placar_h + placar_a}.5 gols (sem mais nenhum gol)"
+    candidatos = [
+        {"window_min": w, "signal": "sem_mais_gols", "label": label,
+         "rate": stats["sem_mais_gols"], "sample": stats["total"]}
+        for w, stats in evaluated.items()
+    ]
+    if not candidatos:
+        return []
+    return [max(candidatos, key=lambda c: c["rate"])]
 
 
 def _scanner_build_alerts_over(evaluated, placar_h, placar_a):

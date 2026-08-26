@@ -3494,7 +3494,11 @@ function _scannerSaveWatch() {
 // switchView antes de cada render.
 let _scannerViewMode = 'under';
 const _SCANNER_MODE_TEXT = {
-  under:    { title: 'Scanner Under', badge: 'seguro', emptyHint: 'nenhum padrão ≥95% seguro agora' },
+  // "Under" mostra sempre a MELHOR janela achada pro placar/minuto atual —
+  // sem limiar fixo de "seguro" (removido a pedido do usuário, 2026-08-25).
+  // A cor do % na tela (_scannerPerfAccColor) já comunica se é uma taxa alta
+  // ou baixa, não precisa mais de um corte binário decidindo se mostra ou não.
+  under:    { title: 'Scanner Under', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
   over:     { title: 'Scanner Over', badge: 'chance', emptyHint: 'nenhum padrão de gol forte (≥65%) agora' },
   comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'jogo empatado ou sem padrão de recuperação (≥40%) agora' },
 };
@@ -4124,7 +4128,7 @@ function _scannerMatchRowHtml(m) {
               <div style="font-size:11px;color:var(--text2)">${a.window_min ? `próximos ${a.window_min}min` : 'até o fim do jogo'} · ${a.sample} jogos parecidos${_scannerPctOfBase(a.sample, st.data.total_base)}</div>
             </div>
             <div style="flex-shrink:0;text-align:center">
-              <div style="font-size:14px;font-weight:800;color:var(--accent)">${(a.rate * 100).toFixed(1)}%</div>
+              <div style="font-size:14px;font-weight:800;color:${_scannerPerfAccColor(a.rate)}">${(a.rate * 100).toFixed(1)}%</div>
               <div style="font-size:9px;color:var(--text2)">${modeTxt.badge}</div>
             </div>
           </div>`).join('') +
