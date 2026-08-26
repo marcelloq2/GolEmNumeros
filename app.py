@@ -6599,20 +6599,22 @@ def _uni_odds_today():
 # minuto errado, então aqui o corte é sempre literal, minuto <= 45.
 _SINALIZADOR_CONFIG_FILE = os.path.join(DATA_DIR, "sinalizador_config.json")
 _sinalizador_lock = threading.Lock()
-_sinalizador_rules_cache = None
 
 
 def _sinalizador_load_rules():
-    global _sinalizador_rules_cache
+    """Lê as regras direto do disco a cada chamada — arquivo pequeno (poucas
+    dezenas de linhas no máximo), custo desprezível. De propósito SEM cache
+    em memória: um cache "carrega 1x e guarda pra sempre" tinha o risco de
+    grudar num resultado vazio se alguém abrisse a aba bem no boot, antes da
+    restauração do GitHub (sync_on_startup) terminar de puxar o arquivo de
+    volta — aí ficaria "sem regra nenhuma" pelo resto da vida do processo,
+    mesmo depois do arquivo bom já estar no disco."""
     with _sinalizador_lock:
-        if _sinalizador_rules_cache is not None:
-            return _sinalizador_rules_cache
         try:
             with open(_SINALIZADOR_CONFIG_FILE, encoding="utf-8") as f:
-                _sinalizador_rules_cache = json.load(f)
+                return json.load(f)
         except Exception:
-            _sinalizador_rules_cache = []
-        return _sinalizador_rules_cache
+            return []
 
 
 def _sinalizador_parse_txt(text):
@@ -6658,9 +6660,7 @@ def api_sinalizador_import():
     rules = _sinalizador_parse_txt(text)
     if not rules:
         return jsonify({"error": "nenhuma configuração válida encontrada nesse arquivo"}), 400
-    global _sinalizador_rules_cache
     with _sinalizador_lock:
-        _sinalizador_rules_cache = rules
         with open(_SINALIZADOR_CONFIG_FILE, "w", encoding="utf-8") as fp:
             json.dump(rules, fp, ensure_ascii=False, indent=2)
     github_storage.push_file_bg(_SINALIZADOR_CONFIG_FILE, "sinalizador_config.json")

@@ -267,6 +267,11 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # redeploy apagava quem estava sendo acompanhado (o sino voltava a
         # aparecer desmarcado).
         pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
+        # Configuração do Sinalizador (regras importadas do .txt) — mesmo
+        # problema de novo: sem isso, cada redeploy apagava as regras
+        # importadas (achado testando em produção, 2026-08-26 — o push
+        # funcionava, mas faltava o pull de volta no boot).
+        pull_file("sinalizador_config.json", os.path.join(data_dir, "sinalizador_config.json"), force=True)
         print("[github] Restauração concluída.")
     except Exception as e:
         print(f"[github] Erro na restauração: {e}")
