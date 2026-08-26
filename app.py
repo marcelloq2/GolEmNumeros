@@ -8823,6 +8823,18 @@ def _btcs_compute_ranking_acumulado():
 # o backtest2.db pro GitHub — mesmo padrão de persistência já usado pelo resto
 # do app (github_storage), pra sobreviver a reinícios/redeploys do Railway.
 def _background_backtest_daily_backup():
+    # Espera a restauração do GitHub terminar antes do 1º ciclo — sem isso,
+    # essa thread (que começa a rodar quase no instante em que o processo
+    # sobe) calculava e empurrava o backtest2.db LOCAL pro GitHub antes do
+    # boot conseguir restaurar o arquivo bom, apagando dado real (finalizadas,
+    # etc.) a cada redeploy/restart. Achado investigando com o usuário
+    # (2026-08-25) um padrão de painel_analises_finalizadas subindo e caindo
+    # repetidamente ao longo do dia inteiro — esse era o culpado: o único
+    # push dessa thread ainda ia direto por github_storage.push_file_bg,
+    # sem passar pela trava de _bt2_push_db_bg (que só bloqueia SE o pull do
+    # boot já foi confirmado, mas essa thread nem esperava esse resultado
+    # existir antes de rodar).
+    _github_sync_done.wait(timeout=120)
     while True:
         try:
             print("[backtest-backup] Rodando simulação diária do Backtest (Tradicional + CS)...")
@@ -8836,7 +8848,7 @@ def _background_backtest_daily_backup():
             # jogos" pra sempre, mesmo com Backtest Tradicional e Placar Exato
             # (ranking) acumulando normalmente.
             _btcs_compute_patterns()
-            github_storage.push_file_bg(_BT2_DB_PATH, "backtest2.db")
+            _bt2_push_db_bg()
             print("[backtest-backup] Concluído — backtest2.db atualizado e enviado pro GitHub.")
         except Exception as e:
             print(f"[backtest-backup] Erro: {e}")
