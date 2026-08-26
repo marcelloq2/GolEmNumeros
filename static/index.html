@@ -3503,7 +3503,9 @@ const _SCANNER_MODE_TEXT = {
   // melhor) são mutuamente exclusivos por fase do jogo — sem limiar fixo,
   // igual ao Under (redesenho 2026-08-25).
   over:     { title: 'Scanner Over', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
-  comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'jogo empatado ou sem padrão de recuperação (≥40%) agora' },
+  // Vira o Jogo virou projeção de placar final (redesenho 2026-08-25) --
+  // mostra sempre o placar mais frequente achado no cohort, sem limiar fixo.
+  comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'nenhuma amostra suficiente pra projetar o placar final ainda' },
 };
 function _scannerApplyViewMode() {
   const t = document.getElementById('scannerHeaderTitle');
@@ -4079,8 +4081,9 @@ function _scannerMatchRowHtml(m) {
   const watched = _scannerWatchSet.has(String(m.id));
   const st = watched ? _scannerAnalysisCache[m.id] : null;
   // Under/Over/Vira o Jogo reaproveitam a MESMA análise (mesmo cohort) — só
-  // o campo muda: alerts (sem_mais_gols) pro Under, alerts_over (sai_gol)
-  // pro Over, alerts_comeback (nao_perde_mais) pro Vira o Jogo.
+  // o campo muda: alerts (melhor janela) pro Under, alerts_over (Over 0.5
+  // HT / Over 2º tempo) pro Over, alerts_comeback (placar final mais
+  // provável) pro Vira o Jogo.
   const modeAlertsField = _scannerViewMode === 'over' ? 'alerts_over'
     : _scannerViewMode === 'comeback' ? 'alerts_comeback' : 'alerts';
   const modeAlerts = st && st.data ? st.data[modeAlertsField] : null;

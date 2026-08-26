@@ -4048,17 +4048,18 @@ _SCANNER_MIN_SAMPLE = 20          # amostra mínima pro percentual valer alguma 
 _SCANNER_HT_MINUTE = 45           # aproximação padrão pro intervalo (acréscimos variam, não afeta o cohort — ver _scanner_find_cohort)
 _SCANNER_OVER_2T_LINHAS = (0.5, 1.5, 2.5)  # linhas testadas pro "Over 2º tempo" -- mesmo espírito do Under sem limiar fixo: mostra a de melhor taxa
 # Scanner "Vira o Jogo" — estruturalmente diferente do Under/Over: o alvo não
-# é uma janela curta de minutos, é o placar FINAL da partida (virar/empatar é
-# um processo que leva o resto do jogo, não os próximos minutos). Por isso
+# é uma janela curta de minutos, é o placar FINAL da partida. Por isso
 # precisa de um cohort mais rigoroso: só conta partida histórica que foi
 # rastreada até perto do fim de verdade (senão o "placar final" não é
 # confiável) — usa o minuto máximo rastreado como aproximação de "acabou".
 _SCANNER_COMEBACK_MIN_MINUTE = 85
-# 40% escolhido como ponto de partida (estimativa minha, não confirmada) —
-# a chance real de não perder varia MUITO por quanto tempo falta e por
-# quantos gols de diferença (perder de 1 aos 10' recupera bem mais que
-# perder de 3 aos 70'), um limiar único é só um primeiro corte grosseiro.
-_SCANNER_COMEBACK_THRESHOLD = 0.40
+# Redesenhado a pedido do usuário (2026-08-25): virou projeção de placar
+# final (qualquer placar atual, não só quando tem time perdendo), sem
+# limiar fixo de confiança — mostra sempre o placar final mais frequente
+# achado no cohort. Esse mínimo aqui não é um corte de "segurança", é só
+# pra evitar que um placar visto 1x isolado numa amostra pequena vire "o
+# mais provável" só por ser o único que apareceu.
+_SCANNER_PLACAR_MIN_TOP = 3
 
 
 def _scanner_score_at_minute(goals, minute):
@@ -4214,44 +4215,48 @@ def _scanner_build_alerts_over_2t(cohort, minuto_atual):
     return [max(candidatos, key=lambda c: c["rate"])]
 
 
-def _scanner_build_alerts_comeback(cohort, placar_h, placar_a):
-    """Scanner 'Vira o Jogo' — dado o MESMO cohort já achado por
-    _scanner_find_cohort (mesmo placar+minuto, nenhuma busca nova), mede a
-    fração de partidas históricas em que o time que estava perdendo NÃO
-    perdeu no final (empatou ou virou). Só entra em cohort quem foi
-    rastreado até perto do fim de verdade (_SCANNER_COMEBACK_MIN_MINUTE) —
-    senão o placar final não é confiável. Sem alerta se o jogo está empatado
-    agora (não tem time perdendo pra "virar")."""
-    if placar_h == placar_a:
-        return []
-    trailing_casa = placar_h < placar_a
+def _scanner_build_alerts_comeback(cohort):
+    """Scanner 'Vira o Jogo' redesenhado (2026-08-25, pedido do usuário): em
+    vez de medir só "o time que está perdendo não perde mais" com um
+    limiar fixo de 40%, projeta o PLACAR FINAL mais provável — no MESMO
+    cohort já achado por _scanner_find_cohort (mesmo placar+minuto atual,
+    nenhuma busca nova), conta qual placar final apareceu com mais
+    frequência entre as partidas históricas parecidas, e devolve ele com a
+    % real (ex: "FT mais provável: 3x1", visto em 40% dos 25 jogos
+    parecidos). Funciona pra qualquer placar atual (inclusive empate), não
+    só quando tem time perdendo — o objetivo virou "pra onde esse jogo
+    tende a ir" (apostas em placares maiores/back), não só "vai virar ou
+    não".
 
-    total = nao_perdeu = 0
+    Continua só contando partida histórica rastreada até perto do fim de
+    verdade (_SCANNER_COMEBACK_MIN_MINUTE) — senão o placar final não é
+    confiável."""
+    total = 0
+    contagem = {}  # (final_h, final_a) -> quantas vezes apareceu no cohort
     for goals, m2, max_minute in cohort:
         if max_minute < _SCANNER_COMEBACK_MIN_MINUTE:
             continue
         final_h, final_a = _scanner_score_at_minute(goals, max_minute)
         total += 1
-        if (final_h >= final_a) if trailing_casa else (final_a >= final_h):
-            nao_perdeu += 1
+        chave = (final_h, final_a)
+        contagem[chave] = contagem.get(chave, 0) + 1
 
     if total < _SCANNER_MIN_SAMPLE:
         return []
-    rate = round(nao_perdeu / total, 4)
-    if rate < _SCANNER_COMEBACK_THRESHOLD:
+
+    (melhor_h, melhor_a), qtd = max(contagem.items(), key=lambda kv: kv[1])
+    if qtd < _SCANNER_PLACAR_MIN_TOP:
         return []
 
-    label = ("Casa não perde mais até o fim (empata ou vira)" if trailing_casa
-              else "Visitante não perde mais até o fim (empata ou vira)")
     # window_min=0 é sentinela de "até o fim do jogo", não uma janela curta
-    # de verdade — mantém o mesmo formato de linha da tabela (coluna é
-    # NOT NULL) sem precisar de migração de schema. _scanner_check_outcome
-    # trata esse sinal à parte, ignorando window_min de fato.
+    # de verdade. O placar projetado vai dentro do próprio signal (não no
+    # campo `placar`, que guarda o placar ATUAL no momento do disparo) —
+    # _scanner_check_outcome faz o parse de volta na hora de resolver.
     return [{
         "window_min": 0,
-        "signal": "nao_perde_mais",
-        "label": label,
-        "rate": rate,
+        "signal": f"placar_final_{melhor_h}_{melhor_a}",
+        "label": f"FT mais provável: {melhor_h}x{melhor_a}",
+        "rate": round(qtd / total, 4),
         "sample": total,
     }]
 
@@ -4639,10 +4644,13 @@ def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signa
     oposto — acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida.
     Pro 'Over no 2º tempo' (over_2t_<linha>) é uma contagem de gols contra
     uma linha (0.5/1.5/2.5), não um sim/não de "saiu gol". Pro 'Vira o Jogo'
-    (nao_perde_mais) a lógica é bem diferente — não tem janela curta,
-    precisa esperar a partida chegar perto do fim
-    (_SCANNER_COMEBACK_MIN_MINUTE) e comparar o placar atual com quem estava
-    perdendo quando o alerta disparou (guardado em `placar`)."""
+    (nao_perde_mais, sinal antigo mantido só pra alertas já salvos antes do
+    redesenho) a lógica é bem diferente — não tem janela curta, precisa
+    esperar a partida chegar perto do fim (_SCANNER_COMEBACK_MIN_MINUTE) e
+    comparar o placar atual com quem estava perdendo quando o alerta
+    disparou (guardado em `placar`). O sinal atual do 'Vira o Jogo'
+    (placar_final_<h>_<a>) projeta o placar final inteiro — acertou =
+    placar final bateu exatamente com o projetado."""
     if signal == "nao_perde_mais":
         data = None
         try:
@@ -4694,6 +4702,17 @@ def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signa
             return False, None  # não rastreou até perto do fim -- contagem não é confiável ainda
         gols_dali_pra_frente = sum(1 for g in (goals or []) if minuto < (g.get("minute") or 0) <= minuto_atual)
         return True, gols_dali_pra_frente > linha
+
+    if signal.startswith("placar_final_"):
+        proj_h, proj_a = (int(x) for x in signal[len("placar_final_"):].split("_"))
+        points, goals = _carrega_pontos_gols()
+        if not points:
+            return False, None
+        minuto_atual = int(max((p.get("minute") or 0) for p in points))
+        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
+            return False, None  # placar ainda não é final de verdade
+        final_h, final_a = _scanner_score_at_minute(goals or [], minuto_atual)
+        return True, (final_h == proj_h and final_a == proj_a)
 
     points, goals = _carrega_pontos_gols()
     if not points:
@@ -4761,6 +4780,21 @@ _SCANNER_MODE_SIGNALS = {
 }
 
 
+def _scanner_mode_signal_where(mode):
+    """Monta a cláusula WHERE de signal pra um modo do Scanner + os params
+    pra passar junto. A maioria dos modos tem uma lista fixa e pequena de
+    sinais (IN); 'comeback', desde o redesenho de projeção de placar
+    (2026-08-25), usa sinais dinâmicos (placar_final_<h>_<a>, um por
+    combinação de placar final possível) — não dá pra enumerar num IN, usa
+    LIKE por prefixo pra esse caso. "nao_perde_mais" continua incluído pra
+    alertas antigos (salvos antes do redesenho) continuarem contando."""
+    if mode == "comeback":
+        return "(signal = ? OR signal LIKE ?)", ["nao_perde_mais", "placar_final_%"]
+    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
+    placeholders = ",".join("?" * len(signals))
+    return f"signal IN ({placeholders})", list(signals)
+
+
 @app.route("/api/scanner/alerts_history")
 def api_scanner_alerts_history():
     """Histórico de alertas já disparados + taxa de acerto real (resolvidos
@@ -4769,16 +4803,15 @@ def api_scanner_alerts_history():
     ?mode=under|over filtra pra só os sinais daquela aba (Under e Over
     disparam no mesmo endpoint de análise e ficam na mesma tabela)."""
     mode = request.args.get("mode", "under")
-    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
-    placeholders = ",".join("?" * len(signals))
+    where_sql, params = _scanner_mode_signal_where(mode)
     with _bt2_db_lock:
         conn = _scanner_db_conn()
         try:
             cur = conn.execute(f"""
                 SELECT event_id, casa, fora, liga, minuto, placar, window_min, signal, label,
                        rate, sample, fired_at, resolved, outcome, checked_at
-                FROM scanner_alerts WHERE signal IN ({placeholders}) ORDER BY fired_at DESC LIMIT 200
-            """, signals)
+                FROM scanner_alerts WHERE {where_sql} ORDER BY fired_at DESC LIMIT 200
+            """, params)
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
         finally:
@@ -4810,15 +4843,14 @@ def api_scanner_performance():
     em scanner_alerts (mesma tabela do histórico), então cresce sozinho
     conforme mais alertas disparam e resolvem, sem manutenção nenhuma."""
     mode = request.args.get("mode", "under")
-    signals = _SCANNER_MODE_SIGNALS.get(mode, _SCANNER_MODE_SIGNALS["under"])
-    placeholders = ",".join("?" * len(signals))
+    where_sql, params = _scanner_mode_signal_where(mode)
     with _bt2_db_lock:
         conn = _scanner_db_conn()
         try:
             cur = conn.execute(f"""
                 SELECT window_min, rate, resolved, outcome, fired_at
-                FROM scanner_alerts WHERE signal IN ({placeholders})
-            """, signals)
+                FROM scanner_alerts WHERE {where_sql}
+            """, params)
             rows = cur.fetchall()
         finally:
             conn.close()
@@ -4919,7 +4951,7 @@ def _scanner_analyze_one(event_id, casa, fora, liga):
     # (só um dos dois retorna não-vazio a cada chamada) — concatenar mantém
     # o mesmo formato "lista de 0 ou 1 melhor achado" usado em alerts/alerts_comeback.
     alerts_over = _scanner_build_alerts_over_ht(cohort, minuto_atual) + _scanner_build_alerts_over_2t(cohort, minuto_atual)
-    alerts_comeback = _scanner_build_alerts_comeback(cohort, placar_h, placar_a)
+    alerts_comeback = _scanner_build_alerts_comeback(cohort)
     _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}",
                          alerts + alerts_over + alerts_comeback)
 
