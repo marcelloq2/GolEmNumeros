@@ -21740,14 +21740,18 @@ function _sinalizadorIndicadoresGraficoHtml(ind) {
   const domTxt = dom === null ? '—' : (dom >= 50 ? `${dom.toFixed(1)}% casa` : `${(100 - dom).toFixed(1)}% fora`);
   const fmtSigned = v => typeof v === 'number' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : '—';
   const cards = [
-    { label: 'Dominância', value: domTxt },
-    { label: 'Swings', value: ind.momentum_swings ?? '—' },
-    { label: 'Pressão (1º T)', value: fmtSigned(ind.pressao_media_1t) },
-    { label: 'Pico casa/fora', value: `${ind.pico_casa?.toFixed(0) ?? '—'}/${ind.pico_fora?.toFixed(0) ?? '—'}` },
+    { label: 'Dominância', value: domTxt,
+      titulo: 'Dominância de pressão: % dos minutos do jogo (até agora) em que a pressão esteve do lado desse time — não é posse de bola, é o gráfico de pressão do Uniscore.' },
+    { label: 'Swings', value: ind.momentum_swings ?? '—',
+      titulo: 'Momentum swings: quantas vezes a pressão trocou de lado (de casa pra fora ou vice-versa) durante o jogo até agora — jogo mais "de um lado só" tem poucos swings, jogo equilibrado/de vaivém tem muitos.' },
+    { label: 'Pressão (1º T)', value: fmtSigned(ind.pressao_media_1t),
+      titulo: 'Pressão média do 1º tempo (minuto 0 a 45): média do valor do gráfico de pressão nesse intervalo — positivo = pressão média a favor da casa, negativo = a favor do visitante.' },
+    { label: 'Pico casa/fora', value: `${ind.pico_casa?.toFixed(0) ?? '—'}/${ind.pico_fora?.toFixed(0) ?? '—'}`,
+      titulo: 'Pico de pressão: o valor mais alto que cada time atingiu no gráfico de pressão até agora (escala 0-100) — indica o momento de domínio mais forte de cada lado no jogo.' },
   ];
   return `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:6px">
     ${cards.map(c => `
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:3px 5px;text-align:center">
+      <div title="${_bt2EscXml(c.titulo)}" style="background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:3px 5px;text-align:center;cursor:help">
         <div style="font-size:10.5px;font-weight:700;color:var(--text)">${c.value}</div>
         <div style="font-size:8px;color:var(--text2)">${c.label}</div>
       </div>`).join('')}
