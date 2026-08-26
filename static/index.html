@@ -3499,7 +3499,10 @@ const _SCANNER_MODE_TEXT = {
   // A cor do % na tela (_scannerPerfAccColor) já comunica se é uma taxa alta
   // ou baixa, não precisa mais de um corte binário decidindo se mostra ou não.
   under:    { title: 'Scanner Under', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
-  over:     { title: 'Scanner Over', badge: 'chance', emptyHint: 'nenhum padrão de gol forte (≥65%) agora' },
+  // "Over 0.5 HT" (1º tempo) e "Over no 2º tempo" (várias linhas, mostra a
+  // melhor) são mutuamente exclusivos por fase do jogo — sem limiar fixo,
+  // igual ao Under (redesenho 2026-08-25).
+  over:     { title: 'Scanner Over', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
   comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'jogo empatado ou sem padrão de recuperação (≥40%) agora' },
 };
 function _scannerApplyViewMode() {

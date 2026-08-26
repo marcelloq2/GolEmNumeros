@@ -4040,14 +4040,13 @@ def _momentum_load_all_matches():
 _SCANNER_MINUTE_TOLERANCE = 3     # cohort: mesmo placar dentro de ±3min do minuto atual
 _SCANNER_WINDOWS = (3, 5, 7, 10)  # janelas de scalping testadas, em minutos
 _SCANNER_MIN_SAMPLE = 20          # amostra mínima pro percentual valer alguma coisa
-# Limiar do Scanner Over — bem mais baixo que o do Under de propósito. "Sair
-# gol numa janela de poucos minutos" é estruturalmente mais raro que "não
-# sair gol" (a maioria das janelas curtas de fato não tem gol nenhum) — média
-# histórica solta gira em torno de 25-30% de chance de gol numa janela de
-# 10min qualquer. Exigir 95% aqui quase nunca dispararia nada. 65% escolhido
-# como ponto de partida (bem acima da média solta) — não confirmado com o
-# usuário ainda, ajustar se sair raro/frequente demais na prática.
-_SCANNER_OVER_THRESHOLD = 0.65
+# Scanner Over — redesenhado a pedido do usuário (2026-08-25): em vez de
+# "sai gol numa janela curta" com limiar fixo, agora são dois mercados
+# concretos, cada um só ativo numa fase do jogo (mutuamente exclusivos):
+# "Over 0.5 HT" enquanto ainda não passou do intervalo, "Over no 2º tempo"
+# (testando várias linhas, mostra a melhor) já no 2º tempo em diante.
+_SCANNER_HT_MINUTE = 45           # aproximação padrão pro intervalo (acréscimos variam, não afeta o cohort — ver _scanner_find_cohort)
+_SCANNER_OVER_2T_LINHAS = (0.5, 1.5, 2.5)  # linhas testadas pro "Over 2º tempo" -- mesmo espírito do Under sem limiar fixo: mostra a de melhor taxa
 # Scanner "Vira o Jogo" — estruturalmente diferente do Under/Over: o alvo não
 # é uma janela curta de minutos, é o placar FINAL da partida (virar/empatar é
 # um processo que leva o resto do jogo, não os próximos minutos). Por isso
@@ -4154,25 +4153,65 @@ def _scanner_build_alerts(evaluated, placar_h, placar_a):
     return [max(candidatos, key=lambda c: c["rate"])]
 
 
-def _scanner_build_alerts_over(evaluated, placar_h, placar_a):
-    """Espelho de _scanner_build_alerts pro lado OVER — mesmo cohort/evaluated
-    (nenhum cálculo novo), só que o sinal é o COMPLEMENTO de sem_mais_gols
-    (chance de sair pelo menos +1 gol na janela, não de segurar sem gol) e o
-    limiar é o mais baixo _SCANNER_OVER_THRESHOLD (ver comentário na
-    constante pra entender por quê)."""
-    alerts = []
-    for w in sorted(evaluated.keys()):
-        stats = evaluated[w]
-        rate = round(1 - stats["sem_mais_gols"], 4)
-        if rate >= _SCANNER_OVER_THRESHOLD:
-            alerts.append({
-                "window_min": w,
-                "signal": "sai_gol",
-                "label": f"Over {placar_h + placar_a}.5 gols (sai mais um gol)",
-                "rate": rate,
-                "sample": stats["total"],
+def _scanner_build_alerts_over_ht(cohort, minuto_atual):
+    """'Over 0.5 HT' — só faz sentido enquanto o jogo ainda não passou do
+    intervalo: mede, no MESMO cohort achado por _scanner_find_cohort (mesmo
+    placar+minuto, nenhuma busca nova), a fração de partidas históricas que
+    tiveram PELO MENOS 1 gol (de qualquer lado) entre esse ponto e o
+    intervalo (_SCANNER_HT_MINUTE). window_min guarda os minutos restantes
+    até o intervalo (não uma janela fixa) — isso faz o _scanner_check_outcome
+    genérico (minuto + window_min) resolver certinho na hora do intervalo,
+    sem precisar de um branch especial pra esse sinal."""
+    if minuto_atual >= _SCANNER_HT_MINUTE:
+        return []
+    total = teve_gol = 0
+    for goals, m2, max_minute in cohort:
+        if max_minute < _SCANNER_HT_MINUTE:
+            continue  # não rastreou até o intervalo pra saber
+        total += 1
+        if any(m2 < (g.get("minute") or 0) <= _SCANNER_HT_MINUTE for g in goals):
+            teve_gol += 1
+    if total < _SCANNER_MIN_SAMPLE:
+        return []
+    return [{
+        "window_min": _SCANNER_HT_MINUTE - minuto_atual,
+        "signal": "over_ht",
+        "label": "Over 0.5 gols no 1º tempo (sai gol até o intervalo)",
+        "rate": round(teve_gol / total, 4),
+        "sample": total,
+    }]
+
+
+def _scanner_build_alerts_over_2t(cohort, minuto_atual):
+    """'Over no 2º tempo' — só faz sentido já no 2º tempo em diante: testa
+    várias linhas de gols (_SCANNER_OVER_2T_LINHAS) pro RESTO do jogo (do
+    minuto atual até perto do fim de verdade, mesmo critério de
+    _SCANNER_COMEBACK_MIN_MINUTE usado no 'Vira o Jogo' — senão a contagem
+    de gols "dali pra frente" fica incompleta) e devolve a linha de MELHOR
+    taxa encontrada, sem limiar fixo (mesmo espírito do Under, 2026-08-25)."""
+    if minuto_atual < _SCANNER_HT_MINUTE:
+        return []
+    candidatos = []
+    for linha in _SCANNER_OVER_2T_LINHAS:
+        total = bateu = 0
+        for goals, m2, max_minute in cohort:
+            if max_minute < _SCANNER_COMEBACK_MIN_MINUTE:
+                continue
+            total += 1
+            gols_dali_pra_frente = sum(1 for g in goals if m2 < (g.get("minute") or 0) <= max_minute)
+            if gols_dali_pra_frente > linha:
+                bateu += 1
+        if total >= _SCANNER_MIN_SAMPLE:
+            candidatos.append({
+                "window_min": 0,  # sentinela "até o fim do jogo" (mesmo padrão do 'Vira o Jogo')
+                "signal": f"over_2t_{str(linha).replace('.', '_')}",
+                "label": f"Over {linha} gols no 2º tempo (contando daqui pro fim)",
+                "rate": round(bateu / total, 4),
+                "sample": total,
             })
-    return alerts
+    if not candidatos:
+        return []
+    return [max(candidatos, key=lambda c: c["rate"])]
 
 
 def _scanner_build_alerts_comeback(cohort, placar_h, placar_a):
@@ -4596,10 +4635,12 @@ def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signa
     cai pro arquivo já salvo em momentum_history/*_{event_id}.json.
 
     O que conta como "acertou" depende do sinal: pro Under (sem_mais_gols),
-    acertou = NÃO saiu gol na janela; pro Over (sai_gol), é o oposto —
-    acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida. Pro
-    'Vira o Jogo' (nao_perde_mais) a lógica é bem diferente — não tem janela
-    curta, precisa esperar a partida chegar perto do fim
+    acertou = NÃO saiu gol na janela; pro Over (sai_gol, over_ht), é o
+    oposto — acertou = saiu gol. Mesmo dado (teve_gol), leitura invertida.
+    Pro 'Over no 2º tempo' (over_2t_<linha>) é uma contagem de gols contra
+    uma linha (0.5/1.5/2.5), não um sim/não de "saiu gol". Pro 'Vira o Jogo'
+    (nao_perde_mais) a lógica é bem diferente — não tem janela curta,
+    precisa esperar a partida chegar perto do fim
     (_SCANNER_COMEBACK_MIN_MINUTE) e comparar o placar atual com quem estava
     perdendo quando o alerta disparou (guardado em `placar`)."""
     if signal == "nao_perde_mais":
@@ -4621,31 +4662,47 @@ def _scanner_check_outcome(event_id, casa, fora, liga, minuto, window_min, signa
         trailing_casa = ph < pa
         acertou = (cur_h >= cur_a) if trailing_casa else (cur_a >= cur_h)
         return True, acertou
-    points, goals = None, None
-    try:
-        data = _process_momentum(event_id, casa, fora, liga)
-        if data:
-            points = data.get("graphPoints") or []
-            goals = data.get("goals") or []
-    except Exception:
-        pass
-    if not points:
-        for fpath in glob.glob(os.path.join(MOMENTUM_DIR, f"*_{event_id}.json")):
-            try:
-                with open(fpath, encoding="utf-8") as f:
-                    d = json.load(f)
-                points = d.get("graphPoints") or []
-                goals = d.get("goals") or []
-                break
-            except Exception:
-                continue
+
+    def _carrega_pontos_gols():
+        points, goals = None, None
+        try:
+            data = _process_momentum(event_id, casa, fora, liga)
+            if data:
+                points = data.get("graphPoints") or []
+                goals = data.get("goals") or []
+        except Exception:
+            pass
+        if not points:
+            for fpath in glob.glob(os.path.join(MOMENTUM_DIR, f"*_{event_id}.json")):
+                try:
+                    with open(fpath, encoding="utf-8") as f:
+                        d = json.load(f)
+                    points = d.get("graphPoints") or []
+                    goals = d.get("goals") or []
+                    break
+                except Exception:
+                    continue
+        return points, goals
+
+    if signal.startswith("over_2t_"):
+        linha = float(signal[len("over_2t_"):].replace("_", "."))
+        points, goals = _carrega_pontos_gols()
+        if not points:
+            return False, None
+        minuto_atual = int(max((p.get("minute") or 0) for p in points))
+        if minuto_atual < _SCANNER_COMEBACK_MIN_MINUTE:
+            return False, None  # não rastreou até perto do fim -- contagem não é confiável ainda
+        gols_dali_pra_frente = sum(1 for g in (goals or []) if minuto < (g.get("minute") or 0) <= minuto_atual)
+        return True, gols_dali_pra_frente > linha
+
+    points, goals = _carrega_pontos_gols()
     if not points:
         return False, None
     minuto_atual = int(max((p.get("minute") or 0) for p in points))
     if minuto_atual < minuto + window_min:
         return False, None  # partida ainda não passou da janela prometida
     teve_gol = any(minuto < (g.get("minute") or 0) <= minuto + window_min for g in (goals or []))
-    return True, (teve_gol if signal == "sai_gol" else not teve_gol)
+    return True, (teve_gol if signal in ("sai_gol", "over_ht") else not teve_gol)
 
 
 _SCANNER_RESOLVE_INTERVAL = 120  # 2min — não precisa ser mais frequente que isso
@@ -4696,7 +4753,10 @@ threading.Thread(target=_scanner_resolve_alerts_loop, daemon=True, name="Scanner
 # _scanner_build_alerts); "sai_gol" é o único do Over.
 _SCANNER_MODE_SIGNALS = {
     "under": ("sem_mais_gols", "casa_nao_marca", "fora_nao_marca"),
-    "over": ("sai_gol",),
+    # "sai_gol" é o sinal antigo (janela curta genérica), mantido na lista só
+    # pra alertas já salvos antes do redesenho (2026-08-25) continuarem
+    # contando no histórico/Desempenho — novos alertas usam over_ht/over_2t_*.
+    "over": ("sai_gol", "over_ht", "over_2t_0_5", "over_2t_1_5", "over_2t_2_5"),
     "comeback": ("nao_perde_mais",),
 }
 
@@ -4855,7 +4915,10 @@ def _scanner_analyze_one(event_id, casa, fora, liga):
     cohort = _scanner_find_cohort(all_matches, placar_h, placar_a, minuto_atual)
     evaluated = _scanner_evaluate_cohort(cohort)
     alerts = _scanner_build_alerts(evaluated, placar_h, placar_a)
-    alerts_over = _scanner_build_alerts_over(evaluated, placar_h, placar_a)
+    # Over 0.5 HT e Over 2º tempo são mutuamente exclusivos por fase do jogo
+    # (só um dos dois retorna não-vazio a cada chamada) — concatenar mantém
+    # o mesmo formato "lista de 0 ou 1 melhor achado" usado em alerts/alerts_comeback.
+    alerts_over = _scanner_build_alerts_over_ht(cohort, minuto_atual) + _scanner_build_alerts_over_2t(cohort, minuto_atual)
     alerts_comeback = _scanner_build_alerts_comeback(cohort, placar_h, placar_a)
     _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}",
                          alerts + alerts_over + alerts_comeback)
