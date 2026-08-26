@@ -21710,7 +21710,7 @@ function _sinalizadorJogoHtml(j) {
     <div class="live-card-body">
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
         <span class="tname">${_bt2EscXml(j.casa)}</span>
-        <span style="font-size:11px;color:var(--text2)">x</span>
+        <span style="font-size:16px;font-weight:800;color:var(--text)">${j.placar_casa ?? 0} - ${j.placar_fora ?? 0}</span>
         <span class="tname">${_bt2EscXml(j.fora)}</span>
         <span style="font-size:11px;color:var(--text2)">· ⏱ ${_bt2EscXml(j.minuto || '--')}'</span>
       </div>

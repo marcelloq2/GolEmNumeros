@@ -6924,6 +6924,7 @@ def api_sinalizador_check():
             resultados.append({
                 "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
                 "liga": m.get("liga"), "minuto": m.get("minuto"),
+                "placar_casa": m.get("golCasaFt"), "placar_fora": m.get("golForaFt"),
                 "sinais": bateram,
                 "graph_points": dj["graph_points"], "goals": dj["goals"],
             })
