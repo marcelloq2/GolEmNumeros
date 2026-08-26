@@ -1591,7 +1591,7 @@
     <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
     <button class="nav-tab" onclick="switchView('scanner', this)">🔍 Scanner Under</button>
     <button class="nav-tab" onclick="switchView('scanner_over', this)">📈 Scanner Over</button>
-    <button class="nav-tab" onclick="switchView('scanner_comeback', this)">🔄 Vira o Jogo</button>
+    <button class="nav-tab" onclick="switchView('scanner_comeback', this)">🎯 Placar Provável</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -3469,9 +3469,10 @@ const _SCANNER_MODE_TEXT = {
   // melhor) são mutuamente exclusivos por fase do jogo — sem limiar fixo,
   // igual ao Under (redesenho 2026-08-25).
   over:     { title: 'Scanner Over', badge: 'taxa', emptyHint: 'nenhuma janela com amostra suficiente ainda' },
-  // Vira o Jogo virou projeção de placar final (redesenho 2026-08-25) --
-  // mostra sempre o placar mais frequente achado no cohort, sem limiar fixo.
-  comeback: { title: 'Scanner Vira o Jogo', badge: 'chance', emptyHint: 'nenhuma amostra suficiente pra projetar o placar final ainda' },
+  // Ex-"Vira o Jogo", renomeado pra "Placar Provável" (2026-08-25) porque
+  // virou projeção de placar final -- mostra sempre o placar mais frequente
+  // achado no cohort, sem limiar fixo.
+  comeback: { title: 'Scanner Placar Provável', badge: 'chance', emptyHint: 'nenhuma amostra suficiente pra projetar o placar final ainda' },
 };
 function _scannerApplyViewMode() {
   const t = document.getElementById('scannerHeaderTitle');
