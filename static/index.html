@@ -2287,6 +2287,9 @@
                color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
       <input type="file" id="sinalizadorFileInput" accept=".txt" style="display:none" onchange="_sinalizadorImportFile(this.files[0])">
     </div>
+    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
+      <button class="painel-sort-time-btn" id="sinalizadorSortTimeBtn" onclick="_sinalizadorToggleSortByTime()">🕐 Ordenar por horário</button>
+    </div>
     <div id="sinalizadorStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
     <div id="sinalizadorList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:10px"></div>
   </div>
@@ -21674,6 +21677,28 @@ async function _sinalizadorLoadConfig() {
   } catch (e) { /* mantém o que já tinha na tela */ }
 }
 
+// Mesmo padrão do botão "Ordenar por horário" já usado no Scanner/Painel
+// Principal — desligado = ordem que a API devolveu; ligado = crescente por
+// minuto corrido (jogo que começou agora primeiro).
+let _sinalizadorSortByTime = false;
+
+function _sinalizadorToggleSortByTime() {
+  _sinalizadorSortByTime = !_sinalizadorSortByTime;
+  document.getElementById('sinalizadorSortTimeBtn').classList.toggle('active', _sinalizadorSortByTime);
+  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena o que já está carregado
+}
+
+function _sinalizadorSortJogos(jogos) {
+  if (!_sinalizadorSortByTime) return jogos;
+  return [...jogos].sort((a, b) => {
+    const ma = _scannerParseMinuto(a), mb = _scannerParseMinuto(b);
+    if (ma == null && mb == null) return 0;
+    if (ma == null) return 1;
+    if (mb == null) return -1;
+    return ma - mb;
+  });
+}
+
 // Mostra o valor calculado de verdade ao lado da faixa que validou a
 // metodologia — pedido do usuário: não só "bateu", mostrar o indicador, e
 // identificar qual é pré-live e qual é ao vivo/checkpoint (mesmo pedido,
@@ -21807,26 +21832,32 @@ function _sinalizadorDesenharCanvas(canvasId, graphPoints, goals) {
   });
 }
 
-async function _sinalizadorCheck() {
+function _sinalizadorRenderList(d) {
   const list = document.getElementById('sinalizadorList');
   const statusEl = document.getElementById('sinalizadorStatus');
   if (!list) return;
+  if (!d.total_regras) {
+    statusEl.textContent = 'Nenhuma regra importada ainda — clique em "📥 Importar .txt".';
+    list.innerHTML = '';
+    return;
+  }
+  const jogos = _sinalizadorSortJogos(d.jogos);
+  statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo analisado(s) · ${jogos.length} sinalizado(s) agora.`;
+  list.innerHTML = jogos.length
+    ? jogos.map(_sinalizadorJogoHtml).join('')
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bateu uma configuração forte agora — a lista atualiza sozinha a cada 25s.</div>`;
+  jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
+}
+
+async function _sinalizadorCheck() {
+  const statusEl = document.getElementById('sinalizadorStatus');
   try {
     const r = await fetch('/api/sinalizador/check');
     const d = await r.json();
     _sinalizadorData = d;
-    if (!d.total_regras) {
-      statusEl.textContent = 'Nenhuma regra importada ainda — clique em "📥 Importar .txt".';
-      list.innerHTML = '';
-      return;
-    }
-    statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo analisado(s) · ${d.jogos.length} sinalizado(s) agora.`;
-    list.innerHTML = d.jogos.length
-      ? d.jogos.map(_sinalizadorJogoHtml).join('')
-      : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bateu uma configuração forte agora — a lista atualiza sozinha a cada 25s.</div>`;
-    d.jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
+    _sinalizadorRenderList(d);
   } catch (e) {
-    statusEl.textContent = `Erro buscando sinais: ${e}`;
+    if (statusEl) statusEl.textContent = `Erro buscando sinais: ${e}`;
   }
 }
 
