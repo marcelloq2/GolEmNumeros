@@ -1637,13 +1637,9 @@
           style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
-        <button id="painelExportScanBtn" onclick="_painelExportScanAll()"
-          title="Coleta a análise (Comparação de força + CD/Dados) de TODAS as partidas visíveis automaticamente, uma de cada vez — finalizadas vão pro banco (permanente), próximas baixam como JSON no final"
-          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-                 color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-                 white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px">🔍 Coletar todas
-          <span id="painelExportBadge" class="live-count-badge" style="margin:0" title="Partidas salvas">0</span>
-        </button>
+        <!-- Botão "🔍 Coletar todas" removido a pedido do usuário (2026-08-25) —
+             alimentava só a aba Prognósticos, que saiu da navegação. As funções
+             _painelExport* seguem no arquivo, órfãs, mesmo padrão do Lay Placar. -->
         <span class="live-count-badge" id="painelHojeCountBadge" title="Jogos carregados na aba Hoje (Flashscore)">0</span>
         <!-- Botões 🔎 (Escanear Próximos/_hojeScanAbrir), ⬇️ (Baixar TXT/
              _hojeJogoExportarTxt) e ↻ (Atualizar Hoje/loadToday2Matches)
