@@ -2680,13 +2680,15 @@ def _uniscore_minuto(e):
         return None
     return f"{offset + elapsed_min}'"
 
-@app.route("/api/radar/live")
-def api_radar_live():
-    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
+def _radar_fetch_live_matches():
+    """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre,
+    só sem o jsonify) — extraída pra ser reaproveitada pelo scan automático
+    do Scanner em segundo plano (_scanner_auto_scan_loop), que roda numa
+    thread sem contexto de request do Flask e não pode chamar jsonify()."""
     # Cache de 90s para o endpoint público (mais curto que o cache interno)
     if time.time() - _uniscore_full_cache["ts"] < 90 and _uniscore_full_cache["live"]:
         live = _uniscore_full_cache["live"]
-        return jsonify({"live": live, "total": len(live)})
+        return {"live": live, "total": len(live)}
 
     live = []
     all_by_id = {}
@@ -2780,11 +2782,17 @@ def api_radar_live():
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
     if not live and _uniscore_full_cache["live"] and (time.time() - _uniscore_full_cache["ts"] < 300):
         print(f"[live] API retornou 0 jogos — mantendo cache anterior com {len(_uniscore_full_cache['live'])} jogos")
-        return jsonify({"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True})
+        return {"live": _uniscore_full_cache["live"], "total": len(_uniscore_full_cache["live"]), "stale": True}
 
     _uniscore_full_cache["ts"]   = time.time()
     _uniscore_full_cache["live"] = live
-    return jsonify({"live": live, "total": len(live), "stale": False})
+    return {"live": live, "total": len(live), "stale": False}
+
+
+@app.route("/api/radar/live")
+def api_radar_live():
+    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
+    return jsonify(_radar_fetch_live_matches())
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -4815,24 +4823,24 @@ def api_scanner_performance():
     })
 
 
-@app.route("/api/scanner/analyze")
-def api_scanner_analyze():
-    """Motor de similaridade do Scanner: pega o estado ao vivo atual (via
-    _process_momentum, o mesmo dado que já alimenta Ao Vivo/momentum) e busca
-    no momentum_history partidas com o mesmo placar num minuto parecido,
-    devolvendo qualquer combinação janela+mercado que bateu ≥95% de segurança
-    na amostra encontrada. Chamado periodicamente pelo frontend só pros jogos
-    marcados como 'watch' (não pra todos os jogos ao vivo — custo)."""
-    event_id = request.args.get("event_id", "")
-    casa = request.args.get("casa", "")
-    fora = request.args.get("fora", "")
-    liga = request.args.get("liga", "")
+def _scanner_analyze_one(event_id, casa, fora, liga):
+    """Núcleo do motor de similaridade do Scanner: pega o estado ao vivo atual
+    (via _process_momentum, o mesmo dado que já alimenta Ao Vivo/momentum) e
+    busca no momentum_history partidas com o mesmo placar num minuto
+    parecido, devolvendo qualquer combinação janela+mercado que bateu ≥95%
+    de segurança na amostra encontrada — e já grava os alertas encontrados
+    (_scanner_log_alerts) antes de devolver.
+
+    Extraída de dentro de api_scanner_analyze pra ser reaproveitada tanto
+    pelo endpoint (chamado pelo frontend só pros jogos marcados manualmente
+    como 'watch') quanto pelo scan automático em segundo plano
+    (_scanner_auto_scan_loop, roda sozinho pra TODOS os jogos ao vivo)."""
     if not event_id or not casa or not fora:
-        return jsonify({"error": "faltam parâmetros (event_id, casa, fora)"}), 400
+        return {"error": "faltam parâmetros (event_id, casa, fora)"}
 
     data = _process_momentum(event_id, casa, fora, liga)
     if not data or not data.get("graphPoints"):
-        return jsonify({"error": "sem dados ao vivo pra essa partida ainda"}), 404
+        return {"error": "sem dados ao vivo pra essa partida ainda"}
 
     points = data["graphPoints"]
     goals = data.get("goals") or []
@@ -4857,7 +4865,7 @@ def api_scanner_analyze():
     _scanner_log_alerts(event_id, casa, fora, liga, minuto_atual, f"{placar_h}-{placar_a}",
                          alerts + alerts_over + alerts_comeback)
 
-    return jsonify({
+    return {
         "minuto": minuto_atual,
         "placar": f"{placar_h}-{placar_a}",
         "cohort_size": len(cohort),
@@ -4875,7 +4883,64 @@ def api_scanner_analyze():
         # monitorados sem precisar de uma requisição extra.
         "graphPoints": points,
         "goals": goals,
-    })
+    }
+
+
+@app.route("/api/scanner/analyze")
+def api_scanner_analyze():
+    """Chamado periodicamente pelo frontend só pros jogos marcados como
+    'watch' na aba Scanner. O motor em si (_scanner_analyze_one) também roda
+    sozinho em segundo plano pra TODOS os jogos ao vivo, ver
+    _scanner_auto_scan_loop — a base de Desempenho cresce mesmo sem ninguém
+    de olho num jogo específico."""
+    event_id = request.args.get("event_id", "")
+    casa = request.args.get("casa", "")
+    fora = request.args.get("fora", "")
+    liga = request.args.get("liga", "")
+    result = _scanner_analyze_one(event_id, casa, fora, liga)
+    if "error" in result:
+        status = 400 if "faltam" in result["error"] else 404
+        return jsonify(result), status
+    return jsonify(result)
+
+
+_SCANNER_AUTO_SCAN_INTERVAL = 90      # segundos entre passadas completas
+_SCANNER_AUTO_SCAN_DELAY = 2          # segundos entre cada partida dentro da mesma passada
+_SCANNER_AUTO_SCAN_MAX_PER_PASS = 50  # teto por passada, pra dia com muito jogo simultâneo não virar um loop sem fim
+
+
+def _scanner_auto_scan_loop():
+    """Roda o motor de similaridade do Scanner sozinho, pra TODOS os jogos ao
+    vivo — não só os marcados manualmente na aba Scanner (pedido do usuário,
+    2026-08-25: a base de Desempenho só crescia enquanto alguém ficava de
+    olho num jogo específico com a aba aberta).
+
+    Sequencial e com pausa entre cada partida de propósito: o servidor só
+    tem 4 threads no total pra atender TUDO (Ao Vivo é a prioridade, não
+    pode competir por esse recurso escasso — ver decisão registrada com o
+    usuário sobre isso). Essa thread de fundo reaproveita os mesmos caches
+    que o resto do site já usa (radar/live 90s, momentum_history 10min), só
+    adiciona chamadas de rede por partida (_process_momentum) — nenhum
+    trabalho pesado de CPU novo."""
+    while True:
+        try:
+            live = _radar_fetch_live_matches().get("live") or []
+            analisadas = 0
+            for m in live[:_SCANNER_AUTO_SCAN_MAX_PER_PASS]:
+                try:
+                    r = _scanner_analyze_one(m.get("id"), m.get("casa"), m.get("fora"), m.get("liga"))
+                    if "error" not in r:
+                        analisadas += 1
+                except Exception as e:
+                    print(f"[scanner-autoscan] Erro em {m.get('casa')} x {m.get('fora')}: {e}")
+                time.sleep(_SCANNER_AUTO_SCAN_DELAY)
+            print(f"[scanner-autoscan] Passada concluída: {analisadas}/{len(live)} jogo(s) ao vivo analisado(s).")
+        except Exception as e:
+            print(f"[scanner-autoscan] Erro na passada: {e}")
+        time.sleep(_SCANNER_AUTO_SCAN_INTERVAL)
+
+
+threading.Thread(target=_scanner_auto_scan_loop, daemon=True, name="ScannerAutoScan").start()
 
 
 def _momentum_eval_pattern(matches, chance_pct, over_pct, window_min):
