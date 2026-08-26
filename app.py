@@ -6973,6 +6973,19 @@ def api_sinalizador_check():
         m = dj["m"]
         minuto_atual = int(max((p.get("minute") or 0) for p in dj["graph_points"])) if dj["graph_points"] else 0
         placar_casa, placar_fora = m.get("golCasaFt"), m.get("golForaFt")
+        # A lista de incidentes do UniScore (dj["goals"], usada só pra
+        # desenhar as bolinhas de gol no gráfico) pode perder gol — mesmo bug
+        # de pênalti já achado antes pra resolução de mercado (ex:
+        # "Barracas Central 1x0" aparecia como 0x0). Quando a contagem por
+        # time não bate com o placar oficial, o gráfico fica enganoso (mostra
+        # menos gols do que realmente saíram) — pedido do usuário (2026-08-26):
+        # nesse caso a partida nem aparece no painel, em vez de mostrar um
+        # gráfico incompleto.
+        gols_casa_grafico = sum(1 for g in dj["goals"] if g.get("team") == "home")
+        gols_fora_grafico = sum(1 for g in dj["goals"] if g.get("team") == "away")
+        if placar_casa is not None and placar_fora is not None and \
+           (gols_casa_grafico != placar_casa or gols_fora_grafico != placar_fora):
+            continue
         bateram = []
         for regra in rules:
             # Mercado já decidido (ex: "Over 1.5 HT" já saiu, "HT" já
@@ -7030,7 +7043,11 @@ def api_sinalizador_check():
 
     total_sinalizados = sum(1 for r in resultados if r["sinais"])
     return jsonify({
-        "jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live),
+        # total_ao_vivo reflete o rótulo do frontend ("jogo(s) ao vivo com
+        # gráfico"): len(resultados), não len(live) — live inclui partida sem
+        # graphPoints ainda e agora também a que foi descartada por gol
+        # divergente (ver filtro acima), nenhuma das duas tem gráfico exibível.
+        "jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(resultados),
         "total_sinalizados": total_sinalizados,
     })
 

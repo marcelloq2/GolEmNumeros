@@ -21787,23 +21787,6 @@ function _sinalizadorIndicadoresGraficoHtml(ind) {
   </div>`;
 }
 
-// A lista de incidentes do UniScore (usada pra desenhar as bolinhas ⚽ no
-// gráfico) pode perder gol — mesmo bug de pênalti/gol contra já achado antes
-// nesse projeto pra resolução de mercado (ex: "Barracas Central 1x0" aparecia
-// como 0x0). Não tem outra fonte com o MINUTO do gol pra completar a lista,
-// então só avisa quando a contagem de bolinhas não bate com o placar oficial
-// (esse sim confiável), em vez de deixar parecer que o gráfico está errado
-// sem explicação.
-function _sinalizadorGolsDivergemHtml(j) {
-  const gols = j.goals || [];
-  const golsCasa = gols.filter(g => g.team === 'home').length;
-  const golsFora = gols.filter(g => g.team === 'away').length;
-  const placarCasa = j.placar_casa ?? 0;
-  const placarFora = j.placar_fora ?? 0;
-  if (golsCasa === placarCasa && golsFora === placarFora) return '';
-  return `<div style="font-size:8.5px;color:#f59e0b;text-align:center;margin-top:2px" title="O placar oficial (${placarCasa}-${placarFora}) é confiável, mas a lista de incidentes do UniScore usada pra marcar os ⚽ no gráfico às vezes perde gol (ex: pênalti) — o minuto exato desse gol não fica disponível.">⚠ gráfico não localizou todos os gols (placar oficial: ${placarCasa}-${placarFora})</div>`;
-}
-
 function _sinalizadorJogoHtml(j) {
   const canvasId = `sinalizadorChart_${j.event_id}`;
   const favorito = _sinalizadorGetFavs().has(String(j.event_id));
@@ -21828,7 +21811,6 @@ function _sinalizadorJogoHtml(j) {
       <div style="position:relative;margin-top:6px">
         <canvas id="${canvasId}" style="width:100%;height:55px;display:block"></canvas>
       </div>
-      ${_sinalizadorGolsDivergemHtml(j)}
       ${_sinalizadorIndicadoresGraficoHtml(j.indicadores_grafico)}
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
         ${temSinal
