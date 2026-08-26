@@ -21674,18 +21674,35 @@ async function _sinalizadorLoadConfig() {
   } catch (e) { /* mantém o que já tinha na tela */ }
 }
 
+// Mostra o valor calculado de verdade ao lado da faixa que validou a
+// metodologia — pedido do usuário: não só "bateu", mostrar o indicador.
+function _sinalizadorIndicadorHtml(ind, casasDecimais) {
+  const fmt = v => v.toFixed(casasDecimais);
+  return `<div style="font-size:10px;color:var(--text2)">${_bt2EscXml(ind.nome)}: <span style="color:var(--text);font-weight:700">${fmt(ind.valor)}</span> (faixa ${fmt(ind.min)} a ${fmt(ind.max)})</div>`;
+}
+
 function _sinalizadorSinalHtml(s) {
-  return `<div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
-    <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-    <div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(s.mercado)}</div>
-    <div style="flex-shrink:0;text-align:center">
-      <div style="font-size:14px;font-weight:800;color:${_scannerRateColor((s.taxa_final_pct || 0) / 100)}">${s.taxa_final_pct.toFixed(1)}%</div>
-      <div style="font-size:9px;color:var(--text2)">${s.amostra} jogo(s)</div>
+  // Prob. implícita fica mais legível em %, o resto (diferenças/pressão) faz
+  // mais sentido em 2 casas decimais — detecta pelo nome da variável.
+  const casasPreLive = s.indicador_pre_live.nome.startsWith('Prob.') ? 4 : 2;
+  return `<div style="background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
+    <div style="display:flex;align-items:center;gap:9px">
+      <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+      <div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--text)">${_bt2EscXml(s.mercado)}</div>
+      <div style="flex-shrink:0;text-align:center">
+        <div style="font-size:14px;font-weight:800;color:${_scannerRateColor((s.taxa_final_pct || 0) / 100)}">${s.taxa_final_pct.toFixed(1)}%</div>
+        <div style="font-size:9px;color:var(--text2)">${s.amostra} jogo(s)</div>
+      </div>
+    </div>
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid #d1a13e33;display:flex;flex-direction:column;gap:2px">
+      ${_sinalizadorIndicadorHtml(s.indicador_pre_live, casasPreLive)}
+      ${_sinalizadorIndicadorHtml(s.indicador_checkpoint, 2)}
     </div>
   </div>`;
 }
 
 function _sinalizadorJogoHtml(j) {
+  const canvasId = `sinalizadorChart_${j.event_id}`;
   return `<div class="live-card" style="border-left:3px solid var(--accent)">
     <div class="live-card-top" style="justify-content:center;text-align:center">
       <span>${_bt2EscXml(j.liga || '')}</span>
@@ -21697,11 +21714,68 @@ function _sinalizadorJogoHtml(j) {
         <span class="tname">${_bt2EscXml(j.fora)}</span>
         <span style="font-size:11px;color:var(--text2)">· ⏱ ${_bt2EscXml(j.minuto || '--')}'</span>
       </div>
+      <div style="position:relative;margin-top:8px">
+        <canvas id="${canvasId}" style="width:100%;height:90px;display:block"></canvas>
+      </div>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
         ${j.sinais.map(_sinalizadorSinalHtml).join('')}
       </div>
     </div>
   </div>`;
+}
+
+// Gráfico de pressão por minuto — mesma lógica de desenharCanvas() da
+// ferramenta local (analise_padroes.html): barras verticais (positivo=casa,
+// negativo=visitante), linha do intervalo em ~45min, marcador de gol.
+function _sinalizadorDesenharCanvas(canvasId, graphPoints, goals) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth || 300;
+  const H = 90;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pontos = graphPoints || [];
+  const gols = goals || [];
+  const maxMinuto = Math.max(90, ...pontos.map(pt => pt.minute || 0), ...gols.map(g => g.minute || 0));
+  const midY = H / 2;
+  const padX = 4;
+  const plotW = W - padX * 2;
+  const barW = Math.max(1, plotW / maxMinuto - 1);
+
+  ctx.strokeStyle = 'rgba(139,150,173,.15)';
+  ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
+
+  const htX = padX + (45 / maxMinuto) * plotW;
+  ctx.strokeStyle = 'rgba(139,150,173,.4)';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(htX, 0); ctx.lineTo(htX, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  pontos.forEach(pt => {
+    const x = padX + ((pt.minute || 0) / maxMinuto) * plotW;
+    const val = Math.max(-100, Math.min(100, pt.value || 0));
+    const h = Math.abs(val) / 100 * (H / 2 - 4);
+    ctx.fillStyle = val >= 0 ? 'rgba(59,130,246,.75)' : 'rgba(220,80,80,.7)';
+    if (val >= 0) ctx.fillRect(x - barW / 2, midY - h, barW, h);
+    else ctx.fillRect(x - barW / 2, midY, barW, h);
+  });
+
+  gols.forEach(g => {
+    const x = padX + ((g.minute || 0) / maxMinuto) * plotW;
+    ctx.strokeStyle = g.team === 'home' ? 'rgba(96,165,250,.6)' : 'rgba(220,80,80,.5)';
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.font = '10px system-ui';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillText('⚽', x - 5, g.team === 'home' ? 10 : H - 4);
+  });
 }
 
 async function _sinalizadorCheck() {
@@ -21721,6 +21795,7 @@ async function _sinalizadorCheck() {
     list.innerHTML = d.jogos.length
       ? d.jogos.map(_sinalizadorJogoHtml).join('')
       : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bateu uma configuração forte agora — a lista atualiza sozinha a cada 25s.</div>`;
+    d.jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
   } catch (e) {
     statusEl.textContent = `Erro buscando sinais: ${e}`;
   }

@@ -6830,13 +6830,18 @@ def _sinalizador_buscar_dados_jogo(m, uni_odds, nowgoal_por_time):
     if not event_id or not casa or not fora:
         return None
     mom = _process_momentum(event_id, casa, fora, m.get("liga") or "")
-    if not mom:
+    graph_points = mom.get("graphPoints") if mom else None
+    if not graph_points:
+        # Pedido do usuário (2026-08-26): só considerar jogo que já tem
+        # gráfico de pressão — precisa disso tanto pro checkpoint quanto
+        # pra desenhar o gráfico na tela (frontend).
         return None
     return {
         "m": m,
         "odds_uni": uni_odds.get(event_id) or {},
         "nowgoal": nowgoal_por_time(casa, fora),
-        "graph_points": mom.get("graphPoints") or [],
+        "graph_points": graph_points,
+        "goals": mom.get("goals") or [],
         "statistics_periods": mom.get("statistics_periods") or {},
     }
 
@@ -6904,16 +6909,23 @@ def api_sinalizador_check():
             v_chk = _sinalizador_calc_checkpoint(regra["variavel_checkpoint"], dj["graph_points"], dj["statistics_periods"])
             if v_chk is None or not (regra["min_checkpoint"] <= v_chk <= regra["max_checkpoint"]):
                 continue
+            # Devolve os indicadores calculados junto (pedido do usuário) —
+            # não só "bateu", mas o valor de verdade e a faixa que validou.
             bateram.append({
                 "mercado":        regra["mercado"],
                 "taxa_final_pct": regra["taxa_final_pct"],
                 "amostra":        regra["amostra"],
+                "indicador_pre_live":   {"nome": regra["variavel_pre_live"], "valor": round(v_pre, 4),
+                                          "min": regra["min_pre_live"], "max": regra["max_pre_live"]},
+                "indicador_checkpoint": {"nome": regra["variavel_checkpoint"], "valor": round(v_chk, 4),
+                                          "min": regra["min_checkpoint"], "max": regra["max_checkpoint"]},
             })
         if bateram:
             resultados.append({
                 "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
                 "liga": m.get("liga"), "minuto": m.get("minuto"),
                 "sinais": bateram,
+                "graph_points": dj["graph_points"], "goals": dj["goals"],
             })
 
     return jsonify({"jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live)})
