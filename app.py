@@ -6998,30 +6998,41 @@ def api_sinalizador_check():
                 "indicador_checkpoint": {"nome": regra["variavel_checkpoint"], "valor": round(v_chk, 4),
                                           "min": regra["min_checkpoint"], "max": regra["max_checkpoint"]},
             })
-        if bateram:
-            ps = dj["pressure_summary"]
-            resultados.append({
-                "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
-                "liga": m.get("liga"), "minuto": m.get("minuto"),
-                "placar_casa": m.get("golCasaFt"), "placar_fora": m.get("golForaFt"),
-                "sinais": bateram,
-                "graph_points": dj["graph_points"], "goals": dj["goals"],
-                # Indicadores gerais do gráfico (não são de nenhuma regra
-                # específica, só contexto extra) — dominância/swings/picos
-                # reaproveitam pressure_summary (não dependem de onde corta o
-                # 1ºT); "pressão média (1º T)" usa o corte literal minuto<=45
-                # (a mesma função do checkpoint), não pressure_summary.h1_avg
-                # (que corta no meio do que já foi rastreado — errado ao vivo).
-                "indicadores_grafico": {
-                    "dominancia_casa_pct": ps.get("home_dominance_pct"),
-                    "momentum_swings": ps.get("momentum_swings"),
-                    "pressao_media_1t": _sinalizador_pressao_media_1t(dj["graph_points"]),
-                    "pico_casa": ps.get("max_home"),
-                    "pico_fora": ps.get("max_away"),
-                },
-            })
+        # Sempre inclui a partida na lista, tenha ou não sinal ativo agora
+        # (pedido do usuário, 2026-08-26): antes, quando o(s) único(s) sinal
+        # (is) de uma partida resolviam ao mesmo tempo, a partida inteira
+        # sumia da lista — o usuário só queria que o SINAL sumisse, não a
+        # partida. Agora o Sinalizador mostra toda partida ao vivo com
+        # gráfico de pressão (mesmo critério de entrada em
+        # _sinalizador_buscar_dados_jogo), com "sinais" vindo vazio quando
+        # nenhuma regra bate/sobra pra ela no momento.
+        ps = dj["pressure_summary"]
+        resultados.append({
+            "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
+            "liga": m.get("liga"), "minuto": m.get("minuto"),
+            "placar_casa": m.get("golCasaFt"), "placar_fora": m.get("golForaFt"),
+            "sinais": bateram,
+            "graph_points": dj["graph_points"], "goals": dj["goals"],
+            # Indicadores gerais do gráfico (não são de nenhuma regra
+            # específica, só contexto extra) — dominância/swings/picos
+            # reaproveitam pressure_summary (não dependem de onde corta o
+            # 1ºT); "pressão média (1º T)" usa o corte literal minuto<=45
+            # (a mesma função do checkpoint), não pressure_summary.h1_avg
+            # (que corta no meio do que já foi rastreado — errado ao vivo).
+            "indicadores_grafico": {
+                "dominancia_casa_pct": ps.get("home_dominance_pct"),
+                "momentum_swings": ps.get("momentum_swings"),
+                "pressao_media_1t": _sinalizador_pressao_media_1t(dj["graph_points"]),
+                "pico_casa": ps.get("max_home"),
+                "pico_fora": ps.get("max_away"),
+            },
+        })
 
-    return jsonify({"jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live)})
+    total_sinalizados = sum(1 for r in resultados if r["sinais"])
+    return jsonify({
+        "jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live),
+        "total_sinalizados": total_sinalizados,
+    })
 
 
 def _uni_events_today():

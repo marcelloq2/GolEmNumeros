@@ -21705,12 +21705,20 @@ function _sinalizadorToggleSortByTime() {
   if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena o que já está carregado
 }
 
+// 3 níveis de prioridade: favorito primeiro (o usuário marcou de propósito
+// pra acompanhar), depois quem tem sinal ativo agora, depois o resto (jogos
+// ao vivo sem nenhuma configuração batendo no momento — o Sinalizador agora
+// mostra todos, não só os sinalizados, pra não sumir a partida inteira só
+// porque o único sinal dela resolveu).
 function _sinalizadorSortJogos(jogos) {
   const favs = _sinalizadorGetFavs();
   return [...jogos].sort((a, b) => {
     const fa = favs.has(String(a.event_id)) ? 0 : 1;
     const fb = favs.has(String(b.event_id)) ? 0 : 1;
-    if (fa !== fb) return fa - fb; // favoritos sempre primeiro
+    if (fa !== fb) return fa - fb;
+    const sa = (a.sinais && a.sinais.length) ? 0 : 1;
+    const sb = (b.sinais && b.sinais.length) ? 0 : 1;
+    if (sa !== sb) return sa - sb;
     if (!_sinalizadorSortByTime) return 0;
     const ma = _scannerParseMinuto(a), mb = _scannerParseMinuto(b);
     if (ma == null && mb == null) return 0;
@@ -21782,7 +21790,11 @@ function _sinalizadorIndicadoresGraficoHtml(ind) {
 function _sinalizadorJogoHtml(j) {
   const canvasId = `sinalizadorChart_${j.event_id}`;
   const favorito = _sinalizadorGetFavs().has(String(j.event_id));
-  return `<div class="live-card" style="border-left:3px solid ${favorito ? '#f59e0b' : 'var(--accent)'}">
+  const temSinal = j.sinais && j.sinais.length;
+  // Sem sinal ativo agora não é mais motivo pra sumir a partida (pedido do
+  // usuário) — só fica com a borda discreta em vez da dourada de destaque.
+  const corBorda = favorito ? '#f59e0b' : (temSinal ? 'var(--accent)' : 'var(--border)');
+  return `<div class="live-card" style="border-left:3px solid ${corBorda}">
     <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
       <span>${_bt2EscXml(j.liga || '')}</span>
       <span onclick="event.stopPropagation();_sinalizadorToggleFav('${j.event_id}')"
@@ -21801,7 +21813,9 @@ function _sinalizadorJogoHtml(j) {
       </div>
       ${_sinalizadorIndicadoresGraficoHtml(j.indicadores_grafico)}
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
-        ${j.sinais.map(_sinalizadorSinalHtml).join('')}
+        ${temSinal
+          ? j.sinais.map(_sinalizadorSinalHtml).join('')
+          : `<div style="font-size:9.5px;color:var(--text2);text-align:center;padding:4px 0">nenhum sinal ativo agora</div>`}
       </div>
     </div>
   </div>`;
@@ -21871,10 +21885,11 @@ function _sinalizadorRenderList(d) {
     return;
   }
   const jogos = _sinalizadorSortJogos(d.jogos);
-  statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo analisado(s) · ${jogos.length} sinalizado(s) agora.`;
+  const totalSinalizados = d.total_sinalizados ?? jogos.filter(j => j.sinais && j.sinais.length).length;
+  statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo com gráfico · ${totalSinalizados} sinalizado(s) agora.`;
   list.innerHTML = jogos.length
     ? jogos.map(_sinalizadorJogoHtml).join('')
-    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bateu uma configuração forte agora — a lista atualiza sozinha a cada 25s.</div>`;
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo com gráfico de pressão disponível agora — a lista atualiza sozinha a cada 25s.</div>`;
   jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
 }
 
