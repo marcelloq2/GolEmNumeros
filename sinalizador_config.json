@@ -1,0 +1,24 @@
+[
+  {
+    "mercado": "Casa vence",
+    "variavel_pre_live": "Prob. implícita casa (1X2)",
+    "min_pre_live": 0.555,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
+    "min_checkpoint": 3.0,
+    "max_checkpoint": 12.0,
+    "taxa_final_pct": 80.4,
+    "amostra": 114
+  },
+  {
+    "mercado": "Fora vence",
+    "variavel_pre_live": "Prob. implícita fora (1X2)",
+    "min_pre_live": 0.43,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Finalizações — diferença (1º T)",
+    "min_checkpoint": -20.0,
+    "max_checkpoint": -5.0,
+    "taxa_final_pct": 76.3,
+    "amostra": 95
+  }
+]
