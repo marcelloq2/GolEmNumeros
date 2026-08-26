@@ -6816,27 +6816,40 @@ _SINALIZADOR_OVER_HT_RE = re.compile(r"over\s+(\d+(?:[.,]\d+)?)", re.IGNORECASE)
 
 
 def _sinalizador_mercado_resolvido(mercado, minuto_atual, goals):
-    """Decide se o RESULTADO do mercado já foi decidido — nesse caso o sinal
-    para de contar (some do painel), já que não tem mais decisão a tomar em
-    cima dele. Pedido do usuário (2026-08-26): "Over 1.5 HT" some quando já
-    saíram os gols que bastam pra bater a linha (mesmo antes do intervalo);
-    "Casa/Visitante vence HT" some quando o intervalo chega (o resultado do
-    1º tempo já fechou); "Casa/Visitante marca primeiro" some assim que sai
-    o 1º gol do jogo, seja de quem for.
+    """Decide se a PREVISÃO do mercado já se confirmou/passou do ponto de
+    fazer sentido continuar mostrando — nesse caso só ESSE sinal some do
+    card (o jogo continua na lista se tiver outro sinal ainda válido).
+    Pedido do usuário (2026-08-26), 3 heurísticas independentes (qualquer
+    uma que valer já resolve):
+
+    1. "... marca primeiro" — some assim que sai o 1º gol do jogo, de
+       qualquer lado (o "quem marca primeiro" já ficou definido).
+    2. "[Casa/Fora/Visitante] vence" (HT ou FT) — some assim que ESSE time
+       específico marca o 1º gol do jogo: "já se presume que pode vencer",
+       o indicador já cumpriu o papel de avisar antes de ficar óbvio.
+    3. Qualquer mercado "... HT" — some quando o intervalo passa (minuto >
+       45); "Over X HT" especificamente também some ANTES disso se os gols
+       que faltavam pra bater a linha já saíram.
 
     `mercado` é texto livre (vem do .txt do usuário) — decide por HEURÍSTICA
     no nome, não por uma lista fechada de mercados, pra funcionar com
     qualquer variação de nome parecida sem precisar cadastrar cada uma."""
     nome = (mercado or "").lower()
+    goals = goals or []
 
-    # "Casa marca primeiro" / "Visitante marca primeiro" — decidido assim
-    # que sai o 1º gol do jogo (de qualquer lado).
     if "marca primeiro" in nome:
-        return len(goals or []) > 0
+        return len(goals) > 0
 
-    # Qualquer mercado "... HT" (Casa vence HT, Visitante vence HT, Empate
-    # HT, Over/Under X HT, Ambas Marcam HT etc.) — decidido quando o
-    # intervalo chega.
+    if "vence" in nome and goals:
+        primeiro_gol = min(goals, key=lambda g: g.get("minute") or 0)
+        time_1o_gol = primeiro_gol.get("team")
+        eh_mercado_casa = "casa" in nome
+        eh_mercado_visitante = "fora" in nome or "visitante" in nome
+        if eh_mercado_casa and time_1o_gol == "home":
+            return True
+        if eh_mercado_visitante and time_1o_gol == "away":
+            return True
+
     if re.search(r"\bht\b", nome):
         if minuto_atual and minuto_atual > 45:
             return True
@@ -6848,12 +6861,11 @@ def _sinalizador_mercado_resolvido(mercado, minuto_atual, goals):
         if m:
             try:
                 linha = float(m.group(1).replace(",", "."))
+                gols_ht = sum(1 for g in goals if (g.get("minute") or 0) <= 45)
+                if gols_ht > linha:
+                    return True
             except ValueError:
-                return False
-            gols_ht = sum(1 for g in (goals or []) if (g.get("minute") or 0) <= 45)
-            if gols_ht > linha:
-                return True
-        return False
+                pass
 
     return False
 
