@@ -21701,6 +21701,29 @@ function _sinalizadorSinalHtml(s) {
   </div>`;
 }
 
+// Indicadores gerais do gráfico de pressão (não são de nenhuma regra
+// específica — contexto extra, mesmo espírito de renderIndicadores() na
+// ferramenta local).
+function _sinalizadorIndicadoresGraficoHtml(ind) {
+  if (!ind) return '';
+  const dom = typeof ind.dominancia_casa_pct === 'number' ? ind.dominancia_casa_pct : null;
+  const domTxt = dom === null ? '—' : (dom >= 50 ? `${dom.toFixed(1)}% casa` : `${(100 - dom).toFixed(1)}% fora`);
+  const fmtSigned = v => typeof v === 'number' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : '—';
+  const cards = [
+    { label: 'Dominância', value: domTxt },
+    { label: 'Momentum swings', value: ind.momentum_swings ?? '—' },
+    { label: 'Pressão média (1º T)', value: fmtSigned(ind.pressao_media_1t) },
+    { label: 'Pico casa / fora', value: `${ind.pico_casa?.toFixed(0) ?? '—'} / ${ind.pico_fora?.toFixed(0) ?? '—'}` },
+  ];
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-top:6px">
+    ${cards.map(c => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 7px;text-align:center">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${c.value}</div>
+        <div style="font-size:9px;color:var(--text2)">${c.label}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
 function _sinalizadorJogoHtml(j) {
   const canvasId = `sinalizadorChart_${j.event_id}`;
   return `<div class="live-card" style="border-left:3px solid var(--accent)">
@@ -21717,6 +21740,7 @@ function _sinalizadorJogoHtml(j) {
       <div style="position:relative;margin-top:8px">
         <canvas id="${canvasId}" style="width:100%;height:90px;display:block"></canvas>
       </div>
+      ${_sinalizadorIndicadoresGraficoHtml(j.indicadores_grafico)}
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
         ${j.sinais.map(_sinalizadorSinalHtml).join('')}
       </div>

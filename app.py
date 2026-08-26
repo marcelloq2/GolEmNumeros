@@ -6843,6 +6843,7 @@ def _sinalizador_buscar_dados_jogo(m, uni_odds, nowgoal_por_time):
         "graph_points": graph_points,
         "goals": mom.get("goals") or [],
         "statistics_periods": mom.get("statistics_periods") or {},
+        "pressure_summary": mom.get("pressure_summary") or {},
     }
 
 
@@ -6921,12 +6922,26 @@ def api_sinalizador_check():
                                           "min": regra["min_checkpoint"], "max": regra["max_checkpoint"]},
             })
         if bateram:
+            ps = dj["pressure_summary"]
             resultados.append({
                 "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
                 "liga": m.get("liga"), "minuto": m.get("minuto"),
                 "placar_casa": m.get("golCasaFt"), "placar_fora": m.get("golForaFt"),
                 "sinais": bateram,
                 "graph_points": dj["graph_points"], "goals": dj["goals"],
+                # Indicadores gerais do gráfico (não são de nenhuma regra
+                # específica, só contexto extra) — dominância/swings/picos
+                # reaproveitam pressure_summary (não dependem de onde corta o
+                # 1ºT); "pressão média (1º T)" usa o corte literal minuto<=45
+                # (a mesma função do checkpoint), não pressure_summary.h1_avg
+                # (que corta no meio do que já foi rastreado — errado ao vivo).
+                "indicadores_grafico": {
+                    "dominancia_casa_pct": ps.get("home_dominance_pct"),
+                    "momentum_swings": ps.get("momentum_swings"),
+                    "pressao_media_1t": _sinalizador_pressao_media_1t(dj["graph_points"]),
+                    "pico_casa": ps.get("max_home"),
+                    "pico_fora": ps.get("max_away"),
+                },
             })
 
     return jsonify({"jogos": resultados, "total_regras": len(rules), "total_ao_vivo": len(live)})
