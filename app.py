@@ -1286,43 +1286,57 @@ def _painel_fetch_matches_nowgoal(force=False, date_str=None):
         if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
             return cached["data"]
 
-        try:
-            matches = _ng_fetch_today_matches()
-        except Exception as e:
-            if cached is not None:
-                stale = dict(cached["data"])
-                stale["stale"] = True
-                stale["stale_error"] = str(e)
-                return stale
-            return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
+    # A busca de rede roda FORA do lock, de propósito — antes ficava dentro, e
+    # se o NowGoal travasse (sem estourar exceção, só sem responder) o
+    # _painel_lock ficava preso PRA SEMPRE. Como esse mesmo lock é usado por
+    # TODO mundo que chama essa função ou _painel_fetch_matches (Painel,
+    # pré-carga de Força, Sinalizador), as 4 threads do gunicorn (só isso no
+    # total, servindo o site inteiro) iam todas ficar esperando esse lock e
+    # travavam o site inteiro — sem se recuperar sozinho, porque o worker
+    # gthread do gunicorn considera vivo mesmo com toda thread de request
+    # travada (achado em produção, 2026-08-27: site inteiro fora do ar até o
+    # próximo redeploy). Só a leitura/escrita do dict de cache fica sob lock.
+    try:
+        matches = _ng_fetch_today_matches()
+    except Exception as e:
+        with _painel_lock:
+            cached = _painel_cache.get(cache_key)
+        if cached is not None:
+            stale = dict(cached["data"])
+            stale["stale"] = True
+            stale["stale_error"] = str(e)
+            return stale
+        return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
 
-        # Anexa (quando encontrado) o link direto pra Betfair Exchange / Bolsa de
-        # Aposta daquela partida específica, reaproveitando os links que o
-        # RadarFutebol já resolve no feed público dele (casando por nome dos
-        # times). Ver _find_radar_links — nunca derruba o carregamento do painel
-        # se o RadarFutebol estiver fora do ar, só fica sem os links dessa vez.
-        try:
-            for m in matches:
-                lb, lba, lr = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
-                m["link_betfair"] = lb
-                m["link_bolsa"] = lba
-                m["link_radar"] = lr
-        except Exception as e:
-            print(f"[radar-links] Erro anexando links: {e}")
-
-        leagues_map = {}
+    # Anexa (quando encontrado) o link direto pra Betfair Exchange / Bolsa de
+    # Aposta daquela partida específica, reaproveitando os links que o
+    # RadarFutebol já resolve no feed público dele (casando por nome dos
+    # times). Ver _find_radar_links — nunca derruba o carregamento do painel
+    # se o RadarFutebol estiver fora do ar, só fica sem os links dessa vez.
+    try:
         for m in matches:
-            key = m["league_key"]
-            lg = leagues_map.setdefault(key, {
-                "key": key, "country": m["country"], "league_name": m["league_name"],
-                "flag_url": "", "matches": [],
-            })
-            lg["matches"].append({k: v for k, v in m.items() if k not in ("league_key", "league_name", "country")})
+            lb, lba, lr = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
+            m["link_betfair"] = lb
+            m["link_bolsa"] = lba
+            m["link_radar"] = lr
+    except Exception as e:
+        print(f"[radar-links] Erro anexando links: {e}")
 
-        leagues = [lg for lg in leagues_map.values() if lg["matches"]]
-        for lg in leagues:
-            lg["matches"].sort(key=lambda x: x["ts"])
+    leagues_map = {}
+    for m in matches:
+        key = m["league_key"]
+        lg = leagues_map.setdefault(key, {
+            "key": key, "country": m["country"], "league_name": m["league_name"],
+            "flag_url": "", "matches": [],
+        })
+        lg["matches"].append({k: v for k, v in m.items() if k not in ("league_key", "league_name", "country")})
 
+    leagues = [lg for lg in leagues_map.values() if lg["matches"]]
+    for lg in leagues:
+        lg["matches"].sort(key=lambda x: x["ts"])
+
+    with _painel_lock:
+        cached = _painel_cache.get(cache_key)
         # O NowGoal às vezes devolve uma página de bloqueio/verificação em vez do feed
         # de verdade — isso não estoura exceção (o request "funciona", só que o regex
         # não acha nenhum jogo pra extrair), e sem essa checagem o cache ficava com
@@ -1629,62 +1643,68 @@ def _painel_fetch_matches(force=False, date_str=None):
         if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
             return cached["data"]
 
-        date_params = None
-        if date_str:
-            try:
-                y, mo, d = date_str.split("-")
-                date_params = {"year": y, "month": mo, "day": d}
-            except ValueError:
-                date_params = None
-
+    date_params = None
+    if date_str:
         try:
-            html_1x2 = _be_fetch_bettype_html("1x2", date_params)
-            html_ou  = _be_fetch_bettype_html("ou", date_params)
-            matches_1x2, leagues_order = _be_parse_bettype(html_1x2)
-            matches_ou, _ = _be_parse_bettype(html_ou)
-        except Exception as e:
-            # BetExplorer fora do ar/bloqueando (429) — em vez de deixar a página vazia
-            # com erro, serve o último resultado que já funcionou (mesmo vencido), com
-            # um aviso de que os dados podem estar desatualizados. Só mostra erro puro
-            # se nunca conseguimos buscar nada pra esse dia ainda.
-            if cached is not None:
-                stale = dict(cached["data"])
-                stale["stale"] = True
-                stale["stale_error"] = str(e)
-                return stale
-            return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
+            y, mo, d = date_str.split("-")
+            date_params = {"year": y, "month": mo, "day": d}
+        except ValueError:
+            date_params = None
 
-        leagues_map = {}
-        for lg in leagues_order:
-            leagues_map.setdefault(lg["key"], dict(lg, matches=[]))
+    # Busca de rede fora do lock — mesmo motivo de _painel_fetch_matches_nowgoal
+    # (que usa esse MESMO _painel_lock): uma trava aqui dentro do lock travava
+    # o site inteiro, não só o Painel. Ver nota lá.
+    try:
+        html_1x2 = _be_fetch_bettype_html("1x2", date_params)
+        html_ou  = _be_fetch_bettype_html("ou", date_params)
+        matches_1x2, leagues_order = _be_parse_bettype(html_1x2)
+        matches_ou, _ = _be_parse_bettype(html_ou)
+    except Exception as e:
+        # BetExplorer fora do ar/bloqueando (429) — em vez de deixar a página vazia
+        # com erro, serve o último resultado que já funcionou (mesmo vencido), com
+        # um aviso de que os dados podem estar desatualizados. Só mostra erro puro
+        # se nunca conseguimos buscar nada pra esse dia ainda.
+        with _painel_lock:
+            cached = _painel_cache.get(cache_key)
+        if cached is not None:
+            stale = dict(cached["data"])
+            stale["stale"] = True
+            stale["stale_error"] = str(e)
+            return stale
+        return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
 
-        for event_id, m in matches_1x2.items():
-            lg = leagues_map.get(m["league_key"])
-            if lg is None:
-                continue
-            ou = matches_ou.get(event_id)
-            odds = m["odds"] + [None] * (3 - len(m["odds"]))
-            ou_odds = (ou["odds"] if ou else []) + [None, None]
-            lg["matches"].append({
-                "event_id": event_id,
-                "time": m["status_text"],
-                "home": m["home"], "away": m["away"],
-                "home_logo": m.get("home_logo"), "away_logo": m.get("away_logo"),
-                "score_home": m["score_home"], "score_away": m["score_away"],
-                "match_url": (BETEXPLORER_BASE + m["match_url"]) if m["match_url"] else None,
-                "odd_1": odds[0], "odd_x": odds[1], "odd_2": odds[2],
-                "ou_line": ou["line"] if ou else None,
-                "odd_over": ou_odds[0], "odd_under": ou_odds[1],
-                "ts": m["ts"],
-            })
+    leagues_map = {}
+    for lg in leagues_order:
+        leagues_map.setdefault(lg["key"], dict(lg, matches=[]))
 
-        leagues = [lg for lg in leagues_map.values() if lg["matches"]]
-        for lg in leagues:
-            lg["matches"].sort(key=lambda x: x["ts"])
+    for event_id, m in matches_1x2.items():
+        lg = leagues_map.get(m["league_key"])
+        if lg is None:
+            continue
+        ou = matches_ou.get(event_id)
+        odds = m["odds"] + [None] * (3 - len(m["odds"]))
+        ou_odds = (ou["odds"] if ou else []) + [None, None]
+        lg["matches"].append({
+            "event_id": event_id,
+            "time": m["status_text"],
+            "home": m["home"], "away": m["away"],
+            "home_logo": m.get("home_logo"), "away_logo": m.get("away_logo"),
+            "score_home": m["score_home"], "score_away": m["score_away"],
+            "match_url": (BETEXPLORER_BASE + m["match_url"]) if m["match_url"] else None,
+            "odd_1": odds[0], "odd_x": odds[1], "odd_2": odds[2],
+            "ou_line": ou["line"] if ou else None,
+            "odd_over": ou_odds[0], "odd_under": ou_odds[1],
+            "ts": m["ts"],
+        })
 
-        data = {"leagues": leagues, "updated_at": now, "date": date_str}
+    leagues = [lg for lg in leagues_map.values() if lg["matches"]]
+    for lg in leagues:
+        lg["matches"].sort(key=lambda x: x["ts"])
+
+    data = {"leagues": leagues, "updated_at": now, "date": date_str}
+    with _painel_lock:
         _painel_cache[cache_key] = {"ts": now, "data": data}
-        return data
+    return data
 
 
 @app.route("/api/painel/matches")
