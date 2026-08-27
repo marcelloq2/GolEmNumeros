@@ -2400,6 +2400,28 @@ def _run_scrape_bg(fetch_details: bool = False):
         from scraper import scrape_all, save_json
         matches = scrape_all(fetch_details=fetch_details, delay=0.5 if not fetch_details else 2.0)
         path = os.path.join(DATA_DIR, "predictions_full.json")
+        if not fetch_details:
+            # Raspagem rápida (botão "🔄 Raspar" do Painel) não busca
+            # "detalhes" por partida — sem isso, sobrescrevia o arquivo rico
+            # (gerado 1x/dia pela raspagem completa local, com detalhes de
+            # cada confronto) com uma versão sem detalhes em NENHUMA partida,
+            # e essa versão pobre subia pro GitHub por cima da boa (achado
+            # com o usuário em 2026-08-26: o backup ficou com 0/56 partidas
+            # com detalhes depois de um clique nesse botão). Preserva os
+            # detalhes já existentes pra partida que já tinha, casando pela
+            # URL (identifica o confronto de forma estável).
+            try:
+                with open(path, encoding="utf-8") as f:
+                    old_matches = json.load(f)
+                old_detalhes_by_url = {m["url_detalhes"]: m["detalhes"]
+                                        for m in old_matches
+                                        if m.get("url_detalhes") and m.get("detalhes")}
+                for m in matches:
+                    url = m.get("url_detalhes")
+                    if url in old_detalhes_by_url:
+                        m["detalhes"] = old_detalhes_by_url[url]
+            except Exception:
+                pass
         save_json(matches, path)
         # Sobe para GitHub para persistir no próximo redeploy
         github_storage.push_file_bg(path, "predictions_full.json")
