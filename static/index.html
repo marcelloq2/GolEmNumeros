@@ -1634,7 +1634,7 @@
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
              aba Placar Contra (placarContraWrapper, switchView('placarcontra',...))
              continua existindo no código, só sem esse ponto de entrada na UI. -->
-        <button onclick="openAppGuia('hoje')" title="Guia da aba Hoje"
+        <button onclick="openAppGuia('painel')" title="Guia do Painel Principal"
           style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
@@ -2855,8 +2855,12 @@ let btAllMatchesCache = null; // cache de todos os jogos carregados
 let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
 
-// ── GUIA GERAL DO APP — explica as 4 abas atuais na íntegra, no maior nível de
-// detalhe possível (o usuário pediu "bula": tudo escrito, sem imagem nenhuma).
+// ── GUIA GERAL DO APP — explica as 4 abas atuais (Painel Principal, Ao Vivo,
+// Replay, Sinalizador) em linguagem simples, pra quem nunca usou o site
+// entender o que cada botão faz. Atualizado em 2026-08-27: removida a aba
+// "Hoje" (página morta, sem botão de acesso no menu — só o dado dela
+// continua vivo por trás do modal "Análise da partida" do Painel Principal),
+// adicionadas Replay e Sinalizador (não existiam quando o guia foi escrito).
 // Helpers de formatação reaproveitados em toda seção — mesmo padrão visual dos
 // guias antigos (openHojeGuia/openLiveGuia), só que descrevendo as abas ATUAIS.
 function _guiaSec(icon, title, body) {
@@ -2900,11 +2904,15 @@ const APP_GUIA_SECTIONS = {
         <b>Filtro por odds:</b> escolha mercado (1X2/Acima-Abaixo/Ambas Marcam/Placar Exato), lado e operador (≤/≥/&gt;/=/entre), digite o valor e aperte "Aplicar". Cada clique em "Aplicar" <b>empilha mais um filtro</b> em vez de substituir o anterior — só aparecem os jogos que baterem em <b>todos</b> os filtros ativos ao mesmo tempo. Cada filtro vira um selo com ✕ próprio pra remover individualmente, e um "Limpar todos" aparece quando há mais de um.<br><br>
         <b>☆ Remover Minhas Seleções:</b> apaga de vez todos os jogos marcados com estrela (pede confirmação antes).`),
 
-      _guiaSec('⚔️', 'Comparação de Força (clique num jogo)', `
-        Abre um modal com 3 abas:<br><br>
-        ${_guiaRow('Comparação de força', 'Radar com 5 eixos de força de cada time, mais odds de Handicap Asiático e Over/Under nas variantes HT/HA-Igual')}
-        ${_guiaRow('Estatísticas de Confronto Direto', 'Ganhe/Empate/Perca, gols por jogo, distribuição de Handicap Asiático e Over/Under, tabela dos últimos confrontos — com filtros de Casa/Fora, Mesma liga, 1º tempo e quantidade de jogos')}
-        ${_guiaRow('Estatísticas de Pontuações Anteriores', 'Mesmo formato, mas olhando os últimos jogos de cada time separadamente (não só os confrontos diretos)')}`),
+      _guiaSec('⚔️', 'Clique numa partida para ver a análise completa', `
+        Clicar em qualquer jogo da lista abre uma janela com várias abas, cada uma olhando o confronto de um jeito diferente. Nem toda partida tem dado suficiente pra todas as abas — quando falta informação, a aba mostra um aviso em vez de erro.<br><br>
+        ${_guiaRow('Comparação de força', 'Um gráfico (radar) comparando os dois times em 5 aspectos — Confronto direto, Estado atual, Ataque, Defesa e Valor de mercado — com uma nota geral de 0 a 100 pra cada time e quem está na frente')}
+        ${_guiaRow('Estatísticas de Confronto Direto', 'Como os dois times se saíram jogando um contra o outro nas últimas vezes: quem ganhou mais, média de gols, e se o jogo costuma ter bastante ou pouco gol')}
+        ${_guiaRow('Estatísticas de Pontuações Anteriores', 'A mesma ideia, mas olhando os últimos jogos de cada time separadamente — não só quando jogaram um contra o outro')}
+        ${_guiaRow('Classificações', 'A posição de cada time na tabela do campeonato (pontos, vitórias, empates, derrotas), quando essa informação está disponível pra essa partida')}
+        ${_guiaRow('⚡ Power Ranking', 'Uma outra forma de medir quem está "melhor" no campeonato: compara o ataque e a defesa de cada time com a média de todos os times da mesma competição')}
+        ${_guiaRow('CD / Dados', 'As odds atuais lado a lado, a chance estimada de sair Mais de 2,5 gols / Mais de 1,5 gols / Ambas as equipes marcarem, médias de gols, escanteios e cartões, e sequências recentes (ex: "esse time bateu Mais de 2,5 gols em 6 dos últimos 7 jogos")')}
+        ${_guiaRow('📝 Leitura', 'Uma tabela grande com várias tendências de cada time: em quantos jogos marcou gol, sequência atual (vencendo, sem sofrer gol, etc.), se costuma vir de trás pra virar o jogo, e taxas de acerto pra várias linhas de gols e escanteios')}`),
 
       _guiaSec(_icoTrophy(), 'Metodologias — ranking de tipsters', `
         Filtros no topo: <b>Semana/Mês</b> (período) e <b>Taxa de Vitória/ROI</b> (métrica de ordenação) — pra lucrar mais, ROI costuma ser o filtro mais confiável, já que Taxa de Vitória sozinha não pesa o tamanho da odd. Um terceiro botão, <b>"Previsões mais acertivas"</b>, troca a lista pra mostrar o mercado (Handicap Asiático/Over-Under/1X2) em que cada tipster mais acerta.<br><br>
@@ -2913,93 +2921,13 @@ const APP_GUIA_SECTIONS = {
     ].join(''),
   },
 
-  hoje: {
-    label: '✏️ Hoje',
-    html: [
-      _guiaSec('🔍', 'Barra de busca e filtros rápidos', `
-        <b>Campo de busca:</b> digite qualquer parte do nome de um time ou liga — filtra a lista em tempo real, sem precisar apertar Enter.<br><br>
-        <b>Seletor de liga:</b> escolha uma liga específica pra ver só os jogos dela (o dropdown já vem populado com todas as ligas do dia, agrupadas por país).<br><br>
-        <b>Turno do dia:</b><br>
-        ${_guiaRow('Dia todo', 'Mostra tudo, sem filtro de horário')}
-        ${_guiaRow('🌅 Manhã', 'Só jogos que começam de madrugada/manhã')}
-        ${_guiaRow('☀️ Tarde', 'Só jogos da tarde')}
-        ${_guiaRow('🌙 Noite', 'Só jogos da noite')}
-        <br><b>Status:</b><br>
-        ${_guiaRow('🔴 Ao Vivo', 'Filtra só as partidas que estão rolando agora')}
-        ${_guiaRow('Encerrados', 'Só jogos que já terminaram hoje')}
-        ${_guiaRow('Próximos', 'Só jogos que ainda não começaram')}
-        ${_guiaRow('⭐ Favoritos', 'Mostra só os jogos que você marcou com a estrela')}
-        (Esses botões de status podem ser combinados com o turno e a liga ao mesmo tempo.)<br><br>
-        <b>Ordenar:</b> "Liga" agrupa por competição (ordem alfabética); "Horário" mostra tudo numa lista só corrida, do mais cedo pro mais tarde.<br><br>
-        <b>Número / ↻:</b> mostra quantas partidas estão carregadas no total; o botão ↻ força atualizar a lista na hora, sem esperar o auto-refresh (que acontece sozinho a cada 20s, sem piscar a tela nem perder sua posição de rolagem).`),
-
-      _guiaSec('💰', 'Filtro por Odds', `
-        Filtra a lista pelas <b>odds atuais</b> de um mercado específico (busca só é feita quando você aperta "Aplicar" pela 1ª vez, pra não sobrecarregar à toa — cobre só os jogos mais próximos por horário, não todos os do dia inteiro).<br><br>
-        <b>Mercado:</b> 1X2 (Casa/Empate/Fora), Acima/Abaixo (linhas de 1,5 a 3,5 gols), Ambas Marcam (Sim/Não) ou Placar Exato (qualquer um dos 19 placares fixos).<br><br>
-        <b>Operador:</b> <b>≤</b> menor ou igual, <b>≥</b> maior ou igual, <b>&gt;</b> maior que, <b>=</b> igual, ou <b>entre</b> (faixa com dois valores).<br><br>
-        Cada "Aplicar" <b>empilha mais um filtro</b> em vez de substituir o anterior — só passam os jogos que baterem em todos ao mesmo tempo. Cada filtro vira um selo com ✕ próprio, e um "Limpar todos" aparece com mais de um ativo.`),
-
-      _guiaSec('🚫', 'Lay Placar', `
-        Botão vermelho ao lado do título "Hoje" (antes do "📖 Guia") — abre uma tela separada pra analisar manualmente contra placares específicos, usando uma configuração calculada externamente (ferramenta local <code>analise_padroes.html</code>) a partir dos jogos exportados pelo botão ⬇️ desta aba. Tem botão "← Hoje" pra voltar.`),
-
-      _guiaSec('📋', 'Lista de partidas', `
-        Agrupada por liga (com bandeira do país e nome do campeonato) ou em lista corrida por horário, dependendo da ordenação escolhida. Cada linha mostra os dois times, escudos (quando disponíveis na fonte), horário/placar, status (🕐 Agendado, 🔴 Ao vivo, ✅ Encerrado) e a estrela ⭐ de favorito.<br><br>
-        <b>⭐ Favoritar:</b> clique na estrela pra marcar aquele jogo — fica salvo no seu navegador (não sincroniza entre dispositivos) e pode ser filtrado com o botão "Favoritos" logo acima da lista.<br><br>
-        Clique em qualquer partida pra abrir o painel de detalhe à direita, com as abas descritas abaixo.`),
-
-      _guiaSec(_icoBall(), 'Aba "Jogo" — estatísticas dos últimos jogos de cada time', `
-        Alterna entre 3 recortes no topo: <b>Geral</b> (últimos jogos de cada time, casa+fora misturado), <b>Casa</b> (só os jogos do mandante jogando em casa) e <b>Fora</b> (só os jogos do visitante jogando fora) — o recorte Casa/Fora é o mais relevante pro jogo de hoje.<br><br>
-        <b>Cada estatística mostra "méd: X"</b> ao lado do valor do time — é a média entre TODOS os times que jogam hoje, recalculada 1x por dia. O valor do time fica <span style="color:#22c55e;font-weight:700">verde</span> se estiver acima dessa média, <span style="color:#ef4444;font-weight:700">vermelho</span> se estiver abaixo (comparação numérica pura, sem julgar se "acima" é bom ou ruim pra aquela estatística específica).<br><br>
-        <b>Estatísticas listadas:</b><br>
-        ${_guiaRow('Vitórias/Empates/Derrotas FT', 'Contagem e % no placar final, no recorte escolhido')}
-        ${_guiaRow('Vitórias/Empates/Derrotas HT', 'Mesma coisa, mas pelo placar do intervalo (1º tempo)')}
-        ${_guiaRow('Média de gols marcados/sofridos', 'Por partida, no recorte escolhido')}
-        ${_guiaRow('Chance de marcar/sofrer gol', '% dos jogos em que o time marcou pelo menos 1 / sofreu pelo menos 1')}
-        ${_guiaRow('Ambas Marcam', '% dos jogos em que os dois times marcaram')}
-        ${_guiaRow('Sem sofrer / sem marcar', 'Contagem e % de jogos com clean sheet própria ou do adversário')}
-        ${_guiaRow('Mais/menos de 2,5 gols', 'Contagem e % de partidas acima/abaixo dessa linha de gols')}
-        ${_guiaRow('Minuto médio do 1º gol', 'Marcado pelo próprio time, sofrido pelo próprio time, e da partida (qualquer um dos dois lados) — usa 90min como valor quando o time não marcou/sofreu naquele jogo')}
-        ${_guiaRow('Valor do Gol (Marcado)', 'Gols marcados × probabilidade do adversário vencer — marcar contra um favorito "vale mais" que marcar contra um azarão')}
-        ${_guiaRow('Valor do Gol (Sofrido)', 'Gols sofridos × probabilidade do PRÓPRIO time vencer — sofrer sendo favorito pesa mais contra o time')}
-        ${_guiaRow('Custo do Gol 2.0', 'Média entre (gols) e (o quanto o time era favorito) — número mais alto tende a indicar gols vindos com o time já em vantagem no papel')}
-        ${_guiaRow('Saldo de Gols', 'Gols marcados menos sofridos, cru, sem pesar pela força do adversário')}
-        ${_guiaRow('Valor do Saldo', 'Saldo × probabilidade do adversário vencer — mesmo saldo vale mais contra time forte')}
-        ${_guiaRow('Valor do Ponto', 'Pontos (V=3/E=1/D=0) × probabilidade do adversário vencer — 3 pontos contra o líder valem mais que 3 pontos contra o lanterna')}
-        <br>Passe o mouse sobre qualquer linha pra ver uma dica explicando exatamente como aquele número é calculado e com quantos jogos.<br><br>
-        <b>📋 Confronto Direto — Estatísticas:</b> logo abaixo dos recortes Geral/Casa/Fora, as mesmas estatísticas só que calculadas em cima só dos últimos 5 jogos entre esses dois times específicos (mesmo bloco que aparece na aba H2H).`),
-
-      _guiaSec('💰', 'Aba "Odds"', `
-        Mostra as odds atuais oferecidas pra essa partida nos principais mercados: 1X2 (Casa/Empate/Fora), Over/Under em várias linhas de gols, Ambas Marcam, Placar Exato e Handicap Asiático — puxadas direto da Flashscore.`),
-
-      _guiaSec('📅', 'Aba "H2H"', `
-        Histórico dos confrontos diretos entre os dois times (quando existir), mais os últimos jogos de cada time separadamente — é a fonte de dados crua que alimenta as abas Jogo, Profit, Placares Corretos e Leitura da Partida.<br><br>
-        <b>📋 Confronto Direto — Estatísticas:</b> logo no topo, as mesmas estatísticas detalhadas da aba Jogo (vitórias/empates/derrotas, médias, Valor do Gol, Custo do Gol 2.0, Saldo de Gols etc), mas calculadas só em cima dos últimos 5 jogos entre esses dois times específicos — não do histórico geral de cada um. Só aparece com pelo menos 3 confrontos diretos no histórico.`),
-
-      _guiaSec(_icoTrophy(), 'Aba "Classificações"', `
-        Tabela de posição atual dos dois times no campeonato: pontos, jogos, vitórias, empates, derrotas, gols marcados e sofridos. Serve de contexto pra saber se um time "bom no H2H recente" também está bem colocado na tabela.<br><br>
-        <b>⚠️ Aviso de "must win":</b> quando um dos dois times está na zona de rebaixamento ou brigando por vaga de classificação, aparece um aviso no topo da aba. Não aparece em partidas sem tabela de pontos corridos (copas, grupos, mata-mata).`),
-
-      _guiaSec('🧠', 'Aba "Leitura da Partida"', `
-        Cruza tudo que as outras abas já buscaram em cards de texto automático, cada um com um selo de confiança (<span style="color:#22c55e">Alta</span>/<span style="color:#f59e0b">Média</span>/<span style="color:#ef4444">Baixa</span>, combinando tamanho da amostra com força do sinal):<br><br>
-        ${_guiaRow('Mandante/visitante em forma', 'Time forte em casa/fora cruzado com a posição na tabela')}
-        ${_guiaRow('Tendência de gols', 'Over/Under muito unilateral cruzado com a linha de odd de hoje')}
-        ${_guiaRow('Placar raro com odd curta', 'Um placar que nunca ocorreu no histórico de nenhum dos dois times, mas a odd de hoje pra ele está baixa demais pra essa raridade')}
-        ${_guiaRow('Estatística de maior probabilidade', 'Varre todas as % da aba Jogo dos dois times e destaca a mais alta de todas')}
-        <br><b>📈 Estatísticas acima da média (aba Jogo):</b> logo abaixo dos cards, uma tabela compacta por time (separada em jogando em casa / jogando fora) listando TODAS as estatísticas da aba Jogo em que aquele time está acima da média do dia — vitórias, gols, chance de marcar, ambas marcam, over/under. É puramente descritivo (não julga se "acima" é bom ou ruim pra cada estatística específica), com uma margem mínima pra evitar ruído tipo "24% vs média 24%" aparecer como se fosse diferença real.<br><br>
-        <b>⬇️ Baixar TXT:</b> botão no topo da aba — baixa um arquivo de texto com todos os cards (frase, detalhe e confiança) e as estatísticas acima da média, pronto pra colar num assistente de IA (ChatGPT etc) e pedir uma análise da partida.`),
-
-      _guiaSec('🛡️', 'Escudos e outros detalhes', `
-        Escudos dos times aparecem direto na lista e no cabeçalho de detalhe quando a fonte disponibiliza a imagem.`),
-    ].join(''),
-  },
-
   aovivo: {
     label: '🔴 Ao Vivo',
     html: [
       _guiaSec('🔴', 'Grade de jogos ao vivo', `
         Mostra todas as partidas ao vivo agora, atualizando sozinha a cada 20 segundos. Só entram na grade partidas com <b>mapa de chutes já confirmado</b> — as demais continuam sendo buscadas em segundo plano e aparecem sozinhas assim que o 1º chute é registrado pela fonte de dados. Use "👁 Mostrar todos" pra ver também as que ainda não têm mapa de chutes.<br><br>
-        <b>🔍 Busca:</b> filtra a grade por nome de time, igual à aba Hoje.<br><br>
-        <b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade — favoritos marcados aqui são os mesmos usados/adicionados na aba Hoje.<br><br>
+        <b>🔍 Busca:</b> filtra a grade por nome de time.<br><br>
+        <b>⭐ Favoritar:</b> clique na estrela do card pra fixar aquele jogo no topo da grade — vale só pra essa aba, fica salvo no seu navegador.<br><br>
         <b>Efeito de gol:</b> quando o placar muda, o número pisca em verde e aparece um banner "⚽ GOL!" no card correspondente.`),
 
       _guiaSec(_icoTrend(), 'Gráfico de pressão', `
@@ -3021,7 +2949,55 @@ const APP_GUIA_SECTIONS = {
         Os 11 titulares de cada time, quando a fonte disponibiliza essa informação pra partida.`),
 
       _guiaSec('📉', 'Aba do card — Estatísticas Pré', `
-        Mostra, lado a lado, a posição de cada time na tabela do campeonato (pontos, V/E/D) e no Power Ranking (posição + Índice de Ataque/Defesa/Geral, calculado em cima dos gols marcados/sofridos por jogo comparado com a média da liga) — mesmos dados e cálculo já usados na aba Classificações do Hoje.`),
+        Mostra, lado a lado, a posição de cada time na tabela do campeonato (pontos, V/E/D) e no Power Ranking (posição + Índice de Ataque/Defesa/Geral, calculado em cima dos gols marcados/sofridos por jogo comparado com a média da liga) — o mesmo cálculo usado nas abas "Classificações" e "⚡ Power Ranking" de quando você clica numa partida no Painel Principal.`),
+    ].join(''),
+  },
+
+  replay: {
+    label: '▶️ Replay',
+    html: [
+      _guiaSec('🎬', 'O que essa aba faz', `
+        Deixa você <b>rever uma partida que já terminou</b> como se estivesse acontecendo ao vivo de novo — minuto a minuto, com o mesmo gráfico de pressão e os mesmos sinais que apareceriam na aba Ao Vivo. Serve pra estudar como um jogo se desenrolou, ou pra conferir se um sinal específico realmente teria acertado.`),
+
+      _guiaSec('▶️', '"Partidas" — escolher e reproduzir um jogo', `
+        Na barra da esquerda tem um campo de busca (por time ou liga) e a lista das <b>200 partidas mais recentes</b> já salvas no histórico. Clique numa pra abrir o player.<br><br>
+        <b>Controles:</b> ▶ Play/Pause e os botões 1x/3x/10x controlam a velocidade da reprodução. Também dá pra clicar direto numa marca de tempo pra pular pra aquele minuto.<br><br>
+        <b>O que aparece durante a reprodução:</b><br>
+        ${_guiaRow('Gráfico de pressão', 'O mesmo gráfico "quem está empurrando o jogo" da aba Ao Vivo, sendo desenhado aos poucos conforme os minutos passam')}
+        ${_guiaRow('Marcadores de sinal', 'Bolinhas ao longo da linha do tempo: raio azul ou vermelho = sinal de gol pro time da casa/visitante; raio amarelo = sinal mais fraco (possível gol); bola cinza = nenhum padrão detectado naquele momento')}
+        ${_guiaRow('Odds pré-jogo', 'As odds (1X2, Over/Under) que estavam valendo antes da partida começar')}
+        ${_guiaRow('Mapa de chutes', 'Campo desenhado com a posição de cada finalização, quando esse dado foi salvo pra essa partida')}`),
+
+      _guiaSec('📊', '"Estatísticas de Sinais" — os sinais realmente funcionam?', `
+        Essa aba responde uma pergunta simples: <b>de todas as vezes que um sinal apareceu, em quantas saiu gol logo depois?</b><br><br>
+        Escolha um tipo de sinal (⚡ Grande Chance, 🔥 Momento Over ou ❄️ Momento Under) e, se quiser, filtre por lado (Casa/Visitante). O gráfico mostra, minuto a minuto, a <b>% dos casos em que saiu gol até 10 minutos depois</b> daquele sinal ter aparecido — calculado em cima de todas as partidas já salvas na base (não é uma amostra pequena). Clique numa barra pra ver a lista das partidas exatas que formaram aquele número.`),
+    ].join(''),
+  },
+
+  sinalizador: {
+    label: '🔔 Sinalizador',
+    html: [
+      _guiaSec('🧭', 'O que essa aba faz', `
+        O Sinalizador acompanha os jogos ao vivo e avisa quando um deles se encaixa numa <b>metodologia que já foi testada estatisticamente</b> — ou seja, uma combinação de condições que, no histórico, deu uma taxa de acerto alta pra um mercado específico (tipo "Casa vence" ou "Over 1,5 no 1º tempo"). Ele não inventa esses padrões sozinho: eles vêm de um arquivo importado.`),
+
+      _guiaSec('📥', 'Importar .txt', `
+        As metodologias são calculadas numa ferramenta separada (rodada localmente, fora do site) que testa várias combinações de condições contra o histórico de milhares de partidas e só aprova as que passaram num teste estatístico rigoroso. O resultado desse teste é exportado num arquivo <code>.txt</code>, que você importa aqui pelo botão "📥 Importar .txt" — isso substitui a lista de regras anterior pela nova. O número ao lado ("X regras") mostra quantas metodologias estão ativas agora.`),
+
+      _guiaSec('🔴', 'Lista de jogos', `
+        Mostra <b>todo jogo ao vivo que já tem gráfico de pressão disponível</b> — não só os que bateram alguma metodologia no momento — atualizando sozinha a cada 25 segundos.<br><br>
+        ${_guiaRow('⭐ Favoritar', 'Clique na estrela do card pra fixar aquele jogo no topo da lista')}
+        ${_guiaRow('🕐 Ordenar por horário', 'Alterna entre a ordem padrão e uma lista ordenada pelo minuto em andamento')}
+        ${_guiaRow('Gráfico + indicadores', 'O mesmo gráfico de pressão da aba Ao Vivo, com 4 cartõezinhos abaixo (Dominância, Swings, Pressão no 1ºT, Pico) — passe o mouse sobre cada um pra ver o que ele mede')}`),
+
+      _guiaSec('⚡', 'Como ler um sinal', `
+        Quando uma partida bate uma metodologia, aparece um cartão colorido com o nome do mercado (ex: "Casa vence") e a <b>taxa de acerto histórica</b> (ex: "78,3% em 214 jogos"). Abaixo dele vêm os dois números que precisaram bater pra esse sinal aparecer:<br><br>
+        ${_guiaRow('PRÉ', 'Uma condição calculada ANTES do jogo começar — normalmente a partir das odds ou da comparação de força entre os times')}
+        ${_guiaRow('AO VIVO', 'Uma condição calculada com o que já aconteceu na partida até agora — pressão, finalizações, escanteios do período')}
+        <br>Uma partida pode ter mais de um sinal ativo ao mesmo tempo, cada um numa metodologia diferente.<br><br>
+        <b>⚠️ Importante:</b> a taxa mostrada é histórica (de partidas passadas parecidas) — não é uma garantia do que vai acontecer nessa partida específica.`),
+
+      _guiaSec('👋', 'Por que um sinal some sozinho', `
+        Assim que o resultado que o sinal estava tentando prever já não é mais possível (ex: o time já venceu, o 1º tempo já acabou, ou já saiu o 1º gol da partida), esse sinal específico some do cartão — ele não faz mais sentido depois disso. <b>Só o sinal some, a partida continua na lista</b> normalmente até acabar.`),
     ].join(''),
   },
 
