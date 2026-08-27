@@ -932,8 +932,15 @@
     display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
     gap: 16px;
   }
+  /* Ao Vivo pedido pra ficar tão compacto quanto o Sinalizador (280px) —
+     testado (clonando o card real num container de 300px) e nada estoura:
+     nomes de time, linha de odds e a barra de abas (Escalações/CD-Dados +
+     ícones) cabem sem cortar. Seletor por ID vence o .live-grid-wrap da
+     media query abaixo por especificidade, então repete o breakpoint mobile
+     aqui — senão o Ao Vivo perderia a coluna única no celular. */
+  #live2GridWrap { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
   @media (max-width: 720px) {
-    .live-grid-wrap { grid-template-columns: 1fr; gap: 12px; }
+    .live-grid-wrap, #live2GridWrap { grid-template-columns: 1fr; gap: 12px; }
   }
   body.force-mobile .live-grid-wrap { grid-template-columns: 1fr !important; gap: 12px !important; }
   .live-card {
