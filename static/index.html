@@ -1007,6 +1007,13 @@
   .live-card-shotmap-wrap > div:last-child {
     max-width: 80%; margin: 0 auto;
   }
+  /* Card da Ao Vivo ficou mais estreito (pedido do usuário) e o mapa de
+     chutes encolheu junto (80% de um card menor fica pequeno demais) — aqui
+     usa quase a largura toda do card em vez de 80%. */
+  #live2GridWrap .live-card-shotmap-wrap svg,
+  #live2GridWrap .live-card-shotmap-wrap > div:last-child {
+    max-width: 96%;
+  }
   .live-card-odds-narrow {
     padding: 0 16px;
   }
