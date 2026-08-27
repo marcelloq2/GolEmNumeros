@@ -7066,6 +7066,11 @@ def api_sinalizador_check():
             "event_id": m.get("id"), "casa": m.get("casa"), "fora": m.get("fora"),
             "liga": m.get("liga"), "minuto": m.get("minuto"),
             "placar_casa": m.get("golCasaFt"), "placar_fora": m.get("golForaFt"),
+            # Odds ao vivo (NowGoal) — já vêm cruzadas em "m" pelo próprio
+            # _radar_fetch_live_matches (mesma fonte que alimenta a Ao Vivo),
+            # só não eram repassadas pro frontend do Sinalizador ainda.
+            "odd_1": m.get("odd_1"), "odd_x": m.get("odd_x"), "odd_2": m.get("odd_2"),
+            "odd_over": m.get("odd_over"), "odd_under": m.get("odd_under"),
             "sinais": bateram,
             "graph_points": dj["graph_points"], "goals": dj["goals"],
             # Indicadores gerais do gráfico (não são de nenhuma regra

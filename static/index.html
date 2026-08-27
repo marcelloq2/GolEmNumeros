@@ -21784,6 +21784,14 @@ function _sinalizadorJogoHtml(j) {
         <span class="tname" style="font-size:11px">${_bt2EscXml(j.fora)}</span>
         <span style="font-size:10px;color:var(--text2)">⏱ ${_bt2EscXml(j.minuto || '--')}'</span>
       </div>
+      ${(j.odd_1 || j.odd_x || j.odd_2 || j.odd_over || j.odd_under) ? `
+      <div class="live-card-odds-row">
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${j.odd_1 || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val ox">${j.odd_x || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val o2">${j.odd_2 || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${j.odd_over || '-'}</span></div>
+        <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${j.odd_under || '-'}</span></div>
+      </div>` : ''}
       <div style="position:relative;margin-top:6px">
         <canvas id="${canvasId}" style="width:100%;height:55px;display:block"></canvas>
       </div>
