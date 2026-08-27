@@ -960,8 +960,27 @@
   }
   .live-card-body { padding: 14px 16px; }
   .live-card-teams { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .live-card-team { flex: 1; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .live-card-team span.tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-card-team {
+    flex: 1; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0;
+    /* width:100% é o que faltava pro nome comprido truncar em vez de vazar por
+       cima do card vizinho: essa div fica dentro de um wrapper column-flex com
+       align-items:flex-start (renderLive2Card), que por padrão NÃO estica os
+       filhos pra largura toda — sem isso, .live-card-team só tinha a largura
+       do próprio conteúdo (nome+escudo), ignorando o espaço disponível de
+       verdade. Só com essa largura definida o min-width:0 do .tname abaixo
+       consegue truncar (achado com cards mais estreitos, nome tipo
+       "Independiente Petrolero" invadindo o card do time adversário). */
+    width: 100%;
+  }
+  .live-card-team span.tname {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    /* min-width:0 é o que de fato deixa esse span encolher dentro do flex
+       (.live-card-team) — sem isso, "overflow:hidden" acima nunca entra em
+       ação: o span mantém a largura natural do texto e vaza por cima da
+       coluna vizinha (achado com cards mais estreitos, nome de time comprido
+       tipo "Independiente Petrolero" invadindo o card do time visitante). */
+    min-width: 0;
+  }
   .live-card-score {
     font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: 1px;
     font-variant-numeric: tabular-nums; padding: 0 10px; flex-shrink: 0;
@@ -1010,12 +1029,18 @@
   .live-card-odds-val.oover { color: #22c55e; }
   .live-card-odds-val.ounder { color: #f59e0b; }
   .live-card-tabs {
-    display: flex; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
   }
   .live-card-tab-btn {
     background: transparent; border: 1px solid var(--border); color: var(--text2);
     font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px 6px 0 0;
     cursor: pointer; border-bottom: none; text-transform: uppercase; letter-spacing: .3px;
+    /* Card mais estreito não tem largura pra "Escalações"/"CD / Dados" + os
+       ícones de link tudo numa linha só — sem isso o texto do botão quebrava
+       no meio ("CD /" numa linha, "Dados" na outra). Com nowrap + o
+       flex-wrap da linha acima, o que não couber pula pra uma 2ª linha
+       inteira, em vez de quebrar dentro do próprio botão. */
+    white-space: nowrap;
   }
   .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #d1a13e; }
   /* Linhas de termômetro / estatística por minuto — colunas fixas pra a "bolinha"
