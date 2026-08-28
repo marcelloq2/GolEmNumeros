@@ -13812,6 +13812,7 @@ function renderLive2Card(m) {
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
+        <button class="live-card-tab-btn" title="Probabilidade da partida (estimativa nossa, calculada a partir das odds)" onclick="_live2OpenProbModal('${m.id}')">🎯 Placar</button>
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
@@ -13825,6 +13826,159 @@ function renderLive2Card(m) {
 // escalação chegando depois) deve refletir no modal aberto ou não, já que os 2
 // dividem o mesmo overlay/corpo.
 let _live2OpenModal = null; // { matchId, type: 'stats' | 'lineup' }
+
+// ── Probabilidade da partida (estimativa própria, modelo Poisson) ───────────
+// Calcula tudo no NAVEGADOR, em cima das odds 1X2 + Over/Under que o card já
+// tem em cache (m.odd_1/x/2/odd_over/odd_under/ou_line) — nenhuma chamada
+// nova pro servidor nem pra nenhum site, pedido explícito do usuário
+// (2026-08-27) de não pesar na Ao Vivo. Não reproduz o número exato de apps
+// como Fotmob/SofaScore (modelo deles é proprietário) — é uma aproximação
+// nossa a partir só dessas 2 odds.
+function _poissonPmf(k, lam) {
+  if (lam <= 0) return k === 0 ? 1 : 0;
+  let fat = 1;
+  for (let i = 2; i <= k; i++) fat *= i;
+  return Math.exp(-lam) * Math.pow(lam, k) / fat;
+}
+
+const _PROB_MAX_GOLS = 6; // grade 0..6 cobre >99.9% da massa pra lambda típico de futebol (<4)
+
+function _probMatrizPlacares(lamCasa, lamFora, maxGols = _PROB_MAX_GOLS) {
+  const ph = []; const pa = [];
+  for (let i = 0; i <= maxGols; i++) { ph.push(_poissonPmf(i, lamCasa)); pa.push(_poissonPmf(i, lamFora)); }
+  const m = [];
+  for (let i = 0; i <= maxGols; i++) { const row = []; for (let j = 0; j <= maxGols; j++) row.push(ph[i] * pa[j]); m.push(row); }
+  return m;
+}
+
+function _prob1x2DaMatriz(matriz) {
+  let casa = 0, empate = 0, fora = 0;
+  for (let i = 0; i < matriz.length; i++) for (let j = 0; j < matriz[i].length; j++) {
+    if (i > j) casa += matriz[i][j]; else if (i === j) empate += matriz[i][j]; else fora += matriz[i][j];
+  }
+  return { casa, empate, fora };
+}
+
+function _probImplicita3(h, x, a) {
+  h = parseFloat(String(h).replace(',', '.')); x = parseFloat(String(x).replace(',', '.')); a = parseFloat(String(a).replace(',', '.'));
+  if (!h || !x || !a) return null;
+  const ih = 1 / h, ix = 1 / x, ia = 1 / a, total = ih + ix + ia;
+  return { casa: ih / total, empate: ix / total, fora: ia / total };
+}
+
+function _probImplicita2(over, under) {
+  over = parseFloat(String(over).replace(',', '.')); under = parseFloat(String(under).replace(',', '.'));
+  if (!over || !under) return null;
+  const io = 1 / over, iu = 1 / under;
+  return io / (io + iu);
+}
+
+// P(total de gols > linha) via Poisson(muTotal) — soma de 2 Poisson independentes
+// é ela mesma Poisson com taxa = soma das taxas, por isso dá pra achar muTotal
+// sem precisar já saber como ele se reparte entre os 2 times.
+function _probOverPoisson(muTotal, linha) {
+  const limite = Math.floor(linha) + 1; // linha 2.5 -> over = total >= 3
+  let pAteLimite = 0;
+  for (let k = 0; k < limite; k++) pAteLimite += _poissonPmf(k, muTotal);
+  return 1 - pAteLimite;
+}
+
+function _fitMuTotal(alvoOver, linha) {
+  let lo = 0.2, hi = 8.0;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (_probOverPoisson(mid, linha) < alvoOver) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function _fitLambdaSplit(muTotal, alvoCasa) {
+  let lo = 0.05, hi = muTotal - 0.05;
+  if (hi <= lo) return { casa: muTotal / 2, fora: muTotal / 2 };
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    const { casa } = _prob1x2DaMatriz(_probMatrizPlacares(mid, muTotal - mid));
+    if (casa < alvoCasa) lo = mid; else hi = mid;
+  }
+  const lamCasa = (lo + hi) / 2;
+  return { casa: lamCasa, fora: muTotal - lamCasa };
+}
+
+function _calcProbabilidadePartida(m) {
+  const p1x2 = _probImplicita3(m.odd_1, m.odd_x, m.odd_2);
+  const pOver = _probImplicita2(m.odd_over, m.odd_under);
+  const linha = parseFloat(String(m.ou_line ?? '').replace(',', '.'));
+  if (!p1x2 || pOver == null || !linha) return null;
+
+  const muTotal = _fitMuTotal(pOver, linha);
+  const { casa: lamCasa, fora: lamFora } = _fitLambdaSplit(muTotal, p1x2.casa);
+  const matriz = _probMatrizPlacares(lamCasa, lamFora);
+  const { casa, empate, fora } = _prob1x2DaMatriz(matriz);
+
+  const celulas = [];
+  for (let i = 0; i < matriz.length; i++) for (let j = 0; j < matriz[i].length; j++) celulas.push({ p: matriz[i][j], i, j });
+  celulas.sort((a, b) => b.p - a.p);
+
+  return {
+    casaPct: casa * 100, empatePct: empate * 100, foraPct: fora * 100,
+    lamCasa, lamFora, matriz,
+    top3: celulas.slice(0, 3).map(c => ({ placar: `${c.i}-${c.j}`, pct: c.p * 100 })),
+  };
+}
+
+function _live2OpenProbModal(matchId) {
+  const { m, body } = _live2OpenModalCommon(matchId, 'prob', 'Probabilidade da partida (estimativa)');
+  if (!m) { body.innerHTML = `<div class="live-loading">Jogo não encontrado.</div>`; return; }
+  const r = _calcProbabilidadePartida(m);
+  if (!r) {
+    body.innerHTML = `<div class="live-loading">Essa partida não tem odds 1X2 + Over/Under suficientes agora pra calcular (falta cruzamento com o NowGoal).</div>`;
+    return;
+  }
+  const barSeg = (pct, color) => `<div style="width:${pct}%;background:${color};height:100%"></div>`;
+  const heat = pct => {
+    // Verde mais forte quanto maior a %, mesmo espírito visual do print de referência.
+    const alpha = Math.min(0.9, 0.08 + pct / 22);
+    return `rgba(34,197,94,${alpha.toFixed(2)})`;
+  };
+  const maxCol = r.matriz.length;
+  const gridHtml = `
+    <div style="overflow-x:auto;margin-top:14px">
+      <table style="border-collapse:collapse;font-size:11px;margin:0 auto">
+        <thead><tr>
+          <th style="padding:4px 6px"></th>
+          ${Array.from({ length: maxCol }, (_, j) => `<th style="padding:4px 6px;color:var(--text2)">${j}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${r.matriz.map((row, i) => `
+            <tr>
+              <th style="padding:4px 6px;color:var(--text2)">${i}</th>
+              ${row.map(v => `<td style="padding:6px 8px;text-align:center;background:${heat(v * 100)};border-radius:4px;font-weight:700;color:${v * 100 >= 8 ? '#04270f' : 'var(--text)'}">${(v * 100).toFixed(1)}%</td>`).join('')}
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:6px">linha = casa · coluna = visitante</div>`;
+  body.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:10px">
+      Estimativa própria (modelo estatístico Poisson) a partir das odds 1X2 + Over/Under já buscadas — não é a mesma coisa que apps de mercado, que usam modelo próprio.
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px">
+      <span style="color:#f59e0b">${m.casa} ${r.casaPct.toFixed(0)}%</span>
+      <span style="color:var(--text2)">Empate ${r.empatePct.toFixed(0)}%</span>
+      <span style="color:#22c55e">${m.fora} ${r.foraPct.toFixed(0)}%</span>
+    </div>
+    <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--bg3)">
+      ${barSeg(r.casaPct, '#f59e0b')}${barSeg(r.empatePct, '#8b96ad')}${barSeg(r.foraPct, '#22c55e')}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+      ${r.top3.map((t, idx) => `
+        <div style="background:var(--bg2);border:1px solid ${idx === 0 ? '#d1a13e' : 'var(--border)'};border-radius:8px;padding:8px 14px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:var(--text)">${t.placar}</div>
+          <div style="font-size:10px;color:var(--text2)">${t.pct.toFixed(1)}%</div>
+        </div>`).join('')}
+    </div>
+    ${gridHtml}`;
+}
 
 function _live2OpenModalCommon(matchId, type, titleSuffix) {
   const m = live2MatchesCache.find(x => String(x.id) === String(matchId));

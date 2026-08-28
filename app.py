@@ -2818,6 +2818,10 @@ def _radar_fetch_live_matches():
         m["odd_2"] = pm.get("odd_2") if pm else None
         m["odd_over"] = pm.get("odd_over") if pm else None
         m["odd_under"] = pm.get("odd_under") if pm else None
+        # Linha do Over/Under (ex: "2.5") — faltava antes; sem ela não dá pra
+        # saber a que total de gols o odd_over/odd_under se refere (usado pelo
+        # modelo de probabilidade de placar da Ao Vivo, calculado no frontend).
+        m["ou_line"] = pm.get("ou_line") if pm else None
 
     # Se a fetch retornou 0 jogos mas o cache anterior tem dados recentes (< 5 min),
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API
