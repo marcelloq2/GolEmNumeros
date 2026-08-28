@@ -2332,8 +2332,10 @@
                color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
       <input type="file" id="sinalizadorFileInput" accept=".txt" style="display:none" onchange="_sinalizadorImportFile(this.files[0])">
     </div>
-    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px">
+    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;flex-wrap:wrap">
       <button class="painel-sort-time-btn" id="sinalizadorSortTimeBtn" onclick="_sinalizadorToggleSortByTime()">🕐 Ordenar por horário</button>
+      <input type="text" id="sinalizadorSearchInput" class="painel-search-input" placeholder="🔍 Buscar time..."
+        style="max-width:220px" oninput="_sinalizadorSetSearch(this.value)">
     </div>
     <div id="sinalizadorStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
     <div id="sinalizadorList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:10px"></div>
@@ -21873,6 +21875,15 @@ function _sinalizadorToggleSortByTime() {
   if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena o que já está carregado
 }
 
+// Busca por nome de time — mesmo padrão simples de _painelSetSearch (minúsculo,
+// substring, sem acento-insensível). Só refiltra o que já está carregado, sem
+// buscar de novo.
+let _sinalizadorSearchQuery = '';
+function _sinalizadorSetSearch(value) {
+  _sinalizadorSearchQuery = (value || '').trim().toLowerCase();
+  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData);
+}
+
 // 3 níveis de prioridade: favorito primeiro (o usuário marcou de propósito
 // pra acompanhar), depois quem tem sinal ativo agora, depois o resto (jogos
 // ao vivo sem nenhuma configuração batendo no momento — o Sinalizador agora
@@ -22060,12 +22071,21 @@ function _sinalizadorRenderList(d) {
     list.innerHTML = '';
     return;
   }
-  const jogos = _sinalizadorSortJogos(d.jogos);
-  const totalSinalizados = d.total_sinalizados ?? jogos.filter(j => j.sinais && j.sinais.length).length;
+  const totalSinalizados = d.total_sinalizados ?? d.jogos.filter(j => j.sinais && j.sinais.length).length;
   statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo com gráfico · ${totalSinalizados} sinalizado(s) agora.`;
+
+  let filtrados = d.jogos;
+  if (_sinalizadorSearchQuery) {
+    filtrados = filtrados.filter(j =>
+      (j.casa || '').toLowerCase().includes(_sinalizadorSearchQuery) ||
+      (j.fora || '').toLowerCase().includes(_sinalizadorSearchQuery));
+  }
+  const jogos = _sinalizadorSortJogos(filtrados);
   list.innerHTML = jogos.length
     ? jogos.map(_sinalizadorJogoHtml).join('')
-    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo com gráfico de pressão disponível agora — a lista atualiza sozinha a cada 25s.</div>`;
+    : (_sinalizadorSearchQuery
+        ? `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bate essa busca agora.</div>`
+        : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo com gráfico de pressão disponível agora — a lista atualiza sozinha a cada 25s.</div>`);
   jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
 }
 
