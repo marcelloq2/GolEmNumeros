@@ -1630,7 +1630,9 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
     <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
-    <button class="nav-tab" onclick="switchView('replay', this)">▶️ Replay</button>
+    <!-- Botão "▶️ Replay" removido a pedido do usuário (2026-08-27) — a aba
+         (replayPanel, switchView('replay',...)) continua existindo no
+         código, só sem esse ponto de entrada na UI. -->
     <button class="nav-tab" onclick="switchView('sinalizador', this)">🔔 Sinalizador</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
@@ -2996,26 +2998,9 @@ const APP_GUIA_SECTIONS = {
     ].join(''),
   },
 
-  replay: {
-    label: '▶️ Replay',
-    html: [
-      _guiaSec('🎬', 'O que essa aba faz', `
-        Deixa você <b>rever uma partida que já terminou</b> como se estivesse acontecendo ao vivo de novo — minuto a minuto, com o mesmo gráfico de pressão e os mesmos sinais que apareceriam na aba Ao Vivo. Serve pra estudar como um jogo se desenrolou, ou pra conferir se um sinal específico realmente teria acertado.`),
-
-      _guiaSec('▶️', '"Partidas" — escolher e reproduzir um jogo', `
-        Na barra da esquerda tem um campo de busca (por time ou liga) e a lista das <b>200 partidas mais recentes</b> já salvas no histórico. Clique numa pra abrir o player.<br><br>
-        <b>Controles:</b> ▶ Play/Pause e os botões 1x/3x/10x controlam a velocidade da reprodução. Também dá pra clicar direto numa marca de tempo pra pular pra aquele minuto.<br><br>
-        <b>O que aparece durante a reprodução:</b><br>
-        ${_guiaRow('Gráfico de pressão', 'O mesmo gráfico "quem está empurrando o jogo" da aba Ao Vivo, sendo desenhado aos poucos conforme os minutos passam')}
-        ${_guiaRow('Marcadores de sinal', 'Bolinhas ao longo da linha do tempo: raio azul ou vermelho = sinal de gol pro time da casa/visitante; raio amarelo = sinal mais fraco (possível gol); bola cinza = nenhum padrão detectado naquele momento')}
-        ${_guiaRow('Odds pré-jogo', 'As odds (1X2, Over/Under) que estavam valendo antes da partida começar')}
-        ${_guiaRow('Mapa de chutes', 'Campo desenhado com a posição de cada finalização, quando esse dado foi salvo pra essa partida')}`),
-
-      _guiaSec('📊', '"Estatísticas de Sinais" — os sinais realmente funcionam?', `
-        Essa aba responde uma pergunta simples: <b>de todas as vezes que um sinal apareceu, em quantas saiu gol logo depois?</b><br><br>
-        Escolha um tipo de sinal (⚡ Grande Chance, 🔥 Momento Over ou ❄️ Momento Under) e, se quiser, filtre por lado (Casa/Visitante). O gráfico mostra, minuto a minuto, a <b>% dos casos em que saiu gol até 10 minutos depois</b> daquele sinal ter aparecido — calculado em cima de todas as partidas já salvas na base (não é uma amostra pequena). Clique numa barra pra ver a lista das partidas exatas que formaram aquele número.`),
-    ].join(''),
-  },
+  // Replay saiu do guia junto com a aba (2026-08-27) — removida do menu a
+  // pedido do usuário. O código (replayPanel, switchView('replay',...))
+  // continua no arquivo, só sem ponto de entrada na UI.
 
   sinalizador: {
     label: '🔔 Sinalizador',
