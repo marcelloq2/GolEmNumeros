@@ -13841,9 +13841,18 @@ function _poissonPmf(k, lam) {
   return Math.exp(-lam) * Math.pow(lam, k) / fat;
 }
 
-const _PROB_MAX_GOLS = 6; // grade 0..6 cobre >99.9% da massa pra lambda típico de futebol (<4)
+// Grade INTERNA (cálculo) maior que a EXIBIDA na tabela — uma linha de
+// Over/Under incomum (ex: 5.0 gols em vez do usual 2.5) empurra o total de
+// gols esperado bem mais alto, e uma grade só até 6 deixava de contar uma
+// fatia grande da probabilidade (achado com o usuário: Voluntari x Otelul
+// Galati, linha 5.0, a soma Casa+Empate+Fora ficava em 94% em vez de ~100%).
+// 10 cobre esses casos; a tabela mostrada pro usuário continua só até 6
+// (mesmo tamanho do print de referência), só os % de cada célula é que saem
+// da grade maior, mais precisa.
+const _PROB_MAX_GOLS_CALC = 10;
+const _PROB_MAX_GOLS_EXIBIR = 6;
 
-function _probMatrizPlacares(lamCasa, lamFora, maxGols = _PROB_MAX_GOLS) {
+function _probMatrizPlacares(lamCasa, lamFora, maxGols = _PROB_MAX_GOLS_CALC) {
   const ph = []; const pa = [];
   for (let i = 0; i <= maxGols; i++) { ph.push(_poissonPmf(i, lamCasa)); pa.push(_poissonPmf(i, lamFora)); }
   const m = [];
@@ -13912,16 +13921,20 @@ function _calcProbabilidadePartida(m) {
 
   const muTotal = _fitMuTotal(pOver, linha);
   const { casa: lamCasa, fora: lamFora } = _fitLambdaSplit(muTotal, p1x2.casa);
-  const matriz = _probMatrizPlacares(lamCasa, lamFora);
+  const matriz = _probMatrizPlacares(lamCasa, lamFora, _PROB_MAX_GOLS_CALC);
   const { casa, empate, fora } = _prob1x2DaMatriz(matriz);
 
   const celulas = [];
   for (let i = 0; i < matriz.length; i++) for (let j = 0; j < matriz[i].length; j++) celulas.push({ p: matriz[i][j], i, j });
   celulas.sort((a, b) => b.p - a.p);
 
+  // Tabela mostrada fica menor que a grade usada no cálculo (ver comentário
+  // em _PROB_MAX_GOLS_CALC) — só corta as linhas/colunas extras.
+  const matrizExibir = matriz.slice(0, _PROB_MAX_GOLS_EXIBIR + 1).map(row => row.slice(0, _PROB_MAX_GOLS_EXIBIR + 1));
+
   return {
     casaPct: casa * 100, empatePct: empate * 100, foraPct: fora * 100,
-    lamCasa, lamFora, matriz,
+    lamCasa, lamFora, matriz: matrizExibir,
     top3: celulas.slice(0, 3).map(c => ({ placar: `${c.i}-${c.j}`, pct: c.p * 100 })),
   };
 }
