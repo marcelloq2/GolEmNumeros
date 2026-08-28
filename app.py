@@ -6861,7 +6861,7 @@ def _sinalizador_mercado_resolvido(mercado, minuto_atual, placar_casa, placar_fo
     """Decide se a PREVISÃO do mercado já se confirmou/passou do ponto de
     fazer sentido continuar mostrando — nesse caso só ESSE sinal some do
     card (o jogo continua na lista se tiver outro sinal ainda válido).
-    Pedido do usuário (2026-08-26), 3 heurísticas independentes (qualquer
+    Pedido do usuário (2026-08-26), 4 heurísticas independentes (qualquer
     uma que valer já resolve):
 
     1. "... marca primeiro" — some assim que sair QUALQUER gol do jogo.
@@ -6869,7 +6869,11 @@ def _sinalizador_mercado_resolvido(mercado, minuto_atual, placar_casa, placar_fo
        específico está NA FRENTE no placar: "já se presume que pode
        vencer", o indicador já cumpriu o papel de avisar antes de ficar
        óbvio.
-    3. Qualquer mercado "... HT" — some quando o intervalo passa (minuto >
+    3. "Clean sheet [casa/fora]" / "... não sofre gol" — some assim que o
+       ADVERSÁRIO desse time já marcou (não tem mais como não sofrer).
+       Achado com o usuário (2026-08-27): "Clean sheet fora" continuava
+       ativo com o jogo 1-1 (a casa já tinha marcado).
+    4. Qualquer mercado "... HT" — some quando o intervalo passa (minuto >
        45); "Over X HT" especificamente também some ANTES disso se o
        placar do intervalo já bate a linha.
 
@@ -6899,6 +6903,19 @@ def _sinalizador_mercado_resolvido(mercado, minuto_atual, placar_casa, placar_fo
         if eh_mercado_casa and placar_casa > placar_fora:
             return True
         if eh_mercado_visitante and placar_fora > placar_casa:
+            return True
+
+    if "clean sheet" in nome or "não sofre gol" in nome or "nao sofre gol" in nome:
+        # "Clean sheet casa" = casa não sofre gol = visitante não marca — quebra
+        # assim que sair QUALQUER gol do lado de fora, e vice-versa. Achado com
+        # o usuário (2026-08-27): "Clean sheet fora" ainda aparecia ativo com o
+        # jogo 1-1 (a casa já tinha marcado, ou seja, o visitante já tinha
+        # sofrido — não tem mais como isso "não acontecer").
+        eh_mercado_casa = "casa" in nome
+        eh_mercado_visitante = "fora" in nome or "visitante" in nome
+        if eh_mercado_casa and placar_fora > 0:
+            return True
+        if eh_mercado_visitante and placar_casa > 0:
             return True
 
     if re.search(r"\bht\b", nome):
