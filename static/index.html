@@ -14592,35 +14592,68 @@ function _live2RedrawMomentumFiltrado(matchId) {
 // Busca o gráfico de momentum (mesmo endpoint/desenho do Ao Vivo original — só reaproveita
 // a função de desenho `drawMiniMomentum`, sem tocar em nada do painel principal) e desenha
 // em cada card depois que o grid já foi montado
+// Mesmo padrão de _loadLive2Shotmap (lotes paralelos + trava contra ciclo
+// sobreposto + timeout por partida) — achado com o usuário (2026-08-27): num
+// dia com 232 jogos ao vivo, o loop antigo (1 partida de cada vez, esperando
+// cada fetch terminar antes de começar o próximo) nunca dava conta da lista
+// inteira nos 20s entre um ciclo de auto-refresh e o outro, e o próximo ciclo
+// começava OUTRA fila por cima da anterior — foi se acumulando fila até quase
+// nenhum card conseguir carregar (todos presos em "pressão — carregando...").
+let _live2MomentumRunning = false;
+let _live2MomentumStartedAt = 0;
+const _LIVE2_MOMENTUM_CONCURRENCY = 6;
+const _LIVE2_MOMENTUM_STUCK_MS = 60000;
+
 async function _loadLive2Momentum(matches) {
-  for (const m of matches) {
-    const wrap = document.getElementById(`live2MomentumWrap_${m.id}`);
-    if (!wrap) continue;
-    try {
-      const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '', liga: m.liga || '' });
-      const res    = await fetch(`/api/radar/momentum/${m.id}?${params}`);
-      const data   = await res.json();
-      const points = data.graphPoints || [];
-      if (points.length) {
-        // Só recria o canvas se o número de pontos mudou (novo dado de fato) —
-        // redesenhar o mesmo gráfico do zero a cada ciclo de 20s causava um
-        // "piscar" visível mesmo sem nenhuma mudança real nos dados.
-        const prevPoints = _live2PointsCache[m.id];
-        const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
-        const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
-        _live2PointsCache[m.id] = points;
-        _live2GoalsCache[m.id] = data.goals || [];
-        if (!unchanged) {
-          wrap.innerHTML = `${_live2MomentumPeriodBtnsHtml(m.id)}<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div><div id="live2Thermo_${m.id}"></div>`;
-          _live2RedrawMomentumFiltrado(m.id);
+  const presoFaz = _live2MomentumRunning && (Date.now() - _live2MomentumStartedAt) > _LIVE2_MOMENTUM_STUCK_MS;
+  if (_live2MomentumRunning && !presoFaz) return; // ciclo anterior ainda rodando — não empilha outro
+  _live2MomentumRunning = true;
+  _live2MomentumStartedAt = Date.now();
+  try {
+    for (let i = 0; i < matches.length; i += _LIVE2_MOMENTUM_CONCURRENCY) {
+      const lote = matches.slice(i, i + _LIVE2_MOMENTUM_CONCURRENCY);
+      await Promise.all(lote.map(async (m) => {
+        const wrap = document.getElementById(`live2MomentumWrap_${m.id}`);
+        if (!wrap) return;
+        try {
+          const params = new URLSearchParams({ casa: m.casa || '', fora: m.fora || '', liga: m.liga || '' });
+          // Timeout por partida — sem isso, uma partida travada sozinha (sem
+          // erro nem resposta) prende o Promise.all do lote inteiro pra
+          // sempre, e a trava _live2MomentumRunning nunca solta.
+          const ctrl = new AbortController();
+          const timeoutId = setTimeout(() => ctrl.abort(), 12000);
+          let res;
+          try {
+            res = await fetch(`/api/radar/momentum/${m.id}?${params}`, { signal: ctrl.signal });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+          const data   = await res.json();
+          const points = data.graphPoints || [];
+          if (points.length) {
+            // Só recria o canvas se o número de pontos mudou (novo dado de fato) —
+            // redesenhar o mesmo gráfico do zero a cada ciclo de 20s causava um
+            // "piscar" visível mesmo sem nenhuma mudança real nos dados.
+            const prevPoints = _live2PointsCache[m.id];
+            const existingCanvas = document.getElementById(`live2MomentumCanvas_${m.id}`);
+            const unchanged = existingCanvas && prevPoints && prevPoints.length === points.length;
+            _live2PointsCache[m.id] = points;
+            _live2GoalsCache[m.id] = data.goals || [];
+            if (!unchanged) {
+              wrap.innerHTML = `${_live2MomentumPeriodBtnsHtml(m.id)}<canvas id="live2MomentumCanvas_${m.id}"></canvas><div id="live2PressureBadge_${m.id}" style="text-align:center;margin-top:4px"></div><div id="live2Thermo_${m.id}"></div>`;
+              _live2RedrawMomentumFiltrado(m.id);
+            }
+            _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
+          } else {
+            wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
+          }
+        } catch (e) {
+          wrap.innerHTML = '';
         }
-        _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
-      } else {
-        wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
-      }
-    } catch (e) {
-      wrap.innerHTML = '';
+      }));
     }
+  } finally {
+    _live2MomentumRunning = false;
   }
 }
 
