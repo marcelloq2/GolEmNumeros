@@ -3105,105 +3105,150 @@ def _uniscore_stats_to_flat(stats_list):
 
 def _fetch_uniscore_graph(uni_match):
     """Busca graphPoints + estatísticas por período do UniScore.
-    uni_match = {id, homeId, awayId}"""
+    uni_match = {id, homeId, awayId}
+
+    As 5 chamadas (graph/incidents/statistics/shotmap/status) são
+    independentes entre si — nenhuma usa o resultado da outra — mas rodavam
+    uma atrás da outra, cada uma com timeout de 10-12s. Achado com o usuário
+    (2026-08-27, dia com 400+ jogos ao vivo): uma chamada só dessa função
+    chegava a levar ~7s, e a Ao Vivo faz uma pra CADA partida visível — com
+    esse volume, o gráfico de pressão ficava "carregando" por muito tempo.
+    Rodando as 5 em paralelo (mesmo padrão já usado em _fetch_uniscore_match_details
+    logo abaixo), o tempo total vira o da chamada MAIS LENTA, não a SOMA de
+    todas — na prática deve cair pra 1-2s na maioria dos casos."""
+    from concurrent.futures import ThreadPoolExecutor as _TPE
     uniscore_id = uni_match["id"]
     home_id     = uni_match.get("homeId", "")
     away_id     = uni_match.get("awayId", "")
 
-    # Graph (momentum)
-    r = http_req.get(
-        f"{_UNISCORE_API}/football/event/{uniscore_id}/graph",
-        headers=_UNISCORE_HEADERS, timeout=12,
-    )
-    r.raise_for_status()
-    pts = r.json().get("data", {}).get("graphPoints", [])
-
-    # Incidents (gols)
-    goals = []
-    try:
-        ri = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
+    def _fetch_graph_pts():
+        r = http_req.get(
+            f"{_UNISCORE_API}/football/event/{uniscore_id}/graph",
             headers=_UNISCORE_HEADERS, timeout=12,
         )
-        if ri.status_code == 200:
-            for inc in ri.json().get("data", {}).get("incidents", []):
-                if inc.get("incidentType") == "goal":
-                    player     = inc.get("player") or inc.get("scorer") or {}
-                    added_time = inc.get("addedTime") or 0
-                    goals.append({
-                        "minute":     inc.get("time", 0),
-                        "addedTime":  added_time,
-                        "team":       "home" if inc.get("isHome") else "away",
-                        "player":     player.get("shortName") or player.get("name") or "",
-                        "ownGoal":    inc.get("incidentClass") == "ownGoal",
-                    })
-    except Exception:
-        pass
+        r.raise_for_status()
+        return {"_pts": r.json().get("data", {}).get("graphPoints", [])}
 
-    # Estatísticas por período (Todos / 1º / 2º)
-    statistics_periods = {}
-    if home_id and away_id:
+    def _fetch_incidents_goals():
+        goals = []
         try:
-            rs = http_req.get(
-                f"{_UNISCORE_API}/football/event/{uniscore_id}/home/{home_id}/away/{away_id}/statistics",
+            ri = http_req.get(
+                f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
                 headers=_UNISCORE_HEADERS, timeout=12,
             )
-            if rs.status_code == 200:
-                stats_list = rs.json().get("data", {}).get("statistics", [])
-                statistics_periods = _uniscore_stats_to_flat(stats_list)
-                print(f"[uniscore] Estatísticas: {list(statistics_periods.keys())}")
+            if ri.status_code == 200:
+                for inc in ri.json().get("data", {}).get("incidents", []):
+                    if inc.get("incidentType") == "goal":
+                        player     = inc.get("player") or inc.get("scorer") or {}
+                        added_time = inc.get("addedTime") or 0
+                        goals.append({
+                            "minute":     inc.get("time", 0),
+                            "addedTime":  added_time,
+                            "team":       "home" if inc.get("isHome") else "away",
+                            "player":     player.get("shortName") or player.get("name") or "",
+                            "ownGoal":    inc.get("incidentClass") == "ownGoal",
+                        })
+        except Exception:
+            pass
+        return {"_goals": goals}
+
+    def _fetch_stats_periods():
+        statistics_periods = {}
+        if home_id and away_id:
+            try:
+                rs = http_req.get(
+                    f"{_UNISCORE_API}/football/event/{uniscore_id}/home/{home_id}/away/{away_id}/statistics",
+                    headers=_UNISCORE_HEADERS, timeout=12,
+                )
+                if rs.status_code == 200:
+                    stats_list = rs.json().get("data", {}).get("statistics", [])
+                    statistics_periods = _uniscore_stats_to_flat(stats_list)
+                    print(f"[uniscore] Estatísticas: {list(statistics_periods.keys())}")
+            except Exception as es:
+                print(f"[uniscore] Stats falhou: {es}")
+        return {"_statistics_periods": statistics_periods}
+
+    def _fetch_shotmap():
+        shotmap = []
+        try:
+            rsm = http_req.get(
+                f"{_UNISCORE_API}/football/event/{uniscore_id}/shotmap",
+                headers=_UNISCORE_HEADERS, timeout=12,
+            )
+            if rsm.status_code == 200:
+                raw_shots = rsm.json().get("data", {}).get("shotmap", [])
+                shotmap = [
+                    {
+                        "id":        s.get("id"),
+                        "minute":    s.get("time", 0),
+                        "isHome":    s.get("isHome", True),
+                        "shotType":  s.get("shotType", "miss"),
+                        "bodyPart":  s.get("bodyPart", ""),
+                        "situation": s.get("situation", ""),
+                        "player":    s.get("player", {}).get("shortName", ""),
+                        "x":         s.get("playerCoordinates", {}).get("x", 0),
+                        "y":         s.get("playerCoordinates", {}).get("y", 0),
+                    }
+                    for s in raw_shots
+                ]
+                print(f"[uniscore] Shotmap: {len(shotmap)} chutes")
         except Exception as es:
-            print(f"[uniscore] Stats falhou: {es}")
+            print(f"[uniscore] Shotmap falhou: {es}")
+        return {"_shotmap": shotmap}
 
-    # Shotmap
-    shotmap = []
-    try:
-        rsm = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}/shotmap",
-            headers=_UNISCORE_HEADERS, timeout=12,
-        )
-        if rsm.status_code == 200:
-            raw_shots = rsm.json().get("data", {}).get("shotmap", [])
-            shotmap = [
-                {
-                    "id":        s.get("id"),
-                    "minute":    s.get("time", 0),
-                    "isHome":    s.get("isHome", True),
-                    "shotType":  s.get("shotType", "miss"),
-                    "bodyPart":  s.get("bodyPart", ""),
-                    "situation": s.get("situation", ""),
-                    "player":    s.get("player", {}).get("shortName", ""),
-                    "x":         s.get("playerCoordinates", {}).get("x", 0),
-                    "y":         s.get("playerCoordinates", {}).get("y", 0),
-                }
-                for s in raw_shots
-            ]
-            print(f"[uniscore] Shotmap: {len(shotmap)} chutes")
-    except Exception as es:
-        print(f"[uniscore] Shotmap falhou: {es}")
+    def _fetch_status():
+        # score_ht_h/a inicializados aqui dentro (não só no "if 200") — bug
+        # antigo: se essa chamada falhasse, essas 2 chaves nunca eram
+        # criadas e o dict de retorno explodia com NameError, fazendo a
+        # função inteira "falhar" por causa só dessa sub-chamada.
+        finished = False
+        score_h = score_a = score_ht_h = score_ht_a = None
+        try:
+            re = http_req.get(
+                f"{_UNISCORE_API}/football/event/{uniscore_id}",
+                headers=_UNISCORE_HEADERS,
+                params={"language": "pt-BR"}, timeout=10,
+            )
+            if re.status_code == 200:
+                ev_data  = re.json().get("data", {}).get("event", {})
+                status   = ev_data.get("status", {})
+                finished = status.get("type") == "finished"
+                hs = ev_data.get("homeScore", {}) or {}
+                as_ = ev_data.get("awayScore", {}) or {}
+                score_h    = hs.get("current")
+                score_a    = as_.get("current")
+                score_ht_h = hs.get("period1")
+                score_ht_a = as_.get("period1")
+        except Exception:
+            pass
+        return {"_finished": finished, "_score_h": score_h, "_score_a": score_a,
+                "_score_ht_h": score_ht_h, "_score_ht_a": score_ht_a}
 
-    # Status (FT?) + placar oficial do UniScore
-    finished = False
-    score_h  = None
-    score_a  = None
-    try:
-        re = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}",
-            headers=_UNISCORE_HEADERS,
-            params={"language": "pt-BR"}, timeout=10,
-        )
-        if re.status_code == 200:
-            ev_data  = re.json().get("data", {}).get("event", {})
-            status   = ev_data.get("status", {})
-            finished = status.get("type") == "finished"
-            hs = ev_data.get("homeScore", {}) or {}
-            as_ = ev_data.get("awayScore", {}) or {}
-            score_h    = hs.get("current")
-            score_a    = as_.get("current")
-            score_ht_h = hs.get("period1")
-            score_ht_a = as_.get("period1")
-    except Exception:
-        pass
+    fetchers = [_fetch_graph_pts, _fetch_incidents_goals, _fetch_stats_periods, _fetch_shotmap, _fetch_status]
+    result = {}
+    with _TPE(max_workers=len(fetchers)) as ex:
+        futs = {ex.submit(fn): fn for fn in fetchers}
+        for fut in futs:
+            if futs[fut] is _fetch_graph_pts:
+                # Único sub-fetch "obrigatório" — se ele falhar, propaga o
+                # erro (mesmo comportamento do raise_for_status() original),
+                # em vez de engolir e devolver um gráfico vazio.
+                result.update(fut.result(timeout=15))
+            else:
+                try:
+                    result.update(fut.result(timeout=15))
+                except Exception:
+                    pass
+
+    pts                 = result.get("_pts", [])
+    goals               = result.get("_goals", [])
+    statistics_periods  = result.get("_statistics_periods", {})
+    shotmap             = result.get("_shotmap", [])
+    finished            = result.get("_finished", False)
+    score_h             = result.get("_score_h")
+    score_a             = result.get("_score_a")
+    score_ht_h          = result.get("_score_ht_h")
+    score_ht_a          = result.get("_score_ht_a")
 
     return {
         "graphPoints":        pts,
