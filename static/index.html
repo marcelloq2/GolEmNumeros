@@ -2164,6 +2164,9 @@
                    color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                    white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
+          <span id="live2CutNote" style="font-size:10px;color:var(--text2)"></span>
+          <button class="live-refresh-btn" id="live2ShowAllBtn" onclick="_live2ToggleShowAll()"
+            title="Por padrão a Ao Vivo processa só as 60 primeiras partidas pra não sobrecarregar o servidor em dias com muito jogo — clique pra ver todas mesmo assim">👁 Mostrar todos</button>
           <button class="live-refresh-btn" id="live2OrdemAscBtn" onclick="_live2SetOrdemMinuto('asc')" title="Ordenar por minuto — crescente (jogo mais no começo primeiro)">▲ Minuto</button>
           <button class="live-refresh-btn" id="live2OrdemDescBtn" onclick="_live2SetOrdemMinuto('desc')" title="Ordenar por minuto — decrescente (jogo mais perto do fim primeiro)">▼ Minuto</button>
           <button class="live-refresh-btn" onclick="loadLive2Matches()" title="Atualizar">↻</button>
@@ -13652,6 +13655,26 @@ function _live2SortByPin(matches) {
 // em vez de reconstruir todos os cards do zero (o que causava o "piscar" da tela)
 let _live2RenderedIds = [];
 
+// Teto de quantas partidas a Ao Vivo processa por padrão (gráfico de pressão,
+// mapa de chutes, escalações, etc.) — achado com o usuário (2026-08-29): num
+// fim de semana/dia com 400+ jogos ao vivo, tentar buscar dado de TODOS de
+// uma vez sobrecarrega o servidor (só 4 threads pro site inteiro). Corta pras
+// N primeiras (favoritos sempre entram primeiro, ver _live2SortByPin) por
+// padrão, com opção de ver tudo — mesma ideia do teto já usado no Sinalizador
+// (_SINALIZADOR_MAX_JOGOS).
+const _LIVE2_MAX_MATCHES_DEFAULT = 60;
+let _live2ShowAllMatches = false;
+
+function _live2ToggleShowAll() {
+  _live2ShowAllMatches = !_live2ShowAllMatches;
+  const btn = document.getElementById('live2ShowAllBtn');
+  if (btn) {
+    btn.textContent = _live2ShowAllMatches ? '🙈 Ocultar excesso' : '👁 Mostrar todos';
+    btn.classList.toggle('active', _live2ShowAllMatches);
+  }
+  loadLive2Matches();
+}
+
 async function loadLive2Matches() {
   const wrap = document.getElementById('live2GridWrap');
   if (!wrap) return;
@@ -13667,13 +13690,24 @@ async function loadLive2Matches() {
     const allMatches = _live2SortByPin(data.live || []);
     live2MatchesCache = allMatches;
 
+    // Corta pro teto ANTES de qualquer busca de dado (momentum/shotmap/escalação/
+    // etc.) — é isso que reduz a carga de verdade, não só o que aparece na tela.
+    const totalAoVivo = allMatches.length;
+    const allMatchesLimited = _live2ShowAllMatches ? allMatches : allMatches.slice(0, _LIVE2_MAX_MATCHES_DEFAULT);
+    const cortado = !_live2ShowAllMatches && totalAoVivo > _LIVE2_MAX_MATCHES_DEFAULT;
+
     // Só mostra partidas com mapa de chutes confirmado — as demais continuam sendo
-    // buscadas em segundo plano (_loadLive2Shotmap roda pra TODAS, não só as visíveis)
-    // pra ir alimentando a base, e aparecem sozinhas assim que o 1º chute rolar.
-    const matches = allMatches.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
+    // buscadas em segundo plano (_loadLive2Shotmap roda pra TODAS dentro do teto,
+    // não só as visíveis) pra ir alimentando a base, e aparecem sozinhas assim
+    // que o 1º chute rolar.
+    const matches = allMatchesLimited.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
 
     const badge = document.getElementById('live2CountBadge');
     if (badge) badge.textContent = matches.length;
+    const cutNote = document.getElementById('live2CutNote');
+    if (cutNote) cutNote.textContent = cortado
+      ? `mostrando as ${_LIVE2_MAX_MATCHES_DEFAULT} primeiras de ${totalAoVivo} ao vivo`
+      : '';
 
     if (!matches.length) {
       wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
@@ -13701,9 +13735,11 @@ async function loadLive2Matches() {
       _loadLive2Escudos(matches);
       _live2AutoLoadForms(matches);
     }
-    // Roda pra TODAS as partidas (visíveis ou não) — é o que descobre quando uma
-    // partida escondida passa a ter mapa de chutes e dispara a reexibição dela
-    _loadLive2Shotmap(allMatches);
+    // Roda pra todas dentro do teto (visíveis ou não) — é o que descobre quando uma
+    // partida escondida passa a ter mapa de chutes e dispara a reexibição dela.
+    // Fora do teto (quando não está em "mostrar todos") nem entra nessa varredura —
+    // é justamente isso que reduz a carga em dia de muito jogo.
+    _loadLive2Shotmap(allMatchesLimited);
   } catch (e) {
     wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
       <div style="font-size:13px;color:var(--text2)">Erro ao carregar jogos ao vivo.</div>

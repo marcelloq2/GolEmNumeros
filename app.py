@@ -3103,9 +3103,30 @@ def _uniscore_stats_to_flat(stats_list):
     return result
 
 
+# Teto de segurança GLOBAL — no máximo essas tantas buscas completas de
+# momentum (as 5 chamadas ao UniScore por partida, dentro de
+# _fetch_uniscore_graph) rodando ao mesmo tempo no site inteiro, não importa
+# quantas abas/usuários estejam pedindo ao mesmo tempo nem quantos jogos ao
+# vivo existam. Achado com o usuário (2026-08-29, dia com 400+ jogos ao vivo):
+# sem um limite assim, uma tentativa de acelerar essas buscas (rodando as 5
+# chamadas de CADA partida em paralelo) na verdade piorou as coisas — sem
+# nenhum teto no total, o número de conexões saindo pro UniScore ao mesmo
+# tempo cresce junto com o tráfego, sem limite. Esse semáforo é o oposto:
+# um teto fixo que NUNCA é ultrapassado, então o pior que acontece em dia de
+# pico é ficar mais lento pra atualizar — nunca sobrecarrega de vez. Um
+# pouco acima do número de threads do gunicorn (4) pra dar espaço também
+# pros workers de fundo (backup, monitor) conseguirem sua vez.
+_uniscore_momentum_semaphore = threading.Semaphore(5)
+
+
 def _fetch_uniscore_graph(uni_match):
     """Busca graphPoints + estatísticas por período do UniScore.
     uni_match = {id, homeId, awayId}"""
+    with _uniscore_momentum_semaphore:
+        return _fetch_uniscore_graph_impl(uni_match)
+
+
+def _fetch_uniscore_graph_impl(uni_match):
     uniscore_id = uni_match["id"]
     home_id     = uni_match.get("homeId", "")
     away_id     = uni_match.get("awayId", "")
