@@ -1,0 +1,311 @@
+{
+  "event_id": "7kbz8ilugpzyr9b",
+  "date": "2026-08-29",
+  "casa": "Gazisehir Gaziantep",
+  "fora": "Rizespor",
+  "liga": "Superliga",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2961582069",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "own_goal",
+      "bodyPart": "other_body_part",
+      "situation": "own_goal",
+      "player": "Ariss",
+      "x": 7.9,
+      "y": 51.3
+    },
+    {
+      "id": "2961579697",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mihăilă",
+      "x": 25.1,
+      "y": 32.3
+    },
+    {
+      "id": "2961577325",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Kulasin",
+      "x": 26.3,
+      "y": 62.9
+    },
+    {
+      "id": "2961572899",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Kulasin",
+      "x": 4.4,
+      "y": 60.2
+    },
+    {
+      "id": "2961572719",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "D.Sorescu",
+      "x": 21.6,
+      "y": 33.9
+    },
+    {
+      "id": "2961569761",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "K.Calhanoglu",
+      "x": 10.4,
+      "y": 30.9
+    },
+    {
+      "id": "2961564663",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "U.Meleke",
+      "x": 6.4,
+      "y": 56.7
+    },
+    {
+      "id": "2961561305",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Mihăilă",
+      "x": 14.6,
+      "y": 33.8
+    },
+    {
+      "id": "2961548647",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "U.Meleke",
+      "x": 4.3,
+      "y": 36.1
+    },
+    {
+      "id": "2961546867",
+      "minute": 61,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Maxim",
+      "x": 19.4,
+      "y": 56.4
+    },
+    {
+      "id": "2961502965",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "U.Meleke",
+      "x": 4.4,
+      "y": 61.1
+    },
+    {
+      "id": "2961497359",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "S.Dursun",
+      "x": 8.1,
+      "y": 41.3
+    },
+    {
+      "id": "2961497111",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "L.Pérez",
+      "x": 10,
+      "y": 40.4
+    },
+    {
+      "id": "2961492745",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Kutucu",
+      "x": 16.1,
+      "y": 54.2
+    },
+    {
+      "id": "2961492687",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Q.Laci",
+      "x": 24,
+      "y": 35.3
+    },
+    {
+      "id": "2961492065",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Sorescu",
+      "x": 11.4,
+      "y": 63.4
+    },
+    {
+      "id": "2961490499",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Olawoyin",
+      "x": 19.3,
+      "y": 55.3
+    },
+    {
+      "id": "2961481125",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Sowe",
+      "x": 4.3,
+      "y": 45.7
+    },
+    {
+      "id": "2961478049",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "U.Meleke",
+      "x": 13.2,
+      "y": 64.6
+    },
+    {
+      "id": "2961477963",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "D.Sorescu",
+      "x": 21.8,
+      "y": 75
+    },
+    {
+      "id": "2961475037",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Gidado",
+      "x": 18,
+      "y": 50
+    },
+    {
+      "id": "2961472381",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Kutucu",
+      "x": 29,
+      "y": 43
+    },
+    {
+      "id": "2961459759",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Maxim",
+      "x": 19,
+      "y": 34.9
+    },
+    {
+      "id": "2961456797",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Mocsi",
+      "x": 8.8,
+      "y": 38.3
+    },
+    {
+      "id": "2961452667",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Hansen",
+      "x": 9,
+      "y": 34.9
+    },
+    {
+      "id": "2961448913",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Bulut",
+      "x": 6.4,
+      "y": 41.1
+    },
+    {
+      "id": "2961442719",
+      "minute": 7,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Ariss",
+      "x": 25.8,
+      "y": 28
+    }
+  ]
+}
