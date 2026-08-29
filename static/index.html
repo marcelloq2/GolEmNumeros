@@ -2374,7 +2374,7 @@
         style="max-width:220px" oninput="_jogosDiaSetSearch(this.value)">
     </div>
     <div id="jogosDiaStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
-    <div id="jogosDiaList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-top:10px"></div>
+    <div id="jogosDiaList" style="margin-top:10px"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -22160,31 +22160,51 @@ function _jogosDiaSetSearch(value) {
   if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
 }
 
-function _jogosDiaAchadoTagHtml(a) {
-  return `<span style="display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
-    padding:2px 7px;font-size:10px;margin:2px;line-height:1.5"
-    title="${_bt2EscXml(a.mercado)} — ${_bt2EscXml(a.time_100pct)} (${_bt2EscXml(a.amostra)})">
-    <b style="color:#d1a13e">${_bt2EscXml(a.time_100pct)}</b> ${_bt2EscXml(a.mercado)}
-    <span style="color:var(--text2)">(${_bt2EscXml(a.amostra)})</span>
-  </span>`;
+// Agrupado por MERCADO (metodologia), não por partida — pedido do usuário
+// (2026-08-29) depois de ver a 1ª versão (agrupada por jogo): cada seção é um
+// mercado ("Ambas Marcam (BTTS)", "Placar 0-0 — não ocorreu" etc.) com a
+// lista de jogos que bateram ~100% nele, igual à ordem do .txt original.
+// Mesmo padrão visual/colapsável das ligas do Painel Principal
+// (.painel-league/.painel-league-header), com chave própria (prefixo "jd_")
+// pra não colidir com o _painelCollapsed do Painel.
+let _jogosDiaCollapsed = {};
+
+function _jogosDiaToggleMercado(key, headerEl) {
+  _jogosDiaCollapsed[key] = !_jogosDiaCollapsed[key];
+  const body = document.getElementById('jogosDiaBody_' + key);
+  if (body) body.style.display = _jogosDiaCollapsed[key] ? 'none' : '';
+  headerEl.classList.toggle('collapsed', !!_jogosDiaCollapsed[key]);
 }
 
-function _jogosDiaJogoHtml(j) {
-  return `<div class="live-card">
-    <div class="live-card-top" style="justify-content:center;text-align:center">
-      <span>${_bt2EscXml(j.liga)} · ${_bt2EscXml(j.horario)} · ${_bt2EscXml(j.status)}</span>
-    </div>
-    <div class="live-card-body" style="padding:8px 10px">
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
-        <span class="tname" style="font-size:12px">${_bt2EscXml(j.casa)}</span>
-        <span style="font-size:13px;font-weight:800;color:var(--text)">${_bt2EscXml(j.placar || '-')}</span>
-        <span class="tname" style="font-size:12px">${_bt2EscXml(j.fora)}</span>
-      </div>
-      <div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px">
-        ${j.achados.map(_jogosDiaAchadoTagHtml).join('')}
-      </div>
-    </div>
+function _jogosDiaLinhaHtml(a) {
+  return `<div style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-top:1px solid var(--border);font-size:12px">
+    <span style="color:var(--text2);width:70px;flex-shrink:0">${_bt2EscXml(a.horario)}<br><span style="font-size:9px">${_bt2EscXml(a.status)}</span></span>
+    <span style="flex:1;text-align:center;min-width:0">
+      <span class="tname">${_bt2EscXml(a.casa)}</span>
+      <b style="color:var(--text);margin:0 6px">${_bt2EscXml(a.placar || '-')}</b>
+      <span class="tname">${_bt2EscXml(a.fora)}</span>
+      <span style="color:var(--text2);font-size:10px;display:block">${_bt2EscXml(a.liga)}</span>
+    </span>
+    <span style="width:130px;text-align:right;flex-shrink:0">
+      <b style="color:#d1a13e">${_bt2EscXml(a.time_100pct)}</b><br><span style="color:var(--text2);font-size:10px">${_bt2EscXml(a.amostra)}</span>
+    </span>
   </div>`;
+}
+
+function _jogosDiaMercadoSectionHtml(mercado, linhas) {
+  const key = _painelExportSlug(mercado);
+  const collapsed = !!_jogosDiaCollapsed[key];
+  return `
+    <div class="painel-league">
+      <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleMercado('${key}', this)">
+        <span class="painel-league-name">${_bt2EscXml(mercado)}</span>
+        <span class="live-count-badge">${linhas.length}</span>
+        <span class="painel-arrow">▲</span>
+      </div>
+      <div id="jogosDiaBody_${key}" style="${collapsed ? 'display:none' : ''}">
+        ${linhas.map(_jogosDiaLinhaHtml).join('')}
+      </div>
+    </div>`;
 }
 
 function _jogosDiaRenderList(d) {
@@ -22204,19 +22224,33 @@ function _jogosDiaRenderList(d) {
     return;
   }
 
-  let filtrados = jogos;
-  if (_jogosDiaSearchQuery) {
-    filtrados = filtrados.filter(j =>
-      (j.casa || '').toLowerCase().includes(_jogosDiaSearchQuery) ||
-      (j.fora || '').toLowerCase().includes(_jogosDiaSearchQuery));
-  }
+  // "Achata" partida+achado numa linha só (cada achado carrega o contexto do
+  // próprio jogo), filtra por time se tiver busca, e agrupa por mercado.
+  const porMercado = {};
+  jogos.forEach(j => {
+    if (_jogosDiaSearchQuery) {
+      const bate = (j.casa || '').toLowerCase().includes(_jogosDiaSearchQuery) ||
+                   (j.fora || '').toLowerCase().includes(_jogosDiaSearchQuery);
+      if (!bate) return;
+    }
+    j.achados.forEach(a => {
+      const linha = { ...a, casa: j.casa, fora: j.fora, liga: j.liga, horario: j.horario, status: j.status, placar: j.placar };
+      (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push(linha);
+    });
+  });
+
+  const mercados = Object.keys(porMercado).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  mercados.forEach(m => porMercado[m].sort((a, b) => (a.horario || '').localeCompare(b.horario || '')));
 
   const totalAchados = jogos.reduce((acc, j) => acc + j.achados.length, 0);
-  statusEl.textContent = `${jogos.length} jogo(s) · ${totalAchados} achado(s) no total.`;
+  const totalFiltrado = mercados.reduce((acc, m) => acc + porMercado[m].length, 0);
+  statusEl.textContent = _jogosDiaSearchQuery
+    ? `${totalFiltrado} achado(s) em ${mercados.length} mercado(s) — filtrado por "${_jogosDiaSearchQuery}".`
+    : `${jogos.length} jogo(s) · ${totalAchados} achado(s) em ${mercados.length} mercado(s).`;
 
-  list.innerHTML = filtrados.length
-    ? filtrados.map(_jogosDiaJogoHtml).join('')
-    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo bate essa busca.</div>`;
+  list.innerHTML = mercados.length
+    ? mercados.map(m => _jogosDiaMercadoSectionHtml(m, porMercado[m])).join('')
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate essa busca.</div>`;
 }
 
 // Favoritar partida — só no navegador (localStorage), mesmo espírito do
