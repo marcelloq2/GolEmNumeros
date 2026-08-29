@@ -1,0 +1,322 @@
+{
+  "event_id": "54cvbml3h82hvp4",
+  "date": "2026-08-29",
+  "casa": "Kyoto Sanga",
+  "fora": "Avispa Fukuoka",
+  "liga": "J1 League",
+  "score": {
+    "home": 2,
+    "away": 1
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2960950177",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Miki",
+      "x": 27,
+      "y": 62.3
+    },
+    {
+      "id": "2960946475",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "R. Papagaio",
+      "x": 23.8,
+      "y": 40.7
+    },
+    {
+      "id": "2960942139",
+      "minute": 86,
+      "isHome": true,
+      "shotType": "own_goal",
+      "bodyPart": "other_body_part",
+      "situation": "own_goal",
+      "player": "Halls",
+      "x": 2.3,
+      "y": 46.6
+    },
+    {
+      "id": "2960941919",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "S.Usui",
+      "x": 20.8,
+      "y": 37.3
+    },
+    {
+      "id": "2960936561",
+      "minute": 82,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Miki",
+      "x": 28.7,
+      "y": 36.4
+    },
+    {
+      "id": "2960934557",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Morooka",
+      "x": 7.3,
+      "y": 33.1
+    },
+    {
+      "id": "2960919647",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J.Pedro",
+      "x": 24.9,
+      "y": 48.7
+    },
+    {
+      "id": "2960917809",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "H.Arai",
+      "x": 14.7,
+      "y": 55.8
+    },
+    {
+      "id": "2960915213",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "D.Fukazawa",
+      "x": 16,
+      "y": 32.9
+    },
+    {
+      "id": "2960915149",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Y.Tsujioka",
+      "x": 18.1,
+      "y": 69
+    },
+    {
+      "id": "2960915031",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Y. Maejima",
+      "x": 4.7,
+      "y": 39.7
+    },
+    {
+      "id": "2960915001",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "D.Fukazawa",
+      "x": 17.5,
+      "y": 36.7
+    },
+    {
+      "id": "2960914257",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Y. Maejima",
+      "x": 8.5,
+      "y": 30.1
+    },
+    {
+      "id": "2960912553",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "M.Shigemi",
+      "x": 15,
+      "y": 27.9
+    },
+    {
+      "id": "2960910345",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Y.Hashimoto",
+      "x": 9.8,
+      "y": 55.5
+    },
+    {
+      "id": "2960909975",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "T. Oka",
+      "x": 8.6,
+      "y": 51.9
+    },
+    {
+      "id": "2960908801",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "K.Maeda",
+      "x": 15.1,
+      "y": 35.1
+    },
+    {
+      "id": "2960906965",
+      "minute": 48,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "S.Fukuda",
+      "x": 18.8,
+      "y": 61.4
+    },
+    {
+      "id": "2960897485",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Shigemi",
+      "x": 3.4,
+      "y": 45.1
+    },
+    {
+      "id": "2960892333",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "R. Papagaio",
+      "x": 28.9,
+      "y": 46.3
+    },
+    {
+      "id": "2960891605",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "H.Arai",
+      "x": 2.3,
+      "y": 53.9
+    },
+    {
+      "id": "2960887269",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Werik",
+      "x": 8.8,
+      "y": 46.1
+    },
+    {
+      "id": "2960882397",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S.Morooka",
+      "x": 11.7,
+      "y": 71.1
+    },
+    {
+      "id": "2960881995",
+      "minute": 12,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "R. Papagaio",
+      "x": 25,
+      "y": 69.6
+    },
+    {
+      "id": "2960879945",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "R. Papagaio",
+      "x": 26.7,
+      "y": 46.8
+    },
+    {
+      "id": "2960878813",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Y.Hashimoto",
+      "x": 9.7,
+      "y": 70.5
+    },
+    {
+      "id": "2960878105",
+      "minute": 5,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Y.Tsujioka",
+      "x": 9.3,
+      "y": 53.3
+    },
+    {
+      "id": "2960878073",
+      "minute": 5,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "T.Miki",
+      "x": 14.2,
+      "y": 59.7
+    }
+  ]
+}
