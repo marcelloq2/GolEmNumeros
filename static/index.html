@@ -2992,7 +2992,7 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('🗺️ Zona do último chute', 'Mostra em que zona do campo (perigosa ou não) saiu a última finalização.')}
         ${_guiaRow('🧠 xG em dobro (oficial)', 'O xG (gol esperado) oficial da partida já está acima do dobro do que seria "normal" pro tempo de jogo até agora — sinal de jogo mais aberto que o esperado.')}
         ${_guiaRow('🗺️🧮 xG em dobro (calculado)', 'Mesma leitura do selo acima, só que calculada por nós a partir da posição de cada chute no mapa, pra quando a fonte não traz o xG oficial.')}
-        <br><b>Linhas "Partida toda / Últimos 10min / Últimos 5min":</b> % de pressão+chutes (e xG oficial na "Partida toda") de cada lado em 3 janelas de tempo diferentes. Uma bolinha <span style="color:#3b82f6;font-weight:700">azul</span> ou <span style="color:#ef4444;font-weight:700">vermelha</span> aparece ao lado quando o mesmo time está com pelo menos o dobro do percentual do outro lado nas 3 janelas ao mesmo tempo — sinal de domínio consistente, não só um pico passageiro.`),
+        <br><b>Linhas "Partida toda / Últimos 10min / Últimos 5min":</b> % de pressão+chutes (e xG oficial na "Partida toda") de cada lado em 3 janelas de tempo diferentes. Cada linha tem sua PRÓPRIA bolinha <span style="color:#3b82f6;font-weight:700">azul</span> ou <span style="color:#ef4444;font-weight:700">vermelha</span> — acende sozinha, independente das outras 2 linhas, sempre que o mesmo time está com pelo menos o dobro do percentual do outro lado NAQUELA janela específica.`),
 
       _guiaSec('🗺️', 'Mapa de chutes', `
         Campo de futebol desenhado com a posição exata de cada finalização da partida até agora — dá pra ver rapidamente se as chances estão vindo de dentro da área (mais perigosas) ou de longe.`),
@@ -14688,16 +14688,19 @@ function _live2DotCounterHtml(matchId) {
   </div>`;
 }
 
-function _live2ThermoDominanceIconHtml(matchId, full, w10, w5) {
-  const dFull = _live2ThermoDominance(full);
-  const d10   = _live2ThermoDominance(w10);
-  const d5    = _live2ThermoDominance(w5);
-  const side  = (dFull && d10 && d5 && dFull === d10 && d10 === d5) ? dFull : null;
-  _live2TallyDot(matchId, 'thermo', side);
+// Uma bolinha POR LINHA (Partida toda / Últimos 10min / Últimos 5min), cada
+// uma julgada isoladamente pela própria janela — pedido do usuário
+// (2026-08-29): a versão anterior só acendia uma bolinha combinada (as 3
+// janelas concordando ao mesmo tempo) e só desenhava ela na linha de
+// "Últimos 5min", o que parecia bug quando só "Partida toda" ou só
+// "Últimos 10min" batiam o dobro sozinhas (a bolinha não aparecia ali).
+function _live2ThermoDominanceIconHtml(matchId, score, slot, janelaLabel) {
+  const side = _live2ThermoDominance(score);
+  _live2TallyDot(matchId, slot, side);
   if (!side) return '';
   const cor = side === 'casa' ? '#3b82f6' : '#ef4444';
   const lado = side === 'casa' ? 'Casa' : 'Visitante';
-  return `<span class="live2-stat-dot" title="Domínio consistente: ${lado} tem pelo menos o dobro do percentual do outro lado nas 3 janelas (Partida toda, Últimos 10min e Últimos 5min)"
+  return `<span class="live2-stat-dot" title="${lado} tem pelo menos o dobro do percentual do outro lado em '${janelaLabel}'"
     style="display:inline-flex;background:${cor}"></span>`;
 }
 
@@ -14731,9 +14734,9 @@ async function _live2RefreshBadges(matchId) {
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
     const thermoInner = `
-      ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização')}
-      ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora')}
-      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(matchId, full, w10, w5))}
+      ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização', _live2ThermoDominanceIconHtml(matchId, full, 'thermo_full', 'Partida toda'))}
+      ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora', _live2ThermoDominanceIconHtml(matchId, w10, 'thermo_10', 'Últimos 10min'))}
+      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(matchId, w5, 'thermo_5', 'Últimos 5min'))}
       ${_live2RateStatsHtml(m)}`;
     // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
     // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
