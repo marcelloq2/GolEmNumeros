@@ -1634,6 +1634,7 @@
          (replayPanel, switchView('replay',...)) continua existindo no
          código, só sem esse ponto de entrada na UI. -->
     <button class="nav-tab" onclick="switchView('sinalizador', this)">🔔 Sinalizador</button>
+    <button class="nav-tab" onclick="switchView('jogosdia', this)">📋 Jogos do Dia</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2347,6 +2348,33 @@
     </div>
     <div id="sinalizadorStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
     <div id="sinalizadorList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:10px"></div>
+  </div>
+
+  <!-- JOGOS DO DIA — importa o .txt "Achados 100%" exportado pela ferramenta
+       local (analise_padroes.html, em cima do leitura_partidas_*.json do
+       Painel Principal) e lista as partidas do dia com os mercados em que
+       algum time bateu ~100% numa amostra recente. Primeira etapa (2026-08-29):
+       só a lista em si, sem cruzar com dado ao vivo ainda — próximos passos a
+       definir depois. -->
+  <div id="jogosDiaWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
+        📋 Jogos do Dia
+      </div>
+      <span style="font-size:11px;color:var(--text2)">importa os achados (mercados batendo ~100%) exportados pela ferramenta local</span>
+      <span id="jogosDiaGeradoEm" style="font-size:10px;color:var(--text2)"></span>
+      <span id="jogosDiaBadge" class="live-count-badge" style="margin-left:auto" title="Jogos carregados">0 jogos</span>
+      <button onclick="document.getElementById('jogosDiaFileInput').click()"
+        style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
+               color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
+      <input type="file" id="jogosDiaFileInput" accept=".txt" style="display:none" onchange="_jogosDiaImportFile(this.files[0])">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;flex-wrap:wrap">
+      <input type="text" id="jogosDiaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time..."
+        style="max-width:220px" oninput="_jogosDiaSetSearch(this.value)">
+    </div>
+    <div id="jogosDiaStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
+    <div id="jogosDiaList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-top:10px"></div>
   </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
@@ -3355,6 +3383,7 @@ function switchView(view, btn) {
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
   const sinalizadorWrapper = document.getElementById('sinalizadorWrapper');
+  const jogosDiaWrapper = document.getElementById('jogosDiaWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3366,6 +3395,7 @@ function switchView(view, btn) {
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
   sinalizadorWrapper.style.display = 'none';
+  jogosDiaWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3410,6 +3440,9 @@ function switchView(view, btn) {
     _sinalizadorLoadConfig();
     _sinalizadorCheck();
     _sinalizadorAutoRefresh = setInterval(_sinalizadorCheck, 25000);
+  } else if (view === 'jogosdia') {
+    jogosDiaWrapper.style.display = 'flex';
+    _jogosDiaLoadConfig();
   }
 }
 
@@ -22081,6 +22114,109 @@ async function _sinalizadorLoadConfig() {
     const n = (d.rules || []).length;
     badge.textContent = `${n} regra${n === 1 ? '' : 's'}`;
   } catch (e) { /* mantém o que já tinha na tela */ }
+}
+
+// ── JOGOS DO DIA — importa o .txt "Achados 100%" (analise_padroes.html) e
+// lista as partidas do dia com os mercados em que algum time bateu ~100%
+// numa amostra recente. Primeira etapa (2026-08-29): só a lista em si, sem
+// cruzar com dado ao vivo — mesmo padrão de import do Sinalizador
+// (FormData -> /api/jogos_dia/import), lista estática (sem auto-refresh).
+let _jogosDiaData = null;
+let _jogosDiaSearchQuery = '';
+
+async function _jogosDiaImportFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('jogosDiaStatus');
+  statusEl.textContent = 'Importando...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/jogos_dia/import', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) { statusEl.textContent = `Erro: ${d.error}`; return; }
+    statusEl.textContent = `✓ ${d.total_jogos} jogo(s) / ${d.total_achados} achado(s) importado(s) com sucesso.`;
+    _jogosDiaLoadConfig();
+  } catch (e) {
+    statusEl.textContent = `Erro importando o arquivo: ${e}`;
+  } finally {
+    document.getElementById('jogosDiaFileInput').value = '';
+  }
+}
+
+async function _jogosDiaLoadConfig() {
+  const statusEl = document.getElementById('jogosDiaStatus');
+  try {
+    const r = await fetch('/api/jogos_dia/config');
+    const d = await r.json();
+    _jogosDiaData = d;
+    _jogosDiaRenderList(d);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = `Erro carregando: ${e}`;
+  }
+}
+
+function _jogosDiaSetSearch(value) {
+  _jogosDiaSearchQuery = (value || '').trim().toLowerCase();
+  if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
+}
+
+function _jogosDiaAchadoTagHtml(a) {
+  return `<span style="display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+    padding:2px 7px;font-size:10px;margin:2px;line-height:1.5"
+    title="${_bt2EscXml(a.mercado)} — ${_bt2EscXml(a.time_100pct)} (${_bt2EscXml(a.amostra)})">
+    <b style="color:#d1a13e">${_bt2EscXml(a.time_100pct)}</b> ${_bt2EscXml(a.mercado)}
+    <span style="color:var(--text2)">(${_bt2EscXml(a.amostra)})</span>
+  </span>`;
+}
+
+function _jogosDiaJogoHtml(j) {
+  return `<div class="live-card">
+    <div class="live-card-top" style="justify-content:center;text-align:center">
+      <span>${_bt2EscXml(j.liga)} · ${_bt2EscXml(j.horario)} · ${_bt2EscXml(j.status)}</span>
+    </div>
+    <div class="live-card-body" style="padding:8px 10px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
+        <span class="tname" style="font-size:12px">${_bt2EscXml(j.casa)}</span>
+        <span style="font-size:13px;font-weight:800;color:var(--text)">${_bt2EscXml(j.placar || '-')}</span>
+        <span class="tname" style="font-size:12px">${_bt2EscXml(j.fora)}</span>
+      </div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px">
+        ${j.achados.map(_jogosDiaAchadoTagHtml).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function _jogosDiaRenderList(d) {
+  const list = document.getElementById('jogosDiaList');
+  const statusEl = document.getElementById('jogosDiaStatus');
+  const badge = document.getElementById('jogosDiaBadge');
+  const geradoEmEl = document.getElementById('jogosDiaGeradoEm');
+  if (!list) return;
+
+  const jogos = d.jogos || [];
+  if (badge) badge.textContent = `${jogos.length} jogo${jogos.length === 1 ? '' : 's'}`;
+  if (geradoEmEl) geradoEmEl.textContent = d.gerado_em ? `gerado em ${d.gerado_em}` : '';
+
+  if (!jogos.length) {
+    statusEl.textContent = 'Nenhum jogo importado ainda — clique em "📥 Importar .txt".';
+    list.innerHTML = '';
+    return;
+  }
+
+  let filtrados = jogos;
+  if (_jogosDiaSearchQuery) {
+    filtrados = filtrados.filter(j =>
+      (j.casa || '').toLowerCase().includes(_jogosDiaSearchQuery) ||
+      (j.fora || '').toLowerCase().includes(_jogosDiaSearchQuery));
+  }
+
+  const totalAchados = jogos.reduce((acc, j) => acc + j.achados.length, 0);
+  statusEl.textContent = `${jogos.length} jogo(s) · ${totalAchados} achado(s) no total.`;
+
+  list.innerHTML = filtrados.length
+    ? filtrados.map(_jogosDiaJogoHtml).join('')
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo bate essa busca.</div>`;
 }
 
 // Favoritar partida — só no navegador (localStorage), mesmo espírito do

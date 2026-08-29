@@ -7157,6 +7157,114 @@ def api_sinalizador_check():
     })
 
 
+# ── JOGOS DO DIA ──────────────────────────────────────────────────────────────
+# Importa o .txt "Achados 100%" exportado pela ferramenta local
+# (analise_padroes.html, em cima do leitura_partidas_*.json do Painel) — cada
+# linha é 1 achado (mercado em que um dos times bateu ~100% numa amostra
+# recente). Agrupa por partida (várias linhas podem ser da mesma partida, em
+# mercados diferentes) e só EXIBE — nenhum cálculo novo, é literalmente o que
+# a ferramenta local já decidiu que vale destacar. Primeira etapa pedida pelo
+# usuário (2026-08-29): só a lista em si; próximos passos (cruzar com dado ao
+# vivo, filtros etc.) ficam pra depois.
+_JOGOS_DIA_CONFIG_FILE = os.path.join(DATA_DIR, "jogos_dia_config.json")
+_jogos_dia_lock = threading.Lock()
+
+
+def _jogos_dia_load():
+    """Mesmo padrão do Sinalizador (_sinalizador_load_rules) — lê do disco a
+    cada chamada, sem cache em memória, pra não grudar num resultado vazio se
+    alguém ler antes da restauração do GitHub terminar no boot."""
+    with _jogos_dia_lock:
+        try:
+            with open(_JOGOS_DIA_CONFIG_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"gerado_em": None, "jogos": []}
+
+
+def _jogos_dia_parse_txt(raw_bytes):
+    """Parse do .txt exportado pela ferramenta local: TSV, comentários (#) no
+    topo (a 1ª linha de comentário traz a data/hora da geração), depois
+    cabeçalho, depois 1 linha por achado.
+
+    A ferramenta local salva esse arquivo em cp1252/Windows-ANSI (confirmado
+    testando um export real, 2026-08-29) em vez de UTF-8 — decodificar como
+    UTF-8 direto quebra qualquer acento/travessão em "mercado" (ex: "Ambas
+    Equipes Marcam — Não" virava caracteres de substituição). Tenta UTF-8
+    primeiro (caso a ferramenta mude no futuro) e cai pra cp1252 se falhar."""
+    try:
+        text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw_bytes.decode("cp1252")
+
+    linhas = text.splitlines()
+    gerado_em = None
+    corpo = []
+    for linha in linhas:
+        if linha.startswith("#"):
+            if gerado_em is None and "·" in linha:
+                gerado_em = linha.split("·", 1)[1].strip()
+            continue
+        if linha.strip():
+            corpo.append(linha)
+    if not corpo:
+        return {"gerado_em": gerado_em, "jogos": []}
+
+    header = corpo[0].split("\t")
+    idx = {nome: i for i, nome in enumerate(header)}
+    obrigatorias = ["mercado", "casa", "fora", "time_com_100pct", "amostra", "liga", "horario", "status", "placar"]
+    if not all(c in idx for c in obrigatorias):
+        raise ValueError(f"Cabeçalho do .txt não tem as colunas esperadas: {obrigatorias}")
+
+    partidas = {}
+    ordem = []
+    for linha in corpo[1:]:
+        campos = linha.split("\t")
+        if len(campos) < len(header):
+            continue
+        row = {nome: campos[i].strip() for nome, i in idx.items()}
+        chave = (row["casa"], row["fora"], row["liga"], row["horario"])
+        if chave not in partidas:
+            partidas[chave] = {
+                "casa": row["casa"], "fora": row["fora"], "liga": row["liga"],
+                "horario": row["horario"], "status": row["status"], "placar": row["placar"],
+                "achados": [],
+            }
+            ordem.append(chave)
+        partidas[chave]["achados"].append({
+            "mercado": row["mercado"],
+            "time_100pct": row["time_com_100pct"],
+            "amostra": row["amostra"],
+        })
+
+    jogos = [partidas[k] for k in ordem]
+    return {"gerado_em": gerado_em, "jogos": jogos}
+
+
+@app.route("/api/jogos_dia/import", methods=["POST"])
+def api_jogos_dia_import():
+    if "file" not in request.files:
+        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+    try:
+        data = _jogos_dia_parse_txt(request.files["file"].read())
+    except Exception as e:
+        return jsonify({"error": f"Erro lendo o arquivo: {e}"}), 400
+
+    with _jogos_dia_lock:
+        os.makedirs(os.path.dirname(_JOGOS_DIA_CONFIG_FILE), exist_ok=True)
+        with open(_JOGOS_DIA_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    github_storage.push_file_bg(_JOGOS_DIA_CONFIG_FILE, "jogos_dia_config.json")
+
+    return jsonify({"ok": True, "total_jogos": len(data["jogos"]),
+                     "total_achados": sum(len(j["achados"]) for j in data["jogos"])})
+
+
+@app.route("/api/jogos_dia/config")
+def api_jogos_dia_config():
+    return jsonify(_jogos_dia_load())
+
+
 def _uni_events_today():
     """Retorna lista de eventos de futebol do dia — TODOS os locales + paginação,
     combinando os jogos AO VIVO (live-v2) com os AINDA NÃO COMEÇADOS (scheduled-events).
