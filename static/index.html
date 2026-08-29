@@ -1683,8 +1683,8 @@
           style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
-        <button onclick="_painelExportLeituraJson()"
-          title="Baixa um .json com todas as partidas do dia (time, escudo, liga, placar, odds, força) — só o que já está carregado na tela, sem buscar nada novo"
+        <button id="painelExportLeituraBtn" onclick="_painelExportLeituraJson()"
+          title="Baixa um .json com todas as partidas do dia: dados básicos (time, escudo, liga, placar, odds) + a leitura completa de cada time (sequências, viradas, handicap por linha, mercados de gol/escanteio, placar exato não ocorrido) — busca uma partida de cada vez, pode demorar com muito jogo no dia"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
                  color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">⬇️ Baixar leitura</button>
@@ -5180,46 +5180,138 @@ async function _painelExportRelatoriosTxt() {
 // servidor, então funciona instantâneo mesmo em dia de centenas de jogos
 // (ver decisão de não sobrecarregar o servidor, mesmo motivo das travas
 // recém-adicionadas na Ao Vivo).
-function _painelExportLeituraJson() {
+function _painelExportBaseFields(lg, m) {
+  const logos = _painelRowLogos(m);
+  return {
+    liga: lg.league_name,
+    // "país" (lg.country) NÃO entra aqui de propósito — vem errado desde
+    // a extração do BetExplorer (achado 2026-08-29: "English Premier
+    // League" aparecia como país "Spain"), bug que nunca foi notado
+    // porque esse campo nunca era exibido em lugar nenhum do site até
+    // essa exportação. Não vale a pena mandar dado errado pra um estudo.
+    casa: m.home,
+    escudo_casa: logos.home || null,
+    fora: m.away,
+    escudo_fora: logos.away || null,
+    horario: _painelKickoffTime(m) || null,
+    status: m.time || null,
+    minuto: m.minute ?? null,
+    placar_casa: m.score_home ?? null,
+    placar_fora: m.score_away ?? null,
+    ht_casa: (m.ht_home != null && m.ht_home !== '') ? m.ht_home : null,
+    ht_fora: (m.ht_away != null && m.ht_away !== '') ? m.ht_away : null,
+    escanteio_casa: (m.corner_home != null && m.corner_home !== '') ? m.corner_home : null,
+    escanteio_fora: (m.corner_away != null && m.corner_away !== '') ? m.corner_away : null,
+    odd_1: m.odd_1 ?? null,
+    odd_x: m.odd_x ?? null,
+    odd_2: m.odd_2 ?? null,
+    odd_over: m.odd_over ?? null,
+    odd_under: m.odd_under ?? null,
+    forca_diff: (m.event_id && _painelForcaDiffCache[m.event_id] != null) ? _painelForcaDiffCache[m.event_id] : null,
+    event_id: m.event_id || null,
+    match_url: m.match_url || null,
+  };
+}
+
+// Extrai as métricas da aba "📝 Leitura" pra um jogo já buscado (`forcaData` =
+// resposta de /api/painel/ng_strength) — REAPROVEITA as mesmas funções que
+// calculam o que aparece na tela (_painelForcaScoredRatio, _painelForcaCurrentStreak,
+// _painelForcaMarketRatio, _painelForcaViradaRatio, _painelForcaHandicapByLine,
+// _painelForcaPlacarNotOccurredRatio) — nenhum cálculo novo, só embrulha o
+// resultado delas num objeto em vez de HTML. Essas funções leem de variáveis
+// globais (_painelForcaData/_painelForcaHome/_painelForcaAway/_painelForcaTableState),
+// que a exportação em lote seta temporariamente pra cada jogo, uma partida
+// de cada vez (nunca em paralelo — evita mexer nas mesmas globais de 2 jogos
+// ao mesmo tempo).
+function _painelBuildLeituraMetrics(home, away, forcaData) {
+  const prevData = _painelForcaData, prevHome = _painelForcaHome, prevAway = _painelForcaAway, prevState = _painelForcaTableState;
+  _painelForcaData = forcaData;
+  _painelForcaHome = home;
+  _painelForcaAway = away;
+  _painelForcaTableState = {
+    home: { count: 10, ht: false, onlySide: false, sameLeague: false },
+    away: { count: 10, ht: false, onlySide: false, sameLeague: false },
+  };
+  try {
+    const ratioObj = r => r ? { n: r.scored, total: r.total, pct: r.total ? Math.round(100 * r.scored / r.total) : 0 } : null;
+    const streakObj = r => r ? { jogos: r.streak, amostra: r.sample } : null;
+    const leitura = {};
+    [['home', 'casa'], ['away', 'fora']].forEach(([key, destKey]) => {
+      const sequencia_atual = {};
+      _PAINEL_LEITURA_STREAKS.forEach(cfg => { sequencia_atual[_painelExportSlug(cfg.label)] = streakObj(_painelForcaCurrentStreak(key, cfg.test)); });
+      const viradas = {};
+      _PAINEL_LEITURA_VIRADA.forEach(cfg => { viradas[_painelExportSlug(cfg.label)] = ratioObj(_painelForcaViradaRatio(key, cfg.test)); });
+      const mercados_gols = {};
+      _PAINEL_LEITURA_MARKETS.forEach(cfg => { mercados_gols[_painelExportSlug(cfg.label)] = ratioObj(_painelForcaMarketRatio(key, cfg.period, cfg.test, cfg.metric)); });
+      const mercados_escanteios = {};
+      _PAINEL_LEITURA_CORNER_MARKETS.forEach(cfg => { mercados_escanteios[_painelExportSlug(cfg.label)] = ratioObj(_painelForcaMarketRatio(key, cfg.period, cfg.test, cfg.metric)); });
+      const placar_exato_nao_ocorreu = {};
+      PLACAR_EXATO_BUCKETS_ORDER.forEach(bucket => { placar_exato_nao_ocorreu[_painelExportSlug(bucket)] = ratioObj(_painelForcaPlacarNotOccurredRatio(key, bucket)); });
+      leitura[destKey] = {
+        marcou_gol_tempo_todo: ratioObj(_painelForcaScoredRatio(key, 'ft')),
+        marcou_gol_1_tempo: ratioObj(_painelForcaScoredRatio(key, 'ht')),
+        sequencia_atual,
+        viradas,
+        // Já vem como [{line, n, pct}] de _painelForcaHandicapByLine — sem
+        // precisar de outro ratioObj, essa função já devolve estruturado.
+        handicap_por_linha: _painelForcaHandicapByLine(key),
+        mercados_gols,
+        mercados_escanteios,
+        placar_exato_nao_ocorreu,
+      };
+    });
+    return leitura;
+  } finally {
+    _painelForcaData = prevData; _painelForcaHome = prevHome; _painelForcaAway = prevAway; _painelForcaTableState = prevState;
+  }
+}
+
+// Baixa TODAS as partidas do dia com a "leitura" completa (sequências,
+// viradas, handicap por linha, mercados de gol/escanteio, placar exato não
+// ocorrido) pra cada time — pedido do usuário (2026-08-29) pra alimentar o
+// ranking de probabilidade do painel local (analise_padroes.html), que usa
+// essas sequências como pré-live (mais forte que odds simples nos testes
+// que ele já rodou lá). Busca /api/painel/ng_strength (o MESMO endpoint que
+// já alimenta a Comparação de força/Leitura na tela) uma partida de cada
+// vez, de propósito sequencial — mesmo padrão já usado em
+// _painelExportRelatoriosTxt: paralelizar isso sobrecarregaria o mesmo pool
+// de 4 threads que o resto do site usa (ver decisão de não sobrecarregar
+// o servidor, 2026-08-29).
+async function _painelExportLeituraJson() {
   if (!_painelLastData || !_painelLastData.leagues || !_painelLastData.leagues.length) {
     alert('Nenhum jogo carregado ainda.');
     return;
   }
+  const flat = [];
+  _painelLastData.leagues.forEach(lg => lg.matches.forEach(m => flat.push({ lg, m })));
+
+  const comId = flat.filter(({ m }) => m.event_id).length;
+  if (!confirm(`Isso vai buscar a "leitura" completa (sequências, viradas, mercados) de ${comId} partida(s), uma de cada vez — pode levar bastante tempo (alguns minutos a mais de meia hora, dependendo de quantos jogos tiver hoje). Continuar?`)) return;
+
+  const btn = document.getElementById('painelExportLeituraBtn');
+  const originalLabel = btn ? btn.textContent : '';
   const partidas = [];
-  _painelLastData.leagues.forEach(lg => {
-    lg.matches.forEach(m => {
-      const logos = _painelRowLogos(m);
-      partidas.push({
-        liga: lg.league_name,
-        // "país" (lg.country) NÃO entra aqui de propósito — vem errado desde
-        // a extração do BetExplorer (achado 2026-08-29: "English Premier
-        // League" aparecia como país "Spain"), bug que nunca foi notado
-        // porque esse campo nunca era exibido em lugar nenhum do site até
-        // essa exportação. Não vale a pena mandar dado errado pra um estudo.
-        casa: m.home,
-        escudo_casa: logos.home || null,
-        fora: m.away,
-        escudo_fora: logos.away || null,
-        horario: _painelKickoffTime(m) || null,
-        status: m.time || null,
-        minuto: m.minute ?? null,
-        placar_casa: m.score_home ?? null,
-        placar_fora: m.score_away ?? null,
-        ht_casa: (m.ht_home != null && m.ht_home !== '') ? m.ht_home : null,
-        ht_fora: (m.ht_away != null && m.ht_away !== '') ? m.ht_away : null,
-        escanteio_casa: (m.corner_home != null && m.corner_home !== '') ? m.corner_home : null,
-        escanteio_fora: (m.corner_away != null && m.corner_away !== '') ? m.corner_away : null,
-        odd_1: m.odd_1 ?? null,
-        odd_x: m.odd_x ?? null,
-        odd_2: m.odd_2 ?? null,
-        odd_over: m.odd_over ?? null,
-        odd_under: m.odd_under ?? null,
-        forca_diff: (m.event_id && _painelForcaDiffCache[m.event_id] != null) ? _painelForcaDiffCache[m.event_id] : null,
-        event_id: m.event_id || null,
-        match_url: m.match_url || null,
-      });
-    });
-  });
+  let done = 0;
+
+  for (const { lg, m } of flat) {
+    const base = _painelExportBaseFields(lg, m);
+    if (btn) { btn.disabled = true; btn.textContent = `⏳ ${done}/${flat.length}`; }
+    if (m.event_id) {
+      try {
+        const r = await fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(m.event_id));
+        const d = await r.json();
+        base.leitura = d.error ? null : _painelBuildLeituraMetrics(m.home, m.away, d);
+      } catch (e) {
+        base.leitura = null; // pula só a leitura desse jogo, não trava o restante da exportação
+      }
+    } else {
+      base.leitura = null;
+    }
+    partidas.push(base);
+    done++;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
   const payload = {
     gerado_em: new Date().toISOString(),
