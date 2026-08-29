@@ -1683,6 +1683,11 @@
           style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
+        <button onclick="_painelExportLeituraJson()"
+          title="Baixa um .json com todas as partidas do dia (time, escudo, liga, placar, odds, força) — só o que já está carregado na tela, sem buscar nada novo"
+          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
+                 color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">⬇️ Baixar leitura</button>
         <!-- Botão "🔍 Coletar todas" removido a pedido do usuário (2026-08-25) —
              alimentava só a aba Prognósticos, que saiu da navegação. As funções
              _painelExport* seguem no arquivo, órfãs, mesmo padrão do Lay Placar. -->
@@ -5161,6 +5166,73 @@ async function _painelExportRelatoriosTxt() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `relatorios_cenarios_${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Baixa TODAS as partidas do dia (não só a sub-aba/filtro atual) em .json,
+// pra estudo num painel local — pedido do usuário (2026-08-29). De propósito
+// só usa o que JÁ está carregado (_painelLastData, o mesmo dado cru que
+// alimenta a tabela, e _painelForcaDiffCache, já preenchido por
+// _painelLoadForcaDiffs sem disparar busca nova) — nenhuma chamada nova pro
+// servidor, então funciona instantâneo mesmo em dia de centenas de jogos
+// (ver decisão de não sobrecarregar o servidor, mesmo motivo das travas
+// recém-adicionadas na Ao Vivo).
+function _painelExportLeituraJson() {
+  if (!_painelLastData || !_painelLastData.leagues || !_painelLastData.leagues.length) {
+    alert('Nenhum jogo carregado ainda.');
+    return;
+  }
+  const partidas = [];
+  _painelLastData.leagues.forEach(lg => {
+    lg.matches.forEach(m => {
+      const logos = _painelRowLogos(m);
+      partidas.push({
+        liga: lg.league_name,
+        // "país" (lg.country) NÃO entra aqui de propósito — vem errado desde
+        // a extração do BetExplorer (achado 2026-08-29: "English Premier
+        // League" aparecia como país "Spain"), bug que nunca foi notado
+        // porque esse campo nunca era exibido em lugar nenhum do site até
+        // essa exportação. Não vale a pena mandar dado errado pra um estudo.
+        casa: m.home,
+        escudo_casa: logos.home || null,
+        fora: m.away,
+        escudo_fora: logos.away || null,
+        horario: _painelKickoffTime(m) || null,
+        status: m.time || null,
+        minuto: m.minute ?? null,
+        placar_casa: m.score_home ?? null,
+        placar_fora: m.score_away ?? null,
+        ht_casa: (m.ht_home != null && m.ht_home !== '') ? m.ht_home : null,
+        ht_fora: (m.ht_away != null && m.ht_away !== '') ? m.ht_away : null,
+        escanteio_casa: (m.corner_home != null && m.corner_home !== '') ? m.corner_home : null,
+        escanteio_fora: (m.corner_away != null && m.corner_away !== '') ? m.corner_away : null,
+        odd_1: m.odd_1 ?? null,
+        odd_x: m.odd_x ?? null,
+        odd_2: m.odd_2 ?? null,
+        odd_over: m.odd_over ?? null,
+        odd_under: m.odd_under ?? null,
+        forca_diff: (m.event_id && _painelForcaDiffCache[m.event_id] != null) ? _painelForcaDiffCache[m.event_id] : null,
+        event_id: m.event_id || null,
+        match_url: m.match_url || null,
+      });
+    });
+  });
+
+  const payload = {
+    gerado_em: new Date().toISOString(),
+    fonte: 'Gol em Números — Painel Principal',
+    total_partidas: partidas.length,
+    partidas,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `leitura_partidas_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
