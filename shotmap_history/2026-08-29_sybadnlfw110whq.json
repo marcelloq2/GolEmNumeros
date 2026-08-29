@@ -1,0 +1,311 @@
+{
+  "event_id": "sybadnlfw110whq",
+  "date": "2026-08-29",
+  "casa": "Charlton Athletic",
+  "fora": "Preston",
+  "liga": "Championship",
+  "score": {
+    "home": 1,
+    "away": 0
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2961228933",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Grant",
+      "x": 19.5,
+      "y": 63.2
+    },
+    {
+      "id": "2961227849",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Alli",
+      "x": 24.1,
+      "y": 48.4
+    },
+    {
+      "id": "2961226255",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Grant",
+      "x": 21.8,
+      "y": 43.8
+    },
+    {
+      "id": "2961212301",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "McNamara",
+      "x": 20.8,
+      "y": 73.5
+    },
+    {
+      "id": "2961212109",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Alli",
+      "x": 13.3,
+      "y": 66.3
+    },
+    {
+      "id": "2961201381",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Campbell",
+      "x": 18.7,
+      "y": 26
+    },
+    {
+      "id": "2961200989",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "J.Thompson",
+      "x": 23.5,
+      "y": 52.7
+    },
+    {
+      "id": "2961198273",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leaburn",
+      "x": 19.3,
+      "y": 57.6
+    },
+    {
+      "id": "2961197221",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Mwamba",
+      "x": 17,
+      "y": 43.8
+    },
+    {
+      "id": "2961191181",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Lang",
+      "x": 5.5,
+      "y": 48.9
+    },
+    {
+      "id": "2961191113",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Gibson",
+      "x": 9.6,
+      "y": 59.3
+    },
+    {
+      "id": "2961190881",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Clarke",
+      "x": 8.3,
+      "y": 51.3
+    },
+    {
+      "id": "2961171633",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Campbell",
+      "x": 20.7,
+      "y": 24.8
+    },
+    {
+      "id": "2961166635",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Grant",
+      "x": 8.2,
+      "y": 57.7
+    },
+    {
+      "id": "2961165899",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Grant",
+      "x": 22.8,
+      "y": 58.3
+    },
+    {
+      "id": "2961159393",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "C. Coventry",
+      "x": 20.5,
+      "y": 60.9
+    },
+    {
+      "id": "2961157451",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Clarke",
+      "x": 20.3,
+      "y": 74.8
+    },
+    {
+      "id": "2961154035",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Burgzorg",
+      "x": 4.1,
+      "y": 64.6
+    },
+    {
+      "id": "2961132397",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Grant",
+      "x": 21.9,
+      "y": 35.1
+    },
+    {
+      "id": "2961115941",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Leaburn",
+      "x": 7.5,
+      "y": 53.1
+    },
+    {
+      "id": "2961104039",
+      "minute": 30,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lang",
+      "x": 6.1,
+      "y": 53
+    },
+    {
+      "id": "2961099439",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L. Leroy",
+      "x": 23.6,
+      "y": 55.2
+    },
+    {
+      "id": "2961099365",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Devine",
+      "x": 22.2,
+      "y": 50.7
+    },
+    {
+      "id": "2961093017",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Campbell",
+      "x": 16,
+      "y": 34.8
+    },
+    {
+      "id": "2961072817",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Vukčević",
+      "x": 31.7,
+      "y": 25.2
+    },
+    {
+      "id": "2961064735",
+      "minute": 7,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Vukčević",
+      "x": 25.2,
+      "y": 47.5
+    },
+    {
+      "id": "2961062321",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Devine",
+      "x": 26,
+      "y": 55.8
+    }
+  ]
+}
