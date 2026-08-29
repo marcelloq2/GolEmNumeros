@@ -7,52 +7,52 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 81.2,
-    "amostra": 119
+    "taxa_final_pct": 81.3,
+    "amostra": 120
   },
   {
     "mercado": "Fora vence",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações — diferença (1º T)",
     "min_checkpoint": -20.0,
     "max_checkpoint": -5.0,
-    "taxa_final_pct": 75.1,
-    "amostra": 98
+    "taxa_final_pct": 74.6,
+    "amostra": 99
   },
   {
     "mercado": "Fora vence",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 75.0,
-    "amostra": 94
+    "taxa_final_pct": 74.5,
+    "amostra": 92
   },
   {
     "mercado": "Fora vence",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Pressão média (1º T)",
     "min_checkpoint": -43.638,
-    "max_checkpoint": -16.222,
-    "taxa_final_pct": 69.2,
+    "max_checkpoint": -16.367,
+    "taxa_final_pct": 68.6,
     "amostra": 95
   },
   {
     "mercado": "Over 1.5 HT",
     "variavel_pre_live": "Prob. implícita empate (1X2)",
     "min_pre_live": 0.019,
-    "max_pre_live": 0.199,
+    "max_pre_live": 0.198,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 2.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 53.0,
-    "amostra": 126
+    "taxa_final_pct": 52.3,
+    "amostra": 125
   },
   {
     "mercado": "Casa vence HT",
@@ -62,30 +62,19 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 72.1,
-    "amostra": 119
-  },
-  {
-    "mercado": "Casa vence HT",
-    "variavel_pre_live": "Prob. implícita casa (1X2)",
-    "min_pre_live": 0.555,
-    "max_pre_live": 0.979,
-    "variavel_checkpoint": "Finalizações — diferença (1º T)",
-    "min_checkpoint": 5.0,
-    "max_checkpoint": 20.0,
-    "taxa_final_pct": 56.4,
-    "amostra": 135
+    "taxa_final_pct": 72.3,
+    "amostra": 120
   },
   {
     "mercado": "Visitante vence HT",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 71.3,
-    "amostra": 94
+    "taxa_final_pct": 70.6,
+    "amostra": 92
   },
   {
     "mercado": "Casa marca primeiro",
@@ -95,19 +84,19 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 80.5,
-    "amostra": 119
+    "taxa_final_pct": 80.7,
+    "amostra": 120
   },
   {
     "mercado": "Visitante marca primeiro",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 76.5,
-    "amostra": 94
+    "taxa_final_pct": 76.4,
+    "amostra": 92
   },
   {
     "mercado": "Dupla chance X2 (fora não perde)",
@@ -117,7 +106,7 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 95.1,
+    "taxa_final_pct": 95.3,
     "amostra": 87
   },
   {
@@ -128,40 +117,40 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 64.0,
-    "amostra": 119
+    "taxa_final_pct": 64.3,
+    "amostra": 120
   },
   {
     "mercado": "Fora vence por 2+ gols",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 60.3,
-    "amostra": 94
+    "taxa_final_pct": 60.4,
+    "amostra": 92
   },
   {
     "mercado": "Fora vence por 2+ gols",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Finalizações — diferença (1º T)",
     "min_checkpoint": -20.0,
     "max_checkpoint": -5.0,
-    "taxa_final_pct": 54.4,
-    "amostra": 98
+    "taxa_final_pct": 54.8,
+    "amostra": 99
   },
   {
     "mercado": "Fora vence por 2+ gols",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Pressão média (1º T)",
     "min_checkpoint": -43.638,
-    "max_checkpoint": -16.222,
-    "taxa_final_pct": 49.5,
+    "max_checkpoint": -16.367,
+    "taxa_final_pct": 49.1,
     "amostra": 95
   },
   {
@@ -172,7 +161,7 @@
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": -12.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 60.4,
+    "taxa_final_pct": 61.5,
     "amostra": 87
   },
   {
@@ -191,22 +180,22 @@
     "variavel_pre_live": "Prob. implícita casa (1X2)",
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
-    "variavel_checkpoint": "Finalizações — diferença (1º T)",
-    "min_checkpoint": 5.0,
-    "max_checkpoint": 20.0,
-    "taxa_final_pct": 65.7,
-    "amostra": 135
+    "variavel_checkpoint": "Pressão média (1º T)",
+    "min_checkpoint": 18.625,
+    "max_checkpoint": 56.958,
+    "taxa_final_pct": 65.5,
+    "amostra": 92
   },
   {
     "mercado": "Casa com +3.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita casa (1X2)",
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
-    "variavel_checkpoint": "Pressão média (1º T)",
-    "min_checkpoint": 18.292,
-    "max_checkpoint": 56.958,
-    "taxa_final_pct": 63.8,
-    "amostra": 93
+    "variavel_checkpoint": "Finalizações — diferença (1º T)",
+    "min_checkpoint": 5.0,
+    "max_checkpoint": 20.0,
+    "taxa_final_pct": 62.4,
+    "amostra": 134
   },
   {
     "mercado": "Casa com +3.5 escanteios de vantagem",
@@ -214,21 +203,21 @@
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Posse de bola — diferença (1º T)",
-    "min_checkpoint": 26.0,
+    "min_checkpoint": 24.0,
     "max_checkpoint": 60.0,
-    "taxa_final_pct": 62.9,
-    "amostra": 86
+    "taxa_final_pct": 62.3,
+    "amostra": 99
   },
   {
     "mercado": "Casa com +3.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita casa (1X2)",
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
-    "variavel_checkpoint": "Ataques perigosos — diferença (1º T)",
-    "min_checkpoint": 18.0,
-    "max_checkpoint": 55.0,
-    "taxa_final_pct": 60.4,
-    "amostra": 91
+    "variavel_checkpoint": "Ataques — diferença (1º T)",
+    "min_checkpoint": 20.0,
+    "max_checkpoint": 77.0,
+    "taxa_final_pct": 59.6,
+    "amostra": 79
   },
   {
     "mercado": "Casa com +1.5 escanteios de vantagem",
@@ -238,8 +227,19 @@
     "variavel_checkpoint": "Escanteios — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 10.0,
-    "taxa_final_pct": 94.7,
+    "taxa_final_pct": 94.8,
     "amostra": 102
+  },
+  {
+    "mercado": "Casa com +1.5 escanteios de vantagem",
+    "variavel_pre_live": "Prob. implícita casa (1X2)",
+    "min_pre_live": 0.555,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Pressão média (1º T)",
+    "min_checkpoint": 18.625,
+    "max_checkpoint": 56.958,
+    "taxa_final_pct": 84.3,
+    "amostra": 92
   },
   {
     "mercado": "Casa com +1.5 escanteios de vantagem",
@@ -249,19 +249,8 @@
     "variavel_checkpoint": "Finalizações — diferença (1º T)",
     "min_checkpoint": 5.0,
     "max_checkpoint": 20.0,
-    "taxa_final_pct": 83.7,
-    "amostra": 135
-  },
-  {
-    "mercado": "Casa com +1.5 escanteios de vantagem",
-    "variavel_pre_live": "Prob. implícita casa (1X2)",
-    "min_pre_live": 0.555,
-    "max_pre_live": 0.979,
-    "variavel_checkpoint": "Pressão média (1º T)",
-    "min_checkpoint": 18.292,
-    "max_checkpoint": 56.958,
-    "taxa_final_pct": 83.3,
-    "amostra": 93
+    "taxa_final_pct": 80.8,
+    "amostra": 134
   },
   {
     "mercado": "Casa com +1.5 escanteios de vantagem",
@@ -271,7 +260,7 @@
     "variavel_checkpoint": "Ataques perigosos — diferença (1º T)",
     "min_checkpoint": 18.0,
     "max_checkpoint": 55.0,
-    "taxa_final_pct": 78.8,
+    "taxa_final_pct": 78.9,
     "amostra": 91
   },
   {
@@ -280,10 +269,10 @@
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Posse de bola — diferença (1º T)",
-    "min_checkpoint": 26.0,
+    "min_checkpoint": 24.0,
     "max_checkpoint": 60.0,
-    "taxa_final_pct": 78.3,
-    "amostra": 86
+    "taxa_final_pct": 78.4,
+    "amostra": 99
   },
   {
     "mercado": "Casa com +2.5 escanteios de vantagem",
@@ -293,8 +282,19 @@
     "variavel_checkpoint": "Escanteios — diferença (1º T)",
     "min_checkpoint": 3.0,
     "max_checkpoint": 10.0,
-    "taxa_final_pct": 89.8,
+    "taxa_final_pct": 89.9,
     "amostra": 102
+  },
+  {
+    "mercado": "Casa com +2.5 escanteios de vantagem",
+    "variavel_pre_live": "Prob. implícita casa (1X2)",
+    "min_pre_live": 0.555,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Pressão média (1º T)",
+    "min_checkpoint": 18.625,
+    "max_checkpoint": 56.958,
+    "taxa_final_pct": 75.0,
+    "amostra": 92
   },
   {
     "mercado": "Casa com +2.5 escanteios de vantagem",
@@ -304,19 +304,8 @@
     "variavel_checkpoint": "Finalizações — diferença (1º T)",
     "min_checkpoint": 5.0,
     "max_checkpoint": 20.0,
-    "taxa_final_pct": 77.1,
-    "amostra": 135
-  },
-  {
-    "mercado": "Casa com +2.5 escanteios de vantagem",
-    "variavel_pre_live": "Prob. implícita casa (1X2)",
-    "min_pre_live": 0.555,
-    "max_pre_live": 0.979,
-    "variavel_checkpoint": "Pressão média (1º T)",
-    "min_checkpoint": 18.292,
-    "max_checkpoint": 56.958,
-    "taxa_final_pct": 73.6,
-    "amostra": 93
+    "taxa_final_pct": 74.7,
+    "amostra": 134
   },
   {
     "mercado": "Casa com +2.5 escanteios de vantagem",
@@ -335,130 +324,163 @@
     "min_pre_live": 0.555,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Posse de bola — diferença (1º T)",
-    "min_checkpoint": 26.0,
+    "min_checkpoint": 24.0,
     "max_checkpoint": 60.0,
-    "taxa_final_pct": 71.4,
-    "amostra": 86
+    "taxa_final_pct": 70.9,
+    "amostra": 99
   },
   {
     "mercado": "Fora com +1.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Escanteios — diferença (1º T)",
     "min_checkpoint": -11.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 91.8,
-    "amostra": 97
+    "taxa_final_pct": 92.0,
+    "amostra": 98
   },
   {
     "mercado": "Fora com +1.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Ataques perigosos — diferença (1º T)",
     "min_checkpoint": -63.0,
     "max_checkpoint": -16.0,
-    "taxa_final_pct": 75.5,
+    "taxa_final_pct": 75.6,
     "amostra": 83
   },
   {
     "mercado": "Fora com +1.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Ataques — diferença (1º T)",
     "min_checkpoint": -76.0,
-    "max_checkpoint": -15.0,
-    "taxa_final_pct": 66.9,
-    "amostra": 89
+    "max_checkpoint": -14.0,
+    "taxa_final_pct": 67.3,
+    "amostra": 98
   },
   {
     "mercado": "Fora com +1.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Pressão média (1º T)",
     "min_checkpoint": -43.638,
     "max_checkpoint": -16.222,
-    "taxa_final_pct": 66.7,
-    "amostra": 93
+    "taxa_final_pct": 67.0,
+    "amostra": 94
   },
   {
     "mercado": "Fora com +2.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Escanteios — diferença (1º T)",
     "min_checkpoint": -11.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 82.9,
-    "amostra": 97
+    "taxa_final_pct": 83.2,
+    "amostra": 98
   },
   {
     "mercado": "Fora com +2.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Ataques perigosos — diferença (1º T)",
     "min_checkpoint": -63.0,
     "max_checkpoint": -16.0,
-    "taxa_final_pct": 67.2,
+    "taxa_final_pct": 67.3,
     "amostra": 83
   },
   {
     "mercado": "Fora com +2.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Finalizações — diferença (1º T)",
+    "min_checkpoint": -20.0,
+    "max_checkpoint": -5.0,
+    "taxa_final_pct": 58.5,
+    "amostra": 99
+  },
+  {
+    "mercado": "Fora com +2.5 escanteios de vantagem",
+    "variavel_pre_live": "Prob. implícita fora (1X2)",
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Ataques — diferença (1º T)",
     "min_checkpoint": -76.0,
-    "max_checkpoint": -15.0,
-    "taxa_final_pct": 54.9,
-    "amostra": 89
+    "max_checkpoint": -14.0,
+    "taxa_final_pct": 56.5,
+    "amostra": 98
   },
   {
     "mercado": "Fora com +3.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Escanteios — diferença (1º T)",
     "min_checkpoint": -11.0,
     "max_checkpoint": -3.0,
-    "taxa_final_pct": 74.7,
-    "amostra": 97
+    "taxa_final_pct": 75.2,
+    "amostra": 98
   },
   {
     "mercado": "Fora com +3.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Ataques perigosos — diferença (1º T)",
     "min_checkpoint": -63.0,
     "max_checkpoint": -16.0,
-    "taxa_final_pct": 55.7,
+    "taxa_final_pct": 55.9,
     "amostra": 83
   },
   {
     "mercado": "Fora com +3.5 escanteios de vantagem",
     "variavel_pre_live": "Prob. implícita fora (1X2)",
-    "min_pre_live": 0.43,
+    "min_pre_live": 0.432,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Finalizações — diferença (1º T)",
+    "min_checkpoint": -20.0,
+    "max_checkpoint": -5.0,
+    "taxa_final_pct": 51.7,
+    "amostra": 99
+  },
+  {
+    "mercado": "Fora com +3.5 escanteios de vantagem",
+    "variavel_pre_live": "Prob. implícita fora (1X2)",
+    "min_pre_live": 0.432,
     "max_pre_live": 0.979,
     "variavel_checkpoint": "Pressão média (1º T)",
     "min_checkpoint": -43.638,
     "max_checkpoint": -16.222,
-    "taxa_final_pct": 49.6,
-    "amostra": 93
+    "taxa_final_pct": 50.4,
+    "amostra": 94
+  },
+  {
+    "mercado": "Fora com +3.5 escanteios de vantagem",
+    "variavel_pre_live": "Prob. implícita fora (1X2)",
+    "min_pre_live": 0.432,
+    "max_pre_live": 0.979,
+    "variavel_checkpoint": "Posse de bola — diferença (1º T)",
+    "min_checkpoint": -98.0,
+    "max_checkpoint": -24.0,
+    "taxa_final_pct": 47.4,
+    "amostra": 78
   },
   {
     "mercado": "Mesmo vencedor no HT e no FT",
     "variavel_pre_live": "Prob. implícita empate (1X2)",
     "min_pre_live": 0.019,
-    "max_pre_live": 0.199,
+    "max_pre_live": 0.198,
     "variavel_checkpoint": "Finalizações no alvo — diferença (1º T)",
     "min_checkpoint": 2.0,
     "max_checkpoint": 12.0,
-    "taxa_final_pct": 61.7,
-    "amostra": 126
+    "taxa_final_pct": 62.4,
+    "amostra": 125
   }
 ]
