@@ -1389,9 +1389,21 @@ def _get_radar_futebol_links():
     """Busca o feed público (SSE) do RadarFutebol e extrai, de cada partida,
     o link pronto pra Betfair Exchange e pra Bolsa de Aposta. Só lê a primeira
     linha 'data: {...}' do stream e fecha a conexão — não fica pendurado
-    esperando os próximos eventos ao vivo do SSE."""
+    esperando os próximos eventos ao vivo do SSE.
+
+    Bug crítico corrigido (2026-08-29): a checagem de cache exigia
+    `_radar_links_cache["events"]` não-vazio pra "valer" — se o RadarFutebol
+    caísse (ou devolvesse feed vazio), `ts` nunca era atualizado nos ramos de
+    falha, e essa condição nunca batia. Resultado: TODA chamada tentava buscar
+    de novo, sem nenhum intervalo entre tentativas. Como _find_radar_links (e
+    por tabela esta função) é chamada UMA VEZ POR PARTIDA AO VIVO dentro de um
+    loop, num dia com 700+ jogos isso virou milhares de tentativas de 15s cada
+    empilhadas, uma atrás da outra — derrubou o site inteiro (as 4 threads do
+    gunicorn ficaram presas nisso por horas). Agora `ts` marca a hora da
+    ÚLTIMA TENTATIVA (sucesso ou falha), então uma falha só tenta de novo
+    depois do TTL passar, nunca a cada chamada."""
     with _radar_links_lock:
-        if time.time() - _radar_links_cache["ts"] < _RADAR_LINKS_TTL and _radar_links_cache["events"]:
+        if time.time() - _radar_links_cache["ts"] < _RADAR_LINKS_TTL:
             return _radar_links_cache["events"]
     try:
         r = http_req.get(_RADAR_LINKS_URL, headers=_RADAR_LINKS_HEADERS, stream=True, timeout=15)
@@ -1418,6 +1430,8 @@ def _get_radar_futebol_links():
                 break
         r.close()
         if not payload:
+            with _radar_links_lock:
+                _radar_links_cache["ts"] = time.time()
             return _radar_links_cache["events"]
 
         obj = json.loads(payload)
@@ -1454,6 +1468,8 @@ def _get_radar_futebol_links():
         return events
     except Exception as e:
         print(f"[radar-links] Erro buscando feed do RadarFutebol: {e}")
+        with _radar_links_lock:
+            _radar_links_cache["ts"] = time.time()
         return _radar_links_cache["events"]
 
 
