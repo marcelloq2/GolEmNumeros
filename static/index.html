@@ -2372,6 +2372,9 @@
     <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;flex-wrap:wrap">
       <input type="text" id="jogosDiaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time..."
         style="max-width:220px" oninput="_jogosDiaSetSearch(this.value)">
+      <select id="jogosDiaMercadoFilterSelect" class="painel-search-select" onchange="_jogosDiaSetMercadoFilter(this.value)">
+        <option value="">🏷️ Todos os mercados</option>
+      </select>
     </div>
     <div id="jogosDiaStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
     <div id="jogosDiaList" style="margin-top:10px"></div>
@@ -22160,6 +22163,29 @@ function _jogosDiaSetSearch(value) {
   if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
 }
 
+let _jogosDiaMercadoFilter = ''; // '' = todos
+function _jogosDiaSetMercadoFilter(value) {
+  _jogosDiaMercadoFilter = value || '';
+  if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
+}
+
+// Popula o dropdown com os mercados que existem no import atual — só refaz
+// as opções quando a lista de mercados muda de verdade (evita perder a
+// seleção do usuário a cada 25s/refresh à toa, embora essa aba hoje não
+// tenha auto-refresh nenhum ainda).
+let _jogosDiaMercadosNoSelect = null;
+function _jogosDiaUpdateMercadoOptions(mercados) {
+  const chave = mercados.join('|');
+  if (chave === _jogosDiaMercadosNoSelect) return;
+  _jogosDiaMercadosNoSelect = chave;
+  const sel = document.getElementById('jogosDiaMercadoFilterSelect');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">🏷️ Todos os mercados</option>' +
+    mercados.map(m => `<option value="${_bt2EscXml(m)}">${_bt2EscXml(m)}</option>`).join('');
+  if (mercados.includes(atual)) sel.value = atual; // preserva a seleção se o mercado ainda existir
+}
+
 // Agrupado por MERCADO (metodologia), não por partida — pedido do usuário
 // (2026-08-29) depois de ver a 1ª versão (agrupada por jogo): cada seção é um
 // mercado ("Ambas Marcam (BTTS)", "Placar 0-0 — não ocorreu" etc.) com a
@@ -22224,8 +22250,17 @@ function _jogosDiaRenderList(d) {
     return;
   }
 
+  // Dropdown sempre lista TODOS os mercados do import atual (não só os que
+  // sobraram depois da busca/filtro), pra não ficar encolhendo/mudando as
+  // opções enquanto o usuário digita.
+  const todosMercadosSet = new Set();
+  jogos.forEach(j => j.achados.forEach(a => todosMercadosSet.add(a.mercado)));
+  const todosMercados = [...todosMercadosSet].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  _jogosDiaUpdateMercadoOptions(todosMercados);
+
   // "Achata" partida+achado numa linha só (cada achado carrega o contexto do
-  // próprio jogo), filtra por time se tiver busca, e agrupa por mercado.
+  // próprio jogo), filtra por time (busca) e por mercado (dropdown), e
+  // agrupa o que sobrar por mercado.
   const porMercado = {};
   jogos.forEach(j => {
     if (_jogosDiaSearchQuery) {
@@ -22234,6 +22269,7 @@ function _jogosDiaRenderList(d) {
       if (!bate) return;
     }
     j.achados.forEach(a => {
+      if (_jogosDiaMercadoFilter && a.mercado !== _jogosDiaMercadoFilter) return;
       const linha = { ...a, casa: j.casa, fora: j.fora, liga: j.liga, horario: j.horario, status: j.status, placar: j.placar };
       (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push(linha);
     });
@@ -22244,13 +22280,18 @@ function _jogosDiaRenderList(d) {
 
   const totalAchados = jogos.reduce((acc, j) => acc + j.achados.length, 0);
   const totalFiltrado = mercados.reduce((acc, m) => acc + porMercado[m].length, 0);
-  statusEl.textContent = _jogosDiaSearchQuery
-    ? `${totalFiltrado} achado(s) em ${mercados.length} mercado(s) — filtrado por "${_jogosDiaSearchQuery}".`
+  const temFiltro = _jogosDiaSearchQuery || _jogosDiaMercadoFilter;
+  const descFiltro = [
+    _jogosDiaSearchQuery ? `time "${_jogosDiaSearchQuery}"` : null,
+    _jogosDiaMercadoFilter ? `mercado "${_jogosDiaMercadoFilter}"` : null,
+  ].filter(Boolean).join(' + ');
+  statusEl.textContent = temFiltro
+    ? `${totalFiltrado} achado(s) em ${mercados.length} mercado(s) — filtrado por ${descFiltro}.`
     : `${jogos.length} jogo(s) · ${totalAchados} achado(s) em ${mercados.length} mercado(s).`;
 
   list.innerHTML = mercados.length
     ? mercados.map(m => _jogosDiaMercadoSectionHtml(m, porMercado[m])).join('')
-    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate essa busca.</div>`;
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate esse filtro.</div>`;
 }
 
 // Favoritar partida — só no navegador (localStorage), mesmo espírito do
