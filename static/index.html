@@ -7362,23 +7362,51 @@ function _painelForcaLastRender() {
 }
 
 // ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
-// calculam. 1º estudo: em quantos dos últimos jogos NO PRÓPRIO LADO (mandante
-// jogando em casa, visitante jogando fora — fixo, não depende do toggle
-// Casa/Ausente da aba Pontuações Anteriores) o time marcou pelo menos 1 gol.
-// "Últimos N" reaproveita o mesmo _painelForcaTableState[key].count já
+// calculam. 1º estudo: em quantos dos últimos jogos o time marcou pelo menos
+// 1 gol. "Últimos N" reaproveita o mesmo _painelForcaTableState[key].count já
 // configurado pra aquele time na aba Pontuações Anteriores (ex: se lá está
-// em "Últimos 4", aqui também olha só os últimos 4 jogos no próprio lado).
-// Últimos N jogos NO PRÓPRIO LADO (mandante jogando em casa, visitante jogando
-// fora), já cortados pelo mesmo _painelForcaTableState[key].count configurado
-// pra esse time na aba Pontuações Anteriores — base compartilhada por todos os
-// estudos da Leitura (marcou gol, Over/Under, Ambas Marcam, Vence/Perde 1T...).
+// em "Últimos 4", aqui também olha só os últimos 4 jogos).
+//
+// _painelLeituraModo controla o recorte (pedido do usuário, 2026-08-30):
+// 'lado' (padrão, mesmo comportamento de sempre) = só os jogos NO PRÓPRIO
+// LADO (mandante jogando em casa, visitante jogando fora); 'geral' = últimos
+// N jogos do time misturando casa e fora. Independente do toggle
+// Casa/Ausente da aba Pontuações Anteriores (esse aqui é só da Leitura).
+// Todo o resto desta aba (_painelForcaScoredRatio, _painelForcaCurrentStreak,
+// _painelForcaMarketRatio, _painelForcaViradaRatio, _painelForcaHandicapByLine)
+// assume que o campo "home" da linha É o time analisado — invariante que o
+// filtro do modo 'lado' já garante de graça (só sobra linha onde isso é
+// verdade). No modo 'geral' isso NÃO é verdade pra metade das linhas (o time
+// aparece ora em casa, ora fora) — em vez de duplicar a checagem "quem é
+// quem" em cada função de cálculo (fácil esquecer uma, como quase aconteceu
+// aqui), normaliza AQUI: linha onde o time está em "away" é invertida
+// (campos casa/fora, placares e badge de handicap trocados) pra sempre
+// aparecer como se fosse mandante. Depois disso o resto do código nem
+// precisa saber que existe um modo 'geral'.
+function _painelForcaNormalizeRow(m, teamName) {
+  if (m.home === teamName) return m;
+  const swapScore = (s) => {
+    const parts = String(s || '').split('-');
+    return parts.length === 2 ? `${parts[1]}-${parts[0]}` : s;
+  };
+  const invertBadge = (b) => (b === 'W' ? 'L' : b === 'L' ? 'W' : b); // 'D' fica igual
+  const line = parseFloat(m.ah_line);
+  return {
+    ...m,
+    home: m.away, away: m.home,
+    score_ft: swapScore(m.score_ft), score_ht: swapScore(m.score_ht),
+    ah_badge: invertBadge(m.ah_badge),
+    ah_line: isNaN(line) ? m.ah_line : String(-line), // linha do handicap também é do ponto de vista do mandante
+  };
+}
+
 function _painelForcaOwnSideRows(key) {
   const cfg = _painelForcaSideConfig(key);
   const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
   if (!tbl || !tbl.rows || !tbl.rows.length) return [];
   const st = _painelForcaTableState[key];
-  const ownSide = tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
-  return ownSide.slice(0, st.count);
+  const rows = _painelLeituraModo === 'geral' ? tbl.rows : tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
+  return rows.slice(0, st.count).map(m => _painelForcaNormalizeRow(m, cfg.teamName));
 }
 
 function _painelForcaScoredRatio(key, period) {
@@ -7702,11 +7730,27 @@ function _painelForcaLeituraRow(homeR, awayR) {
     </div>`;
 }
 
+// 'lado' (padrão) = cada time só conta os próprios jogos no mesmo mando de
+// campo desta partida (mandante->casa, visitante->fora). 'geral' = últimos N
+// jogos do time misturando casa e fora. Ver _painelForcaOwnSideRows.
+let _painelLeituraModo = 'lado';
+function _painelLeituraSetModo(modo) {
+  _painelLeituraModo = modo;
+  _painelForcaLeituraRender();
+}
+
 function _painelForcaLeituraRender() {
   const el = document.getElementById('painelForcaViewLeitura');
   if (!el) return;
   const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
   if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+
+  const qtdLabel = _painelForcaTableState.home.count >= 9999 ? 'Todos' : `Últimos ${_painelForcaTableState.home.count}`;
+  const modoTabs = `
+    <div class="painel-forca-tabs" style="margin-top:8px">
+      <button class="painel-forca-tab${_painelLeituraModo === 'lado' ? ' active' : ''}" onclick="_painelLeituraSetModo('lado')" title="Mandante conta só jogos em casa, visitante só jogos fora">Casa x Fora</button>
+      <button class="painel-forca-tab${_painelLeituraModo === 'geral' ? ' active' : ''}" onclick="_painelLeituraSetModo('geral')" title="Cada time conta seus últimos jogos misturando casa e fora">${qtdLabel} jogos</button>
+    </div>`;
 
   const homeScored = _painelForcaScoredRatio('home', 'ft');
   const awayScored = _painelForcaScoredRatio('away', 'ft');
@@ -7715,6 +7759,7 @@ function _painelForcaLeituraRender() {
 
   el.innerHTML = `
     ${header}
+    ${modoTabs}
     <div class="cenario-block">
       <div class="cenario-icon">${_icoBall()}</div>
       <div class="cenario-content">
