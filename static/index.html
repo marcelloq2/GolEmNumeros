@@ -22216,20 +22216,31 @@ function _jogosDiaEscudoImg(url, size) {
   return `<img src="${_bt2EscXml(url)}" alt="" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:3px" onerror="this.style.display='none'">`;
 }
 
-// ── Checagem de acerto — pedido do usuário (2026-08-30), começando só por
-// "Ambas Marcam" (Sim/Não/BTTS). Devolve true (bateu) / false (não bateu) /
-// null (jogo ainda sem placar final, ou mercado que ainda não sabemos
-// verificar — outros mercados entram depois, um de cada vez). Decide a
-// PREVISÃO pelo nome do mercado (heurística no texto, mesmo espírito de
-// _sinalizador_mercado_resolvido no backend) e confere contra o placar real.
-function _jogosDiaPrevisaoAmbasMarcam(mercado) {
+// ── Checagem de acerto — pedido do usuário (2026-08-30), mercado por mercado
+// conforme ele vai pedindo. Devolve true (bateu) / false (não bateu) / null
+// (jogo ainda sem placar final, ou mercado que ainda não sabemos verificar).
+// Decide a PREVISÃO pelo nome do mercado (heurística no texto, mesmo
+// espírito de _sinalizador_mercado_resolvido no backend).
+//
+// "Jogos em que marcou gol (1º tempo)" ainda NÃO entra aqui: o arquivo só
+// traz o placar final (ou parcial, se ainda em andamento) — depois que o jogo
+// termina, o placar do intervalo em si some do arquivo, não tem como
+// verificar se aquele time marcou especificamente no 1º tempo com o dado
+// que a gente recebe hoje. Precisaria a ferramenta local exportar também
+// "placar_ht" (mesmo pedido de antes, quando faltavam os escudos).
+function _jogosDiaPrevisaoTipo(mercado) {
   const m = (mercado || '').toLowerCase();
-  if (!m.includes('ambas') || !(m.includes('marcam') || m.includes('btts'))) return null;
-  return (m.includes('não') || m.includes('nao')) ? 'nao' : 'sim';
+  if (m.includes('ambas') && (m.includes('marcam') || m.includes('btts'))) {
+    return { tipo: 'ambas_marcam', sim: !(m.includes('não') || m.includes('nao')) };
+  }
+  if (m.includes('jogos em que marcou gol') && m.includes('tempo todo')) {
+    return { tipo: 'marcou_gol_ft' };
+  }
+  return null; // inclui "1º tempo" (ver nota acima) e qualquer mercado ainda não coberto
 }
 
 function _jogosDiaChecarAcerto(a) {
-  const previsao = _jogosDiaPrevisaoAmbasMarcam(a.mercado);
+  const previsao = _jogosDiaPrevisaoTipo(a.mercado);
   if (!previsao) return null; // mercado ainda não suportado
   // Só confere jogo REALMENTE encerrado — "status" em Intervalo/1º Tempo/2º
   // Tempo também vem com um placar (parcial, de quem já jogou até agora), e
@@ -22238,8 +22249,18 @@ function _jogosDiaChecarAcerto(a) {
   if ((a.status || '').trim() !== 'Encerrado') return null;
   const m = /^(\d+)-(\d+)$/.exec((a.placar || '').trim());
   if (!m) return null; // formato de placar inesperado
-  const ambosMarcaram = parseInt(m[1], 10) > 0 && parseInt(m[2], 10) > 0;
-  return previsao === 'sim' ? ambosMarcaram : !ambosMarcaram;
+  const golsCasa = parseInt(m[1], 10), golsFora = parseInt(m[2], 10);
+
+  if (previsao.tipo === 'ambas_marcam') {
+    const ambosMarcaram = golsCasa > 0 && golsFora > 0;
+    return previsao.sim ? ambosMarcaram : !ambosMarcaram;
+  }
+  if (previsao.tipo === 'marcou_gol_ft') {
+    if (a.time_100pct === a.casa) return golsCasa > 0;
+    if (a.time_100pct === a.fora) return golsFora > 0;
+    return null; // não bateu com nenhum dos 2 nomes — não deveria acontecer
+  }
+  return null;
 }
 
 // Taxa de acerto do mercado inteiro — só considera jogos já com placar final
