@@ -22151,10 +22151,36 @@ async function _jogosDiaImportFile(file) {
   }
 }
 
+// Placar do intervalo (HT) pra confirmar mercados tipo "marcou gol (1º
+// tempo)" — pedido do usuário (2026-08-30): em vez de precisar mudar a
+// ferramenta local, cruza com o Painel Principal (/api/painel/matches, fonte
+// NowGoal), que já traz ht_home/ht_away pra cada jogo. Como o próprio arquivo
+// de achados vem originalmente desse mesmo dado (Painel → export do usuário
+// → ferramenta local → achados), o nome dos times já bate igual, sem
+// precisar de fuzzy-match. Zero chamada nova além dessa: /api/painel/matches
+// já é cacheada no backend (mesmo TTL do Painel), não dispara scraping extra.
+let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa, ht_fora}
+
+async function _jogosDiaFetchHtLookup() {
+  try {
+    const r = await fetch('/api/painel/matches');
+    const d = await r.json();
+    const lookup = {};
+    (d.leagues || []).forEach(lg => lg.matches.forEach(m => {
+      if (m.ht_home != null && m.ht_home !== '' && m.ht_away != null && m.ht_away !== '') {
+        lookup[`${m.home}|${m.away}`] = { ht_casa: m.ht_home, ht_fora: m.ht_away };
+      }
+    }));
+    _jogosDiaHtLookup = lookup;
+  } catch (e) {
+    console.warn('[jogos-dia] falha buscando placar do intervalo (Painel):', e);
+  }
+}
+
 async function _jogosDiaLoadConfig() {
   const statusEl = document.getElementById('jogosDiaStatus');
   try {
-    const r = await fetch('/api/jogos_dia/config');
+    const [r] = await Promise.all([fetch('/api/jogos_dia/config'), _jogosDiaFetchHtLookup()]);
     const d = await r.json();
     _jogosDiaData = d;
     _jogosDiaRenderList(d);
@@ -22222,21 +22248,19 @@ function _jogosDiaEscudoImg(url, size) {
 // Decide a PREVISÃO pelo nome do mercado (heurística no texto, mesmo
 // espírito de _sinalizador_mercado_resolvido no backend).
 //
-// "Jogos em que marcou gol (1º tempo)" ainda NÃO entra aqui: o arquivo só
-// traz o placar final (ou parcial, se ainda em andamento) — depois que o jogo
-// termina, o placar do intervalo em si some do arquivo, não tem como
-// verificar se aquele time marcou especificamente no 1º tempo com o dado
-// que a gente recebe hoje. Precisaria a ferramenta local exportar também
-// "placar_ht" (mesmo pedido de antes, quando faltavam os escudos).
+// "Jogos em que marcou gol (1º tempo)" usa o placar do INTERVALO — o arquivo
+// de achados não traz isso, mas o Painel Principal já busca (NowGoal,
+// ht_home/ht_away) pra cada jogo do dia. _jogosDiaFetchHtLookup cruza por
+// nome dos times (mesma fonte original, então bate direto sem fuzzy-match).
 function _jogosDiaPrevisaoTipo(mercado) {
   const m = (mercado || '').toLowerCase();
   if (m.includes('ambas') && (m.includes('marcam') || m.includes('btts'))) {
     return { tipo: 'ambas_marcam', sim: !(m.includes('não') || m.includes('nao')) };
   }
-  if (m.includes('jogos em que marcou gol') && m.includes('tempo todo')) {
-    return { tipo: 'marcou_gol_ft' };
+  if (m.includes('jogos em que marcou gol')) {
+    return { tipo: m.includes('1º tempo') || m.includes('1o tempo') ? 'marcou_gol_ht' : 'marcou_gol_ft' };
   }
-  return null; // inclui "1º tempo" (ver nota acima) e qualquer mercado ainda não coberto
+  return null; // mercado ainda não suportado
 }
 
 function _jogosDiaChecarAcerto(a) {
@@ -22245,8 +22269,21 @@ function _jogosDiaChecarAcerto(a) {
   // Só confere jogo REALMENTE encerrado — "status" em Intervalo/1º Tempo/2º
   // Tempo também vem com um placar (parcial, de quem já jogou até agora), e
   // um 0-0 no intervalo pode virar 1-1 até o fim. Conferir contra um placar
-  // que ainda pode mudar daria "bateu"/"não bateu" errado.
+  // que ainda pode mudar daria "bateu"/"não bateu" errado. Vale também pro
+  // 1º tempo: só olha o HT depois que a partida inteira já terminou, pra não
+  // complicar com um segundo critério de "quando confiar" diferente.
   if ((a.status || '').trim() !== 'Encerrado') return null;
+
+  if (previsao.tipo === 'marcou_gol_ht') {
+    const ht = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
+    if (!ht) return null; // não achou esse jogo no Painel com HT disponível
+    const htCasa = parseInt(ht.ht_casa, 10), htFora = parseInt(ht.ht_fora, 10);
+    if (isNaN(htCasa) || isNaN(htFora)) return null;
+    if (a.time_100pct === a.casa) return htCasa > 0;
+    if (a.time_100pct === a.fora) return htFora > 0;
+    return null;
+  }
+
   const m = /^(\d+)-(\d+)$/.exec((a.placar || '').trim());
   if (!m) return null; // formato de placar inesperado
   const golsCasa = parseInt(m[1], 10), golsFora = parseInt(m[2], 10);
