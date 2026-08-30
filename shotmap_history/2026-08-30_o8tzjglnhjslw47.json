@@ -1,0 +1,289 @@
+{
+  "event_id": "o8tzjglnhjslw47",
+  "date": "2026-08-30",
+  "casa": "Sion",
+  "fora": "Lugano",
+  "liga": "Super League",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2962040253",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "R. Nivokazi",
+      "x": 4.7,
+      "y": 58
+    },
+    {
+      "id": "2962039953",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Lukembila",
+      "x": 19.7,
+      "y": 69.3
+    },
+    {
+      "id": "2962036361",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Lukembila",
+      "x": 14.4,
+      "y": 37.3
+    },
+    {
+      "id": "2962031285",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Kololli",
+      "x": 18.4,
+      "y": 54.3
+    },
+    {
+      "id": "2962029833",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Castro",
+      "x": 8.3,
+      "y": 24.7
+    },
+    {
+      "id": "2962029475",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Chipperfield",
+      "x": 13.8,
+      "y": 62.4
+    },
+    {
+      "id": "2962026627",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Bislimi",
+      "x": 7.5,
+      "y": 52.9
+    },
+    {
+      "id": "2962016365",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "W. Boteli Mokango",
+      "x": 16.3,
+      "y": 48
+    },
+    {
+      "id": "2962013073",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M. Zanotti",
+      "x": 9,
+      "y": 65.5
+    },
+    {
+      "id": "2962008919",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "W. Boteli Mokango",
+      "x": 6.9,
+      "y": 50.2
+    },
+    {
+      "id": "2962005361",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Baltazar",
+      "x": 24.6,
+      "y": 56.2
+    },
+    {
+      "id": "2962004021",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "N.Sow",
+      "x": 10.1,
+      "y": 56.8
+    },
+    {
+      "id": "2962011971",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "A. Kendouci",
+      "x": 4.4,
+      "y": 40.3
+    },
+    {
+      "id": "2961987825",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Berdayes",
+      "x": 5.1,
+      "y": 53.3
+    },
+    {
+      "id": "2961985839",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Baltazar",
+      "x": 3.3,
+      "y": 43.2
+    },
+    {
+      "id": "2961983147",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Moncada",
+      "x": 10.2,
+      "y": 45.8
+    },
+    {
+      "id": "2961982331",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "T.Berdayes",
+      "x": 7.4,
+      "y": 41.8
+    },
+    {
+      "id": "2961976959",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Pihlstrom",
+      "x": 13,
+      "y": 60.9
+    },
+    {
+      "id": "2961976559",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "F.Sylla",
+      "x": 25.1,
+      "y": 49.5
+    },
+    {
+      "id": "2961975593",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "W. Boteli Mokango",
+      "x": 26.1,
+      "y": 55.5
+    },
+    {
+      "id": "2961972269",
+      "minute": 25,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "T.Berdayes",
+      "x": 2.6,
+      "y": 61.1
+    },
+    {
+      "id": "2961971529",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Rrudhani",
+      "x": 12,
+      "y": 51.7
+    },
+    {
+      "id": "2961971483",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "W. Boteli Mokango",
+      "x": 11.7,
+      "y": 59.3
+    },
+    {
+      "id": "2961969645",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Rrudhani",
+      "x": 6.3,
+      "y": 64.8
+    },
+    {
+      "id": "2961955329",
+      "minute": 3,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D.Moncada",
+      "x": 5.2,
+      "y": 45
+    }
+  ]
+}
