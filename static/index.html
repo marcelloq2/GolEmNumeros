@@ -22151,15 +22151,17 @@ async function _jogosDiaImportFile(file) {
   }
 }
 
-// Placar do intervalo (HT) pra confirmar mercados tipo "marcou gol (1º
-// tempo)" — pedido do usuário (2026-08-30): em vez de precisar mudar a
-// ferramenta local, cruza com o Painel Principal (/api/painel/matches, fonte
-// NowGoal), que já traz ht_home/ht_away pra cada jogo. Como o próprio arquivo
-// de achados vem originalmente desse mesmo dado (Painel → export do usuário
-// → ferramenta local → achados), o nome dos times já bate igual, sem
-// precisar de fuzzy-match. Zero chamada nova além dessa: /api/painel/matches
-// já é cacheada no backend (mesmo TTL do Painel), não dispara scraping extra.
-let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa, ht_fora}
+// Placar do intervalo (HT) e escanteios (FT) pra confirmar mercados que o
+// arquivo de achados não traz sozinho (ex: "marcou gol (1º tempo)", "Perde
+// 1T", "Over X.5 Escanteios FT") — pedido do usuário (2026-08-30): em vez de
+// precisar mudar a ferramenta local, cruza com o Painel Principal
+// (/api/painel/matches, fonte NowGoal), que já traz ht_home/ht_away e
+// corner_home/corner_away pra cada jogo. Como o próprio arquivo de achados
+// vem originalmente desse mesmo dado (Painel → export do usuário →
+// ferramenta local → achados), o nome dos times já bate igual, sem precisar
+// de fuzzy-match. Zero chamada nova além dessa: /api/painel/matches já é
+// cacheada no backend (mesmo TTL do Painel), não dispara scraping extra.
+let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa?, ht_fora?, corner_casa?, corner_fora?}
 
 async function _jogosDiaFetchHtLookup() {
   try {
@@ -22167,13 +22169,18 @@ async function _jogosDiaFetchHtLookup() {
     const d = await r.json();
     const lookup = {};
     (d.leagues || []).forEach(lg => lg.matches.forEach(m => {
+      const entry = {};
       if (m.ht_home != null && m.ht_home !== '' && m.ht_away != null && m.ht_away !== '') {
-        lookup[`${m.home}|${m.away}`] = { ht_casa: m.ht_home, ht_fora: m.ht_away };
+        entry.ht_casa = m.ht_home; entry.ht_fora = m.ht_away;
       }
+      if (m.corner_home != null && m.corner_home !== '' && m.corner_away != null && m.corner_away !== '') {
+        entry.corner_casa = m.corner_home; entry.corner_fora = m.corner_away;
+      }
+      if (Object.keys(entry).length) lookup[`${m.home}|${m.away}`] = entry;
     }));
     _jogosDiaHtLookup = lookup;
   } catch (e) {
-    console.warn('[jogos-dia] falha buscando placar do intervalo (Painel):', e);
+    console.warn('[jogos-dia] falha buscando placar do intervalo/escanteios (Painel):', e);
   }
 }
 
@@ -22248,10 +22255,14 @@ function _jogosDiaEscudoImg(url, size) {
 // Decide a PREVISÃO pelo nome do mercado (heurística no texto, mesmo
 // espírito de _sinalizador_mercado_resolvido no backend).
 //
-// "Jogos em que marcou gol (1º tempo)" usa o placar do INTERVALO — o arquivo
-// de achados não traz isso, mas o Painel Principal já busca (NowGoal,
-// ht_home/ht_away) pra cada jogo do dia. _jogosDiaFetchHtLookup cruza por
-// nome dos times (mesma fonte original, então bate direto sem fuzzy-match).
+// "Jogos em que marcou gol (1º tempo)", "Perde 1T" e os Over/Under HT usam o
+// placar do INTERVALO; "Over X.5 Escanteios FT" usa o total de escanteios —
+// o arquivo de achados não traz nenhum dos dois, mas o Painel Principal já
+// busca ambos (NowGoal: ht_home/ht_away, corner_home/corner_away) pra cada
+// jogo do dia. _jogosDiaFetchHtLookup cruza por nome dos times (mesma fonte
+// original, então bate direto sem fuzzy-match). Escanteios do INTERVALO
+// (Over X.5 Escanteios HT) continuam sem nenhum dado disponível — fica de
+// fora por enquanto (cai no "mercado ainda não suportado" no final).
 function _jogosDiaPrevisaoTipo(mercado) {
   const m = (mercado || '').toLowerCase();
   if (m.includes('ambas') && (m.includes('marcam') || m.includes('btts'))) {
@@ -22260,6 +22271,33 @@ function _jogosDiaPrevisaoTipo(mercado) {
   if (m.includes('jogos em que marcou gol')) {
     return { tipo: m.includes('1º tempo') || m.includes('1o tempo') ? 'marcou_gol_ht' : 'marcou_gol_ft' };
   }
+  if (m.includes('sequência') || m.includes('sequencia')) {
+    if (m.includes('marcando gol')) return { tipo: 'marcou_gol_ft' };
+    if (m.includes('sem sofrer gol')) return { tipo: 'sem_sofrer_gol' };
+    if (m.includes('vencendo')) return { tipo: 'vencendo' };
+    if (m.includes('sem perder') || m.includes('invicto')) return { tipo: 'invicto' };
+    return null;
+  }
+  if (m.includes('perde 1t')) return { tipo: 'perde_1t' };
+
+  const gols = /^(over|under)\s+(\d+)[.,]5\s+(ft|ht)\b/.exec(m);
+  if (gols) return { tipo: gols[1] === 'over' ? 'over_gols' : 'under_gols', linha: parseInt(gols[2], 10) + 0.5, periodo: gols[3] };
+
+  const escanteios = /^over\s+(\d+)[.,]5\s+escanteios\s+ft\b/.exec(m);
+  if (escanteios) return { tipo: 'over_escanteios_ft', linha: parseInt(escanteios[1], 10) + 0.5 };
+
+  const placar = /^placar\s+(\d+)-(\d+)\s*[-–—]\s*n[ãa]o ocorreu/.exec(m);
+  if (placar) return { tipo: 'placar_nao_ocorreu', golsCasa: parseInt(placar[1], 10), golsFora: parseInt(placar[2], 10) };
+
+  // "Qualquer Outra Vitória/Vitória em casa/Empate — não ocorreu": os mercados
+  // "Placar X-Y" acima cobrem os 16 placares comuns (0 a 3 gols pra cada
+  // lado); esses 3 aqui apostam que, se sair um resultado daquele tipo, o
+  // placar exato vai ser um desses 16 — ou seja, um resultado "exótico" (fora
+  // dessa faixa) NÃO deveria ocorrer.
+  if (m.includes('outra') && m.includes('visitante')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'fora' };
+  if (m.includes('outra') && m.includes('casa')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'casa' };
+  if (m.includes('outro') && m.includes('empate')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'empate' };
+
   return null; // mercado ainda não suportado
 }
 
@@ -22270,18 +22308,38 @@ function _jogosDiaChecarAcerto(a) {
   // Tempo também vem com um placar (parcial, de quem já jogou até agora), e
   // um 0-0 no intervalo pode virar 1-1 até o fim. Conferir contra um placar
   // que ainda pode mudar daria "bateu"/"não bateu" errado. Vale também pro
-  // 1º tempo: só olha o HT depois que a partida inteira já terminou, pra não
+  // HT/escanteios: só olha depois que a partida inteira já terminou, pra não
   // complicar com um segundo critério de "quando confiar" diferente.
   if ((a.status || '').trim() !== 'Encerrado') return null;
 
-  if (previsao.tipo === 'marcou_gol_ht') {
-    const ht = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
-    if (!ht) return null; // não achou esse jogo no Painel com HT disponível
-    const htCasa = parseInt(ht.ht_casa, 10), htFora = parseInt(ht.ht_fora, 10);
+  const precisaHt = previsao.tipo === 'marcou_gol_ht' || previsao.tipo === 'perde_1t' ||
+    ((previsao.tipo === 'over_gols' || previsao.tipo === 'under_gols') && previsao.periodo === 'ht');
+  if (precisaHt) {
+    const lk = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
+    if (!lk || lk.ht_casa == null || lk.ht_fora == null) return null; // não achou esse jogo no Painel com HT disponível
+    const htCasa = parseInt(lk.ht_casa, 10), htFora = parseInt(lk.ht_fora, 10);
     if (isNaN(htCasa) || isNaN(htFora)) return null;
-    if (a.time_100pct === a.casa) return htCasa > 0;
-    if (a.time_100pct === a.fora) return htFora > 0;
-    return null;
+
+    if (previsao.tipo === 'marcou_gol_ht') {
+      if (a.time_100pct === a.casa) return htCasa > 0;
+      if (a.time_100pct === a.fora) return htFora > 0;
+      return null;
+    }
+    if (previsao.tipo === 'perde_1t') {
+      if (a.time_100pct === a.casa) return htCasa < htFora;
+      if (a.time_100pct === a.fora) return htFora < htCasa;
+      return null;
+    }
+    const totalHt = htCasa + htFora;
+    return previsao.tipo === 'over_gols' ? totalHt > previsao.linha : totalHt < previsao.linha;
+  }
+
+  if (previsao.tipo === 'over_escanteios_ft') {
+    const lk = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
+    if (!lk || lk.corner_casa == null || lk.corner_fora == null) return null; // não achou esse jogo no Painel com escanteios disponíveis
+    const cCasa = parseInt(lk.corner_casa, 10), cFora = parseInt(lk.corner_fora, 10);
+    if (isNaN(cCasa) || isNaN(cFora)) return null;
+    return (cCasa + cFora) > previsao.linha;
   }
 
   const m = /^(\d+)-(\d+)$/.exec((a.placar || '').trim());
@@ -22296,6 +22354,35 @@ function _jogosDiaChecarAcerto(a) {
     if (a.time_100pct === a.casa) return golsCasa > 0;
     if (a.time_100pct === a.fora) return golsFora > 0;
     return null; // não bateu com nenhum dos 2 nomes — não deveria acontecer
+  }
+  if (previsao.tipo === 'sem_sofrer_gol') {
+    if (a.time_100pct === a.casa) return golsFora === 0;
+    if (a.time_100pct === a.fora) return golsCasa === 0;
+    return null;
+  }
+  if (previsao.tipo === 'vencendo') {
+    if (a.time_100pct === a.casa) return golsCasa > golsFora;
+    if (a.time_100pct === a.fora) return golsFora > golsCasa;
+    return null;
+  }
+  if (previsao.tipo === 'invicto') {
+    if (a.time_100pct === a.casa) return golsCasa >= golsFora;
+    if (a.time_100pct === a.fora) return golsFora >= golsCasa;
+    return null;
+  }
+  if (previsao.tipo === 'over_gols') return (golsCasa + golsFora) > previsao.linha;
+  if (previsao.tipo === 'under_gols') return (golsCasa + golsFora) < previsao.linha;
+  if (previsao.tipo === 'placar_nao_ocorreu') {
+    const ocorreu = golsCasa === previsao.golsCasa && golsFora === previsao.golsFora;
+    return !ocorreu;
+  }
+  if (previsao.tipo === 'resultado_exotico_nao_ocorreu') {
+    const dentroDoPadrao = golsCasa <= 3 && golsFora <= 3; // os 16 placares "comuns" (0-3 x 0-3), já cobertos pelos mercados "Placar X-Y"
+    let ocorreu;
+    if (previsao.lado === 'fora') ocorreu = golsFora > golsCasa && !dentroDoPadrao;
+    else if (previsao.lado === 'casa') ocorreu = golsCasa > golsFora && !dentroDoPadrao;
+    else ocorreu = golsCasa === golsFora && !dentroDoPadrao; // empate exótico (4-4 pra cima)
+    return !ocorreu;
   }
   return null;
 }
