@@ -1,0 +1,311 @@
+{
+  "event_id": "5z3v0bl2e87kvu6",
+  "date": "2026-08-30",
+  "casa": "Start",
+  "fora": "KFUM Oslo",
+  "liga": "",
+  "score": {
+    "home": 4,
+    "away": 0
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2962216857",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "H.Lorentzen",
+      "x": 40.6,
+      "y": 64
+    },
+    {
+      "id": "2962215839",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "J.Cornelius",
+      "x": 13.4,
+      "y": 58.9
+    },
+    {
+      "id": "2962201975",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Segberg",
+      "x": 30.9,
+      "y": 47.3
+    },
+    {
+      "id": "2962195001",
+      "minute": 64,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "B.Njie",
+      "x": 10.1,
+      "y": 42.1
+    },
+    {
+      "id": "2962185397",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Hoseth",
+      "x": 8.7,
+      "y": 60.6
+    },
+    {
+      "id": "2962180799",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Hoseth",
+      "x": 4.7,
+      "y": 60
+    },
+    {
+      "id": "2962175207",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Vinge",
+      "x": 20,
+      "y": 63.7
+    },
+    {
+      "id": "2962172035",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "E.Schulze",
+      "x": 18.5,
+      "y": 55.6
+    },
+    {
+      "id": "2962152355",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Reitan",
+      "x": 7.4,
+      "y": 43.3
+    },
+    {
+      "id": "2962151917",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "crossbar",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Cornelius",
+      "x": 5.2,
+      "y": 58.2
+    },
+    {
+      "id": "2962157319",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "S.Mvoue",
+      "x": 19.6,
+      "y": 64.9
+    },
+    {
+      "id": "2962150465",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Dashaev",
+      "x": 9.5,
+      "y": 41.4
+    },
+    {
+      "id": "2962138793",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Skaret",
+      "x": 8,
+      "y": 61.8
+    },
+    {
+      "id": "2962133671",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "J.Cornelius",
+      "x": 0.7,
+      "y": 51.9
+    },
+    {
+      "id": "2962133661",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "E.Schulze",
+      "x": 3.8,
+      "y": 41.1
+    },
+    {
+      "id": "2962128591",
+      "minute": 27,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "B.Njie",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2962124735",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Skaret",
+      "x": 7.7,
+      "y": 49.9
+    },
+    {
+      "id": "2962121605",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "E.Schulze",
+      "x": 23.3,
+      "y": 45.1
+    },
+    {
+      "id": "2962118447",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Mvoue",
+      "x": 9.5,
+      "y": 62.7
+    },
+    {
+      "id": "2962116417",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vinge",
+      "x": 25.4,
+      "y": 38.8
+    },
+    {
+      "id": "2962110311",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vinge",
+      "x": 10,
+      "y": 53.9
+    },
+    {
+      "id": "2962100067",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "",
+      "x": 11.6,
+      "y": 37.8
+    },
+    {
+      "id": "2962098709",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "A.Ujkani",
+      "x": 26.6,
+      "y": 34.5
+    },
+    {
+      "id": "2962108717",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "",
+      "x": 13.7,
+      "y": 63.8
+    },
+    {
+      "id": "2962096991",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "E.Schulze",
+      "x": 9.6,
+      "y": 60.9
+    },
+    {
+      "id": "2962096315",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "regular",
+      "player": "J.Cornelius",
+      "x": 10.1,
+      "y": 58.5
+    },
+    {
+      "id": "2962096247",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Dashaev",
+      "x": 12.5,
+      "y": 29.1
+    }
+  ]
+}
