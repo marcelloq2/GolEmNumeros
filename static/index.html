@@ -22312,7 +22312,11 @@ function _jogosDiaMercadoAcerto(linhas) {
     if (r) acertos++;
   });
   if (!total) return null;
-  return { acertos, total, pct: Math.round(100 * acertos / total) };
+  // pendentes = ainda não encerrou, ou encerrou mas não deu pra conferir (ex:
+  // 1º tempo sem o jogo no Painel). Sem mostrar isso, "50% (1/2)" numa seção
+  // com 5 achados parece "testou tudo e foi meio a meio", quando na real só 2
+  // já puderam ser conferidos e os outros 3 ainda estão em aberto.
+  return { acertos, total, pendentes: linhas.length - total, pct: Math.round(100 * acertos / total) };
 }
 
 // Volta pro formato de linha/lista — pedido do usuário (2026-08-30) depois de
@@ -22356,6 +22360,7 @@ function _jogosDiaMercadoSectionHtml(mercado, linhas) {
         <span class="painel-league-name">${_bt2EscXml(mercado)}</span>
         ${acc ? `<span style="background:var(--bg);color:${corAcc};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
           title="${acc.acertos}/${acc.total} jogo(s) já encerrado(s) bateram a previsão">✅ ${acc.pct}% (${acc.acertos}/${acc.total})</span>` : ''}
+        ${acc && acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px" title="Ainda não encerraram, ou encerraram mas não foi possível conferir">${acc.pendentes} pendente${acc.pendentes === 1 ? '' : 's'}</span>` : ''}
         <span class="live-count-badge">${linhas.length}</span>
         <span class="painel-arrow">▲</span>
       </div>
