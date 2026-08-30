@@ -22447,8 +22447,8 @@ function _jogosDiaMercadoSectionHtml(mercado, linhas) {
       <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleMercado('${key}', this)">
         <span class="painel-league-name">${_bt2EscXml(mercado)}</span>
         ${acc ? `<span style="background:var(--bg);color:${corAcc};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
-          title="${acc.acertos}/${acc.total} jogo(s) já encerrado(s) bateram a previsão">✅ ${acc.pct}% (${acc.acertos}/${acc.total})</span>` : ''}
-        ${acc && acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px" title="Ainda não encerraram, ou encerraram mas não foi possível conferir">${acc.pendentes} pendente${acc.pendentes === 1 ? '' : 's'}</span>` : ''}
+          title="${acc.acertos}/${acc.total} jogo(s) já encerrado(s) bateram a previsão — os pendentes NÃO contam nem como acerto nem como erro">✅ ${acc.pct}% (${acc.acertos}/${acc.total} conferidos)</span>` : ''}
+        ${acc && acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px" title="Ainda não encerraram, ou encerraram mas não foi possível conferir — não contam na taxa de acerto">${acc.pendentes} pendente${acc.pendentes === 1 ? '' : 's'}</span>` : ''}
         <span class="live-count-badge">${linhas.length}</span>
         <span class="painel-arrow">▲</span>
       </div>
@@ -22492,8 +22492,8 @@ function _jogosDiaResumoHtml(jogos) {
     const cor = l.acc.pct >= 70 ? '#22c55e' : l.acc.pct >= 40 ? '#f59e0b' : '#ef4444';
     return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:11px">
       <span style="flex:1;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_bt2EscXml(l.mercado)}">${_bt2EscXml(l.mercado)}</span>
-      ${l.acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px;white-space:nowrap">${l.acc.pendentes} pend.</span>` : ''}
-      <span style="color:${cor};font-weight:800;white-space:nowrap">${l.acc.pct}% (${l.acc.acertos}/${l.acc.total})</span>
+      ${l.acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px;white-space:nowrap" title="Jogos que ainda não terminaram, ou terminaram mas não deu pra conferir — não contam na taxa">${l.acc.pendentes} pend.</span>` : ''}
+      <span style="color:${cor};font-weight:800;white-space:nowrap" title="${l.acc.acertos}/${l.acc.total} jogo(s) já conferido(s) bateram a previsão">${l.acc.pct}% (${l.acc.acertos}/${l.acc.total} conf.)</span>
     </div>`;
   };
 
@@ -22502,7 +22502,7 @@ function _jogosDiaResumoHtml(jogos) {
       <div class="painel-league-header${_jogosDiaResumoCollapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleResumo(this)">
         <span class="painel-league-name">📊 Taxa de acerto por metodologia</span>
         ${geralPct !== null ? `<span style="background:var(--bg);color:${corGeral};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
-          title="Acerto agregado de todos os mercados já conferidos">geral: ${geralPct}% (${geralAcertos}/${geralTotal})</span>` : ''}
+          title="Acerto agregado de todos os mercados já conferidos — pendentes não entram na conta">geral: ${geralPct}% (${geralAcertos}/${geralTotal} conf.)</span>` : ''}
         <span class="painel-arrow">▲</span>
       </div>
       <div id="jogosDiaResumoBody" style="${_jogosDiaResumoCollapsed ? 'display:none' : ''};padding:2px 16px 8px">
