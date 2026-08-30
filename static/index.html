@@ -2381,6 +2381,7 @@
         <option value="">🏷️ Todos os mercados</option>
       </select>
     </div>
+    <div id="jogosDiaResumo"></div>
     <div id="jogosDiaStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
     <div id="jogosDiaList" style="margin-top:10px"></div>
   </div>
@@ -22457,11 +22458,66 @@ function _jogosDiaMercadoSectionHtml(mercado, linhas) {
     </div>`;
 }
 
+// Painel de resumo — taxa de acerto por METODOLOGIA (mercado), agregando o
+// import inteiro (ignora busca/filtro de baixo — é um panorama geral, não
+// "o que sobrou depois de filtrar") — pedido do usuário (2026-08-30) depois
+// de a taxa só aparecer escondida dentro de cada seção expandida. Ordenado
+// pelos mercados com MAIOR acerto primeiro, pra responder de cara "quais
+// metodologias estão realmente se confirmando hoje".
+let _jogosDiaResumoCollapsed = false;
+function _jogosDiaToggleResumo(headerEl) {
+  _jogosDiaResumoCollapsed = !_jogosDiaResumoCollapsed;
+  const body = document.getElementById('jogosDiaResumoBody');
+  if (body) body.style.display = _jogosDiaResumoCollapsed ? 'none' : '';
+  headerEl.classList.toggle('collapsed', _jogosDiaResumoCollapsed);
+}
+
+function _jogosDiaResumoHtml(jogos) {
+  const porMercado = {};
+  jogos.forEach(j => j.achados.forEach(a => {
+    (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push({ ...a, status: j.status, placar: j.placar });
+  }));
+
+  const linhas = Object.keys(porMercado).map(m => ({ mercado: m, acc: _jogosDiaMercadoAcerto(porMercado[m]) }));
+  if (!linhas.length) return '';
+  const comDados = linhas.filter(l => l.acc).sort((a, b) => b.acc.pct - a.acc.pct || b.acc.total - a.acc.total);
+  const semDados = linhas.filter(l => !l.acc);
+
+  const geralAcertos = comDados.reduce((s, l) => s + l.acc.acertos, 0);
+  const geralTotal = comDados.reduce((s, l) => s + l.acc.total, 0);
+  const geralPct = geralTotal ? Math.round(100 * geralAcertos / geralTotal) : null;
+  const corGeral = geralPct === null ? 'var(--text2)' : (geralPct >= 70 ? '#22c55e' : geralPct >= 40 ? '#f59e0b' : '#ef4444');
+
+  const linhaHtml = l => {
+    const cor = l.acc.pct >= 70 ? '#22c55e' : l.acc.pct >= 40 ? '#f59e0b' : '#ef4444';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:11px">
+      <span style="flex:1;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_bt2EscXml(l.mercado)}">${_bt2EscXml(l.mercado)}</span>
+      ${l.acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px;white-space:nowrap">${l.acc.pendentes} pend.</span>` : ''}
+      <span style="color:${cor};font-weight:800;white-space:nowrap">${l.acc.pct}% (${l.acc.acertos}/${l.acc.total})</span>
+    </div>`;
+  };
+
+  return `
+    <div class="painel-league" style="margin:8px 0">
+      <div class="painel-league-header${_jogosDiaResumoCollapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleResumo(this)">
+        <span class="painel-league-name">📊 Taxa de acerto por metodologia</span>
+        ${geralPct !== null ? `<span style="background:var(--bg);color:${corGeral};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
+          title="Acerto agregado de todos os mercados já conferidos">geral: ${geralPct}% (${geralAcertos}/${geralTotal})</span>` : ''}
+        <span class="painel-arrow">▲</span>
+      </div>
+      <div id="jogosDiaResumoBody" style="${_jogosDiaResumoCollapsed ? 'display:none' : ''};padding:2px 16px 8px">
+        ${comDados.length ? comDados.map(linhaHtml).join('') : '<div style="color:var(--text2);font-size:11px;padding:4px 0">Nenhum jogo encerrado ainda pra conferir.</div>'}
+        ${semDados.length ? `<div style="color:var(--text2);font-size:10px;padding-top:6px">+ ${semDados.length} mercado${semDados.length === 1 ? '' : 's'} sem nenhum jogo conferido ainda</div>` : ''}
+      </div>
+    </div>`;
+}
+
 function _jogosDiaRenderList(d) {
   const list = document.getElementById('jogosDiaList');
   const statusEl = document.getElementById('jogosDiaStatus');
   const badge = document.getElementById('jogosDiaBadge');
   const geradoEmEl = document.getElementById('jogosDiaGeradoEm');
+  const resumoEl = document.getElementById('jogosDiaResumo');
   if (!list) return;
 
   const jogos = d.jogos || [];
@@ -22471,8 +22527,10 @@ function _jogosDiaRenderList(d) {
   if (!jogos.length) {
     statusEl.textContent = 'Nenhum jogo importado ainda — clique em "📥 Importar .txt".';
     list.innerHTML = '';
+    if (resumoEl) resumoEl.innerHTML = '';
     return;
   }
+  if (resumoEl) resumoEl.innerHTML = _jogosDiaResumoHtml(jogos);
 
   // Dropdown sempre lista TODOS os mercados do import atual (não só os que
   // sobraram depois da busca/filtro), pra não ficar encolhendo/mudando as
