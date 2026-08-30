@@ -22197,13 +22197,55 @@ async function _jogosDiaFetchHtLookup() {
   }
 }
 
-// Status/placar "de verdade" de um jogo: prioriza o que o Painel Principal
-// tem agora (fresco); só cai pro que veio congelado no .txt importado se
-// esse jogo não aparecer no Painel de hoje.
+// Fuzzy-match contra o Flashscore/Soccerway — MESMA técnica do _fs_find_match
+// no backend (app.py), só que rodando em cima do today2MatchesCache que o
+// app já mantém sempre fresco (refresh a cada 20s em segundo plano, pra
+// alimentar a aba Hoje 2 e os escudos do Painel — ver
+// _today2StartBackgroundRefresh). Zero requisição nova: é o mesmo dado que
+// já está sendo buscado de qualquer jeito.
+function _jogosDiaFsNorm(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function _jogosDiaFsSideScore(query, candidate) {
+  let s = 0;
+  if (query.length >= 4 && candidate.slice(0, 5) === query.slice(0, 5)) s += 2;
+  if (query.slice(0, 6) && (candidate.includes(query.slice(0, 6)) || query.includes(candidate.slice(0, 6)))) s += 1;
+  return s;
+}
+function _jogosDiaFindFlashscoreMatch(casa, fora) {
+  const nc = _jogosDiaFsNorm(casa), nf = _jogosDiaFsNorm(fora);
+  let best = null, bestScore = 0;
+  (today2MatchesCache || []).forEach(m => {
+    const h = _jogosDiaFsNorm(m.home), a = _jogosDiaFsNorm(m.away);
+    const scDireto = (_jogosDiaFsSideScore(nc, h) && _jogosDiaFsSideScore(nf, a)) ? _jogosDiaFsSideScore(nc, h) + _jogosDiaFsSideScore(nf, a) : 0;
+    const scInvertido = (_jogosDiaFsSideScore(nc, a) && _jogosDiaFsSideScore(nf, h)) ? _jogosDiaFsSideScore(nc, a) + _jogosDiaFsSideScore(nf, h) : 0;
+    const score = Math.max(scDireto, scInvertido);
+    if (score > bestScore) { bestScore = score; best = m; }
+  });
+  return bestScore >= 4 ? best : null;
+}
+const _JOGOS_DIA_FS_STATUS = { '1': 'Agendado', '2': 'Ao vivo', '3': 'Encerrado' };
+
+// Status/placar "de verdade" de um jogo — em ordem de confiança:
+// 1) Painel Principal (NowGoal) — nome bate exato, é a fonte mais precisa.
+// 2) Flashscore/Soccerway (fuzzy) — cobre ligas menores que o NowGoal não
+//    tem (caso real: "Svay Rieng FC x Visakha FC", Cambodia Super Cup, só
+//    aparecia no Flashscore — sem isso a linha ficava presa no placar
+//    congelado do momento do import, mesmo o jogo já tendo terminado).
+// 3) Só cai pro que veio no .txt importado se nenhuma das duas achar o jogo.
 function _jogosDiaStatusPlacarAtual(j) {
   const lk = _jogosDiaHtLookup[`${j.casa}|${j.fora}`];
   if (lk && lk.status_painel && lk.score_casa != null && lk.score_fora != null) {
     return { status: lk.status_painel, placar: `${lk.score_casa}-${lk.score_fora}` };
+  }
+  const fs = _jogosDiaFindFlashscoreMatch(j.casa, j.fora);
+  if (fs && fs.home_score != null && fs.home_score !== '' && fs.away_score != null && fs.away_score !== '') {
+    return { status: _JOGOS_DIA_FS_STATUS[fs.status] || j.status, placar: `${fs.home_score}-${fs.away_score}` };
   }
   return { status: j.status, placar: j.placar };
 }
