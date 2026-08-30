@@ -1,0 +1,311 @@
+{
+  "event_id": "ykcv4illw8o7w5u",
+  "date": "2026-08-30",
+  "casa": "UCV Moquegua",
+  "fora": "Alianza Atl Sullana",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 4
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2962304095",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "F.Flores",
+      "x": 11.2,
+      "y": 43.7
+    },
+    {
+      "id": "2962301011",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.d.Castillo",
+      "x": 14,
+      "y": 52.2
+    },
+    {
+      "id": "2962299397",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "G.Díaz",
+      "x": 30.8,
+      "y": 35.7
+    },
+    {
+      "id": "2962297613",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Y. López Murillo",
+      "x": 24.6,
+      "y": 52.4
+    },
+    {
+      "id": "2962292591",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "E.Lastre",
+      "x": 12.8,
+      "y": 50.9
+    },
+    {
+      "id": "2962283943",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Larios",
+      "x": 19.7,
+      "y": 58.9
+    },
+    {
+      "id": "2962261089",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Penilla",
+      "x": 8.2,
+      "y": 52.8
+    },
+    {
+      "id": "2962259181",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "E.Lastre",
+      "x": 20.2,
+      "y": 71.5
+    },
+    {
+      "id": "2962254995",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Lujan",
+      "x": 8.4,
+      "y": 54
+    },
+    {
+      "id": "2962255819",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Lupú",
+      "x": 9.4,
+      "y": 46.1
+    },
+    {
+      "id": "2962253015",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Muñoz",
+      "x": 26.8,
+      "y": 67.5
+    },
+    {
+      "id": "2962252143",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Lojas",
+      "x": 6.8,
+      "y": 56.3
+    },
+    {
+      "id": "2962250565",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Molina",
+      "x": 14.6,
+      "y": 51.3
+    },
+    {
+      "id": "2962217363",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "A. Perleche",
+      "x": 2.6,
+      "y": 55
+    },
+    {
+      "id": "2962210871",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "E.Lastre",
+      "x": 20.6,
+      "y": 28.2
+    },
+    {
+      "id": "2962209369",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "G.Díaz",
+      "x": 19.2,
+      "y": 64.8
+    },
+    {
+      "id": "2962207785",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lupú",
+      "x": 18.2,
+      "y": 46.4
+    },
+    {
+      "id": "2962206815",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Muñoz",
+      "x": 31.5,
+      "y": 50
+    },
+    {
+      "id": "2962206549",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "J.Ingratti",
+      "x": 10.2,
+      "y": 40.3
+    },
+    {
+      "id": "2962203809",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "G.Díaz",
+      "x": 29.1,
+      "y": 47.8
+    },
+    {
+      "id": "2962193419",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Molina",
+      "x": 2.5,
+      "y": 44.5
+    },
+    {
+      "id": "2962193385",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Molina",
+      "x": 4.6,
+      "y": 46.2
+    },
+    {
+      "id": "2962188813",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "B.Angulo",
+      "x": 1.4,
+      "y": 48
+    },
+    {
+      "id": "2962186843",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Molina",
+      "x": 12,
+      "y": 38.9
+    },
+    {
+      "id": "2962186001",
+      "minute": 18,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "J.Ingratti",
+      "x": 21.5,
+      "y": 58.5
+    },
+    {
+      "id": "2962173373",
+      "minute": 9,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Zapata",
+      "x": 13.9,
+      "y": 40.4
+    },
+    {
+      "id": "2962163519",
+      "minute": 2,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Muñoz",
+      "x": 30.9,
+      "y": 54.8
+    }
+  ]
+}
