@@ -7226,14 +7226,18 @@ def _jogos_dia_parse_txt(raw_bytes):
         chave = (row["casa"], row["fora"], row["liga"], row["horario"])
         if chave not in partidas:
             partidas[chave] = {
-                "casa": row["casa"], "fora": row["fora"], "liga": row["liga"],
-                "horario": row["horario"], "status": row["status"], "placar": row["placar"],
+                "casa": row["casa"], "escudo_casa": row.get("escudo_casa") or None,
+                "fora": row["fora"], "escudo_fora": row.get("escudo_fora") or None,
+                "liga": row["liga"], "horario": row["horario"], "status": row["status"], "placar": row["placar"],
                 "achados": [],
             }
             ordem.append(chave)
         partidas[chave]["achados"].append({
             "mercado": row["mercado"],
             "time_100pct": row["time_com_100pct"],
+            # Colunas de escudo são opcionais (2026-08-30) — arquivo exportado
+            # antes dessa data não tem, .get() com fallback None cobre os dois.
+            "escudo_time_100pct": row.get("escudo_time_100pct") or None,
             "amostra": row["amostra"],
         })
 

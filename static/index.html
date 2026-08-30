@@ -22202,16 +22202,27 @@ function _jogosDiaToggleMercado(key, headerEl) {
   headerEl.classList.toggle('collapsed', !!_jogosDiaCollapsed[key]);
 }
 
+// Escudo é opcional (só existe em import feito a partir de 2026-08-30) —
+// <img> só entra quando a URL veio preenchida, e some sozinha (onerror) se o
+// link quebrar, mesmo padrão já usado nos escudos do Painel Principal/Ao Vivo.
+function _jogosDiaEscudoImg(url) {
+  if (!url) return '';
+  return `<img src="${_bt2EscXml(url)}" alt="" style="width:16px;height:16px;vertical-align:middle;border-radius:2px" onerror="this.style.display='none'">`;
+}
+
 function _jogosDiaLinhaHtml(a) {
   return `<div style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-top:1px solid var(--border);font-size:12px">
     <span style="color:var(--text2);width:70px;flex-shrink:0">${_bt2EscXml(a.horario)}<br><span style="font-size:9px">${_bt2EscXml(a.status)}</span></span>
     <span style="flex:1;text-align:center;min-width:0">
+      ${_jogosDiaEscudoImg(a.escudo_casa)}
       <span class="tname">${_bt2EscXml(a.casa)}</span>
       <b style="color:var(--text);margin:0 6px">${_bt2EscXml(a.placar || '-')}</b>
       <span class="tname">${_bt2EscXml(a.fora)}</span>
+      ${_jogosDiaEscudoImg(a.escudo_fora)}
       <span style="color:var(--text2);font-size:10px;display:block">${_bt2EscXml(a.liga)}</span>
     </span>
     <span style="width:130px;text-align:right;flex-shrink:0">
+      ${_jogosDiaEscudoImg(a.escudo_time_100pct)}
       <b style="color:#d1a13e" title="Amostra: ${_bt2EscXml(a.amostra)}">${_bt2EscXml(a.time_100pct)}</b>
     </span>
   </div>`;
@@ -22270,7 +22281,10 @@ function _jogosDiaRenderList(d) {
     }
     j.achados.forEach(a => {
       if (_jogosDiaMercadoFilter && a.mercado !== _jogosDiaMercadoFilter) return;
-      const linha = { ...a, casa: j.casa, fora: j.fora, liga: j.liga, horario: j.horario, status: j.status, placar: j.placar };
+      const linha = {
+        ...a, casa: j.casa, escudo_casa: j.escudo_casa, fora: j.fora, escudo_fora: j.escudo_fora,
+        liga: j.liga, horario: j.horario, status: j.status, placar: j.placar,
+      };
       (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push(linha);
     });
   });
