@@ -1223,6 +1223,11 @@
   }
   .painel-league-header img { width: 16px; height: 16px; flex-shrink: 0; }
   .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; flex-shrink: 0; }
+  /* Jogos do Dia — linha de achado, mesmo espírito de .painel-match-row (hover
+     sutil) mas com espaçamento próprio pro conteúdo (escudo/placar/badge). */
+  .jogos-dia-row { transition: background .12s; }
+  .jogos-dia-row:hover { background: var(--bg2); }
+  .jogos-dia-row:last-child { border-bottom: none; }
   .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
   /* Nomes de liga longos (ex: "ÁFRICA: CAMPEONATO AFRICANO DE FUTEBOL FEMININO")
      sem min-width:0 forçam o flex container (e a página inteira, em mobile) a
@@ -22202,33 +22207,40 @@ function _jogosDiaToggleMercado(key, headerEl) {
   headerEl.classList.toggle('collapsed', !!_jogosDiaCollapsed[key]);
 }
 
-// Card em grade (estilo Sinalizador/Ao Vivo) em vez de linha fina — pedido do
-// usuário (2026-08-30) depois de ver a versão em tabela. Cada partida vira um
-// card com escudo grande, placar no meio, e o time com 100% em destaque
-// embaixo, dentro da grade de cards da própria seção de mercado.
-function _jogosDiaCardHtml(a) {
-  return `<div class="live-card">
-    <div class="live-card-top" style="justify-content:center;text-align:center">
-      <span>${_bt2EscXml(a.liga)} · ${_bt2EscXml(a.horario)} · ${_bt2EscXml(a.status)}</span>
-    </div>
-    <div class="live-card-body" style="padding:10px">
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
-        <span style="display:flex;align-items:center;gap:5px">
-          <img src="${_bt2EscXml(a.escudo_casa || '')}" alt="" style="width:24px;height:24px;border-radius:3px" onerror="this.style.display='none'">
-          <span class="tname" style="font-size:12px">${_bt2EscXml(a.casa)}</span>
-        </span>
-        <b style="font-size:14px;color:var(--text)">${_bt2EscXml(a.placar || '-')}</b>
-        <span style="display:flex;align-items:center;gap:5px">
-          <span class="tname" style="font-size:12px">${_bt2EscXml(a.fora)}</span>
-          <img src="${_bt2EscXml(a.escudo_fora || '')}" alt="" style="width:24px;height:24px;border-radius:3px" onerror="this.style.display='none'">
-        </span>
-      </div>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
-                  display:flex;align-items:center;justify-content:center;gap:6px" title="Amostra: ${_bt2EscXml(a.amostra)}">
-        <img src="${_bt2EscXml(a.escudo_time_100pct || '')}" alt="" style="width:18px;height:18px;border-radius:3px" onerror="this.style.display='none'">
-        <b style="color:#d1a13e;font-size:12px">${_bt2EscXml(a.time_100pct)}</b>
-      </div>
-    </div>
+// Escudo é opcional (só existe em import feito a partir de 2026-08-30) —
+// <img> só entra quando a URL veio preenchida, e some sozinha (onerror) se o
+// link quebrar, mesmo padrão já usado nos escudos do Painel Principal/Ao Vivo.
+function _jogosDiaEscudoImg(url, size) {
+  if (!url) return '';
+  size = size || 18;
+  return `<img src="${_bt2EscXml(url)}" alt="" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:3px" onerror="this.style.display='none'">`;
+}
+
+// Volta pro formato de linha/lista — pedido do usuário (2026-08-30) depois de
+// testar a versão em cards ("melhor formato lista mesmo, mas com um visual
+// mais bonito"). Hover sutil (.jogos-dia-row), escudos um pouco maiores, e o
+// time com 100% vira uma pílula destacada (mesmo tom dourado do cabeçalho de
+// liga do Painel) em vez de só texto em negrito.
+function _jogosDiaLinhaHtml(a) {
+  return `<div class="jogos-dia-row" style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-top:1px solid var(--border);font-size:12px">
+    <span style="color:var(--text2);width:74px;flex-shrink:0;line-height:1.5">${_bt2EscXml(a.horario)}<br><span style="font-size:9px;opacity:.8">${_bt2EscXml(a.status)}</span></span>
+    <span style="flex:1;text-align:center;min-width:0">
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        ${_jogosDiaEscudoImg(a.escudo_casa)}
+        <span class="tname">${_bt2EscXml(a.casa)}</span>
+      </span>
+      <b style="color:var(--text);margin:0 8px;font-size:13px">${_bt2EscXml(a.placar || '-')}</b>
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        <span class="tname">${_bt2EscXml(a.fora)}</span>
+        ${_jogosDiaEscudoImg(a.escudo_fora)}
+      </span>
+      <span style="color:var(--text2);font-size:10px;display:block;margin-top:2px">${_bt2EscXml(a.liga)}</span>
+    </span>
+    <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#3a3110;color:#e8c95a;
+                 border-radius:14px;padding:4px 12px 4px 6px" title="Amostra: ${_bt2EscXml(a.amostra)}">
+      ${_jogosDiaEscudoImg(a.escudo_time_100pct, 20)}
+      <b style="font-size:12px;white-space:nowrap">${_bt2EscXml(a.time_100pct)}</b>
+    </span>
   </div>`;
 }
 
@@ -22242,9 +22254,8 @@ function _jogosDiaMercadoSectionHtml(mercado, linhas) {
         <span class="live-count-badge">${linhas.length}</span>
         <span class="painel-arrow">▲</span>
       </div>
-      <div id="jogosDiaBody_${key}" class="live-grid-wrap"
-        style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:10px;${collapsed ? 'display:none' : ''}">
-        ${linhas.map(_jogosDiaCardHtml).join('')}
+      <div id="jogosDiaBody_${key}" style="${collapsed ? 'display:none' : ''}">
+        ${linhas.map(_jogosDiaLinhaHtml).join('')}
       </div>
     </div>`;
 }
