@@ -3414,6 +3414,7 @@ function switchView(view, btn) {
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
   clearInterval(_sinalizadorAutoRefresh);
+  clearInterval(_jogosDiaAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3452,6 +3453,10 @@ function switchView(view, btn) {
   } else if (view === 'jogosdia') {
     jogosDiaWrapper.style.display = 'flex';
     _jogosDiaLoadConfig();
+    // Só refaz o cruzamento com o Painel (status/placar/HT/escanteios) e
+    // redesenha — não reimporta o .txt. /api/painel/matches já é cacheado no
+    // backend, então isso não gera scraping novo nenhum.
+    _jogosDiaAutoRefresh = setInterval(_jogosDiaRefreshFromPainel, 30000);
   }
 }
 
@@ -22152,17 +22157,20 @@ async function _jogosDiaImportFile(file) {
   }
 }
 
-// Placar do intervalo (HT) e escanteios (FT) pra confirmar mercados que o
-// arquivo de achados não traz sozinho (ex: "marcou gol (1º tempo)", "Perde
-// 1T", "Over X.5 Escanteios FT") — pedido do usuário (2026-08-30): em vez de
-// precisar mudar a ferramenta local, cruza com o Painel Principal
-// (/api/painel/matches, fonte NowGoal), que já traz ht_home/ht_away e
-// corner_home/corner_away pra cada jogo. Como o próprio arquivo de achados
-// vem originalmente desse mesmo dado (Painel → export do usuário →
-// ferramenta local → achados), o nome dos times já bate igual, sem precisar
-// de fuzzy-match. Zero chamada nova além dessa: /api/painel/matches já é
-// cacheada no backend (mesmo TTL do Painel), não dispara scraping extra.
-let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa?, ht_fora?, corner_casa?, corner_fora?}
+// Placar do intervalo (HT), escanteios (FT) e o STATUS/PLACAR atual de cada
+// jogo — o arquivo de achados só tem uma "foto" de tudo isso no momento do
+// import (pedido do usuário, 2026-08-30: "todos os resultados podem ser
+// buscados na aba Painel Principal?"). Em vez de depender do usuário
+// reimportar o .txt toda hora pra atualizar quem já encerrou, cruza com o
+// Painel Principal (/api/painel/matches, fonte NowGoal), que já mantém tudo
+// isso fresco. Como o próprio arquivo de achados vem originalmente desse
+// mesmo dado (Painel → export do usuário → ferramenta local → achados), o
+// nome dos times já bate igual, sem precisar de fuzzy-match. Zero chamada
+// nova além dessa: /api/painel/matches já é cacheada no backend (mesmo TTL
+// do Painel), não dispara scraping extra. Cobertura não é 100% — só pega o
+// que o Painel também lista hoje; jogo que só existe no arquivo (liga que o
+// Painel não cobre) continua caindo no status/placar congelado do import.
+let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa?, ht_fora?, corner_casa?, corner_fora?, status_painel?, score_casa?, score_fora?}
 
 async function _jogosDiaFetchHtLookup() {
   try {
@@ -22177,12 +22185,27 @@ async function _jogosDiaFetchHtLookup() {
       if (m.corner_home != null && m.corner_home !== '' && m.corner_away != null && m.corner_away !== '') {
         entry.corner_casa = m.corner_home; entry.corner_fora = m.corner_away;
       }
+      if (m.time) entry.status_painel = m.time;
+      if (m.score_home != null && m.score_home !== '' && m.score_away != null && m.score_away !== '') {
+        entry.score_casa = m.score_home; entry.score_fora = m.score_away;
+      }
       if (Object.keys(entry).length) lookup[`${m.home}|${m.away}`] = entry;
     }));
     _jogosDiaHtLookup = lookup;
   } catch (e) {
-    console.warn('[jogos-dia] falha buscando placar do intervalo/escanteios (Painel):', e);
+    console.warn('[jogos-dia] falha buscando dados ao vivo do Painel:', e);
   }
+}
+
+// Status/placar "de verdade" de um jogo: prioriza o que o Painel Principal
+// tem agora (fresco); só cai pro que veio congelado no .txt importado se
+// esse jogo não aparecer no Painel de hoje.
+function _jogosDiaStatusPlacarAtual(j) {
+  const lk = _jogosDiaHtLookup[`${j.casa}|${j.fora}`];
+  if (lk && lk.status_painel && lk.score_casa != null && lk.score_fora != null) {
+    return { status: lk.status_painel, placar: `${lk.score_casa}-${lk.score_fora}` };
+  }
+  return { status: j.status, placar: j.placar };
 }
 
 async function _jogosDiaLoadConfig() {
@@ -22195,6 +22218,17 @@ async function _jogosDiaLoadConfig() {
   } catch (e) {
     if (statusEl) statusEl.textContent = `Erro carregando: ${e}`;
   }
+}
+
+// Auto-refresh enquanto a aba tá aberta — só busca de novo o status/placar
+// do Painel e redesenha, sem reimportar nada. Silencioso: se falhar, mantém
+// os dados antigos até a próxima tentativa (mesmo espírito dos outros
+// auto-refresh do app, ex: _sinalizadorAutoRefresh).
+let _jogosDiaAutoRefresh = null;
+async function _jogosDiaRefreshFromPainel() {
+  if (!_jogosDiaData || !_jogosDiaData.jogos || !_jogosDiaData.jogos.length) return;
+  await _jogosDiaFetchHtLookup();
+  _jogosDiaRenderList(_jogosDiaData);
 }
 
 function _jogosDiaSetSearch(value) {
@@ -22474,9 +22508,12 @@ function _jogosDiaToggleResumo(headerEl) {
 
 function _jogosDiaResumoHtml(jogos) {
   const porMercado = {};
-  jogos.forEach(j => j.achados.forEach(a => {
-    (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push({ ...a, status: j.status, placar: j.placar });
-  }));
+  jogos.forEach(j => {
+    const sp = _jogosDiaStatusPlacarAtual(j);
+    j.achados.forEach(a => {
+      (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push({ ...a, status: sp.status, placar: sp.placar });
+    });
+  });
 
   const linhas = Object.keys(porMercado).map(m => ({ mercado: m, acc: _jogosDiaMercadoAcerto(porMercado[m]) }));
   if (!linhas.length) return '';
@@ -22550,11 +22587,12 @@ function _jogosDiaRenderList(d) {
                    (j.fora || '').toLowerCase().includes(_jogosDiaSearchQuery);
       if (!bate) return;
     }
+    const sp = _jogosDiaStatusPlacarAtual(j);
     j.achados.forEach(a => {
       if (_jogosDiaMercadoFilter && a.mercado !== _jogosDiaMercadoFilter) return;
       const linha = {
         ...a, casa: j.casa, escudo_casa: j.escudo_casa, fora: j.fora, escudo_fora: j.escudo_fora,
-        liga: j.liga, horario: j.horario, status: j.status, placar: j.placar,
+        liga: j.liga, horario: j.horario, status: sp.status, placar: sp.placar,
       };
       (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push(linha);
     });
