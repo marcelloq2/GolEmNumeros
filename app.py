@@ -1594,8 +1594,12 @@ def _forca_backup_worker():
         try:
             path = _forca_backup_path(date_str, event_id)
             if not os.path.exists(path):
-                strength = _ng_fetch_strength(event_id)
-                axes = {k: strength[k] for k in ("battle", "state", "attack", "defend", "market") if k in strength}
+                # "forca" (axes battle/state/attack/defend/market) saía do
+                # window._strength do NowGoal — sem equivalente desde a
+                # migração pro Flashscore (2026-08-30), então fica de fora.
+                # O resto (odds/HT/escanteio) continua vindo, agora da fonte
+                # nova, e o Replay (_replayForca, index.html) continua
+                # funcionando igual — só perde a parte de força.
                 payload = {
                     "event_id": event_id, "date": date_str,
                     "league": m.get("league_name"), "country": m.get("country"),
@@ -1605,7 +1609,7 @@ def _forca_backup_worker():
                     "corner_home": m.get("corner_home"), "corner_away": m.get("corner_away"),
                     "odd_1": m.get("odd_1"), "odd_x": m.get("odd_x"), "odd_2": m.get("odd_2"),
                     "odd_over": m.get("odd_over"), "odd_under": m.get("odd_under"),
-                    "forca": axes,
+                    "forca": {},
                 }
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -1624,7 +1628,7 @@ def _forca_backup_scan_loop():
     _github_sync_done.wait(timeout=120)
     while True:
         try:
-            data = _painel_fetch_matches_nowgoal()
+            data = _painel_fetch_matches_flashscore()
             date_str = datetime.now().strftime("%Y-%m-%d")
             added = 0
             for lg in data.get("leagues", []):
@@ -1647,6 +1651,24 @@ def _forca_backup_scan_loop():
         except Exception as e:
             print(f"[forca-backup] Erro escaneando jogos finalizados: {e}")
         time.sleep(_FORCA_BACKUP_SCAN_INTERVAL)
+
+
+def _painel_odds_prewarm_loop():
+    """Mantém _today2_odds_snapshot_cache sempre quente em background, LONGE
+    de qualquer thread de requisição. _painel_fetch_matches_flashscore só LÊ
+    esse cache (nunca chama _today2_odds_snapshot() direto — testado
+    localmente: ~70s+ em cache frio pra cobrir os jogos candidatos, o
+    suficiente pra travar uma das 4 threads do gunicorn por tempo demais,
+    mesma causa dos 2 apagões desta sessão). Sem esse loop rodando à parte,
+    o Painel só teria odds quando alguém, por acaso, tivesse acabado de usar
+    o Filtro de Metodologias (o único outro lugar que aquece esse cache)."""
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            _today2_odds_snapshot(force=True)
+        except Exception as e:
+            print(f"[painel-odds-prewarm] Erro: {e}")
+        time.sleep(_TODAY2_ODDS_SNAPSHOT_TTL)
 
 
 def _painel_fetch_matches(force=False, date_str=None):
@@ -1723,11 +1745,216 @@ def _painel_fetch_matches(force=False, date_str=None):
     return data
 
 
+_FS_STATUS_MAP = {"1": "Agendado", "2": "Ao vivo", "3": "Encerrado"}
+_FS_NOT_STARTED = "1"
+# Teto de segurança pro lote de placar do intervalo — mesmo espírito de
+# _SINALIZADOR_MAX_JOGOS/_BT2_MATCHES_MAX_CANDIDATOS.
+_PAINEL_FS_HT_MAX = 80
+
+# Placar do intervalo dos jogos de hoje, mantido quente em BACKGROUND (ver
+# _painel_ht_prewarm_loop) — igual ao motivo das odds (_painel_odds_prewarm_
+# loop): testado localmente, buscar HT de ~80 jogos (1 request cada, mesmo
+# em paralelo com 12 workers) passa de 1 MINUTO. _painel_fetch_matches_
+# flashscore só LÊ esse cache, nunca busca isso na hora — senão vira mais um
+# jeito de travar uma das 4 threads do gunicorn por tempo demais.
+_painel_ht_cache = {}
+_painel_ht_lock = threading.Lock()
+
+
+def _painel_ht_prewarm_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            fs_matches = _fs_all_matches()
+            ids = [m["id"] for m in fs_matches if m.get("status") != _FS_NOT_STARTED and m.get("id")][:_PAINEL_FS_HT_MAX]
+
+            def _fetch_ht(eid):
+                try:
+                    return eid, _fs_half_time(eid)
+                except Exception:
+                    return eid, None
+
+            novo = {}
+            for eid, ht in _fs_event_pool.map(_fetch_ht, ids):
+                if ht:
+                    novo[eid] = ht
+            with _painel_ht_lock:
+                _painel_ht_cache.clear()
+                _painel_ht_cache.update(novo)
+        except Exception as e:
+            print(f"[painel-ht-prewarm] Erro: {e}")
+        time.sleep(_PAINEL_CACHE_TTL)
+
+
+def _fs_extract_odds_fields(markets):
+    """Extrai os campos de odds no formato que o Painel Principal já espera
+    (odd_1/x/2, ou_line/odd_over/odd_under, ah_line/ah_home/ah_away) a partir
+    do dict de mercados que _today2_odds_snapshot/_fs_odds_all_markets_any_
+    bookmaker já devolvem. Pega a linha de Over/Under mais próxima de 2.5 e a
+    de Handicap Asiático mais próxima de 0 (linha "principal") — mesmo
+    critério já usado em _today2_classify_match/_jogo_medias_gerais_compute
+    pra escolher 1 linha entre várias oferecidas."""
+    def _num(v):
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _melhor_linha(mercado, alvo):
+        melhor, melhor_dist = None, None
+        for op in (mercado.get("opportunities") or []):
+            linha = _num((op.get("handicap") or {}).get("value"))
+            if linha is None:
+                continue
+            dist = abs(linha - alvo)
+            if melhor_dist is None or dist < melhor_dist:
+                melhor, melhor_dist = op, dist
+        return melhor
+
+    m1x2 = markets.get("1x2") or {}
+    ou = _melhor_linha(markets.get("over_under") or {}, 2.5) or {}
+    ah = _melhor_linha(markets.get("handicap_asiatico") or {}, 0.0) or {}
+
+    return {
+        "odd_1": _num((m1x2.get("home") or {}).get("value")),
+        "odd_x": _num((m1x2.get("draw") or {}).get("value")),
+        "odd_2": _num((m1x2.get("away") or {}).get("value")),
+        "ou_line": _num((ou.get("handicap") or {}).get("value")),
+        "odd_over": _num((ou.get("over") or {}).get("value")),
+        "odd_under": _num((ou.get("under") or {}).get("value")),
+        "ah_line": _num((ah.get("handicap") or {}).get("value")),
+        "ah_home": _num((ah.get("home") or {}).get("value")),
+        "ah_away": _num((ah.get("away") or {}).get("value")),
+    }
+
+
+def _painel_fetch_matches_flashscore(force=False, date_str=None):
+    """Versão Flashscore/Soccerway — substitui o NowGoal (2026-08-30). Motivo:
+    o feed do NowGoal não tem paginação e, além do caso raro de vir vazio (já
+    tinha proteção pra isso, ver stale abaixo), às vezes simplesmente PARA de
+    listar um jogo específico no meio do dia, sem aviso — o jogo some do
+    Painel sem nenhum erro pra investigar. O Flashscore cobre muito mais jogos
+    (checado ao vivo: 1036 vs 414 no mesmo dia) e mantém jogos encerrados na
+    listagem. Mesmo contrato de saída de sempre (mesmos campos por jogo) —
+    quem consome isso (linha do Painel, filtro de odds, exports, Ao Vivo,
+    Sinalizador, Jogos do Dia) não precisa mudar nada.
+
+    Only serve "hoje" por enquanto — mesma limitação que a versão NowGoal já
+    tinha (_fs_all_matches também não tem parâmetro de data)."""
+    now = time.time()
+    cache_key = date_str or "today"
+    with _painel_lock:
+        cached = _painel_cache.get(cache_key)
+        if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
+            return cached["data"]
+
+    # Mesma lição do NowGoal: toda busca de rede roda FORA do lock (ver
+    # comentário grande na versão antiga acima) — travar aqui travaria as 4
+    # threads do gunicorn inteiras atrás desse lock.
+    try:
+        fs_matches = _fs_all_matches()
+    except Exception as e:
+        with _painel_lock:
+            cached = _painel_cache.get(cache_key)
+        if cached is not None:
+            stale = dict(cached["data"])
+            stale["stale"] = True
+            stale["stale_error"] = str(e)
+            return stale
+        return {"error": str(e), "leagues": [], "updated_at": now, "date": date_str}
+
+    with _painel_lock:
+        cached = _painel_cache.get(cache_key)
+        if not fs_matches and cached is not None and cached["data"].get("leagues"):
+            stale = dict(cached["data"])
+            stale["stale"] = True
+            stale["stale_error"] = "Flashscore devolveu feed vazio (possível bloqueio temporário)"
+            return stale
+
+    # Placar do intervalo — só LÊ o cache que _painel_ht_prewarm_loop mantém
+    # quente em background (ver comentário lá em cima do motivo).
+    with _painel_ht_lock:
+        ht_by_id = dict(_painel_ht_cache)
+
+    # Odds — LÊ (sem calcular) o mesmo snapshot cacheado que o Filtro de
+    # Metodologias/Backtest CS já usa. Importante: NUNCA chama
+    # _today2_odds_snapshot() aqui — testado localmente e essa função, em
+    # cache frio, demora bem mais que 1 minuto pra fazer 60 jogos x 6
+    # mercados x até 3 casas de apostas (o próprio comentário dela já avisa
+    # "~70s"). Isso rodando na THREAD DA REQUISIÇÃO do Painel (só 4 threads
+    # pro site inteiro, mesma causa dos 2 apagões desta sessão) seria um
+    # terceiro incidente na certa. Em vez disso só lê o que já estiver pronto
+    # (pode vir vazio logo depois de um restart) — quem mantém isso quente de
+    # verdade é o _painel_odds_prewarm_loop, rodando em background.
+    odds_snapshot = _today2_odds_snapshot_cache.get("data") or []
+    odds_by_id = {m["id"]: markets for m, markets in odds_snapshot if markets}
+
+    matches = []
+    for m in fs_matches:
+        status_code = m.get("status")
+        not_started = status_code == _FS_NOT_STARTED
+        eid = m.get("id")
+        ht = ht_by_id.get(eid)
+        odds_fields = _fs_extract_odds_fields(odds_by_id.get(eid) or {})
+        try:
+            ts = int(m.get("kickoff_ts") or 0)
+        except (TypeError, ValueError):
+            ts = 0
+
+        matches.append({
+            "event_id": eid,
+            "league_key": f"{m.get('pais', '')}|{m.get('liga', '')}",
+            "league_name": m.get("liga", ""), "country": m.get("pais", ""),
+            "time": _FS_STATUS_MAP.get(status_code, status_code),
+            "minute": None,  # Flashscore não manda minuto corrido no feed em lote
+            "home": m.get("home"), "away": m.get("away"),
+            "home_logo": m.get("escudo_casa"), "away_logo": m.get("escudo_fora"),
+            "score_home": None if not_started else m.get("home_score"),
+            "score_away": None if not_started else m.get("away_score"),
+            "ht_home": (ht or {}).get("home"), "ht_away": (ht or {}).get("away"),
+            "corner_home": None, "corner_away": None,  # sem fonte em lote no Flashscore
+            "match_url": None,
+            **odds_fields,
+            "ts": ts,
+        })
+
+    # Mesmos links diretos pro Betfair Exchange / Bolsa de Aposta que a
+    # versão NowGoal já anexava (via RadarFutebol, casando por nome dos
+    # times) — nunca derruba o carregamento do painel se o RadarFutebol
+    # estiver fora do ar, só fica sem os links dessa vez.
+    try:
+        for m in matches:
+            lb, lba, lr = _find_radar_links(m.get("home"), m.get("away"), m.get("ts"))
+            m["link_betfair"] = lb
+            m["link_bolsa"] = lba
+            m["link_radar"] = lr
+    except Exception as e:
+        print(f"[radar-links] Erro anexando links: {e}")
+
+    leagues_map = {}
+    for m in matches:
+        key = m["league_key"]
+        lg = leagues_map.setdefault(key, {
+            "key": key, "country": m["country"], "league_name": m["league_name"],
+            "flag_url": "", "matches": [],
+        })
+        lg["matches"].append({k: v for k, v in m.items() if k not in ("league_key", "league_name", "country")})
+
+    leagues = [lg for lg in leagues_map.values() if lg["matches"]]
+    for lg in leagues:
+        lg["matches"].sort(key=lambda x: x["ts"])
+
+    data = {"leagues": leagues, "updated_at": now, "date": date_str}
+    with _painel_lock:
+        _painel_cache[cache_key] = {"ts": now, "data": data}
+    return data
+
+
 @app.route("/api/painel/matches")
 def api_painel_matches():
     force = request.args.get("force") == "1"
     date_str = request.args.get("date") or None  # "YYYY-MM-DD"
-    return jsonify(_painel_fetch_matches_nowgoal(force=force, date_str=date_str))
+    return jsonify(_painel_fetch_matches_flashscore(force=force, date_str=date_str))
 
 
 # ── Widget de análise — "Últimos resultados" de cada time (BetExplorer) ────────
@@ -2813,14 +3040,15 @@ def _radar_fetch_live_matches():
     except Exception as e:
         print(f"[radar-links] Erro anexando links (ao vivo): {e}")
 
-    # Reaproveita as mesmas odds 1x2/Over-Under do Painel Principal (NowGoal) —
-    # casa (casa, fora) do Ao Vivo (Uniscore) com o jogo equivalente lá pelo
-    # nome dos times, mesma técnica do _find_radar_links. Busca a lista uma vez
-    # só (não por partida) porque _painel_fetch_matches_nowgoal já cacheia por
-    # conta própria, mas repetir a chamada pra cada jogo ainda seria bater no
-    # lock/dict à toa dezenas de vezes por request.
+    # Reaproveita as mesmas odds 1x2/Over-Under do Painel Principal
+    # (Flashscore) — casa (casa, fora) do Ao Vivo (Uniscore) com o jogo
+    # equivalente lá pelo nome dos times, mesma técnica do _find_radar_links.
+    # Busca a lista uma vez só (não por partida) porque
+    # _painel_fetch_matches_flashscore já cacheia por conta própria, mas
+    # repetir a chamada pra cada jogo ainda seria bater no lock/dict à toa
+    # dezenas de vezes por request.
     try:
-        painel_data = _painel_fetch_matches_nowgoal()
+        painel_data = _painel_fetch_matches_flashscore()
         painel_matches = [pm for lg in painel_data.get("leagues", []) for pm in lg["matches"]]
     except Exception as e:
         print(f"[painel-odds] Erro buscando odds do Painel Principal: {e}")
@@ -3867,6 +4095,12 @@ threading.Thread(
 # vazia). Ativado agora a pedido do usuário, pra alimentar odds pré-jogo no Replay.
 threading.Thread(target=_forca_backup_worker, daemon=True, name="ForcaBackupWorker").start()
 threading.Thread(target=_forca_backup_scan_loop, daemon=True, name="ForcaBackupScan").start()
+# PainelOddsPrewarm começa mais abaixo no arquivo (ver _painel_odds_prewarm_loop) —
+# precisa que _today2_odds_snapshot/_TODAY2_ODDS_SNAPSHOT_TTL já estejam
+# definidos nesse ponto da carga do módulo (senão dá NameError na hora que a
+# thread acorda, corrida que já aconteceu aqui: o `.wait()` do
+# _github_sync_done retorna quase na hora quando GITHUB_TOKEN não está
+# configurado, antes do resto do módulo terminar de carregar).
 
 
 @app.route("/api/radar/momentum/<event_id>")
@@ -7038,32 +7272,31 @@ def api_sinalizador_check():
     live = (_radar_fetch_live_matches().get("live") or [])[:_SINALIZADOR_MAX_JOGOS]
     uni_odds = _uni_odds_today()
 
-    # _painel_fetch_matches_nowgoal() já é cacheada — busca 1x fora do pool,
-    # em vez de cada thread repetir a mesma busca/varredura.
+    # _painel_fetch_matches_flashscore() já é cacheada — busca 1x fora do
+    # pool, em vez de cada thread repetir a mesma busca/varredura.
+    #
+    # A partir da migração pro Flashscore (2026-08-30) não existe mais
+    # equivalente ao "window._strength" do NowGoal, então o sinal "forca"
+    # (as 4 variáveis pré-live "Força — Confronto direto/Estado/Ataque/
+    # Defesa") não é mais preenchido — qualquer regra importada que dependa
+    # delas simplesmente não bate mais (v_pre fica None, já tratado com
+    # segurança em _sinalizador_calc_pre_live/api_sinalizador_check), sem
+    # quebrar o resto do Sinalizador.
     try:
-        nowgoal_data = _painel_fetch_matches_nowgoal()
-        nowgoal_matches = [nm for lg in nowgoal_data.get("leagues", []) for nm in lg["matches"]]
+        flashscore_data = _painel_fetch_matches_flashscore()
+        flashscore_matches = [fm for lg in flashscore_data.get("leagues", []) for fm in lg["matches"]]
     except Exception:
-        nowgoal_matches = []
+        flashscore_matches = []
 
-    def _achar_nowgoal(casa, fora):
-        for nm in nowgoal_matches:
-            if _name_match(casa, nm.get("home") or "") and _name_match(fora, nm.get("away") or ""):
-                mid = str(nm.get("event_id") or "")
-                if not mid:
-                    continue
-                resultado = {"odd_1": nm.get("odd_1"), "odd_x": nm.get("odd_x"), "odd_2": nm.get("odd_2")}
-                with _ng_strength_lock:
-                    cached = _ng_strength_cache.get(mid)
-                if cached:
-                    strength = cached["data"]
-                    resultado["forca"] = {k: strength.get(k) for k in _PAINEL_FORCA_RADAR_AXES if k in strength}
-                return resultado
+    def _achar_flashscore(casa, fora):
+        for fm in flashscore_matches:
+            if _name_match(casa, fm.get("home") or "") and _name_match(fora, fm.get("away") or ""):
+                return {"odd_1": fm.get("odd_1"), "odd_x": fm.get("odd_x"), "odd_2": fm.get("odd_2")}
         return {}
 
     with ThreadPoolExecutor(max_workers=_SINALIZADOR_WORKERS) as pool:
         dados_jogos = list(pool.map(
-            lambda m: _sinalizador_buscar_dados_jogo(m, uni_odds, _achar_nowgoal), live
+            lambda m: _sinalizador_buscar_dados_jogo(m, uni_odds, _achar_flashscore), live
         ))
 
     resultados = []
@@ -11635,6 +11868,14 @@ def api_lay_placar_config():
 
 
 threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
+# Só aqui embaixo (não perto dos outros threading.Thread(...).start() lá em
+# cima) porque _painel_odds_prewarm_loop chama _today2_odds_snapshot, definida
+# bem mais abaixo no arquivo — startar essa thread mais cedo deu NameError na
+# hora que ela acordou (o .wait() do _github_sync_done retorna quase na hora
+# quando GITHUB_TOKEN não está configurado, antes do resto do módulo terminar
+# de carregar).
+threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOddsPrewarm").start()
+threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
 # segundo plano parece estar competindo por CPU com o resto do site num
