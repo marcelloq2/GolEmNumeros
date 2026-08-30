@@ -22216,12 +22216,54 @@ function _jogosDiaEscudoImg(url, size) {
   return `<img src="${_bt2EscXml(url)}" alt="" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:3px" onerror="this.style.display='none'">`;
 }
 
+// ── Checagem de acerto — pedido do usuário (2026-08-30), começando só por
+// "Ambas Marcam" (Sim/Não/BTTS). Devolve true (bateu) / false (não bateu) /
+// null (jogo ainda sem placar final, ou mercado que ainda não sabemos
+// verificar — outros mercados entram depois, um de cada vez). Decide a
+// PREVISÃO pelo nome do mercado (heurística no texto, mesmo espírito de
+// _sinalizador_mercado_resolvido no backend) e confere contra o placar real.
+function _jogosDiaPrevisaoAmbasMarcam(mercado) {
+  const m = (mercado || '').toLowerCase();
+  if (!m.includes('ambas') || !(m.includes('marcam') || m.includes('btts'))) return null;
+  return (m.includes('não') || m.includes('nao')) ? 'nao' : 'sim';
+}
+
+function _jogosDiaChecarAcerto(a) {
+  const previsao = _jogosDiaPrevisaoAmbasMarcam(a.mercado);
+  if (!previsao) return null; // mercado ainda não suportado
+  // Só confere jogo REALMENTE encerrado — "status" em Intervalo/1º Tempo/2º
+  // Tempo também vem com um placar (parcial, de quem já jogou até agora), e
+  // um 0-0 no intervalo pode virar 1-1 até o fim. Conferir contra um placar
+  // que ainda pode mudar daria "bateu"/"não bateu" errado.
+  if ((a.status || '').trim() !== 'Encerrado') return null;
+  const m = /^(\d+)-(\d+)$/.exec((a.placar || '').trim());
+  if (!m) return null; // formato de placar inesperado
+  const ambosMarcaram = parseInt(m[1], 10) > 0 && parseInt(m[2], 10) > 0;
+  return previsao === 'sim' ? ambosMarcaram : !ambosMarcaram;
+}
+
+// Taxa de acerto do mercado inteiro — só considera jogos já com placar final
+// (os "null" de _jogosDiaChecarAcerto ficam de fora da conta, não contam
+// como erro nem acerto).
+function _jogosDiaMercadoAcerto(linhas) {
+  let acertos = 0, total = 0;
+  linhas.forEach(a => {
+    const r = _jogosDiaChecarAcerto(a);
+    if (r === null) return;
+    total++;
+    if (r) acertos++;
+  });
+  if (!total) return null;
+  return { acertos, total, pct: Math.round(100 * acertos / total) };
+}
+
 // Volta pro formato de linha/lista — pedido do usuário (2026-08-30) depois de
 // testar a versão em cards ("melhor formato lista mesmo, mas com um visual
 // mais bonito"). Hover sutil (.jogos-dia-row), escudos um pouco maiores, e o
 // time com 100% vira uma pílula destacada (mesmo tom dourado do cabeçalho de
 // liga do Painel) em vez de só texto em negrito.
 function _jogosDiaLinhaHtml(a) {
+  const acerto = _jogosDiaChecarAcerto(a);
   return `<div class="jogos-dia-row" style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-top:1px solid var(--border);font-size:12px">
     <span style="color:var(--text2);width:74px;flex-shrink:0;line-height:1.5">${_bt2EscXml(a.horario)}<br><span style="font-size:9px;opacity:.8">${_bt2EscXml(a.status)}</span></span>
     <span style="flex:1;text-align:center;min-width:0">
@@ -22230,6 +22272,7 @@ function _jogosDiaLinhaHtml(a) {
         <span class="tname">${_bt2EscXml(a.casa)}</span>
       </span>
       <b style="color:var(--text);margin:0 8px;font-size:13px">${_bt2EscXml(a.placar || '-')}</b>
+      ${acerto === true ? '<span title="Bateu a previsão!" style="margin-right:4px">✅</span>' : ''}
       <span style="display:inline-flex;align-items:center;gap:6px">
         <span class="tname">${_bt2EscXml(a.fora)}</span>
         ${_jogosDiaEscudoImg(a.escudo_fora)}
@@ -22247,10 +22290,14 @@ function _jogosDiaLinhaHtml(a) {
 function _jogosDiaMercadoSectionHtml(mercado, linhas) {
   const key = _painelExportSlug(mercado);
   const collapsed = !!_jogosDiaCollapsed[key];
+  const acc = _jogosDiaMercadoAcerto(linhas);
+  const corAcc = acc ? (acc.pct >= 70 ? '#22c55e' : acc.pct >= 40 ? '#f59e0b' : '#ef4444') : null;
   return `
     <div class="painel-league">
       <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleMercado('${key}', this)">
         <span class="painel-league-name">${_bt2EscXml(mercado)}</span>
+        ${acc ? `<span style="background:var(--bg);color:${corAcc};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
+          title="${acc.acertos}/${acc.total} jogo(s) já encerrado(s) bateram a previsão">✅ ${acc.pct}% (${acc.acertos}/${acc.total})</span>` : ''}
         <span class="live-count-badge">${linhas.length}</span>
         <span class="painel-arrow">▲</span>
       </div>
