@@ -5252,6 +5252,14 @@ function _painelExportBaseFields(lg, m) {
     odd_over: m.odd_over ?? null,
     odd_under: m.odd_under ?? null,
     forca_diff: (m.event_id && _painelForcaDiffCache[m.event_id] != null) ? _painelForcaDiffCache[m.event_id] : null,
+    // Ícones de Ataque/Defesa do Power Ranking (pedido do usuário, 2026-08-31)
+    // — vêm do cache quente do backend (_painel_power_cache), que é indexado
+    // por time+país sem depender do dia do jogo; só ficam null se o time não
+    // apareceu em nenhuma liga verificada no ciclo mais recente do prewarm.
+    casa_ataque_icon: m.casa_ataque_icon || null,
+    casa_defesa_icon: m.casa_defesa_icon || null,
+    fora_ataque_icon: m.fora_ataque_icon || null,
+    fora_defesa_icon: m.fora_defesa_icon || null,
     event_id: m.event_id || null,
     match_url: m.match_url || null,
   };
@@ -5310,56 +5318,188 @@ function _painelBuildLeituraMetrics(home, away, forcaData) {
   }
 }
 
-// Baixa TODAS as partidas do dia com a "leitura" completa (sequências,
-// viradas, handicap por linha, mercados de gol/escanteio, placar exato não
-// ocorrido) pra cada time — pedido do usuário (2026-08-29) pra alimentar o
-// ranking de probabilidade do painel local (analise_padroes.html), que usa
-// essas sequências como pré-live (mais forte que odds simples nos testes
-// que ele já rodou lá). Busca /api/painel/ng_strength (o MESMO endpoint que
-// já alimenta a Comparação de força/Leitura na tela) uma partida de cada
-// vez, de propósito sequencial — mesmo padrão já usado em
-// _painelExportRelatoriosTxt: paralelizar isso sobrecarregaria o mesmo pool
-// de 4 threads que o resto do site usa (ver decisão de não sobrecarregar
-// o servidor, 2026-08-29).
+// Monta o mesmo par (Confronto Direto/Pontuações Anteriores × Todos/Últimos 4)
+// que cada card da aba Prognóstico mostra, só que como objeto em vez de HTML.
+function _painelPrognosticoRatioObj(r) {
+  return r ? { n: r.scored, total: r.total, pct: Math.round(100 * r.scored / r.total) } : null;
+}
+function _painelPrognosticoStreakObj(s) {
+  if (!s) return null;
+  return { jogos: s.streak, amostra: s.sample, no_limite_amostra: s.streak > 0 && s.streak === s.sample };
+}
+function _painelPrognosticoPairObj(fn, h2h, h2h4, own, own4) {
+  return {
+    confronto_direto: { todos: fn(h2h), ultimos_4: fn(h2h4) },
+    pontuacoes_anteriores: { todos: fn(own), ultimos_4: fn(own4) },
+  };
+}
+
+// Reaproveita _painelForcaPrognosticoComputeAll (mesma função que a TELA usa)
+// + os loops de PROGNOSTICO_MARKETS/PLACAR_EXATO_BUCKETS_ORDER, pra devolver
+// TODOS os dados da aba Prognóstico num objeto — pedido do usuário
+// (2026-08-31): "todos os dados da aba Prognostico" na exportação "Baixar
+// leitura". Assume que _painelForcaData/_painelForcaHome/_painelForcaAway/
+// _painelForcaHtById/_painelForcaGoalMinById já estão setados corretamente
+// por quem chamar (igual _painelForcaPrognosticoComputeAll exige).
+function _painelBuildPrognosticoExportData() {
+  const c = _painelForcaPrognosticoComputeAll();
+  const ro = _painelPrognosticoRatioObj, so = _painelPrognosticoStreakObj, pair = _painelPrognosticoPairObj;
+  const casa = {
+    jogos_marcou_gol: pair(ro, c.h2hHomeR, c.h2hHomeR4, c.lastHomeR, c.lastHomeR4),
+    sequencia_marcando_gol: pair(so, c.h2hHomeStreak, c.h2hHomeStreak4, c.lastHomeStreak, c.lastHomeStreak4),
+    sequencia_sem_sofrer_gol: pair(so, c.h2hHomeCs, c.h2hHomeCs4, c.lastHomeCs, c.lastHomeCs4),
+    sequencia_vencendo: pair(so, c.h2hHomeWin, c.h2hHomeWin4, c.lastHomeWin, c.lastHomeWin4),
+    sequencia_sem_perder: pair(so, c.h2hHomeUnb, c.h2hHomeUnb4, c.lastHomeUnb, c.lastHomeUnb4),
+    fez_virada: pair(ro, c.h2hHomeFezV, c.h2hHomeFezV4, c.lastHomeFezV, c.lastHomeFezV4),
+    sofreu_virada: pair(ro, c.h2hHomeSofV, c.h2hHomeSofV4, c.lastHomeSofV, c.lastHomeSofV4),
+    marcou_primeiro: pair(ro, c.h2hHomeFirst, c.h2hHomeFirst4, c.lastHomeFirst, c.lastHomeFirst4),
+    sofreu_primeiro: pair(ro, c.h2hHomeConc, c.h2hHomeConc4, c.lastHomeConc, c.lastHomeConc4),
+    mercados: {},
+    placar_exato_nao_ocorreu: {},
+  };
+  const fora = {
+    jogos_marcou_gol: pair(ro, c.h2hAwayR, c.h2hAwayR4, c.lastAwayR, c.lastAwayR4),
+    sequencia_marcando_gol: pair(so, c.h2hAwayStreak, c.h2hAwayStreak4, c.lastAwayStreak, c.lastAwayStreak4),
+    sequencia_sem_sofrer_gol: pair(so, c.h2hAwayCs, c.h2hAwayCs4, c.lastAwayCs, c.lastAwayCs4),
+    sequencia_vencendo: pair(so, c.h2hAwayWin, c.h2hAwayWin4, c.lastAwayWin, c.lastAwayWin4),
+    sequencia_sem_perder: pair(so, c.h2hAwayUnb, c.h2hAwayUnb4, c.lastAwayUnb, c.lastAwayUnb4),
+    fez_virada: pair(ro, c.h2hAwayFezV, c.h2hAwayFezV4, c.lastAwayFezV, c.lastAwayFezV4),
+    sofreu_virada: pair(ro, c.h2hAwaySofV, c.h2hAwaySofV4, c.lastAwaySofV, c.lastAwaySofV4),
+    marcou_primeiro: pair(ro, c.h2hAwayFirst, c.h2hAwayFirst4, c.lastAwayFirst, c.lastAwayFirst4),
+    sofreu_primeiro: pair(ro, c.h2hAwayConc, c.h2hAwayConc4, c.lastAwayConc, c.lastAwayConc4),
+    mercados: {},
+    placar_exato_nao_ocorreu: {},
+  };
+
+  PROGNOSTICO_MARKETS.forEach(mk => {
+    const key = _painelExportSlug(mk.label);
+    casa.mercados[key] = pair(ro,
+      _painelForcaH2hMarketRatio(_painelForcaHome, mk.period, mk.test),
+      _painelForcaH2hMarketRatio(_painelForcaHome, mk.period, mk.test, 4),
+      _painelForcaOwnMarketRatio(c.ownHomeRows, mk.period, mk.test),
+      _painelForcaOwnMarketRatio(c.ownHomeRows.slice(0, 4), mk.period, mk.test));
+    fora.mercados[key] = pair(ro,
+      _painelForcaH2hMarketRatio(_painelForcaAway, mk.period, mk.test),
+      _painelForcaH2hMarketRatio(_painelForcaAway, mk.period, mk.test, 4),
+      _painelForcaOwnMarketRatio(c.ownAwayRows, mk.period, mk.test),
+      _painelForcaOwnMarketRatio(c.ownAwayRows.slice(0, 4), mk.period, mk.test));
+  });
+
+  PLACAR_EXATO_BUCKETS_ORDER.forEach(bucket => {
+    const key = _painelExportSlug(bucket);
+    casa.placar_exato_nao_ocorreu[key] = pair(ro,
+      _painelForcaH2hPlacarNotOccurredRatio(_painelForcaHome, bucket),
+      _painelForcaH2hPlacarNotOccurredRatio(_painelForcaHome, bucket, 4),
+      _painelForcaOwnPlacarNotOccurredRatio(c.ownHomeRows, bucket),
+      _painelForcaOwnPlacarNotOccurredRatio(c.ownHomeRows.slice(0, 4), bucket));
+    fora.placar_exato_nao_ocorreu[key] = pair(ro,
+      _painelForcaH2hPlacarNotOccurredRatio(_painelForcaAway, bucket),
+      _painelForcaH2hPlacarNotOccurredRatio(_painelForcaAway, bucket, 4),
+      _painelForcaOwnPlacarNotOccurredRatio(c.ownAwayRows, bucket),
+      _painelForcaOwnPlacarNotOccurredRatio(c.ownAwayRows.slice(0, 4), bucket));
+  });
+
+  return { casa, fora };
+}
+
+// Baixa TODAS as partidas de ONTEM (não hoje — pedido do usuário, 2026-08-31:
+// "com os placares somente do dia anterior", já que só um jogo encerrado tem
+// placar final de verdade pra comparar com os índices/prognóstico depois) com
+// os índices de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) + TODOS os dados da
+// aba Prognóstico. Substitui a versão antiga (2026-08-29), que dependia do
+// endpoint do NowGoal (/api/painel/ng_strength, exige match_id numérico) —
+// quebrado desde a migração pro Flashscore (event_id não é mais numérico,
+// toda chamada dava 400 e "leitura" saía sempre null). Busca 1 partida de
+// cada vez, de propósito sequencial (mesma razão de sempre: não sobrecarregar
+// o pool de threads do backend) — com HT+minutos de gol por jogo, isso é bem
+// mais lento que a leitura simples de antes.
 async function _painelExportLeituraJson() {
-  if (!_painelLastData || !_painelLastData.leagues || !_painelLastData.leagues.length) {
-    alert('Nenhum jogo carregado ainda.');
-    return;
-  }
-  const flat = [];
-  _painelLastData.leagues.forEach(lg => lg.matches.forEach(m => flat.push({ lg, m })));
-
-  const comId = flat.filter(({ m }) => m.event_id).length;
-  if (!confirm(`Isso vai buscar a "leitura" completa (sequências, viradas, mercados) de ${comId} partida(s), uma de cada vez — pode levar bastante tempo (alguns minutos a mais de meia hora, dependendo de quantos jogos tiver hoje). Continuar?`)) return;
-
   const btn = document.getElementById('painelExportLeituraBtn');
   const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de ontem...'; }
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  const dateStr = ontem.toISOString().slice(0, 10);
+  let ontemData;
+  try {
+    const r = await fetch(`/api/painel/matches?date=${dateStr}`);
+    ontemData = await r.json();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+    alert('Erro ao buscar jogos de ontem: ' + e);
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+
+  const flat = [];
+  (ontemData.leagues || []).forEach(lg => lg.matches.forEach(m => flat.push({ lg, m })));
+  if (!flat.length) { alert('Nenhum jogo de ontem encontrado.'); return; }
+
+  const comNomes = flat.filter(({ m }) => m.home && m.away).length;
+  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) de ONTEM (${dateStr}) — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos teve ontem. Continuar?`)) return;
+
+  // Preserva o estado do modal "Análise da partida" — a exportação usa as
+  // MESMAS globais que o modal usa (_painelForcaData/Home/Away/HtById/
+  // GoalMinById), uma partida de cada vez, e restaura no final.
+  const prevData = _painelForcaData, prevHome = _painelForcaHome, prevAway = _painelForcaAway;
+  const prevHt = _painelForcaHtById, prevGoalMin = _painelForcaGoalMinById;
+
   const partidas = [];
   let done = 0;
-
   for (const { lg, m } of flat) {
     const base = _painelExportBaseFields(lg, m);
     if (btn) { btn.disabled = true; btn.textContent = `⏳ ${done}/${flat.length}`; }
-    if (m.event_id) {
+    base.prognostico = null;
+    if (m.home && m.away) {
       try {
-        const r = await fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(m.event_id));
+        const r = await fetch(`/api/flashscore/h2h?casa=${encodeURIComponent(m.home)}&fora=${encodeURIComponent(m.away)}`);
         const d = await r.json();
-        base.leitura = d.error ? null : _painelBuildLeituraMetrics(m.home, m.away, d);
+        if (d.found) {
+          _painelForcaData = d;
+          _painelForcaHome = m.home;
+          _painelForcaAway = m.away;
+          _painelForcaHtById = {};
+          _painelForcaGoalMinById = {};
+          const ownHomeRows = _painelForcaPrognosticoOwnRows('home');
+          const ownAwayRows = _painelForcaPrognosticoOwnRows('away');
+          const h2hRows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+          const htIds = [...new Set([...h2hRows.slice(0, 15), ...ownHomeRows.slice(0, 15), ...ownAwayRows.slice(0, 15)].map(r2 => r2.id).filter(Boolean))].slice(0, 15);
+          const gmIds = [...new Set([...h2hRows.slice(0, 20), ...ownHomeRows.slice(0, 20), ...ownAwayRows.slice(0, 20)].map(r2 => r2.id).filter(Boolean))].slice(0, 20);
+          if (htIds.length) {
+            try {
+              const hr = await fetch(`/api/flashscore/half_time_batch?ids=${htIds.join(',')}`);
+              const hd = await hr.json();
+              const results = hd.results || {};
+              htIds.forEach(id => { _painelForcaHtById[id] = results[id] || null; });
+            } catch (e2) { /* sem HT nesse lote, os cálculos que dependem dele ficam null */ }
+          }
+          if (gmIds.length) {
+            try {
+              const gr = await fetch(`/api/flashscore/goal_minutes_batch?ids=${gmIds.join(',')}`);
+              const gd = await gr.json();
+              const results = gd.results || {};
+              gmIds.forEach(id => { _painelForcaGoalMinById[id] = results[id] || null; });
+            } catch (e2) { /* sem minutos de gol nesse lote, marcou/sofreu primeiro ficam null */ }
+          }
+          base.prognostico = _painelBuildPrognosticoExportData();
+        }
       } catch (e) {
-        base.leitura = null; // pula só a leitura desse jogo, não trava o restante da exportação
+        // pula só o prognóstico desse jogo, não trava o restante da exportação
       }
-    } else {
-      base.leitura = null;
     }
     partidas.push(base);
     done++;
   }
+
+  _painelForcaData = prevData; _painelForcaHome = prevHome; _painelForcaAway = prevAway;
+  _painelForcaHtById = prevHt; _painelForcaGoalMinById = prevGoalMin;
 
   if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
   const payload = {
     gerado_em: new Date().toISOString(),
     fonte: 'Gol em Números — Painel Principal',
+    dia_referencia: ontemData.date || dateStr,
     total_partidas: partidas.length,
     partidas,
   };
@@ -5368,7 +5508,7 @@ async function _painelExportLeituraJson() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `leitura_partidas_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `leitura_prognostico_ontem_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
