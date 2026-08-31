@@ -7516,6 +7516,93 @@ function _painelForcaH2hScoredRatio(teamName, limit) {
   return total ? { scored, total } : null;
 }
 
+// Mercados extras (Over/Under, Ambas Marcam, Vence/Empate 1T) — mesmo padrão
+// Confronto Direto/Pontuações Anteriores × Todos/Últimos 4 do resto da aba.
+// period 'ht' depende do placar do intervalo (_painelForcaHtById), igual a
+// Virada — jogos sem HT carregado ficam de fora da amostra.
+const PROGNOSTICO_MARKETS = [
+  { label: 'Over 0.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 1 },
+  { label: 'Over 1.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 2 },
+  { label: 'Over 2.5 FT',  period: 'ft', test: (t, o, tot) => tot >= 3 },
+  { label: 'Under 2.5 FT', period: 'ft', test: (t, o, tot) => tot <= 2 },
+  { label: 'Under 3.5 FT', period: 'ft', test: (t, o, tot) => tot <= 3 },
+  { label: 'Ambas Equipes Marcam — Sim', period: 'ft', test: (t, o) => t > 0 && o > 0 },
+  { label: 'Ambas Equipes Marcam — Não', period: 'ft', test: (t, o) => !(t > 0 && o > 0) },
+  { label: 'Over 0.5 HT',  period: 'ht', test: (t, o, tot) => tot >= 1 },
+  { label: 'Over 1.5 HT',  period: 'ht', test: (t, o, tot) => tot >= 2 },
+  { label: 'Vence 1T',     period: 'ht', test: (t, o) => t > o },
+  { label: 'Empate 1T',    period: 'ht', test: (t, o) => t === o },
+];
+
+function _painelForcaOwnMarketRatio(rows, period, testFn) {
+  const scoreField = period === 'ht' ? 'score_ht' : 'score_ft';
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m[scoreField] || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    if (testFn(parts[0], parts[1], parts[0] + parts[1])) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
+function _painelForcaH2hMarketRatio(teamName, period, testFn, limit) {
+  let rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  if (limit) rows = rows.slice(0, limit);
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    let parts;
+    if (period === 'ht') {
+      const ht = _painelForcaHtById[m.id];
+      if (!ht) return;
+      parts = [parseInt(ht.home, 10), parseInt(ht.away, 10)];
+    } else {
+      parts = String(m.score || '').split(':').map(Number);
+    }
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    const oppGoals = isHomeRow ? parts[1] : parts[0];
+    if (testFn(teamGoals, oppGoals, parts[0] + parts[1])) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
+function _painelForcaPrognosticoMarketSection(market, ownHomeRows, ownAwayRows) {
+  const h2hHomeR = _painelForcaH2hMarketRatio(_painelForcaHome, market.period, market.test);
+  const h2hAwayR = _painelForcaH2hMarketRatio(_painelForcaAway, market.period, market.test);
+  const h2hHomeR4 = _painelForcaH2hMarketRatio(_painelForcaHome, market.period, market.test, 4);
+  const h2hAwayR4 = _painelForcaH2hMarketRatio(_painelForcaAway, market.period, market.test, 4);
+  const lastHomeR = _painelForcaOwnMarketRatio(ownHomeRows, market.period, market.test);
+  const lastAwayR = _painelForcaOwnMarketRatio(ownAwayRows, market.period, market.test);
+  const lastHomeR4 = _painelForcaOwnMarketRatio(ownHomeRows.slice(0, 4), market.period, market.test);
+  const lastAwayR4 = _painelForcaOwnMarketRatio(ownAwayRows.slice(0, 4), market.period, market.test);
+  return `
+    <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(market.label)} — Confronto Direto</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(market.label)} — Pontuações Anteriores</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>`;
+}
+
 // Virada — cruza HT e FT do mesmo jogo. Precisa do placar do intervalo
 // (_painelForcaHtById), que só é buscado sob demanda (até 15 ids por vez,
 // limite da rota) — ver chamada de _painelForcaEnsureHt em
@@ -7837,7 +7924,8 @@ function _painelForcaPrognosticoRender() {
     <div style="display:flex;gap:8px;margin-top:2px">
       ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV4)}
       ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV4)}
-    </div>`;
+    </div>
+    ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}`;
   _painelForcaEnsureHt([
     ..._painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos').slice(0, 15),
     ...ownHomeRows.slice(0, 15), ...ownAwayRows.slice(0, 15),
