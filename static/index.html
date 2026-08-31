@@ -1918,6 +1918,7 @@
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_odds" onclick="_painelForcaOpenOdds()">💰 Odds</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_prognostico" onclick="_painelForcaSetView('prognostico', this)">🎯 Prognóstico</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -6150,7 +6151,7 @@ let _painelForcaEventId = null;
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
-  odds: 'painelForcaViewOdds',
+  odds: 'painelForcaViewOdds', prognostico: 'painelForcaViewPrognostico',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -6763,9 +6764,11 @@ function _painelForcaRender() {
     <div id="painelForcaViewLast" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
     <div id="painelForcaViewHojePower" style="display:none"></div>
-    <div id="painelForcaViewOdds" style="display:none"></div>`;
+    <div id="painelForcaViewOdds" style="display:none"></div>
+    <div id="painelForcaViewPrognostico" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
+  _painelForcaPrognosticoRender();
 
   // O innerHTML acima recria TODOS os containers do zero com "display:none"
   // — precisa sempre chamar _painelForcaSetView pra mostrar o certo (a aba
@@ -7468,6 +7471,76 @@ function _painelForcaLastRender() {
     </div>
     ${_painelForcaFsTableBlock(rows, side)}`;
   _painelForcaEnsureHt(rows.slice(0, _painelForcaTableState[side].count), _painelForcaLastRender);
+}
+
+// ── 🎯 Prognóstico — pedido do usuário (2026-08-31): "Jogos em que marcou
+// gol" combinando TODO o histórico de Confronto Direto (H2H) com TODO o
+// histórico de Pontuações Anteriores (mandante em casa / visitante fora) —
+// de propósito ignora o "Últimos N" que as outras 2 abas usam (o usuário
+// pediu "todos"), então não depende de _painelForcaTableState nem precisa
+// re-renderizar quando esses dropdowns mudam.
+function _painelForcaPrognosticoOwnRows(key) {
+  const cfg = _painelForcaSideConfig(key);
+  if (!_painelForcaData || !_painelForcaData.tabs) return [];
+  const suffix = key === 'away' ? ' - Fora' : ' - Casa';
+  const tab = (_painelForcaData.tabs || []).find(t => (t.label || '').endsWith(suffix));
+  const rawRows = _painelForcaFsSectionRows(tab, 'Últimos jogos');
+  // _painelForcaNormalizeRow garante que, depois disso, "home" é sempre o
+  // time analisado (cfg.teamName) — então os gols dele estão sempre em
+  // parts[0], nunca precisa checar de novo quem é quem por linha.
+  return _painelForcaFsRowsToLeitura(rawRows).map(m => _painelForcaNormalizeRow(m, cfg.teamName));
+}
+
+function _painelForcaScoredRatioNormalized(rows) {
+  let scored = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    if (parts[0] > 0) scored++;
+  });
+  return total ? { scored, total } : null;
+}
+
+function _painelForcaCombinedScoredRatio(teamName, key) {
+  const h2hRows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  let scored = 0, total = 0;
+  h2hRows.forEach(m => {
+    const parts = String(m.score || '').split(':').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    if ((isHomeRow ? parts[0] : parts[1]) > 0) scored++;
+  });
+  const lastR = _painelForcaScoredRatioNormalized(_painelForcaPrognosticoOwnRows(key));
+  if (lastR) { scored += lastR.scored; total += lastR.total; }
+  return total ? { scored, total } : null;
+}
+
+function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
+  const pct = ratio ? Math.round(100 * ratio.scored / ratio.total) : null;
+  return `
+    <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 10px;text-align:center">
+      <div style="font-size:12px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--text);margin-top:8px">${ratio ? `${ratio.scored}/${ratio.total}` : '-'}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px">${pct != null ? pct + '%' : 'sem dados'}</div>
+    </div>`;
+}
+
+function _painelForcaPrognosticoRender() {
+  const el = document.getElementById('painelForcaViewPrognostico');
+  if (!el) return;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+  const homeR = _painelForcaCombinedScoredRatio(_painelForcaHome, 'home');
+  const awayR = _painelForcaCombinedScoredRatio(_painelForcaAway, 'away');
+  el.innerHTML = `
+    ${header}
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Jogos em que marcou gol — combina todo o histórico de Confronto Direto + Pontuações Anteriores</div>
+    <div style="display:flex;gap:12px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', homeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', awayR)}
+    </div>`;
 }
 
 // ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
