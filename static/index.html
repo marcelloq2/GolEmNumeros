@@ -7379,7 +7379,19 @@ function _painelForcaFsRow(m) {
   const ht = _painelForcaHtById[m.id];
   const dt = m.date ? new Date(parseInt(m.date, 10) * 1000) : null;
   const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('pt-BR') : '-';
-  const corRes = m.result === 'V' ? '#22c55e' : m.result === 'D' ? '#ef4444' : 'var(--text2)';
+
+  // "Confrontos diretos" (Estatísticas de Confronto Direto) não vem com
+  // resultado pronto do Flashscore — só as linhas de "Últimos jogos" (Casa/
+  // Fora) vêm, porque ali já é claro de qual time é a perspectiva. Pro H2H,
+  // calcula V/E/D relativo ao _painelForcaHome (o time destacado em azul no
+  // topo do modal), a partir do placar cru.
+  let resultado = m.result;
+  if (!resultado && scoreOk) {
+    const golsRef = m.home === _painelForcaHome ? parts[0] : m.away === _painelForcaHome ? parts[1] : null;
+    const golsAdv = m.home === _painelForcaHome ? parts[1] : m.away === _painelForcaHome ? parts[0] : null;
+    if (golsRef != null) resultado = golsRef > golsAdv ? 'V' : golsRef < golsAdv ? 'D' : 'E';
+  }
+  const corRes = resultado === 'V' ? '#22c55e' : resultado === 'D' ? '#ef4444' : 'var(--text2)';
   return `<tr>
     <td style="text-align:left;padding:4px 8px;white-space:nowrap">${dateStr}</td>
     <td style="text-align:left;padding:4px 8px;color:var(--text2);font-size:11px">${_bt2EscXml(m.league || '')}</td>
@@ -7387,7 +7399,7 @@ function _painelForcaFsRow(m) {
     <td style="font-weight:700">${scoreOk ? `${parts[0]}-${parts[1]}` : '-'}</td>
     <td class="team">${_bt2EscXml(m.away)}</td>
     <td style="font-size:10px;color:var(--text2)">${ht ? `${_bt2EscXml(ht.home)}-${_bt2EscXml(ht.away)}` : '-'}</td>
-    <td style="font-weight:700;color:${corRes}">${_bt2EscXml(m.result || '')}</td>
+    <td style="font-weight:700;color:${corRes}" title="Relativo a ${_bt2EscXml(_painelForcaHome)}">${_bt2EscXml(resultado || '')}</td>
   </tr>`;
 }
 
