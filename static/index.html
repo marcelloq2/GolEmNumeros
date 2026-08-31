@@ -7516,6 +7516,76 @@ function _painelForcaH2hScoredRatio(teamName, limit) {
   return total ? { scored, total } : null;
 }
 
+// Placar exato — não ocorreu — % dos jogos (no recorte) em que o placar NÃO
+// foi um dos 19 buckets fixos (16 placares + 3 "qualquer outro"), reaproveitando
+// a mesma classificação (_placarExatoBucketKey/PLACAR_EXATO_BUCKETS_ORDER, mais
+// abaixo no arquivo) já usada no Placar Exato do Backtest e na exportação
+// "Baixar leitura". Os gols entram sempre como (própriosDoTime, doAdversário) —
+// igual ao resto da aba Prognóstico — então "Placar 2-1" aqui significa "esse
+// time fez 2 e sofreu 1", não literalmente "o mandante real fez 2".
+function _painelForcaOwnPlacarNotOccurredRatio(rows, bucketLabel) {
+  let notOccurred = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    if (_placarExatoBucketKey(parts[0], parts[1]) !== bucketLabel) notOccurred++;
+  });
+  return total ? { scored: notOccurred, total } : null;
+}
+
+function _painelForcaH2hPlacarNotOccurredRatio(teamName, bucketLabel, limit) {
+  let rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  if (limit) rows = rows.slice(0, limit);
+  let notOccurred = 0, total = 0;
+  rows.forEach(m => {
+    const parts = String(m.score || '').split(':').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    const teamGoals = isHomeRow ? parts[0] : parts[1];
+    const oppGoals = isHomeRow ? parts[1] : parts[0];
+    if (_placarExatoBucketKey(teamGoals, oppGoals) !== bucketLabel) notOccurred++;
+  });
+  return total ? { scored: notOccurred, total } : null;
+}
+
+function _painelForcaPrognosticoPlacarSection(bucketLabel, ownHomeRows, ownAwayRows) {
+  const isScore = /^\d+-\d+$/.test(bucketLabel);
+  const label = `${isScore ? 'Placar ' : ''}${bucketLabel} — não ocorreu`;
+  const h2hHomeR = _painelForcaH2hPlacarNotOccurredRatio(_painelForcaHome, bucketLabel);
+  const h2hAwayR = _painelForcaH2hPlacarNotOccurredRatio(_painelForcaAway, bucketLabel);
+  const h2hHomeR4 = _painelForcaH2hPlacarNotOccurredRatio(_painelForcaHome, bucketLabel, 4);
+  const h2hAwayR4 = _painelForcaH2hPlacarNotOccurredRatio(_painelForcaAway, bucketLabel, 4);
+  const lastHomeR = _painelForcaOwnPlacarNotOccurredRatio(ownHomeRows, bucketLabel);
+  const lastAwayR = _painelForcaOwnPlacarNotOccurredRatio(ownAwayRows, bucketLabel);
+  const lastHomeR4 = _painelForcaOwnPlacarNotOccurredRatio(ownHomeRows.slice(0, 4), bucketLabel);
+  const lastAwayR4 = _painelForcaOwnPlacarNotOccurredRatio(ownAwayRows.slice(0, 4), bucketLabel);
+  return `
+    <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(label)} — Confronto Direto</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(label)} — Pontuações Anteriores</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>`;
+}
+
 // Mercados extras (Over/Under, Ambas Marcam, Vence/Empate 1T) — mesmo padrão
 // Confronto Direto/Pontuações Anteriores × Todos/Últimos 4 do resto da aba.
 // period 'ht' depende do placar do intervalo (_painelForcaHtById), igual a
@@ -7925,7 +7995,8 @@ function _painelForcaPrognosticoRender() {
       ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV4)}
       ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV4)}
     </div>
-    ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}`;
+    ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}
+    ${PLACAR_EXATO_BUCKETS_ORDER.map(b => _painelForcaPrognosticoPlacarSection(b, ownHomeRows, ownAwayRows)).join('')}`;
   _painelForcaEnsureHt([
     ..._painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos').slice(0, 15),
     ...ownHomeRows.slice(0, 15), ...ownAwayRows.slice(0, 15),
