@@ -1914,8 +1914,7 @@
         <button class="painel-modal-close" onclick="_painelCloseForca()">✕</button>
       </div>
       <div class="painel-modal-tabs">
-        <button class="painel-modal-tab active" id="painelForcaViewTab_main" onclick="_painelForcaSetView('main', this)">Comparação de força</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
+        <button class="painel-modal-tab active" id="painelForcaViewTab_h2h" onclick="_painelForcaSetView('h2h', this)">Estatísticas de Confronto Direto</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_last" onclick="_painelForcaSetView('last', this)">Estatísticas de Pontuações Anteriores</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_standings" onclick="_painelOpenForcaHojeTab('standings')"
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
@@ -6176,12 +6175,10 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
 // Playwright e repassa como veio, sem reprocessar nada aqui.
 let _painelForcaData = null;
 let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
-let _painelForcaTab = 'battle';
-let _painelForcaView = 'main';
+let _painelForcaView = 'h2h';
 
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
-  main: 'painelForcaViewMain', h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
-  sameodds: 'painelForcaViewSameOdds', cenarios: 'painelForcaViewCenarios',
+  h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
   cd: 'painelForcaViewCD',
   leitura: 'painelForcaViewLeitura',
@@ -6197,28 +6194,77 @@ function _painelForcaSetView(view, btn) {
   });
 }
 
+// Acha a aba/seção certa no retorno de /api/flashscore/h2h (ver _fs_h2h no
+// backend) — "Total" tem as 2 seções "Últimos jogos: <time>" (cada time,
+// misturando casa/fora) + "Confrontos diretos"; "<Time> - Casa"/"<Time> -
+// Fora" têm só a seção do time daquele lado específico (por isso não precisa
+// casar pelo nome ali, só existe 1 candidata).
+function _painelForcaFsTab(label) {
+  return (_painelForcaData && _painelForcaData.tabs || []).find(t => t.label === label);
+}
+function _painelForcaFsSectionRows(tab, titlePrefix) {
+  if (!tab) return [];
+  const sec = (tab.sections || []).find(s => (s.title || '').startsWith(titlePrefix));
+  return sec ? sec.rows : [];
+}
+
+let _painelForcaHtById = {};
+
 function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts, resultado) {
-  _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaTab = 'battle'; _painelForcaData = null; _painelForcaView = 'main';
-  _painelForcaLastSide = 'home';
+  _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaData = null; _painelForcaView = 'h2h';
+  _painelForcaHtById = {};
   _painelForcaTableState = {
     h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
     home: { count: 10, ht: false, onlySide: false, sameLeague: false },
     away: { count: 10, ht: false, onlySide: false, sameLeague: false },
   };
-  _painelForcaGoalStatTab = 'num';
-  _painelForcaOddsStatHT = false; _painelForcaOddsStatHA = false;
-  _painelForcaGoalStatHA = false; _painelForcaHFStatHA = false;
   document.getElementById('painelForcaOverlay').style.display = 'flex';
   document.querySelectorAll('#painelForcaOverlay .painel-modal-tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   const body = document.getElementById('painelForcaBody');
   body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  fetch('/api/painel/ng_strength?match_id=' + encodeURIComponent(eventId))
+  fetch(`/api/flashscore/h2h?casa=${encodeURIComponent(home)}&fora=${encodeURIComponent(away)}`)
     .then(r => r.json())
-    .then(d => {
-      if (d.error) { body.innerHTML = `<div class="live-loading">${d.error}</div>`; return; }
+    .then(async d => {
+      if (!d.found) {
+        body.innerHTML = `<div class="live-loading">Não achei "${home} x ${away}" no Flashscore — sem histórico disponível pra essa partida.</div>`;
+        return;
+      }
       _painelForcaData = d;
-      _painelForcaRender();
-      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, _painelForcaData, resultado);
+
+      // Placar do intervalo dos jogos do histórico que vamos mostrar — o h2h
+      // só traz o placar final (score), então busca à parte (em lote, até 15
+      // ids de uma vez — mesmo limite da rota) só pros jogos que a Leitura/
+      // Pontuações Anteriores realmente vão exibir, não o histórico inteiro.
+      const totalTab = _painelForcaFsTab('Total');
+      const casaTab = (d.tabs || []).find(t => (t.label || '').endsWith(' - Casa'));
+      const foraTab = (d.tabs || []).find(t => (t.label || '').endsWith(' - Fora'));
+      const idsParaHt = [...new Set([
+        ..._painelForcaFsSectionRows(casaTab, 'Últimos jogos').slice(0, 5).map(r => r.id),
+        ..._painelForcaFsSectionRows(foraTab, 'Últimos jogos').slice(0, 5).map(r => r.id),
+        ..._painelForcaFsSectionRows(totalTab, 'Confrontos diretos').slice(0, 5).map(r => r.id),
+      ])].filter(Boolean).slice(0, 15);
+
+      if (idsParaHt.length) {
+        try {
+          const rht = await fetch(`/api/flashscore/half_time_batch?ids=${idsParaHt.join(',')}`);
+          const dht = await rht.json();
+          _painelForcaHtById = dht.results || {};
+        } catch (e) {
+          console.warn('[painel-forca] falha buscando placar do intervalo do histórico:', e);
+        }
+      }
+
+      try {
+        _painelForcaRender();
+      } catch (e) {
+        console.error('[painel-forca] erro no render:', e);
+        body.innerHTML = `<div class="live-loading">Erro renderizando: ${e}</div>`;
+        return;
+      }
+      // "forca" (Comparação de força) não existe mais desde a migração pro
+      // Flashscore — passa null, _painelExportAutoSave já trata isso como
+      // "sem dado de força" (comparacao_forca fica null no export).
+      if (status) _painelExportAutoSave(eventId, home, away, league, oddHome, oddAway, status, ts, null, resultado);
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
 }
@@ -6683,54 +6729,27 @@ function _painelForcaRender() {
   const d = _painelForcaData;
   const body = document.getElementById('painelForcaBody');
   if (!d) { body.innerHTML = `<div class="live-loading">Sem dados.</div>`; return; }
-  const grades = _painelForcaOverallGrades(d);
-  const diff = grades.home - grades.away;
-  const diffHtml = diff === 0
-    ? `<div class="painel-forca-diff">Empate técnico — força bem parecida entre os 2 times</div>`
-    : `<div class="painel-forca-diff">Diferença de <strong style="color:${diff > 0 ? '#e8622c' : '#2c7fe8'}">${Math.abs(diff)}</strong> pontos — <strong style="color:${diff > 0 ? '#e8622c' : '#2c7fe8'}">${diff > 0 ? _painelForcaHome : _painelForcaAway}</strong> na frente</div>`;
   body.innerHTML = `
-    <div id="painelForcaViewMain">
-      <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
-      <div class="painel-forca-radar-wrap">
-        <span class="painel-forca-grade home">${grades.home}</span>
-        ${_painelForcaRadarSvg(d, grades.homeVals, grades.awayVals)}
-        <span class="painel-forca-grade away">${grades.away}</span>
-      </div>
-      ${diffHtml}
-      <div class="painel-forca-tabs">
-        ${PAINEL_FORCA_TABS.map(t => `<button class="painel-forca-tab${_painelForcaTab === t.key ? ' active' : ''}" onclick="_painelForcaSetTab('${t.key}')">${t.label}</button>`).join('')}
-      </div>
-      <div>${_painelForcaRenderTab(d)}</div>
-      <div class="painel-forca-note">* Dados calculados a partir do histórico recente de cada time — só como referência.</div>
-    </div>
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
-    <div id="painelForcaViewSameOdds" style="display:none"></div>
-    <div id="painelForcaViewCenarios" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
     <div id="painelForcaViewHojePower" style="display:none"></div>
     <div id="painelForcaViewCD" style="display:none"></div>
     <div id="painelForcaViewLeitura" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
-  _painelForcaSameOddsRender();
-  _painelForcaCenariosRender();
   _painelForcaLeituraRender();
 
-  // O innerHTML acima recria os containers do zero, sempre com "Comparação de
-  // força" visível por padrão — se o usuário já tinha clicado noutra aba
-  // ENQUANTO os dados (NowGoal) ainda estavam carregando, aquele clique virava
-  // só o botão "ativo" (os containers nem existiam ainda), e esse rebuild
-  // silenciosamente voltava a mostrar a força de novo, mesmo com o botão
-  // errado marcado como ativo. Reaplica a aba que estava selecionada.
-  if (_painelForcaView && _painelForcaView !== 'main') {
-    _painelForcaSetView(_painelForcaView);
-    const hojeEntry = Object.entries(_PAINEL_HOJE_TAB_INFO).find(([, info]) => info.view === _painelForcaView);
-    if (hojeEntry) {
-      const [tabKey, info] = hojeEntry;
-      const container = document.getElementById(info.containerId);
-      if (container && !container.dataset.loadedFor) _painelOpenForcaHojeTab(tabKey);
-    }
+  // O innerHTML acima recria TODOS os containers do zero com "display:none"
+  // — precisa sempre chamar _painelForcaSetView pra mostrar o certo (a aba
+  // corrente, que por padrão é 'h2h', ou outra se o usuário já tinha clicado
+  // noutra aba ENQUANTO os dados ainda estavam carregando).
+  _painelForcaSetView(_painelForcaView);
+  const hojeEntry = Object.entries(_PAINEL_HOJE_TAB_INFO).find(([, info]) => info.view === _painelForcaView);
+  if (hojeEntry) {
+    const [tabKey, info] = hojeEntry;
+    const container = document.getElementById(info.containerId);
+    if (container && !container.dataset.loadedFor) _painelOpenForcaHojeTab(tabKey);
   }
 }
 
@@ -7337,28 +7356,77 @@ function _painelForcaCenariosRender() {
     </div>`;
 }
 
+// Linha de tabela pro histórico do Flashscore — bem mais simples que a versão
+// NowGoal (_painelForcaTableRow): sem odds/handicap/O-U (o h2h do Flashscore
+// não traz isso por jogo histórico), só data/liga/placar/resultado + HT
+// quando já foi buscado (_painelForcaHtById, ver _painelOpenForca).
+function _painelForcaFsRow(m) {
+  const parts = String(m.score || '').split(':').map(Number);
+  const scoreOk = parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]);
+  const ht = _painelForcaHtById[m.id];
+  const dt = m.date ? new Date(parseInt(m.date, 10) * 1000) : null;
+  const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('pt-BR') : '-';
+  const corRes = m.result === 'V' ? '#22c55e' : m.result === 'D' ? '#ef4444' : 'var(--text2)';
+  return `<tr>
+    <td style="text-align:left;padding:4px 8px;white-space:nowrap">${dateStr}</td>
+    <td style="text-align:left;padding:4px 8px;color:var(--text2);font-size:11px">${_bt2EscXml(m.league || '')}</td>
+    <td class="team">${_bt2EscXml(m.home)}</td>
+    <td style="font-weight:700">${scoreOk ? `${parts[0]}-${parts[1]}` : '-'}</td>
+    <td class="team">${_bt2EscXml(m.away)}</td>
+    <td style="font-size:10px;color:var(--text2)">${ht ? `${_bt2EscXml(ht.home)}-${_bt2EscXml(ht.away)}` : '-'}</td>
+    <td style="font-weight:700;color:${corRes}">${_bt2EscXml(m.result || '')}</td>
+  </tr>`;
+}
+
+function _painelForcaFsTableBlock(rows, key) {
+  if (!rows || !rows.length) {
+    return `<div class="live-loading">Sem histórico encontrado.</div>`;
+  }
+  const st = _painelForcaTableState[key];
+  const shown = rows.slice(0, st.count);
+  return `
+    <div class="painel-forca-h2h-controls">
+      <select onchange="_painelForcaTableSetCount('${key}', this.value)">
+        <option value="4" ${st.count === 4 ? 'selected' : ''}>Últimos 4</option>
+        <option value="10" ${st.count === 10 ? 'selected' : ''}>Últimos 10</option>
+        <option value="all" ${st.count >= 9999 ? 'selected' : ''}>Todos</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse">
+        <thead><tr style="color:var(--text2)">
+          <th style="text-align:left;padding:4px 8px">Data</th>
+          <th style="text-align:left;padding:4px 8px">Liga</th>
+          <th>Casa</th><th>Placar</th><th>Fora</th><th title="Placar do intervalo">HT</th><th>Result.</th>
+        </tr></thead>
+        <tbody>${shown.map(_painelForcaFsRow).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
 function _painelForcaH2HRender() {
   const el = document.getElementById('painelForcaViewH2H');
   if (!el) return;
-  const h2h = _painelForcaData ? _painelForcaData.h2h_table : null;
+  const rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
-    ${_painelForcaBuildTableBlock(h2h, 'h2h')}`;
+    ${_painelForcaFsTableBlock(rows, 'h2h')}`;
 }
 
 function _painelForcaLastRender() {
   const el = document.getElementById('painelForcaViewLast');
   if (!el) return;
-  const home = _painelForcaData ? _painelForcaData.last_results_home : null;
-  const away = _painelForcaData ? _painelForcaData.last_results_away : null;
   const side = _painelForcaLastSide;
-  const tbl = side === 'home' ? home : away;
+  const tab = side === 'home'
+    ? (_painelForcaData.tabs || []).find(t => (t.label || '').endsWith(' - Casa'))
+    : (_painelForcaData.tabs || []).find(t => (t.label || '').endsWith(' - Fora'));
+  const rows = _painelForcaFsSectionRows(tab, 'Últimos jogos');
   el.innerHTML = `
     <div class="painel-forca-tabs">
       <button class="painel-forca-tab${side === 'home' ? ' active' : ''}" onclick="_painelForcaLastSetSide('home')">${_painelForcaHome}</button>
       <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
     </div>
-    ${_painelForcaBuildTableBlock(tbl, side)}`;
+    ${_painelForcaFsTableBlock(rows, side)}`;
 }
 
 // ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
@@ -7400,13 +7468,39 @@ function _painelForcaNormalizeRow(m, teamName) {
   };
 }
 
+// Converte linha crua do Flashscore ({home, away, score: "H:A", id}) pro
+// formato que o resto da Leitura já espera (score_ft "H-A", score_ht quando
+// já buscado em _painelOpenForca via _painelForcaHtById).
+function _painelForcaFsRowsToLeitura(rows) {
+  return rows.map(r => {
+    const ht = _painelForcaHtById[r.id];
+    return {
+      home: r.home, away: r.away,
+      score_ft: (r.score || '').replace(':', '-'),
+      score_ht: ht ? `${ht.home}-${ht.away}` : null,
+    };
+  });
+}
+
 function _painelForcaOwnSideRows(key) {
   const cfg = _painelForcaSideConfig(key);
-  const tbl = key === 'away' ? (_painelForcaData && _painelForcaData.last_results_away) : (_painelForcaData && _painelForcaData.last_results_home);
-  if (!tbl || !tbl.rows || !tbl.rows.length) return [];
+  if (!_painelForcaData || !_painelForcaData.tabs) return [];
+  let rawRows;
+  if (_painelLeituraModo === 'geral') {
+    // Aba "Total" tem 2 seções "Últimos jogos: <time>" (mandante e
+    // visitante) — só aqui precisa casar pelo nome, já que as duas existem
+    // juntas nessa aba.
+    const totalTab = _painelForcaFsTab('Total');
+    const sec = (totalTab && totalTab.sections || []).find(s => (s.title || '').includes(cfg.teamName));
+    rawRows = sec ? sec.rows : [];
+  } else {
+    const suffix = key === 'away' ? ' - Fora' : ' - Casa';
+    const tab = (_painelForcaData.tabs || []).find(t => (t.label || '').endsWith(suffix));
+    rawRows = _painelForcaFsSectionRows(tab, 'Últimos jogos');
+  }
   const st = _painelForcaTableState[key];
-  const rows = _painelLeituraModo === 'geral' ? tbl.rows : tbl.rows.filter(m => m[cfg.field] === cfg.teamName);
-  return rows.slice(0, st.count).map(m => _painelForcaNormalizeRow(m, cfg.teamName));
+  const rows = _painelForcaFsRowsToLeitura(rawRows).slice(0, st.count);
+  return rows.map(m => _painelForcaNormalizeRow(m, cfg.teamName));
 }
 
 function _painelForcaScoredRatio(key, period) {
@@ -7776,10 +7870,12 @@ function _painelForcaLeituraRender() {
     </div>
     ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
     ${_PAINEL_LEITURA_VIRADA.map(_painelForcaLeituraViradaBlockHtml).join('')}
-    ${_painelForcaLeituraHandicapBlockHtml()}
     ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
-    ${_PAINEL_LEITURA_CORNER_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(_painelForcaLeituraPlacarBlockHtml).join('')}`;
+  // Handicap Asiático por linha (_painelForcaLeituraHandicapBlockHtml) e os
+  // mercados de escanteio (_PAINEL_LEITURA_CORNER_MARKETS) saíram daqui —
+  // dependiam de dados (ah_line/ah_badge, corner_ft/corner_ht) que só o
+  // NowGoal tinha; o Flashscore não expõe equivalente (migração 2026-08-30).
 }
 
 
