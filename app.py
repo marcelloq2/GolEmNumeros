@@ -4093,8 +4093,19 @@ threading.Thread(
 # Backup de Força — estava totalmente pronto desde a sessão em que foi desenhado,
 # mas os threads nunca tinham sido iniciados (ficou parado, pasta forca_history/
 # vazia). Ativado agora a pedido do usuário, pra alimentar odds pré-jogo no Replay.
-threading.Thread(target=_forca_backup_worker, daemon=True, name="ForcaBackupWorker").start()
-threading.Thread(target=_forca_backup_scan_loop, daemon=True, name="ForcaBackupScan").start()
+# DESATIVADO DE EMERGÊNCIA (2026-08-30, logo após a migração pro Flashscore):
+# o event_id do Flashscore é uma string diferente do NowGoal, então TODO
+# jogo já encerrado passou a parecer "novo" pra esse backup — o scan
+# enfileirou 785 jogos de uma vez (mesmo dia). Cada item aqui é leve
+# sozinho (só grava arquivo + agenda 1 push em background pro GitHub), mas
+# 785 pushes bg em sequência rápida pareceu coincidir com o site
+# respondendo devagar/dando timeout em produção logo depois do deploy — Ao
+# Vivo é a prioridade (ver memória), então desliguei até confirmar a causa
+# raiz com calma e, se for isso mesmo, adicionar um corte por data (só
+# faz backup de jogo ENCERRADO A PARTIR de quando o Flashscore virou fonte)
+# antes de reativar.
+# threading.Thread(target=_forca_backup_worker, daemon=True, name="ForcaBackupWorker").start()
+# threading.Thread(target=_forca_backup_scan_loop, daemon=True, name="ForcaBackupScan").start()
 # PainelOddsPrewarm começa mais abaixo no arquivo (ver _painel_odds_prewarm_loop) —
 # precisa que _today2_odds_snapshot/_TODAY2_ODDS_SNAPSHOT_TTL já estejam
 # definidos nesse ponto da carga do módulo (senão dá NameError na hora que a
