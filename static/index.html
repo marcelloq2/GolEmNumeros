@@ -7927,11 +7927,13 @@ function _painelForcaPrognosticoStreakCardPair(h2hHomeS, h2hAwayS, h2hHomeS4, h2
   return _painelForcaPrognosticoCardShell(rows);
 }
 
-function _painelForcaPrognosticoRender() {
-  const el = document.getElementById('painelForcaViewPrognostico');
-  if (!el) return;
-  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
-  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+// Faz TODOS os cálculos da aba Prognóstico e devolve num objeto — extraído de
+// dentro de _painelForcaPrognosticoRender (2026-08-31) pra ser reaproveitado
+// também pela exportação "Baixar leitura" (_painelBuildPrognosticoExport),
+// sem duplicar a lógica em 2 lugares. Assume que _painelForcaData/_painelForcaHome/
+// _painelForcaAway/_painelForcaHtById/_painelForcaGoalMinById já estão setados
+// (pelo fluxo normal do modal, ou temporariamente pela exportação em lote).
+function _painelForcaPrognosticoComputeAll() {
   const h2hHomeR = _painelForcaH2hScoredRatio(_painelForcaHome);
   const h2hAwayR = _painelForcaH2hScoredRatio(_painelForcaAway);
   const h2hHomeR4 = _painelForcaH2hScoredRatio(_painelForcaHome, 4);
@@ -8012,6 +8014,37 @@ function _painelForcaPrognosticoRender() {
   const lastAwayConc = _painelForcaOwnFirstConcederRatio(ownAwayRows, 'away');
   const lastHomeConc4 = _painelForcaOwnFirstConcederRatio(ownHomeRows.slice(0, 4), 'home');
   const lastAwayConc4 = _painelForcaOwnFirstConcederRatio(ownAwayRows.slice(0, 4), 'away');
+  return {
+    ownHomeRows, ownAwayRows,
+    h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4, lastHomeR, lastAwayR, lastHomeR4, lastAwayR4,
+    h2hHomeStreak, h2hAwayStreak, h2hHomeStreak4, h2hAwayStreak4, lastHomeStreak, lastAwayStreak, lastHomeStreak4, lastAwayStreak4,
+    h2hHomeCs, h2hAwayCs, h2hHomeCs4, h2hAwayCs4, lastHomeCs, lastAwayCs, lastHomeCs4, lastAwayCs4,
+    h2hHomeWin, h2hAwayWin, h2hHomeWin4, h2hAwayWin4, lastHomeWin, lastAwayWin, lastHomeWin4, lastAwayWin4,
+    h2hHomeUnb, h2hAwayUnb, h2hHomeUnb4, h2hAwayUnb4, lastHomeUnb, lastAwayUnb, lastHomeUnb4, lastAwayUnb4,
+    h2hHomeFezV, h2hAwayFezV, h2hHomeFezV4, h2hAwayFezV4, lastHomeFezV, lastAwayFezV, lastHomeFezV4, lastAwayFezV4,
+    h2hHomeSofV, h2hAwaySofV, h2hHomeSofV4, h2hAwaySofV4, lastHomeSofV, lastAwaySofV, lastHomeSofV4, lastAwaySofV4,
+    h2hHomeFirst, h2hAwayFirst, h2hHomeFirst4, h2hAwayFirst4, lastHomeFirst, lastAwayFirst, lastHomeFirst4, lastAwayFirst4,
+    h2hHomeConc, h2hAwayConc, h2hHomeConc4, h2hAwayConc4, lastHomeConc, lastAwayConc, lastHomeConc4, lastAwayConc4,
+  };
+}
+
+function _painelForcaPrognosticoRender() {
+  const el = document.getElementById('painelForcaViewPrognostico');
+  if (!el) return;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+  const {
+    ownHomeRows, ownAwayRows,
+    h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4, lastHomeR, lastAwayR, lastHomeR4, lastAwayR4,
+    h2hHomeStreak, h2hAwayStreak, h2hHomeStreak4, h2hAwayStreak4, lastHomeStreak, lastAwayStreak, lastHomeStreak4, lastAwayStreak4,
+    h2hHomeCs, h2hAwayCs, h2hHomeCs4, h2hAwayCs4, lastHomeCs, lastAwayCs, lastHomeCs4, lastAwayCs4,
+    h2hHomeWin, h2hAwayWin, h2hHomeWin4, h2hAwayWin4, lastHomeWin, lastAwayWin, lastHomeWin4, lastAwayWin4,
+    h2hHomeUnb, h2hAwayUnb, h2hHomeUnb4, h2hAwayUnb4, lastHomeUnb, lastAwayUnb, lastHomeUnb4, lastAwayUnb4,
+    h2hHomeFezV, h2hAwayFezV, h2hHomeFezV4, h2hAwayFezV4, lastHomeFezV, lastAwayFezV, lastHomeFezV4, lastAwayFezV4,
+    h2hHomeSofV, h2hAwaySofV, h2hHomeSofV4, h2hAwaySofV4, lastHomeSofV, lastAwaySofV, lastHomeSofV4, lastAwaySofV4,
+    h2hHomeFirst, h2hAwayFirst, h2hHomeFirst4, h2hAwayFirst4, lastHomeFirst, lastAwayFirst, lastHomeFirst4, lastAwayFirst4,
+    h2hHomeConc, h2hAwayConc, h2hHomeConc4, h2hAwayConc4, lastHomeConc, lastAwayConc, lastHomeConc4, lastAwayConc4,
+  } = _painelForcaPrognosticoComputeAll();
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol</div>
