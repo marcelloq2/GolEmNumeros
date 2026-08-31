@@ -1707,6 +1707,10 @@
     <div class="painel-search-bar">
       <input type="text" id="painelSearchInput" class="painel-search-input" placeholder="🔍 Buscar time ou campeonato..."
         oninput="_painelSetSearch(this.value)">
+      <select id="painelDateSelect" class="painel-search-select" onchange="_painelSetDate(this.value)" title="Dia dos jogos mostrados no Painel">
+        <option value="">📅 Hoje</option>
+        <option value="ontem">📅 Ontem</option>
+      </select>
       <select id="painelLeagueFilterSelect" class="painel-search-select" onchange="_painelSetLeagueFilter(this.value)">
         <option value="">🏆 Todas as ligas</option>
       </select>
@@ -8903,8 +8907,26 @@ function _painelRenderFlatByTime(leaguesFiltered) {
     </div>`;
 }
 
+// Seletor de dia do Painel (pedido do usuário, 2026-08-31: "e possivel colocar
+// no painel aba jogos de ontem alem da de hoje"). '' = hoje (padrão, com
+// auto-refresh de 60s normal); qualquer outro dia já está encerrado, então
+// não faz sentido continuar atualizando sozinho de novo — só busca 1 vez.
+let _painelDateParam = '';
+function _painelYesterdayStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+function _painelSetDate(value) {
+  _painelDateParam = value === 'ontem' ? _painelYesterdayStr() : '';
+  loadPainelMatches();
+  clearInterval(_painelAutoRefresh);
+  if (!_painelDateParam) _painelAutoRefresh = setInterval(loadPainelMatches, 60000);
+}
+
 function loadPainelMatches() {
-  fetch('/api/painel/matches')
+  const qs = _painelDateParam ? `?date=${_painelDateParam}` : '';
+  fetch(`/api/painel/matches${qs}`)
     .then(r => r.json())
     .then(_painelRender)
     .catch(err => {

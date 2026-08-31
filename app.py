@@ -1976,8 +1976,12 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     quem consome isso (linha do Painel, filtro de odds, exports, Ao Vivo,
     Sinalizador, Jogos do Dia) não precisa mudar nada.
 
-    Only serve "hoje" por enquanto — mesma limitação que a versão NowGoal já
-    tinha (_fs_all_matches também não tem parâmetro de data)."""
+    date_str (opcional, "YYYY-MM-DD"): dia diferente de hoje — ex: usado pelo
+    seletor "Ontem" do Painel Principal (pedido do usuário, 2026-08-31).
+    Convertido pra um deslocamento de dias em cima de _fs_all_matches
+    (day_offset). HT/odds/Power Ranking (caches quentes só de hoje) ficam
+    vazios pra qualquer outro dia — aceitável, já que odds/ícone de forma não
+    fazem sentido pra um jogo já encerrado há mais de um dia."""
     now = time.time()
     cache_key = date_str or "today"
     with _painel_lock:
@@ -1985,11 +1989,18 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
         if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
             return cached["data"]
 
+    day_offset = 0
+    if date_str:
+        try:
+            day_offset = (datetime.strptime(date_str, "%Y-%m-%d").date() - datetime.now().date()).days
+        except ValueError:
+            day_offset = 0
+
     # Mesma lição do NowGoal: toda busca de rede roda FORA do lock (ver
     # comentário grande na versão antiga acima) — travar aqui travaria as 4
     # threads do gunicorn inteiras atrás desse lock.
     try:
-        fs_matches = _fs_all_matches()
+        fs_matches = _fs_all_matches(day_offset)
     except Exception as e:
         with _painel_lock:
             cached = _painel_cache.get(cache_key)
@@ -8493,19 +8504,25 @@ def _fs_kv(block):
             d[k] = v
     return d
 
-_fs_live_cache = {"ts": 0, "data": []}
+_fs_live_cache = {}  # { day_offset: {"ts":, "data":} }
 
-def _fs_all_matches():
+def _fs_all_matches(day_offset=0):
     """Lista de TODAS as partidas do dia no feed (agendadas + ao vivo + encerradas),
     com liga/país (o feed lista um bloco "ZA" (liga) seguido dos jogos "AA" daquela
-    liga, em ordem — então vamos guardando a liga atual enquanto percorremos)."""
-    global _fs_live_cache
-    if time.time() - _fs_live_cache["ts"] < 30 and _fs_live_cache["data"]:
-        return _fs_live_cache["data"]
+    liga, em ordem — então vamos guardando a liga atual enquanto percorremos).
+
+    day_offset: 0 = hoje (padrão, usado por tudo que já existia), -1 = ontem,
+    +1 = amanhã etc. Descoberto testando ao vivo (2026-08-31): o path
+    "f_1_{X}_{X}_pt-br_1" filtra pelo dia X dias a partir de hoje — sem isso,
+    o Painel só conseguia mostrar "hoje" (usado pra atender pedido do usuário
+    de ver os jogos de ontem)."""
+    cache_entry = _fs_live_cache.get(day_offset, {"ts": 0, "data": []})
+    if time.time() - cache_entry["ts"] < 30 and cache_entry["data"]:
+        return cache_entry["data"]
     try:
-        text = _fs_get("f_1_0_-3_pt-br_1")
+        text = _fs_get(f"f_1_{day_offset}_{day_offset}_pt-br_1")
     except Exception:
-        return _fs_live_cache["data"]
+        return cache_entry["data"]
     matches = []
     liga_atual, pais_atual = "", ""
     for block in _fs_blocks(text):
@@ -8537,15 +8554,15 @@ def _fs_all_matches():
             "escudo_casa": escudo_casa,
             "escudo_fora": escudo_fora,
         })
-    _fs_live_cache = {"ts": time.time(), "data": matches}
+    _fs_live_cache[day_offset] = {"ts": time.time(), "data": matches}
     return matches
 
-# Mantém o nome antigo funcionando (usado pelo _fs_find_match) — mesmo dado, só outro nome
-def _fs_live_matches():
-    return _fs_all_matches()
-
 def _fs_find_match(casa, fora):
-    """Acha o jogo no feed pelo nome dos times (fuzzy, mesma técnica do _uni_find)."""
+    """Acha o jogo no feed pelo nome dos times (fuzzy, mesma técnica do _uni_find).
+    Tenta hoje primeiro e cai pra ontem se não achar — sem isso, abrir "Análise
+    da partida"/H2H de um jogo do seletor "Ontem" do Painel Principal sempre
+    dava "não achei" (o feed de hoje, _fs_all_matches(0), não tem esses jogos;
+    achado testando o seletor de dia pedido pelo usuário, 2026-08-31)."""
     import unicodedata
 
     def norm(s):
@@ -8562,24 +8579,26 @@ def _fs_find_match(casa, fora):
         return s
 
     nc, nf = norm(casa), norm(fora)
-    best, best_score = None, 0
-    for m in _fs_live_matches():
-        h, a = norm(m["home"]), norm(m["away"])
-        # Testa nos dois sentidos (casa/fora direto E invertido) — o mesmo jogo
-        # às vezes vem com mandante/visitante trocado entre a fonte do Ao Vivo
-        # (NowGoal) e a do Flashscore (usada só aqui pra tabela/H2H), então uma
-        # comparação só na ordem "direta" perdia esses jogos.
-        sc_direto = side_score(nc, h) and side_score(nf, a) and (side_score(nc, h) + side_score(nf, a))
-        sc_invertido = side_score(nc, a) and side_score(nf, h) and (side_score(nc, a) + side_score(nf, h))
-        score = max(sc_direto or 0, sc_invertido or 0)
-        if score == 0:
-            continue
-        if score > best_score:
-            best_score = score
-            best = m
-    if best_score < 4:
-        return None
-    return best
+
+    def _search(pool):
+        best, best_score = None, 0
+        for m in pool:
+            h, a = norm(m["home"]), norm(m["away"])
+            # Testa nos dois sentidos (casa/fora direto E invertido) — o mesmo jogo
+            # às vezes vem com mandante/visitante trocado entre a fonte do Ao Vivo
+            # (NowGoal) e a do Flashscore (usada só aqui pra tabela/H2H), então uma
+            # comparação só na ordem "direta" perdia esses jogos.
+            sc_direto = side_score(nc, h) and side_score(nf, a) and (side_score(nc, h) + side_score(nf, a))
+            sc_invertido = side_score(nc, a) and side_score(nf, h) and (side_score(nc, a) + side_score(nf, h))
+            score = max(sc_direto or 0, sc_invertido or 0)
+            if score == 0:
+                continue
+            if score > best_score:
+                best_score = score
+                best = m
+        return best if best_score >= 4 else None
+
+    return _search(_fs_all_matches(0)) or _search(_fs_all_matches(-1))
 
 def _fs_match_stats(event_id):
     """Estatísticas da partida (posse, chutes, xG, etc.), agrupadas por seção."""
