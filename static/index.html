@@ -1917,7 +1917,6 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
-        <button class="painel-modal-tab" id="painelForcaViewTab_leitura" onclick="_painelForcaSetView('leitura', this)">📝 Leitura</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -6149,7 +6148,6 @@ let _painelForcaView = 'h2h';
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
-  leitura: 'painelForcaViewLeitura',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -6690,11 +6688,9 @@ function _painelForcaRender() {
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>
-    <div id="painelForcaViewLeitura" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
-  _painelForcaLeituraRender();
 
   // O innerHTML acima recria TODOS os containers do zero com "display:none"
   // — precisa sempre chamar _painelForcaSetView pra mostrar o certo (a aba
@@ -7496,7 +7492,7 @@ function _painelForcaScoredRatio(key, period) {
 // bater (ou que não tenha placar). Fica limitada pelo mesmo "Últimos N"
 // configurado pra esse time — se a sequência inteira da amostra bateu a
 // condição, pode ser mais longa de verdade, só não dá pra saber sem olhar mais
-// jogos (ver o "+" no _painelForcaLeituraStreakRow).
+// jogos (a exportação "Baixar leitura" marca isso com um "+" no rótulo).
 function _painelForcaCurrentStreak(key, testFn) {
   const rows = _painelForcaOwnSideRows(key);
   if (!rows.length) return null;
@@ -7519,49 +7515,6 @@ const _PAINEL_LEITURA_STREAKS = [
   { label: 'Vencendo',            icon: _icoTrophy(), test: (t, o) => t > o },
   { label: 'Sem perder (invicto)', icon: '💪', test: (t, o) => t >= o },
 ];
-
-// Mesmo estilo de barra dupla divergente do _painelForcaLeituraRow, escalando
-// a barra por streak/sample (quanto da amostra recente a sequência cobre).
-// Cor volta a ser a semântica original (verde/amarelo/vermelho conforme o
-// tamanho da sequência), igual _painelForcaLeituraRow.
-function _painelForcaLeituraStreakRow(homeR, awayR) {
-  const corStreak = s => s >= 3 ? '#22c55e' : s >= 1 ? '#f59e0b' : '#ef4444';
-  const homePct = homeR && homeR.sample ? Math.round(100 * homeR.streak / homeR.sample) : 0;
-  const awayPct = awayR && awayR.sample ? Math.round(100 * awayR.streak / awayR.sample) : 0;
-  const corHome = homeR ? corStreak(homeR.streak) : 'var(--text2)';
-  const corAway = awayR ? corStreak(awayR.streak) : 'var(--text2)';
-  const corMeio = corHome === corAway ? corHome : 'var(--border)';
-  const fmt = r => {
-    if (!r) return `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
-    const atLimit = r.streak > 0 && r.streak === r.sample;
-    return `${r.streak} jogo${r.streak === 1 ? '' : 's'}${atLimit ? '+' : ''}`;
-  };
-  return `
-    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
-        <span style="color:${corHome}">${fmt(homeR)}</span>
-        <span style="color:${corAway}">${fmt(awayR)}</span>
-      </div>
-      <div style="display:flex;align-items:stretch;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
-        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
-        <div style="width:2px;flex-shrink:0;background:${corMeio}"></div>
-        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
-      </div>
-    </div>`;
-}
-
-function _painelForcaLeituraStreakBlockHtml(cfg) {
-  const homeR = _painelForcaCurrentStreak('home', cfg.test);
-  const awayR = _painelForcaCurrentStreak('away', cfg.test);
-  return `
-    <div class="cenario-block">
-      <div class="cenario-icon">${cfg.icon}</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">Sequência atual — ${cfg.label}</div>
-        ${_painelForcaLeituraStreakRow(homeR, awayR)}
-      </div>
-    </div>`;
-}
 
 // Generaliza o mesmo cálculo (jogos no próprio lado → % que bateram uma
 // condição) pra mercados de Over/Under, Ambas Marcam e Vence/Perde 1T — testFn
@@ -7622,19 +7575,6 @@ const _PAINEL_LEITURA_CORNER_MARKETS = [
   { label: 'Over 6.5 Escanteios HT', period: 'ht', metric: 'corner', test: (t, o, tot) => tot >= 7 },
 ];
 
-function _painelForcaLeituraMarketBlockHtml(cfg) {
-  const homeR = _painelForcaMarketRatio('home', cfg.period, cfg.test, cfg.metric);
-  const awayR = _painelForcaMarketRatio('away', cfg.period, cfg.test, cfg.metric);
-  return `
-    <div class="cenario-block">
-      <div class="cenario-icon">${cfg.metric === 'corner' ? '🚩' : _icoBall()}</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">${cfg.label}</div>
-        ${_painelForcaLeituraRow(homeR, awayR)}
-      </div>
-    </div>`;
-}
-
 // % dos jogos (no próprio lado) em que o placar exato NÃO foi um determinado
 // bucket — reaproveita a mesma classificação de 19 caixas (16 placares fixos +
 // 3 "qualquer outro") já usada no Placar Exato do Backtest (PLACAR_EXATO_
@@ -7654,21 +7594,6 @@ function _painelForcaPlacarNotOccurredRatio(key, bucketLabel) {
   });
   if (!total) return null;
   return { scored: notOccurred, total };
-}
-
-function _painelForcaLeituraPlacarBlockHtml(bucketLabel) {
-  const homeR = _painelForcaPlacarNotOccurredRatio('home', bucketLabel);
-  const awayR = _painelForcaPlacarNotOccurredRatio('away', bucketLabel);
-  const isScore = /^\d+-\d+$/.test(bucketLabel);
-  const label = `${isScore ? 'Placar ' : ''}${bucketLabel} — não ocorreu`;
-  return `
-    <div class="cenario-block">
-      <div class="cenario-icon">🚫</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">${label}</div>
-        ${_painelForcaLeituraRow(homeR, awayR)}
-      </div>
-    </div>`;
 }
 
 // Virada — cruza HT e FT do mesmo jogo (diferente de _painelForcaMarketRatio,
@@ -7702,19 +7627,6 @@ const _PAINEL_LEITURA_VIRADA = [
   { label: 'Sofreu virada (vencia no 1º tempo e perdeu)', test: (tHt, oHt, tFt, oFt) => tHt > oHt && tFt < oFt },
 ];
 
-function _painelForcaLeituraViradaBlockHtml(cfg) {
-  const homeR = _painelForcaViradaRatio('home', cfg.test);
-  const awayR = _painelForcaViradaRatio('away', cfg.test);
-  return `
-    <div class="cenario-block">
-      <div class="cenario-icon">🔄</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">${cfg.label}</div>
-        ${_painelForcaLeituraRow(homeR, awayR)}
-      </div>
-    </div>`;
-}
-
 // Handicap Asiático POR LINHA — cada jogo do histórico teve sua própria linha
 // oferecida (m.ah_line, ex: "-1.5", "+0.5" — varia conforme a diferença de
 // força na época), com m.ah_badge (W/D/L) já calculado pelo NowGoal indicando
@@ -7737,120 +7649,13 @@ function _painelForcaHandicapByLine(key) {
     .sort((a, b) => b.n - a.n);
 }
 
-function _painelForcaLeituraHandicapLineTableHtml(teamLabel, lines) {
-  if (!lines.length) return `<div style="color:var(--text2);font-size:13px;padding:6px 0">${teamLabel}: sem linhas suficientes ainda.</div>`;
-  return `
-    <div style="font-size:13px;font-weight:700;margin:10px 0 4px">${teamLabel}</div>
-    <table style="width:100%;font-size:12px;text-align:center;border-collapse:collapse">
-      <thead><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">Linha</th><th>Jogos</th><th>Cobriu</th></tr></thead>
-      <tbody>
-        ${lines.map(l => `<tr>
-          <td style="text-align:left;padding:4px 8px">${l.line}</td>
-          <td>${l.n}</td>
-          <td style="font-weight:700;color:${l.pct >= 70 ? '#22c55e' : l.pct >= 40 ? '#f59e0b' : '#ef4444'}">${l.pct}%</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-
-function _painelForcaLeituraHandicapBlockHtml() {
-  const homeLines = _painelForcaHandicapByLine('home');
-  const awayLines = _painelForcaHandicapByLine('away');
-  return `
-    <div class="cenario-block">
-      <div class="cenario-icon">📐</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">Handicap Asiático — por linha</div>
-        ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaHome} (jogando em casa)`, homeLines)}
-        ${_painelForcaLeituraHandicapLineTableHtml(`${_painelForcaAway} (jogando fora)`, awayLines)}
-      </div>
-    </div>`;
-}
-
-// Barra dupla divergente (casa/fora crescendo do centro pra fora). Cor de
-// cada lado volta a ser a semântica original (verde/amarelo/vermelho
-// conforme o próprio percentual daquele lado), não mais fixa por time —
-// usuário preferiu manter esse significado (bom/médio/ruim) em vez de só
-// identificar quem é casa/quem é fora.
-function _painelForcaLeituraRow(homeR, awayR) {
-  const corPct = pct => pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
-  const homePct = homeR ? Math.round(100 * homeR.scored / homeR.total) : 0;
-  const awayPct = awayR ? Math.round(100 * awayR.scored / awayR.total) : 0;
-  const corHome = corPct(homePct), corAway = corPct(awayPct);
-  const corMeio = corHome === corAway ? corHome : 'var(--border)';
-  const homeTxt = homeR ? `${homeR.scored}/${homeR.total} <span style="font-weight:400;color:var(--text2)">(${homePct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
-  const awayTxt = awayR ? `${awayR.scored}/${awayR.total} <span style="font-weight:400;color:var(--text2)">(${awayPct}%)</span>` : `<span style="color:var(--text2);font-weight:400">sem dados</span>`;
-  return `
-    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px">
-        <span style="color:${corHome}">${homeTxt}</span>
-        <span style="color:${corAway}">${awayTxt}</span>
-      </div>
-      <div style="display:flex;align-items:stretch;height:7px;border-radius:4px;overflow:hidden;background:var(--bg)">
-        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct}%;height:100%;background:${corHome}"></div></div>
-        <div style="width:2px;flex-shrink:0;background:${corMeio}"></div>
-        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct}%;height:100%;background:${corAway}"></div></div>
-      </div>
-    </div>`;
-}
-
-// 'lado' (padrão) = cada time só conta os próprios jogos no mesmo mando de
-// campo desta partida (mandante->casa, visitante->fora). 'geral' = últimos N
-// jogos do time misturando casa e fora. Ver _painelForcaOwnSideRows.
+// 'lado'/'geral' controlam _painelForcaOwnSideRows — a aba Leitura que
+// usava isso foi removida (2026-08-30, pedido do usuário: "remova tudo,
+// vamos estruturar de forma diferente"), mas a exportação "Baixar leitura"
+// (_painelBuildLeituraMetrics) ainda reaproveita as mesmas funções de
+// cálculo, então elas continuam aqui. Fica sempre em 'lado' (não tem mais
+// UI pra trocar).
 let _painelLeituraModo = 'lado';
-function _painelLeituraSetModo(modo) {
-  _painelLeituraModo = modo;
-  _painelForcaLeituraRender();
-}
-
-function _painelForcaLeituraRender() {
-  const el = document.getElementById('painelForcaViewLeitura');
-  if (!el) return;
-  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
-  if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
-
-  // Garante HT pros jogos que os estudos de 1º tempo/virada desta aba vão
-  // usar de verdade (mesmo esquema de _painelForcaH2HRender/_painelForcaLastRender).
-  _painelForcaEnsureHt([..._painelForcaOwnSideRows('home'), ..._painelForcaOwnSideRows('away')], _painelForcaLeituraRender);
-
-  const qtdLabel = _painelForcaTableState.home.count >= 9999 ? 'Todos' : `Últimos ${_painelForcaTableState.home.count}`;
-  const modoTabs = `
-    <div class="painel-forca-tabs" style="margin-top:8px">
-      <button class="painel-forca-tab${_painelLeituraModo === 'lado' ? ' active' : ''}" onclick="_painelLeituraSetModo('lado')" title="Mandante conta só jogos em casa, visitante só jogos fora">Casa x Fora</button>
-      <button class="painel-forca-tab${_painelLeituraModo === 'geral' ? ' active' : ''}" onclick="_painelLeituraSetModo('geral')" title="Cada time conta seus últimos jogos misturando casa e fora">${qtdLabel} jogos</button>
-    </div>`;
-
-  const homeScored = _painelForcaScoredRatio('home', 'ft');
-  const awayScored = _painelForcaScoredRatio('away', 'ft');
-  const homeScoredHt = _painelForcaScoredRatio('home', 'ht');
-  const awayScoredHt = _painelForcaScoredRatio('away', 'ht');
-
-  el.innerHTML = `
-    ${header}
-    ${modoTabs}
-    <div class="cenario-block">
-      <div class="cenario-icon">${_icoBall()}</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">Jogos em que marcou gol (tempo todo)</div>
-        ${_painelForcaLeituraRow(homeScored, awayScored)}
-      </div>
-    </div>
-    <div class="cenario-block">
-      <div class="cenario-icon">${_icoBall()}</div>
-      <div class="cenario-content">
-        <div class="cenario-label" style="text-align:center">Jogos em que marcou gol (1º tempo)</div>
-        ${_painelForcaLeituraRow(homeScoredHt, awayScoredHt)}
-      </div>
-    </div>
-    ${_PAINEL_LEITURA_STREAKS.map(_painelForcaLeituraStreakBlockHtml).join('')}
-    ${_PAINEL_LEITURA_VIRADA.map(_painelForcaLeituraViradaBlockHtml).join('')}
-    ${_PAINEL_LEITURA_MARKETS.map(_painelForcaLeituraMarketBlockHtml).join('')}
-    ${PLACAR_EXATO_BUCKETS_ORDER.map(_painelForcaLeituraPlacarBlockHtml).join('')}`;
-  // Handicap Asiático por linha (_painelForcaLeituraHandicapBlockHtml) e os
-  // mercados de escanteio (_PAINEL_LEITURA_CORNER_MARKETS) saíram daqui —
-  // dependiam de dados (ah_line/ah_badge, corner_ft/corner_ht) que só o
-  // NowGoal tinha; o Flashscore não expõe equivalente (migração 2026-08-30).
-}
 
 
 // ── Partidas históricas com as mesmas probabilidades (window._sameOdds) ───────
