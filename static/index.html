@@ -7525,6 +7525,34 @@ function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
     </div>`;
 }
 
+// Sequência atual (jogo mais recente pra trás, parando no 1º que não bater) —
+// só usa Pontuações Anteriores (jogos do próprio time em ordem cronológica);
+// misturar com Confronto Direto não faz sentido aqui porque os confrontos
+// diretos não são uma sequência contínua dos jogos do time. Usa "home" da
+// linha já normalizada por _painelForcaPrognosticoOwnRows (sempre é o time
+// analisado) — não repete o bug de _painelForcaCurrentStreak (que decide o
+// lado pelo `key` em vez de olhar a própria linha, errando o visitante; ver
+// nota "Bug encontrado" — não mexido de propósito, fica só pra exportação).
+function _painelForcaPrognosticoStreak(rows, testFn) {
+  let streak = 0;
+  for (const m of rows) {
+    const parts = String(m.score_ft || '').split('-').map(Number);
+    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) break;
+    if (!testFn(parts[0], parts[1])) break;
+    streak++;
+  }
+  return { streak, sample: rows.length };
+}
+
+function _painelForcaPrognosticoStreakCard(teamName, color, s) {
+  const atLimit = s && s.streak > 0 && s.streak === s.sample;
+  return `
+    <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-top:2px">${s ? `${s.streak} jogo${s.streak === 1 ? '' : 's'}${atLimit ? '+' : ''}` : '-'}</div>
+    </div>`;
+}
+
 function _painelForcaPrognosticoRender() {
   const el = document.getElementById('painelForcaViewPrognostico');
   if (!el) return;
@@ -7540,6 +7568,9 @@ function _painelForcaPrognosticoRender() {
   const lastAwayR = _painelForcaScoredRatioNormalized(ownAwayRows);
   const lastHomeR4 = _painelForcaScoredRatioNormalized(ownHomeRows.slice(0, 4));
   const lastAwayR4 = _painelForcaScoredRatioNormalized(ownAwayRows.slice(0, 4));
+  const scoringTest = (teamGoals) => teamGoals > 0;
+  const homeStreak = _painelForcaPrognosticoStreak(ownHomeRows, scoringTest);
+  const awayStreak = _painelForcaPrognosticoStreak(ownAwayRows, scoringTest);
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol — Confronto Direto</div>
@@ -7563,6 +7594,11 @@ function _painelForcaPrognosticoRender() {
     <div style="display:flex;gap:8px;margin-top:2px">
       ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
       ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">Sequência atual — Marcando gol</div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      ${_painelForcaPrognosticoStreakCard(_painelForcaHome, '#e8622c', homeStreak)}
+      ${_painelForcaPrognosticoStreakCard(_painelForcaAway, '#2c7fe8', awayStreak)}
     </div>`;
 }
 
