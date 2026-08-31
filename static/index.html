@@ -7518,10 +7518,9 @@ function _painelForcaH2hScoredRatio(teamName) {
 function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
   const pct = ratio ? Math.round(100 * ratio.scored / ratio.total) : null;
   return `
-    <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 10px;text-align:center">
-      <div style="font-size:12px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
-      <div style="font-size:20px;font-weight:800;color:var(--text);margin-top:8px">${ratio ? `${ratio.scored}/${ratio.total}` : '-'}</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:2px">${pct != null ? pct + '%' : 'sem dados'}</div>
+    <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-top:2px">${ratio ? `${ratio.scored}/${ratio.total}` : '-'} <span style="font-size:11px;font-weight:600;color:var(--text2)">${pct != null ? '(' + pct + '%)' : ''}</span></div>
     </div>`;
 }
 
@@ -7536,13 +7535,13 @@ function _painelForcaPrognosticoRender() {
   const lastAwayR = _painelForcaScoredRatioNormalized(_painelForcaPrognosticoOwnRows('away'));
   el.innerHTML = `
     ${header}
-    <div class="painel-forca-group-title" style="margin-top:4px">Jogos em que marcou gol — Confronto Direto</div>
-    <div style="display:flex;gap:12px;margin-top:10px">
+    <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol — Confronto Direto</div>
+    <div style="display:flex;gap:8px;margin-top:4px">
       ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
       ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
     </div>
-    <div class="painel-forca-group-title" style="margin-top:18px">Jogos em que marcou gol — Pontuações Anteriores</div>
-    <div style="display:flex;gap:12px;margin-top:10px">
+    <div class="painel-forca-group-title" style="margin-top:10px">Jogos em que marcou gol — Pontuações Anteriores</div>
+    <div style="display:flex;gap:8px;margin-top:4px">
       ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
       ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
     </div>`;
