@@ -6209,10 +6209,47 @@ function _painelForcaFsSectionRows(tab, titlePrefix) {
 }
 
 let _painelForcaHtById = {};
+// TODAS as buscas de HT passam por essa mesma corrente, uma de cada vez —
+// h2h/pontuações-anteriores(casa)/pontuações-anteriores(fora)/leitura pedem
+// HT de conjuntos de jogos DIFERENTES, e como _painelForcaRender() chama as
+// 4 views em sequência assim que o modal abre, sem isso 4 requisições de
+// até 15 ids cada disparavam AO MESMO TEMPO, competindo pelo mesmo pool de
+// 12 workers do backend (_fs_event_pool) — na prática travava por muito
+// mais que os 10s de timeout de cada item individual (testado: mais de 45s
+// sem responder). Encadeando, só 1 lote de cada vez ocupa o pool.
+let _painelForcaHtChain = Promise.resolve();
+
+// Busca o placar do intervalo SÓ pros jogos que uma view específica está
+// mostrando AGORA (rows já cortada pelo "Últimos N" daquela view), e manda
+// re-renderizar só essa view quando chegar. Antes buscava um lote fixo (5
+// jogos por seção) uma única vez na abertura do modal — com "Todos"
+// selecionado (ou qualquer contagem > 5) a maioria das linhas nunca ganhava
+// HT. Agora cada view pede exatamente o que precisa (até 15 por vez, mesmo
+// teto da rota).
+function _painelForcaEnsureHt(rows, rerenderFn) {
+  const faltando = [...new Set(rows.map(r => r.id))]
+    .filter(id => id && !(id in _painelForcaHtById))
+    .slice(0, 15);
+  if (!faltando.length) return;
+  _painelForcaHtChain = _painelForcaHtChain
+    .then(() => fetch(`/api/flashscore/half_time_batch?ids=${faltando.join(',')}`))
+    .then(r => r.json())
+    .then(d => {
+      const results = d.results || {};
+      // Marca TODO id pedido, mesmo o que não veio no resultado (jogo sem HT
+      // disponível) — sem isso, `!(id in _painelForcaHtById)` continuava
+      // achando esses ids "faltando" pra sempre, refazendo a mesma busca
+      // (que ia falhar de novo) a cada re-render.
+      faltando.forEach(id => { _painelForcaHtById[id] = results[id] || null; });
+    })
+    .catch(e => console.warn('[painel-forca] falha buscando placar do intervalo do histórico:', e))
+    .finally(() => rerenderFn());
+}
 
 function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts, resultado) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaData = null; _painelForcaView = 'h2h';
   _painelForcaHtById = {};
+  _painelForcaHtChain = Promise.resolve();
   _painelForcaTableState = {
     h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
     home: { count: 10, ht: false, onlySide: false, sameLeague: false },
@@ -6224,36 +6261,12 @@ function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status,
   body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   fetch(`/api/flashscore/h2h?casa=${encodeURIComponent(home)}&fora=${encodeURIComponent(away)}`)
     .then(r => r.json())
-    .then(async d => {
+    .then(d => {
       if (!d.found) {
         body.innerHTML = `<div class="live-loading">Não achei "${home} x ${away}" no Flashscore — sem histórico disponível pra essa partida.</div>`;
         return;
       }
       _painelForcaData = d;
-
-      // Placar do intervalo dos jogos do histórico que vamos mostrar — o h2h
-      // só traz o placar final (score), então busca à parte (em lote, até 15
-      // ids de uma vez — mesmo limite da rota) só pros jogos que a Leitura/
-      // Pontuações Anteriores realmente vão exibir, não o histórico inteiro.
-      const totalTab = _painelForcaFsTab('Total');
-      const casaTab = (d.tabs || []).find(t => (t.label || '').endsWith(' - Casa'));
-      const foraTab = (d.tabs || []).find(t => (t.label || '').endsWith(' - Fora'));
-      const idsParaHt = [...new Set([
-        ..._painelForcaFsSectionRows(casaTab, 'Últimos jogos').slice(0, 5).map(r => r.id),
-        ..._painelForcaFsSectionRows(foraTab, 'Últimos jogos').slice(0, 5).map(r => r.id),
-        ..._painelForcaFsSectionRows(totalTab, 'Confrontos diretos').slice(0, 5).map(r => r.id),
-      ])].filter(Boolean).slice(0, 15);
-
-      if (idsParaHt.length) {
-        try {
-          const rht = await fetch(`/api/flashscore/half_time_batch?ids=${idsParaHt.join(',')}`);
-          const dht = await rht.json();
-          _painelForcaHtById = dht.results || {};
-        } catch (e) {
-          console.warn('[painel-forca] falha buscando placar do intervalo do histórico:', e);
-        }
-      }
-
       try {
         _painelForcaRender();
       } catch (e) {
@@ -7411,6 +7424,7 @@ function _painelForcaH2HRender() {
   el.innerHTML = `
     <div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>
     ${_painelForcaFsTableBlock(rows, 'h2h')}`;
+  _painelForcaEnsureHt(rows.slice(0, _painelForcaTableState.h2h.count), _painelForcaH2HRender);
 }
 
 function _painelForcaLastRender() {
@@ -7427,6 +7441,7 @@ function _painelForcaLastRender() {
       <button class="painel-forca-tab${side === 'away' ? ' active' : ''}" onclick="_painelForcaLastSetSide('away')">${_painelForcaAway}</button>
     </div>
     ${_painelForcaFsTableBlock(rows, side)}`;
+  _painelForcaEnsureHt(rows.slice(0, _painelForcaTableState[side].count), _painelForcaLastRender);
 }
 
 // ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
@@ -7475,7 +7490,7 @@ function _painelForcaFsRowsToLeitura(rows) {
   return rows.map(r => {
     const ht = _painelForcaHtById[r.id];
     return {
-      home: r.home, away: r.away,
+      id: r.id, home: r.home, away: r.away,
       score_ft: (r.score || '').replace(':', '-'),
       score_ht: ht ? `${ht.home}-${ht.away}` : null,
     };
@@ -7838,6 +7853,10 @@ function _painelForcaLeituraRender() {
   if (!el) return;
   const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
   if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
+
+  // Garante HT pros jogos que os estudos de 1º tempo/virada desta aba vão
+  // usar de verdade (mesmo esquema de _painelForcaH2HRender/_painelForcaLastRender).
+  _painelForcaEnsureHt([..._painelForcaOwnSideRows('home'), ..._painelForcaOwnSideRows('away')], _painelForcaLeituraRender);
 
   const qtdLabel = _painelForcaTableState.home.count >= 9999 ? 'Todos' : `Últimos ${_painelForcaTableState.home.count}`;
   const modoTabs = `
