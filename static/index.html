@@ -5402,41 +5402,43 @@ function _painelBuildPrognosticoExportData() {
   return { casa, fora };
 }
 
-// Baixa TODAS as partidas de ONTEM (não hoje — pedido do usuário, 2026-08-31:
-// "com os placares somente do dia anterior", já que só um jogo encerrado tem
-// placar final de verdade pra comparar com os índices/prognóstico depois) com
-// os índices de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) + TODOS os dados da
-// aba Prognóstico. Substitui a versão antiga (2026-08-29), que dependia do
-// endpoint do NowGoal (/api/painel/ng_strength, exige match_id numérico) —
-// quebrado desde a migração pro Flashscore (event_id não é mais numérico,
-// toda chamada dava 400 e "leitura" saía sempre null). Busca 1 partida de
-// cada vez, de propósito sequencial (mesma razão de sempre: não sobrecarregar
-// o pool de threads do backend) — com HT+minutos de gol por jogo, isso é bem
+// Baixa as partidas de HOJE já FINALIZADAS (_painelIsFinished) com os
+// índices de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) + TODOS os dados da aba
+// Prognóstico. Antes buscava "ontem" (pedido inicial do usuário), mas os
+// ícones de Power Ranking ficam vazios pra jogos de ontem (o cache só é
+// alimentado pelos times que aparecem no feed de HOJE — ver limitação
+// documentada em _painel_power_prewarm_loop) — o usuário then pediu pra usar
+// hoje mesmo, só filtrando os já encerrados, que já têm placar final igual
+// um jogo de ontem teria, mas com os ícones disponíveis (2026-08-31).
+// Substitui a versão antiga (2026-08-29), que dependia do endpoint do
+// NowGoal (/api/painel/ng_strength, exige match_id numérico) — quebrado
+// desde a migração pro Flashscore (event_id não é mais numérico, toda
+// chamada dava 400 e "leitura" saía sempre null). Busca 1 partida de cada
+// vez, de propósito sequencial (mesma razão de sempre: não sobrecarregar o
+// pool de threads do backend) — com HT+minutos de gol por jogo, isso é bem
 // mais lento que a leitura simples de antes.
 async function _painelExportLeituraJson() {
   const btn = document.getElementById('painelExportLeituraBtn');
   const originalLabel = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de ontem...'; }
-  const ontem = new Date();
-  ontem.setDate(ontem.getDate() - 1);
-  const dateStr = ontem.toISOString().slice(0, 10);
-  let ontemData;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de hoje...'; }
+  const dateStr = new Date().toISOString().slice(0, 10);
+  let hojeData;
   try {
-    const r = await fetch(`/api/painel/matches?date=${dateStr}`);
-    ontemData = await r.json();
+    const r = await fetch('/api/painel/matches');
+    hojeData = await r.json();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
-    alert('Erro ao buscar jogos de ontem: ' + e);
+    alert('Erro ao buscar jogos de hoje: ' + e);
     return;
   }
   if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
   const flat = [];
-  (ontemData.leagues || []).forEach(lg => lg.matches.forEach(m => flat.push({ lg, m })));
-  if (!flat.length) { alert('Nenhum jogo de ontem encontrado.'); return; }
+  (hojeData.leagues || []).forEach(lg => lg.matches.forEach(m => { if (_painelIsFinished(m)) flat.push({ lg, m }); }));
+  if (!flat.length) { alert('Nenhum jogo finalizado hoje ainda.'); return; }
 
   const comNomes = flat.filter(({ m }) => m.home && m.away).length;
-  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) de ONTEM (${dateStr}) — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos teve ontem. Continuar?`)) return;
+  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) de HOJE já finalizadas — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos já terminaram. Continuar?`)) return;
 
   // Preserva o estado do modal "Análise da partida" — a exportação usa as
   // MESMAS globais que o modal usa (_painelForcaData/Home/Away/HtById/
@@ -5499,7 +5501,8 @@ async function _painelExportLeituraJson() {
   const payload = {
     gerado_em: new Date().toISOString(),
     fonte: 'Gol em Números — Painel Principal',
-    dia_referencia: ontemData.date || dateStr,
+    dia_referencia: hojeData.date || dateStr,
+    observacao: 'Só partidas de hoje já finalizadas (placar final confirmado)',
     total_partidas: partidas.length,
     partidas,
   };
@@ -5508,7 +5511,7 @@ async function _painelExportLeituraJson() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `leitura_prognostico_ontem_${dateStr}.json`;
+  a.download = `leitura_prognostico_finalizados_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
