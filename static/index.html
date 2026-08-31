@@ -7520,7 +7520,7 @@ function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
   return `
     <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;text-align:center">
       <div style="font-size:10px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-top:2px">${ratio ? `${ratio.scored}/${ratio.total}` : '-'} <span style="font-size:11px;font-weight:600;color:var(--text2)">${pct != null ? '(' + pct + '%)' : ''}</span></div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-top:2px">${pct != null ? pct + '%' : '-'} <span style="font-size:11px;font-weight:600;color:var(--text2)">${ratio ? `(${ratio.scored}/${ratio.total})` : ''}</span></div>
     </div>`;
 }
 
