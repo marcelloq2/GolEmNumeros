@@ -7689,6 +7689,30 @@ function _painelForcaPrognosticoRatioTxt(r) {
   return `${pct}% <span style="font-weight:400;color:var(--text2)">(${r.scored}/${r.total})</span>`;
 }
 
+function _painelForcaPrognosticoPct(r) {
+  return r ? 100 * r.scored / r.total : null;
+}
+
+// Média + coeficiente de variação (desvio padrão / média) dos 4 percentuais
+// de um lado (C.Direto Todos/Últ.4 + P.Ant Todos/Últ.4) — pedido do usuário
+// (2026-08-31): "crie média deles dos 4 em casa e 4 fora e mostre com
+// coeficiente de variacao". CV alto = os 4 recortes discordam bastante entre
+// si (dado inconsistente); CV baixo = os 4 recortes convergem pro mesmo
+// percentual (dado mais confiável).
+function _painelForcaPrognosticoMeanCV(pcts) {
+  const valid = pcts.filter(p => p != null);
+  if (!valid.length) return null;
+  const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
+  const variance = valid.reduce((a, b) => a + (b - mean) ** 2, 0) / valid.length;
+  const cv = mean !== 0 ? (Math.sqrt(variance) / mean) * 100 : 0;
+  return { mean, cv };
+}
+
+function _painelForcaPrognosticoMeanCVTxt(mc) {
+  if (!mc) return `<span style="color:var(--text2);font-weight:400">-</span>`;
+  return `${Math.round(mc.mean)}% <span style="font-weight:400;color:var(--text2)">(CV ${mc.cv.toFixed(0)}%)</span>`;
+}
+
 function _painelForcaPrognosticoCardShell(rowsHtml) {
   return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:6px">
@@ -7706,6 +7730,8 @@ function _painelForcaPrognosticoCardShell(rowsHtml) {
 // juntos em um cad so") — 4 linhas (CD-Todos, CD-Últ.4, PA-Todos, PA-Últ.4),
 // com uma divisória fina entre os dois grupos.
 function _painelForcaPrognosticoStatCardPair(h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4, lastHomeR, lastAwayR, lastHomeR4, lastAwayR4) {
+  const homeMC = _painelForcaPrognosticoMeanCV([h2hHomeR, h2hHomeR4, lastHomeR, lastHomeR4].map(_painelForcaPrognosticoPct));
+  const awayMC = _painelForcaPrognosticoMeanCV([h2hAwayR, h2hAwayR4, lastAwayR, lastAwayR4].map(_painelForcaPrognosticoPct));
   const rows = `
         <div style="color:var(--text2);font-size:10px;white-space:nowrap">C. Direto — Todos</div>
         <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoRatioTxt(h2hHomeR)}</div>
@@ -7713,7 +7739,11 @@ function _painelForcaPrognosticoStatCardPair(h2hHomeR, h2hAwayR, h2hHomeR4, h2hA
         <div style="color:var(--text2);font-size:10px;white-space:nowrap">C. Direto — Últ. 4</div>
         <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoRatioTxt(h2hHomeR4)}</div>
         <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoRatioTxt(h2hAwayR4)}</div>
-        <div style="grid-column:1 / -1;border-top:1px solid var(--border);margin:2px 0"></div>
+        <div style="grid-column:1 / -1;border-top:1px solid var(--accent);margin:3px 0"></div>
+        <div style="color:var(--accent);font-size:10px;font-weight:700;white-space:nowrap">Média (CV)</div>
+        <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoMeanCVTxt(homeMC)}</div>
+        <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoMeanCVTxt(awayMC)}</div>
+        <div style="grid-column:1 / -1;border-top:1px solid var(--accent);margin:3px 0"></div>
         <div style="color:var(--text2);font-size:10px;white-space:nowrap">P. Ant. — Todos</div>
         <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoRatioTxt(lastHomeR)}</div>
         <div style="text-align:center;font-weight:800;color:var(--text)">${_painelForcaPrognosticoRatioTxt(lastAwayR)}</div>
