@@ -276,6 +276,11 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)
+        # Power Ranking do Painel Principal (ícones de Ataque/Defesa) — sem isso,
+        # cada redeploy zerava o cache e o Painel ficava com ícones em branco por
+        # ~15-20min até o próximo ciclo de cálculo terminar.
+        pull_file(".painel_power_cache.json",
+                  os.path.join(data_dir, ".painel_power_cache.json"), force=True)
 
         # ── Diretórios grandes por último (podem levar minutos) ─────────────
         pull_directory("momentum_history", momentum_dir)

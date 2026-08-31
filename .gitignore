@@ -12,6 +12,8 @@ predictions_full.json
 momentum_analysis.json
 *.log
 .times_adjusted
+.shotmap_cache.json
+.painel_power_cache.json
 
 # Windows
 *.bat

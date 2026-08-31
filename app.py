@@ -1885,9 +1885,37 @@ _painel_power_cache = {}
 _painel_power_lock = threading.Lock()
 _PAINEL_POWER_TTL = 900  # 15min — classificação de liga muda pouco durante o dia
 
+# Persistência do cache (sobrevive a redeploy do Railway, que apaga o disco
+# local) — mesmo padrão do _shotmap_live_cache: arquivo local pequeno restaurado
+# do GitHub no boot (ver github_storage.sync_on_startup) e salvo de novo a cada
+# ciclo. Sem isso, os ícones de Ataque/Defesa do Painel ficavam em branco por
+# ~15-20min toda vez que um push disparava um redeploy (achado com o usuário,
+# 2026-08-31, depois de 2 deploys seguidos zerarem o cache na mesma sessão).
+_PAINEL_POWER_CACHE_FILE = os.path.join(DATA_DIR, ".painel_power_cache.json")
+
+def _load_painel_power_cache() -> dict:
+    try:
+        if os.path.exists(_PAINEL_POWER_CACHE_FILE):
+            with open(_PAINEL_POWER_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            print(f"[painel-power] Cache restaurado: {len(data)} time(s)")
+            return data
+    except Exception as e:
+        print(f"[painel-power] Erro ao carregar cache: {e}")
+    return {}
+
+def _save_painel_power_cache(cache: dict):
+    try:
+        with open(_PAINEL_POWER_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[painel-power] Erro ao salvar cache: {e}")
+
 
 def _painel_power_prewarm_loop():
     _github_sync_done.wait(timeout=120)
+    with _painel_power_lock:
+        _painel_power_cache.update(_load_painel_power_cache())
     while True:
         try:
             data = _painel_fetch_matches_flashscore()
@@ -1928,6 +1956,10 @@ def _painel_power_prewarm_loop():
                         _painel_power_cache[f"{team_norm}|{pais_norm}"] = icons
                 total += len(indices)
             print(f"[painel-power] {total} time(s) com Power Ranking calculado ({len(reps)} liga(s) verificada(s))")
+            with _painel_power_lock:
+                snapshot = dict(_painel_power_cache)
+            _save_painel_power_cache(snapshot)
+            github_storage.push_file_bg(_PAINEL_POWER_CACHE_FILE, ".painel_power_cache.json")
         except Exception as e:
             print(f"[painel-power] Erro: {e}")
         time.sleep(_PAINEL_POWER_TTL)
