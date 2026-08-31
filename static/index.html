@@ -1917,6 +1917,7 @@
           title="Classificações desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">Classificações</button>
         <button class="painel-modal-tab" id="painelForcaViewTab_hoje_power" onclick="_painelOpenForcaHojeTab('power')"
           title="Power Ranking desse jogo com dados da aba Hoje (Flashscore) — só funciona se o jogo também estiver na Hoje">⚡ Power Ranking</button>
+        <button class="painel-modal-tab" id="painelForcaViewTab_odds" onclick="_painelForcaOpenOdds()">💰 Odds</button>
       </div>
       <div id="painelForcaBody">
         <div class="live-loading"><div class="spinner"></div>Carregando...</div>
@@ -6144,10 +6145,12 @@ function _painelOpenAnalysis(eventId, home, away, matchUrl, homeLogo, awayLogo, 
 let _painelForcaData = null;
 let _painelForcaHome = '', _painelForcaAway = '', _painelForcaLeague = '';
 let _painelForcaView = 'h2h';
+let _painelForcaEventId = null;
 
 const _PAINEL_FORCA_VIEW_CONTAINER_ID = {
   h2h: 'painelForcaViewH2H', last: 'painelForcaViewLast',
   hoje_standings: 'painelForcaViewHojeStandings', hoje_power: 'painelForcaViewHojePower',
+  odds: 'painelForcaViewOdds',
 };
 
 function _painelForcaSetView(view, btn) {
@@ -6214,6 +6217,9 @@ function _painelForcaEnsureHt(rows, rerenderFn) {
 
 function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts, resultado) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaData = null; _painelForcaView = 'h2h';
+  _painelForcaEventId = eventId;
+  _painelForcaOddsMarkets = null;
+  _painelForcaOddsBookmaker = '';
   _painelForcaHtById = {};
   _painelForcaHtChain = Promise.resolve();
   _painelForcaTableState = {
@@ -6568,6 +6574,74 @@ async function _painelOpenForcaHojeTab(tab) {
   }
 }
 
+// Aba "Odds" da Análise da partida — pedido do usuário depois de perguntar
+// quais mercados dá pra achar no Flashscore. Busca pelo event_id (já
+// conhecido desde a abertura do modal, sem precisar de fuzzy-match por
+// nome), reaproveitando o mesmo endpoint/renderizador de mercados que a
+// Hoje 2 já usa (_renderToday2OddsMarket/TODAY2_ODDS_MARKET_LABELS,
+// definidos mais abaixo no arquivo — ok referenciar aqui, só rodam depois
+// que o usuário clica na aba, quando o script inteiro já carregou).
+let _painelForcaOddsMarkets = null;
+let _painelForcaOddsBookmaker = '';
+let _painelForcaOddsSubTab = null;
+
+async function _painelForcaOpenOdds() {
+  const btn = document.getElementById('painelForcaViewTab_odds');
+  _painelForcaSetView('odds', btn);
+  const container = document.getElementById('painelForcaViewOdds');
+  if (!container) return;
+  if (_painelForcaOddsMarkets) { _painelForcaRenderOdds(container); return; }
+  if (!_painelForcaEventId) { container.innerHTML = '<div class="live-loading">Sem id da partida.</div>'; return; }
+  container.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  try {
+    const r = await fetch(`/api/flashscore/odds_all_batch?ids=${encodeURIComponent(_painelForcaEventId)}`);
+    const d = await r.json();
+    const entry = (d.results || {})[_painelForcaEventId];
+    _painelForcaOddsMarkets = (entry && entry.markets) || {};
+    _painelForcaOddsBookmaker = (entry && entry.bookmaker) || '';
+  } catch (e) {
+    container.innerHTML = `<div class="live-loading">Erro ao buscar odds: ${e}</div>`;
+    return;
+  }
+  _painelForcaRenderOdds(container);
+}
+
+function _painelForcaRenderOdds(container) {
+  container = container || document.getElementById('painelForcaViewOdds');
+  if (!container) return;
+  const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
+  const markets = _painelForcaOddsMarkets || {};
+  const keys = Object.keys(markets).filter(k => TODAY2_ODDS_MARKET_LABELS[k]);
+  if (!keys.length) {
+    container.innerHTML = `${header}<div style="color:var(--text2);text-align:center;padding:20px 0">Sem odds disponíveis pra essa partida.</div>`;
+    return;
+  }
+  if (!_painelForcaOddsSubTab || !keys.includes(_painelForcaOddsSubTab)) _painelForcaOddsSubTab = keys[0];
+  const active = _painelForcaOddsSubTab;
+  container.innerHTML = `
+    ${header}
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <span style="font-size:13px">💰</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text)">${_painelForcaOddsBookmaker || ''}</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${keys.map(k => `<button onclick="_painelForcaSetOddsSubTab('${k}', this)" style="font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px;border:1px solid ${k === active ? 'var(--accent)' : 'var(--border)'};background:${k === active ? 'var(--accent)' : 'var(--bg2)'};color:${k === active ? '#fff' : 'var(--text2)'};cursor:pointer" data-market="${k}">${TODAY2_ODDS_MARKET_LABELS[k]}</button>`).join('')}
+    </div>
+    <div id="painelForcaOddsMarketBody">${_renderToday2OddsMarket(active, markets[active])}</div>`;
+}
+
+function _painelForcaSetOddsSubTab(key, btn) {
+  _painelForcaOddsSubTab = key;
+  btn.closest('div').querySelectorAll('button[data-market]').forEach(b => {
+    const on = b.getAttribute('data-market') === key;
+    b.style.border = `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`;
+    b.style.background = on ? 'var(--accent)' : 'var(--bg2)';
+    b.style.color = on ? '#fff' : 'var(--text2)';
+  });
+  const body = document.getElementById('painelForcaOddsMarketBody');
+  if (body) body.innerHTML = _renderToday2OddsMarket(key, (_painelForcaOddsMarkets || {})[key]);
+}
+
 const PAINEL_FORCA_TABS = [
   { key: 'battle', label: 'H2H' }, { key: 'state', label: 'Estado' },
   { key: 'attack', label: 'Ataque' }, { key: 'defend', label: 'Defesa' },
@@ -6688,7 +6762,8 @@ function _painelForcaRender() {
     <div id="painelForcaViewH2H" style="display:none"></div>
     <div id="painelForcaViewLast" style="display:none"></div>
     <div id="painelForcaViewHojeStandings" style="display:none"></div>
-    <div id="painelForcaViewHojePower" style="display:none"></div>`;
+    <div id="painelForcaViewHojePower" style="display:none"></div>
+    <div id="painelForcaViewOdds" style="display:none"></div>`;
   _painelForcaH2HRender();
   _painelForcaLastRender();
 
