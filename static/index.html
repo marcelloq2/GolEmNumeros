@@ -7588,6 +7588,33 @@ function _painelForcaOwnFirstScorerRatio(rows, key) {
   return total ? { scored: hit, total } : null;
 }
 
+// Sofreu primeiro — mesmo dado de "Marcou primeiro", só invertendo quem conta
+// (o time que NÃO fez o 1º gol da partida sofreu ele).
+function _painelForcaH2hFirstConcederRatio(teamName, limit) {
+  let rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  if (limit) rows = rows.slice(0, limit);
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const side = _painelForcaFirstScorerSide(_painelForcaGoalMinById[m.id]);
+    if (!side) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    if ((side === 'home') !== isHomeRow) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
+function _painelForcaOwnFirstConcederRatio(rows, key) {
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const side = _painelForcaFirstScorerSide(_painelForcaGoalMinById[m.id]);
+    if (!side) return;
+    total++;
+    if (side !== key) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
 // Placar exato — não ocorreu — % dos jogos (no recorte) em que o placar NÃO
 // foi um dos 19 buckets fixos (16 placares + 3 "qualquer outro"), reaproveitando
 // a mesma classificação (_placarExatoBucketKey/PLACAR_EXATO_BUCKETS_ORDER, mais
@@ -7977,6 +8004,14 @@ function _painelForcaPrognosticoRender() {
   const lastAwayFirst = _painelForcaOwnFirstScorerRatio(ownAwayRows, 'away');
   const lastHomeFirst4 = _painelForcaOwnFirstScorerRatio(ownHomeRows.slice(0, 4), 'home');
   const lastAwayFirst4 = _painelForcaOwnFirstScorerRatio(ownAwayRows.slice(0, 4), 'away');
+  const h2hHomeConc = _painelForcaH2hFirstConcederRatio(_painelForcaHome);
+  const h2hAwayConc = _painelForcaH2hFirstConcederRatio(_painelForcaAway);
+  const h2hHomeConc4 = _painelForcaH2hFirstConcederRatio(_painelForcaHome, 4);
+  const h2hAwayConc4 = _painelForcaH2hFirstConcederRatio(_painelForcaAway, 4);
+  const lastHomeConc = _painelForcaOwnFirstConcederRatio(ownHomeRows, 'home');
+  const lastAwayConc = _painelForcaOwnFirstConcederRatio(ownAwayRows, 'away');
+  const lastHomeConc4 = _painelForcaOwnFirstConcederRatio(ownHomeRows.slice(0, 4), 'home');
+  const lastAwayConc4 = _painelForcaOwnFirstConcederRatio(ownAwayRows.slice(0, 4), 'away');
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol</div>
@@ -7995,6 +8030,8 @@ function _painelForcaPrognosticoRender() {
     ${_painelForcaPrognosticoStatCardPair(h2hHomeSofV, h2hAwaySofV, h2hHomeSofV4, h2hAwaySofV4, lastHomeSofV, lastAwaySofV, lastHomeSofV4, lastAwaySofV4)}
     <div class="painel-forca-group-title" style="margin-top:10px">Marcou primeiro</div>
     ${_painelForcaPrognosticoStatCardPair(h2hHomeFirst, h2hAwayFirst, h2hHomeFirst4, h2hAwayFirst4, lastHomeFirst, lastAwayFirst, lastHomeFirst4, lastAwayFirst4)}
+    <div class="painel-forca-group-title" style="margin-top:10px">Sofreu primeiro</div>
+    ${_painelForcaPrognosticoStatCardPair(h2hHomeConc, h2hAwayConc, h2hHomeConc4, h2hAwayConc4, lastHomeConc, lastAwayConc, lastHomeConc4, lastAwayConc4)}
     ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(b => _painelForcaPrognosticoPlacarSection(b, ownHomeRows, ownAwayRows)).join('')}`;
   const h2hRowsForHt = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
