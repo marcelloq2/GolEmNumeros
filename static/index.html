@@ -7502,7 +7502,7 @@ function _painelForcaScoredRatioNormalized(rows) {
   return total ? { scored, total } : null;
 }
 
-function _painelForcaCombinedScoredRatio(teamName, key) {
+function _painelForcaH2hScoredRatio(teamName) {
   const h2hRows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
   let scored = 0, total = 0;
   h2hRows.forEach(m => {
@@ -7512,8 +7512,6 @@ function _painelForcaCombinedScoredRatio(teamName, key) {
     const isHomeRow = m.home === teamName;
     if ((isHomeRow ? parts[0] : parts[1]) > 0) scored++;
   });
-  const lastR = _painelForcaScoredRatioNormalized(_painelForcaPrognosticoOwnRows(key));
-  if (lastR) { scored += lastR.scored; total += lastR.total; }
   return total ? { scored, total } : null;
 }
 
@@ -7532,14 +7530,21 @@ function _painelForcaPrognosticoRender() {
   if (!el) return;
   const header = `<div class="painel-forca-header"><span class="home">${_painelForcaHome}</span><span class="away">${_painelForcaAway}</span></div>`;
   if (!_painelForcaData) { el.innerHTML = `${header}<div class="live-loading">Sem dados.</div>`; return; }
-  const homeR = _painelForcaCombinedScoredRatio(_painelForcaHome, 'home');
-  const awayR = _painelForcaCombinedScoredRatio(_painelForcaAway, 'away');
+  const h2hHomeR = _painelForcaH2hScoredRatio(_painelForcaHome);
+  const h2hAwayR = _painelForcaH2hScoredRatio(_painelForcaAway);
+  const lastHomeR = _painelForcaScoredRatioNormalized(_painelForcaPrognosticoOwnRows('home'));
+  const lastAwayR = _painelForcaScoredRatioNormalized(_painelForcaPrognosticoOwnRows('away'));
   el.innerHTML = `
     ${header}
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Jogos em que marcou gol — combina todo o histórico de Confronto Direto + Pontuações Anteriores</div>
-    <div style="display:flex;gap:12px">
-      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', homeR)}
-      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', awayR)}
+    <div class="painel-forca-group-title" style="margin-top:4px">Jogos em que marcou gol — Confronto Direto</div>
+    <div style="display:flex;gap:12px;margin-top:10px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:18px">Jogos em que marcou gol — Pontuações Anteriores</div>
+    <div style="display:flex;gap:12px;margin-top:10px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
     </div>`;
 }
 
