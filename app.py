@@ -1828,6 +1828,111 @@ def _fs_extract_odds_fields(markets):
     }
 
 
+def _power_icon(value, higher_is_better, bom, ruim):
+    """Porta de _today2PowerIcon (index.html) — ✓ bom / △ meio-termo / ▽ ruim."""
+    bom_cond = value >= bom if higher_is_better else value <= bom
+    ruim_cond = value <= ruim if higher_is_better else value >= ruim
+    if bom_cond:
+        return "✓"
+    if ruim_cond:
+        return "▽"
+    return "△"
+
+
+def _compute_power_index(standings_rows):
+    """Porta de _today2PowerRankingRows (index.html) — Índice de Ataque/Defesa
+    de cada time = gols marcados/sofridos por jogo ÷ média da liga. Só devolve
+    time com >= 5 jogos na tabela (amostra pequena demais falseia a média).
+    Retorna {team_normalizado: {"ataque": icone, "defesa": icone}}."""
+    parsed = []
+    for r in standings_rows:
+        try:
+            gf_str, ga_str = (r.get("gols") or "0:0").split(":")
+            gf, ga = float(gf_str), float(ga_str)
+        except (ValueError, AttributeError):
+            continue
+        try:
+            jogos = int(r.get("jogos") or 0)
+        except (ValueError, TypeError):
+            jogos = 0
+        if jogos <= 0:
+            continue
+        parsed.append({"team": r.get("team", ""), "jogos": jogos, "gf": gf, "ga": ga})
+    if not parsed:
+        return {}
+    media_gf = sum(p["gf"] / p["jogos"] for p in parsed) / len(parsed)
+    media_ga = sum(p["ga"] / p["jogos"] for p in parsed) / len(parsed)
+    out = {}
+    for p in parsed:
+        if p["jogos"] < 5 or not p["team"]:
+            continue
+        ataque = (p["gf"] / p["jogos"]) / media_gf if media_gf > 0 else 0
+        defesa = (p["ga"] / p["jogos"]) / media_ga if media_ga > 0 else 0
+        out[p["team"].strip().lower()] = {
+            "ataque": _power_icon(ataque, True, 1.05, 0.90),
+            "defesa": _power_icon(defesa, False, 0.95, 1.10),
+        }
+    return out
+
+
+# Ataque/Defesa (Power Ranking) de cada time, mantido quente em BACKGROUND —
+# mesmo motivo/padrão de _painel_odds_prewarm_loop/_painel_ht_prewarm_loop:
+# calcular isso pra ~300 ligas diferentes do Painel na hora da requisição
+# levaria minutos. Chave "time|país" (não só o nome do time) pra reduzir
+# colisão entre times de mesmo nome em países diferentes — ainda pode colidir
+# entre 2 competições do MESMO país com time de nome igual (raro, aceito).
+_painel_power_cache = {}
+_painel_power_lock = threading.Lock()
+_PAINEL_POWER_TTL = 900  # 15min — classificação de liga muda pouco durante o dia
+
+
+def _painel_power_prewarm_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            data = _painel_fetch_matches_flashscore()
+            leagues = data.get("leagues", [])
+            # 1 jogo representante por liga só pra achar a tabela de
+            # classificação inteira daquela competição (_fs_standings é por
+            # event_id, mas a tabela que ele devolve é da liga toda).
+            reps = []
+            for lg in leagues:
+                for m in lg["matches"]:
+                    if m.get("event_id"):
+                        reps.append((lg.get("country", ""), m["event_id"]))
+                        break
+
+            def _fetch_one(item):
+                country, event_id = item
+                try:
+                    rows = _fs_standings(event_id)
+                    return country, _compute_power_index(rows)
+                except Exception:
+                    return country, {}
+
+            # Atualiza o cache INCREMENTALMENTE, liga por liga, em vez de
+            # esperar as ~300 ligas todas terminarem pra só então publicar —
+            # com só 12 workers, um ciclo completo pode levar minutos; sem
+            # isso, o Painel inteiro ficava sem nenhum ícone até o ciclo
+            # inteiro fechar. Também nunca limpa o cache entre ciclos: dado
+            # de ataque/defesa de temporada não fica "errado" de um ciclo pro
+            # outro, só desatualizado por alguns minutos — prefere manter o
+            # que já tem a apagar tudo e recomeçar do zero a cada 15min.
+            total = 0
+            for country, indices in _fs_event_pool.map(_fetch_one, reps):
+                if not indices:
+                    continue
+                pais_norm = (country or "").strip().lower()
+                with _painel_power_lock:
+                    for team_norm, icons in indices.items():
+                        _painel_power_cache[f"{team_norm}|{pais_norm}"] = icons
+                total += len(indices)
+            print(f"[painel-power] {total} time(s) com Power Ranking calculado ({len(reps)} liga(s) verificada(s))")
+        except Exception as e:
+            print(f"[painel-power] Erro: {e}")
+        time.sleep(_PAINEL_POWER_TTL)
+
+
 def _painel_fetch_matches_flashscore(force=False, date_str=None):
     """Versão Flashscore/Soccerway — substitui o NowGoal (2026-08-30). Motivo:
     o feed do NowGoal não tem paginação e, além do caso raro de vir vazio (já
@@ -1889,6 +1994,11 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     odds_snapshot = _today2_odds_snapshot_cache.get("data") or []
     odds_by_id = {m["id"]: markets for m, markets in odds_snapshot if markets}
 
+    # Ataque/Defesa (Power Ranking) — mesma ideia de só LER o cache quente em
+    # background (ver _painel_power_prewarm_loop), nunca calcular na hora.
+    with _painel_power_lock:
+        power_snapshot = dict(_painel_power_cache)
+
     matches = []
     for m in fs_matches:
         status_code = m.get("status")
@@ -1900,6 +2010,10 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             ts = int(m.get("kickoff_ts") or 0)
         except (TypeError, ValueError):
             ts = 0
+
+        pais_norm = (m.get("pais") or "").strip().lower()
+        casa_power = power_snapshot.get(f"{(m.get('home') or '').strip().lower()}|{pais_norm}", {})
+        fora_power = power_snapshot.get(f"{(m.get('away') or '').strip().lower()}|{pais_norm}", {})
 
         matches.append({
             "event_id": eid,
@@ -1914,6 +2028,8 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             "ht_home": (ht or {}).get("home"), "ht_away": (ht or {}).get("away"),
             "corner_home": None, "corner_away": None,  # sem fonte em lote no Flashscore
             "match_url": None,
+            "casa_ataque_icon": casa_power.get("ataque"), "casa_defesa_icon": casa_power.get("defesa"),
+            "fora_ataque_icon": fora_power.get("ataque"), "fora_defesa_icon": fora_power.get("defesa"),
             **odds_fields,
             "ts": ts,
         })
@@ -11887,6 +12003,7 @@ threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").s
 # de carregar).
 threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOddsPrewarm").start()
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
+threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
 # segundo plano parece estar competindo por CPU com o resto do site num

@@ -1237,17 +1237,16 @@
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .painel-league-cols {
-    display: grid; grid-template-columns: 64px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 44px 72px 26px;
+    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 72px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 64px minmax(0,1fr) 40px 50px 36px 36px 36px 36px 36px 44px 72px 26px;
+    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 72px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
-  .painel-match-forca-diff { text-align: center; font-size: 11px; font-weight: 700; color: var(--text2); }
-  .painel-match-forca-diff.has-value { color: var(--text); }
+  .painel-power-icon { text-align: center; font-size: 14px; font-weight: 700; color: var(--text2); }
   .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
   .painel-plat-icon {
     width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
@@ -1258,8 +1257,6 @@
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
   .painel-plat-radar { background: #2f9e8f; color: #fff; }
   .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
-  .painel-match-ht { text-align: center; font-size: 11px; color: var(--text2); }
-  .painel-match-corners { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-match-row:hover { background: var(--bg2); }
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 13px; }
@@ -1270,17 +1267,17 @@
     display: grid; align-items: center; gap: 6px; overflow: hidden;
     grid-template-columns: 14px 15px minmax(0,1fr) auto 40px auto minmax(0,1fr) 15px 14px;
   }
-  /* Em telas estreitas as colunas de H-T/Escanteio/odds sobram pouco espaço pro
+  /* Em telas estreitas as colunas de Ataque/Defesa sobram pouco espaço pro
      nome dos times (o "Jogo" só recebe o que sobra das colunas fixas) — esconde
      essas colunas secundárias e deixa o "Jogo" ocupar quase tudo. */
   @media (max-width: 480px) {
     .painel-league-cols, .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
     .painel-league-cols span:nth-child(n+3):not(:last-child),
-    .painel-match-ht, .painel-match-corners, .painel-odd, .painel-plat-icons, .painel-match-forca-diff { display: none; }
+    .painel-power-icon, .painel-plat-icons { display: none; }
   }
   body.force-mobile .painel-league-cols, body.force-mobile .painel-match-row { grid-template-columns: 46px minmax(0,1fr) 24px !important; }
   body.force-mobile .painel-league-cols span:nth-child(n+3):not(:last-child),
-  body.force-mobile .painel-match-ht, body.force-mobile .painel-match-corners, body.force-mobile .painel-odd, body.force-mobile .painel-plat-icons, body.force-mobile .painel-match-forca-diff { display: none !important; }
+  body.force-mobile .painel-power-icon, body.force-mobile .painel-plat-icons { display: none !important; }
   .painel-match-teams img { width: 16px; height: 16px; flex-shrink: 0; justify-self: center; }
   .painel-match-teams .painel-team {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
@@ -5014,21 +5011,29 @@ function _painelIsSelectedMatch(m) {
       || (awaySel && _painelSelectedTeams[m.away] === _painelMethodFilterValue);
 }
 
-// ── Filtro por odds (1 / X / 2 / Over / Under) — operadores ≤ ≥ > < = entre ──
-// "Força" é tratada igual às odds no filtro (mesmos operadores/UI), mas o valor
-// não vem direto de m[key] — vem de _painelForcaDiffCache (diferença de força
-// já calculada pela coluna "Força" da listagem, só disponível pros jogos já em
-// cache — ver _painelLoadForcaDiffs). Jogo sem força ainda cacheada falha o
-// filtro (mesmo comportamento de odd ausente/NaN), então some da lista até a
-// pré-carga em segundo plano conseguir analisar ele.
+// ── Filtro por ícone de Ataque/Defesa (Power Ranking de casa/fora) ──────────
+// Substituiu o filtro antigo de odds (1/X/2/Over/Under/Força) a pedido do
+// usuário (2026-08-30) — mantém os mesmos nomes de função/variável de antes
+// (_painelOddsFilters, PAINEL_ODDS_FILTER_COLS, etc.) pra não precisar mexer
+// em todo mundo que já chama isso, só trocou o que cada filtro representa:
+// em vez de operador+valor numérico, cada coluna aqui é um dropdown simples
+// que escolhe um ícone exato (✓/△/▽) ou "qualquer".
 const PAINEL_ODDS_FILTER_COLS = [
-  { key: 'odd_1', label: '1' }, { key: 'odd_x', label: 'X' }, { key: 'odd_2', label: '2' },
-  { key: 'odd_over', label: 'Over' }, { key: 'odd_under', label: 'Under' },
-  { key: 'forca_diff', label: 'Força', step: '1' },
+  { key: 'casa_ataque_icon', label: 'Casa — Ataque' }, { key: 'casa_defesa_icon', label: 'Casa — Defesa' },
+  { key: 'fora_ataque_icon', label: 'Fora — Ataque' }, { key: 'fora_defesa_icon', label: 'Fora — Defesa' },
 ];
-let _painelOddsFilters = {};  // key -> {op, val1, val2}
-PAINEL_ODDS_FILTER_COLS.forEach(c => { _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' }; });
-let _painelForcaDiffCache = {};  // match_id -> diferença de força (número absoluto), preenchido por _painelLoadForcaDiffs
+const PAINEL_ICON_FILTER_OPTIONS = [
+  { value: '', label: '-- qualquer --' },
+  { value: '✓', label: '✓ bom' },
+  { value: '△', label: '△ mediano' },
+  { value: '▽', label: '▽ ruim' },
+];
+let _painelOddsFilters = {};  // key -> valor do ícone selecionado ('' = qualquer)
+PAINEL_ODDS_FILTER_COLS.forEach(c => { _painelOddsFilters[c.key] = ''; });
+// _painelForcaDiffCache/_painelLoadForcaDiffs ficaram órfãos (a coluna
+// "Força" que os alimentava saiu da UI) — mantidos só porque o export de
+// Leitura ainda lê essa chave (fica sempre null/vazio agora, com segurança).
+let _painelForcaDiffCache = {};  // match_id -> diferença de força (número absoluto), preenchido por _painelLoadForcaDiffs (não é mais chamado)
 
 // Filtro de turno (manhã/tarde/noite) — mesmo critério de horário já usado
 // no Hoje 2 (_calcToday2Turno), só que em cima de m.ts (campo de timestamp
@@ -5083,20 +5088,9 @@ function _painelBuildOddsFilterBar() {
     <div class="painel-odds-filter-group">
       <span class="painel-odds-filter-label">${c.label}</span>
       <div class="painel-odds-filter-controls">
-        <select onchange="_painelOddsFilterChange('${c.key}', 'op', this.value)">
-          <option value="">--</option>
-          <option value="lte">≤</option>
-          <option value="gte">≥</option>
-          <option value="gt">&gt;</option>
-          <option value="lt">&lt;</option>
-          <option value="eq">=</option>
-          <option value="between">entre</option>
+        <select onchange="_painelOddsFilterChange('${c.key}', this.value)">
+          ${PAINEL_ICON_FILTER_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
         </select>
-        <input type="number" step="${c.step || '0.01'}" placeholder="valor" style="display:none" id="painelOddsFilterVal1_${c.key}"
-          oninput="_painelOddsFilterChange('${c.key}', 'val1', this.value)">
-        <span id="painelOddsFilterAnd_${c.key}" style="display:none;color:var(--text2)">e</span>
-        <input type="number" step="${c.step || '0.01'}" placeholder="valor" style="display:none" id="painelOddsFilterVal2_${c.key}"
-          oninput="_painelOddsFilterChange('${c.key}', 'val2', this.value)">
       </div>
     </div>
   `).join('')
@@ -5376,31 +5370,17 @@ async function _painelExportLeituraJson() {
   URL.revokeObjectURL(url);
 }
 
-function _painelOddsFilterChange(key, field, value) {
-  _painelOddsFilters[key][field] = value;
-  if (field === 'op') {
-    const showVal1 = value !== '';
-    const showVal2 = value === 'between';
-    document.getElementById('painelOddsFilterVal1_' + key).style.display = showVal1 ? '' : 'none';
-    document.getElementById('painelOddsFilterVal2_' + key).style.display = showVal2 ? '' : 'none';
-    document.getElementById('painelOddsFilterAnd_' + key).style.display = showVal2 ? '' : 'none';
-    if (!showVal1) { document.getElementById('painelOddsFilterVal1_' + key).value = ''; _painelOddsFilters[key].val1 = ''; }
-    if (!showVal2) { document.getElementById('painelOddsFilterVal2_' + key).value = ''; _painelOddsFilters[key].val2 = ''; }
-  }
+function _painelOddsFilterChange(key, value) {
+  _painelOddsFilters[key] = value;
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
 function _painelOddsFilterClear() {
   PAINEL_ODDS_FILTER_COLS.forEach(c => {
-    _painelOddsFilters[c.key] = { op: '', val1: '', val2: '' };
+    _painelOddsFilters[c.key] = '';
     const bar = document.getElementById('painelOddsFilterBar');
-    const sel = bar.querySelector(`select[onchange*="'${c.key}', 'op'"]`);
+    const sel = bar.querySelector(`select[onchange*="'${c.key}'"]`);
     if (sel) sel.value = '';
-    document.getElementById('painelOddsFilterVal1_' + c.key).value = '';
-    document.getElementById('painelOddsFilterVal1_' + c.key).style.display = 'none';
-    document.getElementById('painelOddsFilterVal2_' + c.key).value = '';
-    document.getElementById('painelOddsFilterVal2_' + c.key).style.display = 'none';
-    document.getElementById('painelOddsFilterAnd_' + c.key).style.display = 'none';
   });
   _painelTurnoFiltro = 'all';
   document.querySelectorAll('#painelOddsFilterBar .painel-turno-btn').forEach(b => b.classList.remove('active'));
@@ -5413,25 +5393,15 @@ function _painelOddsFilterClear() {
   if (_painelLastData) _painelRender(_painelLastData);
 }
 
+// Filtro por ícone exato — jogo sem ícone calculado ainda (time com <5 jogos
+// na liga, ou classificação ainda não chegou nesse ciclo do pré-aquecimento
+// em segundo plano) não bate com nenhum filtro ativo (mesmo espírito do
+// filtro antigo: dado ausente também não passava).
 function _painelMatchPassesOddsFilters(m) {
   for (const c of PAINEL_ODDS_FILTER_COLS) {
-    const f = _painelOddsFilters[c.key];
-    if (!f.op) continue;
-    const odd = c.key === 'forca_diff' ? _painelForcaDiffCache[m.event_id] : parseFloat(m[c.key]);
-    if (odd === undefined || odd === null || isNaN(odd)) return false;
-    if (f.op === 'between') {
-      const v1 = parseFloat(f.val1), v2 = parseFloat(f.val2);
-      if (isNaN(v1) || isNaN(v2)) continue;
-      if (odd < Math.min(v1, v2) || odd > Math.max(v1, v2)) return false;
-    } else {
-      const v1 = parseFloat(f.val1);
-      if (isNaN(v1)) continue;
-      if (f.op === 'lte' && !(odd <= v1)) return false;
-      if (f.op === 'gte' && !(odd >= v1)) return false;
-      if (f.op === 'gt' && !(odd > v1)) return false;
-      if (f.op === 'lt' && !(odd < v1)) return false;
-      if (f.op === 'eq' && !(Math.abs(odd - v1) < 1e-9)) return false;
-    }
+    const wanted = _painelOddsFilters[c.key];
+    if (!wanted) continue;
+    if (m[c.key] !== wanted) return false;
   }
   return true;
 }
@@ -8485,14 +8455,12 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span>H-T</span><span>Escanteio</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span title="Diferença de comparação de força (só aparece pros jogos já analisados)">Força</span><span></span><span></span>
+                <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span></span><span></span>
               </div>
               ${rows}
             </div>
           </div>`;
       }).join(''));
-
-  _painelLoadForcaDiffs(leaguesFiltered);
 }
 
 // Preenche a coluna "Força" da listagem só com o que já estiver em cache no
@@ -8542,6 +8510,15 @@ function _painelRowLogos(m) {
   return { home: found?.escudo_casa || null, away: found?.escudo_fora || null };
 }
 
+// Célula de Ataque/Defesa (Power Ranking) — só o ícone, colorido, com o
+// nome do time no tooltip. `icon` vem de app.py já pronto (✓/△/▽) ou null
+// quando o time tem menos de 5 jogos na tabela da própria liga (ou a
+// classificação ainda não foi calculada em segundo plano).
+function _painelPowerIconCell(icon, teamName, label) {
+  const cor = icon === '✓' ? '#22c55e' : icon === '▽' ? '#ef4444' : icon === '△' ? '#f59e0b' : 'var(--text2)';
+  return `<span class="painel-power-icon" style="color:${cor}" title="${label} — ${_bt2EscXml(teamName || '')}${icon ? '' : ' (menos de 5 jogos na liga, ou ainda calculando)'}">${icon || '-'}</span>`;
+}
+
 function _painelMatchRowHtml(m, leagueName) {
   const isLive = _painelIsLive(m);
   const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
@@ -8552,8 +8529,6 @@ function _painelMatchRowHtml(m, leagueName) {
   const awayEsc = String(m.away).replace(/'/g, "\\'");
   const kickoff = _painelKickoffTime(m);
   const minuteHtml = (isLive && m.minute != null) ? `<div class="painel-match-minute">${m.minute}'</div>` : '';
-  const htHtml = (m.ht_home != null && m.ht_home !== '') ? `${m.ht_home}-${m.ht_away}` : '-';
-  const cornersHtml = (m.corner_home != null && m.corner_home !== '') ? `${m.corner_home}-${m.corner_away}` : '-';
   return `
     <div class="painel-match-row">
       <span class="${timeClass}">${m.time || ''}${minuteHtml}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
@@ -8568,14 +8543,10 @@ function _painelMatchRowHtml(m, leagueName) {
         ${_painelTeamTagBtnHtml(m.away, awayEsc)}
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
       </span>
-      <span class="painel-match-ht">${htHtml}</span>
-      <span class="painel-match-corners">${cornersHtml}</span>
-      ${_painelOddCell(m.odd_1)}
-      ${_painelOddCell(m.odd_x)}
-      ${_painelOddCell(m.odd_2)}
-      ${_painelOddCell(m.odd_over)}
-      ${_painelOddCell(m.odd_under)}
-      <span class="painel-match-forca-diff" id="painelForcaDiff_${m.event_id}">–</span>
+      ${_painelPowerIconCell(m.casa_ataque_icon, m.home, 'Ataque (casa)')}
+      ${_painelPowerIconCell(m.casa_defesa_icon, m.home, 'Defesa (casa)')}
+      ${_painelPowerIconCell(m.fora_ataque_icon, m.away, 'Ataque (visitante)')}
+      ${_painelPowerIconCell(m.fora_defesa_icon, m.away, 'Defesa (visitante)')}
       <span class="painel-plat-icons">
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
@@ -8595,7 +8566,7 @@ function _painelRenderFlatByTime(leaguesFiltered) {
   return `
     <div class="painel-league">
       <div class="painel-league-cols">
-        <span>Hora</span><span>Jogo</span><span>1</span><span>X</span><span>2</span><span>Over</span><span>Under</span><span title="Diferença de comparação de força (só aparece pros jogos já analisados)">Força</span><span></span>
+        <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span></span><span></span>
       </div>
       ${rows}
     </div>`;
