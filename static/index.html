@@ -7516,6 +7516,50 @@ function _painelForcaH2hScoredRatio(teamName, limit) {
   return total ? { scored, total } : null;
 }
 
+// Virada — cruza HT e FT do mesmo jogo. Precisa do placar do intervalo
+// (_painelForcaHtById), que só é buscado sob demanda (até 15 ids por vez,
+// limite da rota) — ver chamada de _painelForcaEnsureHt em
+// _painelForcaPrognosticoRender. Jogos sem HT ainda carregado ficam de fora
+// da amostra (não contam nem no total), mesma regra defensiva já usada em
+// _painelForcaMarketRatio/_painelForcaViradaRatio.
+function _painelForcaH2hViradaRatio(teamName, testFn, limit) {
+  let rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  if (limit) rows = rows.slice(0, limit);
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const ht = _painelForcaHtById[m.id];
+    if (!ht) return;
+    const ftParts = String(m.score || '').split(':').map(Number);
+    const htParts = [parseInt(ht.home, 10), parseInt(ht.away, 10)];
+    if (ftParts.length !== 2 || isNaN(ftParts[0]) || isNaN(ftParts[1])) return;
+    if (isNaN(htParts[0]) || isNaN(htParts[1])) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    const teamFt = isHomeRow ? ftParts[0] : ftParts[1];
+    const oppFt  = isHomeRow ? ftParts[1] : ftParts[0];
+    const teamHt = isHomeRow ? htParts[0] : htParts[1];
+    const oppHt  = isHomeRow ? htParts[1] : htParts[0];
+    if (testFn(teamHt, oppHt, teamFt, oppFt)) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
+// Pontuações Anteriores: rows já normalizadas (_painelForcaPrognosticoOwnRows)
+// sempre têm o time analisado em "home", incluindo score_ht (invertido junto
+// com score_ft por _painelForcaNormalizeRow) — parts[0] é sempre o time.
+function _painelForcaOwnViradaRatio(rows, testFn) {
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const ftParts = String(m.score_ft || '').split('-').map(Number);
+    const htParts = String(m.score_ht || '').split('-').map(Number);
+    if (ftParts.length !== 2 || isNaN(ftParts[0]) || isNaN(ftParts[1])) return;
+    if (htParts.length !== 2 || isNaN(htParts[0]) || isNaN(htParts[1])) return;
+    total++;
+    if (testFn(htParts[0], htParts[1], ftParts[0], ftParts[1])) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
 function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
   const pct = ratio ? Math.round(100 * ratio.scored / ratio.total) : null;
   return `
@@ -7620,6 +7664,24 @@ function _painelForcaPrognosticoRender() {
   const lastAwayUnb = _painelForcaPrognosticoStreak(ownAwayRows, unbeatenTest);
   const lastHomeUnb4 = _painelForcaPrognosticoStreak(ownHomeRows.slice(0, 4), unbeatenTest);
   const lastAwayUnb4 = _painelForcaPrognosticoStreak(ownAwayRows.slice(0, 4), unbeatenTest);
+  const fezViradaTest = (tHt, oHt, tFt, oFt) => tHt < oHt && tFt > oFt;
+  const sofreuViradaTest = (tHt, oHt, tFt, oFt) => tHt > oHt && tFt < oFt;
+  const h2hHomeFezV = _painelForcaH2hViradaRatio(_painelForcaHome, fezViradaTest);
+  const h2hAwayFezV = _painelForcaH2hViradaRatio(_painelForcaAway, fezViradaTest);
+  const h2hHomeFezV4 = _painelForcaH2hViradaRatio(_painelForcaHome, fezViradaTest, 4);
+  const h2hAwayFezV4 = _painelForcaH2hViradaRatio(_painelForcaAway, fezViradaTest, 4);
+  const h2hHomeSofV = _painelForcaH2hViradaRatio(_painelForcaHome, sofreuViradaTest);
+  const h2hAwaySofV = _painelForcaH2hViradaRatio(_painelForcaAway, sofreuViradaTest);
+  const h2hHomeSofV4 = _painelForcaH2hViradaRatio(_painelForcaHome, sofreuViradaTest, 4);
+  const h2hAwaySofV4 = _painelForcaH2hViradaRatio(_painelForcaAway, sofreuViradaTest, 4);
+  const lastHomeFezV = _painelForcaOwnViradaRatio(ownHomeRows, fezViradaTest);
+  const lastAwayFezV = _painelForcaOwnViradaRatio(ownAwayRows, fezViradaTest);
+  const lastHomeFezV4 = _painelForcaOwnViradaRatio(ownHomeRows.slice(0, 4), fezViradaTest);
+  const lastAwayFezV4 = _painelForcaOwnViradaRatio(ownAwayRows.slice(0, 4), fezViradaTest);
+  const lastHomeSofV = _painelForcaOwnViradaRatio(ownHomeRows, sofreuViradaTest);
+  const lastAwaySofV = _painelForcaOwnViradaRatio(ownAwayRows, sofreuViradaTest);
+  const lastHomeSofV4 = _painelForcaOwnViradaRatio(ownHomeRows.slice(0, 4), sofreuViradaTest);
+  const lastAwaySofV4 = _painelForcaOwnViradaRatio(ownAwayRows.slice(0, 4), sofreuViradaTest);
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol — Confronto Direto</div>
@@ -7731,7 +7793,55 @@ function _painelForcaPrognosticoRender() {
     <div style="display:flex;gap:8px;margin-top:2px">
       ${_painelForcaPrognosticoStreakCard(_painelForcaHome, '#e8622c', lastHomeUnb4)}
       ${_painelForcaPrognosticoStreakCard(_painelForcaAway, '#2c7fe8', lastAwayUnb4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">Fez virada (perdia no 1º tempo e venceu) — Confronto Direto</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeFezV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayFezV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeFezV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayFezV4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">Fez virada (perdia no 1º tempo e venceu) — Pontuações Anteriores</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeFezV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayFezV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeFezV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayFezV4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">Sofreu virada (vencia no 1º tempo e perdeu) — Confronto Direto</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeSofV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwaySofV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeSofV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwaySofV4)}
+    </div>
+    <div class="painel-forca-group-title" style="margin-top:10px">Sofreu virada (vencia no 1º tempo e perdeu) — Pontuações Anteriores</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV4)}
     </div>`;
+  _painelForcaEnsureHt([
+    ..._painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos').slice(0, 15),
+    ...ownHomeRows.slice(0, 15), ...ownAwayRows.slice(0, 15),
+  ], _painelForcaPrognosticoRender);
 }
 
 // ── 📝 Leitura — estudos próprios, cruzando dados que as outras abas já
