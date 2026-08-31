@@ -7516,44 +7516,6 @@ function _painelForcaH2hScoredRatio(teamName, limit) {
   return total ? { scored, total } : null;
 }
 
-// Linha "valor -- rótulo -- valor" com barra de nível embaixo (pedido do
-// usuário, 2026-08-31, mostrando referência de outra tela do site) — troca o
-// par de cards lado a lado por uma única linha compacta, reaproveitando o
-// mesmo esquema de cor por faixa (verde ≥70%, amarelo ≥40%, vermelho abaixo)
-// e a barra divergente do centro já usada na antiga aba Leitura
-// (_painelForcaLeituraRow, removida) e em _painelForcaBarRow (Comparação de
-// força). O centro do meio da barra fica colorido só quando os dois lados
-// têm exatamente a mesma cor, senão fica neutro (var(--border)) — mesma regra
-// das duas funções antigas citadas acima.
-function _painelForcaPrognosticoBarRow(centerLabel, homeR, awayR) {
-  const corPct = pct => pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
-  const homePct = homeR ? Math.round(100 * homeR.scored / homeR.total) : null;
-  const awayPct = awayR ? Math.round(100 * awayR.scored / awayR.total) : null;
-  const corHome = homePct != null ? corPct(homePct) : 'var(--text2)';
-  const corAway = awayPct != null ? corPct(awayPct) : 'var(--text2)';
-  const corMeio = (homePct != null && corHome === corAway) ? corHome : 'var(--border)';
-  const homeTxt = homeR ? `${homeR.scored}/${homeR.total} <span style="font-weight:400">(${homePct}%)</span>` : `<span style="font-weight:400">sem dados</span>`;
-  const awayTxt = awayR ? `${awayR.scored}/${awayR.total} <span style="font-weight:400">(${awayPct}%)</span>` : `<span style="font-weight:400">sem dados</span>`;
-  return `
-    <div style="padding:7px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:800">
-        <span style="color:${corHome};flex:1;text-align:left">${homeTxt}</span>
-        <span style="color:var(--text2);font-weight:600;font-size:11px;flex:1.2;text-align:center">${_bt2EscXml(centerLabel)}</span>
-        <span style="color:${corAway};flex:1;text-align:right">${awayTxt}</span>
-      </div>
-      <div style="display:flex;align-items:stretch;height:6px;border-radius:3px;overflow:hidden;background:var(--bg);margin-top:4px">
-        <div style="flex:1;display:flex;justify-content:flex-end"><div style="width:${homePct || 0}%;height:100%;background:${corHome}"></div></div>
-        <div style="width:2px;flex-shrink:0;background:${corMeio}"></div>
-        <div style="flex:1;display:flex;justify-content:flex-start"><div style="width:${awayPct || 0}%;height:100%;background:${corAway}"></div></div>
-      </div>
-    </div>`;
-}
-
-function _painelForcaPrognosticoBarRows(homeTodos, awayTodos, homeUlt4, awayUlt4) {
-  return _painelForcaPrognosticoBarRow('Todos', homeTodos, awayTodos)
-    + _painelForcaPrognosticoBarRow('Últimos 4', homeUlt4, awayUlt4);
-}
-
 // Placar exato — não ocorreu — % dos jogos (no recorte) em que o placar NÃO
 // foi um dos 19 buckets fixos (16 placares + 3 "qualquer outro"), reaproveitando
 // a mesma classificação (_placarExatoBucketKey/PLACAR_EXATO_BUCKETS_ORDER, mais
@@ -7601,9 +7563,27 @@ function _painelForcaPrognosticoPlacarSection(bucketLabel, ownHomeRows, ownAwayR
   const lastAwayR4 = _painelForcaOwnPlacarNotOccurredRatio(ownAwayRows.slice(0, 4), bucketLabel);
   return `
     <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(label)} — Confronto Direto</div>
-    ${_painelForcaPrognosticoBarRows(h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(label)} — Pontuações Anteriores</div>
-    ${_painelForcaPrognosticoBarRows(lastHomeR, lastAwayR, lastHomeR4, lastAwayR4)}`;
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>`;
 }
 
 // Mercados extras (Over/Under, Ambas Marcam, Vence/Empate 1T) — mesmo padrão
@@ -7670,9 +7650,27 @@ function _painelForcaPrognosticoMarketSection(market, ownHomeRows, ownAwayRows) 
   const lastAwayR4 = _painelForcaOwnMarketRatio(ownAwayRows.slice(0, 4), market.period, market.test);
   return `
     <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(market.label)} — Confronto Direto</div>
-    ${_painelForcaPrognosticoBarRows(h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">${_bt2EscXml(market.label)} — Pontuações Anteriores</div>
-    ${_painelForcaPrognosticoBarRows(lastHomeR, lastAwayR, lastHomeR4, lastAwayR4)}`;
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>`;
 }
 
 // Virada — cruza HT e FT do mesmo jogo. Precisa do placar do intervalo
@@ -7717,6 +7715,15 @@ function _painelForcaOwnViradaRatio(rows, testFn) {
     if (testFn(htParts[0], htParts[1], ftParts[0], ftParts[1])) hit++;
   });
   return total ? { scored: hit, total } : null;
+}
+
+function _painelForcaPrognosticoStatCard(teamName, color, ratio) {
+  const pct = ratio ? Math.round(100 * ratio.scored / ratio.total) : null;
+  return `
+    <div style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:${color}">${_bt2EscXml(teamName)}</div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-top:2px">${pct != null ? pct + '%' : '-'} <span style="font-size:11px;font-weight:600;color:var(--text2)">${ratio ? `(${ratio.scored}/${ratio.total})` : ''}</span></div>
+    </div>`;
 }
 
 // Sequência atual (jogo mais recente pra trás, parando no 1º que não bater).
@@ -7835,9 +7842,27 @@ function _painelForcaPrognosticoRender() {
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol — Confronto Direto</div>
-    ${_painelForcaPrognosticoBarRows(h2hHomeR, h2hAwayR, h2hHomeR4, h2hAwayR4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayR4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Jogos em que marcou gol — Pontuações Anteriores</div>
-    ${_painelForcaPrognosticoBarRows(lastHomeR, lastAwayR, lastHomeR4, lastAwayR4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeR4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayR4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Sequência atual — Marcando gol — Confronto Direto</div>
     <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
     <div style="display:flex;gap:8px;margin-top:2px">
@@ -7927,13 +7952,49 @@ function _painelForcaPrognosticoRender() {
       ${_painelForcaPrognosticoStreakCard(_painelForcaAway, '#2c7fe8', lastAwayUnb4)}
     </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Fez virada (perdia no 1º tempo e venceu) — Confronto Direto</div>
-    ${_painelForcaPrognosticoBarRows(h2hHomeFezV, h2hAwayFezV, h2hHomeFezV4, h2hAwayFezV4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeFezV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayFezV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeFezV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwayFezV4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Fez virada (perdia no 1º tempo e venceu) — Pontuações Anteriores</div>
-    ${_painelForcaPrognosticoBarRows(lastHomeFezV, lastAwayFezV, lastHomeFezV4, lastAwayFezV4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeFezV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayFezV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeFezV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwayFezV4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Sofreu virada (vencia no 1º tempo e perdeu) — Confronto Direto</div>
-    ${_painelForcaPrognosticoBarRows(h2hHomeSofV, h2hAwaySofV, h2hHomeSofV4, h2hAwaySofV4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeSofV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwaySofV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', h2hHomeSofV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', h2hAwaySofV4)}
+    </div>
     <div class="painel-forca-group-title" style="margin-top:10px">Sofreu virada (vencia no 1º tempo e perdeu) — Pontuações Anteriores</div>
-    ${_painelForcaPrognosticoBarRows(lastHomeSofV, lastAwaySofV, lastHomeSofV4, lastAwaySofV4)}
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Todos</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV)}
+    </div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Últimos 4</div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      ${_painelForcaPrognosticoStatCard(_painelForcaHome, '#e8622c', lastHomeSofV4)}
+      ${_painelForcaPrognosticoStatCard(_painelForcaAway, '#2c7fe8', lastAwaySofV4)}
+    </div>
     ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(b => _painelForcaPrognosticoPlacarSection(b, ownHomeRows, ownAwayRows)).join('')}`;
   _painelForcaEnsureHt([
