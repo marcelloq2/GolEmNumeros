@@ -6220,12 +6220,36 @@ function _painelForcaEnsureHt(rows, rerenderFn) {
     .finally(() => rerenderFn());
 }
 
+// Minutos de cada gol (por time), pro estudo "Marcou primeiro" do Prognóstico
+// — mesmo endpoint/lógica já usado na aba Jogos do Dia (_fs_goal_minutes no
+// backend, lê a linha do tempo real da partida via Flashscore). Encadeia na
+// MESMA corrente do HT (_painelForcaHtChain) de propósito — mais uma fonte de
+// dado batendo no mesmo pool do backend ao mesmo tempo que HT reintroduziria
+// o travamento já resolvido antes (ver comentário de _painelForcaEnsureHt).
+let _painelForcaGoalMinById = {};
+function _painelForcaEnsureGoalMin(rows, rerenderFn) {
+  const faltando = [...new Set(rows.map(r => r.id))]
+    .filter(id => id && !(id in _painelForcaGoalMinById))
+    .slice(0, 20);
+  if (!faltando.length) return;
+  _painelForcaHtChain = _painelForcaHtChain
+    .then(() => fetch(`/api/flashscore/goal_minutes_batch?ids=${faltando.join(',')}`))
+    .then(r => r.json())
+    .then(d => {
+      const results = d.results || {};
+      faltando.forEach(id => { _painelForcaGoalMinById[id] = results[id] || null; });
+    })
+    .catch(e => console.warn('[painel-forca] falha buscando minutos de gol:', e))
+    .finally(() => rerenderFn());
+}
+
 function _painelOpenForca(eventId, home, away, league, oddHome, oddAway, status, ts, resultado) {
   _painelForcaHome = home; _painelForcaAway = away; _painelForcaLeague = league || ''; _painelForcaData = null; _painelForcaView = 'h2h';
   _painelForcaEventId = eventId;
   _painelForcaOddsMarkets = null;
   _painelForcaOddsBookmaker = '';
   _painelForcaHtById = {};
+  _painelForcaGoalMinById = {};
   _painelForcaHtChain = Promise.resolve();
   _painelForcaTableState = {
     h2h: { count: 10, ht: false, onlySide: false, sameLeague: false },
@@ -7520,6 +7544,50 @@ function _painelForcaH2hScoredRatio(teamName, limit) {
   return total ? { scored, total } : null;
 }
 
+// Marcou primeiro — usa _painelForcaGoalMinById (minuto de cada gol por
+// time, buscado sob demanda via _painelForcaEnsureGoalMin — mesma limitação
+// de amostra do HT/Virada: jogo sem esse dado ainda carregado fica fora da
+// conta). 0-0 (nenhum gol) ou minuto empatado entre os 2 times (raríssimo,
+// dado ambíguo) também ficam fora, de propósito.
+function _painelForcaFirstScorerSide(gm) {
+  if (!gm) return null;
+  const homeMin = (gm.home && gm.home.length) ? Math.min(...gm.home) : Infinity;
+  const awayMin = (gm.away && gm.away.length) ? Math.min(...gm.away) : Infinity;
+  if (homeMin === Infinity && awayMin === Infinity) return null;
+  if (homeMin === awayMin) return null;
+  return homeMin < awayMin ? 'home' : 'away';
+}
+
+function _painelForcaH2hFirstScorerRatio(teamName, limit) {
+  let rows = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
+  if (limit) rows = rows.slice(0, limit);
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const side = _painelForcaFirstScorerSide(_painelForcaGoalMinById[m.id]);
+    if (!side) return;
+    total++;
+    const isHomeRow = m.home === teamName;
+    if ((side === 'home') === isHomeRow) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
+// rows já normalizadas (_painelForcaPrognosticoOwnRows) — mas o dado de
+// minutos de gol vem do jogo REAL (raw), então o lado do time nessa tabela
+// específica ("- Casa" ou "- Fora") já garante se ele era mandante ou
+// visitante em TODOS os jogos daquele recorte (por isso `key` fixo, sem
+// checar por linha como no H2H).
+function _painelForcaOwnFirstScorerRatio(rows, key) {
+  let hit = 0, total = 0;
+  rows.forEach(m => {
+    const side = _painelForcaFirstScorerSide(_painelForcaGoalMinById[m.id]);
+    if (!side) return;
+    total++;
+    if (side === key) hit++;
+  });
+  return total ? { scored: hit, total } : null;
+}
+
 // Placar exato — não ocorreu — % dos jogos (no recorte) em que o placar NÃO
 // foi um dos 19 buckets fixos (16 placares + 3 "qualquer outro"), reaproveitando
 // a mesma classificação (_placarExatoBucketKey/PLACAR_EXATO_BUCKETS_ORDER, mais
@@ -7901,6 +7969,14 @@ function _painelForcaPrognosticoRender() {
   const lastAwaySofV = _painelForcaOwnViradaRatio(ownAwayRows, sofreuViradaTest);
   const lastHomeSofV4 = _painelForcaOwnViradaRatio(ownHomeRows.slice(0, 4), sofreuViradaTest);
   const lastAwaySofV4 = _painelForcaOwnViradaRatio(ownAwayRows.slice(0, 4), sofreuViradaTest);
+  const h2hHomeFirst = _painelForcaH2hFirstScorerRatio(_painelForcaHome);
+  const h2hAwayFirst = _painelForcaH2hFirstScorerRatio(_painelForcaAway);
+  const h2hHomeFirst4 = _painelForcaH2hFirstScorerRatio(_painelForcaHome, 4);
+  const h2hAwayFirst4 = _painelForcaH2hFirstScorerRatio(_painelForcaAway, 4);
+  const lastHomeFirst = _painelForcaOwnFirstScorerRatio(ownHomeRows, 'home');
+  const lastAwayFirst = _painelForcaOwnFirstScorerRatio(ownAwayRows, 'away');
+  const lastHomeFirst4 = _painelForcaOwnFirstScorerRatio(ownHomeRows.slice(0, 4), 'home');
+  const lastAwayFirst4 = _painelForcaOwnFirstScorerRatio(ownAwayRows.slice(0, 4), 'away');
   el.innerHTML = `
     ${header}
     <div class="painel-forca-group-title" style="margin-top:0">Jogos em que marcou gol</div>
@@ -7917,11 +7993,18 @@ function _painelForcaPrognosticoRender() {
     ${_painelForcaPrognosticoStatCardPair(h2hHomeFezV, h2hAwayFezV, h2hHomeFezV4, h2hAwayFezV4, lastHomeFezV, lastAwayFezV, lastHomeFezV4, lastAwayFezV4)}
     <div class="painel-forca-group-title" style="margin-top:10px">Sofreu virada (vencia no 1º tempo e perdeu)</div>
     ${_painelForcaPrognosticoStatCardPair(h2hHomeSofV, h2hAwaySofV, h2hHomeSofV4, h2hAwaySofV4, lastHomeSofV, lastAwaySofV, lastHomeSofV4, lastAwaySofV4)}
+    <div class="painel-forca-group-title" style="margin-top:10px">Marcou primeiro</div>
+    ${_painelForcaPrognosticoStatCardPair(h2hHomeFirst, h2hAwayFirst, h2hHomeFirst4, h2hAwayFirst4, lastHomeFirst, lastAwayFirst, lastHomeFirst4, lastAwayFirst4)}
     ${PROGNOSTICO_MARKETS.map(mk => _painelForcaPrognosticoMarketSection(mk, ownHomeRows, ownAwayRows)).join('')}
     ${PLACAR_EXATO_BUCKETS_ORDER.map(b => _painelForcaPrognosticoPlacarSection(b, ownHomeRows, ownAwayRows)).join('')}`;
+  const h2hRowsForHt = _painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos');
   _painelForcaEnsureHt([
-    ..._painelForcaFsSectionRows(_painelForcaFsTab('Total'), 'Confrontos diretos').slice(0, 15),
+    ...h2hRowsForHt.slice(0, 15),
     ...ownHomeRows.slice(0, 15), ...ownAwayRows.slice(0, 15),
+  ], _painelForcaPrognosticoRender);
+  _painelForcaEnsureGoalMin([
+    ...h2hRowsForHt.slice(0, 20),
+    ...ownHomeRows.slice(0, 20), ...ownAwayRows.slice(0, 20),
   ], _painelForcaPrognosticoRender);
 }
 
