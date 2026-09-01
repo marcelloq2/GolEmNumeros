@@ -7185,6 +7185,121 @@ def api_jogos_dia_config():
     return jsonify(_jogos_dia_load())
 
 
+# ── LISTA DE METODOLOGIAS ──────────────────────────────────────────────────
+# Importa o .txt "Jogos por metodologia" exportado pela ferramenta local
+# (analise_padroes.html) — cada linha é 1 metodologia que bateu numa partida
+# (probabilidade acima da média do mercado + CV abaixo da média, no lote de
+# próximos jogos carregado na ferramenta). Agrupa por partida (várias linhas
+# por partida, uma por metodologia) e só EXIBE — pedido do usuário
+# (2026-09-01): aba "Lista" ao lado de "Metodologias" no Painel Principal,
+# com botão de importar; fica salvo até a PRÓXIMA importação (sem expirar
+# sozinho) — mesmo padrão de persistência de Jogos do Dia (arquivo local +
+# push/pull no GitHub, sobrevive a redeploy do Railway).
+_LISTA_METODOLOGIAS_CONFIG_FILE = os.path.join(DATA_DIR, "lista_metodologias_config.json")
+_lista_metodologias_lock = threading.Lock()
+
+
+def _lista_metodologias_load():
+    """Lê do disco a cada chamada, sem cache em memória, pra não grudar num
+    resultado vazio se alguém ler antes da restauração do GitHub terminar no
+    boot."""
+    with _lista_metodologias_lock:
+        try:
+            with open(_LISTA_METODOLOGIAS_CONFIG_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"gerado_em": None, "jogos": []}
+
+
+def _lista_metodologias_parse_txt(raw_bytes):
+    """Parse do .txt "Jogos por metodologia": TSV, comentários (#) no topo (a
+    1ª linha de comentário traz a data/hora da geração), depois cabeçalho,
+    depois 1 linha por metodologia batida numa partida.
+
+    Tenta UTF-8 primeiro e cai pra cp1252 se falhar — mesma cautela do parser
+    de Jogos do Dia, mesma ferramenta de origem (analise_padroes.html), ainda
+    que esse export específico já tenha saído em UTF-8 quando testado."""
+    try:
+        text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw_bytes.decode("cp1252")
+
+    linhas = text.splitlines()
+    gerado_em = None
+    corpo = []
+    for linha in linhas:
+        if linha.startswith("#"):
+            if gerado_em is None and "·" in linha:
+                gerado_em = linha.split("·", 1)[1].strip()
+            continue
+        if linha.strip():
+            corpo.append(linha)
+    if not corpo:
+        return {"gerado_em": gerado_em, "jogos": []}
+
+    header = corpo[0].split("\t")
+    idx = {nome: i for i, nome in enumerate(header)}
+    obrigatorias = ["casa", "fora", "liga", "horario", "status", "metodologia", "probabilidade_pct", "cv_pct"]
+    if not all(c in idx for c in obrigatorias):
+        raise ValueError(f"Cabeçalho do .txt não tem as colunas esperadas: {obrigatorias}")
+
+    partidas = {}
+    ordem = []
+    for linha in corpo[1:]:
+        campos = linha.split("\t")
+        if len(campos) < len(header):
+            continue
+        row = {nome: campos[i].strip() for nome, i in idx.items()}
+        chave = (row["casa"], row["fora"], row["liga"], row["horario"])
+        if chave not in partidas:
+            partidas[chave] = {
+                "casa": row["casa"], "fora": row["fora"], "liga": row["liga"],
+                "horario": row["horario"], "status": row["status"],
+                "metodologias": [],
+            }
+            ordem.append(chave)
+        try:
+            prob = float(row["probabilidade_pct"])
+        except ValueError:
+            prob = None
+        try:
+            cv = float(row["cv_pct"])
+        except ValueError:
+            cv = None
+        partidas[chave]["metodologias"].append({
+            "metodologia": row["metodologia"],
+            "probabilidade_pct": prob,
+            "cv_pct": cv,
+        })
+
+    jogos = [partidas[k] for k in ordem]
+    return {"gerado_em": gerado_em, "jogos": jogos}
+
+
+@app.route("/api/lista_metodologias/import", methods=["POST"])
+def api_lista_metodologias_import():
+    if "file" not in request.files:
+        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+    try:
+        data = _lista_metodologias_parse_txt(request.files["file"].read())
+    except Exception as e:
+        return jsonify({"error": f"Erro lendo o arquivo: {e}"}), 400
+
+    with _lista_metodologias_lock:
+        os.makedirs(os.path.dirname(_LISTA_METODOLOGIAS_CONFIG_FILE), exist_ok=True)
+        with open(_LISTA_METODOLOGIAS_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    github_storage.push_file_bg(_LISTA_METODOLOGIAS_CONFIG_FILE, "lista_metodologias_config.json")
+
+    return jsonify({"ok": True, "total_jogos": len(data["jogos"]),
+                     "total_metodologias": sum(len(j["metodologias"]) for j in data["jogos"])})
+
+
+@app.route("/api/lista_metodologias/config")
+def api_lista_metodologias_config():
+    return jsonify(_lista_metodologias_load())
+
+
 def _uni_events_today():
     """Retorna lista de eventos de futebol do dia — TODOS os locales + paginação,
     combinando os jogos AO VIVO (live-v2) com os AINDA NÃO COMEÇADOS (scheduled-events).

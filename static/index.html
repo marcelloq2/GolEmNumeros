@@ -1677,6 +1677,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('finished', this)">FINALIZADOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">MINHAS SELEÇÕES</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">METODOLOGIAS</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('lista', this)">LISTA</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0">
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
@@ -1727,6 +1728,23 @@
     <div class="painel-odds-filter-bar" id="painelOddsFilterBar"></div>
     <div id="painelMatches" style="padding:10px"></div>
     <div id="painelMethodologiesView" style="display:none;padding:10px"></div>
+
+    <!-- LISTA — importa o .txt "Jogos por metodologia" exportado pela
+         ferramenta local (analise_padroes.html) e lista os jogos com as
+         metodologias que bateram em cada um. Fica salvo (arquivo local +
+         GitHub) até a PRÓXIMA importação — pedido do usuário (2026-09-01). -->
+    <div id="painelListaView" style="display:none;padding:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="document.getElementById('painelListaFileInput').click()"
+          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
+                 color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
+        <input type="file" id="painelListaFileInput" accept=".txt" style="display:none" onchange="_painelListaImportFile(this.files[0])">
+        <input type="text" id="painelListaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time ou campeonato..."
+          style="max-width:240px" oninput="_painelListaSetSearch(this.value)">
+        <span id="painelListaStatus" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+      <div id="painelListaBody"></div>
+    </div>
   </div>
 
   <div id="painelUserTipsOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) _painelCloseUserTips()">
@@ -5604,11 +5622,13 @@ function _painelSetFilter(filter, btn) {
   btn.classList.add('active');
 
   const isMeth = filter === 'methodologies';
+  const isLista = filter === 'lista';
   const isSelected = filter === 'selected';
-  document.getElementById('painelMatches').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelMatches').style.display = (isMeth || isLista) ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
-  document.querySelector('.painel-search-bar').style.display = isMeth ? 'none' : '';
-  document.getElementById('painelOddsFilterBar').style.display = isMeth ? 'none' : '';
+  document.getElementById('painelListaView').style.display = isLista ? '' : 'none';
+  document.querySelector('.painel-search-bar').style.display = (isMeth || isLista) ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = (isMeth || isLista) ? 'none' : '';
   const methodSel = document.getElementById('painelMethodFilterSelect');
   if (methodSel) {
     methodSel.style.display = isSelected ? '' : 'none';
@@ -5617,6 +5637,8 @@ function _painelSetFilter(filter, btn) {
 
   if (isMeth) {
     _painelLoadMethodologies();
+  } else if (isLista) {
+    _painelListaLoadConfig();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
@@ -23389,6 +23411,129 @@ function _jogosDiaRenderList(d) {
   list.innerHTML = mercados.length
     ? mercados.map(m => _jogosDiaMercadoSectionHtml(m, porMercado[m])).join('')
     : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate esse filtro.</div>`;
+}
+
+// ── LISTA — importa o .txt "Jogos por metodologia" (analise_padroes.html) e
+// lista os jogos com as metodologias que bateram em cada um, agrupados por
+// liga. Fica salvo (arquivo local + GitHub) até a PRÓXIMA importação — não
+// expira sozinho, pedido do usuário (2026-09-01).
+let _painelListaData = null;
+let _painelListaSearchQuery = '';
+let _painelListaCollapsed = {};
+
+async function _painelListaImportFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('painelListaStatus');
+  statusEl.textContent = 'Importando...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/lista_metodologias/import', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) { statusEl.textContent = `Erro: ${d.error}`; return; }
+    statusEl.textContent = `✓ ${d.total_jogos} jogo(s) / ${d.total_metodologias} metodologia(s) importada(s) com sucesso.`;
+    _painelListaLoadConfig();
+  } catch (e) {
+    statusEl.textContent = `Erro importando o arquivo: ${e}`;
+  } finally {
+    document.getElementById('painelListaFileInput').value = '';
+  }
+}
+
+async function _painelListaLoadConfig() {
+  const statusEl = document.getElementById('painelListaStatus');
+  try {
+    const r = await fetch('/api/lista_metodologias/config');
+    const d = await r.json();
+    _painelListaData = d;
+    _painelListaRenderList(d);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = `Erro buscando a lista: ${e}`;
+  }
+}
+
+function _painelListaSetSearch(value) {
+  _painelListaSearchQuery = (value || '').trim().toLowerCase();
+  if (_painelListaData) _painelListaRenderList(_painelListaData);
+}
+
+function _painelListaToggleLeague(key, headerEl) {
+  _painelListaCollapsed[key] = !_painelListaCollapsed[key];
+  const body = document.getElementById(`painelListaBody_${key}`);
+  if (body) body.style.display = _painelListaCollapsed[key] ? 'none' : '';
+  headerEl.classList.toggle('collapsed', !!_painelListaCollapsed[key]);
+}
+
+function _painelListaMetodologiaRowHtml(met) {
+  const prob = met.probabilidade_pct != null ? `${met.probabilidade_pct}%` : '-';
+  const cv = met.cv_pct != null ? `CV ${met.cv_pct}%` : '';
+  return `
+    <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:4px 0;border-top:1px solid var(--border)">
+      <span style="color:var(--text)">${_bt2EscXml(met.metodologia)}</span>
+      <span style="white-space:nowrap"><b style="color:var(--text)">${prob}</b> <span style="color:var(--text2)">${cv}</span></span>
+    </div>`;
+}
+
+function _painelListaJogoCardHtml(j) {
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-weight:700;color:var(--text);font-size:13px">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
+      </div>
+      <div>${j.metodologias.map(_painelListaMetodologiaRowHtml).join('')}</div>
+    </div>`;
+}
+
+function _painelListaLeagueSectionHtml(liga, jogos) {
+  const key = String(liga).replace(/[^a-zA-Z0-9_-]/g, '') || 'semliga';
+  const collapsed = !!_painelListaCollapsed[key];
+  return `
+    <div class="painel-league">
+      <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_painelListaToggleLeague('${key}', this)">
+        <span class="painel-league-name">${_bt2EscXml(liga)}</span>
+        <span class="painel-arrow">▲</span>
+      </div>
+      <div id="painelListaBody_${key}" style="${collapsed ? 'display:none' : ''};padding:8px 0 2px">
+        ${jogos.map(_painelListaJogoCardHtml).join('')}
+      </div>
+    </div>`;
+}
+
+function _painelListaRenderList(d) {
+  const body = document.getElementById('painelListaBody');
+  const statusEl = document.getElementById('painelListaStatus');
+  const jogos = d.jogos || [];
+  if (!jogos.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhuma lista importada ainda — clique em "📥 Importar .txt".</div>`;
+    statusEl.textContent = '';
+    return;
+  }
+
+  const filtrados = _painelListaSearchQuery
+    ? jogos.filter(j =>
+        (j.casa || '').toLowerCase().includes(_painelListaSearchQuery) ||
+        (j.fora || '').toLowerCase().includes(_painelListaSearchQuery) ||
+        (j.liga || '').toLowerCase().includes(_painelListaSearchQuery))
+    : jogos;
+
+  const porLiga = {};
+  const ordemLigas = [];
+  filtrados.forEach(j => {
+    const liga = j.liga || 'Sem liga';
+    if (!porLiga[liga]) { porLiga[liga] = []; ordemLigas.push(liga); }
+    porLiga[liga].push(j);
+  });
+
+  const totalMet = filtrados.reduce((acc, j) => acc + j.metodologias.length, 0);
+  const geradoTxt = d.gerado_em ? ` — gerado em ${_bt2EscXml(d.gerado_em)}` : '';
+  statusEl.textContent = _painelListaSearchQuery
+    ? `${filtrados.length} de ${jogos.length} jogo(s) — filtrado por "${_painelListaSearchQuery}".`
+    : `${jogos.length} jogo(s) · ${totalMet} metodologia(s)${geradoTxt}.`;
+
+  body.innerHTML = ordemLigas.length
+    ? ordemLigas.map(liga => _painelListaLeagueSectionHtml(liga, porLiga[liga])).join('')
+    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo bate essa busca.</div>`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
