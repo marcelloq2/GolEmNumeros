@@ -4902,15 +4902,24 @@ function _painelToggleLeague(key, headerEl) {
 let _painelLastData = null;   // último payload recebido do backend, pra refiltrar sem refetch
 let _painelViewFilter = 'all'; // 'all' | 'live' | 'next'
 
-const PAINEL_LIVE_STATUSES = ['1º Tempo', 'Intervalo', '2º Tempo', 'Prorrogação', 'Pênaltis'];
+// Status vem sempre como uma dessas 3 strings (_FS_STATUS_MAP no app.py,
+// Flashscore não detalha "1º Tempo/Intervalo/2º Tempo" como o NowGoal
+// antigo mandava — só "Ao vivo" mesmo). PAINEL_LIVE_STATUSES tinha ficado
+// pra trás na migração NowGoal->Flashscore (2026-08-30): _painelIsLive
+// nunca batia com "Ao vivo", então a aba "AO VIVO" do Painel sempre ficava
+// com contagem 0 e, pior, _painelIsFinished (que é só "não é live e não é
+// next") classificava jogo AO VIVO como finalizado — "Baixar leitura"
+// podia exportar placar de jogo ainda em andamento como se fosse o final.
+// Achado pelo usuário (2026-09-01): "AO VIVO" vazio com o Ao Vivo normal
+// (outra aba, fonte diferente) mostrando jogos rolando.
 function _painelIsLive(m) {
-  return PAINEL_LIVE_STATUSES.includes(m.time) || /^\d+['+]/.test(m.time || '');
+  return m.time === 'Ao vivo';
 }
 function _painelIsNext(m) {
-  return m.time === 'Agendado' || /^\d{1,2}:\d{2}$/.test(m.time || '');
+  return m.time === 'Agendado';
 }
 function _painelIsFinished(m) {
-  return !_painelIsLive(m) && !_painelIsNext(m);
+  return m.time === 'Encerrado';
 }
 
 // ── Minhas Seleções — times marcados com estrela, salvos no navegador, com uma
