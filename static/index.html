@@ -1688,7 +1688,7 @@
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button id="painelExportLeituraBtn" onclick="_painelExportLeituraJson()"
-          title="Baixa um .json com as partidas de HOJE já FINALIZADAS: dados básicos (time, escudo, liga, placar, HT, odds), os ícones de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) e TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) — busca uma partida de cada vez, pode demorar bastante com muito jogo já encerrado"
+          title="Baixa um .json com as partidas de HOJE já FINALIZADAS: dados básicos (time, escudo, liga, horário, odds), os ícones de Power Ranking (C-Atq/C-Def/F-Atq/F-Def), placar HT/FT, quem marcou primeiro, quem sofreu primeiro e quem fez virada — pra conferir a taxa de acerto das metodologias importadas em 'Lista' contra o resultado real"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
                  color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">⬇️ Baixar leitura</button>
@@ -5401,37 +5401,81 @@ function _painelBuildPrognosticoExportData() {
 // pesado; 2 ao mesmo tempo já é outra história).
 let _painelExportBusy = false;
 
-async function _painelExportPrognosticoBatch({ btnId, filterFn, semJogosMsg, confirmVerb, filenamePrefix, observacao }) {
-  if (_painelExportBusy) {
-    alert('Já tem uma exportação (Baixar leitura ou Baixar próximos) rodando — espera ela terminar antes de iniciar outra.');
-    return;
+// Marcou/sofreu primeiro (minutos de gol) + fez virada (HT x FT) — fatos do
+// PRÓPRIO jogo (não histórico/agregado). Pedido do usuário (2026-09-01):
+// "Baixar leitura" virou um export enxuto de RESULTADO (não mais o
+// prognóstico agregado de H2H/Pontuações Anteriores) pra alimentar um painel
+// local que confere a taxa de acerto das metodologias do arquivo importado
+// em "Lista" contra o placar real de cada jogo.
+// `fez_virada` distingue "nenhuma" (dado disponível, sem virada) de `null`
+// (HT ou FT faltando) — mesma lógica de fezViradaTest/sofreuViradaTest já
+// usada no Prognóstico, só aplicada a 1 jogo em vez de agregar vários.
+function _painelBuildResultadoExportData(htHome, htAway, ftHome, ftAway, gm) {
+  const htH = parseInt(htHome, 10), htA = parseInt(htAway, 10);
+  const ftH = parseInt(ftHome, 10), ftA = parseInt(ftAway, 10);
+  const temHt = !isNaN(htH) && !isNaN(htA);
+  const temFt = !isNaN(ftH) && !isNaN(ftA);
+
+  const side = _painelForcaFirstScorerSide(gm); // 'home' | 'away' | null
+  const marcou_primeiro = side === 'home' ? 'casa' : side === 'away' ? 'fora' : null;
+  const sofreu_primeiro = side === 'home' ? 'fora' : side === 'away' ? 'casa' : null;
+
+  let fez_virada = null;
+  if (temHt && temFt) {
+    if (htH < htA && ftH > ftA) fez_virada = 'casa';
+    else if (htA < htH && ftA > ftH) fez_virada = 'fora';
+    else fez_virada = 'nenhuma';
   }
-  const btn = document.getElementById(btnId);
-  const originalLabel = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de hoje...'; }
-  const dateStr = new Date().toISOString().slice(0, 10);
-  let hojeData;
-  try {
-    const r = await fetch('/api/painel/matches');
-    hojeData = await r.json();
-  } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
-    alert('Erro ao buscar jogos de hoje: ' + e);
-    return;
+
+  return { marcou_primeiro, sofreu_primeiro, fez_virada };
+}
+
+// Modo "resultado" ("Baixar leitura", jogos já finalizados): NÃO usa H2H —
+// só precisa do placar do próprio jogo (ht/ft, já vem em `m` pra maioria dos
+// jogos, cache do prewarm de fundo) + minutos de gol. Busca tudo em LOTES
+// através de TODAS as partidas de uma vez (até 15 ids/chamada de HT, 20
+// ids/chamada de minutos de gol) em vez de 1 requisição por jogo — é isso
+// que torna esse modo muito mais rápido que o antigo baseado em H2H.
+async function _painelExportResultadoRows(flat, btn) {
+  const semHt = flat.filter(({ m }) => (m.ht_home == null || m.ht_home === '') && (m.ht_away == null || m.ht_away === '') && m.event_id).map(({ m }) => m.event_id);
+  const htExtra = {};
+  for (let i = 0; i < semHt.length; i += 15) {
+    const lote = semHt.slice(i, i + 15);
+    if (btn) btn.textContent = `⏳ HT ${Math.min(i + 15, semHt.length)}/${semHt.length}`;
+    try {
+      const hr = await fetch(`/api/flashscore/half_time_batch?ids=${lote.join(',')}`);
+      const hd = await hr.json();
+      Object.assign(htExtra, hd.results || {});
+    } catch (e) { /* jogos desse lote ficam sem HT extra — fez_virada sai null pra eles */ }
   }
-  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
-  const flat = [];
-  (hojeData.leagues || []).forEach(lg => lg.matches.forEach(m => { if (filterFn(m)) flat.push({ lg, m }); }));
-  if (!flat.length) { alert(semJogosMsg); return; }
+  const todosIds = flat.map(({ m }) => m.event_id).filter(Boolean);
+  const goalMinById = {};
+  for (let i = 0; i < todosIds.length; i += 20) {
+    const lote = todosIds.slice(i, i + 20);
+    if (btn) btn.textContent = `⏳ Gols ${Math.min(i + 20, todosIds.length)}/${todosIds.length}`;
+    try {
+      const gr = await fetch(`/api/flashscore/goal_minutes_batch?ids=${lote.join(',')}`);
+      const gd = await gr.json();
+      Object.assign(goalMinById, gd.results || {});
+    } catch (e) { /* jogos desse lote ficam sem marcou/sofreu primeiro */ }
+  }
 
-  const comNomes = flat.filter(({ m }) => m.home && m.away).length;
-  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) ${confirmVerb} — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos tiver. Continuar?`)) return;
+  return flat.map(({ lg, m }) => {
+    const base = _painelExportBaseFields(lg, m);
+    const htExtraRow = htExtra[m.event_id];
+    const htHome = (base.ht_casa != null) ? base.ht_casa : (htExtraRow || {}).home;
+    const htAway = (base.ht_fora != null) ? base.ht_fora : (htExtraRow || {}).away;
+    base.resultado = _painelBuildResultadoExportData(htHome, htAway, base.placar_casa, base.placar_fora, goalMinById[m.event_id]);
+    return base;
+  });
+}
 
-  _painelExportBusy = true;
-  // Preserva o estado do modal "Análise da partida" — a exportação usa as
-  // MESMAS globais que o modal usa (_painelForcaData/Home/Away/HtById/
-  // GoalMinById), uma partida de cada vez, e restaura no final.
+// Modo "prognostico" ("Baixar próximos", jogos que ainda não começaram): 1
+// requisição de H2H por jogo (não dá pra batchar — cada jogo tem seu próprio
+// histórico) seguida dos lotes de HT/minutos de gol específicos DAQUELE
+// confronto. Lógica original desse export, só extraída pra função própria.
+async function _painelExportPrognosticoRows(flat, btn) {
   const prevData = _painelForcaData, prevHome = _painelForcaHome, prevAway = _painelForcaAway;
   const prevHt = _painelForcaHtById, prevGoalMin = _painelForcaGoalMinById;
 
@@ -5484,6 +5528,48 @@ async function _painelExportPrognosticoBatch({ btnId, filterFn, semJogosMsg, con
 
   _painelForcaData = prevData; _painelForcaHome = prevHome; _painelForcaAway = prevAway;
   _painelForcaHtById = prevHt; _painelForcaGoalMinById = prevGoalMin;
+  return partidas;
+}
+
+async function _painelExportPrognosticoBatch({ btnId, filterFn, semJogosMsg, confirmVerb, filenamePrefix, observacao, mode }) {
+  if (_painelExportBusy) {
+    alert('Já tem uma exportação (Baixar leitura ou Baixar próximos) rodando — espera ela terminar antes de iniciar outra.');
+    return;
+  }
+  const btn = document.getElementById(btnId);
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de hoje...'; }
+  const dateStr = new Date().toISOString().slice(0, 10);
+  let hojeData;
+  try {
+    const r = await fetch('/api/painel/matches');
+    hojeData = await r.json();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+    alert('Erro ao buscar jogos de hoje: ' + e);
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+
+  const flat = [];
+  (hojeData.leagues || []).forEach(lg => lg.matches.forEach(m => { if (filterFn(m)) flat.push({ lg, m }); }));
+  if (!flat.length) { alert(semJogosMsg); return; }
+
+  const comNomes = flat.filter(({ m }) => m.home && m.away).length;
+  const confirmMsg = mode === 'resultado'
+    ? `Isso vai buscar o placar do intervalo (só pros jogos sem HT ainda em cache) e os minutos de gol de ${comNomes} partida(s) ${confirmVerb}, em lotes — bem mais rápido que a versão antiga (sem H2H). Continuar?`
+    : `Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) ${confirmVerb} — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos tiver. Continuar?`;
+  if (!confirm(confirmMsg)) return;
+
+  _painelExportBusy = true;
+
+  let partidas;
+  if (mode === 'resultado') {
+    partidas = await _painelExportResultadoRows(flat, btn);
+  } else {
+    partidas = await _painelExportPrognosticoRows(flat, btn);
+  }
+
   _painelExportBusy = false;
 
   if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
@@ -5509,14 +5595,20 @@ async function _painelExportPrognosticoBatch({ btnId, filterFn, semJogosMsg, con
 }
 
 // "Baixar leitura" — jogos de HOJE já FINALIZADOS (placar final confirmado).
+// Pedido do usuário (2026-09-01): mudou de "prognóstico agregado" (H2H/
+// Pontuações Anteriores) pra RESULTADO do próprio jogo — nome dos times,
+// placar HT/FT, marcou/sofreu primeiro, fez virada — pra alimentar um painel
+// local que confere a taxa de acerto das metodologias importadas em "Lista"
+// contra o placar real.
 async function _painelExportLeituraJson() {
   return _painelExportPrognosticoBatch({
     btnId: 'painelExportLeituraBtn',
     filterFn: _painelIsFinished,
     semJogosMsg: 'Nenhum jogo finalizado hoje ainda.',
     confirmVerb: 'de HOJE já finalizadas',
-    filenamePrefix: 'leitura_prognostico_finalizados',
-    observacao: 'Só partidas de hoje já finalizadas (placar final confirmado)',
+    filenamePrefix: 'leitura_resultados_finalizados',
+    observacao: 'Só partidas de hoje já finalizadas — placar HT/FT do próprio jogo + marcou/sofreu primeiro + fez virada, pra conferir taxa de acerto das metodologias da Lista',
+    mode: 'resultado',
   });
 }
 
@@ -5535,6 +5627,7 @@ async function _painelExportProximosJson() {
     confirmVerb: 'de HOJE que ainda vão acontecer (placar em branco, é pré-jogo)',
     filenamePrefix: 'leitura_prognostico_proximos',
     observacao: 'Só partidas de hoje ainda não iniciadas — sem placar (pré-jogo), pra comparar com o resultado depois',
+    mode: 'prognostico',
   });
 }
 
