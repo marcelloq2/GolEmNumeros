@@ -14863,8 +14863,10 @@ function renderLive2Card(m) {
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
-        <button class="live-card-tab-btn" onclick="_live2OpenUniscoreCDModal('${m.id}')">CD / Dados</button>
-        <button class="live-card-tab-btn" title="Probabilidade da partida (estimativa nossa, calculada a partir das odds)" onclick="_live2OpenProbModal('${m.id}')">🎯 Placar</button>
+        <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
+             (_live2OpenProbModal) removidos a pedido do usuário (2026-09-01)
+             — os modais continuam existindo no código, só sem esse ponto de
+             entrada na UI. -->
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
