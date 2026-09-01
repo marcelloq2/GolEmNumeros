@@ -5171,6 +5171,15 @@ async function _painelExportRelatoriosTxt() {
 // servidor, então funciona instantâneo mesmo em dia de centenas de jogos
 // (ver decisão de não sobrecarregar o servidor, mesmo motivo das travas
 // recém-adicionadas na Ao Vivo).
+// Ícone de Power Ranking (✓/△/▽) -> texto por extenso, só pra exportação —
+// pedido do usuário (2026-09-01): o símbolo abre estranho em alguns lugares
+// (planilha/editor), melhor exportar a palavra igual o rótulo do próprio
+// filtro da tela (PAINEL_ICON_FILTER_OPTIONS: "✓ bom"/"△ mediano"/"▽ ruim").
+const _PAINEL_ICON_TO_LABEL = { '✓': 'bom', '△': 'mediano', '▽': 'ruim' };
+function _painelIconToLabel(icon) {
+  return _PAINEL_ICON_TO_LABEL[icon] || null;
+}
+
 function _painelExportBaseFields(lg, m) {
   const logos = _painelRowLogos(m);
   return {
@@ -5203,10 +5212,10 @@ function _painelExportBaseFields(lg, m) {
     // — vêm do cache quente do backend (_painel_power_cache), que é indexado
     // por time+país sem depender do dia do jogo; só ficam null se o time não
     // apareceu em nenhuma liga verificada no ciclo mais recente do prewarm.
-    casa_ataque_icon: m.casa_ataque_icon || null,
-    casa_defesa_icon: m.casa_defesa_icon || null,
-    fora_ataque_icon: m.fora_ataque_icon || null,
-    fora_defesa_icon: m.fora_defesa_icon || null,
+    casa_ataque: _painelIconToLabel(m.casa_ataque_icon),
+    casa_defesa: _painelIconToLabel(m.casa_defesa_icon),
+    fora_ataque: _painelIconToLabel(m.fora_ataque_icon),
+    fora_defesa: _painelIconToLabel(m.fora_defesa_icon),
     event_id: m.event_id || null,
     match_url: m.match_url || null,
   };
