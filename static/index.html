@@ -1223,11 +1223,6 @@
   }
   .painel-league-header img { width: 16px; height: 16px; flex-shrink: 0; }
   .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; flex-shrink: 0; }
-  /* Jogos do Dia — linha de achado, mesmo espírito de .painel-match-row (hover
-     sutil) mas com espaçamento próprio pro conteúdo (escudo/placar/badge). */
-  .jogos-dia-row { transition: background .12s; }
-  .jogos-dia-row:hover { background: var(--bg2); }
-  .jogos-dia-row:last-child { border-bottom: none; }
   .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
   /* Nomes de liga longos (ex: "ÁFRICA: CAMPEONATO AFRICANO DE FUTEBOL FEMININO")
      sem min-width:0 forçam o flex container (e a página inteira, em mobile) a
@@ -1636,7 +1631,6 @@
     <!-- Botão "▶️ Replay" removido a pedido do usuário (2026-08-27) — a aba
          (replayPanel, switchView('replay',...)) continua existindo no
          código, só sem esse ponto de entrada na UI. -->
-    <button class="nav-tab" onclick="switchView('jogosdia', this)">📋 Jogos do Dia</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
@@ -2351,36 +2345,6 @@
     </div>
   </div>
 
-  <!-- JOGOS DO DIA — importa o .txt "Achados 100%" exportado pela ferramenta
-       local (analise_padroes.html, em cima do leitura_partidas_*.json do
-       Painel Principal) e lista as partidas do dia com os mercados em que
-       algum time bateu ~100% numa amostra recente. Primeira etapa (2026-08-29):
-       só a lista em si, sem cruzar com dado ao vivo ainda — próximos passos a
-       definir depois. -->
-  <div id="jogosDiaWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        📋 Jogos do Dia
-      </div>
-      <span style="font-size:11px;color:var(--text2)">importa os achados (mercados batendo ~100%) exportados pela ferramenta local</span>
-      <span id="jogosDiaGeradoEm" style="font-size:10px;color:var(--text2)"></span>
-      <span id="jogosDiaBadge" class="live-count-badge" style="margin-left:auto" title="Jogos carregados">0 jogos</span>
-      <button onclick="document.getElementById('jogosDiaFileInput').click()"
-        style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-               color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
-      <input type="file" id="jogosDiaFileInput" accept=".txt" style="display:none" onchange="_jogosDiaImportFile(this.files[0])">
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;flex-wrap:wrap">
-      <input type="text" id="jogosDiaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time..."
-        style="max-width:220px" oninput="_jogosDiaSetSearch(this.value)">
-      <select id="jogosDiaMercadoFilterSelect" class="painel-search-select" onchange="_jogosDiaSetMercadoFilter(this.value)">
-        <option value="">🏷️ Todos os mercados</option>
-      </select>
-    </div>
-    <div id="jogosDiaResumo"></div>
-    <div id="jogosDiaStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
-    <div id="jogosDiaList" style="margin-top:10px"></div>
-  </div>
 
   <!-- PLACAR CONTRA — consolida numa tela só as estatísticas da aba Jogo (Hoje2)
        + a grade de odds de Placar Exato, pra análise manual de lay contra
@@ -2944,8 +2908,8 @@ let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
 
 // ── GUIA GERAL DO APP — explica as abas atuais (Painel Principal, Ao Vivo,
-// Replay, Jogos do Dia, etc.) em linguagem simples, pra quem nunca usou o
-// site entender o que cada botão faz. Atualizado em 2026-08-27: removida a
+// Replay, etc.) em linguagem simples, pra quem nunca usou o site entender o
+// que cada botão faz. Atualizado em 2026-08-27: removida a
 // aba "Hoje" (página morta, sem botão de acesso no menu — só o dado dela
 // continua vivo por trás do modal "Análise da partida" do Painel Principal).
 // Sinalizador saiu do guia em 2026-09-01, junto com a aba (ver comentário
@@ -3365,7 +3329,6 @@ function switchView(view, btn) {
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
-  const jogosDiaWrapper = document.getElementById('jogosDiaWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
   today2Wrapper.style.display = 'none';
@@ -3376,7 +3339,6 @@ function switchView(view, btn) {
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
-  jogosDiaWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -3385,7 +3347,6 @@ function switchView(view, btn) {
   clearInterval(_painelAutoRefresh);
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
-  clearInterval(_jogosDiaAutoRefresh);
 
   if (view === 'painel') {
     painelWrapper.style.display = 'flex';
@@ -3416,13 +3377,6 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'jogosdia') {
-    jogosDiaWrapper.style.display = 'flex';
-    _jogosDiaLoadConfig();
-    // Só refaz o cruzamento com o Painel (status/placar/HT/escanteios) e
-    // redesenha — não reimporta o .txt. /api/painel/matches já é cacheado no
-    // backend, então isso não gera scraping novo nenhum.
-    _jogosDiaAutoRefresh = setInterval(_jogosDiaRefreshFromPainel, 30000);
   }
 }
 
@@ -6490,8 +6444,8 @@ function _painelForcaEnsureHt(rows, rerenderFn) {
 }
 
 // Minutos de cada gol (por time), pro estudo "Marcou primeiro" do Prognóstico
-// — mesmo endpoint/lógica já usado na aba Jogos do Dia (_fs_goal_minutes no
-// backend, lê a linha do tempo real da partida via Flashscore). Encadeia na
+// — usa /api/flashscore/goal_minutes_batch (_fs_goal_minutes no backend, lê
+// a linha do tempo real da partida via Flashscore). Encadeia na
 // MESMA corrente do HT (_painelForcaHtChain) de propósito — mais uma fonte de
 // dado batendo no mesmo pool do backend ao mesmo tempo que HT reintroduziria
 // o travamento já resolvido antes (ver comentário de _painelForcaEnsureHt).
@@ -22987,533 +22941,6 @@ function gerarBlocoHistorico(m) {
 
 // ── (ABA HISTÓRICO REMOVIDA) ──────────────────────────────────────────────────
 
-// ── JOGOS DO DIA — importa o .txt "Achados 100%" (analise_padroes.html) e
-// lista as partidas do dia com os mercados em que algum time bateu ~100%
-// numa amostra recente. Primeira etapa (2026-08-29): só a lista em si, sem
-// cruzar com dado ao vivo — import via FormData -> /api/jogos_dia/import,
-// lista estática (sem auto-refresh).
-let _jogosDiaData = null;
-let _jogosDiaSearchQuery = '';
-
-async function _jogosDiaImportFile(file) {
-  if (!file) return;
-  const statusEl = document.getElementById('jogosDiaStatus');
-  statusEl.textContent = 'Importando...';
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    const r = await fetch('/api/jogos_dia/import', { method: 'POST', body: fd });
-    const d = await r.json();
-    if (d.error) { statusEl.textContent = `Erro: ${d.error}`; return; }
-    statusEl.textContent = `✓ ${d.total_jogos} jogo(s) / ${d.total_achados} achado(s) importado(s) com sucesso.`;
-    _jogosDiaLoadConfig();
-  } catch (e) {
-    statusEl.textContent = `Erro importando o arquivo: ${e}`;
-  } finally {
-    document.getElementById('jogosDiaFileInput').value = '';
-  }
-}
-
-// Placar do intervalo (HT), escanteios (FT) e o STATUS/PLACAR atual de cada
-// jogo — o arquivo de achados só tem uma "foto" de tudo isso no momento do
-// import (pedido do usuário, 2026-08-30: "todos os resultados podem ser
-// buscados na aba Painel Principal?"). Em vez de depender do usuário
-// reimportar o .txt toda hora pra atualizar quem já encerrou, cruza com o
-// Painel Principal (/api/painel/matches, fonte NowGoal), que já mantém tudo
-// isso fresco. Como o próprio arquivo de achados vem originalmente desse
-// mesmo dado (Painel → export do usuário → ferramenta local → achados), o
-// nome dos times já bate igual, sem precisar de fuzzy-match. Zero chamada
-// nova além dessa: /api/painel/matches já é cacheada no backend (mesmo TTL
-// do Painel), não dispara scraping extra. Cobertura não é 100% — só pega o
-// que o Painel também lista hoje; jogo que só existe no arquivo (liga que o
-// Painel não cobre) continua caindo no status/placar congelado do import.
-let _jogosDiaHtLookup = {}; // "casa|fora" -> {ht_casa?, ht_fora?, corner_casa?, corner_fora?, status_painel?, score_casa?, score_fora?}
-
-async function _jogosDiaFetchHtLookup() {
-  try {
-    const r = await fetch('/api/painel/matches');
-    const d = await r.json();
-    const lookup = {};
-    (d.leagues || []).forEach(lg => lg.matches.forEach(m => {
-      const entry = {};
-      if (m.ht_home != null && m.ht_home !== '' && m.ht_away != null && m.ht_away !== '') {
-        entry.ht_casa = m.ht_home; entry.ht_fora = m.ht_away;
-      }
-      if (m.corner_home != null && m.corner_home !== '' && m.corner_away != null && m.corner_away !== '') {
-        entry.corner_casa = m.corner_home; entry.corner_fora = m.corner_away;
-      }
-      if (m.time) entry.status_painel = m.time;
-      if (m.score_home != null && m.score_home !== '' && m.score_away != null && m.score_away !== '') {
-        entry.score_casa = m.score_home; entry.score_fora = m.score_away;
-      }
-      if (Object.keys(entry).length) lookup[`${m.home}|${m.away}`] = entry;
-    }));
-    _jogosDiaHtLookup = lookup;
-  } catch (e) {
-    console.warn('[jogos-dia] falha buscando dados ao vivo do Painel:', e);
-  }
-}
-
-// Fuzzy-match contra o Flashscore/Soccerway — MESMA técnica do _fs_find_match
-// no backend (app.py), só que rodando em cima do today2MatchesCache que o
-// app já mantém sempre fresco (refresh a cada 20s em segundo plano, pra
-// alimentar a aba Hoje 2 e os escudos do Painel — ver
-// _today2StartBackgroundRefresh). Zero requisição nova: é o mesmo dado que
-// já está sendo buscado de qualquer jeito.
-function _jogosDiaFsNorm(s) {
-  return (s || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-function _jogosDiaFsSideScore(query, candidate) {
-  let s = 0;
-  if (query.length >= 4 && candidate.slice(0, 5) === query.slice(0, 5)) s += 2;
-  if (query.slice(0, 6) && (candidate.includes(query.slice(0, 6)) || query.includes(candidate.slice(0, 6)))) s += 1;
-  return s;
-}
-function _jogosDiaFindFlashscoreMatch(casa, fora) {
-  const nc = _jogosDiaFsNorm(casa), nf = _jogosDiaFsNorm(fora);
-  let best = null, bestScore = 0;
-  (today2MatchesCache || []).forEach(m => {
-    const h = _jogosDiaFsNorm(m.home), a = _jogosDiaFsNorm(m.away);
-    const scDireto = (_jogosDiaFsSideScore(nc, h) && _jogosDiaFsSideScore(nf, a)) ? _jogosDiaFsSideScore(nc, h) + _jogosDiaFsSideScore(nf, a) : 0;
-    const scInvertido = (_jogosDiaFsSideScore(nc, a) && _jogosDiaFsSideScore(nf, h)) ? _jogosDiaFsSideScore(nc, a) + _jogosDiaFsSideScore(nf, h) : 0;
-    const score = Math.max(scDireto, scInvertido);
-    if (score > bestScore) { bestScore = score; best = m; }
-  });
-  return bestScore >= 4 ? best : null;
-}
-const _JOGOS_DIA_FS_STATUS = { '1': 'Agendado', '2': 'Ao vivo', '3': 'Encerrado' };
-
-// Status/placar "de verdade" de um jogo — em ordem de confiança:
-// 1) Painel Principal (NowGoal) — nome bate exato, é a fonte mais precisa.
-// 2) Flashscore/Soccerway (fuzzy) — cobre ligas menores que o NowGoal não
-//    tem (caso real: "Svay Rieng FC x Visakha FC", Cambodia Super Cup, só
-//    aparecia no Flashscore — sem isso a linha ficava presa no placar
-//    congelado do momento do import, mesmo o jogo já tendo terminado).
-// 3) Só cai pro que veio no .txt importado se nenhuma das duas achar o jogo.
-function _jogosDiaStatusPlacarAtual(j) {
-  const lk = _jogosDiaHtLookup[`${j.casa}|${j.fora}`];
-  if (lk && lk.status_painel && lk.score_casa != null && lk.score_fora != null) {
-    return { status: lk.status_painel, placar: `${lk.score_casa}-${lk.score_fora}` };
-  }
-  const fs = _jogosDiaFindFlashscoreMatch(j.casa, j.fora);
-  if (fs && fs.home_score != null && fs.home_score !== '' && fs.away_score != null && fs.away_score !== '') {
-    return { status: _JOGOS_DIA_FS_STATUS[fs.status] || j.status, placar: `${fs.home_score}-${fs.away_score}` };
-  }
-  return { status: j.status, placar: j.placar };
-}
-
-async function _jogosDiaLoadConfig() {
-  const statusEl = document.getElementById('jogosDiaStatus');
-  try {
-    const [r] = await Promise.all([fetch('/api/jogos_dia/config'), _jogosDiaFetchHtLookup()]);
-    const d = await r.json();
-    _jogosDiaData = d;
-    _jogosDiaRenderList(d);
-  } catch (e) {
-    if (statusEl) statusEl.textContent = `Erro carregando: ${e}`;
-  }
-}
-
-// Auto-refresh enquanto a aba tá aberta — só busca de novo o status/placar
-// do Painel e redesenha, sem reimportar nada. Silencioso: se falhar, mantém
-// os dados antigos até a próxima tentativa (mesmo espírito dos outros
-// auto-refresh do app).
-let _jogosDiaAutoRefresh = null;
-async function _jogosDiaRefreshFromPainel() {
-  if (!_jogosDiaData || !_jogosDiaData.jogos || !_jogosDiaData.jogos.length) return;
-  await _jogosDiaFetchHtLookup();
-  _jogosDiaRenderList(_jogosDiaData);
-}
-
-function _jogosDiaSetSearch(value) {
-  _jogosDiaSearchQuery = (value || '').trim().toLowerCase();
-  if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
-}
-
-let _jogosDiaMercadoFilter = ''; // '' = todos
-function _jogosDiaSetMercadoFilter(value) {
-  _jogosDiaMercadoFilter = value || '';
-  if (_jogosDiaData) _jogosDiaRenderList(_jogosDiaData);
-}
-
-// Popula o dropdown com os mercados que existem no import atual — só refaz
-// as opções quando a lista de mercados muda de verdade (evita perder a
-// seleção do usuário a cada 25s/refresh à toa, embora essa aba hoje não
-// tenha auto-refresh nenhum ainda).
-let _jogosDiaMercadosNoSelect = null;
-function _jogosDiaUpdateMercadoOptions(mercados) {
-  const chave = mercados.join('|');
-  if (chave === _jogosDiaMercadosNoSelect) return;
-  _jogosDiaMercadosNoSelect = chave;
-  const sel = document.getElementById('jogosDiaMercadoFilterSelect');
-  if (!sel) return;
-  const atual = sel.value;
-  sel.innerHTML = '<option value="">🏷️ Todos os mercados</option>' +
-    mercados.map(m => `<option value="${_bt2EscXml(m)}">${_bt2EscXml(m)}</option>`).join('');
-  if (mercados.includes(atual)) sel.value = atual; // preserva a seleção se o mercado ainda existir
-}
-
-// Agrupado por MERCADO (metodologia), não por partida — pedido do usuário
-// (2026-08-29) depois de ver a 1ª versão (agrupada por jogo): cada seção é um
-// mercado ("Ambas Marcam (BTTS)", "Placar 0-0 — não ocorreu" etc.) com a
-// lista de jogos que bateram ~100% nele, igual à ordem do .txt original.
-// Mesmo padrão visual/colapsável das ligas do Painel Principal
-// (.painel-league/.painel-league-header), com chave própria (prefixo "jd_")
-// pra não colidir com o _painelCollapsed do Painel.
-let _jogosDiaCollapsed = {};
-
-function _jogosDiaToggleMercado(key, headerEl) {
-  _jogosDiaCollapsed[key] = !_jogosDiaCollapsed[key];
-  const body = document.getElementById('jogosDiaBody_' + key);
-  if (body) body.style.display = _jogosDiaCollapsed[key] ? 'none' : '';
-  headerEl.classList.toggle('collapsed', !!_jogosDiaCollapsed[key]);
-}
-
-// Escudo é opcional (só existe em import feito a partir de 2026-08-30) —
-// <img> só entra quando a URL veio preenchida, e some sozinha (onerror) se o
-// link quebrar, mesmo padrão já usado nos escudos do Painel Principal/Ao Vivo.
-function _jogosDiaEscudoImg(url, size) {
-  if (!url) return '';
-  size = size || 18;
-  return `<img src="${_bt2EscXml(url)}" alt="" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:3px" onerror="this.style.display='none'">`;
-}
-
-// ── Checagem de acerto — pedido do usuário (2026-08-30), mercado por mercado
-// conforme ele vai pedindo. Devolve true (bateu) / false (não bateu) / null
-// (jogo ainda sem placar final, ou mercado que ainda não sabemos verificar).
-// Decide a PREVISÃO pelo nome do mercado (heurística no texto).
-//
-// "Jogos em que marcou gol (1º tempo)", "Perde 1T" e os Over/Under HT usam o
-// placar do INTERVALO; "Over X.5 Escanteios FT" usa o total de escanteios —
-// o arquivo de achados não traz nenhum dos dois, mas o Painel Principal já
-// busca ambos (NowGoal: ht_home/ht_away, corner_home/corner_away) pra cada
-// jogo do dia. _jogosDiaFetchHtLookup cruza por nome dos times (mesma fonte
-// original, então bate direto sem fuzzy-match). Escanteios do INTERVALO
-// (Over X.5 Escanteios HT) continuam sem nenhum dado disponível — fica de
-// fora por enquanto (cai no "mercado ainda não suportado" no final).
-function _jogosDiaPrevisaoTipo(mercado) {
-  const m = (mercado || '').toLowerCase();
-  if (m.includes('ambas') && (m.includes('marcam') || m.includes('btts'))) {
-    return { tipo: 'ambas_marcam', sim: !(m.includes('não') || m.includes('nao')) };
-  }
-  if (m.includes('jogos em que marcou gol')) {
-    return { tipo: m.includes('1º tempo') || m.includes('1o tempo') ? 'marcou_gol_ht' : 'marcou_gol_ft' };
-  }
-  if (m.includes('sequência') || m.includes('sequencia')) {
-    if (m.includes('marcando gol')) return { tipo: 'marcou_gol_ft' };
-    if (m.includes('sem sofrer gol')) return { tipo: 'sem_sofrer_gol' };
-    if (m.includes('vencendo')) return { tipo: 'vencendo' };
-    if (m.includes('sem perder') || m.includes('invicto')) return { tipo: 'invicto' };
-    return null;
-  }
-  if (m.includes('perde 1t')) return { tipo: 'perde_1t' };
-
-  const gols = /^(over|under)\s+(\d+)[.,]5\s+(ft|ht)\b/.exec(m);
-  if (gols) return { tipo: gols[1] === 'over' ? 'over_gols' : 'under_gols', linha: parseInt(gols[2], 10) + 0.5, periodo: gols[3] };
-
-  const escanteios = /^over\s+(\d+)[.,]5\s+escanteios\s+ft\b/.exec(m);
-  if (escanteios) return { tipo: 'over_escanteios_ft', linha: parseInt(escanteios[1], 10) + 0.5 };
-
-  const placar = /^placar\s+(\d+)-(\d+)\s*[-–—]\s*n[ãa]o ocorreu/.exec(m);
-  if (placar) return { tipo: 'placar_nao_ocorreu', golsCasa: parseInt(placar[1], 10), golsFora: parseInt(placar[2], 10) };
-
-  // "Qualquer Outra Vitória/Vitória em casa/Empate — não ocorreu": os mercados
-  // "Placar X-Y" acima cobrem os 16 placares comuns (0 a 3 gols pra cada
-  // lado); esses 3 aqui apostam que, se sair um resultado daquele tipo, o
-  // placar exato vai ser um desses 16 — ou seja, um resultado "exótico" (fora
-  // dessa faixa) NÃO deveria ocorrer.
-  if (m.includes('outra') && m.includes('visitante')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'fora' };
-  if (m.includes('outra') && m.includes('casa')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'casa' };
-  if (m.includes('outro') && m.includes('empate')) return { tipo: 'resultado_exotico_nao_ocorreu', lado: 'empate' };
-
-  return null; // mercado ainda não suportado
-}
-
-function _jogosDiaChecarAcerto(a) {
-  const previsao = _jogosDiaPrevisaoTipo(a.mercado);
-  if (!previsao) return null; // mercado ainda não suportado
-  // Só confere jogo REALMENTE encerrado — "status" em Intervalo/1º Tempo/2º
-  // Tempo também vem com um placar (parcial, de quem já jogou até agora), e
-  // um 0-0 no intervalo pode virar 1-1 até o fim. Conferir contra um placar
-  // que ainda pode mudar daria "bateu"/"não bateu" errado. Vale também pro
-  // HT/escanteios: só olha depois que a partida inteira já terminou, pra não
-  // complicar com um segundo critério de "quando confiar" diferente.
-  if ((a.status || '').trim() !== 'Encerrado') return null;
-
-  const precisaHt = previsao.tipo === 'marcou_gol_ht' || previsao.tipo === 'perde_1t' ||
-    ((previsao.tipo === 'over_gols' || previsao.tipo === 'under_gols') && previsao.periodo === 'ht');
-  if (precisaHt) {
-    const lk = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
-    if (!lk || lk.ht_casa == null || lk.ht_fora == null) return null; // não achou esse jogo no Painel com HT disponível
-    const htCasa = parseInt(lk.ht_casa, 10), htFora = parseInt(lk.ht_fora, 10);
-    if (isNaN(htCasa) || isNaN(htFora)) return null;
-
-    if (previsao.tipo === 'marcou_gol_ht') {
-      if (a.time_100pct === a.casa) return htCasa > 0;
-      if (a.time_100pct === a.fora) return htFora > 0;
-      return null;
-    }
-    if (previsao.tipo === 'perde_1t') {
-      if (a.time_100pct === a.casa) return htCasa < htFora;
-      if (a.time_100pct === a.fora) return htFora < htCasa;
-      return null;
-    }
-    const totalHt = htCasa + htFora;
-    return previsao.tipo === 'over_gols' ? totalHt > previsao.linha : totalHt < previsao.linha;
-  }
-
-  if (previsao.tipo === 'over_escanteios_ft') {
-    const lk = _jogosDiaHtLookup[`${a.casa}|${a.fora}`];
-    if (!lk || lk.corner_casa == null || lk.corner_fora == null) return null; // não achou esse jogo no Painel com escanteios disponíveis
-    const cCasa = parseInt(lk.corner_casa, 10), cFora = parseInt(lk.corner_fora, 10);
-    if (isNaN(cCasa) || isNaN(cFora)) return null;
-    return (cCasa + cFora) > previsao.linha;
-  }
-
-  const m = /^(\d+)-(\d+)$/.exec((a.placar || '').trim());
-  if (!m) return null; // formato de placar inesperado
-  const golsCasa = parseInt(m[1], 10), golsFora = parseInt(m[2], 10);
-
-  if (previsao.tipo === 'ambas_marcam') {
-    const ambosMarcaram = golsCasa > 0 && golsFora > 0;
-    return previsao.sim ? ambosMarcaram : !ambosMarcaram;
-  }
-  if (previsao.tipo === 'marcou_gol_ft') {
-    if (a.time_100pct === a.casa) return golsCasa > 0;
-    if (a.time_100pct === a.fora) return golsFora > 0;
-    return null; // não bateu com nenhum dos 2 nomes — não deveria acontecer
-  }
-  if (previsao.tipo === 'sem_sofrer_gol') {
-    if (a.time_100pct === a.casa) return golsFora === 0;
-    if (a.time_100pct === a.fora) return golsCasa === 0;
-    return null;
-  }
-  if (previsao.tipo === 'vencendo') {
-    if (a.time_100pct === a.casa) return golsCasa > golsFora;
-    if (a.time_100pct === a.fora) return golsFora > golsCasa;
-    return null;
-  }
-  if (previsao.tipo === 'invicto') {
-    if (a.time_100pct === a.casa) return golsCasa >= golsFora;
-    if (a.time_100pct === a.fora) return golsFora >= golsCasa;
-    return null;
-  }
-  if (previsao.tipo === 'over_gols') return (golsCasa + golsFora) > previsao.linha;
-  if (previsao.tipo === 'under_gols') return (golsCasa + golsFora) < previsao.linha;
-  if (previsao.tipo === 'placar_nao_ocorreu') {
-    const ocorreu = golsCasa === previsao.golsCasa && golsFora === previsao.golsFora;
-    return !ocorreu;
-  }
-  if (previsao.tipo === 'resultado_exotico_nao_ocorreu') {
-    const dentroDoPadrao = golsCasa <= 3 && golsFora <= 3; // os 16 placares "comuns" (0-3 x 0-3), já cobertos pelos mercados "Placar X-Y"
-    let ocorreu;
-    if (previsao.lado === 'fora') ocorreu = golsFora > golsCasa && !dentroDoPadrao;
-    else if (previsao.lado === 'casa') ocorreu = golsCasa > golsFora && !dentroDoPadrao;
-    else ocorreu = golsCasa === golsFora && !dentroDoPadrao; // empate exótico (4-4 pra cima)
-    return !ocorreu;
-  }
-  return null;
-}
-
-// Taxa de acerto do mercado inteiro — só considera jogos já com placar final
-// (os "null" de _jogosDiaChecarAcerto ficam de fora da conta, não contam
-// como erro nem acerto).
-function _jogosDiaMercadoAcerto(linhas) {
-  let acertos = 0, total = 0;
-  linhas.forEach(a => {
-    const r = _jogosDiaChecarAcerto(a);
-    if (r === null) return;
-    total++;
-    if (r) acertos++;
-  });
-  if (!total) return null;
-  // pendentes = ainda não encerrou, ou encerrou mas não deu pra conferir (ex:
-  // 1º tempo sem o jogo no Painel). Sem mostrar isso, "50% (1/2)" numa seção
-  // com 5 achados parece "testou tudo e foi meio a meio", quando na real só 2
-  // já puderam ser conferidos e os outros 3 ainda estão em aberto.
-  return { acertos, total, pendentes: linhas.length - total, pct: Math.round(100 * acertos / total) };
-}
-
-// Volta pro formato de linha/lista — pedido do usuário (2026-08-30) depois de
-// testar a versão em cards ("melhor formato lista mesmo, mas com um visual
-// mais bonito"). Hover sutil (.jogos-dia-row), escudos um pouco maiores, e o
-// time com 100% vira uma pílula destacada (mesmo tom dourado do cabeçalho de
-// liga do Painel) em vez de só texto em negrito.
-function _jogosDiaLinhaHtml(a) {
-  const acerto = _jogosDiaChecarAcerto(a);
-  return `<div class="jogos-dia-row" style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-top:1px solid var(--border);font-size:12px">
-    <span style="color:var(--text2);width:74px;flex-shrink:0;line-height:1.5">${_bt2EscXml(a.horario)}<br><span style="font-size:9px;opacity:.8">${_bt2EscXml(a.status)}</span></span>
-    <span style="flex:1;text-align:center;min-width:0">
-      <span style="display:inline-flex;align-items:center;gap:6px">
-        ${_jogosDiaEscudoImg(a.escudo_casa)}
-        <span class="tname">${_bt2EscXml(a.casa)}</span>
-      </span>
-      <b style="color:var(--text);margin:0 8px;font-size:13px">${_bt2EscXml(a.placar || '-')}</b>
-      ${acerto === true ? '<span title="Bateu a previsão!" style="margin-right:4px">✅</span>' : ''}
-      <span style="display:inline-flex;align-items:center;gap:6px">
-        <span class="tname">${_bt2EscXml(a.fora)}</span>
-        ${_jogosDiaEscudoImg(a.escudo_fora)}
-      </span>
-      <span style="color:var(--text2);font-size:10px;display:block;margin-top:2px">${_bt2EscXml(a.liga)}</span>
-    </span>
-    <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#3a3110;color:#e8c95a;
-                 border-radius:14px;padding:4px 12px 4px 6px" title="Amostra: ${_bt2EscXml(a.amostra)}">
-      ${_jogosDiaEscudoImg(a.escudo_time_100pct, 20)}
-      <b style="font-size:12px;white-space:nowrap">${_bt2EscXml(a.time_100pct)}</b>
-    </span>
-  </div>`;
-}
-
-function _jogosDiaMercadoSectionHtml(mercado, linhas) {
-  const key = _painelExportSlug(mercado);
-  const collapsed = !!_jogosDiaCollapsed[key];
-  const acc = _jogosDiaMercadoAcerto(linhas);
-  const corAcc = acc ? (acc.pct >= 70 ? '#22c55e' : acc.pct >= 40 ? '#f59e0b' : '#ef4444') : null;
-  return `
-    <div class="painel-league">
-      <div class="painel-league-header${collapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleMercado('${key}', this)">
-        <span class="painel-league-name">${_bt2EscXml(mercado)}</span>
-        ${acc ? `<span style="background:var(--bg);color:${corAcc};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
-          title="${acc.acertos}/${acc.total} jogo(s) já encerrado(s) bateram a previsão — os pendentes NÃO contam nem como acerto nem como erro">✅ ${acc.pct}% (${acc.acertos}/${acc.total} conferidos)</span>` : ''}
-        ${acc && acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px" title="Ainda não encerraram, ou encerraram mas não foi possível conferir — não contam na taxa de acerto">${acc.pendentes} pendente${acc.pendentes === 1 ? '' : 's'}</span>` : ''}
-        <span class="live-count-badge">${linhas.length}</span>
-        <span class="painel-arrow">▲</span>
-      </div>
-      <div id="jogosDiaBody_${key}" style="${collapsed ? 'display:none' : ''}">
-        ${linhas.map(_jogosDiaLinhaHtml).join('')}
-      </div>
-    </div>`;
-}
-
-// Painel de resumo — taxa de acerto por METODOLOGIA (mercado), agregando o
-// import inteiro (ignora busca/filtro de baixo — é um panorama geral, não
-// "o que sobrou depois de filtrar") — pedido do usuário (2026-08-30) depois
-// de a taxa só aparecer escondida dentro de cada seção expandida. Ordenado
-// pelos mercados com MAIOR acerto primeiro, pra responder de cara "quais
-// metodologias estão realmente se confirmando hoje".
-let _jogosDiaResumoCollapsed = false;
-function _jogosDiaToggleResumo(headerEl) {
-  _jogosDiaResumoCollapsed = !_jogosDiaResumoCollapsed;
-  const body = document.getElementById('jogosDiaResumoBody');
-  if (body) body.style.display = _jogosDiaResumoCollapsed ? 'none' : '';
-  headerEl.classList.toggle('collapsed', _jogosDiaResumoCollapsed);
-}
-
-function _jogosDiaResumoHtml(jogos) {
-  const porMercado = {};
-  jogos.forEach(j => {
-    const sp = _jogosDiaStatusPlacarAtual(j);
-    j.achados.forEach(a => {
-      (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push({ ...a, status: sp.status, placar: sp.placar });
-    });
-  });
-
-  const linhas = Object.keys(porMercado).map(m => ({ mercado: m, acc: _jogosDiaMercadoAcerto(porMercado[m]) }));
-  if (!linhas.length) return '';
-  const comDados = linhas.filter(l => l.acc).sort((a, b) => b.acc.pct - a.acc.pct || b.acc.total - a.acc.total);
-  const semDados = linhas.filter(l => !l.acc);
-
-  const geralAcertos = comDados.reduce((s, l) => s + l.acc.acertos, 0);
-  const geralTotal = comDados.reduce((s, l) => s + l.acc.total, 0);
-  const geralPct = geralTotal ? Math.round(100 * geralAcertos / geralTotal) : null;
-  const corGeral = geralPct === null ? 'var(--text2)' : (geralPct >= 70 ? '#22c55e' : geralPct >= 40 ? '#f59e0b' : '#ef4444');
-
-  const linhaHtml = l => {
-    const cor = l.acc.pct >= 70 ? '#22c55e' : l.acc.pct >= 40 ? '#f59e0b' : '#ef4444';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:11px">
-      <span style="flex:1;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_bt2EscXml(l.mercado)}">${_bt2EscXml(l.mercado)}</span>
-      ${l.acc.pendentes > 0 ? `<span style="color:var(--text2);font-size:10px;white-space:nowrap" title="Jogos que ainda não terminaram, ou terminaram mas não deu pra conferir — não contam na taxa">${l.acc.pendentes} pend.</span>` : ''}
-      <span style="color:${cor};font-weight:800;white-space:nowrap" title="${l.acc.acertos}/${l.acc.total} jogo(s) já conferido(s) bateram a previsão">${l.acc.pct}% (${l.acc.acertos}/${l.acc.total} conf.)</span>
-    </div>`;
-  };
-
-  return `
-    <div class="painel-league" style="margin:8px 0">
-      <div class="painel-league-header${_jogosDiaResumoCollapsed ? ' collapsed' : ''}" onclick="_jogosDiaToggleResumo(this)">
-        <span class="painel-league-name">📊 Taxa de acerto por metodologia</span>
-        ${geralPct !== null ? `<span style="background:var(--bg);color:${corGeral};border-radius:10px;padding:2px 9px;font-size:11px;font-weight:800"
-          title="Acerto agregado de todos os mercados já conferidos — pendentes não entram na conta">geral: ${geralPct}% (${geralAcertos}/${geralTotal} conf.)</span>` : ''}
-        <span class="painel-arrow">▲</span>
-      </div>
-      <div id="jogosDiaResumoBody" style="${_jogosDiaResumoCollapsed ? 'display:none' : ''};padding:2px 16px 8px">
-        ${comDados.length ? comDados.map(linhaHtml).join('') : '<div style="color:var(--text2);font-size:11px;padding:4px 0">Nenhum jogo encerrado ainda pra conferir.</div>'}
-        ${semDados.length ? `<div style="color:var(--text2);font-size:10px;padding-top:6px">+ ${semDados.length} mercado${semDados.length === 1 ? '' : 's'} sem nenhum jogo conferido ainda</div>` : ''}
-      </div>
-    </div>`;
-}
-
-function _jogosDiaRenderList(d) {
-  const list = document.getElementById('jogosDiaList');
-  const statusEl = document.getElementById('jogosDiaStatus');
-  const badge = document.getElementById('jogosDiaBadge');
-  const geradoEmEl = document.getElementById('jogosDiaGeradoEm');
-  const resumoEl = document.getElementById('jogosDiaResumo');
-  if (!list) return;
-
-  const jogos = d.jogos || [];
-  if (badge) badge.textContent = `${jogos.length} jogo${jogos.length === 1 ? '' : 's'}`;
-  if (geradoEmEl) geradoEmEl.textContent = d.gerado_em ? `gerado em ${d.gerado_em}` : '';
-
-  if (!jogos.length) {
-    statusEl.textContent = 'Nenhum jogo importado ainda — clique em "📥 Importar .txt".';
-    list.innerHTML = '';
-    if (resumoEl) resumoEl.innerHTML = '';
-    return;
-  }
-  if (resumoEl) resumoEl.innerHTML = _jogosDiaResumoHtml(jogos);
-
-  // Dropdown sempre lista TODOS os mercados do import atual (não só os que
-  // sobraram depois da busca/filtro), pra não ficar encolhendo/mudando as
-  // opções enquanto o usuário digita.
-  const todosMercadosSet = new Set();
-  jogos.forEach(j => j.achados.forEach(a => todosMercadosSet.add(a.mercado)));
-  const todosMercados = [...todosMercadosSet].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  _jogosDiaUpdateMercadoOptions(todosMercados);
-
-  // "Achata" partida+achado numa linha só (cada achado carrega o contexto do
-  // próprio jogo), filtra por time (busca) e por mercado (dropdown), e
-  // agrupa o que sobrar por mercado.
-  const porMercado = {};
-  jogos.forEach(j => {
-    if (_jogosDiaSearchQuery) {
-      const bate = (j.casa || '').toLowerCase().includes(_jogosDiaSearchQuery) ||
-                   (j.fora || '').toLowerCase().includes(_jogosDiaSearchQuery);
-      if (!bate) return;
-    }
-    const sp = _jogosDiaStatusPlacarAtual(j);
-    j.achados.forEach(a => {
-      if (_jogosDiaMercadoFilter && a.mercado !== _jogosDiaMercadoFilter) return;
-      const linha = {
-        ...a, casa: j.casa, escudo_casa: j.escudo_casa, fora: j.fora, escudo_fora: j.escudo_fora,
-        liga: j.liga, horario: j.horario, status: sp.status, placar: sp.placar,
-      };
-      (porMercado[a.mercado] || (porMercado[a.mercado] = [])).push(linha);
-    });
-  });
-
-  const mercados = Object.keys(porMercado).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  mercados.forEach(m => porMercado[m].sort((a, b) => (a.horario || '').localeCompare(b.horario || '')));
-
-  const totalAchados = jogos.reduce((acc, j) => acc + j.achados.length, 0);
-  const totalFiltrado = mercados.reduce((acc, m) => acc + porMercado[m].length, 0);
-  const temFiltro = _jogosDiaSearchQuery || _jogosDiaMercadoFilter;
-  const descFiltro = [
-    _jogosDiaSearchQuery ? `time "${_jogosDiaSearchQuery}"` : null,
-    _jogosDiaMercadoFilter ? `mercado "${_jogosDiaMercadoFilter}"` : null,
-  ].filter(Boolean).join(' + ');
-  statusEl.textContent = temFiltro
-    ? `${totalFiltrado} achado(s) em ${mercados.length} mercado(s) — filtrado por ${descFiltro}.`
-    : `${jogos.length} jogo(s) · ${totalAchados} achado(s) em ${mercados.length} mercado(s).`;
-
-  list.innerHTML = mercados.length
-    ? mercados.map(m => _jogosDiaMercadoSectionHtml(m, porMercado[m])).join('')
-    : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate esse filtro.</div>`;
-}
 
 // ── LISTA — importa o .txt "Jogos por metodologia" (analise_padroes.html) e
 // lista os jogos com as metodologias que bateram em cada um, agrupados por

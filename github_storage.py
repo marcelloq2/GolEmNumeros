@@ -267,8 +267,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # redeploy apagava quem estava sendo acompanhado (o sino voltava a
         # aparecer desmarcado).
         pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
-        # Jogos do Dia (achados importados do .txt) — mesmo problema, mesma solução.
-        pull_file("jogos_dia_config.json", os.path.join(data_dir, "jogos_dia_config.json"), force=True)
         # Lista de Metodologias (importado do .txt) — mesmo problema, mesma solução:
         # sem isso, cada redeploy apagava a lista importada (usuário quer que fique
         # salva até a próxima importação, não só até o próximo restart).
