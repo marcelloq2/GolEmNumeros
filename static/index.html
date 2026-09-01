@@ -5397,6 +5397,13 @@ async function _painelExportResultadoRows(flat, btn) {
     const htExtraRow = htExtra[m.event_id];
     const htHome = (base.ht_casa != null) ? base.ht_casa : (htExtraRow || {}).home;
     const htAway = (base.ht_fora != null) ? base.ht_fora : (htExtraRow || {}).away;
+    // _painelExportBaseFields só lê o HT que já vinha pronto no Painel
+    // (m.ht_home/ht_away, cache do prewarm) — sem isso, um jogo que só
+    // conseguiu HT pelo lote extra (htExtra) ficava com ht_casa/ht_fora
+    // null no arquivo, mesmo com fez_virada calculado corretamente a partir
+    // desse mesmo dado (inconsistência achada pelo usuário, 2026-09-01).
+    if (base.ht_casa == null && htHome != null) base.ht_casa = htHome;
+    if (base.ht_fora == null && htAway != null) base.ht_fora = htAway;
     base.resultado = _painelBuildResultadoExportData(htHome, htAway, base.placar_casa, base.placar_fora, goalMinById[m.event_id]);
     return base;
   });
