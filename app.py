@@ -1977,11 +1977,14 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     Sinalizador, Jogos do Dia) não precisa mudar nada.
 
     date_str (opcional, "YYYY-MM-DD"): dia diferente de hoje — ex: usado pelo
-    seletor "Ontem" do Painel Principal (pedido do usuário, 2026-08-31).
-    Convertido pra um deslocamento de dias em cima de _fs_all_matches
-    (day_offset). HT/odds/Power Ranking (caches quentes só de hoje) ficam
-    vazios pra qualquer outro dia — aceitável, já que odds/ícone de forma não
-    fazem sentido pra um jogo já encerrado há mais de um dia."""
+    seletor "Amanhã" do Painel Principal (pedido do usuário, 2026-08-31). É um
+    dia CIVIL DE BRASÍLIA (o seletor no front monta essa string com o relógio
+    local do navegador, que é o do próprio usuário/BR) -- resolvido via
+    _fs_all_matches_brt, que já filtra pelo horário real de cada jogo em vez
+    de confiar no agrupamento por dia (UTC) do feed. HT/odds/Power Ranking
+    (caches quentes só de hoje) ficam vazios pra qualquer outro dia —
+    aceitável, já que odds/ícone de forma não fazem sentido pra um jogo já
+    encerrado há mais de um dia."""
     now = time.time()
     cache_key = date_str or "today"
     with _painel_lock:
@@ -1989,18 +1992,18 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
         if not force and cached is not None and (now - cached["ts"]) < _PAINEL_CACHE_TTL:
             return cached["data"]
 
-    day_offset = 0
+    target_date = _brt_today()
     if date_str:
         try:
-            day_offset = (datetime.strptime(date_str, "%Y-%m-%d").date() - datetime.now().date()).days
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            day_offset = 0
+            target_date = _brt_today()
 
     # Mesma lição do NowGoal: toda busca de rede roda FORA do lock (ver
     # comentário grande na versão antiga acima) — travar aqui travaria as 4
     # threads do gunicorn inteiras atrás desse lock.
     try:
-        fs_matches = _fs_all_matches(day_offset)
+        fs_matches = _fs_all_matches_brt(target_date)
     except Exception as e:
         with _painel_lock:
             cached = _painel_cache.get(cache_key)
@@ -8557,12 +8560,60 @@ def _fs_all_matches(day_offset=0):
     _fs_live_cache[day_offset] = {"ts": time.time(), "data": matches}
     return matches
 
+_BRT_OFFSET = timedelta(hours=-3)  # Brasília não tem mais horário de verão desde 2019 -- fuso fixo
+
+def _brt_today():
+    return (datetime.utcnow() + _BRT_OFFSET).date()
+
+def _fs_all_matches_brt(target_date):
+    """Mesma ideia de _fs_all_matches, mas alinhada ao DIA CIVIL DE BRASÍLIA em
+    vez do dia do feed (que segue UTC). Sem isso, a aba "Hoje" do Painel virava
+    o dia 3h mais cedo que o Brasil: nas últimas ~3h de cada dia brasileiro
+    (21h-meia-noite BRT = 00h-03h UTC do dia seguinte), "Hoje" já mostrava o
+    próximo dia UTC inteiro (quase tudo "Agendado", sem placar) -- justo no
+    horário de pico de uso do site (achado investigando reclamação do usuário,
+    2026-08-31/09-01: 227 de 237 jogos de "Hoje" já eram do dia UTC seguinte
+    às 21h50 BRT).
+
+    Como o fuso é fixo (-3h, sem DST), um dia civil de Brasília sempre cai em
+    exatamente 2 dias do feed (UTC): o dia UTC "equivalente" e o seguinte (o
+    dia BRT começa às 03h UTC do próprio dia e termina às 02h59 UTC do dia
+    seguinte). Busca os 2 (cada um já cacheado 30s por _fs_all_matches) e
+    filtra pelo kickoff_ts real de cada partida -- mais correto que confiar no
+    agrupamento por dia do próprio feed."""
+    utc_now = datetime.utcnow()
+    window_start_utc = datetime.combine(target_date, datetime.min.time()) - _BRT_OFFSET
+    window_end_utc = window_start_utc + timedelta(days=1)
+    offset_start = (window_start_utc.date() - utc_now.date()).days
+    seen_ids = set()
+    matches = []
+    for off in (offset_start, offset_start + 1):
+        for m in _fs_all_matches(off):
+            try:
+                ts = int(m.get("kickoff_ts") or 0)
+            except (TypeError, ValueError):
+                continue
+            if not ts:
+                continue
+            match_dt_utc = datetime.utcfromtimestamp(ts)
+            if not (window_start_utc <= match_dt_utc < window_end_utc):
+                continue
+            mid = m.get("id")
+            if mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            matches.append(m)
+    return matches
+
 def _fs_find_match(casa, fora):
     """Acha o jogo no feed pelo nome dos times (fuzzy, mesma técnica do _uni_find).
-    Tenta hoje primeiro e cai pra ontem se não achar — sem isso, abrir "Análise
-    da partida"/H2H de um jogo do seletor "Ontem" do Painel Principal sempre
-    dava "não achei" (o feed de hoje, _fs_all_matches(0), não tem esses jogos;
-    achado testando o seletor de dia pedido pelo usuário, 2026-08-31)."""
+    Busca no pool de "hoje" em horário de Brasília (_fs_all_matches_brt, mesma
+    fonte que o Painel usa pra decidir o que é "Hoje" -- ver comentário lá)
+    e cai pro dia anterior se não achar, pra manter "Análise da partida"/H2H
+    consistente com o que a lista principal do Painel está mostrando (sem
+    isso, um jogo perto da virada do dia podia aparecer em "Hoje" no Painel
+    mas o modal dizia "não achei", já que cada um olhava um recorte de dia
+    diferente)."""
     import unicodedata
 
     def norm(s):
@@ -8598,7 +8649,8 @@ def _fs_find_match(casa, fora):
                 best = m
         return best if best_score >= 4 else None
 
-    return _search(_fs_all_matches(0)) or _search(_fs_all_matches(-1))
+    hoje_brt = _brt_today()
+    return _search(_fs_all_matches_brt(hoje_brt)) or _search(_fs_all_matches_brt(hoje_brt - timedelta(days=1)))
 
 def _fs_match_stats(event_id):
     """Estatísticas da partida (posse, chutes, xG, etc.), agrupadas por seção."""
