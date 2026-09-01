@@ -2,454 +2,2721 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Análise de Padrões</title>
+<title>Análise de Pressão</title>
 <style>
   :root {
     --bg: #0b0f17; --bg2: #131a26; --bg3: #1a2232; --border: #26304a;
     --text: #e6ebf5; --text2: #8b96ad; --accent: #3b82f6;
-    --green: #22c55e; --red: #ef4444;
+    --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+    --home: #3b82f6; --away: #dc5050;
   }
   * { box-sizing: border-box; }
   body {
     background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    margin: 0; padding: 24px; line-height: 1.5;
+    margin: 0; padding: 0; line-height: 1.5; height: 100vh; overflow: hidden;
   }
-  .wrap { max-width: 960px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 6px; }
-  p.sub { color: var(--text2); font-size: 13px; margin: 0 0 20px; }
-  code { background: var(--bg3); padding: 1px 5px; border-radius: 4px; }
-  input[type=file] {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 10px; width: 100%; font-size: 13px;
+  .top {
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg2);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   }
-  #status { font-size: 12px; color: var(--text2); margin-top: 8px; }
-  #controls { display: none; margin-top: 20px; }
-  select {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); padding: 6px 10px; font-size: 13px;
-  }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-  th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border); }
-  th { color: var(--text2); font-weight: 600; }
-  .var-block { margin-top: 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-  .var-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-  .row-best { background: rgba(34,197,94,.12); }
+  .top h1 { font-size: 17px; margin: 0; white-space: nowrap; }
+  .top p { color: var(--text2); font-size: 11px; margin: 0; flex: 1; min-width: 200px; }
   button {
-    font-size: 12px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--bg3); color: var(--text); cursor: pointer;
+    font-size: 12px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text); cursor: pointer; white-space: nowrap;
   }
   button:hover { border-color: var(--accent); }
-  #configBox { font-size: 12px; color: var(--text2); }
-  #configBox table { margin-top: 4px; }
-  .top-actions { display: flex; gap: 8px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; }
-  .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
-  .plataforma-icon {
-    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 6px; cursor: pointer; margin-left: 6px; border: 1px solid var(--border);
-    transition: all 0.2s; font-size: 13px;
+  input[type=file] { display: none; }
+  #status { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+  .layout { display: flex; height: calc(100vh - 57px); }
+  #viewEstudos, #viewJogosDia { height: calc(100vh - 57px); overflow-y: auto; }
+  .sidebar {
+    width: 340px; min-width: 340px; border-right: 1px solid var(--border); background: var(--bg2);
+    display: flex; flex-direction: column;
   }
-  .plataforma-icon:hover { border-color: var(--accent); transform: scale(1.1); }
+  .sidebar-filters { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+  .sidebar-filters input, .sidebar-filters select {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 6px 8px; font-size: 12px; width: 100%;
+  }
+  .filters-row { display: flex; gap: 6px; }
+  .filters-row > * { flex: 1; }
+  #matchList { flex: 1; overflow-y: auto; }
+  .match-row {
+    padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 12px;
+  }
+  .match-row:hover { background: var(--bg3); }
+  .match-row.active { background: rgba(59,130,246,.15); border-left: 3px solid var(--accent); padding-left: 9px; }
+  .match-row .teams { font-weight: 600; color: var(--text); }
+  .match-row .meta { color: var(--text2); font-size: 10.5px; margin-top: 2px; display: flex; justify-content: space-between; }
+  .match-row .score-badge {
+    display: inline-block; background: var(--bg3); border-radius: 5px; padding: 1px 6px; font-weight: 700; margin-left: 6px;
+  }
+  #listEmpty { padding: 24px 16px; color: var(--text2); font-size: 12px; text-align: center; }
+  #listCount { padding: 8px 12px; font-size: 11px; color: var(--text2); border-bottom: 1px solid var(--border); }
+
+  .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  #placeholder { color: var(--text2); font-size: 13px; text-align: center; margin-top: 80px; }
+
+  .match-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .match-header h2 { font-size: 19px; margin: 0; }
+  .match-header .liga { color: var(--text2); font-size: 12px; }
+  .match-header .score-final { font-size: 22px; font-weight: 800; }
+
+  .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
+  .chart-box-title { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  canvas#pressureCanvas { width: 100%; display: block; }
+  #axisLabels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); margin-top: 2px; padding: 0 2px; }
+  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--text2); }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+  }
+  .card .label { font-size: 10.5px; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
+  .card .value { font-size: 17px; font-weight: 700; }
+  .card .sub { font-size: 10.5px; color: var(--text2); margin-top: 2px; }
+
+  table.stat-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+  table.stat-table th, table.stat-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+  table.stat-table th { color: var(--text2); font-weight: 600; font-size: 11px; }
+  table.stat-table td:first-child, table.stat-table th:first-child { text-align: left; color: var(--text2); }
+  .bar-cell { position: relative; }
+  .bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; display: flex; margin-top: 4px; }
+  .bar-home { background: var(--home); height: 100%; }
+  .bar-away { background: var(--away); height: 100%; }
+
+  .section-title { font-size: 13px; font-weight: 700; margin: 20px 0 4px; color: var(--text); }
+  .goals-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .goal-chip {
+    font-size: 11px; padding: 3px 9px; border-radius: 12px; background: var(--bg3); border: 1px solid var(--border);
+  }
+  .goal-chip.home { border-color: var(--home); color: #9ec5fb; }
+  .goal-chip.away { border-color: var(--away); color: #f3a9a9; }
+
+  .view-tabs { display: flex; gap: 6px; padding: 0 20px 10px; border-bottom: 1px solid var(--border); }
+  .view-tab-btn {
+    background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    padding: 8px 4px; font-size: 13px; color: var(--text2); cursor: pointer;
+  }
+  .view-tab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 700; }
+  .view-tab-btn:hover { color: var(--text); }
+
+  .estudo-resumo { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+  .estudo-table-wrap { overflow-x: auto; margin-top: 8px; }
+  table.estudo-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12.5px; }
+  table.estudo-table th, table.estudo-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+  table.estudo-table th { color: var(--text2); font-weight: 600; font-size: 11px; }
+  table.estudo-table td:first-child, table.estudo-table th:first-child { text-align: left; }
+  .estudo-amostra-baixa { color: var(--text2); font-style: italic; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>📊 Análise de Padrões</h1>
-  <p class="sub">Ferramenta local (roda 100% no seu navegador, sem precisar do site no ar). Escolha a pasta <code>D:\BASE DE DADOS_GOL EM NUMEROS</code> (ou selecione os arquivos <code>.txt</code> manualmente) — ele lê todos os <code>.txt</code> baixados pelo botão ⬇️ da aba Hoje que estiverem lá, junta tudo e mostra a taxa de acerto (green) por faixa de cada variável, separado por placar (metodologia). Detecta sozinho quais variáveis existem nos arquivos. Nada é enviado pra nenhum servidor, os arquivos ficam só no seu computador.</p>
-
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <button onclick="document.getElementById('folderInput').click()">📁 Escolher pasta</button>
-    <button onclick="document.getElementById('fileInput').click()">📄 Escolher arquivo(s) .txt</button>
-  </div>
-  <input type="file" id="folderInput" webkitdirectory style="display:none" onchange="carregarArquivos(this.files)">
-  <input type="file" id="fileInput" multiple accept=".txt" style="display:none" onchange="carregarArquivos(this.files)">
+<div class="top">
+  <h1>📈 Análise de Pressão</h1>
+  <p id="topDesc">Ferramenta local (roda no navegador, sem precisar do site no ar). Escolha a pasta <code>momentum_history</code> — ele lê os <code>.json</code> salvos pelo Ao Vivo/Replay (Uniscore), um por partida encerrada. Nada é enviado a servidor nenhum.</p>
+  <span id="botoesPasta">
+    <button onclick="vincularPasta()" id="vincularPastaBtn" style="border-color:var(--accent);color:var(--accent)">🔗 Vincular pasta (só 1ª vez)</button>
+    <button onclick="reconectarPasta()" id="reconectarPastaBtn" style="display:none;border-color:var(--amber);color:var(--amber)">🔓 Reconectar pasta vinculada</button>
+    <button onclick="document.getElementById('folderInput').click()">📁 Escolher pasta (manual)</button>
+  </span>
+  <input type="file" id="folderInput" webkitdirectory onchange="carregarArquivos(this.files)">
   <div id="status"></div>
+</div>
+<p id="avisoVincular" style="color:var(--text2);font-size:11px;margin:0 20px 10px">"Vincular pasta" só funciona no Chrome/Edge (aponte pra pasta <code>momentum_history</code>). Depois de vincular 1 vez, da próxima vez que você abrir esse arquivo ele carrega sozinho, sem precisar escolher a pasta de novo. Se seu navegador não suportar, use "Escolher pasta (manual)".</p>
 
-  <div id="controls">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-      <button onclick="gerarConfigAutomatica()" style="border-color:var(--accent);color:var(--accent)">🤖 Gerar configuração automática (todos os placares/mercados)</button>
-      <span style="font-size:11px;color:var(--text2)">escolhe sozinho a melhor variável de cada placar/mercado</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:11px;color:var(--text2)">Só considerar mercados com pelo menos</span>
-      <input id="amostraMinimaMercadoInput" type="number" min="1" step="1" value="200"
-        style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:4px 8px;width:70px">
-      <span style="font-size:11px;color:var(--text2)">jogos decididos no total (não só na faixa vencedora) — mercados com menos jogos que isso ficam de fora até a base crescer.</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:13px;color:var(--text2)">Ou revise/ajuste manualmente por placar/mercado:</span>
-      <select id="metodSelect" onchange="renderRelatorio()"></select>
-      <span style="font-size:12px;color:var(--text2)" id="amostraInfo"></span>
-    </div>
-    <div id="relatorio"></div>
+<!-- Abas Partidas/Estudos removidas a pedido do usuário — só ficou Jogos do dia (com Backtest + CV) -->
 
-    <div class="top-actions">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px">Configuração montada</div>
-        <div id="configBox">Nenhuma regra adicionada ainda — clique em "🤖 Gerar configuração automática" ou em "Usar essa faixa" nas tabelas acima.</div>
+<div class="layout" id="viewPartidas" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-filters">
+      <input id="buscaInput" type="text" placeholder="Buscar time ou liga..." oninput="renderLista()">
+      <div class="filters-row">
+        <select id="ordenarSelect" onchange="renderLista()">
+          <option value="data_desc">Mais recente</option>
+          <option value="data_asc">Mais antiga</option>
+          <option value="swings_desc">Mais momentum swings</option>
+          <option value="dominancia_desc">Maior dominância</option>
+          <option value="gols_desc">Mais gols</option>
+        </select>
+        <select id="golsSelect" onchange="renderLista()">
+          <option value="">Todos os placares</option>
+          <option value="0">0 gols</option>
+          <option value="1-2">1-2 gols</option>
+          <option value="3+">3+ gols</option>
+        </select>
       </div>
     </div>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button onclick="baixarConfig()">⬇️ Baixar configuração (.txt)</button>
-      <button onclick="limparConfig()">Limpar configuração</button>
-    </div>
+    <div id="listCount"></div>
+    <div id="matchList"><div id="listEmpty">Escolha a pasta <code>momentum_history</code> pra começar.</div></div>
+  </div>
+
+  <div class="main">
+    <div id="placeholder">Selecione uma partida na lista à esquerda.</div>
+    <div id="detalhe" style="display:none"></div>
   </div>
 </div>
 
+<div class="main" id="viewEstudos" style="display:none">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+    <label style="font-size:12px;color:var(--text2)">Estudo:</label>
+    <select id="estudoSelect" onchange="renderEstudo()" style="display:none">
+      <option value="funil" selected>🎯 Funil pré-live → ao vivo (decidir no intervalo)</option>
+    </select>
+    <span style="font-size:13px;font-weight:700">🎯 Funil pré-live → ao vivo (decidir no intervalo)</span>
+    <select id="autoAlvoSelect" onchange="renderEstudo()">
+      <option value="casa_vence">Casa vence</option>
+      <option value="fora_vence">Fora vence</option>
+      <option value="empate">Empate</option>
+      <option value="over05">Over 0.5 FT</option>
+      <option value="over15ht">Over 1.5 HT</option>
+      <option value="over15">Over 1.5 FT</option>
+      <option value="over25">Over 2.5 FT</option>
+      <option value="over35">Over 3.5 FT</option>
+      <option value="casa_vence_ht">Casa vence HT</option>
+      <option value="fora_vence_ht">Visitante vence HT</option>
+      <option value="empate_ht">Empate HT</option>
+      <option value="under25">Under 2.5 FT</option>
+      <option value="under15">Under 1.5 HT</option>
+      <option value="under05">Under 0.5 HT</option>
+      <option value="under35">Under 3.5 FT</option>
+      <option value="btts">Ambas marcam (BTTS)</option>
+      <option value="btts_ht">Ambas Marcam HT</option>
+      <option value="casa_marca_primeiro">Casa marca primeiro</option>
+      <option value="fora_marca_primeiro">Visitante marca primeiro</option>
+      <option value="over95_escanteios">Over 9.5 Escanteios</option>
+      <option value="under95_escanteios">Under 9.5 Escanteios</option>
+      <option value="over35_cartoes">Over 3.5 Cartões</option>
+      <option value="under35_cartoes">Under 3.5 Cartões</option>
+      <option value="dupla_1x">Dupla chance 1X (casa não perde)</option>
+      <option value="dupla_x2">Dupla chance X2 (fora não perde)</option>
+      <option value="dupla_12">Dupla chance 12 (sem empate)</option>
+      <option value="handicap_casa_2">Casa vence por 2+ gols</option>
+      <option value="handicap_fora_2">Fora vence por 2+ gols</option>
+      <option value="btts_nao">Ambas NÃO marcam</option>
+      <option value="clean_sheet_casa">Clean sheet casa</option>
+      <option value="clean_sheet_fora">Clean sheet fora</option>
+      <option value="btts_over25">Ambas marcam + Over 2.5 FT</option>
+      <option value="gol_ultimos_15">Gol nos últimos 15min</option>
+      <option value="gol_primeiros_15">Gol nos primeiros 15min</option>
+      <option value="virada_placar">Virada de placar</option>
+      <option value="zero_a_zero_ft">0 a 0 no jogo todo</option>
+      <option value="sem_gol_2t">Sem gols no 2º tempo</option>
+      <option value="over85_escanteios">Over 8.5 Escanteios</option>
+      <option value="under85_escanteios">Under 8.5 Escanteios</option>
+      <option value="over105_escanteios">Over 10.5 Escanteios</option>
+      <option value="under105_escanteios">Under 10.5 Escanteios</option>
+      <option value="handicap_escanteios_casa">Casa com +3.5 escanteios</option>
+      <optgroup label="Placar exato" id="placarExatoOptgroup"></optgroup>
+      <option value="xg_dominante_vence">Time com xG maior vence</option>
+      <option value="lay_goleada_casa">Lay Goleada Casa (casa não marca 4+)</option>
+      <option value="lay_goleada_visitante">Lay Goleada Visitante (fora não marca 4+)</option>
+      <optgroup label="Total de gols exato" id="totalGolsExatoOptgroup"></optgroup>
+      <option value="margem_exata_1">Vence por exatamente 1 gol</option>
+      <option value="margem_exata_2">Vence por exatamente 2 gols</option>
+      <option value="margem_exata_3mais">Vence por 3+ gols de diferença</option>
+      <option value="handicap_escanteios_casa_15">Casa com +1.5 escanteios</option>
+      <option value="handicap_escanteios_casa_25">Casa com +2.5 escanteios</option>
+      <option value="handicap_escanteios_fora_15">Fora com +1.5 escanteios</option>
+      <option value="handicap_escanteios_fora_25">Fora com +2.5 escanteios</option>
+      <option value="handicap_escanteios_fora_35">Fora com +3.5 escanteios</option>
+      <option value="btts_casa_vence">Ambas marcam + Casa vence</option>
+      <option value="btts_fora_vence">Ambas marcam + Fora vence</option>
+      <option value="escanteios_faixa_0_6">Escanteios 0-6 no jogo</option>
+      <option value="escanteios_faixa_7_9">Escanteios 7-9 no jogo</option>
+      <option value="escanteios_faixa_10_12">Escanteios 10-12 no jogo</option>
+      <option value="escanteios_faixa_13mais">Escanteios 13+ no jogo</option>
+      <option value="mesmo_vencedor_ht_ft">Mesmo vencedor no HT e no FT</option>
+      <option value="btts_so_2t">Ambas marcam só no 2º tempo</option>
+      <option value="gol_80_90">Gol nos 10min finais (80-90)</option>
+      <option value="over05ht_alvo">Over 0.5 HT</option>
+    </select>
+    <button onclick="baixarConfiguracoesFortes()" style="border-color:var(--green);color:var(--green)">⬇️ Baixar configurações fortes (.txt)</button>
+    <span id="fortesStatus" style="font-size:11px;color:var(--text2)"></span>
+  </div>
+  <div id="estudoBox"></div>
+</div>
+
+<div class="main" id="viewJogosDia">
+  <p style="color:var(--text2);font-size:12px;margin:0 0 10px">
+    Importe o <code>.json</code> de <code>proximos</code> da aba Leitura (ou deixe a pasta <code>leitura_prognostico/</code> alimentar sozinha).
+  </p>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <button onclick="document.getElementById('jogosDiaInput').click()" style="border-color:var(--accent);color:var(--accent)">📁 Escolher arquivo(s) leitura_prognostico_*.json</button>
+    <input type="file" id="jogosDiaInput" accept=".json" multiple style="display:none" onchange="carregarJogosDia(this.files)">
+    <span id="jogosDiaStatus" style="font-size:12px;color:var(--text2)"></span>
+  </div>
+  <div class="section-title">🎯 Jogos por metodologia</div>
+  <p style="color:var(--text2);font-size:11px;margin:0 0 10px">
+    Pra cada jogo dos <code>proximos</code>, mostra só as metodologias em que ele fica <strong>acima da probabilidade média</strong> e <strong>abaixo do CV médio</strong> daquele mercado (médias calculadas em cima de todos os próximos carregados, tabela abaixo).
+  </p>
+  <div id="cvMedioBox" style="margin-bottom:12px"></div>
+  <div id="metodologiaBox"></div>
+</div>
+
 <script>
-// Colunas que NUNCA entram como "variável analisável" (identificação do jogo,
-// ou já são o próprio alvo resultado_<placar>) — tudo o mais que aparecer no
-// cabeçalho do arquivo vira variável automaticamente, então essa ferramenta
-// funciona tanto com o export antigo (Placar Contra: mkt_*/custo_*) quanto
-// com o novo (aba Hoje: mandante_geral_*/mandante_casa_*/visitante_geral_*/
-// visitante_fora_*) sem precisar mexer no código.
-const COLUNAS_IGNORADAS = new Set(['id', 'liga', 'pais', 'hora', 'mandante', 'visitante', 'placar_final']);
+let partidas = []; // { file, event_id, date, casa, fora, liga, graphPoints, goals, score, statistics, statistics_periods, pressure_summary, xg, opening_odds }
+let partidaAtiva = null;
 
-// Rótulos amigáveis pros prefixos/sufixos mais comuns — o que não tiver
-// mapeado aqui cai no fallback (transforma "mandante_casa_pctMarcar" em
-// "Mandante Casa Pct Marcar", ainda legível).
-const PREFIXO_LABEL = {
-  mandante_geral: 'Mandante (Geral)', mandante_casa: 'Mandante (Casa)',
-  visitante_geral: 'Visitante (Geral)', visitante_fora: 'Visitante (Fora)',
-  mkt: 'Mercado', custo: 'Custo do Gol 2.0',
-};
-const SUFIXO_LABEL = {
-  n: 'Nº de jogos', vitFT: '% Vitórias (FT)', empFT: '% Empates (FT)', derFT: '% Derrotas (FT)',
-  vitHT: '% Vitórias (HT)', empHT: '% Empates (HT)', derHT: '% Derrotas (HT)',
-  mediaMarcados: 'Média de gols marcados', mediaSofridos: 'Média de gols sofridos',
-  pctMarcar: '% Marcou', pctSofrer: '% Sofreu', pctAmbasMarcam: '% Ambas marcam',
-  semSofrer: 'Jogos sem sofrer', semMarcar: 'Jogos sem marcar',
-  over25: 'Jogos acima de 2,5', under25: 'Jogos abaixo de 2,5',
-  tempoSemMarcar: 'Tempo médio até marcar (min)', tempoSemSofrer: 'Tempo médio até sofrer (min)',
-  tempoPrimeiroGolPartida: 'Tempo médio do 1º gol da partida (min)',
-  avgValorGolMarcado: 'Valor do Gol Marcado (médio)', avgValorGolSofrido: 'Valor do Gol Sofrido (médio)',
-  avgCustoGol2Marcado: 'Custo do Gol 2.0 Marcado (médio)', avgCustoGol2Sofrido: 'Custo do Gol 2.0 Sofrido (médio)',
-  avgSaldo: 'Saldo de gols (médio)', avgValorSaldo: 'Valor do Saldo (médio)', avgValorPonto: 'Valor do Ponto (médio)',
-  casa: 'Casa vence %', empate: 'Empate %', fora: 'Fora vence %', ambas_sim: 'Ambas Marcam Sim %',
-  over05: 'Acima 0,5 gols %', over15: 'Acima 1,5 gols %', over25pct: 'Acima 2,5 gols %',
-  saldo_esperado: 'Saldo de gols esperado', overround: 'Margem da casa (%)',
-  marcado_casa: 'Marcado (Casa)', sofrido_casa: 'Sofrido (Casa)', marcado_fora: 'Marcado (Visitante)', sofrido_fora: 'Sofrido (Visitante)',
-};
+// ── Vincular pasta (File System Access API) ─────────────────────────────────
+// Mesmo padrão já usado em analise_padroes.html (versão antiga): guarda o
+// handle da pasta escolhida no IndexedDB, e nas próximas vezes que essa
+// página abrir tenta reconectar sozinho em vez de pedir pra escolher de novo.
+// Só existe no Chrome/Edge; nos demais navegadores o botão manual continua
+// funcionando igual.
+const _FSA_DB_NAME = 'analisePressaoDB';
+const _FSA_STORE = 'handles';
+const _FSA_KEY = 'momentumDir';
 
-function _labelParaColuna(key) {
-  for (const prefixo of Object.keys(PREFIXO_LABEL)) {
-    if (key.startsWith(prefixo + '_')) {
-      const resto = key.slice(prefixo.length + 1);
-      const sufLabel = SUFIXO_LABEL[resto] || resto.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
-      return `${PREFIXO_LABEL[prefixo]} — ${sufLabel.charAt(0).toUpperCase() + sufLabel.slice(1)}`;
-    }
-  }
-  return key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+function _fsaAbrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(_FSA_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(_FSA_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-let linhas = []; // todas as linhas de todos os arquivos carregados, já parseadas
-let VARIAVEIS = []; // detectadas a partir do cabeçalho dos arquivos carregados
-let config = {}; // { score: {variavel, min, max, winRate, n, taxaGeral, lift} }
-let arquivosCarregados = 0; // quantos .txt (dias) diferentes entraram na base — usado pra avisar se ainda é pouca coisa
-let METODOLOGIAS = []; // placares (Placar Contra) ou mercados (Mapa de Sugestões), detectados do arquivo carregado
+async function _fsaSalvarHandle(handle) {
+  try {
+    const db = await _fsaAbrirDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(_FSA_STORE, 'readwrite');
+      tx.objectStore(_FSA_STORE).put(handle, _FSA_KEY);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch (e) { console.warn('Não deu pra salvar a pasta vinculada (IndexedDB indisponível) — vai precisar escolher a pasta de novo na próxima vez.', e); }
+}
+
+async function _fsaCarregarHandle() {
+  try {
+    const db = await _fsaAbrirDB();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(_FSA_STORE, 'readonly');
+      const req = tx.objectStore(_FSA_STORE).get(_FSA_KEY);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { return null; }
+}
+
+async function _fsaListarJsonsDoDiretorio(dirHandle) {
+  const arquivos = [];
+  for await (const [nome, entry] of dirHandle.entries()) {
+    if (entry.kind === 'file' && /\.json$/i.test(nome)) {
+      arquivos.push(await entry.getFile()); // File já tem .name e .text(), serve direto pra carregarArquivos
+    }
+  }
+  return arquivos;
+}
+
+async function vincularPasta() {
+  if (!window.showDirectoryPicker) {
+    alert('Seu navegador não suporta vincular pasta automaticamente (funciona no Chrome/Edge). Use "Escolher pasta (manual)" — vai continuar funcionando, só precisa escolher a pasta toda vez.');
+    return;
+  }
+  try {
+    const dirHandle = await window.showDirectoryPicker();
+    await _fsaSalvarHandle(dirHandle);
+    document.getElementById('reconectarPastaBtn').style.display = 'none';
+    await _fsaCarregarECarregar(dirHandle);
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error('Erro vinculando pasta:', e); // AbortError = usuário cancelou o seletor, não é erro de verdade
+  }
+}
+
+// Tenta reconectar sozinho quando a página abre — se a permissão ainda for
+// válida, carrega direto; se expirou, só mostra o botão "Reconectar" (pedir
+// permissão sem um clique do usuário o navegador bloqueia mesmo).
+async function _fsaAutoCarregar() {
+  const dirHandle = await _fsaCarregarHandle();
+  if (!dirHandle) return; // nunca vinculou nenhuma pasta ainda
+  try {
+    const permissao = await dirHandle.queryPermission({ mode: 'read' });
+    if (permissao === 'granted') {
+      await _fsaCarregarECarregar(dirHandle);
+    } else {
+      document.getElementById('reconectarPastaBtn').style.display = 'inline-block';
+    }
+  } catch (e) {
+    console.warn('Não deu pra reconectar a pasta vinculada automaticamente:', e);
+    document.getElementById('reconectarPastaBtn').style.display = 'inline-block';
+  }
+}
+
+async function reconectarPasta() {
+  try {
+    const dirHandle = await _fsaCarregarHandle();
+    if (!dirHandle) { alert('Nenhuma pasta vinculada ainda — clique em "Vincular pasta" primeiro.'); return; }
+    const permissao = await dirHandle.requestPermission({ mode: 'read' }); // resposta direta a um clique, pode pedir de novo
+    if (permissao === 'granted') {
+      document.getElementById('reconectarPastaBtn').style.display = 'none';
+      await _fsaCarregarECarregar(dirHandle);
+    }
+  } catch (e) { console.error('Erro reconectando pasta:', e); }
+}
+
+async function _fsaCarregarECarregar(dirHandle) {
+  const arquivos = await _fsaListarJsonsDoDiretorio(dirHandle);
+  if (!arquivos.length) {
+    document.getElementById('status').textContent = 'A pasta vinculada não tem nenhum arquivo .json (confira se apontou pra pasta "momentum_history" certa).';
+    return;
+  }
+  carregarArquivos(arquivos);
+}
+
+// ── Auto-carregamento via servidor local (analise_pressao_server.py) ───────
+// Se essa página estiver sendo servida por http://localhost (em vez de aberta
+// direto como file://), busca os dados sozinha, sem precisar clicar em nada —
+// é o jeito de rodar recomendado (abrir_analise_pressao.bat). Se o fetch
+// falhar (página aberta direto do disco, sem o servidor rodando), cai pros
+// botões manuais/"vincular pasta" de sempre.
+// ── forca_history/ — 2ª fonte pré-live (NowGoal), casada por time+data ─────
+// event_id daqui é de OUTRA fonte (NowGoal), não bate com o event_id do
+// momentum (Uniscore) — o casamento é por nome dos 2 times (fuzzy) + data,
+// mesma técnica já usada em outras partes do projeto pra cruzar fontes
+// diferentes (ver Arquitetura.md, seção "Backup de Força").
+let forcaLista = [];
+
+function _normNomeF(s) {
+  return (s || '').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+// Palavras genéricas demais pra contar como "nome batendo" sozinhas — times
+// de países/clubes diferentes usam os mesmos sufixos de categoria (ex:
+// "Ilhas Marianas U20" x "Mongólia U20" batia só por causa do "u20" comum,
+// juntando jogos de seleções totalmente diferentes).
+const _PALAVRAS_GENERICAS_F = /^(u1[0-9]|u2[0-9]|u[0-9]|ii|iii|iv|b|jr|jrs|junior|juniors|reserve|reservas|women|feminino|fem)$/;
+function _nomeBateF(a, b) {
+  const na = _normNomeF(a), nb = _normNomeF(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const wa = na.split(/\s+/).filter(w => w.length >= 3 && !_PALAVRAS_GENERICAS_F.test(w));
+  const wb = new Set(nb.split(/\s+/).filter(w => w.length >= 3 && !_PALAVRAS_GENERICAS_F.test(w)));
+  return wa.some(w => wb.has(w));
+}
+function _addDias(dataStr, n) {
+  const d = new Date(dataStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Casa cada partida do momentum com sua correspondente no forca_history —
+// tenta o mesmo dia primeiro, depois ±1 dia (fuso horário pode deslocar a
+// data entre as 2 fontes). Guarda o resultado em `p._forca`, calculado 1 vez
+// só no carregamento (não em toda leitura de variável).
+function vincularForca() {
+  if (!forcaLista.length || !partidas.length) return 0;
+  const porData = new Map();
+  forcaLista.forEach(f => {
+    if (!f.date) return;
+    if (!porData.has(f.date)) porData.set(f.date, []);
+    porData.get(f.date).push(f);
+  });
+  let casados = 0;
+  partidas.forEach(p => {
+    if (!p.date) return;
+    const tentativas = [p.date, _addDias(p.date, -1), _addDias(p.date, 1)];
+    for (const data of tentativas) {
+      const candidatos = porData.get(data);
+      if (!candidatos) continue;
+      const achado = candidatos.find(f => _nomeBateF(p.casa, f.home) && _nomeBateF(p.fora, f.away));
+      if (achado) { p._forca = achado; casados++; break; }
+    }
+  });
+  return casados;
+}
+
+async function _autoCarregarViaServidor() {
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return false;
+  try {
+    const [respMomentum, respForca, respLeitura] = await Promise.all([
+      fetch('/api/momentum'), fetch('/api/forca').catch(() => null), fetch('/api/leitura_prognostico').catch(() => null),
+    ]);
+    if (!respMomentum.ok) return false;
+    const data = await respMomentum.json();
+    partidas = data.partidas || [];
+
+    let casadosForca = 0;
+    if (respForca && respForca.ok) {
+      const dataForca = await respForca.json();
+      forcaLista = dataForca.partidas || [];
+      casadosForca = vincularForca();
+    }
+
+    let statusLeitura = '';
+    if (respLeitura && respLeitura.ok) {
+      const dataLeitura = await respLeitura.json();
+      statusLeitura = _carregarPastaLeituraPrognostico(dataLeitura.partidas || []);
+      const statusEl = document.getElementById('jogosDiaStatus');
+      if (statusEl && statusLeitura) statusEl.textContent = statusLeitura.replace(/^ · /, '') + ' (carregado automaticamente).';
+      renderJogosDiaAtivo();
+    }
+
+    document.getElementById('status').textContent =
+      `${partidas.length} partida(s) carregada(s) automaticamente de momentum_history/` +
+      (data.invalidos ? ` · ${data.invalidos} arquivo(s) inválido(s) ignorado(s)` : '') +
+      (forcaLista.length ? ` · ${casadosForca} de ${forcaLista.length} de forca_history/ casadas por time+data` : '') +
+      statusLeitura + '.';
+    // Carregou sozinha via servidor — não precisa pedir pra vincular/escolher
+    // pasta nenhuma, então esconde os botões e o texto que falam disso.
+    document.getElementById('botoesPasta').style.display = 'none';
+    document.getElementById('avisoVincular').style.display = 'none';
+    document.getElementById('topDesc').textContent =
+      'Ferramenta local (roda no navegador). Lendo automaticamente os arquivos de momentum_history/ pelo servidor local (analise_pressao_server.py). Nada é enviado a servidor externo nenhum.';
+    renderLista();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const carregouSozinho = await _autoCarregarViaServidor();
+  if (!carregouSozinho) _fsaAutoCarregar();
+});
 
 function carregarArquivos(fileList) {
-  // Quando vem de "Escolher pasta" (webkitdirectory), o navegador entrega TODO
-  // arquivo dentro dela (inclusive desktop.ini, subpastas etc) — filtra só .txt.
-  const files = [...fileList].filter(f => /\.txt$/i.test(f.name));
-  if (!files.length) { document.getElementById('status').textContent = 'Nenhum arquivo .txt encontrado nessa pasta/seleção.'; return; }
+  const files = [...fileList].filter(f => /\.json$/i.test(f.name));
+  const statusEl = document.getElementById('status');
+  if (!files.length) { statusEl.textContent = 'Nenhum .json encontrado nessa pasta.'; return; }
   Promise.all(files.map(f => f.text())).then(textos => {
     const todas = [];
-    const idsVistos = new Set(); // um jogo pode aparecer em mais de 1 arquivo (baixou 2x no mesmo dia) — não duplica
-    let arquivosValidos = 0;
-    let duplicados = 0;
-    const colunasVistas = new Set();
-    textos.forEach(texto => {
-      const ls = texto.replace(/\r/g, '').trim().split('\n');
-      if (ls.length < 2) return;
-      const header = ls[0].split('\t');
-      header.forEach(h => colunasVistas.add(h));
-      const idIdx = header.indexOf('id');
-      for (let i = 1; i < ls.length; i++) {
-        const vals = ls[i].split('\t');
-        if (vals.length !== header.length) continue;
-        if (idIdx >= 0) {
-          const id = vals[idIdx];
-          if (id && idsVistos.has(id)) { duplicados++; continue; }
-          if (id) idsVistos.add(id);
-        }
-        const obj = {};
-        header.forEach((h, idx) => obj[h] = vals[idx]);
-        todas.push(obj);
-      }
-      arquivosValidos++;
+    let invalidos = 0;
+    textos.forEach((texto, i) => {
+      try {
+        const d = JSON.parse(texto);
+        if (d && Array.isArray(d.graphPoints)) { d.file = files[i].name; todas.push(d); }
+        else invalidos++;
+      } catch (e) { invalidos++; }
     });
-    linhas = todas;
-    arquivosCarregados = arquivosValidos;
-    // "score"/"mercado" a analisar é detectado sozinho a partir das colunas
-    // resultado_<X> que existirem no arquivo — funciona tanto pro export de
-    // Placar Contra (resultado_0-1, resultado_0-2...) quanto pro do Mapa de
-    // Sugestões (resultado_1x2_casa, resultado_ah_casa_-1.5, resultado_over_2.5...).
-    METODOLOGIAS = [...colunasVistas]
-      .filter(k => k.startsWith('resultado_'))
-      .map(k => k.slice('resultado_'.length));
-    VARIAVEIS = [...colunasVistas]
-      // "..._n" é o nº de jogos que entrou na amostra do H2H daquele recorte
-      // (normalmente sempre ~30, o teto de jogos buscados) — não é uma
-      // variável de futebol de verdade, é metadado, então nunca deve virar
-      // "padrão" (senão o automático vive escolhendo ela por coincidência).
-      .filter(k => !COLUNAS_IGNORADAS.has(k) && !k.startsWith('resultado_') && !/_n$/.test(k))
-      .map(k => ({ key: k, label: _labelParaColuna(k) }));
-    document.getElementById('status').textContent =
-      `${todas.length} jogo(s) carregado(s) de ${arquivosValidos} arquivo(s) · ${VARIAVEIS.length} variável(is) detectada(s)` +
-      (duplicados ? ` · ${duplicados} repetido(s) ignorado(s)` : '') + '.';
-    if (!todas.length) return;
-    document.getElementById('controls').style.display = 'block';
-    popularMetodSelect();
-    renderRelatorio();
-  }).catch(e => {
-    document.getElementById('status').textContent = 'Erro lendo os arquivos: ' + e;
-  });
+    partidas = todas;
+    statusEl.textContent = `${todas.length} partida(s) carregada(s)` + (invalidos ? ` · ${invalidos} arquivo(s) ignorado(s)` : '') + '.';
+    renderLista();
+  }).catch(e => { statusEl.textContent = 'Erro lendo os arquivos: ' + e; });
 }
 
-function popularMetodSelect() {
-  const sel = document.getElementById('metodSelect');
-  sel.innerHTML = METODOLOGIAS.map(s => `<option value="${s}">${s}</option>`).join('');
+function _totalGols(p) {
+  if (p.score && typeof p.score.home === 'number' && typeof p.score.away === 'number') return p.score.home + p.score.away;
+  return (p.goals || []).length;
 }
 
-// Calcula, pra um placar (score), os 4 bins (quartis) de taxa de acerto de
-// CADA variável detectada — usado tanto pela tabela manual (renderRelatorio)
-// quanto pela seleção automática (gerarConfigAutomatica), pra não duplicar
-// a lógica de binning em 2 lugares.
-function _calcularBinsPorScore(score) {
-  const resultCol = `resultado_${score}`;
-  const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
-  const taxaGeral = validas.filter(l => l[resultCol] === '1').length / validas.length * 100;
-  const resultado = [];
-  VARIAVEIS.forEach(v => {
-    const pares = validas
-      .map(l => ({ val: parseFloat(l[v.key]), win: l[resultCol] === '1' ? 1 : 0 }))
-      .filter(p => !isNaN(p.val));
-    if (pares.length < 5) return;
-    pares.sort((a, b) => a.val - b.val);
+function renderLista() {
+  const busca = (document.getElementById('buscaInput').value || '').toLowerCase().trim();
+  const ordenar = document.getElementById('ordenarSelect').value;
+  const filtroGols = document.getElementById('golsSelect').value;
+  const listEl = document.getElementById('matchList');
+  const countEl = document.getElementById('listCount');
 
-    const n = pares.length;
-    const NBINS = 4;
-    const bins = [];
-    for (let q = 0; q < NBINS; q++) {
-      const start = Math.floor(q * n / NBINS), end = Math.floor((q + 1) * n / NBINS);
-      const slice = pares.slice(start, end);
-      if (!slice.length) continue;
-      const winRate = slice.reduce((a, p) => a + p.win, 0) / slice.length * 100;
-      bins.push({ min: slice[0].val, max: slice[slice.length - 1].val, n: slice.length, winRate });
+  let lista = partidas.filter(p => {
+    if (busca) {
+      const alvo = `${p.casa || ''} ${p.fora || ''} ${p.liga || ''}`.toLowerCase();
+      if (!alvo.includes(busca)) return false;
     }
+    if (filtroGols) {
+      const g = _totalGols(p);
+      if (filtroGols === '0' && g !== 0) return false;
+      if (filtroGols === '1-2' && (g < 1 || g > 2)) return false;
+      if (filtroGols === '3+' && g < 3) return false;
+    }
+    return true;
+  });
+
+  lista.sort((a, b) => {
+    if (ordenar === 'data_asc') return (a.saved_at || a.date || '').localeCompare(b.saved_at || b.date || '');
+    if (ordenar === 'swings_desc') return (b.pressure_summary?.momentum_swings || 0) - (a.pressure_summary?.momentum_swings || 0);
+    if (ordenar === 'dominancia_desc') return _dominanciaAbs(b) - _dominanciaAbs(a);
+    if (ordenar === 'gols_desc') return _totalGols(b) - _totalGols(a);
+    return (b.saved_at || b.date || '').localeCompare(a.saved_at || a.date || '');
+  });
+
+  countEl.textContent = `${lista.length} de ${partidas.length} partida(s)`;
+
+  if (!lista.length) {
+    listEl.innerHTML = '<div id="listEmpty">Nenhuma partida bate com esse filtro.</div>';
+    return;
+  }
+
+  listEl.innerHTML = lista.map(p => {
+    const score = p.score ? `${p.score.home}-${p.score.away}` : '?';
+    const ativo = partidaAtiva && partidaAtiva.file === p.file ? 'active' : '';
+    return `<div class="match-row ${ativo}" onclick='selecionarPartida(${JSON.stringify(p.file)})'>
+      <div class="teams">${_esc(p.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_esc(p.fora)}<span class="score-badge">${score}</span></div>
+      <div class="meta"><span>${_esc(p.liga || '—')}</span><span>${_esc(p.date || '')}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function _dominanciaAbs(p) {
+  const d = p.pressure_summary?.home_dominance_pct;
+  if (typeof d !== 'number') return 0;
+  return Math.abs(d - 50);
+}
+
+function _esc(s) {
+  return (s ?? '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function selecionarPartida(file) {
+  partidaAtiva = partidas.find(p => p.file === file) || null;
+  renderLista();
+  renderDetalhe();
+}
+
+function renderDetalhe() {
+  document.getElementById('placeholder').style.display = partidaAtiva ? 'none' : 'block';
+  const box = document.getElementById('detalhe');
+  box.style.display = partidaAtiva ? 'block' : 'none';
+  if (!partidaAtiva) return;
+  const p = partidaAtiva;
+  const score = p.score ? `${p.score.home} - ${p.score.away}` : '';
+
+  box.innerHTML = `
+    <div class="match-header">
+      <h2>${_esc(p.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_esc(p.fora)}</h2>
+      <span class="score-final">${score}</span>
+      <span class="liga">${_esc(p.liga || '—')} · ${_esc(p.date || '')}</span>
+    </div>
+
+    <div class="chart-box">
+      <div class="chart-box-title">
+        <span>Gráfico de pressão (Uniscore)</span>
+        <span class="legend">
+          <span><span class="dot" style="background:var(--home)"></span>${_esc(p.casa)}</span>
+          <span><span class="dot" style="background:var(--away)"></span>${_esc(p.fora)}</span>
+        </span>
+      </div>
+      <canvas id="pressureCanvas" height="180"></canvas>
+      <div id="axisLabels"></div>
+    </div>
+
+    ${renderIndicadores(p)}
+    ${renderGolsBlock(p)}
+    ${renderStatsTable(p)}
+    ${renderOddsBlock(p)}
+  `;
+
+  desenharCanvas(p);
+  window.onresize = () => partidaAtiva === p && desenharCanvas(p);
+}
+
+function renderIndicadores(p) {
+  const ps = p.pressure_summary || {};
+  const dom = typeof ps.home_dominance_pct === 'number' ? ps.home_dominance_pct : null;
+  const domLabel = dom === null ? '—' : (dom >= 50 ? `${dom.toFixed(1)}% casa` : `${(100 - dom).toFixed(1)}% fora`);
+  const domCor = dom === null ? 'var(--text)' : (Math.abs(dom - 50) >= 20 ? 'var(--amber)' : 'var(--text)');
+  return `
+    <div class="grid-cards">
+      <div class="card">
+        <div class="label">Dominância de pressão</div>
+        <div class="value" style="color:${domCor}">${domLabel}</div>
+      </div>
+      <div class="card">
+        <div class="label">Momentum swings</div>
+        <div class="value">${ps.momentum_swings ?? '—'}</div>
+        <div class="sub">trocas de lado da pressão</div>
+      </div>
+      <div class="card">
+        <div class="label">Pressão média 1º T</div>
+        <div class="value">${_fmtSigned(ps.h1_avg)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Pressão média 2º T</div>
+        <div class="value">${_fmtSigned(ps.h2_avg)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Pico casa / fora</div>
+        <div class="value">${ps.max_home ?? '—'} / ${ps.max_away ?? '—'}</div>
+      </div>
+      <div class="card">
+        <div class="label">xG (estimado)</div>
+        <div class="value">${_fmtNum(p.xg?.home)} - ${_fmtNum(p.xg?.away)}</div>
+        <div class="sub">${p.xg?.source === 'estimated' ? 'estimado via stats' : (p.xg?.source || '')}</div>
+      </div>
+    </div>`;
+}
+
+function _fmtSigned(v) {
+  if (typeof v !== 'number') return '—';
+  return (v > 0 ? '+' : '') + v.toFixed(1);
+}
+function _fmtNum(v) {
+  return typeof v === 'number' ? v.toFixed(2) : '—';
+}
+
+function renderGolsBlock(p) {
+  const gols = p.goals || [];
+  if (!gols.length) return '';
+  const ordenados = [...gols].sort((a, b) => a.minute - b.minute);
+  return `<div class="section-title">⚽ Gols</div>
+    <div class="goals-list">
+      ${ordenados.map(g => `<span class="goal-chip ${g.team}">${g.minute}'${g.addedTime ? '+' + g.addedTime : ''} — ${g.team === 'home' ? _esc(p.casa) : _esc(p.fora)}${g.ownGoal ? ' (contra)' : ''}</span>`).join('')}
+    </div>`;
+}
+
+const STAT_LABELS = {
+  shots: 'Finalizações', shots_on_target: 'Finalizações no alvo', corner_kicks: 'Escanteios',
+  yellow_cards: 'Cartões amarelos', attacks: 'Ataques', dangerous_attacks: 'Ataques perigosos',
+  ball_possession: 'Posse de bola',
+};
+
+function renderStatsTable(p) {
+  const periodos = p.statistics_periods || (p.statistics ? { ALL: p.statistics } : null);
+  if (!periodos) return '';
+  const abas = Object.keys(periodos).filter(k => periodos[k] && Object.keys(periodos[k]).length);
+  if (!abas.length) return '';
+  const labelAba = { ALL: 'Jogo todo', '1ST': '1º Tempo', '2ND': '2º Tempo' };
+  const linhas = Object.keys(STAT_LABELS).filter(k => abas.some(a => periodos[a][k]));
+
+  return `<div class="section-title">📊 Estatísticas</div>
+    <div style="display:flex;gap:6px;margin-bottom:4px" id="statTabs">
+      ${abas.map((a, i) => `<button data-aba="${a}" onclick="_trocarAbaStat(this)" style="${i === 0 ? 'border-color:var(--accent);color:var(--accent)' : ''}">${labelAba[a] || a}</button>`).join('')}
+    </div>
+    ${abas.map((a, i) => `
+      <table class="stat-table" data-abacontent="${a}" style="${i === 0 ? '' : 'display:none'}">
+        <tr><th>${_esc(p.casa)}</th><th>Estatística</th><th>${_esc(p.fora)}</th></tr>
+        ${linhas.map(k => {
+          const s = periodos[a][k];
+          if (!s) return '';
+          const hv = s.homeValue ?? parseFloat(s.home) ?? 0;
+          const av = s.awayValue ?? parseFloat(s.away) ?? 0;
+          const tot = hv + av || 1;
+          return `<tr>
+            <td>${s.home ?? '—'}</td>
+            <td>${STAT_LABELS[k]}<div class="bar-track"><div class="bar-home" style="width:${hv / tot * 100}%"></div><div class="bar-away" style="width:${av / tot * 100}%"></div></div></td>
+            <td>${s.away ?? '—'}</td>
+          </tr>`;
+        }).join('')}
+      </table>`).join('')}`;
+}
+
+function _trocarAbaStat(btn) {
+  const aba = btn.dataset.aba;
+  document.querySelectorAll('#statTabs button').forEach(b => { b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text)'; });
+  btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)';
+  document.querySelectorAll('[data-abacontent]').forEach(t => t.style.display = t.dataset.abacontent === aba ? '' : 'none');
+}
+
+function renderOddsBlock(p) {
+  const o = p.opening_odds;
+  if (!o) return '';
+  return `<div class="section-title">💰 Odds de abertura</div>
+    <div class="grid-cards">
+      <div class="card"><div class="label">1</div><div class="value">${o.h ?? '—'}</div></div>
+      <div class="card"><div class="label">X</div><div class="value">${o.x ?? '—'}</div></div>
+      <div class="card"><div class="label">2</div><div class="value">${o.a ?? '—'}</div></div>
+      <div class="card"><div class="label">Over ${o.ou_line ?? ''}</div><div class="value">${o.ou_over ?? '—'}</div></div>
+      <div class="card"><div class="label">Under ${o.ou_line ?? ''}</div><div class="value">${o.ou_under ?? '—'}</div></div>
+    </div>`;
+}
+
+// ── Canvas do gráfico de pressão — barras verticais por minuto (positivo =
+// casa, negativo = visitante), mesma lógica de cor/traço já usada no site
+// (loadMomentumChart), só que lendo os dados já salvos em vez de buscar ao vivo.
+function desenharCanvas(p) {
+  const canvas = document.getElementById('pressureCanvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth;
+  const H = 180;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pontos = p.graphPoints || [];
+  const gols = p.goals || [];
+  const maxMinuto = Math.max(90, ...pontos.map(pt => pt.minute), ...gols.map(g => g.minute));
+  const midY = H / 2;
+  const padX = 4;
+  const plotW = W - padX * 2;
+  const barW = Math.max(1.5, plotW / maxMinuto - 1);
+
+  // linha de zero
+  ctx.strokeStyle = 'rgba(255,255,255,.08)';
+  ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
+
+  // linha do intervalo (HT) em ~45min, proporcional ao maxMinuto real
+  const htX = padX + (45 / maxMinuto) * plotW;
+  ctx.strokeStyle = 'rgba(139,150,173,.5)';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(htX, 0); ctx.lineTo(htX, H); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'var(--text2)'; ctx.font = '10px system-ui'; ctx.fillText('HT', htX + 3, 12);
+
+  // barras
+  pontos.forEach(pt => {
+    const x = padX + (pt.minute / maxMinuto) * plotW;
+    const val = Math.max(-100, Math.min(100, pt.value));
+    const h = Math.abs(val) / 100 * (H / 2 - 6);
+    ctx.fillStyle = val >= 0 ? 'rgba(59,130,246,.75)' : 'rgba(220,80,80,.7)';
+    if (val >= 0) ctx.fillRect(x - barW / 2, midY - h, barW, h);
+    else ctx.fillRect(x - barW / 2, midY, barW, h);
+  });
+
+  // marcadores de gol
+  gols.forEach(g => {
+    const x = padX + (g.minute / maxMinuto) * plotW;
+    ctx.strokeStyle = g.team === 'home' ? 'rgba(96,165,250,.6)' : 'rgba(220,80,80,.5)';
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.font = '11px system-ui';
+    ctx.fillText('⚽', x - 6, g.team === 'home' ? 12 : H - 6);
+  });
+
+  const axis = document.getElementById('axisLabels');
+  if (axis) {
+    const marcas = [0, 15, 30, 45, 60, 75, 90];
+    axis.innerHTML = marcas.map(m => `<span>${m}'</span>`).join('');
+  }
+}
+
+// ── Abas Partidas / Estudos ─────────────────────────────────────────────────
+function mudarView(view) {
+  document.getElementById('viewPartidas').style.display = view === 'partidas' ? 'flex' : 'none';
+  document.getElementById('viewEstudos').style.display = view === 'estudos' ? 'block' : 'none';
+  document.getElementById('viewJogosDia').style.display = view === 'jogosdia' ? 'block' : 'none';
+  document.getElementById('tabPartidasBtn').classList.toggle('active', view === 'partidas');
+  document.getElementById('tabEstudosBtn').classList.toggle('active', view === 'estudos');
+  document.getElementById('tabJogosDiaBtn').classList.toggle('active', view === 'jogosdia');
+  if (view === 'estudos') renderEstudo();
+}
+
+// ── Estudos — correlação pré-live (odds de abertura) x realizado ───────────
+// Ideia: a gente NÃO tem odds de mercados de 1º tempo salvas (só 1X2 e
+// Over/Under FT em opening_odds), então usamos a probabilidade implícita do
+// Over/Under FT como "sinal pré-live" disponível — jogo com odds abertas pra
+// Over tende a correlacionar com sair gol mais cedo também — e comparamos
+// contra o que REALMENTE aconteceu no intervalo (calculado a partir dos
+// gols salvos, não precisa de dado novo nenhum).
+function renderEstudo() {
+  const estudo = document.getElementById('estudoSelect').value;
+  document.getElementById('autoAlvoSelect').style.display = (estudo === 'autorefinador' || estudo === 'funil') ? 'inline-block' : 'none';
+  if (estudo === 'over05ht') renderEstudoOver05HT();
+  if (estudo === 'casavence') renderEstudoCasaVence();
+  if (estudo === 'autorefinador') renderAutoRefinador();
+  if (estudo === 'funil') renderFunil();
+}
+
+// Converte as 3 odds (1X2) em probabilidade implícita normalizada (tira a
+// margem da casa) — mesma ideia do _probImplicita de 2 vias, só que pra 3.
+function _probImplicita3(oddH, oddX, oddA) {
+  const t = _probImplicita3Todas(oddH, oddX, oddA);
+  return t ? t.casa : null;
+}
+
+function _probImplicita3Todas(oddH, oddX, oddA) {
+  const h = parseFloat(oddH), x = parseFloat(oddX), a = parseFloat(oddA);
+  if (!h || !x || !a || isNaN(h) || isNaN(x) || isNaN(a)) return null;
+  const ih = 1 / h, ix = 1 / x, ia = 1 / a;
+  const total = ih + ix + ia;
+  return { casa: ih / total, empate: ix / total, fora: ia / total };
+}
+
+// Converte 2 odds (over/under) em probabilidade implícita normalizada (tira
+// a margem da casa dividindo pela soma dos 2 implícitos) — sem isso, os 2
+// lados juntos passam de 100% (é a margem/overround da casa de apostas).
+function _probImplicita(oddOver, oddUnder) {
+  const o = parseFloat(oddOver), u = parseFloat(oddUnder);
+  if (!o || !u || isNaN(o) || isNaN(u)) return null;
+  const impOver = 1 / o, impUnder = 1 / u;
+  const total = impOver + impUnder;
+  return impOver / total; // 0..1
+}
+
+// Teve gol até o intervalo? Considera minuto <= 45 (inclui acréscimos do 1º
+// tempo, que no formato salvo ainda usam minuto de base <= 45).
+function _teveGolHT(p) {
+  return (p.goals || []).some(g => g.minute <= 45);
+}
+
+// Pressão média (intensidade, não lado) e nº de trocas de lado só na janela
+// inicial do jogo — não temos isso pré-calculado (pressure_summary é do jogo
+// inteiro), então calcula na hora a partir de graphPoints.
+function _pressaoJanelaInicial(p, ateMinuto) {
+  const pontos = (p.graphPoints || []).filter(pt => pt.minute <= ateMinuto);
+  if (!pontos.length) return null;
+  const somaAbs = pontos.reduce((a, pt) => a + Math.abs(pt.value), 0);
+  let swings = 0, sinalAnterior = null;
+  pontos.forEach(pt => {
+    if (pt.value === 0) return;
+    const sinal = pt.value > 0 ? 1 : -1;
+    if (sinalAnterior !== null && sinal !== sinalAnterior) swings++;
+    sinalAnterior = sinal;
+  });
+  return { mediaAbs: somaAbs / pontos.length, swings, n: pontos.length };
+}
+
+const ESTUDO_AMOSTRA_MINIMA = 15; // faixa com menos que isso vira "amostra insuficiente" (evita taxa de 100%/0% por coincidência)
+
+function calcularEstudoOver05HT() {
+  const validas = partidas
+    .map(p => {
+      const oo = p.opening_odds;
+      const prob = oo ? _probImplicita(oo.ou_over, oo.ou_under) : null;
+      if (prob === null) return null;
+      return { p, probOver: prob, over05ht: _teveGolHT(p) };
+    })
+    .filter(Boolean);
+
+  if (!validas.length) return { valido: false };
+
+  const taxaGeral = validas.filter(v => v.over05ht).length / validas.length * 100;
+
+  // Bins por quantil (mesmo divide-em-N-grupos-iguais já usado em outras
+  // partes do projeto) — assim os limites das faixas se adaptam à distribuição
+  // real das odds carregadas, em vez de fixar % arbitrário que pode deixar
+  // faixa vazia.
+  const ordenadas = [...validas].sort((a, b) => a.probOver - b.probOver);
+  const NBINS = 5;
+  const n = ordenadas.length;
+  const bins = [];
+  for (let q = 0; q < NBINS; q++) {
+    const start = Math.floor(q * n / NBINS), end = Math.floor((q + 1) * n / NBINS);
+    const slice = ordenadas.slice(start, end);
+    if (!slice.length) continue;
+    const hits = slice.filter(v => v.over05ht).length;
+    const taxa = hits / slice.length * 100;
+    bins.push({
+      probMin: slice[0].probOver * 100, probMax: slice[slice.length - 1].probOver * 100,
+      n: slice.length, taxa, lift: taxa / taxaGeral,
+    });
+  }
+
+  // Calibração ao vivo: dentre as mesmas partidas, separa quem teve gol no HT
+  // de quem não teve, e compara a pressão/trocas de lado nos primeiros 30min
+  // — se o grupo "teve gol" já mostrava mais intensidade antes de sair o gol,
+  // é um sinal ao vivo que reforça (ou não) a expectativa pré-jogo.
+  const comPressao = validas
+    .map(v => ({ ...v, pj: _pressaoJanelaInicial(v.p, 30) }))
+    .filter(v => v.pj);
+  const grupoComGol = comPressao.filter(v => v.over05ht);
+  const grupoSemGol = comPressao.filter(v => !v.over05ht);
+  const _media = (arr, campo) => arr.length ? arr.reduce((a, v) => a + v.pj[campo], 0) / arr.length : null;
+
+  // + todas as outras métricas ao vivo (finalizações, escanteios, cartões,
+  // ataques, posse, xG, pressão do jogo inteiro) — mesma comparação genérica
+  // usada nos outros estudos, aqui sobre quem teve gol no HT x quem não teve.
+  const calibracaoLiveCompleta = _compararMetricasLive(validas.filter(v => v.over05ht), validas.filter(v => !v.over05ht), '1ST');
+
+  return {
+    valido: true,
+    totalPartidas: validas.length,
+    taxaGeral,
+    bins,
+    calibracaoLive: {
+      nComGol: grupoComGol.length, nSemGol: grupoSemGol.length,
+      mediaAbsComGol: _media(grupoComGol, 'mediaAbs'), mediaAbsSemGol: _media(grupoSemGol, 'mediaAbs'),
+      swingsComGol: _media(grupoComGol, 'swings'), swingsSemGol: _media(grupoSemGol, 'swings'),
+    },
+    calibracaoLiveCompleta,
+    nComGolTotal: validas.filter(v => v.over05ht).length, nSemGolTotal: validas.filter(v => !v.over05ht).length,
+  };
+}
+
+function renderEstudoOver05HT() {
+  const box = document.getElementById('estudoBox');
+  if (!partidas.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Carregue as partidas primeiro (aba Partidas).</p>';
+    return;
+  }
+  const r = calcularEstudoOver05HT();
+  if (!r.valido) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Nenhuma partida com <code>opening_odds</code> de Over/Under válidas carregada ainda.</p>';
+    return;
+  }
+
+  const c = r.calibracaoLive;
+  const diffAbs = (c.mediaAbsComGol !== null && c.mediaAbsSemGol !== null) ? c.mediaAbsComGol - c.mediaAbsSemGol : null;
+
+  box.innerHTML = `
+    <p style="color:var(--text2);font-size:12px;margin:0 0 4px">
+      <strong style="color:var(--text)">Pré-live</strong>: probabilidade implícita nas odds de abertura de Over/Under (FT) — não temos odds específicas de HT salvas, então essa é a melhor aproximação pré-jogo disponível hoje.
+      <strong style="color:var(--text)">Realizado</strong>: teve gol até o minuto 45 de verdade, direto do que foi salvo ao vivo.
+    </p>
+    <div class="estudo-resumo">
+      <div class="card"><div class="label">Partidas na amostra</div><div class="value">${r.totalPartidas}</div></div>
+      <div class="card"><div class="label">Taxa geral Over 0.5 HT</div><div class="value">${r.taxaGeral.toFixed(1)}%</div></div>
+    </div>
+
+    <div class="section-title">📊 Taxa real de Over 0.5 HT por faixa de probabilidade implícita (Over FT)</div>
+    <table class="estudo-table">
+      <tr><th>Faixa (prob. implícita Over FT)</th><th>Amostra</th><th>Taxa real Over 0.5 HT</th><th>Lift</th></tr>
+      ${r.bins.map(b => {
+        const baixaAmostra = b.n < ESTUDO_AMOSTRA_MINIMA;
+        return `<tr>
+          <td>${b.probMin.toFixed(1)}% a ${b.probMax.toFixed(1)}%</td>
+          <td>${b.n}</td>
+          <td class="${baixaAmostra ? 'estudo-amostra-baixa' : ''}">${b.taxa.toFixed(1)}%${baixaAmostra ? ' (amostra baixa)' : ''}</td>
+          <td><strong>${b.lift.toFixed(2)}x</strong></td>
+        </tr>`;
+      }).join('')}
+    </table>
+
+    <div class="section-title">🔴 Janela inicial (0-30min) — pressão bruta, comparando quem teve gol no HT com quem não teve</div>
+    <table class="estudo-table">
+      <tr><th></th><th>Partidas</th><th>Pressão média (intensidade, 0-30min)</th><th>Trocas de lado (0-30min)</th></tr>
+      <tr><td>Teve gol até o HT</td><td>${c.nComGol}</td><td>${c.mediaAbsComGol?.toFixed(1) ?? '—'}</td><td>${c.swingsComGol?.toFixed(1) ?? '—'}</td></tr>
+      <tr><td>Não teve gol até o HT</td><td>${c.nSemGol}</td><td>${c.mediaAbsSemGol?.toFixed(1) ?? '—'}</td><td>${c.swingsSemGol?.toFixed(1) ?? '—'}</td></tr>
+    </table>
+    <p style="color:var(--text2);font-size:11px;margin-top:6px">
+      ${diffAbs === null ? '' : diffAbs > 0
+        ? `Partidas que tiveram gol no HT mostravam, em média, ${diffAbs.toFixed(1)} pontos a mais de intensidade de pressão nos primeiros 30min — é um sinal ao vivo coerente com a expectativa.`
+        : `Não deu pra ver diferença clara de intensidade de pressão nos primeiros 30min entre quem teve gol no HT e quem não teve — nesse recorte, a pressão bruta sozinha não antecipa bem o gol.`}
+    </p>
+
+    ${_renderTabelaCalibracaoLive(r.calibracaoLiveCompleta, r.nComGolTotal, r.nSemGolTotal, 'Teve gol até o HT', 'Não teve gol até o HT', 'Estatísticas do 1º tempo apenas (não do jogo inteiro) — comparar com dado do jogo todo vazaria o que aconteceu depois do intervalo.')}`;
+}
+
+// ── Estudo: Casa vence — pré-live (odd "1") x realizado (placar real) ──────
+function calcularEstudoCasaVence() {
+  const validas = partidas
+    .map(p => {
+      const oo = p.opening_odds;
+      if (!oo || !p.score) return null;
+      const probCasa = _probImplicita3(oo.h, oo.x, oo.a);
+      if (probCasa === null) return null;
+      return { p, probCasa, casaVenceu: p.score.home > p.score.away };
+    })
+    .filter(Boolean);
+
+  if (!validas.length) return { valido: false };
+
+  const taxaGeral = validas.filter(v => v.casaVenceu).length / validas.length * 100;
+
+  const ordenadas = [...validas].sort((a, b) => a.probCasa - b.probCasa);
+  const NBINS = 5;
+  const n = ordenadas.length;
+  const bins = [];
+  for (let q = 0; q < NBINS; q++) {
+    const start = Math.floor(q * n / NBINS), end = Math.floor((q + 1) * n / NBINS);
+    const slice = ordenadas.slice(start, end);
+    if (!slice.length) continue;
+    const hits = slice.filter(v => v.casaVenceu).length;
+    const taxa = hits / slice.length * 100;
+    bins.push({
+      probMin: slice[0].probCasa * 100, probMax: slice[slice.length - 1].probCasa * 100,
+      n: slice.length, taxa, lift: taxa / taxaGeral,
+    });
+  }
+
+  // Calibração ao vivo: TODAS as métricas ao vivo disponíveis (não só
+  // dominância) — finalizações, escanteios, cartões, ataques, posse, xG e as
+  // métricas de pressão (dominância, swings, pressão por tempo, pico) — comparando
+  // a média de cada uma entre quem venceu de verdade e quem não venceu.
+  const grupoVenceu = validas.filter(v => v.casaVenceu);
+  const grupoNaoVenceu = validas.filter(v => !v.casaVenceu);
+  const calibracaoLive = _compararMetricasLive(grupoVenceu, grupoNaoVenceu);
+
+  return {
+    valido: true,
+    totalPartidas: validas.length,
+    taxaGeral,
+    bins,
+    calibracaoLive,
+    nVenceu: grupoVenceu.length, nNaoVenceu: grupoNaoVenceu.length,
+  };
+}
+
+// ── Extrai + compara métricas ao vivo entre 2 grupos de partidas ──────────
+// Usado por todos os estudos — puxa finalizações/escanteios/cartões/
+// ataques/posse (statistics_periods.ALL), xG, e as métricas de pressão
+// (dominância, swings, pressão 1ºT/2ºT, pico casa/fora), e devolve a média de
+// cada uma nos 2 grupos (recebe arrays de { p, ... }).
+function _statPar(p, key, periodo) {
+  const periodos = (periodo && p.statistics_periods?.[periodo]) || p.statistics_periods?.ALL || p.statistics;
+  const s = periodos && periodos[key];
+  if (!s) return null;
+  const hv = s.homeValue ?? parseFloat(s.home);
+  const av = s.awayValue ?? parseFloat(s.away);
+  if (isNaN(hv) || isNaN(av)) return null;
+  return { home: hv, away: av };
+}
+function _mediaPar(grupo, extrator) {
+  const vals = grupo.map(v => extrator(v.p)).filter(Boolean);
+  if (!vals.length) return null;
+  return {
+    home: vals.reduce((a, v) => a + v.home, 0) / vals.length,
+    away: vals.reduce((a, v) => a + v.away, 0) / vals.length,
+    n: vals.length,
+  };
+}
+function _mediaEscalar(grupo, extrator) {
+  const vals = grupo.map(v => extrator(v.p)).filter(v => typeof v === 'number' && !isNaN(v));
+  return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : null;
+}
+
+function _compararMetricasLive(grupoA, grupoB, periodo) {
+  const pareadas = Object.entries(STAT_LABELS).map(([key, label]) => ({
+    key, label,
+    a: _mediaPar(grupoA, p => _statPar(p, key, periodo)),
+    b: _mediaPar(grupoB, p => _statPar(p, key, periodo)),
+  }));
+  // xG só existe pro jogo inteiro (statistics_periods não tem xg por tempo) —
+  // só entra quando a comparação é do jogo todo (sem período específico).
+  if (!periodo) {
+    pareadas.push({
+      key: 'xg', label: 'xG (estimado)',
+      a: _mediaPar(grupoA, p => p.xg && { home: p.xg.home, away: p.xg.away }),
+      b: _mediaPar(grupoB, p => p.xg && { home: p.xg.home, away: p.xg.away }),
+    });
+  }
+
+  // pressure_summary é sempre do JOGO INTEIRO (não existe versão só do 1ºT) —
+  // então só entra quando a comparação também é do jogo todo. Quando o estudo
+  // pede período específico (ex: só 1ºT, pra não vazar dado do 2ºT numa
+  // pergunta que é só sobre o intervalo), essas métricas ficam de fora.
+  const escalares = periodo ? [] : [
+    { key: 'home_dominance_pct', label: 'Dominância de pressão (casa)', sufixo: '%' },
+    { key: 'momentum_swings', label: 'Momentum swings', sufixo: '' },
+    { key: 'h1_avg', label: 'Pressão média 1º T', sufixo: '' },
+    { key: 'h2_avg', label: 'Pressão média 2º T', sufixo: '' },
+    { key: 'max_home', label: 'Pico de pressão (casa)', sufixo: '' },
+    { key: 'max_away', label: 'Pico de pressão (fora)', sufixo: '' },
+  ].map(m => ({
+    ...m,
+    a: _mediaEscalar(grupoA, p => p.pressure_summary?.[m.key]),
+    b: _mediaEscalar(grupoB, p => p.pressure_summary?.[m.key]),
+  }));
+
+  return { pareadas, escalares };
+}
+
+function renderEstudoCasaVence() {
+  const box = document.getElementById('estudoBox');
+  if (!partidas.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Carregue as partidas primeiro (aba Partidas).</p>';
+    return;
+  }
+  const r = calcularEstudoCasaVence();
+  if (!r.valido) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Nenhuma partida com <code>opening_odds</code> 1X2 válidas carregada ainda.</p>';
+    return;
+  }
+
+  box.innerHTML = `
+    <p style="color:var(--text2);font-size:12px;margin:0 0 4px">
+      <strong style="color:var(--text)">Pré-live</strong>: probabilidade implícita da odd "1" (casa) nas odds de abertura 1X2, já sem a margem da casa de apostas.
+      <strong style="color:var(--text)">Realizado</strong>: placar final de verdade (casa marcou mais gols que o visitante).
+    </p>
+    <div class="estudo-resumo">
+      <div class="card"><div class="label">Partidas na amostra</div><div class="value">${r.totalPartidas}</div></div>
+      <div class="card"><div class="label">Taxa geral casa vence</div><div class="value">${r.taxaGeral.toFixed(1)}%</div></div>
+    </div>
+
+    <div class="section-title">📊 Taxa real de vitória da casa por faixa de probabilidade implícita</div>
+    <table class="estudo-table">
+      <tr><th>Faixa (prob. implícita casa)</th><th>Amostra</th><th>Taxa real casa vence</th><th>Lift</th></tr>
+      ${r.bins.map(b => {
+        const baixaAmostra = b.n < ESTUDO_AMOSTRA_MINIMA;
+        return `<tr>
+          <td>${b.probMin.toFixed(1)}% a ${b.probMax.toFixed(1)}%</td>
+          <td>${b.n}</td>
+          <td class="${baixaAmostra ? 'estudo-amostra-baixa' : ''}">${b.taxa.toFixed(1)}%${baixaAmostra ? ' (amostra baixa)' : ''}</td>
+          <td><strong>${b.lift.toFixed(2)}x</strong></td>
+        </tr>`;
+      }).join('')}
+    </table>
+
+    ${_renderTabelaCalibracaoLive(r.calibracaoLive, r.nVenceu, r.nNaoVenceu, 'Casa venceu', 'Casa não venceu')}`;
+}
+
+// ── Tabela genérica de calibração ao vivo — reaproveitada por todos os
+// estudos que comparam 2 grupos de partidas (grupoA = "aconteceu",
+// grupoB = "não aconteceu") em TODAS as métricas ao vivo disponíveis.
+function _renderTabelaCalibracaoLive(cal, nA, nB, labelA, labelB, notaPeriodo) {
+  const { pareadas, escalares } = cal;
+  return `
+    <div class="section-title">🔴 Calibração ao vivo — todas as métricas, comparando "${labelA}" com "${labelB}"</div>
+    ${notaPeriodo ? `<p style="color:var(--text2);font-size:11px;margin:0 0 6px">${notaPeriodo}</p>` : ''}
+    <table class="estudo-table">
+      <tr><th>Métrica</th><th>${labelA} (${nA}) — Casa</th><th>${labelA} — Fora</th><th>${labelB} (${nB}) — Casa</th><th>${labelB} — Fora</th></tr>
+      ${pareadas.map(m => `
+        <tr>
+          <td>${m.label}</td>
+          <td>${m.a ? m.a.home.toFixed(1) : '—'}</td>
+          <td>${m.a ? m.a.away.toFixed(1) : '—'}</td>
+          <td>${m.b ? m.b.home.toFixed(1) : '—'}</td>
+          <td>${m.b ? m.b.away.toFixed(1) : '—'}</td>
+        </tr>`).join('')}
+    </table>
+    ${escalares.length ? `
+    <table class="estudo-table" style="margin-top:14px">
+      <tr><th>Métrica de pressão</th><th>${labelA}</th><th>${labelB}</th><th>Diferença</th></tr>
+      ${escalares.map(m => {
+        const diff = (m.a !== null && m.b !== null) ? m.a - m.b : null;
+        return `<tr>
+          <td>${m.label}</td>
+          <td>${m.a !== null ? m.a.toFixed(1) + m.sufixo : '—'}</td>
+          <td>${m.b !== null ? m.b.toFixed(1) + m.sufixo : '—'}</td>
+          <td>${diff !== null ? (diff > 0 ? '+' : '') + diff.toFixed(1) + m.sufixo : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </table>` : ''}`;
+}
+
+// ── 🤖 Auto-refinador ────────────────────────────────────────────────────
+// Em vez de um padrão fixo escrito à mão, varre várias variáveis de uma vez
+// (pré-live: probabilidades implícitas das odds; ao vivo: pressão, xG,
+// finalizações, escanteios etc) pra um mercado escolhido, e mostra quais
+// delas têm o melhor lift AGORA, com a base de partidas que estiver
+// carregada NESSE momento. Como isso roda do zero toda vez que a página abre
+// (sem cache, sem "modelo salvo"), conforme mais partidas forem se
+// acumulando em momentum_history o ranking vai se ajustando sozinho —
+// variáveis que hoje não têm amostra suficiente passam a entrar, e a que
+// está no topo pode trocar de lugar. Não é aprendizado de máquina, é o mesmo
+// princípio de "gerar configuração automática" que já existia na ferramenta
+// antiga, só que aplicado a vários mercados e testando pré-live E ao vivo
+// juntos.
+// Placar do intervalo, calculado a partir dos gols salvos (minuto <= 45) —
+// não precisa de dado novo nenhum, só recontar o que já está em `goals`.
+function _placarHT(p) {
+  const gols = (p.goals || []).filter(g => g.minute <= 45);
+  return { home: gols.filter(g => g.team === 'home').length, away: gols.filter(g => g.team === 'away').length };
+}
+
+// Quem marcou o 1º gol da partida (ordena por minuto + acréscimo, pra
+// desempatar 2 gols no mesmo minuto) — null se a partida terminou 0-0.
+function _primeiroGol(p) {
+  const gols = p.goals || [];
+  if (!gols.length) return null;
+  const ordenados = [...gols].sort((a, b) => (a.minute + (a.addedTime || 0) / 100) - (b.minute + (b.addedTime || 0) / 100));
+  return ordenados[0].team;
+}
+
+// Virada de placar — quem estava perdendo no intervalo terminou vencendo.
+function _viradaPlacar(p) {
+  const ht = _placarHT(p);
+  if (!p.score) return false;
+  if (ht.home < ht.away && p.score.home > p.score.away) return true;
+  if (ht.away < ht.home && p.score.away > p.score.home) return true;
+  return false;
+}
+
+// Nenhum gol depois do intervalo (minuto > 45) — inclui 0-0 no jogo todo.
+function _semGolSegundoTempo(p) {
+  return !(p.goals || []).some(g => g.minute > 45);
+}
+
+const AUTO_ALVOS = {
+  casa_vence: { label: 'Casa vence', fn: p => p.score && p.score.home > p.score.away },
+  fora_vence: { label: 'Fora vence', fn: p => p.score && p.score.away > p.score.home },
+  empate: { label: 'Empate', fn: p => p.score && p.score.home === p.score.away },
+  over05: { label: 'Over 0.5 FT', fn: p => p.score && (p.score.home + p.score.away) >= 1 },
+  over15: { label: 'Over 1.5 FT', fn: p => p.score && (p.score.home + p.score.away) >= 2 },
+  over25: { label: 'Over 2.5 FT', fn: p => p.score && (p.score.home + p.score.away) >= 3 },
+  over35: { label: 'Over 3.5 FT', fn: p => p.score && (p.score.home + p.score.away) >= 4 },
+  under05: { label: 'Under 0.5 HT', fn: p => { const h = _placarHT(p); return (h.home + h.away) === 0; } },
+  under15: { label: 'Under 1.5 HT', fn: p => { const h = _placarHT(p); return (h.home + h.away) <= 1; } },
+  under25: { label: 'Under 2.5 FT', fn: p => p.score && (p.score.home + p.score.away) <= 2 },
+  under35: { label: 'Under 3.5 FT', fn: p => p.score && (p.score.home + p.score.away) <= 3 },
+  over15ht: { label: 'Over 1.5 HT', fn: p => { const h = _placarHT(p); return (h.home + h.away) >= 2; } },
+  casa_vence_ht: { label: 'Casa vence HT', fn: p => { const h = _placarHT(p); return h.home > h.away; } },
+  fora_vence_ht: { label: 'Visitante vence HT', fn: p => { const h = _placarHT(p); return h.away > h.home; } },
+  empate_ht: { label: 'Empate HT', fn: p => { const h = _placarHT(p); return h.home === h.away; } },
+  btts: { label: 'Ambas marcam (BTTS)', fn: p => p.score && p.score.home > 0 && p.score.away > 0 },
+  btts_ht: { label: 'Ambas Marcam HT', fn: p => { const h = _placarHT(p); return h.home > 0 && h.away > 0; } },
+  casa_marca_primeiro: { label: 'Casa marca primeiro', fn: p => _primeiroGol(p) === 'home' },
+  fora_marca_primeiro: { label: 'Visitante marca primeiro', fn: p => _primeiroGol(p) === 'away' },
+  over05ht_alvo: { label: 'Over 0.5 HT', fn: p => _teveGolHT(p) },
+  over95_escanteios: { label: 'Over 9.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') >= 10, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  under95_escanteios: { label: 'Under 9.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') < 10, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  over35_cartoes: { label: 'Over 3.5 Cartões', fn: p => _totalCartoesFT(p) >= 4, requer: p => _totalCartoesFT(p) !== null },
+  under35_cartoes: { label: 'Under 3.5 Cartões', fn: p => _totalCartoesFT(p) < 4, requer: p => _totalCartoesFT(p) !== null },
+
+  // Dupla chance — "não perde"
+  dupla_1x: { label: 'Dupla chance 1X (casa não perde)', fn: p => p.score && p.score.home >= p.score.away },
+  dupla_x2: { label: 'Dupla chance X2 (fora não perde)', fn: p => p.score && p.score.away >= p.score.home },
+  dupla_12: { label: 'Dupla chance 12 (sem empate)', fn: p => p.score && p.score.home !== p.score.away },
+
+  // Handicap asiático simples — vitória por margem de 2+ gols
+  handicap_casa_2: { label: 'Casa vence por 2+ gols', fn: p => p.score && (p.score.home - p.score.away) >= 2 },
+  handicap_fora_2: { label: 'Fora vence por 2+ gols', fn: p => p.score && (p.score.away - p.score.home) >= 2 },
+
+  btts_nao: { label: 'Ambas NÃO marcam', fn: p => p.score && !(p.score.home > 0 && p.score.away > 0) },
+  clean_sheet_casa: { label: 'Clean sheet casa (não sofre gol)', fn: p => p.score && p.score.away === 0 },
+  clean_sheet_fora: { label: 'Clean sheet fora (não sofre gol)', fn: p => p.score && p.score.home === 0 },
+  btts_over25: { label: 'Ambas marcam + Over 2.5 FT', fn: p => p.score && p.score.home > 0 && p.score.away > 0 && (p.score.home + p.score.away) >= 3 },
+
+  gol_ultimos_15: { label: 'Gol nos últimos 15min (75-90)', fn: p => (p.goals || []).some(g => g.minute >= 75) },
+  gol_primeiros_15: { label: 'Gol nos primeiros 15min (0-15)', fn: p => (p.goals || []).some(g => g.minute <= 15) },
+  virada_placar: { label: 'Virada de placar (quem perdia no HT vence no fim)', fn: p => _viradaPlacar(p) },
+  zero_a_zero_ft: { label: '0 a 0 no jogo todo', fn: p => p.score && p.score.home === 0 && p.score.away === 0 },
+  sem_gol_2t: { label: 'Sem gols no 2º tempo', fn: p => _semGolSegundoTempo(p) },
+
+  over85_escanteios: { label: 'Over 8.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') >= 9, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  under85_escanteios: { label: 'Under 8.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') < 9, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  over105_escanteios: { label: 'Over 10.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') >= 11, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  under105_escanteios: { label: 'Under 10.5 Escanteios', fn: p => _totalStatFT(p, 'corner_kicks') < 11, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  handicap_escanteios_casa: { label: 'Casa com +3.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') >= 4, requer: p => _diffStat(p, 'corner_kicks') !== null },
+
+  // Placar exato como mercado próprio — cada placar comum vira seu próprio
+  // alvo binário (bateu esse placar exato ou não), passa pelo MESMO funil
+  // validado por k-fold + p-valor que todos os outros mercados, não é só
+  // uma lista descritiva dentro de outra metodologia.
+  ..._gerarAlvosPlacarExato(),
+
+  // xG dominante prevê o vencedor de verdade? Exclui jogos com xG empatado
+  // (não dá pra dizer quem era "dominante" nesse caso) e jogos sem xG.
+  xg_dominante_vence: {
+    label: 'Time com xG maior vence',
+    fn: p => (p.xg.home > p.xg.away && p.score.home > p.score.away) || (p.xg.away > p.xg.home && p.score.away > p.score.home),
+    requer: p => p.xg && typeof p.xg.home === 'number' && typeof p.xg.away === 'number' && p.xg.home !== p.xg.away,
+  },
+
+  // Lay Goleada — apostar CONTRA uma goleada: nenhum dos 2 times marca 4+ gols.
+  lay_goleada_casa: { label: 'Lay Goleada Casa (casa não marca 4+ gols)', fn: p => p.score && p.score.home <= 3 },
+  lay_goleada_visitante: { label: 'Lay Goleada Visitante (fora não marca 4+ gols)', fn: p => p.score && p.score.away <= 3 },
+
+  // Total de gols exato (soma dos 2 times, não o placar dos 2 lados)
+  ..._gerarAlvosTotalGolsExato(),
+
+  // Margem de vitória exata (diferença de gols entre os 2 times, qualquer lado)
+  margem_exata_1: { label: 'Vence por exatamente 1 gol', fn: p => p.score && Math.abs(p.score.home - p.score.away) === 1 },
+  margem_exata_2: { label: 'Vence por exatamente 2 gols', fn: p => p.score && Math.abs(p.score.home - p.score.away) === 2 },
+  margem_exata_3mais: { label: 'Vence por 3+ gols de diferença', fn: p => p.score && Math.abs(p.score.home - p.score.away) >= 3 },
+
+  // Escanteios handicap — linhas mais agressivas que o +3.5 que já existe
+  handicap_escanteios_casa_15: { label: 'Casa com +1.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') >= 2, requer: p => _diffStat(p, 'corner_kicks') !== null },
+  handicap_escanteios_casa_25: { label: 'Casa com +2.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') >= 3, requer: p => _diffStat(p, 'corner_kicks') !== null },
+  handicap_escanteios_fora_15: { label: 'Fora com +1.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') <= -2, requer: p => _diffStat(p, 'corner_kicks') !== null },
+  handicap_escanteios_fora_25: { label: 'Fora com +2.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') <= -3, requer: p => _diffStat(p, 'corner_kicks') !== null },
+  handicap_escanteios_fora_35: { label: 'Fora com +3.5 escanteios de vantagem', fn: p => _diffStat(p, 'corner_kicks') <= -4, requer: p => _diffStat(p, 'corner_kicks') !== null },
+
+  btts_casa_vence: { label: 'Ambas marcam + Casa vence', fn: p => p.score && p.score.home > 0 && p.score.away > 0 && p.score.home > p.score.away },
+  btts_fora_vence: { label: 'Ambas marcam + Fora vence', fn: p => p.score && p.score.home > 0 && p.score.away > 0 && p.score.away > p.score.home },
+
+  // Faixas de escanteios totais (em vez de só over/under numa linha fixa)
+  escanteios_faixa_0_6: { label: 'Escanteios 0-6 no jogo', fn: p => { const t = _totalStatFT(p, 'corner_kicks'); return t >= 0 && t <= 6; }, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  escanteios_faixa_7_9: { label: 'Escanteios 7-9 no jogo', fn: p => { const t = _totalStatFT(p, 'corner_kicks'); return t >= 7 && t <= 9; }, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  escanteios_faixa_10_12: { label: 'Escanteios 10-12 no jogo', fn: p => { const t = _totalStatFT(p, 'corner_kicks'); return t >= 10 && t <= 12; }, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+  escanteios_faixa_13mais: { label: 'Escanteios 13+ no jogo', fn: p => _totalStatFT(p, 'corner_kicks') >= 13, requer: p => _totalStatFT(p, 'corner_kicks') !== null },
+
+  // Mesmo vencedor no HT e no FT — o "anti-virada" (quem ganhava no intervalo continuou ganhando; empate no HT não conta, porque não tem "vencedor" pra continuar)
+  mesmo_vencedor_ht_ft: {
+    label: 'Mesmo vencedor no HT e no FT',
+    fn: p => { const h = _placarHT(p); return (h.home > h.away && p.score.home > p.score.away) || (h.away > h.home && p.score.away > p.score.home); },
+  },
+
+  // Ambas marcam só no 2º tempo — 0-0 no intervalo, mas as 2 marcam depois
+  btts_so_2t: {
+    label: 'Ambas marcam só no 2º tempo (0-0 no HT)',
+    fn: p => { const h = _placarHT(p); return h.home === 0 && h.away === 0 && p.score && p.score.home > 0 && p.score.away > 0; },
+  },
+
+  gol_80_90: { label: 'Gol nos 10min finais (80-90)', fn: p => (p.goals || []).some(g => g.minute >= 80) },
+};
+
+function _gerarAlvosTotalGolsExato() {
+  const alvos = {};
+  [0, 1, 2, 3, 4].forEach(n => {
+    alvos[`total_gols_${n}`] = { label: `Total de gols = ${n}`, fn: p => p.score && (p.score.home + p.score.away) === n };
+  });
+  alvos.total_gols_5mais = { label: 'Total de gols 5+', fn: p => p.score && (p.score.home + p.score.away) >= 5 };
+  return alvos;
+}
+
+function _gerarAlvosPlacarExato() {
+  const placares = [
+    [0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [0, 2], [2, 1], [1, 2],
+    [2, 2], [3, 0], [0, 3], [3, 1], [1, 3], [3, 2], [2, 3],
+  ];
+  const alvos = {};
+  placares.forEach(([h, a]) => {
+    alvos[`placar_${h}_${a}`] = { label: `Placar exato ${h}-${a}`, fn: p => p.score && p.score.home === h && p.score.away === a };
+  });
+  return alvos;
+}
+
+// Preenche o <optgroup> de placar exato a partir da mesma lista usada em
+// AUTO_ALVOS — evita ter a lista duplicada (HTML + JS) que pode dessincronizar.
+document.getElementById('placarExatoOptgroup').innerHTML = Object.keys(AUTO_ALVOS)
+  .filter(k => k.startsWith('placar_'))
+  .map(k => `<option value="${k}">${AUTO_ALVOS[k].label}</option>`)
+  .join('');
+
+document.getElementById('totalGolsExatoOptgroup').innerHTML = Object.keys(AUTO_ALVOS)
+  .filter(k => k.startsWith('total_gols_'))
+  .map(k => `<option value="${k}">${AUTO_ALVOS[k].label}</option>`)
+  .join('');
+
+// Total (casa+fora) de uma estatística do jogo inteiro — usado pros mercados
+// de escanteios/cartões (o ALVO é sempre do jogo todo; só as variáveis do
+// checkpoint é que precisam ser "até o intervalo").
+function _totalStatFT(p, key) {
+  const s = _statPar(p, key);
+  return s ? s.home + s.away : null;
+}
+function _totalCartoesFT(p) {
+  const y = _statPar(p, 'yellow_cards');
+  if (!y) return null;
+  const r = _statPar(p, 'red_cards');
+  return y.home + y.away + (r ? r.home + r.away : 0);
+}
+
+function _diffStat(p, key) {
+  const s = _statPar(p, key);
+  return s ? s.home - s.away : null;
+}
+
+const AUTO_VARIAVEIS = [
+  { key: 'prob_casa', label: 'Prob. implícita casa (1X2)', tipo: 'Pré-live', fn: p => p.opening_odds && _probImplicita3Todas(p.opening_odds.h, p.opening_odds.x, p.opening_odds.a)?.casa },
+  { key: 'prob_empate', label: 'Prob. implícita empate (1X2)', tipo: 'Pré-live', fn: p => p.opening_odds && _probImplicita3Todas(p.opening_odds.h, p.opening_odds.x, p.opening_odds.a)?.empate },
+  { key: 'prob_fora', label: 'Prob. implícita fora (1X2)', tipo: 'Pré-live', fn: p => p.opening_odds && _probImplicita3Todas(p.opening_odds.h, p.opening_odds.x, p.opening_odds.a)?.fora },
+  { key: 'prob_over_ft', label: 'Prob. implícita Over FT', tipo: 'Pré-live', fn: p => p.opening_odds && _probImplicita(p.opening_odds.ou_over, p.opening_odds.ou_under) },
+  { key: 'prob_casa_nowgoal', label: 'Prob. implícita casa (NowGoal, 2ª fonte)', tipo: 'Pré-live', fn: p => p._forca && _probImplicita3Todas(p._forca.odd_1, p._forca.odd_x, p._forca.odd_2)?.casa },
+  { key: 'forca_battle_diff', label: 'Força — Confronto direto (dif. casa-fora)', tipo: 'Pré-live', fn: p => p._forca?.forca?.battle && (p._forca.forca.battle.hGrade - p._forca.forca.battle.gGrade) },
+  { key: 'forca_state_diff', label: 'Força — Estado atual (dif. casa-fora)', tipo: 'Pré-live', fn: p => p._forca?.forca?.state && (p._forca.forca.state.hGrade - p._forca.forca.state.gGrade) },
+  { key: 'forca_attack_diff', label: 'Força — Ataque (dif. casa-fora)', tipo: 'Pré-live', fn: p => p._forca?.forca?.attack && (p._forca.forca.attack.hGrade - p._forca.forca.attack.gGrade) },
+  { key: 'forca_defend_diff', label: 'Força — Defesa (dif. casa-fora)', tipo: 'Pré-live', fn: p => p._forca?.forca?.defend && (p._forca.forca.defend.hGrade - p._forca.forca.defend.gGrade) },
+  { key: 'dominancia_casa', label: 'Dominância de pressão (casa)', tipo: 'Ao vivo · jogo todo', fn: p => p.pressure_summary?.home_dominance_pct },
+  { key: 'momentum_swings', label: 'Momentum swings', tipo: 'Ao vivo · jogo todo', fn: p => p.pressure_summary?.momentum_swings },
+  { key: 'pressao_h1', label: 'Pressão média 1º T', tipo: 'Ao vivo · 1º T', fn: p => p.pressure_summary?.h1_avg },
+  { key: 'pressao_h2', label: 'Pressão média 2º T', tipo: 'Ao vivo · jogo todo', fn: p => p.pressure_summary?.h2_avg },
+  { key: 'pico_casa', label: 'Pico de pressão (casa)', tipo: 'Ao vivo · jogo todo', fn: p => p.pressure_summary?.max_home },
+  { key: 'pico_fora', label: 'Pico de pressão (fora)', tipo: 'Ao vivo · jogo todo', fn: p => p.pressure_summary?.max_away },
+  { key: 'xg_diff', label: 'xG — diferença (casa-fora)', tipo: 'Ao vivo · jogo todo', fn: p => p.xg && (p.xg.home - p.xg.away) },
+  { key: 'finalizacoes_diff', label: 'Finalizações — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'shots') },
+  { key: 'finalizacoes_alvo_diff', label: 'Finalizações no alvo — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'shots_on_target') },
+  { key: 'escanteios_diff', label: 'Escanteios — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'corner_kicks') },
+  { key: 'ataques_diff', label: 'Ataques — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'attacks') },
+  { key: 'ataques_perigosos_diff', label: 'Ataques perigosos — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'dangerous_attacks') },
+  { key: 'posse_diff', label: 'Posse de bola — diferença (casa-fora)', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'ball_possession') },
+  { key: 'big_chances_diff', label: 'Grandes chances — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'big_chances') },
+  { key: 'touches_in_box_diff', label: 'Toques na área — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'touches_in_box') },
+  { key: 'final_third_diff', label: 'Entradas no terço final — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'final_third_entries') },
+  { key: 'red_cards_diff', label: 'Cartões vermelhos — diferença', tipo: 'Ao vivo · jogo todo', fn: p => _diffStat(p, 'red_cards') },
+];
+
+// ── Variáveis "checkpoint até o intervalo" — só essas dá pra observar
+// assistindo o jogo e decidir a entrada ANTES dele terminar (diferente das
+// "Ao vivo · jogo todo" acima, que só existem depois do apito final). Usadas
+// pelo Funil pré-live → ao vivo.
+function _diffStat1T(p, key) {
+  const s = _statPar(p, key, '1ST');
+  return s ? s.home - s.away : null;
+}
+const AUTO_VARIAVEIS_CHECKPOINT = [
+  { key: 'pressao_h1', label: 'Pressão média (1º T)', tipo: 'Checkpoint · intervalo', fn: p => p.pressure_summary?.h1_avg },
+  { key: 'dominancia_0_30', label: 'Intensidade de pressão (0-30min)', tipo: 'Checkpoint · 30min', fn: p => _pressaoJanelaInicial(p, 30)?.mediaAbs },
+  { key: 'swings_0_30', label: 'Trocas de lado da pressão (0-30min)', tipo: 'Checkpoint · 30min', fn: p => _pressaoJanelaInicial(p, 30)?.swings },
+  { key: 'finalizacoes_diff_1t', label: 'Finalizações — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'shots') },
+  { key: 'finalizacoes_alvo_diff_1t', label: 'Finalizações no alvo — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'shots_on_target') },
+  { key: 'escanteios_diff_1t', label: 'Escanteios — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'corner_kicks') },
+  { key: 'ataques_diff_1t', label: 'Ataques — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'attacks') },
+  { key: 'ataques_perigosos_diff_1t', label: 'Ataques perigosos — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'dangerous_attacks') },
+  { key: 'big_chances_diff_1t', label: 'Grandes chances — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'big_chances') },
+  { key: 'posse_diff_1t', label: 'Posse de bola — diferença (1º T)', tipo: 'Checkpoint · intervalo', fn: p => _diffStat1T(p, 'ball_possession') },
+];
+
+// ── Checkpoint "aos 60min" — segundo corte temporal, pra mercados de FT/2º
+// tempo. Só dá pra usar as métricas de PRESSÃO (graphPoints tem minuto a
+// minuto de verdade); as estatísticas de chute/escanteio/etc só vêm quebradas
+// em 1ºT/2ºT/jogo todo nos dados salvos, sem corte no minuto 60 — por isso
+// esse checkpoint tem menos variáveis que o do intervalo.
+const AUTO_VARIAVEIS_CHECKPOINT_60 = [
+  { key: 'dominancia_0_60', label: 'Intensidade de pressão (0-60min)', tipo: 'Checkpoint · 60min', fn: p => _pressaoJanelaInicial(p, 60)?.mediaAbs },
+  { key: 'swings_0_60', label: 'Trocas de lado da pressão (0-60min)', tipo: 'Checkpoint · 60min', fn: p => _pressaoJanelaInicial(p, 60)?.swings },
+];
+
+function _binsQuantil(pares, nbins) {
+  const ordenadas = [...pares].sort((a, b) => a.val - b.val);
+  const n = ordenadas.length;
+  const bins = [];
+  for (let q = 0; q < nbins; q++) {
+    const start = Math.floor(q * n / nbins), end = Math.floor((q + 1) * n / nbins);
+    const slice = ordenadas.slice(start, end);
+    if (!slice.length) continue;
+    const hits = slice.filter(v => v.hit).length;
+    bins.push({ min: slice[0].val, max: slice[slice.length - 1].val, n: slice.length, taxa: hits / slice.length * 100 });
+  }
+  return bins;
+}
+
+const AUTO_AMOSTRA_MINIMA = 30; // por faixa, no treino — mais alto que os estudos fixos, porque aqui testamos MUITAS variáveis de uma vez (mais chance de achar "padrão" por coincidência)
+const AUTO_AMOSTRA_MINIMA_TESTE = 20; // por faixa, no teste (holdout) — menor porque o teste é só 30% da base, mas ainda exige amostra de verdade
+const AUTO_AMOSTRA_MINIMA_COMBO = 15; // interseção de 2 variáveis encolhe a amostra rápido — ainda assim exige um mínimo, tanto no treino quanto no teste
+
+// ── Validação fora da amostra (holdout temporal) ────────────────────────────
+// O jeito mais confiável de saber se um "padrão" é real ou só ruído
+// estatístico é descobrir ele numa parte dos dados e checar se ele SE REPETE
+// numa parte que ele nunca viu. Aqui a divisão é por data: as partidas mais
+// ANTIGAS (70%) servem só pra descobrir a faixa candidata; as mais RECENTES
+// (30%) servem só pra confirmar (ou derrubar) esse achado. Um padrão que só
+// existe no treino e não se sustenta no teste é descartado — nunca aparece
+// na lista final.
+function _splitTreinoTeste(base) {
+  const ordenadas = [...base].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const corte = Math.floor(ordenadas.length * 0.7);
+  return { treino: ordenadas.slice(0, corte), teste: ordenadas.slice(corte) };
+}
+
+function _taxaGrupo(grupo, alvoFn) {
+  return grupo.length ? grupo.filter(alvoFn).length / grupo.length * 100 : null;
+}
+
+// Aplica a MESMA faixa [min,max] (já descoberta no treino) num outro grupo de
+// partidas — nunca re-otimiza a faixa em cima do teste, senão a validação
+// perde o sentido (viraria treino disfarçado de teste).
+function _avaliarFaixaEm(grupo, extrator, min, max, alvoFn, taxaGeralGrupo) {
+  const pares = grupo
+    .map(p => { const v = extrator(p); return (v === null || v === undefined || isNaN(v)) ? null : { p, v }; })
+    .filter(Boolean)
+    .filter(x => x.v >= min && x.v <= max);
+  if (!pares.length || taxaGeralGrupo === null) return { n: pares.length, taxa: null, lift: null };
+  const hits = pares.filter(x => alvoFn(x.p)).length;
+  const taxa = hits / pares.length * 100;
+  return { n: pares.length, taxa, lift: taxaGeralGrupo ? taxa / taxaGeralGrupo : null, partidas: pares.map(x => x.p) };
+}
+
+// ── Teste estatístico formal (teste de 2 proporções) ────────────────────────
+// Em vez de confiar só em "lift > 1", calcula um p-valor de verdade comparando
+// a taxa do subgrupo com a taxa do RESTO do mesmo teste — se p-valor < 0.05,
+// a diferença provavelmente não é coincidência (aproximação normal padrão,
+// suficiente pra esse uso, sem precisar de biblioteca externa).
+function _normCDF(x) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return 0.5 * (1 + (x >= 0 ? y : -y));
+}
+function _pValorDuasProporcoes(n1, taxa1Pct, n2, taxa2Pct) {
+  if (!n1 || !n2) return null;
+  const p1 = taxa1Pct / 100, p2 = taxa2Pct / 100;
+  const pPool = (p1 * n1 + p2 * n2) / (n1 + n2);
+  const se = Math.sqrt(pPool * (1 - pPool) * (1 / n1 + 1 / n2));
+  if (!se) return 1;
+  const z = (p1 - p2) / se;
+  return 2 * (1 - _normCDF(Math.abs(z)));
+}
+
+// ── Validação cruzada (k-fold temporal) ─────────────────────────────────────
+// Em vez de um único corte treino/teste (que pode ter dado sorte/azar
+// naquele corte específico), divide a base em K blocos contínuos por data.
+// Pra cada bloco, usa os outros K-1 como treino (acha a melhor faixa) e o
+// bloco de fora como teste (confirma ou derruba). Só conta como "robusto" o
+// que se sustentar (lift>1 + p-valor<0.10) em pelo menos metade dos blocos.
+function _kfolds(base, k) {
+  const ordenadas = [...base].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const n = ordenadas.length;
+  const folds = [];
+  for (let i = 0; i < k; i++) {
+    const start = Math.floor(i * n / k), end = Math.floor((i + 1) * n / k);
+    folds.push(ordenadas.slice(start, end));
+  }
+  return folds;
+}
+
+const KFOLD_K = 3;
+
+function _kfoldAvaliarVariavel(base, extrator, alvoFn, amostraMinTreino, amostraMinTeste) {
+  const folds = _kfolds(base, KFOLD_K);
+  const porFold = [];
+  for (let i = 0; i < folds.length; i++) {
+    const teste = folds[i];
+    const treino = folds.filter((_, idx) => idx !== i).flat();
+    const pares = treino
+      .map(p => { const v = extrator(p); return (v === null || v === undefined || isNaN(v)) ? null : { val: v, hit: !!alvoFn(p) }; })
+      .filter(Boolean);
+    if (pares.length < amostraMinTreino) continue;
+    const bins = _binsQuantil(pares, 4).filter(b => b.n >= amostraMinTreino);
+    if (!bins.length) continue;
+    const melhor = [...bins].sort((a, b) => b.taxa - a.taxa)[0];
+
+    const taxaGeralTeste = _taxaGrupo(teste, alvoFn);
+    const r = _avaliarFaixaEm(teste, extrator, melhor.min, melhor.max, alvoFn, taxaGeralTeste);
+    if (r.n < amostraMinTeste || r.taxa === null) continue;
+
+    const restoTeste = teste.filter(p => {
+      const v = extrator(p);
+      return !(v !== null && v !== undefined && !isNaN(v) && v >= melhor.min && v <= melhor.max);
+    });
+    const taxaResto = _taxaGrupo(restoTeste, alvoFn);
+    const pValor = restoTeste.length ? _pValorDuasProporcoes(r.n, r.taxa, restoTeste.length, taxaResto) : null;
+
+    porFold.push({ fold: i, min: melhor.min, max: melhor.max, nTreino: melhor.n, taxaTreino: melhor.taxa, nTeste: r.n, taxaTeste: r.taxa, liftTeste: r.lift, pValor });
+  }
+
+  const validos = porFold.filter(f => f.liftTeste !== null && f.liftTeste > 1 && f.pValor !== null && f.pValor < 0.10);
+  if (!validos.length) return null;
+
+  // Faixa representativa = a do fold com maior amostra de teste (estimativa
+  // mais confiável entre as que se sustentaram).
+  const representativo = [...validos].sort((a, b) => b.nTeste - a.nTeste)[0];
+  const mediaLift = validos.reduce((a, f) => a + f.liftTeste, 0) / validos.length;
+  const mediaTaxa = validos.reduce((a, f) => a + f.taxaTeste, 0) / validos.length;
+  const piorPValor = Math.max(...validos.map(f => f.pValor));
+
+  return {
+    foldsOk: validos.length, totalFolds: porFold.length,
+    min: representativo.min, max: representativo.max, nTeste: representativo.nTeste,
+    mediaLift, mediaTaxa, piorPValor,
+  };
+}
+
+function calcularAutoRefinador(alvoKey) {
+  const alvo = AUTO_ALVOS[alvoKey];
+  const base = partidas.filter(p => p.score);
+  if (base.length < 40) return { valido: false, poucoDado: true }; // sem dado nem pra separar treino/teste direito
+
+  const { treino, teste } = _splitTreinoTeste(base);
+  const taxaGeralTreino = _taxaGrupo(treino, alvo.fn);
+  const taxaGeralTeste = _taxaGrupo(teste, alvo.fn);
+  const taxaGeralTotal = _taxaGrupo(base, alvo.fn);
+
+  // 1) Acha a melhor faixa de CADA variável usando só o treino.
+  const candidatosTreino = [];
+  AUTO_VARIAVEIS.forEach(v => {
+    const pares = treino
+      .map(p => { const val = v.fn(p); return (val === null || val === undefined || isNaN(val)) ? null : { val, hit: !!alvo.fn(p) }; })
+      .filter(Boolean);
+    if (pares.length < AUTO_AMOSTRA_MINIMA) return;
+
+    const bins = _binsQuantil(pares, 4).filter(b => b.n >= AUTO_AMOSTRA_MINIMA);
     if (!bins.length) return;
-    const melhor = [...bins].sort((a, b) => b.winRate - a.winRate)[0];
-    resultado.push({ v, bins, melhorIdx: bins.indexOf(melhor), melhor });
+    const melhor = [...bins].sort((a, b) => b.taxa - a.taxa)[0];
+    candidatosTreino.push({ variavel: v, min: melhor.min, max: melhor.max, nTreino: melhor.n, taxaTreino: melhor.taxa, liftTreino: melhor.taxa / taxaGeralTreino });
   });
-  return { binsPorVariavel: resultado, taxaGeral };
+
+  // 2) Reaplica CADA faixa achada no treino, sem mudar nada, em cima do
+  // teste — só quem se sustentar aqui (amostra mínima + lift > 1) sobrevive.
+  const validados = candidatosTreino
+    .map(c => {
+      const r = _avaliarFaixaEm(teste, c.variavel.fn, c.min, c.max, alvo.fn, taxaGeralTeste);
+      return { ...c, nTeste: r.n, taxaTeste: r.taxa, liftTeste: r.lift, partidasTeste: r.partidas };
+    })
+    .filter(c => c.nTeste >= AUTO_AMOSTRA_MINIMA_TESTE && c.liftTeste !== null && c.liftTeste > 1)
+    .sort((a, b) => b.liftTeste - a.liftTeste);
+
+  // 3) Combinação de 2 sinais — só entre os 3 melhores que JÁ se provaram
+  // sozinhos fora da amostra (limita a busca, em vez de testar todos os pares
+  // possíveis, que explodiria o nº de comparações). A faixa de cada variável
+  // não é re-otimizada — só intersecta as 2 faixas que o treino já achou — e
+  // a combinação passa pelo MESMO crivo de validação em cima do teste.
+  const top3 = validados.slice(0, 3);
+  const combosTreino = [];
+  for (let i = 0; i < top3.length; i++) {
+    for (let j = i + 1; j < top3.length; j++) {
+      const a = top3[i], b = top3[j];
+      const bate = p => {
+        const va = a.variavel.fn(p), vb = b.variavel.fn(p);
+        return va !== null && va !== undefined && !isNaN(va) && va >= a.min && va <= a.max
+          && vb !== null && vb !== undefined && !isNaN(vb) && vb >= b.min && vb <= b.max;
+      };
+      const subsetTreino = treino.filter(bate);
+      if (subsetTreino.length < AUTO_AMOSTRA_MINIMA_COMBO) continue;
+      const taxaTreino = _taxaGrupo(subsetTreino, alvo.fn);
+      combosTreino.push({ a, b, bate, nTreino: subsetTreino.length, taxaTreino, liftTreino: taxaTreino / taxaGeralTreino });
+    }
+  }
+  const combosValidados = combosTreino
+    .map(c => {
+      const subsetTeste = teste.filter(c.bate);
+      const taxaTeste = _taxaGrupo(subsetTeste, alvo.fn);
+      const liftTeste = (taxaTeste !== null && taxaGeralTeste) ? taxaTeste / taxaGeralTeste : null;
+      return { ...c, nTeste: subsetTeste.length, taxaTeste, liftTeste };
+    })
+    .filter(c => c.nTeste >= AUTO_AMOSTRA_MINIMA_COMBO && c.liftTeste !== null && c.liftTeste > 1
+      && c.liftTeste > Math.max(c.a.liftTeste, c.b.liftTeste)) // só vale a pena se combinar realmente ajudou mais que a melhor das 2 sozinha
+    .sort((a, b) => b.liftTeste - a.liftTeste);
+
+  return {
+    valido: true, alvo,
+    totalPartidas: base.length, nTreino: treino.length, nTeste: teste.length,
+    taxaGeralTotal, taxaGeralTreino, taxaGeralTeste,
+    top: validados.slice(0, 8), combos: combosValidados.slice(0, 3),
+    testadosSemSustentar: candidatosTreino.length - validados.length,
+  };
 }
 
-// Escolhe sozinho, pra CADA um dos 19 placares, a variável+faixa com a
-// maior taxa de acerto — exige uma amostra mínima na faixa vencedora (senão
-// uma faixa de 2 jogos com 100% de acerto ganharia de tudo por coincidência)
-// e que a taxa fique acima da taxa geral daquele placar (senão não é uma
-// faixa que realmente ajuda, é só ruído). Placares sem nenhuma variável que
-// bata esses 2 critérios ficam de fora da configuração automática.
-const AUTO_CONFIG_AMOSTRA_MINIMA = 1; // sem mínimo de verdade (só maior que 0, senão bin vazio quebraria a conta)
-
-function gerarConfigAutomatica() {
-  if (!linhas.length) { alert('Carregue os arquivos primeiro.'); return; }
-  // Amostra mínima do MERCADO inteiro (não da faixa vencedora) — filtro
-  // diferente do AUTO_CONFIG_AMOSTRA_MINIMA de cada faixa. Enquanto o
-  // mercado não acumular jogos suficientes, nem entra na disputa — assim
-  // que a base crescer (mais dias exportados), ele passa a ser considerado
-  // sozinho na próxima vez que gerar, sem precisar mexer em nada.
-  const amostraMinimaMercado = parseInt(document.getElementById('amostraMinimaMercadoInput')?.value) || 1;
-
-  let adicionados = 0, pulados = 0, pulamPoucoJogo = 0;
-  METODOLOGIAS.forEach(score => {
-    const resultCol = `resultado_${score}`;
-    const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
-    if (!validas.length) { pulados++; return; }
-    if (validas.length < amostraMinimaMercado) { pulamPoucoJogo++; return; }
-
-    const { binsPorVariavel, taxaGeral } = _calcularBinsPorScore(score);
-    const candidatos = binsPorVariavel
-      .filter(({ melhor }) => melhor.n >= AUTO_CONFIG_AMOSTRA_MINIMA && melhor.winRate > taxaGeral)
-      .sort((a, b) => b.melhor.winRate - a.melhor.winRate || b.melhor.n - a.melhor.n);
-
-    if (!candidatos.length) { pulados++; return; }
-    const { v, melhor } = candidatos[0];
-    const lift = melhor.winRate / taxaGeral;
-    config[score] = { variavel: v.key, label: v.label, min: melhor.min, max: melhor.max, winRate: melhor.winRate, n: melhor.n, taxaGeral, lift };
-    adicionados++;
-  });
-  renderConfigBox();
-  document.getElementById('metodSelect') && renderRelatorio();
-  const avisoPoucosDias = arquivosCarregados < 10
-    ? `\n\n⚠️ Só ${arquivosCarregados} dia(s) de dados carregado(s) — com pouca base, taxas de 100% costumam ser coincidência (poucos jogos daquele placar acontecendo), não um padrão de verdade. Recomendo rodar o exportador (aba Hoje) por mais dias antes de confiar nessa configuração.`
-    : '';
-  alert(`Configuração automática gerada: ${adicionados} placar(es)/mercado(s) configurado(s), ${pulados} sem nenhuma variável acima da taxa geral, ${pulamPoucoJogo} de fora por ainda não ter ${amostraMinimaMercado}+ jogos decididos (vão entrar sozinhos assim que a base crescer).${avisoPoucosDias}`);
-}
-
-function renderRelatorio() {
-  const score = document.getElementById('metodSelect')?.value;
-  if (!score) return;
-  const resultCol = `resultado_${score}`;
-  const validas = linhas.filter(l => l[resultCol] === '0' || l[resultCol] === '1');
-  const box = document.getElementById('relatorio');
-  const info = document.getElementById('amostraInfo');
-
-  if (!validas.length) {
-    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Sem jogos com esse placar analisado ainda (precisa ter aberto o jogo no Placar Contra, ou ele ter sido processado automaticamente, pra ter o dado).</p>';
-    info.textContent = '';
+function renderAutoRefinador() {
+  const box = document.getElementById('estudoBox');
+  if (!partidas.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Carregue as partidas primeiro (aba Partidas).</p>';
+    return;
+  }
+  const alvoKey = document.getElementById('autoAlvoSelect').value;
+  const r = calcularAutoRefinador(alvoKey);
+  if (!r.valido) {
+    box.innerHTML = r.poucoDado
+      ? '<p style="color:var(--text2);font-size:13px">Precisa de pelo menos 40 partidas com placar pra separar treino/teste com segurança — carregue mais dados.</p>'
+      : '<p style="color:var(--text2);font-size:13px">Nenhuma partida com placar carregada ainda.</p>';
     return;
   }
 
-  const acertos = validas.filter(l => l[resultCol] === '1').length;
-  const taxaGeral = acertos / validas.length * 100;
-  info.textContent = `${validas.length} jogos · taxa geral: ${taxaGeral.toFixed(1)}%`;
+  const semCandidato = !r.top.length;
 
-  const { binsPorVariavel, taxaGeral: taxaGeralRet } = _calcularBinsPorScore(score);
+  box.innerHTML = `
+    <p style="color:var(--text2);font-size:12px;margin:0 0 4px">
+      Varre ${AUTO_VARIAVEIS.length} variáveis (pré-live e ao vivo) pra achar qual tem lift real pra <strong style="color:var(--text)">"${r.alvo.label}"</strong>.
+      <strong style="color:var(--text)">Contra overfit</strong>: cada faixa é descoberta só nas ${r.nTreino} partidas mais ANTIGAS (treino) e só entra na lista se também funcionar nas ${r.nTeste} mais RECENTES (teste, que ela nunca viu). ${r.testadosSemSustentar} variável(is) tinha(m) um lift bonito no treino mas não se sustentou no teste — foram descartadas.
+    </p>
+    <div class="estudo-resumo">
+      <div class="card"><div class="label">Partidas total</div><div class="value">${r.totalPartidas}</div></div>
+      <div class="card"><div class="label">Treino / Teste</div><div class="value">${r.nTreino} / ${r.nTeste}</div></div>
+      <div class="card"><div class="label">Taxa geral (teste) "${r.alvo.label}"</div><div class="value">${r.taxaGeralTeste?.toFixed(1) ?? '—'}%</div></div>
+    </div>
 
-  let html = '';
-  binsPorVariavel.forEach(({ v, bins, melhorIdx }) => {
-    html += `
-      <div class="var-block">
-        <div class="var-title">${v.label}</div>
-        <table>
-          <tr><th>Faixa</th><th>Amostra</th><th>Taxa green</th><th>Lift</th><th></th></tr>
-          ${bins.map((b, i) => {
-            const lift = b.winRate / taxaGeralRet;
-            return `
-            <tr class="${i === melhorIdx ? 'row-best' : ''}">
-              <td>${b.min.toFixed(2)} a ${b.max.toFixed(2)}</td>
-              <td>${b.n}</td>
-              <td>${b.winRate.toFixed(1)}%</td>
-              <td><strong>${lift.toFixed(2)}x</strong> ${i === melhorIdx ? '<span class="badge badge-green">melhor</span>' : ''}</td>
-              <td><button onclick='usarFaixa("${score}","${v.key}","${v.label.replace(/"/g, '&quot;')}",${b.min},${b.max},${b.winRate.toFixed(1)},${b.n},${taxaGeralRet.toFixed(1)})'>Usar essa faixa</button></td>
-            </tr>`;
-          }).join('')}
-        </table>
-      </div>`;
+    <div class="section-title">🏆 Padrões que se sustentaram fora da amostra (ordenados por lift no teste)</div>
+    ${semCandidato ? `<p style="color:var(--text2);font-size:13px">Nenhuma variável se sustentou no teste pra esse mercado ainda — volte aqui conforme a base crescer.</p>` : `
+    <table class="estudo-table">
+      <tr><th>Variável</th><th>Tipo</th><th>Faixa (achada no treino)</th><th>Treino: n / taxa / lift</th><th>Teste: n / taxa / lift</th></tr>
+      ${r.top.map(c => `
+        <tr>
+          <td>${c.variavel.label}</td>
+          <td style="color:var(--text2);font-size:11px">${c.variavel.tipo}</td>
+          <td>${c.min.toFixed(2)} a ${c.max.toFixed(2)}</td>
+          <td style="color:var(--text2)">${c.nTreino} / ${c.taxaTreino.toFixed(1)}% / ${c.liftTreino.toFixed(2)}x</td>
+          <td><strong style="color:var(--green)">${c.nTeste} / ${c.taxaTeste.toFixed(1)}% / ${c.liftTeste.toFixed(2)}x</strong></td>
+        </tr>`).join('')}
+    </table>`}
+
+    ${r.combos.length ? `
+    <div class="section-title">🔗 Combinação de 2 sinais (só entre os que já se sustentaram sozinhos)</div>
+    <p style="color:var(--text2);font-size:11px;margin:0 0 6px">Só aparece aqui se a combinação teve lift MAIOR, no teste, que qualquer uma das 2 variáveis sozinha — senão não vale a pena complicar.</p>
+    <table class="estudo-table">
+      <tr><th>Combinação</th><th>Treino: n / taxa / lift</th><th>Teste: n / taxa / lift</th></tr>
+      ${r.combos.map(c => `
+        <tr>
+          <td>${c.a.variavel.label} (${c.a.min.toFixed(2)}-${c.a.max.toFixed(2)}) <strong>E</strong> ${c.b.variavel.label} (${c.b.min.toFixed(2)}-${c.b.max.toFixed(2)})</td>
+          <td style="color:var(--text2)">${c.nTreino} / ${c.taxaTreino.toFixed(1)}% / ${c.liftTreino.toFixed(2)}x</td>
+          <td><strong style="color:var(--green)">${c.nTeste} / ${c.taxaTeste.toFixed(1)}% / ${c.liftTeste.toFixed(2)}x</strong></td>
+        </tr>`).join('')}
+    </table>` : ''}
+
+    <p style="color:var(--text2);font-size:11px;margin-top:10px">
+      "Ao vivo · jogo todo" só serve pra confirmar o resultado depois, não pra apostar antes do jogo — só as marcadas como "Pré-live" existem antes da bola rolar. Mesmo passando pela validação fora da amostra, um lift encontrado com poucas centenas de jogos ainda pode não se sustentar pra sempre — trate como sinal a acompanhar, não como certeza.
+    </p>`;
+}
+
+// ── 🎯 Funil pré-live → ao vivo ─────────────────────────────────────────────
+// Estágio 1: acha a melhor faixa de probabilidade PRÉ-LIVE (odds) pra um
+// mercado, validada fora da amostra (mesmo motor do Auto-refinador).
+// Estágio 2: dentro SÓ dos jogos que já bateram o estágio 1, testa as
+// variáveis "checkpoint até o intervalo" (algo que dá pra esperar acontecer
+// assistindo o jogo, não estatística só sabida no apito final) — e mostra
+// qual delas, combinada com o pré-live, empurra a taxa ainda mais pra cima.
+// A ideia: você já sabe ANTES do jogo que ele está na faixa pré-live boa: aí
+// espera o comportamento do checkpoint acontecer ao vivo pra confirmar antes
+// de entrar — os 2 estágios juntos dão mais segurança que qualquer um sozinho.
+
+// Placares exatos mais comuns num grupo de partidas — só descritivo (não é
+// validado por k-fold/p-valor como o resto), serve pra dar uma ideia de "que
+// placar costuma sair" quando a metodologia bate, não pra apostar no placar
+// exato sozinho.
+function _distribuicaoPlacar(grupo) {
+  const contagem = new Map();
+  grupo.forEach(p => {
+    if (!p.score) return;
+    const chave = `${p.score.home}-${p.score.away}`;
+    contagem.set(chave, (contagem.get(chave) || 0) + 1);
   });
+  const total = grupo.length;
+  return [...contagem.entries()]
+    .map(([placar, n]) => ({ placar, n, pct: n / total * 100 }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 5);
+}
+function calcularFunil(alvoKey, checkpointKey) {
+  const alvo = AUTO_ALVOS[alvoKey];
+  let base = partidas.filter(p => p.score);
+  if (alvo.requer) base = base.filter(alvo.requer);
+  if (base.length < 60) return { valido: false, poucoDado: true }; // k-fold com 3 blocos precisa de mais margem que o split único
 
-  box.innerHTML = html || '<p style="color:var(--text2);font-size:13px">Nenhuma variável com dado suficiente ainda pra esse placar (mínimo 5 jogos por variável).</p>';
+  const taxaGeralTotal = _taxaGrupo(base, alvo.fn);
+
+  // Estágio 1 — melhor variável PRÉ-LIVE, validada por k-fold (3 cortes
+  // diferentes, não só 1) + p-valor de verdade, não só "lift > 1".
+  const preLiveVars = AUTO_VARIAVEIS.filter(v => v.tipo === 'Pré-live');
+  const candidatosPreLive = preLiveVars
+    .map(v => ({ variavel: v, kfold: _kfoldAvaliarVariavel(base, v.fn, alvo.fn, AUTO_AMOSTRA_MINIMA, AUTO_AMOSTRA_MINIMA_TESTE) }))
+    .filter(c => c.kfold && c.kfold.foldsOk >= 2) // precisa se sustentar em pelo menos 2 dos 3 cortes
+    .sort((a, b) => b.kfold.mediaLift - a.kfold.mediaLift || b.kfold.foldsOk - a.kfold.foldsOk);
+
+  if (!candidatosPreLive.length) return { valido: true, semPreLive: true, alvo, taxaGeralTotal, totalPartidas: base.length };
+
+  const stage1 = candidatosPreLive[0];
+  const bateStage1 = p => {
+    const v = stage1.variavel.fn(p);
+    return v !== null && v !== undefined && !isNaN(v) && v >= stage1.kfold.min && v <= stage1.kfold.max;
+  };
+  const subsetBase = base.filter(bateStage1);
+  const taxaSubsetGeral = _taxaGrupo(subsetBase, alvo.fn);
+
+  // Estágio 2 — dentro do subconjunto que já bateu o estágio 1, testa os
+  // checkpoints (intervalo ou 60min, conforme escolhido), também por k-fold,
+  // e só considera se melhorar de verdade a taxa que o estágio 1 já dava.
+  const variaveisCheckpoint = checkpointKey === '60min' ? AUTO_VARIAVEIS_CHECKPOINT_60 : AUTO_VARIAVEIS_CHECKPOINT;
+  const candidatosCheckpoint = variaveisCheckpoint
+    .map(v => ({ variavel: v, kfold: _kfoldAvaliarVariavel(subsetBase, v.fn, alvo.fn, AUTO_AMOSTRA_MINIMA_COMBO, AUTO_AMOSTRA_MINIMA_COMBO) }))
+    .filter(c => c.kfold && c.kfold.foldsOk >= 2 && c.kfold.mediaTaxa > taxaSubsetGeral)
+    .sort((a, b) => b.kfold.mediaTaxa - a.kfold.mediaTaxa)
+    .slice(0, 5)
+    // Placares exatos mais comuns entre os jogos que bateram as 2 condições
+    // E confirmaram o mercado de verdade (alvo.fn) — sem o segundo filtro,
+    // apareceria placar que nem satisfaz o mercado (ex: 0-0 dentro de "Casa
+    // vence", que é óbvio que não pode ser vitória da casa). Usa a base
+    // inteira (não só um fold) pra ter amostra maior, já que isso é só
+    // descritivo — não entra na validação estatística.
+    .map(c => {
+      const subsetCompleto = subsetBase.filter(p => {
+        const v = c.variavel.fn(p);
+        return v !== null && v !== undefined && !isNaN(v) && v >= c.kfold.min && v <= c.kfold.max && alvo.fn(p);
+      });
+      return { ...c, placarProvavel: _distribuicaoPlacar(subsetCompleto) };
+    });
+
+  return {
+    valido: true, alvo, totalPartidas: base.length, taxaGeralTotal,
+    stage1, subsetN: subsetBase.length, subsetTaxaGeral: taxaSubsetGeral,
+    checkpoints: candidatosCheckpoint,
+  };
 }
 
-function usarFaixa(score, variavel, label, min, max, winRate, n, taxaGeral) {
-  const lift = winRate / taxaGeral;
-  config[score] = { variavel, label, min, max, winRate, n, taxaGeral, lift };
-  renderConfigBox();
+// Selo visual de confiança pro p-valor — quanto menor, mais improvável ser
+// coincidência. Faixas comuns em estatística (0.01/0.05/0.10), já que aqui só
+// chega candidato com p < 0.10 (o resto foi filtrado antes de aparecer).
+function _fmtPValor(p) {
+  return p < 0.001 ? p.toExponential(1) : p.toFixed(3);
+}
+function _badgePValor(p) {
+  const num = `p=${_fmtPValor(p)}`;
+  if (p < 0.01) return `<span class="badge badge-green">🟢 forte (${num})</span>`;
+  if (p < 0.05) return `<span class="badge" style="background:rgba(59,130,246,.15);color:var(--accent)">🔵 moderada (${num})</span>`;
+  return `<span class="badge" style="background:rgba(245,158,11,.15);color:var(--amber)">🟡 fraca (${num})</span>`;
 }
 
-function renderConfigBox() {
-  const box = document.getElementById('configBox');
-  const entradas = Object.entries(config);
-  if (!entradas.length) {
-    box.innerHTML = 'Nenhuma regra adicionada ainda — clique em "Usar essa faixa" nas tabelas acima.';
+// Selo de robustez — quantos dos K cortes de validação cruzada confirmaram
+// o padrão (K/K é o ideal; abaixo disso ainda passa, mas com menos certeza).
+function _badgeRobustez(ok, total) {
+  if (ok === total) return `<span class="badge badge-green">${ok}/${total} folds</span>`;
+  return `<span class="badge" style="background:rgba(245,158,11,.15);color:var(--amber)">${ok}/${total} folds</span>`;
+}
+
+// "Forte" = se sustentou em TODOS os folds da validação cruzada E o pior
+// p-valor entre eles é < 0.01 — o mesmo critério do selo 🟢, só que exigido
+// nos 2 estágios (pré-live E checkpoint) pra entrar na exportação.
+function _configEhForte(kfold) {
+  return !!kfold && kfold.foldsOk === kfold.totalFolds && kfold.piorPValor < 0.01;
+}
+
+// Varre TODOS os mercados do dropdown, roda o funil em cada um e junta toda
+// combinação pré-live + checkpoint que for "forte" nos 2 estágios — um
+// mercado pode entrar com várias linhas (várias configurações fortes
+// diferentes), isso é esperado e não é problema pra importar.
+function coletarConfiguracoesFortes() {
+  const resultados = [];
+  Object.keys(AUTO_ALVOS).forEach(alvoKey => {
+    const r = calcularFunil(alvoKey, 'intervalo');
+    if (!r.valido || r.semPreLive) return;
+    if (!_configEhForte(r.stage1.kfold)) return; // sem pré-live forte, não exporta nada desse mercado
+
+    r.checkpoints.forEach(c => {
+      if (!_configEhForte(c.kfold)) return;
+      resultados.push({
+        mercado: r.alvo.label,
+        preLive: r.stage1.variavel.label, preLiveMin: r.stage1.kfold.min, preLiveMax: r.stage1.kfold.max,
+        preLivePValor: r.stage1.kfold.piorPValor,
+        checkpoint: c.variavel.label, checkpointMin: c.kfold.min, checkpointMax: c.kfold.max,
+        checkpointPValor: c.kfold.piorPValor,
+        taxaFinal: c.kfold.mediaTaxa, n: c.kfold.nTeste,
+        placarProvavel: c.placarProvavel.map(pl => `${pl.placar}=${pl.pct.toFixed(0)}%`).join(';'),
+      });
+    });
+  });
+  return resultados;
+}
+
+function baixarConfiguracoesFortes() {
+  if (!partidas.length) { alert('Carregue as partidas primeiro (aba Partidas).'); return; }
+  const statusEl = document.getElementById('fortesStatus');
+  statusEl.textContent = 'Calculando em todos os mercados...';
+  // setTimeout pra deixar o texto "Calculando..." aparecer antes de travar a
+  // thread com o cálculo (são ~20 mercados × validação k-fold cada um).
+  setTimeout(() => {
+    const configs = coletarConfiguracoesFortes();
+    if (!configs.length) {
+      statusEl.textContent = 'Nenhuma configuração 100% forte (3/3 folds + p<0.01 nos 2 estágios) encontrada ainda com a base atual.';
+      return;
+    }
+    const linhas = configs.map(c =>
+      [c.mercado, c.preLive, c.preLiveMin.toFixed(3), c.preLiveMax.toFixed(3), c.preLivePValor.toExponential(2),
+        c.checkpoint, c.checkpointMin.toFixed(3), c.checkpointMax.toFixed(3), c.checkpointPValor.toExponential(2),
+        c.taxaFinal.toFixed(1), c.n, c.placarProvavel].join('\t'));
+    const conteudo = [
+      '# Configurações fortes — Análise de Pressão · ' + new Date().toLocaleString('pt-BR'),
+      '# "Forte" = se sustentou em TODOS os folds da validação cruzada (k=' + KFOLD_K + ') E p-valor < 0.01, no pré-live E no checkpoint.',
+      '# Um mercado pode ter várias linhas (várias configurações fortes diferentes) — normal, pode importar todas.',
+      '# placar_provavel é só descritivo (não validado por k-fold) — formato "placar=pct%;placar=pct%", do mais comum pro menos comum.',
+      'mercado\tvariavel_pre_live\tmin_pre_live\tmax_pre_live\tp_valor_pre_live\tvariavel_checkpoint\tmin_checkpoint\tmax_checkpoint\tp_valor_checkpoint\ttaxa_final_pct\tamostra\tplacar_provavel',
+      ...linhas,
+    ].join('\n');
+    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `configuracoes_fortes_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    statusEl.textContent = `${configs.length} configuração(ões) forte(s) baixada(s), de ${new Set(configs.map(c => c.mercado)).size} mercado(s) diferentes.`;
+  }, 30);
+}
+
+function renderFunil() {
+  const box = document.getElementById('estudoBox');
+  if (!partidas.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Carregue as partidas primeiro (aba Partidas).</p>';
     return;
   }
-  box.innerHTML = `<table>
-    <tr><th>Placar</th><th>Variável</th><th>Faixa</th><th>Taxa</th><th>Lift</th><th>Amostra</th><th>Gráfico</th><th>Plataformas</th><th></th></tr>
-    ${entradas.map(([score, c]) => `
-      <tr>
-        <td>${score}</td><td>${c.label}</td>
-        <td>${c.min.toFixed(2)} a ${c.max.toFixed(2)}</td>
-        <td>${c.winRate.toFixed(1)}%</td><td><strong>${(c.lift || 1).toFixed(2)}x</strong></td><td>${c.n}</td>
-        <td>${gerarMiniGrafico(c.taxaGeral || 50, c.winRate, c.lift || 1, score)}</td>
-        <td style="text-align:center;display:flex;gap:6px;justify-content:center">
-          <a href="https://www.bolsadeapostas.com" target="_blank" class="plataforma-icon" title="Bolsa de Apostas" style="background:linear-gradient(135deg, #1db854 0%, #15a844 100%);color:white;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-weight:700;font-size:10px">BDA</a>
-          <a href="https://www.betfair.com" target="_blank" class="plataforma-icon" title="Betfair" style="background:linear-gradient(135deg, #ffc600 0%, #ffb300 100%);color:#333;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-weight:700;font-size:10px">BET</a>
-        </td>
-        <td><button onclick='removerConfig("${score}")'>remover</button></td>
-      </tr>`).join('')}
-  </table>`;
+  const alvoKey = document.getElementById('autoAlvoSelect').value;
+  const checkpointKey = 'intervalo';
+
+  const r = calcularFunil(alvoKey, checkpointKey);
+  if (!r.valido) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Precisa de pelo menos 60 partidas (com o dado que esse mercado exige) pra rodar a validação cruzada com segurança.</p>';
+    return;
+  }
+  if (r.semPreLive) {
+    box.innerHTML = `<p style="color:var(--text2);font-size:13px">Nenhuma variável pré-live se sustentou em pelo menos 2 dos ${KFOLD_K} cortes de validação pra "${r.alvo.label}" ainda — sem uma base pré-live confiável, não dá pra montar o funil.</p>`;
+    return;
+  }
+
+  const s1 = r.stage1.kfold;
+  const funilEtapas = [
+    { label: 'Taxa geral (sem filtro)', n: r.totalPartidas, taxa: r.taxaGeralTotal },
+    { label: `Pré-live: ${r.stage1.variavel.label} (${s1.min.toFixed(2)}-${s1.max.toFixed(2)})`, n: s1.nTeste, taxa: s1.mediaTaxa },
+  ];
+
+  box.innerHTML = `
+    <p style="color:var(--text2);font-size:12px;margin:0 0 4px">
+      Funil de 2 estágios pra <strong style="color:var(--text)">"${r.alvo.label}"</strong>: primeiro acha a melhor faixa PRÉ-LIVE (odds de abertura + força NowGoal), depois — só dentro desses jogos — testa qual comportamento observável ATÉ O INTERVALO empurra a taxa ainda mais pra cima.
+      <strong style="color:var(--text)">Validação cruzada (k-fold)</strong>: a base é dividida em ${KFOLD_K} pedaços por data; cada padrão precisa se sustentar em pelo menos 2 de ${KFOLD_K} cortes diferentes (não só 1), cada um com um teste estatístico formal (p-valor &lt; 0.10) — não é só "lift bonito".
+    </p>
+
+    <div class="section-title">📉 Funil</div>
+    <div class="estudo-table-wrap"><table class="estudo-table">
+      <tr><th>Etapa</th><th>Amostra (teste, somada dos folds)</th><th>Taxa real</th><th>Robustez</th></tr>
+      <tr><td>${funilEtapas[0].label}</td><td>${funilEtapas[0].n}</td><td><strong>${funilEtapas[0].taxa.toFixed(1)}%</strong></td><td>—</td></tr>
+      <tr style="background:rgba(59,130,246,.08)">
+        <td>${funilEtapas[1].label}</td><td>${funilEtapas[1].n}</td><td><strong>${funilEtapas[1].taxa.toFixed(1)}%</strong></td>
+        <td>${_badgeRobustez(s1.foldsOk, s1.totalFolds)} ${_badgePValor(s1.piorPValor)}</td>
+      </tr>
+    </table></div>
+
+    <div class="section-title">🎯 Estágio 2 — checkpoints (até o intervalo) que aumentam ainda mais a taxa</div>
+    ${!r.checkpoints.length ? `<p style="color:var(--text2);font-size:13px">Nenhum checkpoint se sustentou na validação cruzada, dentro dessa faixa pré-live — ou a base é pequena demais nesse recorte, ou o pré-live sozinho já é o sinal mais forte disponível hoje.</p>` : `
+    <div class="estudo-table-wrap"><table class="estudo-table">
+      <tr><th>Checkpoint</th><th>Faixa</th><th>Amostra (teste)</th><th>Taxa final (pré-live + checkpoint)</th><th>Ganho</th><th>Robustez</th><th>Placares mais prováveis</th></tr>
+      ${r.checkpoints.map(c => `
+        <tr>
+          <td>${c.variavel.label}</td>
+          <td>${c.kfold.min.toFixed(2)} a ${c.kfold.max.toFixed(2)}</td>
+          <td>${c.kfold.nTeste}</td>
+          <td><strong style="color:var(--green)">${c.kfold.mediaTaxa.toFixed(1)}%</strong></td>
+          <td>+${(c.kfold.mediaTaxa - s1.mediaTaxa).toFixed(1)}pp</td>
+          <td>${_badgeRobustez(c.kfold.foldsOk, c.kfold.totalFolds)} ${_badgePValor(c.kfold.piorPValor)}</td>
+          <td style="font-size:11px;white-space:nowrap">${c.placarProvavel.map(pl => `${pl.placar} (${pl.pct.toFixed(0)}%)`).join(' · ')}</td>
+        </tr>`).join('')}
+    </table></div>
+    <p style="color:var(--text2);font-size:11px;margin:4px 0 0">
+      "Placares mais prováveis" é só descritivo (não passou pela validação cruzada como o resto) — mostra o que mais saiu, de verdade, entre os jogos que bateram as 2 condições. Não use pra apostar no placar exato sozinho, é só contexto.
+    </p>
+    <p style="color:var(--text2);font-size:11px;margin-top:8px">
+      Como usar: antes do jogo, confira se ele está na faixa pré-live acima. Se estiver, assista até ${checkpointKey === '60min' ? 'os 60min' : 'o intervalo'} — se o checkpoint bater (ex: ${r.checkpoints[0].variavel.label.toLowerCase()} na faixa mostrada), a taxa real esperada é a "Taxa final" da linha, já confirmada em pelo menos 2 cortes diferentes da base. "Robustez" mostra em quantos dos ${KFOLD_K} cortes esse padrão se sustentou — quanto mais próximo de ${KFOLD_K}/${KFOLD_K}, mais estável ele é.
+    </p>`}`;
 }
 
-function removerConfig(score) {
-  delete config[score];
-  renderConfigBox();
+// ── 📋 Jogos do dia — cruza o feed de partidas do dia (Painel Principal,
+// leitura_partidas_*.json) com as configurações fortes já validadas nos
+// Estudos. Esse arquivo só tem odds de abertura (pré-live) — não tem
+// finalizações/pressão ao vivo — então só dá pra confirmar o ESTÁGIO 1
+// (pré-live) de cada configuração aqui. O estágio 2 (checkpoint até o
+// intervalo) fica pra você conferir assistindo o jogo de verdade.
+let jogosDia = []; // usado pelo Ranking e Achados 100% — normalmente o arquivo "próximos"
+let jogosFinalizados = []; // usado só pelo Backtest — precisa do arquivo "finalizados" (tem placar de verdade)
+let _ultimosResultadosMetodologia = []; // cache do último render de "Jogos por metodologia", pro botão de baixar .txt
+
+function _prelibValorPorLabel(jogo, label) {
+  if (!jogo._probs1x2) {
+    jogo._probs1x2 = _probImplicita3Todas(jogo.odd_1, jogo.odd_x, jogo.odd_2);
+  }
+  const probs = jogo._probs1x2;
+  if (label === 'Prob. implícita casa (1X2)' || label === 'Prob. implícita casa (NowGoal, 2ª fonte)') return probs?.casa;
+  if (label === 'Prob. implícita empate (1X2)') return probs?.empate;
+  if (label === 'Prob. implícita fora (1X2)') return probs?.fora;
+  if (label === 'Prob. implícita Over FT') return _probImplicita(jogo.odd_over, jogo.odd_under);
+  return null; // variáveis de força (Confronto direto/Estado/Ataque/Defesa) não dá pra checar com esse arquivo — ele só tem forca_diff, um número diferente do que uso nos Estudos
 }
 
-function gerarMiniGrafico(taxaGeral, winRate, lift, score) {
-  const resultCol = `resultado_${score}`;
-  const config_item = config[score];
+// Recebe a lista achatada de partidas vinda de TODOS os arquivos da pasta
+// leitura_prognostico/ (cada partida carimbada com _observacao/_gerado_em/
+// _arquivo pelo servidor) e separa em 2 gavetas:
+// - jogosFinalizados: ACUMULA de todos os arquivos "finalizados" que existirem
+//   na pasta (dedupe por event_id) — quanto mais dias você for guardando lá,
+//   mais forte fica o Backtest, sem precisar escolher arquivo nenhum na mão.
+// - jogosDia: só as partidas do arquivo "próximos" MAIS RECENTE (não faz
+//   sentido acumular "próximos" de dias antigos, já viraram passado).
+function _carregarPastaLeituraPrognostico(lista) {
+  if (!lista.length) return '';
 
-  // Filtra só os que tão na faixa
-  const naFaixa = linhas.filter(l => {
-    const val = parseFloat(l[config_item.variavel]);
-    return !isNaN(val) && val >= config_item.min && val <= config_item.max &&
-           (l[resultCol] === '0' || l[resultCol] === '1');
+  const finalizadosPorId = new Map(); // dedupe — mesma partida pode aparecer em mais de 1 arquivo se não limpar a pasta
+  let melhorArquivoProximos = null; // { gerado_em, nome, partidas: [] }
+
+  const porArquivo = new Map();
+  lista.forEach(p => {
+    if (!porArquivo.has(p._arquivo)) porArquivo.set(p._arquivo, { observacao: p._observacao, gerado_em: p._gerado_em, partidas: [] });
+    porArquivo.get(p._arquivo).partidas.push(p);
   });
 
-  if (naFaixa.length === 0) {
-    return `<span style="color:var(--text2);font-size:11px">-</span>`;
-  }
-
-  // Calcula acertos até primeiro red (drawdown até perder)
-  let acertosConsecutivos = 0;
-  let acertosAteRed = 0;
-  let primeiraPerda = false;
-
-  for (let l of naFaixa) {
-    if (l[resultCol] === '1') {
-      acertosConsecutivos++;
-      if (!primeiraPerda) {
-        acertosAteRed++;
-      }
+  porArquivo.forEach(info => {
+    const ehFinalizados = /finalizad/i.test(info.observacao || '');
+    if (ehFinalizados) {
+      info.partidas.forEach(p => {
+        const chave = p.event_id || `${p.casa}|${p.fora}|${info.gerado_em}`;
+        if (!finalizadosPorId.has(chave)) finalizadosPorId.set(chave, p);
+      });
     } else {
-      if (!primeiraPerda) {
-        primeiraPerda = true;
+      if (!melhorArquivoProximos || (info.gerado_em || '') > (melhorArquivoProximos.gerado_em || '')) {
+        melhorArquivoProximos = info;
       }
-      acertosConsecutivos = 0;
     }
-  }
+  });
 
-  // Calcula maior drawdown (maior sequência de perdas)
-  let maxDrawdown = 0;
-  let drawdownAtual = 0;
+  jogosFinalizados = [...finalizadosPorId.values()];
+  jogosDia = melhorArquivoProximos ? melhorArquivoProximos.partidas : jogosDia;
+  vincularForcaLeitura();
 
-  for (let l of naFaixa) {
-    if (l[resultCol] === '0') {
-      drawdownAtual++;
-      maxDrawdown = Math.max(maxDrawdown, drawdownAtual);
-    } else {
-      drawdownAtual = 0;
-    }
-  }
-
-  // Cor baseada em Lift
-  let cor = '#ef4444';
-  if (lift >= 1.2) cor = '#22c55e';
-  else if (lift >= 1.1) cor = '#f59e0b';
-  else if (lift >= 1.0) cor = '#3b82f6';
-
-  return `<div style="display:inline-flex;gap:12px;font-size:11px;align-items:center">
-    <div style="text-align:center">
-      <div style="color:var(--text2);font-size:9px">Acertos até Red</div>
-      <div style="color:${cor};font-weight:700;font-size:14px">${acertosAteRed}</div>
-    </div>
-    <div style="color:var(--border);opacity:0.3">|</div>
-    <div style="text-align:center">
-      <div style="color:var(--text2);font-size:9px">Maior DD</div>
-      <div style="color:#ef4444;font-weight:700;font-size:14px">${maxDrawdown}</div>
-    </div>
-  </div>`;
+  return ` · ${jogosFinalizados.length} finalizada(s) acumulada(s) + ${jogosDia.length} próxima(s) (mais recente) de leitura_prognostico/`;
 }
 
-function limparConfig() {
-  config = {};
-  renderConfigBox();
+// Casa cada partida FINALIZADA da Leitura com sua correspondente no
+// forca_history — mesma lógica de vincularForca() (time+data, ±1 dia), só
+// que a fonte de data aqui é `_dia_referencia` (carimbado pelo servidor a
+// partir do wrapper do arquivo, já que a partida em si não tem campo
+// `date`). Guarda o resultado em `p._forca`.
+function vincularForcaLeitura() {
+  if (!forcaLista.length || !jogosFinalizados.length) return 0;
+  const porData = new Map();
+  forcaLista.forEach(f => {
+    if (!f.date) return;
+    if (!porData.has(f.date)) porData.set(f.date, []);
+    porData.get(f.date).push(f);
+  });
+  let casados = 0;
+  jogosFinalizados.forEach(p => {
+    const dataBase = p._dia_referencia;
+    if (!dataBase) return;
+    const tentativas = [dataBase, _addDias(dataBase, -1), _addDias(dataBase, 1)];
+    for (const data of tentativas) {
+      const candidatos = porData.get(data);
+      if (!candidatos) continue;
+      const achado = candidatos.find(f => _nomeBateF(p.casa, f.home) && _nomeBateF(p.fora, f.away));
+      if (achado) { p._forca = achado; casados++; break; }
+    }
+  });
+  return casados;
 }
 
-function baixarConfig() {
-  const entradas = Object.entries(config);
-  if (!entradas.length) { alert('Nenhuma regra adicionada ainda.'); return; }
-  const linhasTxt = entradas.map(([score, c]) =>
-    [score, c.variavel, c.min, c.max, c.winRate, (c.lift || 1).toFixed(2), c.n].join('\t'));
-  const conteudo = ['score\tvariavel\tmin\tmax\ttaxa_acerto\tlift\tamostra', ...linhasTxt].join('\n');
+// Aceita os 2 arquivos de uma vez (seleção múltipla no seletor) — detecta
+// sozinho qual é qual pelo texto de `observacao`/`fonte` no JSON, e guarda
+// cada um na gaveta certa, sem um sobrescrever o outro.
+function carregarJogosDia(fileList) {
+  const arquivos = [...fileList];
+  const statusEl = document.getElementById('jogosDiaStatus');
+  if (!arquivos.length) return;
+
+  Promise.all(arquivos.map(f => f.text())).then(textos => {
+    const mensagens = [];
+    textos.forEach((texto, i) => {
+      let dado;
+      try { dado = JSON.parse(texto); } catch (e) { mensagens.push(`${arquivos[i].name}: inválido`); return; }
+      const partidas = dado.partidas || [];
+      partidas.forEach(p => { p._dia_referencia = p._dia_referencia || dado.dia_referencia || ''; });
+      const ehFinalizados = /finalizad/i.test(dado.observacao || '') || /finalizad/i.test(arquivos[i].name);
+      if (ehFinalizados) {
+        jogosFinalizados = partidas;
+        mensagens.push(`${partidas.length} finalizada(s)`);
+      } else {
+        jogosDia = partidas;
+        mensagens.push(`${partidas.length} próxima(s)/geral`);
+      }
+    });
+    vincularForcaLeitura();
+    statusEl.textContent = mensagens.join(' · ') + '.';
+    renderJogosDiaAtivo();
+  }).catch(e => { statusEl.textContent = 'Erro lendo o(s) arquivo(s): ' + e; });
+}
+
+// ── Sub-abas dentro de "Jogos do dia" ────────────────────────────────────
+// Só sobrou o Backtest (Ranking por mercado e Achados 100% foram removidos a
+// pedido do usuário) — essa função existe só pra manter compatibilidade com
+// quem ainda chama renderJogosDiaAtivo() depois de carregar dado novo.
+function renderJogosDiaAtivo() {
+  renderCvMedioPorMetodologia();
+  renderJogosPorMetodologia();
+}
+
+// Monta a curva completa valor→probabilidade da MELHOR variável pré-live pra
+// um mercado (reaproveita o stage1 que o funil já escolheu — não escolhe uma
+// variável nova aqui, só reconstrói TODAS as faixas dela, não só a melhor,
+// pra virar uma régua contínua de probabilidade em vez de um corte binário).
+function _curvaProbabilidadePreLive(alvoKey, nbins) {
+  const alvo = AUTO_ALVOS[alvoKey];
+  let base = partidas.filter(p => p.score);
+  if (alvo.requer) base = base.filter(alvo.requer);
+  if (base.length < 60) return null;
+
+  const r = calcularFunil(alvoKey, 'intervalo');
+  if (!r.valido || r.semPreLive) return null;
+  const variavel = r.stage1.variavel;
+
+  const pares = base
+    .map(p => { const v = variavel.fn(p); return (v === null || v === undefined || isNaN(v)) ? null : { val: v, hit: !!alvo.fn(p) }; })
+    .filter(Boolean);
+  const bins = _binsQuantil(pares, nbins).sort((a, b) => a.min - b.min);
+  return { variavel, bins, alvo, totalPartidas: base.length };
+}
+
+// Acha a probabilidade histórica da faixa em que um valor cai — se o valor
+// for mais extremo que qualquer faixa observada, usa a borda mais próxima
+// (extrapolação simples, não inventa dado fora do que já foi visto).
+function _probabilidadeEstimada(curva, valor) {
+  if (valor === null || valor === undefined || isNaN(valor)) return null;
+  for (const b of curva.bins) {
+    if (valor >= b.min && valor <= b.max) return b.taxa;
+  }
+  if (valor < curva.bins[0].min) return curva.bins[0].taxa;
+  return curva.bins[curva.bins.length - 1].taxa;
+}
+
+// ── Mapa de mercado → caminho dentro de leitura.casa/leitura.fora ─────────
+// Cada mercado usa a % histórica (últimos ~10 jogos) de CADA time nesse
+// mercado específico — não é odd, não precisa de calibração externa, o
+// próprio dado já É uma taxa histórica direta daquele time.
+// ── Estrutura nova (campo "prognostico", desde 01/09/2026) ─────────────────
+// Cada métrica agora tem 2 FONTES (confronto_direto = só entre esses 2 times;
+// pontuacoes_anteriores = histórico geral de cada time) × 2 JANELAS (todos os
+// jogos disponíveis; últimos_4) — 4 variantes por métrica. `path` aqui guarda
+// só o caminho BASE da métrica (ex: "mercados.over_2_5_ft"); fonte/janela são
+// escolhidos separado, em 2 selects, e concatenados na hora de ler o valor.
+// ── Verificação do resultado REAL (backtest) ────────────────────────────────
+// Extrai o placar/HT de verdade do jogo (campos de texto do arquivo de
+// Leitura) — usado só pra conferir se o que o prognóstico dizia realmente
+// aconteceu, nunca pra alimentar o ranking (esse continua só com `prognostico`).
+function _numOrNull(v) { const n = parseInt(v, 10); return isNaN(n) ? null : n; }
+function _placarFinalizado(j) {
+  const casa = _numOrNull(j.placar_casa), fora = _numOrNull(j.placar_fora);
+  return (casa === null || fora === null) ? null : { casa, fora };
+}
+function _htFinalizado(j) {
+  const casa = _numOrNull(j.ht_casa), fora = _numOrNull(j.ht_fora);
+  return (casa === null || fora === null) ? null : { casa, fora };
+}
+
+function _gerarPlacarNaoOcorreuLeitura() {
+  const alvos = {};
+  ['0_0', '0_1', '0_2', '0_3', '1_0', '1_1', '1_2', '1_3', '2_0', '2_1', '2_2', '2_3', '3_0', '3_1', '3_2', '3_3'].forEach(chave => {
+    const [h, a] = chave.split('_').map(Number);
+    alvos[`placar_nao_${chave}_leitura`] = {
+      label: `Placar ${chave.replace('_', '-')} — não ocorreu`, path: `placar_exato_nao_ocorreu.${chave}`,
+      verificar: j => { const p = _placarFinalizado(j); return p ? !(p.casa === h && p.fora === a) : null; },
+    };
+  });
+  alvos.qualquer_vitoria_casa_nao_leitura = { label: 'Qualquer outra vitória em casa — não ocorreu', path: 'placar_exato_nao_ocorreu.qualquer_outra_vitoria_em_casa' };
+  alvos.qualquer_vitoria_visitante_nao_leitura = { label: 'Qualquer Outra Vitória de Visitante — não ocorreu', path: 'placar_exato_nao_ocorreu.qualquer_outra_vitoria_de_visitante' };
+  alvos.qualquer_empate_nao_leitura = { label: 'Qualquer outro empate — não ocorreu', path: 'placar_exato_nao_ocorreu.qualquer_outro_empate' };
+  return alvos;
+}
+
+const LEITURA_MERCADO_PATH = {
+  marcou_gol: { label: 'Jogos em que marcou gol', path: 'jogos_marcou_gol', verificar: (j, lado) => { const p = _placarFinalizado(j); return p ? (lado === 'casa' ? p.casa > 0 : p.fora > 0) : null; } },
+  seq_marcando_gol: { label: 'Sequência atual — Marcando gol', path: 'sequencia_marcando_gol', verificar: (j, lado) => { const p = _placarFinalizado(j); return p ? (lado === 'casa' ? p.casa > 0 : p.fora > 0) : null; } },
+  seq_sem_sofrer_gol: { label: 'Sequência atual — Sem sofrer gol', path: 'sequencia_sem_sofrer_gol', verificar: (j, lado) => { const p = _placarFinalizado(j); return p ? (lado === 'casa' ? p.fora === 0 : p.casa === 0) : null; } },
+  seq_vencendo: { label: 'Sequência atual — Vencendo', path: 'sequencia_vencendo', verificar: (j, lado) => { const p = _placarFinalizado(j); return p ? (lado === 'casa' ? p.casa > p.fora : p.fora > p.casa) : null; } },
+  seq_sem_perder: { label: 'Sequência atual — Sem perder (invicto)', path: 'sequencia_sem_perder', verificar: (j, lado) => { const p = _placarFinalizado(j); return p ? (lado === 'casa' ? p.casa >= p.fora : p.fora >= p.casa) : null; } },
+  fez_virada: {
+    label: 'Fez virada (perdia e venceu)', path: 'fez_virada',
+    verificar: (j, lado) => { const p = _placarFinalizado(j), h = _htFinalizado(j); if (!p || !h) return null; return lado === 'casa' ? (h.casa < h.fora && p.casa > p.fora) : (h.fora < h.casa && p.fora > p.casa); },
+  },
+  sofreu_virada: {
+    label: 'Sofreu virada (vencia e perdeu)', path: 'sofreu_virada',
+    verificar: (j, lado) => { const p = _placarFinalizado(j), h = _htFinalizado(j); if (!p || !h) return null; return lado === 'casa' ? (h.casa > h.fora && p.casa < p.fora) : (h.fora > h.casa && p.fora < p.casa); },
+  },
+  // Até 2026-09-01 esses 2 não tinham verificar() (o arquivo de Leitura não
+  // trazia quem marcou/sofreu primeiro em CADA jogo, só o prognóstico
+  // histórico) — sem verificar de 2 argumentos, _mercadosQueBatem tratava os
+  // 2 como "sem lado" e misturava casa+fora numa média só, sem nome de time
+  // no rótulo (achado pelo usuário: "tem dados de sofreu primeiro mas não
+  // diz quem sofre primeiro"). O redesenho de "Baixar leitura" (mesma data)
+  // passou a trazer `resultado.marcou_primeiro`/`resultado.sofreu_primeiro`
+  // ("casa"/"fora"/null) por jogo — dá pra verificar de verdade agora, e o
+  // verificar de 2 args também corrige o rótulo (some pra "Jogos por
+  // metodologia" testar casa/fora separado e nomear o time, igual aos
+  // outros mercados).
+  marcou_primeiro: {
+    label: 'Marcou primeiro', path: 'marcou_primeiro',
+    verificar: (j, lado) => { const r = j.resultado; if (!r || !r.marcou_primeiro) return null; return r.marcou_primeiro === lado; },
+  },
+  sofreu_primeiro: {
+    label: 'Sofreu primeiro (adversário marcou primeiro)', path: 'sofreu_primeiro',
+    verificar: (j, lado) => { const r = j.resultado; if (!r || !r.sofreu_primeiro) return null; return r.sofreu_primeiro === lado; },
+  },
+  btts: { label: 'Ambas marcam (BTTS)', path: 'mercados.ambas_equipes_marcam_sim', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa > 0 && p.fora > 0) : null; } },
+  btts_nao_leitura: { label: 'Ambas Equipes Marcam — Não', path: 'mercados.ambas_equipes_marcam_nao', verificar: j => { const p = _placarFinalizado(j); return p ? !(p.casa > 0 && p.fora > 0) : null; } },
+  over05_leitura: { label: 'Over 0.5 FT', path: 'mercados.over_0_5_ft', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa + p.fora) >= 1 : null; } },
+  over15_leitura: { label: 'Over 1.5 FT', path: 'mercados.over_1_5_ft', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa + p.fora) >= 2 : null; } },
+  over25_leitura: { label: 'Over 2.5 FT', path: 'mercados.over_2_5_ft', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa + p.fora) >= 3 : null; } },
+  under25_leitura: { label: 'Under 2.5 FT', path: 'mercados.under_2_5_ft', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa + p.fora) <= 2 : null; } },
+  under35_leitura: { label: 'Under 3.5 FT', path: 'mercados.under_3_5_ft', verificar: j => { const p = _placarFinalizado(j); return p ? (p.casa + p.fora) <= 3 : null; } },
+  over05ht_leitura: { label: 'Over 0.5 HT', path: 'mercados.over_0_5_ht', verificar: j => { const h = _htFinalizado(j); return h ? (h.casa + h.fora) >= 1 : null; } },
+  over15ht_leitura: { label: 'Over 1.5 HT', path: 'mercados.over_1_5_ht', verificar: j => { const h = _htFinalizado(j); return h ? (h.casa + h.fora) >= 2 : null; } },
+  vence1t_leitura: { label: 'Vence 1T', path: 'mercados.vence_1t', verificar: (j, lado) => { const h = _htFinalizado(j); return h ? (lado === 'casa' ? h.casa > h.fora : h.fora > h.casa) : null; } },
+  empate1t_leitura: { label: 'Empate 1T', path: 'mercados.empate_1t', verificar: j => { const h = _htFinalizado(j); return h ? h.casa === h.fora : null; } },
+  ..._gerarPlacarNaoOcorreuLeitura(),
+};
+
+// O <select> de mercado agora é criado DENTRO do HTML gerado por
+// renderBacktest() (não existe mais fixo na página) — essa string de opções
+// é reaproveitada lá na hora de montar o <select>.
+const OPCOES_MERCADO_HTML = Object.keys(LEITURA_MERCADO_PATH)
+  .map(k => `<option value="${k}">${LEITURA_MERCADO_PATH[k].label}</option>`)
+  .join('');
+
+// Os campos de "sequência" vêm num formato diferente ({jogos, amostra,
+// no_limite_amostra}) dos demais ({n, total, pct}) — normaliza os 2 formatos
+// pra um só, calculando o pct da sequência como jogos/amostra.
+function _normLeituraObj(obj) {
+  if (!obj) return null;
+  if (typeof obj.pct === 'number') return obj;
+  if (typeof obj.jogos === 'number' && typeof obj.amostra === 'number') {
+    return { n: obj.jogos, total: obj.amostra, pct: obj.amostra ? Math.round(obj.jogos / obj.amostra * 100) : null };
+  }
+  return null;
+}
+
+function _getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : undefined, obj);
+}
+
+// Junta o caminho base do mercado com a fonte/janela escolhidas nos selects
+// — ex: "mercados.over_2_5_ft" + "pontuacoes_anteriores" + "todos" vira
+// "mercados.over_2_5_ft.pontuacoes_anteriores.todos".
+function _pathComFonteJanela(pathBase, fonte, janela) {
+  return `${pathBase}.${fonte}.${janela}`;
+}
+function _fonteJanelaAtuais() {
+  return {
+    fonte: document.getElementById('jogosDiaFonteSelect')?.value || 'pontuacoes_anteriores',
+    janela: document.getElementById('jogosDiaJanelaSelect')?.value || 'todos',
+  };
+}
+
+function renderJogosDia() {
+  const box = document.getElementById('jogosDiaBox');
+  if (!jogosDia.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Escolha o arquivo <code>leitura_partidas_*.json</code> pra começar.</p>';
+    return;
+  }
+
+  const mercadoKey = document.getElementById('jogosDiaMercadoSelect').value;
+  const mercado = LEITURA_MERCADO_PATH[mercadoKey];
+  if (!mercado) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Esse mercado ainda não está mapeado pros dados de Leitura.</p>';
+    return;
+  }
+
+  const { fonte, janela } = _fonteJanelaAtuais();
+  const pathCompleto = _pathComFonteJanela(mercado.path, fonte, janela);
+  const AMOSTRA_MINIMA_LEITURA = janela === 'ultimos_4' ? 3 : 5; // "últimos 4" nunca passa de 4 de amostra — mínimo de 5 travaria tudo
+
+  const lado = mercado.lado || 'ambos';
+  const ranking = jogosDia
+    .filter(j => j.prognostico && j.prognostico.casa && j.prognostico.fora)
+    .map(j => {
+      const casaObj = _normLeituraObj(_getPath(j.prognostico.casa, pathCompleto));
+      const foraObj = _normLeituraObj(_getPath(j.prognostico.fora, pathCompleto));
+      if (lado === 'casa') {
+        if (!casaObj || typeof casaObj.pct !== 'number' || (casaObj.total ?? 0) < AMOSTRA_MINIMA_LEITURA) return null;
+        // mostra o valor do visitante também (contexto), mas ele NÃO entra no
+        // cálculo da probabilidade — só o lado casa decide o ranking aqui.
+        return {
+          jogo: j, casaPct: casaObj.pct, casaN: casaObj.n, casaTotal: casaObj.total,
+          foraPct: foraObj?.pct ?? null, foraN: foraObj?.n, foraTotal: foraObj?.total,
+          prob: casaObj.pct,
+        };
+      }
+      if (lado === 'fora') {
+        if (!foraObj || typeof foraObj.pct !== 'number' || (foraObj.total ?? 0) < AMOSTRA_MINIMA_LEITURA) return null;
+        // mesma ideia, espelhada: mostra o valor da casa como contexto, mas
+        // quem decide o ranking é só o lado visitante.
+        return {
+          jogo: j, foraPct: foraObj.pct, foraN: foraObj.n, foraTotal: foraObj.total,
+          casaPct: casaObj?.pct ?? null, casaN: casaObj?.n, casaTotal: casaObj?.total,
+          prob: foraObj.pct,
+        };
+      }
+      if (!casaObj || !foraObj || typeof casaObj.pct !== 'number' || typeof foraObj.pct !== 'number') return null;
+      if ((casaObj.total ?? 0) < AMOSTRA_MINIMA_LEITURA || (foraObj.total ?? 0) < AMOSTRA_MINIMA_LEITURA) return null;
+      return { jogo: j, casaPct: casaObj.pct, casaN: casaObj.n, casaTotal: casaObj.total, foraPct: foraObj.pct, foraN: foraObj.n, foraTotal: foraObj.total, prob: (casaObj.pct + foraObj.pct) / 2 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.prob - a.prob);
+
+  if (!ranking.length) {
+    box.innerHTML = `<p style="color:var(--text2);font-size:13px">Nenhum jogo do arquivo tem dado de <code>leitura</code> com amostra de pelo menos ${AMOSTRA_MINIMA_LEITURA} jogos pros 2 times, pra esse mercado.</p>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <p style="color:var(--text2);font-size:11px;margin:0 0 10px">
+      ${ranking.length} jogos (todos que têm dado suficiente), calculado com o histórico de cada time (últimos ~10 jogos, aba Leitura) pra "${_esc(mercado.label)}" — a probabilidade é a média entre a taxa da casa e a taxa do visitante nesse mercado. Ordenado do mais provável pro menos provável.
+    </p>
+    <div class="estudo-table-wrap"><table class="estudo-table">
+      <tr><th></th><th>Jogo</th><th>Liga</th><th>Horário/Status</th><th>Casa</th><th>Fora</th><th>Probabilidade combinada</th></tr>
+      ${ranking.map((x, i) => {
+        const j = x.jogo;
+        const cor = x.prob >= 60 ? 'var(--green)' : (x.prob >= 45 ? 'var(--amber)' : 'var(--text2)');
+        return `<tr>
+          <td>${i + 1}</td>
+          <td style="text-align:left">
+            <img src="${j.escudo_casa || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+            ${_esc(j.casa)} <span style="color:var(--text2)">x</span> ${_esc(j.fora)}
+            <img src="${j.escudo_fora || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+          </td>
+          <td style="font-size:11px;color:var(--text2)">${_esc(j.liga || '')}</td>
+          <td style="font-size:11px">${_esc(j.horario || '')} · ${_esc(j.status || '')}${j.status && j.status !== 'Agendado' ? ` (${j.placar_casa ?? '?'}-${j.placar_fora ?? '?'})` : ''}</td>
+          <td>${x.casaPct !== null ? `${x.casaN}/${x.casaTotal} (${x.casaPct}%)` : '—'}</td>
+          <td>${x.foraPct !== null ? `${x.foraN}/${x.foraTotal} (${x.foraPct}%)` : '—'}</td>
+          <td><strong style="color:${cor}">${x.prob.toFixed(1)}%</strong></td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+}
+
+// ── 💯 Achados 100% — varre TODOS os mercados de leitura de uma vez e lista
+// só os casos em que a casa ou o visitante bateu 100% (com amostra mínima),
+// ordenado por amostra (mais jogos de histórico = achado mais confiável).
+function _coletarAchados100() {
+  const { fonte, janela } = _fonteJanelaAtuais();
+  const AMOSTRA_MINIMA_LEITURA_CEM = janela === 'ultimos_4' ? 2 : 5; // "últimos 4" nunca passa de 4 de amostra
+  const achados = [];
+  Object.values(LEITURA_MERCADO_PATH).forEach(mercado => {
+    const pathCompleto = _pathComFonteJanela(mercado.path, fonte, janela);
+    jogosDia.forEach(j => {
+      if (!j.prognostico || !j.prognostico.casa || !j.prognostico.fora) return;
+      const casaObj = _normLeituraObj(_getPath(j.prognostico.casa, pathCompleto));
+      const foraObj = _normLeituraObj(_getPath(j.prognostico.fora, pathCompleto));
+      if (casaObj && casaObj.total > AMOSTRA_MINIMA_LEITURA_CEM && casaObj.pct === 100) {
+        achados.push({ mercado: mercado.label, jogo: j, lado: 'casa', n: casaObj.n, total: casaObj.total });
+      }
+      if (foraObj && foraObj.total > AMOSTRA_MINIMA_LEITURA_CEM && foraObj.pct === 100) {
+        achados.push({ mercado: mercado.label, jogo: j, lado: 'fora', n: foraObj.n, total: foraObj.total });
+      }
+    });
+  });
+  return achados.sort((a, b) => b.total - a.total);
+}
+
+function renderJogosDia100() {
+  const box = document.getElementById('jogosDiaBox');
+  if (!jogosDia.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Escolha o arquivo <code>leitura_partidas_*.json</code> pra começar.</p>';
+    return;
+  }
+
+  const achados = _coletarAchados100();
+  const amostraMinTexto = _fonteJanelaAtuais().janela === 'ultimos_4' ? 'acima de 2' : 'acima de 5';
+  if (!achados.length) {
+    box.innerHTML = `<p style="color:var(--text2);font-size:13px">Nenhum jogo bateu 100% em nenhum mercado hoje (com amostra ${amostraMinTexto} jogos).</p>`;
+    return;
+  }
+
+  // Agrupa por mercado — cada um vira sua própria seção/tabela, ordenado
+  // dentro dela por amostra (mais confiável primeiro).
+  const porMercado = new Map();
+  achados.forEach(a => {
+    if (!porMercado.has(a.mercado)) porMercado.set(a.mercado, []);
+    porMercado.get(a.mercado).push(a);
+  });
+  // Mercados com mais achados aparecem primeiro.
+  const mercadosOrdenados = [...porMercado.entries()].sort((a, b) => b[1].length - a[1].length);
+
+  let html = `
+    <p style="color:var(--text2);font-size:11px;margin:0 0 10px">
+      Varre TODOS os mercados de uma vez (incluindo placar exato — "não ocorreu") — mostra TODO jogo em que a casa OU o visitante bateu <strong style="color:var(--green)">100%</strong> no histórico, com amostra ${amostraMinTexto} jogos. ${achados.length} achado(s) em ${porMercado.size} mercado(s), agrupados abaixo — dentro de cada um, ordenado por amostra (mais jogos = mais confiável).
+    </p>`;
+
+  mercadosOrdenados.forEach(([mercadoLabel, lista]) => {
+    html += `<div class="section-title">⚡ ${_esc(mercadoLabel)} <span style="color:var(--text2);font-weight:400;font-size:11px">(${lista.length})</span></div>
+    <div class="estudo-table-wrap"><table class="estudo-table">
+      <tr><th>Jogo</th><th>Lado com 100%</th><th>Amostra</th><th>Liga</th><th>Horário/Status</th></tr>
+      ${lista.map(a => {
+        const j = a.jogo;
+        return `<tr>
+          <td style="text-align:left">
+            <img src="${j.escudo_casa || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+            ${_esc(j.casa)} <span style="color:var(--text2)">x</span> ${_esc(j.fora)}
+            <img src="${j.escudo_fora || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+          </td>
+          <td><span class="badge badge-green">${a.lado === 'casa' ? _esc(j.casa) : _esc(j.fora)}</span></td>
+          <td><strong style="color:var(--green)">${a.n}/${a.total}</strong></td>
+          <td style="font-size:11px;color:var(--text2)">${_esc(j.liga || '')}</td>
+          <td style="font-size:11px">${_esc(j.horario || '')} · ${_esc(j.status || '')}${j.status && j.status !== 'Agendado' ? ` (${j.placar_casa ?? '?'}-${j.placar_fora ?? '?'})` : ''}</td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+  });
+
+  box.innerHTML = html;
+}
+
+function baixarAchados100() {
+  if (!jogosDia.length) { alert('Carregue o arquivo leitura_partidas_*.json primeiro.'); return; }
+  const achados = _coletarAchados100();
+  if (!achados.length) { alert('Nenhum achado 100% pra baixar ainda.'); return; }
+
+  const linhas = achados
+    .sort((a, b) => a.mercado.localeCompare(b.mercado) || b.total - a.total)
+    .map(a => {
+      const j = a.jogo;
+      const ladoNome = a.lado === 'casa' ? j.casa : j.fora;
+      const escudoLado = a.lado === 'casa' ? (j.escudo_casa || '') : (j.escudo_fora || '');
+      return [
+        a.mercado, j.casa, j.escudo_casa || '', j.fora, j.escudo_fora || '', ladoNome, escudoLado, `${a.n}/${a.total}`,
+        j.liga || '', j.horario || '', j.status || '', `${j.placar_casa ?? ''}-${j.placar_fora ?? ''}`,
+      ].join('\t');
+    });
+
+  const conteudo = [
+    '# Achados 100% — Jogos do dia (aba Leitura) · ' + new Date().toLocaleString('pt-BR'),
+    '# Cada linha = 1 jogo em que a casa OU o visitante bateu 100% num mercado (amostra > 5 jogos).',
+    '# escudo_casa/escudo_fora/escudo_time_100pct são URLs de imagem do emblema do time.',
+    'mercado\tcasa\tescudo_casa\tfora\tescudo_fora\ttime_com_100pct\tescudo_time_100pct\tamostra\tliga\thorario\tstatus\tplacar',
+    ...linhas,
+  ].join('\n');
+
   const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `placar_contra_config_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.download = `achados_100_${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── ✅ Backtest — cruza o prognóstico com o resultado REAL ──────────────────
+// Só funciona com o arquivo de partidas FINALIZADAS (tem placar/HT de
+// verdade). Pra cada jogo com status "Encerrado", pega a probabilidade que o
+// prognóstico dava (casa e fora, cada um conta como 1 ponto) e confere contra
+// o que realmente aconteceu — depois agrupa em faixas de probabilidade
+// prevista, pra ver se "quando o prognóstico dizia 80-100%, bateu quanto de
+// verdade" (calibração, não é só acerto/erro solto).
+// CV (Coeficiente de Variação = desvio padrão / média) das 4 combinações de
+// fonte × janela pra uma métrica+time — não vem pronto no arquivo, calculado
+// aqui. Mede o quão CONSISTENTE é o sinal entre as 4 visões diferentes do
+// mesmo dado (confronto direto x pontuações anteriores, todos x últimos 4).
+// CV baixo = as 4 fontes concordam (sinal confiável); CV alto = elas
+// discordam bastante entre si (sinal instável, desconfie mais).
+const COMBINACOES_FONTE_JANELA = [['confronto_direto', 'todos'], ['confronto_direto', 'ultimos_4'], ['pontuacoes_anteriores', 'todos'], ['pontuacoes_anteriores', 'ultimos_4']];
+
+// Calcula o CV das 4 combinações — MAS se o próprio objeto já vier com um
+// campo `cv` pronto (arquivo novo, exportado já com isso calculado lá),
+// usa esse direto em vez de recalcular aqui. Facilita a migração: no dia
+// que o JSON passar a mandar `cv` de verdade, esse código já aproveita sem
+// precisar mudar nada.
+function _cvQuatroFontes(prognosticoLado, pathBase) {
+  // Arquivo novo já manda pronto em `<pathBase>.media_cv.{media,cv}` — um
+  // nível ACIMA das 4 combinações fonte/janela (é irmão delas, não filho de
+  // cada uma). Confere ali primeiro; só recalcula manualmente se não achar.
+  const base = _getPath(prognosticoLado, pathBase);
+  if (base && base.media_cv && typeof base.media_cv.cv === 'number') {
+    return { cv: base.media_cv.cv, media: base.media_cv.media, deArquivo: true };
+  }
+  const valores = [];
+  for (const [fonte, janela] of COMBINACOES_FONTE_JANELA) {
+    const obj = _getPath(prognosticoLado, _pathComFonteJanela(pathBase, fonte, janela));
+    if (obj && typeof obj.cv === 'number') return { cv: obj.cv, deArquivo: true }; // já veio pronto — usa e para
+    const norm = _normLeituraObj(obj);
+    if (norm && typeof norm.pct === 'number') valores.push(norm.pct);
+  }
+  if (valores.length < 2) return null; // precisa de pelo menos 2 valores pra medir dispersão
+  const media = valores.reduce((a, v) => a + v, 0) / valores.length;
+  if (media === 0) return null;
+  const variancia = valores.reduce((a, v) => a + (v - media) ** 2, 0) / valores.length;
+  const desvio = Math.sqrt(variancia);
+  return { media, desvio, cv: desvio / media * 100, n: valores.length, deArquivo: false };
+}
+
+// Os estudos usam as 4 combinações de fonte/janela JUNTAS — cada uma vira um
+// ponto separado no backtest (não só a que estiver selecionada nos filtros
+// do topo), então uma mesma partida/time pode entrar com até 4 pontos por
+// mercado. O CV de cada ponto usa as MESMAS 4 combinações como referência de
+// consistência.
+function calcularBacktest(mercadoKey, cvMaximo) {
+  const mercado = LEITURA_MERCADO_PATH[mercadoKey];
+  if (!mercado || !mercado.verificar) return { valido: false, semVerificador: true };
+
+  const todosPontos = [];
+  jogosFinalizados.forEach(j => {
+    if (j.status !== 'Encerrado') return; // só confia em placar de jogo realmente encerrado
+    if (!j.prognostico || !j.prognostico.casa || !j.prognostico.fora) return;
+    ['casa', 'fora'].forEach(lado => {
+      const realizado = mercado.verificar(j, lado);
+      if (realizado === null || realizado === undefined) return;
+      const cvInfo = _cvQuatroFontes(j.prognostico[lado], mercado.path);
+      COMBINACOES_FONTE_JANELA.forEach(([fonte, janela]) => {
+        const obj = _normLeituraObj(_getPath(j.prognostico[lado], _pathComFonteJanela(mercado.path, fonte, janela)));
+        if (!obj || typeof obj.pct !== 'number') return;
+        todosPontos.push({ prob: obj.pct, acertou: realizado, jogo: j, lado, fonte, janela, cv: cvInfo ? cvInfo.cv : null });
+      });
+    });
+  });
+
+  if (!todosPontos.length) return { valido: false };
+
+  const pontosComCV = todosPontos.filter(p => p.cv !== null);
+  const pontos = (cvMaximo !== null && cvMaximo !== undefined)
+    ? todosPontos.filter(p => p.cv !== null && p.cv <= cvMaximo)
+    : todosPontos;
+
+  if (!pontos.length) return { valido: true, semAmostraComFiltro: true, totalSemFiltro: todosPontos.length, cvMedioGeral: pontosComCV.length ? pontosComCV.reduce((a, p) => a + p.cv, 0) / pontosComCV.length : null };
+
+  const faixas = [[0, 20], [20, 40], [40, 60], [60, 80], [80, 101]];
+  const bins = faixas.map(([min, max]) => {
+    const grupo = pontos.filter(p => p.prob >= min && p.prob < max);
+    const acertos = grupo.filter(p => p.acertou).length;
+    const comCV = grupo.filter(p => p.cv !== null);
+    return {
+      min, max: max === 101 ? 100 : max, n: grupo.length, acertos,
+      taxa: grupo.length ? acertos / grupo.length * 100 : null,
+      cvMedio: comCV.length ? comCV.reduce((a, p) => a + p.cv, 0) / comCV.length : null,
+    };
+  });
+
+  const totalAcertos = pontos.filter(p => p.acertou).length;
+  const cvMedioGeral = pontosComCV.length ? pontosComCV.reduce((a, p) => a + p.cv, 0) / pontosComCV.length : null;
+  return {
+    valido: true, mercado, totalPontos: pontos.length, totalSemFiltro: todosPontos.length,
+    taxaGeral: totalAcertos / pontos.length * 100, bins, cvMedioGeral,
+  };
+}
+
+// Roda o backtest em TODOS os mercados que têm como verificar (não só o
+// selecionado no dropdown) — é o resumo que aparece no topo.
+function calcularBacktestTodosMercados(cvMaximo) {
+  const resultados = [];
+  Object.entries(LEITURA_MERCADO_PATH).forEach(([key, mercado]) => {
+    if (!mercado.verificar) return;
+    const r = calcularBacktest(key, cvMaximo);
+    if (r.valido && !r.semAmostraComFiltro) resultados.push({ key, label: mercado.label, totalPontos: r.totalPontos, taxaGeral: r.taxaGeral, cvMedioGeral: r.cvMedioGeral });
+  });
+  return resultados.sort((a, b) => b.taxaGeral - a.taxaGeral);
+}
+
+// Média das 4 combinações fonte×janela (não é o CV, é o valor médio de
+// verdade) — usado pra decidir se um jogo "bate" uma metodologia.
+function _probMediaQuatroFontes(prognosticoLado, pathBase) {
+  const valores = COMBINACOES_FONTE_JANELA
+    .map(([fonte, janela]) => _normLeituraObj(_getPath(prognosticoLado, _pathComFonteJanela(pathBase, fonte, janela))))
+    .filter(o => o && typeof o.pct === 'number')
+    .map(o => o.pct);
+  return valores.length ? valores.reduce((a, v) => a + v, 0) / valores.length : null;
+}
+
+// ── 🎯 Jogos por metodologia ────────────────────────────────────────────────
+// Pra cada jogo dos "próximos", testa TODOS os mercados de LEITURA_MERCADO_PATH
+// e lista os que batem: só entram os que têm, PRO PRÓPRIO MERCADO, probabilidade
+// acima da média e CV abaixo da média — a média de cada mercado é calculada
+// em `medias` (ver calcularMediasPorMetodologia), em cima de TODOS os jogos
+// de `jogosDia` carregados. Ou seja: não é um corte fixo (tipo "≥ 65%"), é
+// relativo — só aparece o que está melhor que a média do próprio mercado
+// nesse lote de jogos.
+//
+// Mercados cujo verificar() usa 2 argumentos (j, lado) são por natureza
+// específicos de um lado (ex: "Sequência atual — Vencendo" é diferente pra
+// casa e pra fora) — esses são testados separadamente pros 2 times, com o
+// nome do time no resultado. Os demais (BTTS, Over/Under, placar exato,
+// marcou/sofreu primeiro etc.) são testados com a média dos 2 lados.
+function _mercadosQueBatem(jogo, medias) {
+  if (!jogo.prognostico || !jogo.prognostico.casa || !jogo.prognostico.fora) return [];
+  const bateram = [];
+
+  medias.forEach(media => {
+    if (media.probMedia === null || media.cvMedio === null) return;
+    const mercado = LEITURA_MERCADO_PATH[media.key];
+
+    if (mercado.verificar && mercado.verificar.length >= 2) {
+      ['casa', 'fora'].forEach(lado => {
+        const prob = _probMediaQuatroFontes(jogo.prognostico[lado], mercado.path);
+        const cvInfo = _cvQuatroFontes(jogo.prognostico[lado], mercado.path);
+        if (prob === null || !cvInfo) return;
+        if (prob > media.probMedia && cvInfo.cv < media.cvMedio) {
+          const nomeTime = lado === 'casa' ? jogo.casa : jogo.fora;
+          bateram.push({ label: `${mercado.label} (${nomeTime})`, prob, cv: cvInfo.cv });
+        }
+      });
+    } else {
+      const probCasa = _probMediaQuatroFontes(jogo.prognostico.casa, mercado.path);
+      const probFora = _probMediaQuatroFontes(jogo.prognostico.fora, mercado.path);
+      const probs = [probCasa, probFora].filter(v => v !== null);
+      if (!probs.length) return;
+      const prob = probs.reduce((a, v) => a + v, 0) / probs.length;
+      const cvCasa = _cvQuatroFontes(jogo.prognostico.casa, mercado.path);
+      const cvFora = _cvQuatroFontes(jogo.prognostico.fora, mercado.path);
+      const cvs = [cvCasa, cvFora].filter(v => v && typeof v.cv === 'number').map(v => v.cv);
+      if (!cvs.length) return;
+      const cv = cvs.reduce((a, v) => a + v, 0) / cvs.length;
+      if (prob > media.probMedia && cv < media.cvMedio) {
+        bateram.push({ label: mercado.label, prob, cv });
+      }
+    }
+  });
+
+  return bateram.sort((a, b) => b.prob - a.prob);
+}
+
+// Média de probabilidade e de CV de cada mercado em cima de TODOS os jogos de
+// `jogosDia` (não só os que bateram o filtro de probabilidade) — dá uma ideia
+// geral de qual mercado tende a vir com probabilidade mais alta e/ou com as 4
+// combinações fonte/janela mais concordantes entre si nesse lote de jogos.
+// Mercados de lado (verificar com 2 args) juntam os valores de casa e fora
+// numa média só (não separa por time aqui, é agregado do mercado como um
+// todo).
+function calcularMediasPorMetodologia() {
+  const acumPorMercado = new Map(); // key -> { somaProb, nProb, somaCv, nCv }
+  jogosDia.forEach(jogo => {
+    if (!jogo.prognostico || !jogo.prognostico.casa || !jogo.prognostico.fora) return;
+    Object.entries(LEITURA_MERCADO_PATH).forEach(([key, mercado]) => {
+      ['casa', 'fora'].forEach(lado => {
+        if (!acumPorMercado.has(key)) acumPorMercado.set(key, { somaProb: 0, nProb: 0, somaCv: 0, nCv: 0 });
+        const acc = acumPorMercado.get(key);
+        const prob = _probMediaQuatroFontes(jogo.prognostico[lado], mercado.path);
+        if (prob !== null) { acc.somaProb += prob; acc.nProb += 1; }
+        const cvInfo = _cvQuatroFontes(jogo.prognostico[lado], mercado.path);
+        if (cvInfo && typeof cvInfo.cv === 'number') { acc.somaCv += cvInfo.cv; acc.nCv += 1; }
+      });
+    });
+  });
+
+  const resultado = [];
+  acumPorMercado.forEach((acc, key) => {
+    if (!acc.nProb && !acc.nCv) return;
+    resultado.push({
+      key, label: LEITURA_MERCADO_PATH[key].label,
+      probMedia: acc.nProb ? acc.somaProb / acc.nProb : null,
+      cvMedio: acc.nCv ? acc.somaCv / acc.nCv : null,
+      n: Math.max(acc.nProb, acc.nCv),
+    });
+  });
+  return resultado.sort((a, b) => (b.probMedia ?? -1) - (a.probMedia ?? -1));
+}
+
+function renderCvMedioPorMetodologia() {
+  const box = document.getElementById('cvMedioBox');
+  if (!box) return;
+  if (!jogosDia.length) { box.innerHTML = ''; return; }
+
+  const lista = calcularMediasPorMetodologia();
+  if (!lista.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Probabilidade e CV médios por metodologia (nos ${jogosDia.length} jogo(s) próximos carregados)</div>
+    <div class="estudo-table-wrap" style="max-height:180px;overflow-y:auto">
+      <table class="estudo-table">
+        <tr><th>Mercado</th><th>Prob. média</th><th>CV médio</th><th>Amostra</th></tr>
+        ${lista.map(m => `
+          <tr>
+            <td style="text-align:left;font-size:11px">${_esc(m.label)}</td>
+            <td>${m.probMedia !== null ? `<strong style="color:${m.probMedia >= 60 ? 'var(--green)' : (m.probMedia >= 40 ? 'var(--amber)' : 'var(--red)')}">${m.probMedia.toFixed(1)}%</strong>` : '—'}</td>
+            <td>${m.cvMedio !== null ? `<strong style="color:${m.cvMedio <= 15 ? 'var(--green)' : (m.cvMedio <= 30 ? 'var(--amber)' : 'var(--red)')}">${m.cvMedio.toFixed(1)}%</strong>` : '—'}</td>
+            <td style="font-size:11px">${m.n}</td>
+          </tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+function renderJogosPorMetodologia() {
+  const box = document.getElementById('metodologiaBox');
+  if (!box) return;
+
+  if (!jogosDia.length) {
+    box.innerHTML = '<p style="color:var(--text2);font-size:13px">Escolha o arquivo <code>leitura_prognostico_proximos_*.json</code> pra ver os jogos analisados.</p>';
+    return;
+  }
+
+  const medias = calcularMediasPorMetodologia();
+
+  const resultados = jogosDia
+    .map(jogo => ({ jogo, bateram: _mercadosQueBatem(jogo, medias) }))
+    .filter(r => r.bateram.length)
+    .sort((a, b) => b.bateram.length - a.bateram.length);
+  _ultimosResultadosMetodologia = resultados;
+
+  let html = `<p style="color:var(--text2);font-size:11px;margin:0 0 10px">${resultados.length} de ${jogosDia.length} jogo(s) bateram pelo menos 1 metodologia (probabilidade acima da média do mercado <strong>e</strong> CV abaixo da média do mercado, nesse lote de ${jogosDia.length} próximos).
+    ${resultados.length ? ` <button onclick="baixarMetodologiasFiltradas()" style="margin-left:8px;font-size:11px;padding:3px 10px">⬇️ Baixar .txt</button>` : ''}
+  </p>`;
+
+  if (!resultados.length) {
+    html += '<p style="color:var(--text2);font-size:13px">Nenhum jogo bateu nenhuma metodologia com esse filtro.</p>';
+  } else {
+    html += resultados.map(({ jogo, bateram }) => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:2px">
+          <img src="${jogo.escudo_casa || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+          ${_esc(jogo.casa)} <span style="color:var(--text2)">x</span> ${_esc(jogo.fora)}
+          <img src="${jogo.escudo_fora || ''}" style="width:16px;height:16px;object-fit:contain;vertical-align:middle" onerror="this.style.visibility='hidden'">
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${_esc(jogo.liga || '')} · ${_esc(jogo.horario || '')} · ${_esc(jogo.status || '')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${bateram.map(b => `
+            <span title="prob. ${b.prob.toFixed(1)}%${b.cv !== null ? ` · CV ${b.cv.toFixed(1)}%` : ''}"
+              style="background:var(--bg);border:1px solid var(--green);color:var(--green);border-radius:999px;padding:3px 10px;font-size:11px">
+              ${_esc(b.label)} <strong>${b.prob.toFixed(0)}%</strong><span style="color:var(--text2)"> · CV ${b.cv !== null ? b.cv.toFixed(0) + '%' : '—'}</span>
+            </span>`).join('')}
+        </div>
+      </div>`).join('');
+  }
+
+  box.innerHTML = html;
+}
+
+// Baixa .txt (TSV) com os jogos e metodologias filtradas na tela — 1 linha
+// por combinação jogo+metodologia (mesmo jogo pode aparecer várias vezes,
+// 1 por metodologia que bateu).
+function baixarMetodologiasFiltradas() {
+  if (!_ultimosResultadosMetodologia.length) { alert('Nenhum resultado pra baixar ainda.'); return; }
+
+  const linhas = [];
+  _ultimosResultadosMetodologia.forEach(({ jogo, bateram }) => {
+    bateram.forEach(b => {
+      linhas.push([
+        jogo.casa, jogo.fora, jogo.liga || '', jogo.horario || '', jogo.status || '',
+        b.label, b.prob.toFixed(1), b.cv !== null ? b.cv.toFixed(1) : '',
+      ].join('\t'));
+    });
+  });
+
+  const conteudo = [
+    `# Jogos por metodologia — Análise de Pressão · ${new Date().toLocaleString('pt-BR')}`,
+    '# Filtro: probabilidade acima da média do mercado e CV abaixo da média do mercado, no lote de próximos carregado.',
+    'casa\tfora\tliga\thorario\tstatus\tmetodologia\tprobabilidade_pct\tcv_pct',
+    ...linhas,
+  ].join('\n');
+
+  const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `jogos_por_metodologia_${new Date().toISOString().slice(0, 10)}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
