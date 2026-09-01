@@ -1687,10 +1687,15 @@
                  color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button id="painelExportLeituraBtn" onclick="_painelExportLeituraJson()"
-          title="Baixa um .json com todas as partidas do dia: dados básicos (time, escudo, liga, placar, odds) + a leitura completa de cada time (sequências, viradas, handicap por linha, mercados de gol/escanteio, placar exato não ocorrido) — busca uma partida de cada vez, pode demorar com muito jogo no dia"
+          title="Baixa um .json com as partidas de HOJE já FINALIZADAS: dados básicos (time, escudo, liga, placar, HT, odds), os ícones de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) e TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) — busca uma partida de cada vez, pode demorar bastante com muito jogo já encerrado"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
                  color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">⬇️ Baixar leitura</button>
+        <button id="painelExportProximosBtn" onclick="_painelExportProximosJson()"
+          title="Baixa um .json com as partidas de HOJE que AINDA NÃO COMEÇARAM: mesmos dados do Baixar leitura (índices de Power Ranking + toda a aba Prognóstico), só que sem placar (é um snapshot pré-jogo, pra comparar com o resultado depois) — busca uma partida de cada vez, pode demorar bastante"
+          style="background:transparent;border:1px solid #3b9a5744;border-radius:6px;
+                 color:#3b9a57;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 white-space:nowrap;flex-shrink:0">⬇️ Baixar próximos</button>
         <!-- Botão "🔍 Coletar todas" removido a pedido do usuário (2026-08-25) —
              alimentava só a aba Prognósticos, que saiu da navegação. As funções
              _painelExport* seguem no arquivo, órfãs, mesmo padrão do Lay Placar. -->
@@ -5402,23 +5407,28 @@ function _painelBuildPrognosticoExportData() {
   return { casa, fora };
 }
 
-// Baixa as partidas de HOJE já FINALIZADAS (_painelIsFinished) com os
-// índices de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) + TODOS os dados da aba
-// Prognóstico. Antes buscava "ontem" (pedido inicial do usuário), mas os
-// ícones de Power Ranking ficam vazios pra jogos de ontem (o cache só é
-// alimentado pelos times que aparecem no feed de HOJE — ver limitação
-// documentada em _painel_power_prewarm_loop) — o usuário then pediu pra usar
-// hoje mesmo, só filtrando os já encerrados, que já têm placar final igual
-// um jogo de ontem teria, mas com os ícones disponíveis (2026-08-31).
-// Substitui a versão antiga (2026-08-29), que dependia do endpoint do
-// NowGoal (/api/painel/ng_strength, exige match_id numérico) — quebrado
-// desde a migração pro Flashscore (event_id não é mais numérico, toda
-// chamada dava 400 e "leitura" saía sempre null). Busca 1 partida de cada
-// vez, de propósito sequencial (mesma razão de sempre: não sobrecarregar o
-// pool de threads do backend) — com HT+minutos de gol por jogo, isso é bem
-// mais lento que a leitura simples de antes.
-async function _painelExportLeituraJson() {
-  const btn = document.getElementById('painelExportLeituraBtn');
+// Núcleo compartilhado das exportações "Baixar leitura" (finalizados) e
+// "Baixar próximos" (ainda não começaram) — só muda o filtro de quais jogos
+// de HOJE entram. Busca índices de Power Ranking (C-Atq/C-Def/F-Atq/F-Def) +
+// TODOS os dados da aba Prognóstico por partida, 1 de cada vez, de propósito
+// sequencial (não sobrecarregar o pool de threads do backend). Substitui a
+// versão antiga (2026-08-29), que dependia do endpoint do NowGoal
+// (/api/painel/ng_strength, exige match_id numérico) — quebrado desde a
+// migração pro Flashscore (event_id não é mais numérico, toda chamada dava
+// 400 e "leitura" saía sempre null).
+//
+// _painelExportBusy trava as 2 exportações ao mesmo tempo — rodar as duas
+// juntas dobraria a carga no mesmo pool compartilhado do backend, sem
+// necessidade (usuário já confirmou que rodar 1 de cada vez, manual, não é
+// pesado; 2 ao mesmo tempo já é outra história).
+let _painelExportBusy = false;
+
+async function _painelExportPrognosticoBatch({ btnId, filterFn, semJogosMsg, confirmVerb, filenamePrefix, observacao }) {
+  if (_painelExportBusy) {
+    alert('Já tem uma exportação (Baixar leitura ou Baixar próximos) rodando — espera ela terminar antes de iniciar outra.');
+    return;
+  }
+  const btn = document.getElementById(btnId);
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando jogos de hoje...'; }
   const dateStr = new Date().toISOString().slice(0, 10);
@@ -5434,12 +5444,13 @@ async function _painelExportLeituraJson() {
   if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
   const flat = [];
-  (hojeData.leagues || []).forEach(lg => lg.matches.forEach(m => { if (_painelIsFinished(m)) flat.push({ lg, m }); }));
-  if (!flat.length) { alert('Nenhum jogo finalizado hoje ainda.'); return; }
+  (hojeData.leagues || []).forEach(lg => lg.matches.forEach(m => { if (filterFn(m)) flat.push({ lg, m }); }));
+  if (!flat.length) { alert(semJogosMsg); return; }
 
   const comNomes = flat.filter(({ m }) => m.home && m.away).length;
-  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) de HOJE já finalizadas — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos já terminaram. Continuar?`)) return;
+  if (!confirm(`Isso vai buscar os índices de Ataque/Defesa + TODOS os dados da aba Prognóstico (sequências, viradas, mercados, placar exato, marcou/sofreu primeiro) de ${comNomes} partida(s) ${confirmVerb} — cada jogo precisa de vários lotes de busca (H2H + placar do intervalo + minutos de gol), então isso é bem mais demorado que uma exportação simples: pode levar dezenas de minutos a mais de 1 hora, dependendo de quantos jogos tiver. Continuar?`)) return;
 
+  _painelExportBusy = true;
   // Preserva o estado do modal "Análise da partida" — a exportação usa as
   // MESMAS globais que o modal usa (_painelForcaData/Home/Away/HtById/
   // GoalMinById), uma partida de cada vez, e restaura no final.
@@ -5495,6 +5506,7 @@ async function _painelExportLeituraJson() {
 
   _painelForcaData = prevData; _painelForcaHome = prevHome; _painelForcaAway = prevAway;
   _painelForcaHtById = prevHt; _painelForcaGoalMinById = prevGoalMin;
+  _painelExportBusy = false;
 
   if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
 
@@ -5502,7 +5514,7 @@ async function _painelExportLeituraJson() {
     gerado_em: new Date().toISOString(),
     fonte: 'Gol em Números — Painel Principal',
     dia_referencia: hojeData.date || dateStr,
-    observacao: 'Só partidas de hoje já finalizadas (placar final confirmado)',
+    observacao,
     total_partidas: partidas.length,
     partidas,
   };
@@ -5511,11 +5523,41 @@ async function _painelExportLeituraJson() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `leitura_prognostico_finalizados_${dateStr}.json`;
+  a.download = `${filenamePrefix}_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+// "Baixar leitura" — jogos de HOJE já FINALIZADOS (placar final confirmado).
+async function _painelExportLeituraJson() {
+  return _painelExportPrognosticoBatch({
+    btnId: 'painelExportLeituraBtn',
+    filterFn: _painelIsFinished,
+    semJogosMsg: 'Nenhum jogo finalizado hoje ainda.',
+    confirmVerb: 'de HOJE já finalizadas',
+    filenamePrefix: 'leitura_prognostico_finalizados',
+    observacao: 'Só partidas de hoje já finalizadas (placar final confirmado)',
+  });
+}
+
+// "Baixar próximos" — jogos de HOJE que ainda NÃO começaram (_painelIsNext),
+// pedido do usuário (2026-08-31) pra ter o snapshot "pré-jogo" de partidas
+// futuras e comparar depois com o resultado real. Como o jogo ainda não
+// aconteceu, placar_casa/placar_fora/ht_casa/ht_fora (do jogo em si, não do
+// histórico) saem null de propósito — o prognóstico (H2H/Pontuações
+// Anteriores) é sobre jogos PASSADOS, então funciona normalmente mesmo pra
+// um confronto que ainda vai rolar.
+async function _painelExportProximosJson() {
+  return _painelExportPrognosticoBatch({
+    btnId: 'painelExportProximosBtn',
+    filterFn: _painelIsNext,
+    semJogosMsg: 'Nenhum jogo agendado (que ainda não começou) encontrado hoje.',
+    confirmVerb: 'de HOJE que ainda vão acontecer (placar em branco, é pré-jogo)',
+    filenamePrefix: 'leitura_prognostico_proximos',
+    observacao: 'Só partidas de hoje ainda não iniciadas — sem placar (pré-jogo), pra comparar com o resultado depois',
+  });
 }
 
 function _painelOddsFilterChange(key, value) {
