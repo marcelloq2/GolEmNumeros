@@ -1636,10 +1636,9 @@
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
            background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;
            display:flex;align-items:center;justify-content:center;flex-shrink:0">🌙</button>
-  <button onclick="openAppGuia()" title="Como usar cada aba"
-    style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
-           background:var(--bg2);color:var(--text2);font-size:14px;font-weight:800;cursor:pointer;
-           display:flex;align-items:center;justify-content:center;flex-shrink:0">?</button>
+  <!-- Botão "?" (openAppGuia geral) removido a pedido do usuário (2026-09-01)
+       — o guia (appGuiaOverlay, openAppGuia) continua existindo no código, só
+       sem esse ponto de entrada na UI. -->
 
 </header>
 
@@ -1677,10 +1676,9 @@
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
              aba Placar Contra (placarContraWrapper, switchView('placarcontra',...))
              continua existindo no código, só sem esse ponto de entrada na UI. -->
-        <button onclick="openAppGuia('painel')" title="Guia do Painel Principal"
-          style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
-                 color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
-                 white-space:nowrap;flex-shrink:0">📖 Guia</button>
+        <!-- Botão "📖 Guia" (openAppGuia('painel')) removido a pedido do
+             usuário (2026-09-01) — o guia continua existindo no código, só
+             sem esse ponto de entrada na UI. -->
         <button id="painelExportLeituraBtn" onclick="_painelExportLeituraJson()"
           title="Baixa um .json com as partidas de HOJE já FINALIZADAS: dados básicos (time, escudo, liga, horário, odds), os ícones de Power Ranking (C-Atq/C-Def/F-Atq/F-Def), placar HT/FT, quem marcou primeiro, quem sofreu primeiro e quem fez virada — pra conferir a taxa de acerto das metodologias importadas em 'Lista' contra o resultado real"
           style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
