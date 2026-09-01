@@ -5333,9 +5333,17 @@ function _painelPrognosticoStreakObj(s) {
   return { jogos: s.streak, amostra: s.sample, no_limite_amostra: s.streak > 0 && s.streak === s.sample };
 }
 function _painelPrognosticoPairObj(fn, h2h, h2h4, own, own4) {
+  // Mesma conta que a tela usa pra linha "Média (CV)" de cada card
+  // (_painelForcaPrognosticoMeanCV) — pedido do usuário (2026-09-01): incluir
+  // a média/CV também no arquivo exportado, não só na tela. Extrai o valor
+  // BRUTO (não arredondado) de cada um dos 4 recortes antes de tirar a média,
+  // pra não perder precisão arredondando 4x em vez de 1x.
+  const valOf = fn === _painelPrognosticoRatioObj ? _painelForcaPrognosticoPct : _painelForcaPrognosticoStreakVal;
+  const mc = _painelForcaPrognosticoMeanCV([h2h, h2h4, own, own4].map(valOf));
   return {
     confronto_direto: { todos: fn(h2h), ultimos_4: fn(h2h4) },
     pontuacoes_anteriores: { todos: fn(own), ultimos_4: fn(own4) },
+    media_cv: mc ? { media: Math.round(mc.mean * 10) / 10, cv: Math.round(mc.cv * 10) / 10 } : null,
   };
 }
 
