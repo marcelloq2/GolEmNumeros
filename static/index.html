@@ -1733,6 +1733,8 @@
         <input type="file" id="painelListaFileInput" accept=".txt" style="display:none" onchange="_painelListaImportFile(this.files[0])">
         <input type="text" id="painelListaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time ou campeonato..."
           style="max-width:240px" oninput="_painelListaSetSearch(this.value)">
+        <button class="painel-sort-time-btn active" id="painelListaViewTodosBtn" onclick="_painelListaSetViewMode('todos')">Todos os jogos</button>
+        <button class="painel-sort-time-btn" id="painelListaViewTop10Btn" onclick="_painelListaSetViewMode('top10')">🏆 Top 10</button>
         <span id="painelListaStatus" style="font-size:11px;color:var(--text2)"></span>
       </div>
       <div id="painelListaBody"></div>
@@ -22947,6 +22949,14 @@ function gerarBlocoHistorico(m) {
 let _painelListaData = null;
 let _painelListaSearchQuery = '';
 let _painelListaCollapsed = {};
+let _painelListaViewMode = 'todos'; // 'todos' | 'top10'
+
+// Mercados cobertos pela aba "🏆 Top 10" — pedido do usuário (2026-09-01):
+// começar só com "Over 0.5 HT", ir adicionando mercado por mercado conforme
+// pedir. O nome aqui tem que bater EXATO com o texto de "metodologia" que
+// vem no .txt importado (mesmo texto que aparece nos cards de "Todos os
+// jogos").
+const _PAINEL_LISTA_TOP_MERCADOS = ['Over 0.5 HT'];
 
 async function _painelListaImportFile(file) {
   if (!file) return;
@@ -22981,6 +22991,13 @@ async function _painelListaLoadConfig() {
 
 function _painelListaSetSearch(value) {
   _painelListaSearchQuery = (value || '').trim().toLowerCase();
+  if (_painelListaData) _painelListaRenderList(_painelListaData);
+}
+
+function _painelListaSetViewMode(mode) {
+  _painelListaViewMode = mode;
+  document.getElementById('painelListaViewTodosBtn').classList.toggle('active', mode === 'todos');
+  document.getElementById('painelListaViewTop10Btn').classList.toggle('active', mode === 'top10');
   if (_painelListaData) _painelListaRenderList(_painelListaData);
 }
 
@@ -23027,6 +23044,60 @@ function _painelListaLeagueSectionHtml(liga, jogos) {
     </div>`;
 }
 
+// Pega, de TODOS os jogos filtrados, as entradas (jogo + metodologia) cujo
+// nome de metodologia bate exato com `mercado` — ordena por MAIOR
+// probabilidade primeiro, MENOR CV como critério de desempate (pedido do
+// usuário, 2026-09-01: "pegar as 10 que tem maior probabilidade e menor
+// cv"), e devolve só as `n` primeiras. Entradas sem probabilidade (não
+// deveria acontecer, mas por segurança) ficam de fora.
+function _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, n) {
+  const entradas = [];
+  jogosFiltrados.forEach(j => {
+    j.metodologias.forEach(met => {
+      if (met.metodologia !== mercado || met.probabilidade_pct == null) return;
+      entradas.push({ jogo: j, met });
+    });
+  });
+  entradas.sort((a, b) => {
+    if (b.met.probabilidade_pct !== a.met.probabilidade_pct) return b.met.probabilidade_pct - a.met.probabilidade_pct;
+    const cvA = a.met.cv_pct ?? Infinity, cvB = b.met.cv_pct ?? Infinity;
+    return cvA - cvB;
+  });
+  return entradas.slice(0, n);
+}
+
+function _painelListaTop10RowHtml(entrada, idx) {
+  const j = entrada.jogo, met = entrada.met;
+  const prob = met.probabilidade_pct != null ? `${met.probabilidade_pct}%` : '-';
+  const cv = met.cv_pct != null ? `CV ${met.cv_pct}%` : '-';
+  return `
+    <div style="display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:12px;padding:6px 0;border-top:1px solid var(--border)">
+      <span style="color:var(--text2);font-weight:700">${idx + 1}</span>
+      <span style="overflow:hidden">
+        <span style="font-weight:700;color:var(--text)">${_bt2EscXml(j.casa)}</span> <span style="color:var(--text2);font-weight:400">x</span> <span style="font-weight:700;color:var(--text)">${_bt2EscXml(j.fora)}</span>
+        <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
+      </span>
+      <span style="text-align:right;white-space:nowrap"><b style="color:var(--text)">${prob}</b> <span style="color:var(--text2)">${cv}</span></span>
+    </div>`;
+}
+
+function _painelListaTop10SectionHtml(mercado, entradas) {
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:2px">🏆 ${_bt2EscXml(mercado)}</div>
+      ${entradas.length
+        ? entradas.map((e, i) => _painelListaTop10RowHtml(e, i)).join('')
+        : `<div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhuma entrada desse mercado nos jogos carregados.</div>`}
+    </div>`;
+}
+
+function _painelListaRenderTop10(jogosFiltrados) {
+  const body = document.getElementById('painelListaBody');
+  body.innerHTML = _PAINEL_LISTA_TOP_MERCADOS
+    .map(mercado => _painelListaTop10SectionHtml(mercado, _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, 10)))
+    .join('');
+}
+
 function _painelListaRenderList(d) {
   const body = document.getElementById('painelListaBody');
   const statusEl = document.getElementById('painelListaStatus');
@@ -23043,6 +23114,12 @@ function _painelListaRenderList(d) {
         (j.fora || '').toLowerCase().includes(_painelListaSearchQuery) ||
         (j.liga || '').toLowerCase().includes(_painelListaSearchQuery))
     : jogos;
+
+  if (_painelListaViewMode === 'top10') {
+    _painelListaRenderTop10(filtrados);
+    statusEl.textContent = `Top 10 de ${_PAINEL_LISTA_TOP_MERCADOS.length} mercado(s), sobre ${filtrados.length} jogo(s) carregado(s).`;
+    return;
+  }
 
   const porLiga = {};
   const ordemLigas = [];
