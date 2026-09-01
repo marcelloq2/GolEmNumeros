@@ -917,11 +917,16 @@
     display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
     gap: 16px;
   }
-  /* Ao Vivo usava um teto fixo de 280-320px por card (pedido antigo, pra
-     ficar compacto como o extinto Sinalizador) — removido a pedido do
-     usuário (2026-09-01): quer os cards do Ao Vivo do mesmo tamanho de
-     desktop que o resto do site (.live-grid-wrap padrão, minmax(420px,1fr)),
-     mesmo em tela estreita. */
+  /* Ao Vivo compacto (280-320px por card) — removido e DEVOLVIDO na mesma
+     sessão (2026-09-01): o usuário queria os visuais em tamanho de desktop
+     de modo geral, mas esse pedido não incluía alargar o card do Ao Vivo —
+     ele corrigiu na hora: "pedi pra deixar o card pequeno pra caber uns 4
+     ou 5 do lado do outro". auto-fill (não auto-fit) é o que garante isso:
+     cria colunas de até 320px mesmo sem jogo suficiente pra preencher todas
+     (sobra espaço vazio em vez de esticar 1-2 jogos pra ocupar a tela
+     inteira) — com auto-fit ou 1fr, poucos jogos ao vivo viravam 1-2 cards
+     gigantes, exatamente o que ele não queria. */
+  #live2GridWrap { grid-template-columns: repeat(auto-fill, minmax(280px, 320px)); }
   .live-card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
     overflow: hidden; cursor: pointer; transition: border-color .15s;
