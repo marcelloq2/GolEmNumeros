@@ -267,10 +267,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # redeploy apagava quem estava sendo acompanhado (o sino voltava a
         # aparecer desmarcado).
         pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
-        # Configuração do Sinalizador (regras importadas do .txt) — mesmo
-        # problema de novo: sem isso, cada redeploy apagava as regras
-        # importadas.
-        pull_file("sinalizador_config.json", os.path.join(data_dir, "sinalizador_config.json"), force=True)
         # Jogos do Dia (achados importados do .txt) — mesmo problema, mesma solução.
         pull_file("jogos_dia_config.json", os.path.join(data_dir, "jogos_dia_config.json"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)

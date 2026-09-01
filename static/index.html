@@ -1635,7 +1635,6 @@
     <!-- Botão "▶️ Replay" removido a pedido do usuário (2026-08-27) — a aba
          (replayPanel, switchView('replay',...)) continua existindo no
          código, só sem esse ponto de entrada na UI. -->
-    <button class="nav-tab" onclick="switchView('sinalizador', this)">🔔 Sinalizador</button>
     <button class="nav-tab" onclick="switchView('jogosdia', this)">📋 Jogos do Dia</button>
   </div>
   <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
@@ -2333,33 +2332,6 @@
     </div>
   </div>
 
-  <!-- SINALIZADOR — importa o .txt de configurações fortes exportado pela
-       ferramenta local (analise_padroes.html, aba Estudos > Funil) e sinaliza
-       jogos ao vivo que baterem pré-live + checkpoint de alguma delas. Cálculo
-       feito no backend (/api/sinalizador/check), sob demanda enquanto essa
-       aba estiver aberta — sem loop de fundo próprio. -->
-  <div id="sinalizadorWrapper" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--bg);padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--text)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:17px;height:17px;flex-shrink:0"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Sinalizador de Metodologias
-      </div>
-      <span style="font-size:11px;color:var(--text2)">importa as configurações fortes exportadas pela ferramenta local e sinaliza jogos ao vivo que baterem pré-live + checkpoint</span>
-      <span id="sinalizadorRegrasBadge" class="live-count-badge" style="margin-left:auto" title="Regras carregadas">0 regras</span>
-      <button onclick="document.getElementById('sinalizadorFileInput').click()"
-        style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-               color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
-      <input type="file" id="sinalizadorFileInput" accept=".txt" style="display:none" onchange="_sinalizadorImportFile(this.files[0])">
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;flex-wrap:wrap">
-      <button class="painel-sort-time-btn" id="sinalizadorSortTimeBtn" onclick="_sinalizadorToggleSortByTime()">🕐 Ordenar por horário</button>
-      <input type="text" id="sinalizadorSearchInput" class="painel-search-input" placeholder="🔍 Buscar time..."
-        style="max-width:220px" oninput="_sinalizadorSetSearch(this.value)">
-    </div>
-    <div id="sinalizadorStatus" style="font-size:11px;color:var(--text2);margin:6px 0"></div>
-    <div id="sinalizadorList" class="live-grid-wrap" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:10px"></div>
-  </div>
-
   <!-- JOGOS DO DIA — importa o .txt "Achados 100%" exportado pela ferramenta
        local (analise_padroes.html, em cima do leitura_partidas_*.json do
        Painel Principal) e lista as partidas do dia com os mercados em que
@@ -2952,12 +2924,13 @@ let btAllMatchesCache = null; // cache de todos os jogos carregados
 let btDateFilterMode = 'all'; // 'all' | 'month' | 'days'
 let btDateFilterValue = null; // mês selecionado ('2026-04') ou nº de dias (7)
 
-// ── GUIA GERAL DO APP — explica as 4 abas atuais (Painel Principal, Ao Vivo,
-// Replay, Sinalizador) em linguagem simples, pra quem nunca usou o site
-// entender o que cada botão faz. Atualizado em 2026-08-27: removida a aba
-// "Hoje" (página morta, sem botão de acesso no menu — só o dado dela
-// continua vivo por trás do modal "Análise da partida" do Painel Principal),
-// adicionadas Replay e Sinalizador (não existiam quando o guia foi escrito).
+// ── GUIA GERAL DO APP — explica as abas atuais (Painel Principal, Ao Vivo,
+// Replay, Jogos do Dia, etc.) em linguagem simples, pra quem nunca usou o
+// site entender o que cada botão faz. Atualizado em 2026-08-27: removida a
+// aba "Hoje" (página morta, sem botão de acesso no menu — só o dado dela
+// continua vivo por trás do modal "Análise da partida" do Painel Principal).
+// Sinalizador saiu do guia em 2026-09-01, junto com a aba (ver comentário
+// "removido a pedido do usuário" mais abaixo).
 // Helpers de formatação reaproveitados em toda seção — mesmo padrão visual dos
 // guias antigos (openHojeGuia/openLiveGuia), só que descrevendo as abas ATUAIS.
 function _guiaSec(icon, title, body) {
@@ -3054,32 +3027,9 @@ const APP_GUIA_SECTIONS = {
   // pedido do usuário. O código (replayPanel, switchView('replay',...))
   // continua no arquivo, só sem ponto de entrada na UI.
 
-  sinalizador: {
-    label: '🔔 Sinalizador',
-    html: [
-      _guiaSec('🧭', 'O que essa aba faz', `
-        O Sinalizador acompanha os jogos ao vivo e avisa quando um deles se encaixa numa <b>metodologia que já foi testada estatisticamente</b> — ou seja, uma combinação de condições que, no histórico, deu uma taxa de acerto alta pra um mercado específico (tipo "Casa vence" ou "Over 1,5 no 1º tempo"). Ele não inventa esses padrões sozinho: eles vêm de um arquivo importado.`),
-
-      _guiaSec('📥', 'Importar .txt', `
-        As metodologias são calculadas numa ferramenta separada (rodada localmente, fora do site) que testa várias combinações de condições contra o histórico de milhares de partidas e só aprova as que passaram num teste estatístico rigoroso. O resultado desse teste é exportado num arquivo <code>.txt</code>, que você importa aqui pelo botão "📥 Importar .txt" — isso substitui a lista de regras anterior pela nova. O número ao lado ("X regras") mostra quantas metodologias estão ativas agora.`),
-
-      _guiaSec('🔴', 'Lista de jogos', `
-        Mostra <b>todo jogo ao vivo que já tem gráfico de pressão disponível</b> — não só os que bateram alguma metodologia no momento — atualizando sozinha a cada 25 segundos.<br><br>
-        ${_guiaRow('⭐ Favoritar', 'Clique na estrela do card pra fixar aquele jogo no topo da lista')}
-        ${_guiaRow('🕐 Ordenar por horário', 'Alterna entre a ordem padrão e uma lista ordenada pelo minuto em andamento')}
-        ${_guiaRow('Gráfico + indicadores', 'O mesmo gráfico de pressão da aba Ao Vivo, com 4 cartõezinhos abaixo (Dominância, Swings, Pressão no 1ºT, Pico) — passe o mouse sobre cada um pra ver o que ele mede')}`),
-
-      _guiaSec('⚡', 'Como ler um sinal', `
-        Quando uma partida bate uma metodologia, aparece um cartão colorido com o nome do mercado (ex: "Casa vence") e a <b>taxa de acerto histórica</b> (ex: "78,3% em 214 jogos"). Abaixo dele vêm os dois números que precisaram bater pra esse sinal aparecer:<br><br>
-        ${_guiaRow('PRÉ', 'Uma condição calculada ANTES do jogo começar — normalmente a partir das odds ou da comparação de força entre os times')}
-        ${_guiaRow('AO VIVO', 'Uma condição calculada com o que já aconteceu na partida até agora — pressão, finalizações, escanteios do período')}
-        <br>Uma partida pode ter mais de um sinal ativo ao mesmo tempo, cada um numa metodologia diferente.<br><br>
-        <b>⚠️ Importante:</b> a taxa mostrada é histórica (de partidas passadas parecidas) — não é uma garantia do que vai acontecer nessa partida específica.`),
-
-      _guiaSec('👋', 'Por que um sinal some sozinho', `
-        Assim que o resultado que o sinal estava tentando prever já não é mais possível (ex: o time já venceu, o 1º tempo já acabou, ou já saiu o 1º gol da partida), esse sinal específico some do cartão — ele não faz mais sentido depois disso. <b>Só o sinal some, a partida continua na lista</b> normalmente até acabar.`),
-    ].join(''),
-  },
+  // Sinalizador removido a pedido do usuário (2026-09-01) — aba, backend
+  // (/api/sinalizador/*) e config (sinalizador_config.json) saíram por
+  // completo, não é mais usado.
 
   // Backtest (Tradicional/CS) saiu do guia junto com a aba — removida do
   // frontend a pedido do usuário. O cálculo continua rodando sozinho 1x por
@@ -3396,7 +3346,6 @@ function switchView(view, btn) {
   const passadasWrapper = document.getElementById('passadasWrapper');
   const placarContraWrapper = document.getElementById('placarContraWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
-  const sinalizadorWrapper = document.getElementById('sinalizadorWrapper');
   const jogosDiaWrapper = document.getElementById('jogosDiaWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
@@ -3408,7 +3357,6 @@ function switchView(view, btn) {
   passadasWrapper.style.display = 'none';
   placarContraWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
-  sinalizadorWrapper.style.display = 'none';
   jogosDiaWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -3418,7 +3366,6 @@ function switchView(view, btn) {
   clearInterval(_painelAutoRefresh);
   clearInterval(_replayTimer); _replayTimer = null;
   clearInterval(_replayStatsAutoRefresh); _replayStatsAutoRefresh = null;
-  clearInterval(_sinalizadorAutoRefresh);
   clearInterval(_jogosDiaAutoRefresh);
 
   if (view === 'painel') {
@@ -3450,11 +3397,6 @@ function switchView(view, btn) {
   } else if (view === 'replay') {
     replayPanel.classList.add('active');
     _loadReplayList();
-  } else if (view === 'sinalizador') {
-    sinalizadorWrapper.style.display = 'flex';
-    _sinalizadorLoadConfig();
-    _sinalizadorCheck();
-    _sinalizadorAutoRefresh = setInterval(_sinalizadorCheck, 25000);
   } else if (view === 'jogosdia') {
     jogosDiaWrapper.style.display = 'flex';
     _jogosDiaLoadConfig();
@@ -14689,8 +14631,7 @@ let _live2RenderedIds = [];
 // fim de semana/dia com 400+ jogos ao vivo, tentar buscar dado de TODOS de
 // uma vez sobrecarrega o servidor (só 4 threads pro site inteiro). Corta pras
 // N primeiras (favoritos sempre entram primeiro, ver _live2SortByPin) por
-// padrão, com opção de ver tudo — mesma ideia do teto já usado no Sinalizador
-// (_SINALIZADOR_MAX_JOGOS).
+// padrão, com opção de ver tudo.
 const _LIVE2_MAX_MATCHES_DEFAULT = 60;
 let _live2ShowAllMatches = false;
 
@@ -22909,50 +22850,11 @@ function gerarBlocoHistorico(m) {
 
 // ── (ABA HISTÓRICO REMOVIDA) ──────────────────────────────────────────────────
 
-// ── SINALIZADOR DE METODOLOGIAS ───────────────────────────────────────────────
-// Importa o .txt de configurações fortes (ferramenta local analise_padroes.html)
-// e mostra, sob demanda, quais jogos ao vivo bateram alguma delas — todo o
-// cálculo (pré-live + checkpoint) roda no backend (/api/sinalizador/*), aqui
-// só busca e renderiza.
-let _sinalizadorAutoRefresh = null;
-let _sinalizadorData = null;
-
-async function _sinalizadorImportFile(file) {
-  if (!file) return;
-  const statusEl = document.getElementById('sinalizadorStatus');
-  statusEl.textContent = 'Importando...';
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    const r = await fetch('/api/sinalizador/import', { method: 'POST', body: fd });
-    const d = await r.json();
-    if (d.error) { statusEl.textContent = `Erro: ${d.error}`; return; }
-    statusEl.textContent = `✓ ${d.total} configuração(ões) importada(s) com sucesso.`;
-    _sinalizadorLoadConfig();
-    _sinalizadorCheck();
-  } catch (e) {
-    statusEl.textContent = `Erro importando o arquivo: ${e}`;
-  } finally {
-    document.getElementById('sinalizadorFileInput').value = '';
-  }
-}
-
-async function _sinalizadorLoadConfig() {
-  const badge = document.getElementById('sinalizadorRegrasBadge');
-  if (!badge) return;
-  try {
-    const r = await fetch('/api/sinalizador/config');
-    const d = await r.json();
-    const n = (d.rules || []).length;
-    badge.textContent = `${n} regra${n === 1 ? '' : 's'}`;
-  } catch (e) { /* mantém o que já tinha na tela */ }
-}
-
 // ── JOGOS DO DIA — importa o .txt "Achados 100%" (analise_padroes.html) e
 // lista as partidas do dia com os mercados em que algum time bateu ~100%
 // numa amostra recente. Primeira etapa (2026-08-29): só a lista em si, sem
-// cruzar com dado ao vivo — mesmo padrão de import do Sinalizador
-// (FormData -> /api/jogos_dia/import), lista estática (sem auto-refresh).
+// cruzar com dado ao vivo — import via FormData -> /api/jogos_dia/import,
+// lista estática (sem auto-refresh).
 let _jogosDiaData = null;
 let _jogosDiaSearchQuery = '';
 
@@ -23083,7 +22985,7 @@ async function _jogosDiaLoadConfig() {
 // Auto-refresh enquanto a aba tá aberta — só busca de novo o status/placar
 // do Painel e redesenha, sem reimportar nada. Silencioso: se falhar, mantém
 // os dados antigos até a próxima tentativa (mesmo espírito dos outros
-// auto-refresh do app, ex: _sinalizadorAutoRefresh).
+// auto-refresh do app).
 let _jogosDiaAutoRefresh = null;
 async function _jogosDiaRefreshFromPainel() {
   if (!_jogosDiaData || !_jogosDiaData.jogos || !_jogosDiaData.jogos.length) return;
@@ -23147,8 +23049,7 @@ function _jogosDiaEscudoImg(url, size) {
 // ── Checagem de acerto — pedido do usuário (2026-08-30), mercado por mercado
 // conforme ele vai pedindo. Devolve true (bateu) / false (não bateu) / null
 // (jogo ainda sem placar final, ou mercado que ainda não sabemos verificar).
-// Decide a PREVISÃO pelo nome do mercado (heurística no texto, mesmo
-// espírito de _sinalizador_mercado_resolvido no backend).
+// Decide a PREVISÃO pelo nome do mercado (heurística no texto).
 //
 // "Jogos em que marcou gol (1º tempo)", "Perde 1T" e os Over/Under HT usam o
 // placar do INTERVALO; "Over X.5 Escanteios FT" usa o total de escanteios —
@@ -23475,260 +23376,6 @@ function _jogosDiaRenderList(d) {
   list.innerHTML = mercados.length
     ? mercados.map(m => _jogosDiaMercadoSectionHtml(m, porMercado[m])).join('')
     : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum achado bate esse filtro.</div>`;
-}
-
-// Favoritar partida — só no navegador (localStorage), mesmo espírito do
-// "watch" do Scanner: favoritos sempre aparecem primeiro na lista, ligado
-// ou desligado o "Ordenar por horário".
-const _SINALIZADOR_FAVS_KEY = 'sinalizador_favoritos';
-function _sinalizadorGetFavs() {
-  try { return new Set(JSON.parse(localStorage.getItem(_SINALIZADOR_FAVS_KEY) || '[]')); }
-  catch (e) { return new Set(); }
-}
-function _sinalizadorToggleFav(eventId) {
-  const favs = _sinalizadorGetFavs();
-  const id = String(eventId);
-  if (favs.has(id)) favs.delete(id); else favs.add(id);
-  localStorage.setItem(_SINALIZADOR_FAVS_KEY, JSON.stringify([...favs]));
-  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena/redesenha, sem novo fetch
-}
-
-// Mesmo padrão do botão "Ordenar por horário" já usado no Scanner/Painel
-// Principal — desligado = ordem que a API devolveu; ligado = crescente por
-// minuto corrido (jogo que começou agora primeiro). Favoritos sempre vêm
-// primeiro, independente disso (checado antes na comparação).
-let _sinalizadorSortByTime = false;
-
-function _sinalizadorToggleSortByTime() {
-  _sinalizadorSortByTime = !_sinalizadorSortByTime;
-  document.getElementById('sinalizadorSortTimeBtn').classList.toggle('active', _sinalizadorSortByTime);
-  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData); // só reordena o que já está carregado
-}
-
-// Busca por nome de time — mesmo padrão simples de _painelSetSearch (minúsculo,
-// substring, sem acento-insensível). Só refiltra o que já está carregado, sem
-// buscar de novo.
-let _sinalizadorSearchQuery = '';
-function _sinalizadorSetSearch(value) {
-  _sinalizadorSearchQuery = (value || '').trim().toLowerCase();
-  if (_sinalizadorData) _sinalizadorRenderList(_sinalizadorData);
-}
-
-// 3 níveis de prioridade: favorito primeiro (o usuário marcou de propósito
-// pra acompanhar), depois quem tem sinal ativo agora, depois o resto (jogos
-// ao vivo sem nenhuma configuração batendo no momento — o Sinalizador agora
-// mostra todos, não só os sinalizados, pra não sumir a partida inteira só
-// porque o único sinal dela resolveu).
-function _sinalizadorSortJogos(jogos) {
-  const favs = _sinalizadorGetFavs();
-  return [...jogos].sort((a, b) => {
-    const fa = favs.has(String(a.event_id)) ? 0 : 1;
-    const fb = favs.has(String(b.event_id)) ? 0 : 1;
-    if (fa !== fb) return fa - fb;
-    const sa = (a.sinais && a.sinais.length) ? 0 : 1;
-    const sb = (b.sinais && b.sinais.length) ? 0 : 1;
-    if (sa !== sb) return sa - sb;
-    if (!_sinalizadorSortByTime) return 0;
-    const ma = _scannerParseMinuto(a), mb = _scannerParseMinuto(b);
-    if (ma == null && mb == null) return 0;
-    if (ma == null) return 1;
-    if (mb == null) return -1;
-    return ma - mb;
-  });
-}
-
-// Mostra o valor calculado de verdade ao lado da faixa que validou a
-// metodologia — pedido do usuário: não só "bateu", mostrar o indicador, e
-// identificar qual é pré-live e qual é ao vivo/checkpoint (mesmo pedido,
-// 2026-08-26 — antes ficavam empilhados sem rótulo nenhum).
-function _sinalizadorIndicadorHtml(ind, casasDecimais, rotulo, cor) {
-  const fmt = v => v.toFixed(casasDecimais);
-  return `<div style="font-size:10px;color:var(--text2)">
-    <span style="font-size:8px;font-weight:700;color:${cor};border:1px solid ${cor}66;border-radius:3px;padding:0 3px;margin-right:3px">${rotulo}</span>
-    ${_bt2EscXml(ind.nome)}: <span style="color:var(--text);font-weight:700">${fmt(ind.valor)}</span> (faixa ${fmt(ind.min)} a ${fmt(ind.max)})
-  </div>`;
-}
-
-function _sinalizadorSinalHtml(s) {
-  // Prob. implícita fica mais legível em %, o resto (diferenças/pressão) faz
-  // mais sentido em 2 casas decimais — detecta pelo nome da variável.
-  const casasPreLive = s.indicador_pre_live.nome.startsWith('Prob.') ? 4 : 2;
-  return `<div style="background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:6px;padding:5px 7px">
-    <div style="display:flex;align-items:center;gap:6px">
-      <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:12px;height:12px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-      <div style="flex:1;min-width:0;font-size:10.5px;font-weight:700;color:var(--text)">${_bt2EscXml(s.mercado)}</div>
-      <div style="flex-shrink:0;text-align:center">
-        <div style="font-size:12px;font-weight:800;color:${_scannerRateColor((s.taxa_final_pct || 0) / 100)}">${s.taxa_final_pct.toFixed(1)}%</div>
-        <div style="font-size:8px;color:var(--text2)">${s.amostra} jogo(s)</div>
-      </div>
-    </div>
-    <div style="margin-top:4px;padding-top:4px;border-top:1px solid #d1a13e33;display:flex;flex-direction:column;gap:1px">
-      ${_sinalizadorIndicadorHtml(s.indicador_pre_live, casasPreLive, 'PRÉ', '#60a5fa')}
-      ${_sinalizadorIndicadorHtml(s.indicador_checkpoint, 2, 'AO VIVO', '#22c55e')}
-    </div>
-  </div>`;
-}
-
-// Indicadores gerais do gráfico de pressão (não são de nenhuma regra
-// específica — contexto extra, mesmo espírito de renderIndicadores() na
-// ferramenta local).
-function _sinalizadorIndicadoresGraficoHtml(ind) {
-  if (!ind) return '';
-  const dom = typeof ind.dominancia_casa_pct === 'number' ? ind.dominancia_casa_pct : null;
-  const domTxt = dom === null ? '—' : (dom >= 50 ? `${dom.toFixed(1)}% casa` : `${(100 - dom).toFixed(1)}% fora`);
-  const fmtSigned = v => typeof v === 'number' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : '—';
-  const cards = [
-    { label: 'Dominância', value: domTxt,
-      titulo: 'Dominância de pressão: % dos minutos do jogo (até agora) em que a pressão esteve do lado desse time — não é posse de bola, é o gráfico de pressão do Uniscore.' },
-    { label: 'Swings', value: ind.momentum_swings ?? '—',
-      titulo: 'Momentum swings: quantas vezes a pressão trocou de lado (de casa pra fora ou vice-versa) durante o jogo até agora — jogo mais "de um lado só" tem poucos swings, jogo equilibrado/de vaivém tem muitos.' },
-    { label: 'Pressão (1º T)', value: fmtSigned(ind.pressao_media_1t),
-      titulo: 'Pressão média do 1º tempo (minuto 0 a 45): média do valor do gráfico de pressão nesse intervalo — positivo = pressão média a favor da casa, negativo = a favor do visitante.' },
-    { label: 'Pico casa/fora', value: `${ind.pico_casa?.toFixed(0) ?? '—'}/${ind.pico_fora?.toFixed(0) ?? '—'}`,
-      titulo: 'Pico de pressão: o valor mais alto que cada time atingiu no gráfico de pressão até agora (escala 0-100) — indica o momento de domínio mais forte de cada lado no jogo.' },
-  ];
-  return `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:6px">
-    ${cards.map(c => `
-      <div title="${_bt2EscXml(c.titulo)}" style="background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:3px 5px;text-align:center;cursor:help">
-        <div style="font-size:10.5px;font-weight:700;color:var(--text)">${c.value}</div>
-        <div style="font-size:8px;color:var(--text2)">${c.label}</div>
-      </div>`).join('')}
-  </div>`;
-}
-
-function _sinalizadorJogoHtml(j) {
-  const canvasId = `sinalizadorChart_${j.event_id}`;
-  const favorito = _sinalizadorGetFavs().has(String(j.event_id));
-  const temSinal = j.sinais && j.sinais.length;
-  // Sem sinal ativo agora não é mais motivo pra sumir a partida (pedido do
-  // usuário) — só fica com a borda discreta em vez da dourada de destaque.
-  const corBorda = favorito ? '#f59e0b' : (temSinal ? 'var(--accent)' : 'var(--border)');
-  return `<div class="live-card" style="border-left:3px solid ${corBorda}">
-    <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
-      <span>${_bt2EscXml(j.liga || '')}</span>
-      <span onclick="event.stopPropagation();_sinalizadorToggleFav('${j.event_id}')"
-        style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:14px;cursor:pointer"
-        title="${favorito ? 'Remover dos favoritos' : 'Favoritar (vai pro início da lista)'}">${favorito ? '⭐' : '☆'}</span>
-    </div>
-    <div class="live-card-body" style="padding:8px 10px">
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
-        <span class="tname" style="font-size:11px">${_bt2EscXml(j.casa)}</span>
-        <span style="font-size:13px;font-weight:800;color:var(--text)">${j.placar_casa ?? 0}-${j.placar_fora ?? 0}</span>
-        <span class="tname" style="font-size:11px">${_bt2EscXml(j.fora)}</span>
-        <span style="font-size:10px;color:var(--text2)">⏱ ${_bt2EscXml(j.minuto || '--')}'</span>
-      </div>
-      ${(j.odd_1 || j.odd_x || j.odd_2 || j.odd_over || j.odd_under) ? `
-      <div class="live-card-odds-row">
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${j.odd_1 || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val ox">${j.odd_x || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val o2">${j.odd_2 || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${j.odd_over || '-'}</span></div>
-        <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${j.odd_under || '-'}</span></div>
-      </div>` : ''}
-      <div style="position:relative;margin-top:6px">
-        <canvas id="${canvasId}" style="width:100%;height:55px;display:block"></canvas>
-      </div>
-      ${_sinalizadorIndicadoresGraficoHtml(j.indicadores_grafico)}
-      <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
-        ${temSinal
-          ? j.sinais.map(_sinalizadorSinalHtml).join('')
-          : `<div style="font-size:9.5px;color:var(--text2);text-align:center;padding:4px 0">nenhum sinal ativo agora</div>`}
-      </div>
-    </div>
-  </div>`;
-}
-
-// Gráfico de pressão por minuto — mesma lógica de desenharCanvas() da
-// ferramenta local (analise_padroes.html): barras verticais (positivo=casa,
-// negativo=visitante), linha do intervalo em ~45min, marcador de gol.
-function _sinalizadorDesenharCanvas(canvasId, graphPoints, goals) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const wrap = canvas.parentElement;
-  const dpr = window.devicePixelRatio || 1;
-  const W = wrap.clientWidth || 260;
-  const H = 55;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
-  const pontos = graphPoints || [];
-  const gols = goals || [];
-  const maxMinuto = Math.max(90, ...pontos.map(pt => pt.minute || 0), ...gols.map(g => g.minute || 0));
-  const midY = H / 2;
-  const padX = 4;
-  const plotW = W - padX * 2;
-  const barW = Math.max(1, plotW / maxMinuto - 1);
-
-  ctx.strokeStyle = 'rgba(139,150,173,.15)';
-  ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
-
-  const htX = padX + (45 / maxMinuto) * plotW;
-  ctx.strokeStyle = 'rgba(139,150,173,.4)';
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath(); ctx.moveTo(htX, 0); ctx.lineTo(htX, H); ctx.stroke();
-  ctx.setLineDash([]);
-
-  pontos.forEach(pt => {
-    const x = padX + ((pt.minute || 0) / maxMinuto) * plotW;
-    const val = Math.max(-100, Math.min(100, pt.value || 0));
-    const h = Math.abs(val) / 100 * (H / 2 - 4);
-    ctx.fillStyle = val >= 0 ? 'rgba(59,130,246,.75)' : 'rgba(220,80,80,.7)';
-    if (val >= 0) ctx.fillRect(x - barW / 2, midY - h, barW, h);
-    else ctx.fillRect(x - barW / 2, midY, barW, h);
-  });
-
-  gols.forEach(g => {
-    const x = padX + ((g.minute || 0) / maxMinuto) * plotW;
-    ctx.strokeStyle = g.team === 'home' ? 'rgba(96,165,250,.6)' : 'rgba(220,80,80,.5)';
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    ctx.font = '10px system-ui';
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.fillText('⚽', x - 5, g.team === 'home' ? 10 : H - 4);
-  });
-}
-
-function _sinalizadorRenderList(d) {
-  const list = document.getElementById('sinalizadorList');
-  const statusEl = document.getElementById('sinalizadorStatus');
-  if (!list) return;
-  if (!d.total_regras) {
-    statusEl.textContent = 'Nenhuma regra importada ainda — clique em "📥 Importar .txt".';
-    list.innerHTML = '';
-    return;
-  }
-  const totalSinalizados = d.total_sinalizados ?? d.jogos.filter(j => j.sinais && j.sinais.length).length;
-  statusEl.textContent = `${d.total_regras} regra(s) · ${d.total_ao_vivo} jogo(s) ao vivo com gráfico · ${totalSinalizados} sinalizado(s) agora.`;
-
-  let filtrados = d.jogos;
-  if (_sinalizadorSearchQuery) {
-    filtrados = filtrados.filter(j =>
-      (j.casa || '').toLowerCase().includes(_sinalizadorSearchQuery) ||
-      (j.fora || '').toLowerCase().includes(_sinalizadorSearchQuery));
-  }
-  const jogos = _sinalizadorSortJogos(filtrados);
-  list.innerHTML = jogos.length
-    ? jogos.map(_sinalizadorJogoHtml).join('')
-    : (_sinalizadorSearchQuery
-        ? `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo bate essa busca agora.</div>`
-        : `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo com gráfico de pressão disponível agora — a lista atualiza sozinha a cada 25s.</div>`);
-  jogos.forEach(j => _sinalizadorDesenharCanvas(`sinalizadorChart_${j.event_id}`, j.graph_points, j.goals));
-}
-
-async function _sinalizadorCheck() {
-  const statusEl = document.getElementById('sinalizadorStatus');
-  try {
-    const r = await fetch('/api/sinalizador/check');
-    const d = await r.json();
-    _sinalizadorData = d;
-    _sinalizadorRenderList(d);
-  } catch (e) {
-    if (statusEl) statusEl.textContent = `Erro buscando sinais: ${e}`;
-  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
