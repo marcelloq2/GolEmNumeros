@@ -21082,7 +21082,10 @@ async function loadMatches() {
     ${ageHtml}
     <span style="font-size:11px;color:#888">Fonte: <b>${data.source || '—'}</b></span>
     ${scrapeBtn}
-    ${_viewModeToggleHtml()}
+    <!-- Toggle Desktop/Mobile (_viewModeToggleHtml) removido a pedido do
+         usuário (2026-09-01) — sem efeito visual desde que o CSS responsivo
+         de mobile foi removido do site (ver comentário grande no <style>,
+         seção "RESPONSIVO"). Função continua no código. -->
   `;
 
   updateFavCount();
