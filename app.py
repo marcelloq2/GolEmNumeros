@@ -2093,6 +2093,40 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     except Exception as e:
         print(f"[radar-links] Erro anexando links: {e}")
 
+    # Minuto ao vivo — o feed em lote do Flashscore (_fs_all_matches) não manda
+    # minuto corrido, só o status genérico "Ao vivo" (ver comentário em
+    # "minute" acima). O UniScore (mesma fonte que já alimenta a aba Ao Vivo
+    # top-level) manda — casa pelo nome dos times, mesma técnica de
+    # _find_radar_links, só pros jogos que já estão "Ao vivo" aqui. Pedido do
+    # usuário (2026-09-01): a aba "AO VIVO" do Painel mostrava o status mas
+    # nunca o minuto.
+    #
+    # IMPORTANTE: só LÊ _uniscore_full_cache se estiver quente (<90s, mesmo
+    # TTL que _radar_fetch_live_matches já usa) — NUNCA chama
+    # _radar_fetch_live_matches() aqui. Testado localmente: essa função
+    # escaneia até 7 locales x 5 páginas, 12s de timeout cada — em cache frio
+    # (ex: logo após um deploy) isso trava minutos dentro da função mais
+    # usada do site inteiro, mesma causa dos apagões já sofridos nesta sessão
+    # com _today2_odds_snapshot()/HT em lote (ver comentários delas). Cache
+    # frio aqui só significa "sem minuto por enquanto" — não vale o risco.
+    try:
+        if time.time() - _uniscore_full_cache["ts"] < 90:
+            live_uniscore = _uniscore_full_cache["live"] or []
+            for m in matches:
+                if m["time"] != "Ao vivo":
+                    continue
+                found = next((ev for ev in live_uniscore
+                              if _name_match(m.get("home") or "", ev.get("casa") or "")
+                              and _name_match(m.get("away") or "", ev.get("fora") or "")), None)
+                minuto = found.get("minuto") if found else None
+                # _uniscore_minuto já devolve com o apóstrofo (ex: "28'") — o
+                # frontend (painel-match-minute) acrescenta o dele próprio,
+                # então tira aqui pra não sair "28''" duplicado.
+                if minuto:
+                    m["minute"] = minuto.rstrip("'")
+    except Exception as e:
+        print(f"[painel-minuto] Erro anexando minuto ao vivo: {e}")
+
     leagues_map = {}
     for m in matches:
         key = m["league_key"]
