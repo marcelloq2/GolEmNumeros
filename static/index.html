@@ -23569,7 +23569,7 @@ function _painelListaMetodologiaRowHtml(met) {
 
 function _painelListaJogoCardHtml(j) {
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-weight:700;color:var(--text);font-size:13px">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
         <div style="font-size:11px;color:var(--text2);white-space:nowrap">${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
@@ -23587,7 +23587,7 @@ function _painelListaLeagueSectionHtml(liga, jogos) {
         <span class="painel-league-name">${_bt2EscXml(liga)}</span>
         <span class="painel-arrow">▲</span>
       </div>
-      <div id="painelListaBody_${key}" style="${collapsed ? 'display:none' : ''};padding:8px 0 2px">
+      <div id="painelListaBody_${key}" class="live-grid-wrap" style="${collapsed ? 'display:none' : 'display:grid'};align-items:start;padding:8px 0 2px">
         ${jogos.map(_painelListaJogoCardHtml).join('')}
       </div>
     </div>`;
