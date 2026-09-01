@@ -1237,16 +1237,17 @@
     min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .painel-league-cols {
-    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 72px 26px;
+    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 34px 34px 34px 72px 26px;
     gap: 4px; padding: 4px 12px; font-size: 10px; color: var(--text2); text-align: center;
   }
   .painel-league-cols span:first-child, .painel-league-cols span:nth-child(2) { text-align: left; }
   .painel-match-row {
-    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 72px 26px;
+    display: grid; grid-template-columns: 64px minmax(0,1fr) 32px 32px 32px 32px 34px 34px 34px 72px 26px;
     gap: 4px; align-items: center; padding: 6px 12px; font-size: 12px;
     border-top: 1px solid var(--border); color: var(--text);
   }
   .painel-power-icon { text-align: center; font-size: 14px; font-weight: 700; color: var(--text2); }
+  .painel-odd-cell { text-align: center; font-size: 11px; color: var(--text2); }
   .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
   .painel-plat-icon {
     width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
@@ -9087,7 +9088,7 @@ function _painelRender(data) {
             </div>
             <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
-                <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span></span><span></span>
+                <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span title="Odd 1 (casa vence)">1</span><span title="Odd X (empate)">X</span><span title="Odd 2 (fora vence)">2</span><span></span><span></span>
               </div>
               ${rows}
             </div>
@@ -9179,6 +9180,9 @@ function _painelMatchRowHtml(m, leagueName) {
       ${_painelPowerIconCell(m.casa_defesa_icon, m.home, 'Defesa (casa)')}
       ${_painelPowerIconCell(m.fora_ataque_icon, m.away, 'Ataque (visitante)')}
       ${_painelPowerIconCell(m.fora_defesa_icon, m.away, 'Defesa (visitante)')}
+      <span class="painel-odd-cell" title="Odd 1 (casa vence)">${m.odd_1 ?? '-'}</span>
+      <span class="painel-odd-cell" title="Odd X (empate)">${m.odd_x ?? '-'}</span>
+      <span class="painel-odd-cell" title="Odd 2 (fora vence)">${m.odd_2 ?? '-'}</span>
       <span class="painel-plat-icons">
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
