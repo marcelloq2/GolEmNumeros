@@ -1581,6 +1581,41 @@
     display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px;
     border-radius: 3px; background: #1a56c4; color: #fff; font-size: 9px; font-weight: 700; vertical-align: middle;
   }
+
+  /* ── RESPONSIVO (celular) — 2026-09-02 ──
+     Sessão anterior tinha removido TODO CSS responsivo a pedido do usuário
+     ("quero meu site só no formato mobile, mais com todas as funções de
+     desktop ativas"). Usando de verdade no celular ele viu que "a tela fica
+     toda desconfigurada" (header/subabas cortados, precisa rolar a página
+     inteira pra lado) e pediu layout responsivo de verdade de volta.
+     A tabela do Painel Principal (.painel-match-row) tem colunas demais pra
+     caber numa tela de celular mesmo empilhando texto (mínimo de ~690px só
+     de colunas fixas) — em vez de esconder colunas (usuário já pediu
+     explicitamente pra NUNCA esconder nenhuma, 2026-09-01) ou espremer até
+     ilegível, essa tabela especificamente rola PRA LADO dentro da própria
+     caixa (.painel-league-body), sem arrastar o resto da página. Todo o
+     resto (header, abas, busca, filtros) empilha/quebra linha e cabe sem
+     rolagem horizontal nenhuma. */
+  .painel-league-body { overflow-x: auto; }
+  @media (max-width: 768px) {
+    html, body { overflow-x: hidden; }
+    header {
+      flex-wrap: wrap; height: auto; min-height: 56px; padding: 10px 14px; row-gap: 8px;
+    }
+    .logo { font-size: 18px; }
+    .header-stats { font-size: 11px; gap: 8px; flex-wrap: wrap; row-gap: 4px; }
+    .nav-tabs { margin-left: 0; gap: 14px; }
+    .container { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100% !important; min-width: 0 !important; border-right: none; border-bottom: 1px solid var(--border); }
+    #painelWrapper, .live-panel, #today2Wrapper, #placarContraWrapper { overflow: visible; }
+    .painel-subtabs { flex-wrap: wrap; row-gap: 6px; }
+    /* .live-grid-wrap (Lista Todos-os-jogos/Top10, e outras grades genéricas)
+       tem card mínimo de 420px — maior que a tela toda no celular, forçava
+       rolagem horizontal da página inteira. Vira 1 coluna só.
+       #live2GridWrap (Ao Vivo, seletor por id = mais específico) continua
+       valendo por cima disso — o card compacto dele (280-320px) já cabe. */
+    .live-grid-wrap { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 <script>
   // aplica o tema salvo ANTES do body renderizar, pra não piscar no tema errado
@@ -1644,7 +1679,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">TIPSTERS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('lista', this)">LISTA</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0;flex-wrap:wrap;row-gap:6px">
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
              aba Placar Contra (placarContraWrapper, switchView('placarcontra',...))
              continua existindo no código, só sem esse ponto de entrada na UI. -->
@@ -2157,9 +2192,9 @@
        só que renderizado com HTML/JS próprios (prefixo live2) -->
   <div class="live-panel" id="live2Panel">
     <div class="live-grid-view active" id="live2GridView" style="width:100%">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;flex-wrap:wrap;row-gap:6px">
         <span style="font-size:12px;font-weight:700;color:#2f9e8f">🔴 Ao Vivo</span>
-        <span style="display:flex;align-items:center;gap:8px">
+        <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
             style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
                    color:var(--accent2);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
@@ -9144,7 +9179,7 @@ function _painelRender(data) {
               <span class="painel-league-name">${lg.league_name}</span>
               <span class="painel-arrow">▲</span>
             </div>
-            <div id="painelBody_${key}" style="${collapsed ? 'display:none' : ''}">
+            <div id="painelBody_${key}" class="painel-league-body" style="${collapsed ? 'display:none' : ''}">
               <div class="painel-league-cols">
                 <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span title="Odd 1 (casa vence)">1</span><span title="Odd X (empate)">X</span><span title="Odd 2 (fora vence)">2</span><span></span><span></span>
               </div>
@@ -9261,10 +9296,12 @@ function _painelRenderFlatByTime(leaguesFiltered) {
   const rows = flat.map(({ m, leagueName }) => _painelMatchRowHtml(m, leagueName)).join('');
   return `
     <div class="painel-league">
-      <div class="painel-league-cols">
-        <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span></span><span></span>
+      <div class="painel-league-body">
+        <div class="painel-league-cols">
+          <span>Hora</span><span>Jogo</span><span title="Índice de Ataque do time da casa">C-Atq</span><span title="Índice de Defesa do time da casa">C-Def</span><span title="Índice de Ataque do time visitante">F-Atq</span><span title="Índice de Defesa do time visitante">F-Def</span><span></span><span></span>
+        </div>
+        ${rows}
       </div>
-      ${rows}
     </div>`;
 }
 
@@ -23244,7 +23281,7 @@ function _painelListaTop10RowHtml(entrada, idx) {
   return `
     <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12px">
       <span style="color:var(--text2);font-weight:700;width:16px;flex-shrink:0;text-align:center">${idx + 1}</span>
-      <div style="flex:1;overflow:hidden">
+      <div style="flex:1;overflow:hidden;min-width:0">
         <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${casaHtml} <span style="color:var(--text2);font-weight:400">x</span> ${foraHtml}</div>
         <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
