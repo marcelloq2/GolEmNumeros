@@ -15323,8 +15323,8 @@ function _live2OddsLiveHtml(lo) {
     parts.push(_live2OddsLiveCell(`Under ${lo.ou.line}`, lo.ou.under));
   }
   if (!parts.length) return '';
-  return `<div style="text-align:center;font-size:9px;font-weight:700;color:var(--red);padding-top:4px">🔴 ODDS AO VIVO (bet365)</div>
-  <div class="live-card-odds-row" title="Odds ao vivo (bet365) — ▲ subiu / ▼ desceu desde a última mudança">
+  return `<div style="text-align:center;font-size:9px;font-weight:700;color:var(--red);padding-top:4px">🔴 ODDS AO VIVO</div>
+  <div class="live-card-odds-row" title="Odds ao vivo (bet365/Betano/Tipsport, a que tiver disponível) — ▲ subiu / ▼ desceu desde a última mudança">
     ${parts.join('')}
   </div>`;
 }

@@ -8659,11 +8659,10 @@ _LIVE_ODDS_BASE = "https://2.ds.lsapp.eu/pq_graphql"
 # numa partida ao vivo real. _fs_live_odds_raw já trata isso como "sem dado"
 # (exceção capturada, cache antigo permanece).
 _LIVE_ODDS_HASH = "dloou"
-_LIVE_ODDS_BOOKMAKER_ID = 16  # bet365 — mesma casa de FS_ODDS_BOOKMAKERS
 
-def _fs_live_odds_raw(event_id, bet_type):
+def _fs_live_odds_raw(event_id, bet_type, bookmaker_id):
     r = http_req.get(_LIVE_ODDS_BASE, params={
-        "_hash": _LIVE_ODDS_HASH, "eventId": event_id, "bookmakerId": _LIVE_ODDS_BOOKMAKER_ID,
+        "_hash": _LIVE_ODDS_HASH, "eventId": event_id, "bookmakerId": bookmaker_id,
         "betType": bet_type, "betScope": "FULL_TIME",
     }, headers=FS_HEADERS, timeout=8)
     r.raise_for_status()
@@ -8675,23 +8674,39 @@ def _live_odds_item(d):
         return None
     return {"value": d.get("value"), "opening": d.get("opening"), "change": (d.get("change") or {}).get("type")}
 
+# Tenta bet365/Betano/Tipsport NESSA ORDEM (mesma lista/ordem de
+# FS_ODDS_BOOKMAKERS, odds pré-jogo) e usa a 1ª que tiver odds ao vivo
+# de verdade pra esse jogo — pedido do usuário (2026-09-02) depois de ver
+# que, com só bet365, boa parte dos jogos de ligas menores (Brasil
+# regional, Nicarágua, República Dominicana etc.) nunca mostrava nada:
+# cada casa cobre um conjunto diferente de jogos com odds ao vivo, então
+# a soma cobre mais que qualquer uma sozinha. Custo: até 3x mais chamadas
+# por jogo ao vivo (aceito pelo usuário, sabendo do trade-off).
 def _fs_live_odds_1x2(event_id):
-    try:
-        ov = _fs_live_odds_raw(event_id, "HOME_DRAW_AWAY")
+    for bid, _name in FS_ODDS_BOOKMAKERS:
+        try:
+            ov = _fs_live_odds_raw(event_id, "HOME_DRAW_AWAY", bid)
+        except Exception:
+            continue
         if not ov:
-            return None
+            continue
         return {"casa": _live_odds_item(ov.get("home")), "empate": _live_odds_item(ov.get("draw")), "fora": _live_odds_item(ov.get("away"))}
-    except Exception:
-        return None
+    return None
 
 def _fs_live_odds_ou(event_id, target_line=2.5):
     """Pega a linha de Over/Under mais próxima de 2.5 entre as oferecidas AGORA
     (mudam conforme o placar/tempo de jogo — ex: 0-0 no 2º tempo só costuma
     ter linhas baixas tipo 1.5/1.75) — mesmo critério já usado em
-    _fs_extract_odds_fields pra odds pré-jogo."""
-    try:
-        ov = _fs_live_odds_raw(event_id, "OVER_UNDER")
+    _fs_extract_odds_fields pra odds pré-jogo. Mesmo fallback bet365/Betano/
+    Tipsport de _fs_live_odds_1x2."""
+    for bid, _name in FS_ODDS_BOOKMAKERS:
+        try:
+            ov = _fs_live_odds_raw(event_id, "OVER_UNDER", bid)
+        except Exception:
+            continue
         opps = (ov or {}).get("opportunities") or []
+        if not opps:
+            continue
         best, best_diff = None, None
         for o in opps:
             try:
@@ -8702,10 +8717,9 @@ def _fs_live_odds_ou(event_id, target_line=2.5):
             if best_diff is None or diff < best_diff:
                 best, best_diff = o, diff
         if not best:
-            return None
+            continue
         return {"line": (best.get("handicap") or {}).get("value"), "over": _live_odds_item(best.get("over")), "under": _live_odds_item(best.get("under"))}
-    except Exception:
-        return None
+    return None
 
 # Cache de odds ao vivo, mantido quente em BACKGROUND (_live_odds_prewarm_loop)
 # — mesmo motivo de sempre (_painel_ht_cache etc.): _painel_fetch_matches_
