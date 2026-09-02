@@ -14914,6 +14914,7 @@ function renderLive2Card(m) {
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
+        <button class="live-card-tab-btn" onclick="_live2OpenMetodologiasModal('${m.id}')">Metodologias</button>
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
              (_live2OpenProbModal) removidos a pedido do usuário (2026-09-01)
              — os modais continuam existindo no código, só sem esse ponto de
@@ -15117,6 +15118,44 @@ function _live2OpenStatsModal(matchId) {
 function _live2OpenLineupModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'lineup', 'Escalações');
   body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+}
+
+// Botão "Metodologias" do card Ao Vivo — pedido do usuário (2026-09-02):
+// "ao lado de escalações... colocar as metodologias que esses jogos se
+// encaixam em Lista". Cruza o jogo ao vivo com a Lista importada (mesmo
+// fuzzy match de nome já usado em _painelListaFindPainelMatch, só que na
+// direção contrária: aqui é o jogo ao vivo que procura na lista de jogos
+// do .txt, não o oposto) e reaproveita _painelListaMetodologiaRowHtml
+// (mesma linha usada no card "Todos os jogos" da Lista) pra não duplicar
+// o HTML de cada metodologia.
+function _live2FindListaJogo(casa, fora) {
+  if (!_painelListaData || !_painelListaData.jogos) return null;
+  const nc = _normLive2(casa), nf = _normLive2(fora);
+  let best = null, bestScore = 0;
+  for (const j of _painelListaData.jogos) {
+    const sh = _live2SideScore(_normLive2(j.casa), nc);
+    const sa = _live2SideScore(_normLive2(j.fora), nf);
+    if (sh > 0 && sa > 0 && (sh + sa) > bestScore) { bestScore = sh + sa; best = j; }
+  }
+  return bestScore >= 4 ? best : null;
+}
+
+async function _live2OpenMetodologiasModal(matchId) {
+  const { m, body } = _live2OpenModalCommon(matchId, 'metodologias', 'Metodologias (Lista)');
+  if (!m) { body.innerHTML = `<div class="live-loading">Jogo não encontrado.</div>`; return; }
+  if (!_painelListaData) {
+    body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando Lista...</div>`;
+    await _painelListaLoadConfig();
+    if (!(_live2OpenModal && _live2OpenModal.matchId === matchId && _live2OpenModal.type === 'metodologias')) return;
+  }
+  const jogo = _live2FindListaJogo(m.casa, m.fora);
+  if (!jogo || !jogo.metodologias || !jogo.metodologias.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:10px 0;text-align:center">Esse jogo não está na Lista importada agora (ou a Lista ainda não foi importada em "Lista → 📥 Importar .txt").</div>`;
+    return;
+  }
+  body.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${_bt2EscXml(jogo.liga || '')} · ${_bt2EscXml(jogo.horario || '')} · ${_bt2EscXml(jogo.status || '')}</div>
+    ${jogo.metodologias.map(_painelListaMetodologiaRowHtml).join('')}`;
 }
 
 // CD (Sequências do time) + Dados (Over/BTTS/médias) — reaproveita o mesmo
