@@ -2054,6 +2054,11 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     with _painel_power_lock:
         power_snapshot = dict(_painel_power_cache)
 
+    # Odds AO VIVO (movimento em tempo real) — só LÊ o cache que
+    # _live_odds_prewarm_loop mantém quente em background (ver comentário lá).
+    with _live_odds_lock:
+        live_odds_by_id = dict(_live_odds_cache)
+
     matches = []
     for m in fs_matches:
         status_code = m.get("status")
@@ -2083,6 +2088,7 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             "ht_home": (ht or {}).get("home"), "ht_away": (ht or {}).get("away"),
             "corner_home": None, "corner_away": None,  # sem fonte em lote no Flashscore
             "match_url": None,
+            "live_odds": live_odds_by_id.get(eid),
             "casa_ataque_icon": casa_power.get("ataque"), "casa_defesa_icon": casa_power.get("defesa"),
             "fora_ataque_icon": fora_power.get("ataque"), "fora_defesa_icon": fora_power.get("defesa"),
             **odds_fields,
@@ -8510,6 +8516,11 @@ _bt2_matches_market_pool = ThreadPoolExecutor(max_workers=20)
 # com HT preenchido). Isolado igual ao par acima, pra não voltar a acontecer.
 _painel_ht_pool = ThreadPoolExecutor(max_workers=10)
 
+# Pool dedicado pro prewarm de odds AO VIVO (_live_odds_prewarm_loop, mais
+# abaixo) — mesmo motivo dos dois acima, um domínio novo (2.ds.lsapp.eu) que
+# não tem nada a ver com o resto, sem disputar pool com ninguém.
+_live_odds_pool = ThreadPoolExecutor(max_workers=8)
+
 # Em dias com muitos jogos (200+), buscar odds de TODOS os agendados demora
 # minutos (até 3 tentativas de casa de apostas x timeout por jogo, dividido
 # entre poucos workers). Limita aos próximos N jogos por horário — cobre o
@@ -8627,6 +8638,106 @@ def _fs_odds_all_markets_any_bookmaker(event_id, pool=None, markets_wanted=None)
         for k, v in casa_markets.items():
             markets.setdefault(k, v)
     return bookmaker_name, markets
+
+# ── Odds AO VIVO (movimento em tempo real, não é a odds pré-jogo cacheada de
+# FS_ODDS_MARKETS acima) — endpoint GraphQL separado (2.ds.lsapp.eu) que o
+# próprio Flashscore usa pra alimentar a aba "Odds Ao Vivo" da página de
+# partida. Devolve valor ATUAL + valor de ABERTURA + se subiu/desceu desde a
+# última mudança, já calculado por eles (não precisamos comparar valor
+# anterior nós mesmos). Achado inspecionando a rede do navegador numa partida
+# ao vivo de verdade (2026-09-02) — pedido do usuário: "existe um site onde
+# as odds se movimentem em tempo real?" -> "no flashscore tem odds ao vivo"
+# -> "quero colocar aqui... pra criar indicadores usando elas" — confirmado
+# só bet365 (mais simples) e só 1X2 + Over/Under, por enquanto.
+_LIVE_ODDS_BASE = "https://2.ds.lsapp.eu/pq_graphql"
+# Hash de "persisted query" do GraphQL (Automatic Persisted Queries) — não é
+# um token de sessão (testado repetido em momentos diferentes, sempre
+# funciona), mas é um id fixo do LADO DO SERVIDOR do Flashscore pra essa
+# query específica. Se um dia eles trocarem a query (redeploy do site deles),
+# esse hash pode parar de funcionar (a resposta vira 404 "Query not stored")
+# sem nenhum aviso — só descobrindo de novo inspecionando a rede do navegador
+# numa partida ao vivo real. _fs_live_odds_raw já trata isso como "sem dado"
+# (exceção capturada, cache antigo permanece).
+_LIVE_ODDS_HASH = "dloou"
+_LIVE_ODDS_BOOKMAKER_ID = 16  # bet365 — mesma casa de FS_ODDS_BOOKMAKERS
+
+def _fs_live_odds_raw(event_id, bet_type):
+    r = http_req.get(_LIVE_ODDS_BASE, params={
+        "_hash": _LIVE_ODDS_HASH, "eventId": event_id, "bookmakerId": _LIVE_ODDS_BOOKMAKER_ID,
+        "betType": bet_type, "betScope": "FULL_TIME",
+    }, headers=FS_HEADERS, timeout=8)
+    r.raise_for_status()
+    ov = ((r.json().get("data") or {}).get("findEventById") or {}).get("updateLiveOddsOverview")
+    return ov
+
+def _live_odds_item(d):
+    if not d:
+        return None
+    return {"value": d.get("value"), "opening": d.get("opening"), "change": (d.get("change") or {}).get("type")}
+
+def _fs_live_odds_1x2(event_id):
+    try:
+        ov = _fs_live_odds_raw(event_id, "HOME_DRAW_AWAY")
+        if not ov:
+            return None
+        return {"casa": _live_odds_item(ov.get("home")), "empate": _live_odds_item(ov.get("draw")), "fora": _live_odds_item(ov.get("away"))}
+    except Exception:
+        return None
+
+def _fs_live_odds_ou(event_id, target_line=2.5):
+    """Pega a linha de Over/Under mais próxima de 2.5 entre as oferecidas AGORA
+    (mudam conforme o placar/tempo de jogo — ex: 0-0 no 2º tempo só costuma
+    ter linhas baixas tipo 1.5/1.75) — mesmo critério já usado em
+    _fs_extract_odds_fields pra odds pré-jogo."""
+    try:
+        ov = _fs_live_odds_raw(event_id, "OVER_UNDER")
+        opps = (ov or {}).get("opportunities") or []
+        best, best_diff = None, None
+        for o in opps:
+            try:
+                linha = float((o.get("handicap") or {}).get("value"))
+            except (TypeError, ValueError):
+                continue
+            diff = abs(linha - target_line)
+            if best_diff is None or diff < best_diff:
+                best, best_diff = o, diff
+        if not best:
+            return None
+        return {"line": (best.get("handicap") or {}).get("value"), "over": _live_odds_item(best.get("over")), "under": _live_odds_item(best.get("under"))}
+    except Exception:
+        return None
+
+# Cache de odds ao vivo, mantido quente em BACKGROUND (_live_odds_prewarm_loop)
+# — mesmo motivo de sempre (_painel_ht_cache etc.): _painel_fetch_matches_
+# flashscore só LÊ isso, nunca busca na hora.
+_live_odds_cache = {}
+_live_odds_lock = threading.Lock()
+_LIVE_ODDS_TTL = 30  # mesma cadência "quase tempo real" já usada pro resto do Ao Vivo
+
+
+def _live_odds_prewarm_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            fs_matches = _fs_all_matches_brt(_brt_today())
+            live_ids = [m["id"] for m in fs_matches if m.get("status") == "2" and m.get("id")]
+
+            def _fetch(eid):
+                try:
+                    return eid, {"1x2": _fs_live_odds_1x2(eid), "ou": _fs_live_odds_ou(eid)}
+                except Exception:
+                    return eid, None
+
+            novo = {}
+            for eid, d in _live_odds_pool.map(_fetch, live_ids):
+                if d and (d.get("1x2") or d.get("ou")):
+                    novo[eid] = d
+            with _live_odds_lock:
+                _live_odds_cache.clear()
+                _live_odds_cache.update(novo)
+        except Exception as e:
+            print(f"[live-odds-prewarm] Erro: {e}")
+        time.sleep(_LIVE_ODDS_TTL)
 
 @app.route("/api/flashscore/odds_all")
 def api_flashscore_odds_all():
@@ -11679,6 +11790,7 @@ threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").s
 # de carregar).
 threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOddsPrewarm").start()
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
+threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrewarm").start()
 threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em

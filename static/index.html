@@ -14694,6 +14694,7 @@ function toggleLive2Pin(id) {
       _loadLive2Lineups(sorted);
       _loadLive2Standings(sorted);
       _loadLive2Escudos(sorted);
+      _loadLive2OddsLive(sorted);
     }
   }
 }
@@ -14814,6 +14815,7 @@ async function loadLive2Matches() {
       _loadLive2Standings(matches);
       _loadLive2Escudos(matches);
       _live2AutoLoadForms(matches);
+      _loadLive2OddsLive(matches);
     }
     // Roda pra todas dentro do teto (visíveis ou não) — é o que descobre quando uma
     // partida escondida passa a ter mapa de chutes e dispara a reexibição dela.
@@ -14908,6 +14910,7 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
+      <div id="live2OddsLiveWrap_${m.id}"></div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
@@ -15278,6 +15281,59 @@ function _live2ApplyEscudo(matchId, escudos) {
   const foraEl = document.getElementById(`live2EscudoFora_${matchId}`);
   if (casaEl) casaEl.innerHTML = _today2EscudoImg(escudos && escudos.casa);
   if (foraEl) foraEl.innerHTML = _today2EscudoImg(escudos && escudos.fora);
+}
+
+// Odds AO VIVO (bet365, se movem de verdade durante a partida) — pedido do
+// usuário (2026-09-02): "existe um site onde as odds se movimentem em tempo
+// real?" -> mostrou print do painel "Odds Ao Vivo" do Flashscore -> "quero
+// colocar elas aqui no ao vivo... pra criar indicadores usando elas". O
+// live2MatchesCache (fonte: /api/radar/live, UniScore) não tem o event_id da
+// Flashscore, então cruza por nome de time com o /api/painel/matches (mesma
+// técnica de _painelListaFindPainelMatch/_live2FindListaJogo) — 1 fetch só
+// por ciclo, reaproveitado por todos os cards, não 1 por jogo.
+function _live2OddsLiveArrow(change) {
+  if (change === 'UP') return `<span style="color:var(--green)">▲</span>`;
+  if (change === 'DOWN') return `<span style="color:var(--red)">▼</span>`;
+  return '';
+}
+function _live2OddsLiveCell(label, item) {
+  const val = item && item.value != null ? `${_live2OddsLiveArrow(item.change)} ${item.value}` : '-';
+  return `<div class="live-card-odds-cell"><span class="live-card-odds-label">${label}</span><span class="live-card-odds-val">${val}</span></div>`;
+}
+function _live2OddsLiveHtml(lo) {
+  if (!lo || (!lo['1x2'] && !lo.ou)) return '';
+  const parts = [];
+  if (lo['1x2']) {
+    parts.push(_live2OddsLiveCell('1', lo['1x2'].casa));
+    parts.push(_live2OddsLiveCell('X', lo['1x2'].empate));
+    parts.push(_live2OddsLiveCell('2', lo['1x2'].fora));
+  }
+  if (lo.ou) {
+    parts.push(_live2OddsLiveCell(`Over ${lo.ou.line}`, lo.ou.over));
+    parts.push(_live2OddsLiveCell(`Under ${lo.ou.line}`, lo.ou.under));
+  }
+  if (!parts.length) return '';
+  return `<div style="text-align:center;font-size:9px;font-weight:700;color:var(--red);padding-top:4px">🔴 ODDS AO VIVO (bet365)</div>
+  <div class="live-card-odds-row" title="Odds ao vivo (bet365) — ▲ subiu / ▼ desceu desde a última mudança">
+    ${parts.join('')}
+  </div>`;
+}
+async function _loadLive2OddsLive(matches) {
+  let painelMatches = [];
+  try {
+    const r = await fetch('/api/painel/matches');
+    const d = await r.json();
+    painelMatches = (d.leagues || []).flatMap(lg => lg.matches);
+  } catch (e) { return; }
+  const cache = new Map();
+  for (const m of matches) {
+    const wrap = document.getElementById(`live2OddsLiveWrap_${m.id}`);
+    if (!wrap) continue;
+    const key = `${m.casa}|${m.fora}`;
+    if (!cache.has(key)) cache.set(key, _painelListaFindPainelMatch(m.casa, m.fora, painelMatches));
+    const pm = cache.get(key);
+    wrap.innerHTML = _live2OddsLiveHtml(pm && pm.live_odds);
+  }
 }
 
 // Posição na tabela — reaproveita o mesmo endpoint usado no Hoje 2 (/api/flashscore/standings),
