@@ -23093,6 +23093,87 @@ function _painelListaExtraiTime(metodologia, mercado) {
   return resto || null;
 }
 
+// ── Verificação de acerto — cruza cada jogo do Top 10 com o placar REAL do
+// Painel Principal e marca ✓ (bateu) / ✗ (não bateu), pedido do usuário
+// (2026-09-01): "os jogos que bateram as metodologias... ícone verde... as
+// que não bateram... vermelha... top 10 busca os placares no painel
+// principal e marca se bateu ou não". Mesma matemática já usada em
+// LEITURA_MERCADO_PATH (analise_padroes.html), portada pra cá porque o site
+// não tem acesso a esse arquivo local.
+//
+// Mercados "combinados" (sem lado) — testam o placar bruto do jogo inteiro.
+const _PAINEL_LISTA_VERIFICAR_COMBINADO = {
+  'Over 0.5 FT': (pc, pf) => (pc + pf) >= 1,
+  'Over 1.5 FT': (pc, pf) => (pc + pf) >= 2,
+  'Over 2.5 FT': (pc, pf) => (pc + pf) >= 3,
+  'Under 2.5 FT': (pc, pf) => (pc + pf) <= 2,
+  'Under 3.5 FT': (pc, pf) => (pc + pf) <= 3,
+  'Over 0.5 HT': (pc, pf, hc, hf) => (hc + hf) >= 1,
+  'Over 1.5 HT': (pc, pf, hc, hf) => (hc + hf) >= 2,
+  'Ambas marcam (BTTS)': (pc, pf) => pc > 0 && pf > 0,
+  'Ambas Equipes Marcam — Não': (pc, pf) => !(pc > 0 && pf > 0),
+  'Empate 1T': (pc, pf, hc, hf) => hc === hf,
+};
+['0-0', '1-0', '0-1', '1-1', '2-0', '0-2', '2-1', '1-2', '2-2', '3-0', '0-3', '3-1', '1-3', '3-2', '2-3', '3-3'].forEach(par => {
+  const [h, a] = par.split('-').map(Number);
+  _PAINEL_LISTA_VERIFICAR_COMBINADO[`Placar ${par} — não ocorreu`] = (pc, pf) => !(pc === h && pf === a);
+});
+
+// Mercados "por lado" — recebem (própria, adversária, própriaHT,
+// adversáriaHT) já normalizados pro time extraído da metodologia (ver
+// _painelListaExtraiTime). Precisam de HT válido: Vence 1T, Fez/Sofreu virada.
+const _PAINEL_LISTA_VERIFICAR_LADO = {
+  'Jogos em que marcou gol': (o) => o > 0,
+  'Sequência atual — Marcando gol': (o) => o > 0,
+  'Sequência atual — Sem sofrer gol': (o, a) => a === 0,
+  'Sequência atual — Vencendo': (o, a) => o > a,
+  'Sequência atual — Sem perder (invicto)': (o, a) => o >= a,
+  'Vence 1T': (o, a, oh, ah) => oh > ah,
+  'Fez virada (perdia e venceu)': (o, a, oh, ah) => oh < ah && o > a,
+  'Sofreu virada (vencia e perdeu)': (o, a, oh, ah) => oh > ah && o < a,
+};
+const _PAINEL_LISTA_VERIFICAR_PRECISA_HT = new Set(['Vence 1T', 'Fez virada (perdia e venceu)', 'Sofreu virada (vencia e perdeu)']);
+
+// null = não dá pra verificar (jogo não encontrado/ainda sem placar final, ou
+// mercado sem regra de verificação aqui — ex: "Marcou primeiro" precisa de
+// minuto do gol, que o Painel não tem em lote; "Qualquer outra vitória/
+// empate — não ocorreu" nunca teve verificar nem na ferramenta local).
+function _painelListaVerificarEntrada(mercado, time, casa, fora, painelMatch) {
+  if (!painelMatch || painelMatch.time !== 'Encerrado') return null;
+  const pc = parseInt(painelMatch.score_home, 10), pf = parseInt(painelMatch.score_away, 10);
+  if (isNaN(pc) || isNaN(pf)) return null;
+  const hc = parseInt(painelMatch.ht_home, 10), hf = parseInt(painelMatch.ht_away, 10);
+
+  if (_PAINEL_LISTA_VERIFICAR_COMBINADO[mercado]) {
+    if (mercado.includes('HT') && (isNaN(hc) || isNaN(hf))) return null;
+    return _PAINEL_LISTA_VERIFICAR_COMBINADO[mercado](pc, pf, hc, hf);
+  }
+  if (_PAINEL_LISTA_VERIFICAR_LADO[mercado]) {
+    if (!time) return null;
+    if (_PAINEL_LISTA_VERIFICAR_PRECISA_HT.has(mercado) && (isNaN(hc) || isNaN(hf))) return null;
+    const ehCasa = time === casa;
+    const o = ehCasa ? pc : pf, a = ehCasa ? pf : pc;
+    const oh = ehCasa ? hc : hf, ah = ehCasa ? hf : hc;
+    return _PAINEL_LISTA_VERIFICAR_LADO[mercado](o, a, oh, ah);
+  }
+  return null;
+}
+
+// Acha o jogo real (com placar) no Painel Principal por nome dos times —
+// mesma técnica de fuzzy-match já usada em _painelFindToday2MatchByNames,
+// só que contra a lista do Painel (que tem o placar/HT/status atualizados)
+// em vez da lista "Hoje 2".
+function _painelListaFindPainelMatch(casa, fora, painelMatches) {
+  const nc = _normLive2(casa), nf = _normLive2(fora);
+  let best = null, bestScore = 0;
+  for (const m of painelMatches) {
+    const sh = _live2SideScore(_normLive2(m.home), nc);
+    const sa = _live2SideScore(_normLive2(m.away), nf);
+    if (sh > 0 && sa > 0 && (sh + sa) > bestScore) { bestScore = sh + sa; best = m; }
+  }
+  return bestScore >= 4 ? best : null;
+}
+
 function _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, n) {
   const entradas = [];
   jogosFiltrados.forEach(j => {
@@ -23115,6 +23196,8 @@ function _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, n) {
 // era sobre virar CARD (não texto solto), não sobre cada entrada virar um
 // card separado — 21 mercados x 10 cards cada tinha virado 210 cards soltos
 // na tela, isso sim ficou bagunçado.
+// `resultado`: true (✓ verde, bateu) / false (✗ vermelho, não bateu) / null
+// (ainda sem placar final, ou mercado não verificável — sem ícone).
 function _painelListaTop10RowHtml(entrada, idx) {
   const j = entrada.jogo, met = entrada.met;
   const prob = met.probabilidade_pct != null ? `${met.probabilidade_pct}%` : '-';
@@ -23125,6 +23208,9 @@ function _painelListaTop10RowHtml(entrada, idx) {
   const destaca = t => t ? `<b style="color:var(--accent)">${_bt2EscXml(t)}</b>` : null;
   const casaHtml = destaca(entrada.time && entrada.time === j.casa ? j.casa : null) || _bt2EscXml(j.casa);
   const foraHtml = destaca(entrada.time && entrada.time === j.fora ? j.fora : null) || _bt2EscXml(j.fora);
+  const icone = entrada.resultado === true ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
+    : entrada.resultado === false ? `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`
+    : '';
   return `
     <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12px">
       <span style="color:var(--text2);font-weight:700;width:16px;flex-shrink:0;text-align:center">${idx + 1}</span>
@@ -23132,6 +23218,7 @@ function _painelListaTop10RowHtml(entrada, idx) {
         <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${casaHtml} <span style="color:var(--text2);font-weight:400">x</span> ${foraHtml}</div>
         <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
+      <span style="width:14px;flex-shrink:0;text-align:center">${icone}</span>
       <div style="text-align:right;flex-shrink:0;white-space:nowrap">
         <b style="color:var(--text)">${prob}</b> <span style="color:var(--text2);font-size:10px">${cv}</span>
       </div>
@@ -23148,10 +23235,33 @@ function _painelListaTop10SectionHtml(mercado, entradas) {
     </div>`;
 }
 
-function _painelListaRenderTop10(jogosFiltrados) {
+async function _painelListaRenderTop10(jogosFiltrados) {
   const body = document.getElementById('painelListaBody');
+  // Placar real do dia — 1 busca só, reaproveitada por TODAS as entradas de
+  // TODOS os mercados (não 1 fetch por linha). Se falhar, segue sem marcar
+  // acerto (ícone fica vazio em vez de quebrar a tela).
+  let painelMatches = [];
+  try {
+    const r = await fetch('/api/painel/matches');
+    const d = await r.json();
+    painelMatches = (d.leagues || []).flatMap(lg => lg.matches);
+  } catch (e) { /* sem placar real agora — cards saem sem ícone de acerto */ }
+  const matchCache = new Map();
+  const acharJogo = (casa, fora) => {
+    const key = `${casa}|${fora}`;
+    if (!matchCache.has(key)) matchCache.set(key, _painelListaFindPainelMatch(casa, fora, painelMatches));
+    return matchCache.get(key);
+  };
+
   const cards = _PAINEL_LISTA_TOP_MERCADOS
-    .map(mercado => _painelListaTop10SectionHtml(mercado, _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, 10)))
+    .map(mercado => {
+      const entradas = _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, 10);
+      entradas.forEach(e => {
+        const pm = acharJogo(e.jogo.casa, e.jogo.fora);
+        e.resultado = _painelListaVerificarEntrada(mercado, e.time, e.jogo.casa, e.jogo.fora, pm);
+      });
+      return _painelListaTop10SectionHtml(mercado, entradas);
+    })
     .join('');
   body.innerHTML = `<div class="live-grid-wrap" style="display:grid;align-items:start">${cards}</div>`;
 }
