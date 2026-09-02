@@ -2109,8 +2109,10 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     # usada do site inteiro, mesma causa dos apagões já sofridos nesta sessão
     # com _today2_odds_snapshot()/HT em lote (ver comentários delas). Cache
     # frio aqui só significa "sem minuto por enquanto" — não vale o risco.
+    # TTL segue o mesmo valor de _radar_fetch_live_matches (30s desde
+    # 2026-09-01) — se um mudar, o outro tem que mudar junto.
     try:
-        if time.time() - _uniscore_full_cache["ts"] < 90:
+        if time.time() - _uniscore_full_cache["ts"] < 30:
             live_uniscore = _uniscore_full_cache["live"] or []
             for m in matches:
                 if m["time"] != "Ao vivo":
@@ -3165,8 +3167,14 @@ def _radar_fetch_live_matches():
     """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
     sem o jsonify) — extraída pra ser reaproveitada por outros consumidores
     internos, não só pelo endpoint público /api/radar/live."""
-    # Cache de 90s para o endpoint público (mais curto que o cache interno)
-    if time.time() - _uniscore_full_cache["ts"] < 90 and _uniscore_full_cache["live"]:
+    # Cache de 30s — reduzido de 90s a pedido do usuário (2026-09-01: "tem
+    # como deixar ao vivo mais rápido? recebendo as informações quase em
+    # tempo real?"). Triplica a frequência das buscas reais na UniScore (7
+    # locales x até 5 páginas cada) — aceito conscientemente pelo usuário
+    # depois de avisado do custo, ainda longe do padrão que já causou
+    # apagão nesta sessão (aquele era síncrono dentro de handler quente sem
+    # nenhum cache; aqui já existe cache, só ficou mais curto).
+    if time.time() - _uniscore_full_cache["ts"] < 30 and _uniscore_full_cache["live"]:
         live = _uniscore_full_cache["live"]
         return {"live": live, "total": len(live)}
 
@@ -4080,13 +4088,15 @@ def _fetch_sofa_playwright(event_id):
 
 def _process_momentum(event_id, casa="", fora="", liga=""):
     """Busca momentum exclusivamente via UniScore (busca por nome de time).
-    Cache de 90s para evitar chamadas repetidas.
+    Cache de 30s (reduzido de 90s a pedido do usuário, 2026-09-01, pra deixar
+    o gráfico de pressão do Ao Vivo mais perto de tempo real) pra evitar
+    chamadas repetidas.
     """
     global _pattern_tips_cache, _odds_patterns_cache, _stats_patterns_cache
     # Verifica cache primeiro
     with _momentum_lock:
         cached = _momentum_cache.get(event_id)
-        if cached and time.time() - cached["ts"] < 90:
+        if cached and time.time() - cached["ts"] < 30:
             return cached["data"]
 
     print(f"[momentum] Buscando '{casa}' vs '{fora}' via UniScore...")
