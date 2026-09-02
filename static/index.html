@@ -1707,6 +1707,7 @@
           style="max-width:240px" oninput="_painelListaSetSearch(this.value)">
         <button class="painel-sort-time-btn active" id="painelListaViewTodosBtn" onclick="_painelListaSetViewMode('todos')">Todos os jogos</button>
         <button class="painel-sort-time-btn" id="painelListaViewTop10Btn" onclick="_painelListaSetViewMode('top10')">🏆 Top 10</button>
+        <button class="painel-sort-time-btn" id="painelListaTop10LiveBtn" onclick="_painelListaToggleTop10Live()" style="display:none">🔴 Só Ao Vivo</button>
         <span id="painelListaStatus" style="font-size:11px;color:var(--text2)"></span>
       </div>
       <div id="painelListaBody"></div>
@@ -23028,6 +23029,21 @@ function _painelListaSetViewMode(mode) {
   _painelListaViewMode = mode;
   document.getElementById('painelListaViewTodosBtn').classList.toggle('active', mode === 'todos');
   document.getElementById('painelListaViewTop10Btn').classList.toggle('active', mode === 'top10');
+  document.getElementById('painelListaTop10LiveBtn').style.display = mode === 'top10' ? '' : 'none';
+  if (_painelListaData) _painelListaRenderList(_painelListaData);
+}
+
+// Filtro "Só Ao Vivo" do Top 10 — pedido do usuário (2026-09-02): destacar
+// só os jogos do Top 10 que estão em andamento AGORA (cruzando com o
+// mesmo /api/painel/matches já usado pro ícone de acerto). Filtra os
+// jogos candidatos ANTES de rankear por mercado (ver _painelListaRenderTop10)
+// — filtrar só DEPOIS de já ter os top 10 por probabilidade quase sempre
+// sobra 0-1 jogo ao vivo por mercado, o que não seria útil.
+let _painelListaTop10SoAoVivo = false;
+
+function _painelListaToggleTop10Live() {
+  _painelListaTop10SoAoVivo = !_painelListaTop10SoAoVivo;
+  document.getElementById('painelListaTop10LiveBtn').classList.toggle('active', _painelListaTop10SoAoVivo);
   if (_painelListaData) _painelListaRenderList(_painelListaData);
 }
 
@@ -23251,6 +23267,7 @@ function _painelListaTop10SectionHtml(mercado, entradas) {
 
 async function _painelListaRenderTop10(jogosFiltrados) {
   const body = document.getElementById('painelListaBody');
+  const statusEl = document.getElementById('painelListaStatus');
   // Placar real do dia — 1 busca só, reaproveitada por TODAS as entradas de
   // TODOS os mercados (não 1 fetch por linha). Se falhar, segue sem marcar
   // acerto (ícone fica vazio em vez de quebrar a tela).
@@ -23267,9 +23284,19 @@ async function _painelListaRenderTop10(jogosFiltrados) {
     return matchCache.get(key);
   };
 
+  const candidatos = _painelListaTop10SoAoVivo
+    ? jogosFiltrados.filter(j => acharJogo(j.casa, j.fora)?.time === 'Ao vivo')
+    : jogosFiltrados;
+
+  if (_painelListaTop10SoAoVivo && !candidatos.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;padding:12px 0">Nenhum jogo ao vivo agora entre os carregados.</div>`;
+    statusEl.textContent = `Top 10 de ${_PAINEL_LISTA_TOP_MERCADOS.length} mercado(s), 0 jogo(s) ao vivo agora.`;
+    return;
+  }
+
   const cards = _PAINEL_LISTA_TOP_MERCADOS
     .map(mercado => {
-      const entradas = _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, 10);
+      const entradas = _painelListaTopEntradasParaMercado(candidatos, mercado, 10);
       entradas.forEach(e => {
         const pm = acharJogo(e.jogo.casa, e.jogo.fora);
         e.resultado = _painelListaVerificarEntrada(mercado, e.time, e.jogo.casa, e.jogo.fora, pm);
@@ -23278,6 +23305,9 @@ async function _painelListaRenderTop10(jogosFiltrados) {
     })
     .join('');
   body.innerHTML = `<div class="live-grid-wrap" style="display:grid;align-items:start">${cards}</div>`;
+  statusEl.textContent = _painelListaTop10SoAoVivo
+    ? `Top 10 de ${_PAINEL_LISTA_TOP_MERCADOS.length} mercado(s), sobre ${candidatos.length} jogo(s) ao vivo agora.`
+    : `Top 10 de ${_PAINEL_LISTA_TOP_MERCADOS.length} mercado(s), sobre ${jogosFiltrados.length} jogo(s) carregado(s).`;
 }
 
 function _painelListaRenderList(d) {
@@ -23298,8 +23328,7 @@ function _painelListaRenderList(d) {
     : jogos;
 
   if (_painelListaViewMode === 'top10') {
-    _painelListaRenderTop10(filtrados);
-    statusEl.textContent = `Top 10 de ${_PAINEL_LISTA_TOP_MERCADOS.length} mercado(s), sobre ${filtrados.length} jogo(s) carregado(s).`;
+    _painelListaRenderTop10(filtrados); // define painelListaStatus sozinho ao terminar (async)
     return;
   }
 
