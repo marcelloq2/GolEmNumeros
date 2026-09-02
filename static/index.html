@@ -748,10 +748,10 @@
     display: inline-block; font-size: 9px; font-weight: 700;
     padding: 1px 6px; border-radius: 4px; white-space: nowrap;
   }
-  .momento-alta  { background: #1a3a1a; color: #22c55e; }
+  .momento-alta  { background: #1a3a1a; color: var(--green); }
   .momento-estavel { background: #1e2a1a; color: #86efac; }
   .momento-irregular { background: #2a2a1a; color: #f59e0b; }
-  .momento-baixa { background: #3a1a1a; color: #ef4444; }
+  .momento-baixa { background: #3a1a1a; color: var(--red); }
 
   /* ── FILTRO MOMENTO ── */
   .bt-momento-filter { padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--bg3); }
@@ -893,7 +893,7 @@
     padding: 2px 8px; border-radius: 5px; letter-spacing: 2px; font-variant-numeric: tabular-nums;
   }
   .live-minute-badge {
-    font-size: 10px; font-weight: 700; color: #ef4444; background: #2d0a0a;
+    font-size: 10px; font-weight: 700; color: var(--red); background: #2d0a0a;
     border-radius: 4px; padding: 1px 6px;
   }
   .uni-mini {
@@ -967,7 +967,7 @@
   }
   .live-card-meta {
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: 13px; color: #ef4444; font-weight: 700; margin-top: 8px;
+    font-size: 13px; color: var(--red); font-weight: 700; margin-top: 8px;
   }
   .live-card-stats {
     font-size: 15px; color: var(--text2);
@@ -1012,8 +1012,8 @@
   .live-card-odds-val { font-size: 13px; font-weight: 800; color: var(--text); }
   .live-card-odds-val.o1 { color: var(--accent2); }
   .live-card-odds-val.ox { color: var(--text2); }
-  .live-card-odds-val.o2 { color: #ef4444; }
-  .live-card-odds-val.oover { color: #22c55e; }
+  .live-card-odds-val.o2 { color: var(--red); }
+  .live-card-odds-val.oover { color: var(--green); }
   .live-card-odds-val.ounder { color: #f59e0b; }
   .live-card-tabs {
     display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
@@ -1074,15 +1074,15 @@
   }
   @keyframes goalPulse {
     0%   { transform: scale(1);    text-shadow: 0 0 20px rgba(239,68,68,.3); }
-    15%  { transform: scale(1.45); text-shadow: 0 0 40px #22c55e, 0 0 80px #22c55e88; color: #22c55e; }
-    40%  { transform: scale(1.3);  text-shadow: 0 0 30px #22c55e, 0 0 60px #22c55e55; color: #22c55e; }
+    15%  { transform: scale(1.45); text-shadow: 0 0 40px #22c55e, 0 0 80px #22c55e88; color: var(--green); }
+    40%  { transform: scale(1.3);  text-shadow: 0 0 30px #22c55e, 0 0 60px #22c55e55; color: var(--green); }
     70%  { transform: scale(1.1);  text-shadow: 0 0 20px #22c55e44; color: #86efac; }
     100% { transform: scale(1);    text-shadow: 0 0 20px rgba(239,68,68,.3); color: var(--text); }
   }
   @keyframes goalBadgePop {
     0%   { transform: scale(1);   background: var(--bg3); }
-    20%  { transform: scale(1.2); background: #14532d; color: #22c55e; }
-    60%  { transform: scale(1.1); background: #14532d; color: #22c55e; }
+    20%  { transform: scale(1.2); background: #14532d; color: var(--green); }
+    60%  { transform: scale(1.1); background: #14532d; color: var(--green); }
     100% { transform: scale(1);   background: var(--bg3); }
   }
   .goal-flash { animation: goalPulse 1.4s ease-out forwards; }
@@ -1096,12 +1096,12 @@
   .goal-banner {
     position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
     white-space: nowrap; font-size: 13px; font-weight: 800;
-    color: #22c55e; background: #052e16ee; border: 1px solid #22c55e88;
+    color: var(--green); background: #052e16ee; border: 1px solid #22c55e88;
     border-radius: 6px; padding: 3px 10px; pointer-events: none;
     animation: goalBannerIn 2.2s ease forwards;
   }
   .live-minute-big {
-    font-size: 12px; font-weight: 700; color: #ef4444;
+    font-size: 12px; font-weight: 700; color: var(--red);
     background: #2d0a0a; border-radius: 5px; padding: 2px 10px;
     border: 1px solid #ef444444;
   }
@@ -1165,10 +1165,10 @@
     font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
     margin-left: auto;
   }
-  .pos-GK { background: #1a3a2a; color: #22c55e; }
+  .pos-GK { background: #1a3a2a; color: var(--green); }
   .pos-DEF { background: #1a2a4a; color: #60a5fa; }
   .pos-MID { background: #2a2a1a; color: #f59e0b; }
-  .pos-FWD { background: #3a1a1a; color: #ef4444; }
+  .pos-FWD { background: #3a1a1a; color: var(--red); }
 
   /* Odds */
   .live-odds-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -1232,13 +1232,13 @@
   .painel-plat-betfair { background: #ffb80c; color: #05262b; }
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
   .painel-plat-radar { background: #2f9e8f; color: #fff; }
-  .painel-match-minute { color: #ef4444; font-weight: 700; font-size: 11px; }
+  .painel-match-minute { color: var(--red); font-weight: 700; font-size: 11px; }
   .painel-match-row:hover { background: var(--bg2); }
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 13px; }
   .painel-match-league-label { font-size: 11px; color: var(--text2); opacity: .8; white-space: nowrap; margin-top: 2px; }
   .painel-match-kickoff { font-size: 12px; color: var(--text2); white-space: nowrap; margin-top: 1px; }
-  .painel-match-time.live { color: #ef4444; font-weight: 700; }
+  .painel-match-time.live { color: var(--red); font-weight: 700; }
   .painel-match-teams {
     display: grid; align-items: center; gap: 6px; overflow: hidden;
     grid-template-columns: 14px 15px minmax(0,1fr) auto 48px auto minmax(0,1fr) 15px 14px;
@@ -1266,7 +1266,7 @@
   .painel-match-score {
     display: block; text-align: center; white-space: nowrap;
     font-family: var(--font-body);
-    font-size: 16px; font-weight: 800; letter-spacing: .2px; color: #ff6b6b;
+    font-size: 16px; font-weight: 800; letter-spacing: .2px; color: var(--red);
   }
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
@@ -1995,7 +1995,7 @@
         </div>
         <button onclick="openHojeGuia()" title="Guia da aba Hoje"
           style="margin-left:4px;background:transparent;border:1px solid #3b82f644;border-radius:6px;
-                 color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 color:var(--accent2);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button class="live-sidebar-toggle" onclick="toggleTodaySidebar()" title="Ocultar barra">◀</button>
       </div>
@@ -2108,7 +2108,7 @@
         </select>
         <button onclick="openLiveGuia()" title="Guia do Ao Vivo"
           style="background:transparent;border:1px solid #ef444444;border-radius:6px;
-                 color:#ef4444;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                 color:var(--red);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">📖 Guia</button>
         <button class="live-sidebar-toggle" onclick="toggleLiveSidebar()" title="Ocultar barra">◀</button>
       </div>
@@ -2157,7 +2157,7 @@
         <span style="display:flex;align-items:center;gap:8px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
             style="background:transparent;border:1px solid #3b82f644;border-radius:6px;
-                   color:#3b82f6;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+                   color:var(--accent2);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                    white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
           <span id="live2CutNote" style="font-size:10px;color:var(--text2)"></span>
@@ -2248,7 +2248,7 @@
             <button class="filter-btn" id="today2Turno_manha" onclick="setToday2Turno('manha', this)">🌅</button>
             <button class="filter-btn" id="today2Turno_tarde" onclick="setToday2Turno('tarde', this)">☀️</button>
             <button class="filter-btn" id="today2Turno_noite" onclick="setToday2Turno('noite', this)">🌙</button>
-            <button class="filter-btn" id="today2AoVivoBtn" onclick="toggleToday2AoVivo(this)" style="color:#ef4444">🔴 Ao Vivo</button>
+            <button class="filter-btn" id="today2AoVivoBtn" onclick="toggleToday2AoVivo(this)" style="color:var(--red)">🔴 Ao Vivo</button>
             <button class="filter-btn" id="today2EncerradosBtn" onclick="toggleToday2Status('3', this)">Encerrados</button>
             <button class="filter-btn" id="today2ProximosBtn" onclick="toggleToday2Status('1', this)">Próximos</button>
             <button class="filter-btn" id="today2FavoritosBtn" onclick="toggleToday2SoFavoritos(this)" style="color:#f59e0b">⭐ Favoritos</button>
@@ -2342,7 +2342,7 @@
           style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
                  color:var(--text);font-size:12px;padding:5px 10px;width:100%;box-sizing:border-box;margin-bottom:8px">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="filter-btn" id="placarContraAoVivoBtn" onclick="_placarContraToggleStatus('ao_vivo', this)" style="color:#ef4444">🔴 Ao Vivo</button>
+          <button class="filter-btn" id="placarContraAoVivoBtn" onclick="_placarContraToggleStatus('ao_vivo', this)" style="color:var(--red)">🔴 Ao Vivo</button>
           <button class="filter-btn" id="placarContraEncerradosBtn" onclick="_placarContraToggleStatus('3', this)">Encerrados</button>
           <button class="filter-btn" id="placarContraProximosBtn" onclick="_placarContraToggleStatus('1', this)">Próximos</button>
         </div>
@@ -2958,7 +2958,7 @@ const APP_GUIA_SECTIONS = {
         ${_guiaRow('🗺️ Zona do último chute', 'Mostra em que zona do campo (perigosa ou não) saiu a última finalização.')}
         ${_guiaRow('🧠 xG em dobro (oficial)', 'O xG (gol esperado) oficial da partida já está acima do dobro do que seria "normal" pro tempo de jogo até agora — sinal de jogo mais aberto que o esperado.')}
         ${_guiaRow('🗺️🧮 xG em dobro (calculado)', 'Mesma leitura do selo acima, só que calculada por nós a partir da posição de cada chute no mapa, pra quando a fonte não traz o xG oficial.')}
-        <br><b>Linhas "Partida toda / Últimos 10min / Últimos 5min":</b> % de pressão+chutes (e xG oficial na "Partida toda") de cada lado em 3 janelas de tempo diferentes. Cada linha tem sua PRÓPRIA bolinha <span style="color:#3b82f6;font-weight:700">azul</span> ou <span style="color:#ef4444;font-weight:700">vermelha</span> — acende sozinha, independente das outras 2 linhas, sempre que o mesmo time está com pelo menos o dobro do percentual do outro lado NAQUELA janela específica.`),
+        <br><b>Linhas "Partida toda / Últimos 10min / Últimos 5min":</b> % de pressão+chutes (e xG oficial na "Partida toda") de cada lado em 3 janelas de tempo diferentes. Cada linha tem sua PRÓPRIA bolinha <span style="color:var(--accent2);font-weight:700">azul</span> ou <span style="color:var(--red);font-weight:700">vermelha</span> — acende sozinha, independente das outras 2 linhas, sempre que o mesmo time está com pelo menos o dobro do percentual do outro lado NAQUELA janela específica.`),
 
       _guiaSec('🗺️', 'Mapa de chutes', `
         Campo de futebol desenhado com a posição exata de cada finalização da partida até agora — dá pra ver rapidamente se as chances estão vindo de dentro da área (mais perigosas) ou de longe.`),
@@ -5816,13 +5816,13 @@ function _painelLoadMethodologiesList() {
             <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
             <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
             <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1 por dica encerrada)">
-              <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:#22c55e' : 'color:#ef4444') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
+              <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:var(--green)' : 'color:var(--red)') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
             </div>
             <div class="painel-meth-stat" id="painelMethDdMaxStat_${u.uid}" title="Maior sequência de dicas ERRADAS seguidas (em ordem cronológica)">
-              <span class="v" style="${cachedDD ? 'color:#ef4444' : ''}">${cachedDD ? cachedDD.maxLossStreak : '--'}</span><span class="l">DD Máx RED</span>
+              <span class="v" style="${cachedDD ? 'color:var(--red)' : ''}">${cachedDD ? cachedDD.maxLossStreak : '--'}</span><span class="l">DD Máx RED</span>
             </div>
             <div class="painel-meth-stat" id="painelMethDdMinStat_${u.uid}" title="Maior sequência de dicas CERTAS seguidas (em ordem cronológica)">
-              <span class="v" style="${cachedDD ? 'color:#22c55e' : ''}">${cachedDD ? cachedDD.maxWinStreak : '--'}</span><span class="l">DD Máx GREEN</span>
+              <span class="v" style="${cachedDD ? 'color:var(--green)' : ''}">${cachedDD ? cachedDD.maxWinStreak : '--'}</span><span class="l">DD Máx GREEN</span>
             </div>
           </div>`;
         return _painelMethItemShell(u, statsHtml);
@@ -6023,8 +6023,8 @@ function _painelOpenProfitChart(uid, uname) {
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Profit acumulado em unidades (stake fixo de 1 por dica), só com as dicas já encerradas, em ordem cronológica.</div>
         ${_painelProfitChartSvg(curve.points)}
         <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text2)">
-          <span>DD Máx (GREEN — sequência de vitórias): <b style="color:#22c55e">${curve.maxWinStreak}</b></span>
-          <span>DD Máx (RED — sequência de derrotas): <b style="color:#ef4444">${curve.maxLossStreak}</b></span>
+          <span>DD Máx (GREEN — sequência de vitórias): <b style="color:var(--green)">${curve.maxWinStreak}</b></span>
+          <span>DD Máx (RED — sequência de derrotas): <b style="color:var(--red)">${curve.maxLossStreak}</b></span>
         </div>`;
     })
     .catch(err => { body.innerHTML = `<div class="live-loading">Erro ao carregar: ${err}</div>`; });
@@ -7399,7 +7399,7 @@ function _painelForcaReportAhLine(rowsArrays) {
   if (!best) return _painelForcaReportLine(`<span style="color:var(--text2)">Handicap Asiático mais acertivo: sem dados suficientes</span>`);
   return _painelForcaReportLine(
     `Handicap Asiático mais acertivo: linha <b style="color:var(--text);font-size:16px">${best.line}</b> — ` +
-    `<b style="color:#22c55e;font-size:16px">${best.side}</b> cobriu em <b style="color:#22c55e;font-size:16px">${Math.round(best.pct)}%</b> dos jogos ` +
+    `<b style="color:var(--green);font-size:16px">${best.side}</b> cobriu em <b style="color:var(--green);font-size:16px">${Math.round(best.pct)}%</b> dos jogos ` +
     `<span style="color:var(--text2);font-size:12px">(${best.n} jogos)</span>`
   );
 }
@@ -9595,7 +9595,7 @@ function renderToday2Row(m) {
   return `
     <div class="today2-match-row ${isFav ? 'favoritado' : ''}" data-id="${m.id}" onclick="selectToday2Match('${m.id}', this)">
       <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
+        ${m.status === '2' ? `<div style="color:var(--red);font-weight:700;font-size:12px">🔴</div>` : ''}
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
         ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
       </div>
@@ -9633,7 +9633,7 @@ function _today2RefreshDetailHeader(id, targetId) {
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
       <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
+        ${m.status === '2' ? `<div style="color:var(--red);font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
         <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
       </div>
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
@@ -10706,7 +10706,7 @@ function _h2hTableSectionHtml(matchId, sec, secIdx, isDirect) {
         <table style="width:100%;border-collapse:collapse">
           <thead><tr>
             ${['Data', 'Competição', 'Confronto', 'Placares (HT)/FT', 'Result.'].map(l => `
-              <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:#22c55e;
+              <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--green);
                 text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap">${l}</th>`).join('')}
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
@@ -11035,7 +11035,7 @@ async function _bt2LoadRanking(refresh) {
     _bt2SelectedIdx = 0;
     _bt2Render();
   } catch (e) {
-    content.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:20px 0">erro ao calcular ranking: ${e}</div>`;
+    content.innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px 0">erro ao calcular ranking: ${e}</div>`;
   }
 }
 
@@ -11107,8 +11107,8 @@ function _bt2TableHtml(sorted) {
       <td style="padding:7px 10px;font-size:13px;color:${profitColor}">${m.roi >= 0 ? '+' : ''}${m.roi.toFixed(1)}%</td>
       <td style="padding:7px 10px;font-size:13px;color:var(--text2)">${m.stddev.toFixed(2)}</td>
       <td style="padding:7px 10px;font-size:13px;color:var(--text2)">${m.cv != null ? m.cv.toFixed(2) : '-'}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#ef4444" title="Maior sequência de derrotas seguidas">${m.max_loss_streak ?? '-'}</td>
-      <td style="padding:7px 10px;font-size:13px;color:#22c55e" title="Maior sequência de vitórias seguidas">${m.max_win_streak ?? '-'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:var(--red)" title="Maior sequência de derrotas seguidas">${m.max_loss_streak ?? '-'}</td>
+      <td style="padding:7px 10px;font-size:13px;color:var(--green)" title="Maior sequência de vitórias seguidas">${m.max_win_streak ?? '-'}</td>
     </tr>`;
   }).join('');
   return `
@@ -11350,7 +11350,7 @@ function _bt2MatchesHtml(m, matches) {
     </div>`).join('');
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-top:10px">
-      <div style="font-size:12px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--green);padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
         ${titulo} — ${matches.length} jogo(s)
       </div>
       <div style="padding:4px">${rows}</div>
@@ -11417,7 +11417,7 @@ async function _btcsLoadRanking(refresh) {
     _btcsSelectedIdx = -1;
     _btcsRender();
   } catch (e) {
-    content.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:20px 0">erro ao calcular ranking: ${e}</div>`;
+    content.innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px 0">erro ao calcular ranking: ${e}</div>`;
   }
 }
 
@@ -11668,7 +11668,7 @@ function _btcsMatchesHtml(m, matches) {
   const rows = sorted.map(mt => {
     const ev = evOf(mt);
     const evHtml = ev == null ? '' : (ev >= 3
-      ? `<span style="color:#22c55e;font-weight:700">⚡ ${ev >= 0 ? '+' : ''}${ev.toFixed(1)}pp</span>`
+      ? `<span style="color:var(--green);font-weight:700">⚡ ${ev >= 0 ? '+' : ''}${ev.toFixed(1)}pp</span>`
       : `<span style="color:var(--text2)">${ev >= 0 ? '+' : ''}${ev.toFixed(1)}pp</span>`);
     return `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:13px;border-radius:6px"
@@ -11682,7 +11682,7 @@ function _btcsMatchesHtml(m, matches) {
   }).join('');
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-top:10px">
-      <div style="font-size:12px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--green);padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
         ${titulo} — ${matches.length} jogo(s) · taxa do modelo ${(modelRate * 100).toFixed(1)}%
       </div>
       <div style="display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:11px;color:var(--text2)">
@@ -11794,7 +11794,7 @@ function _btcsEvCellHtml(bucket, segmentRate) {
   const ev = _btcsEvPct(bucket, segmentRate);
   if (ev == null) return '<span style="color:var(--text2)">—</span>';
   const sign = ev >= 0 ? '+' : '';
-  if (ev >= 3) return `<span style="color:#22c55e">⚡ EV+ ${sign}${ev.toFixed(1)}pp</span>`;
+  if (ev >= 3) return `<span style="color:var(--green)">⚡ EV+ ${sign}${ev.toFixed(1)}pp</span>`;
   if (ev <= -3) return `<span style="color:var(--text2)">${sign}${ev.toFixed(1)}pp</span>`;
   return `<span style="color:var(--text2)">${sign}${ev.toFixed(1)}pp</span>`;
 }
@@ -12534,7 +12534,7 @@ function _renderPlacarContraRow(m) {
   return `
     <div class="today2-match-row" data-id="${m.id}" onclick="selectPlacarContraMatch('${m.id}', this)">
       <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴</div>` : ''}
+        ${m.status === '2' ? `<div style="color:var(--red);font-weight:700;font-size:12px">🔴</div>` : ''}
         <div style="color:var(--text2);font-size:13px">${m.status === '1' ? hora : placarOuHora}</div>
         ${m.status !== '1' ? `<div style="color:var(--text2);font-size:10px;opacity:.7">${hora}</div>` : ''}
       </div>
@@ -12594,7 +12594,7 @@ function selectPlacarContraMatch(id, rowEl) {
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="font-size:18px;font-weight:700;flex:1;display:flex;align-items:center;gap:8px">${_today2EscudoImg(m.escudo_casa, 24)}${m.home}</div>
       <div style="text-align:center">
-        ${m.status === '2' ? `<div style="color:#ef4444;font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
+        ${m.status === '2' ? `<div style="color:var(--red);font-weight:700;font-size:12px">🔴 Ao vivo</div>` : ''}
         <div style="font-size:21px;font-weight:800;color:var(--text2)">${m.status === '1' ? hora : `${m.home_score ?? 0} - ${m.away_score ?? 0}`}</div>
       </div>
       <div style="font-size:18px;font-weight:700;flex:1;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">${m.away}${_today2EscudoImg(m.escudo_fora, 24)}</div>
@@ -12943,7 +12943,7 @@ async function _placarContraEscanearSinais() {
         <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga)} (${_bt2EscXml(m.pais)}) — ${hora}</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-          ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">lay ${h.score}${h.combinado ? ' 🔗' : ''}</span>`).join('')}
+          ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:var(--green);background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">lay ${h.score}${h.combinado ? ' 🔗' : ''}</span>`).join('')}
         </div>
       </div>`;
   }).join('');
@@ -13185,7 +13185,7 @@ async function _hojeScanExecutar() {
           <div style="font-size:11px;color:var(--text2)">${_bt2EscXml(m.liga)} (${_bt2EscXml(m.pais)}) — ${hora}</div>
           <div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0">${_bt2EscXml(m.home)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(m.away)}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-            ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:#22c55e;background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">${labelDe(h.key)} ${h.valor.toFixed(0)}%</span>`).join('')}
+            ${hits.map(h => `<span style="font-size:12px;font-weight:700;color:var(--green);background:#22c55e18;border:1px solid #22c55e44;border-radius:6px;padding:2px 8px">${labelDe(h.key)} ${h.valor.toFixed(0)}%</span>`).join('')}
           </div>
         </div>`;
     }).join('')}`;
@@ -13521,7 +13521,7 @@ function _profitHighlightsSummaryHtml(blocks, aggs, marketLabels, currentMarkets
     : '';
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:900px">
-      <div style="font-size:13px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--green);padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
         ${_icoZap()} ${highlights.length} sinal(is) de valor encontrado(s) — resumo de todos os mercados
       </div>
       ${avisoPoucosSinais}
@@ -13541,8 +13541,8 @@ function _profitHighlightsSummaryHtml(blocks, aggs, marketLabels, currentMarkets
               <td style="text-align:left;color:var(--text)">${h.label}${isMelhor ? ` <span title="Melhor sinal: menor CV entre os que têm odd disponível hoje" style="cursor:help">${_icoTrophy()}</span>` : ''}</td>
               <td style="color:var(--text2)">${h.r.bets}</td>
               <td style="color:var(--text2)">${h.r.wins}/${h.r.bets} (${(h.r.wins / h.r.bets * 100).toFixed(0)}%)</td>
-              <td style="color:#22c55e;font-weight:700">${h.r.profit >= 0 ? '+' : ''}${h.r.profit.toFixed(2)}u</td>
-              <td style="color:#22c55e;font-weight:700">+${h.roi.toFixed(0)}%</td>
+              <td style="color:var(--green);font-weight:700">${h.r.profit >= 0 ? '+' : ''}${h.r.profit.toFixed(2)}u</td>
+              <td style="color:var(--green);font-weight:700">+${h.roi.toFixed(0)}%</td>
               <td style="color:var(--text2)">${h.variance.toFixed(2)}</td>
               <td style="color:var(--text2)">${h.stddev.toFixed(2)}</td>
               <td style="color:${isMelhor ? '#22c55e' : 'var(--text2)'};font-weight:${isMelhor ? 700 : 400}">${h.cv !== null ? h.cv.toFixed(2) : '—'}</td>
@@ -13623,7 +13623,7 @@ function _csImprovaveisSummaryHtml(blocks, freqs) {
   }
   return `
     <div style="background:var(--bg2);border:1px solid #ef444455;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:700px">
-      <div style="font-size:13px;font-weight:700;color:#ef4444;padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--red);padding:9px 12px;background:rgba(239,68,68,.08);border-bottom:1px solid var(--border)">
         ${_icoTarget()} Placares mais improváveis — nunca ocorreram${freqs.length > 1 ? ' em nenhum dos dois times' : ' nesse time'}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;padding:12px">
@@ -13657,13 +13657,13 @@ function _csProvaveisSummaryHtml(blocks, freqs) {
   }
   return `
     <div style="background:var(--bg2);border:1px solid #22c55e55;border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:700px">
-      <div style="font-size:13px;font-weight:700;color:#22c55e;padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--green);padding:9px 12px;background:rgba(34,197,94,.08);border-bottom:1px solid var(--border)">
         ✅ Placares mais prováveis — maior frequência histórica${freqs.length > 1 ? ' entre os dois times' : ' nesse time'}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;padding:12px">
         ${medias.map(({ key, avgPct }) => `
           <div style="border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-            ${key} <span style="color:#22c55e;font-weight:700">${avgPct.toFixed(0)}%</span>
+            ${key} <span style="color:var(--green);font-weight:700">${avgPct.toFixed(0)}%</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -13810,8 +13810,8 @@ function _today2PowerIcon(value, higherIsBetter, thresholds) {
   const [bom, ruim] = thresholds;
   const bomCond = higherIsBetter ? value >= bom : value <= bom;
   const ruimCond = higherIsBetter ? value <= ruim : value >= ruim;
-  if (bomCond) return `<span style="color:#22c55e">✓</span>`;
-  if (ruimCond) return `<span style="color:#ef4444">▽</span>`;
+  if (bomCond) return `<span style="color:var(--green)">✓</span>`;
+  if (ruimCond) return `<span style="color:var(--red)">▽</span>`;
   return `<span style="color:#f59e0b">△</span>`;
 }
 
@@ -14588,7 +14588,7 @@ function _today2AcimaMediaCompactHtml(grupos) {
           <span style="font-size:13px;color:var(--text2)">${_bt2EscXml(r.label)}</span>
           <span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
             <span style="font-size:10px;color:var(--text2)">méd: ${r.fmt(r.mediaVal)}</span>
-            <span style="font-size:13px;font-weight:700;color:#22c55e">${r.fmt(r.val)}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--green)">${r.fmt(r.val)}</span>
             <span style="font-size:10px;font-weight:700;color:${diffColor}" title="diferença em relação à média">(${diffTxt})</span>
             <span style="font-size:9px;font-weight:700;color:${r.confianca.color};background:${r.confianca.color}18;border:1px solid ${r.confianca.color}44;border-radius:4px;padding:1px 5px">${r.confianca.label.replace(' confiança', '')}</span>
           </span>
@@ -15036,7 +15036,7 @@ function _live2OpenProbModal(matchId) {
     <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px">
       <span style="color:#f59e0b">${m.casa} ${r.casaPct.toFixed(0)}%</span>
       <span style="color:var(--text2)">Empate ${r.empatePct.toFixed(0)}%</span>
-      <span style="color:#22c55e">${m.fora} ${r.foraPct.toFixed(0)}%</span>
+      <span style="color:var(--green)">${m.fora} ${r.foraPct.toFixed(0)}%</span>
     </div>
     <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--bg3)">
       ${barSeg(r.casaPct, '#f59e0b')}${barSeg(r.empatePct, '#8b96ad')}${barSeg(r.foraPct, '#22c55e')}
@@ -15128,10 +15128,10 @@ function _renderUniscoreCD(d) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#22c55e">${dados.over25_pct}%</div><div style="font-size:11px;color:var(--text2)">Mais De 2.5</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green)">${dados.over25_pct}%</div><div style="font-size:11px;color:var(--text2)">Mais De 2.5</div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#22c55e">${dados.over15_pct}%</div><div style="font-size:11px;color:var(--text2)">Mais De 1.5</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green)">${dados.over15_pct}%</div><div style="font-size:11px;color:var(--text2)">Mais De 1.5</div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
         <div style="font-size:18px;font-weight:800">${dados.btts_pct}%</div><div style="font-size:11px;color:var(--text2)">BTTS</div>
@@ -15470,9 +15470,9 @@ function _live2ThermometerHtml(score, label, titulo, dotHtml) {
   return `
     <div class="live2-stat-row" title="${titulo}">
       <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">🌡️ ${label}:</span>
-      <span style="color:#3b82f6;font-weight:${casaMaior ? '800' : '500'}">Casa ${score.casaPct.toFixed(0)}%</span>
+      <span style="color:var(--accent2);font-weight:${casaMaior ? '800' : '500'}">Casa ${score.casaPct.toFixed(0)}%</span>
       <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
-      <span style="color:#ef4444;font-weight:${!casaMaior ? '800' : '500'}">Visitante ${score.foraPct.toFixed(0)}%</span>
+      <span style="color:var(--red);font-weight:${!casaMaior ? '800' : '500'}">Visitante ${score.foraPct.toFixed(0)}%</span>
       <span>${dotHtml || ''}</span>
     </div>`;
 }
@@ -15512,9 +15512,9 @@ function _live2RateStatsHtml(m) {
     return `
     <div class="live2-stat-row" title="${tituloBase} até agora (${h}/${a}) ÷ ${minutos} minutos jogados — é uma média, não um valor minuto a minuto">
       <span style="color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">${_icoChart()} ${label}:</span>
-      <span style="color:#3b82f6;font-weight:600">Casa ${rate(h)}/min</span>
+      <span style="color:var(--accent2);font-weight:600">Casa ${rate(h)}/min</span>
       <span style="color:var(--text2);opacity:.5;text-align:center">·</span>
-      <span style="color:#ef4444;font-weight:600">Visitante ${rate(a)}/min</span>
+      <span style="color:var(--red);font-weight:600">Visitante ${rate(a)}/min</span>
       <span>${dotHtml(h, a, slot)}</span>
     </div>`;
   };
@@ -15557,8 +15557,8 @@ function _live2DotCounterHtml(matchId) {
   if (!c || (!c.casa && !c.fora)) return '';
   return `<div style="display:flex;justify-content:center;gap:12px;font-size:9px;font-weight:700;margin-bottom:4px"
     title="Quantas vezes um sinal de domínio (bolinha azul/vermelha) apareceu de novo pra cada lado durante a partida">
-    <span style="color:#3b82f6">🔵 Casa ${c.casa}</span>
-    <span style="color:#ef4444">🔴 Visitante ${c.fora}</span>
+    <span style="color:var(--accent2)">🔵 Casa ${c.casa}</span>
+    <span style="color:var(--red)">🔴 Visitante ${c.fora}</span>
   </div>`;
 }
 
@@ -15758,7 +15758,7 @@ function _live2AttachMomentumTooltip(canvas, points) {
     const val = p.value || 0;
     const pressaoCasa = val >= 0 ? val : 0;
     const pressaoFora = val < 0 ? Math.abs(val) : 0;
-    tip.innerHTML = `<div style="color:#3b82f6">Pressão Casa: ${pressaoCasa.toFixed(2)}</div><div style="color:#ef4444">Pressão Fora: ${pressaoFora.toFixed(2)}</div>`;
+    tip.innerHTML = `<div style="color:var(--accent2)">Pressão Casa: ${pressaoCasa.toFixed(2)}</div><div style="color:var(--red)">Pressão Fora: ${pressaoFora.toFixed(2)}</div>`;
     tip.style.left = (ev.clientX + 12) + 'px';
     tip.style.top = (ev.clientY - 36) + 'px';
     tip.style.display = 'block';
@@ -16447,8 +16447,8 @@ async function loadLiveMatches(silent = false) {
         </div>`;
       grp.matches.forEach(m => {
         const scoreFt  = `${m.golCasaFt} - ${m.golForaFt}`;
-        const redCasa  = m.cartaoCasa > 0 ? `<span style="color:#ef4444;font-size:10px">🟥×${m.cartaoCasa}</span>` : '';
-        const redFora  = m.cartaoFora > 0 ? `<span style="color:#ef4444;font-size:10px">🟥×${m.cartaoFora}</span>` : '';
+        const redCasa  = m.cartaoCasa > 0 ? `<span style="color:var(--red);font-size:10px">🟥×${m.cartaoCasa}</span>` : '';
+        const redFora  = m.cartaoFora > 0 ? `<span style="color:var(--red);font-size:10px">🟥×${m.cartaoFora}</span>` : '';
         const isActive = activeLiveId === m.id;
         const isFav    = isLiveMatchFavorite(m.casa, m.fora);
 
@@ -17085,7 +17085,7 @@ function buildStatAreaPrognosisHtml(detalhes, m) {
       ${placarSugerido ? `
       <div style="display:flex;align-items:center;justify-content:space-between;padding-top:6px;margin-top:4px">
         <span style="font-size:11px;color:var(--text2)">Placar sugerido</span>
-        <span style="font-size:13px;font-weight:800;color:#22c55e">${placarSugerido}${confSpan(confGols)}</span>
+        <span style="font-size:13px;font-weight:800;color:var(--green)">${placarSugerido}${confSpan(confGols)}</span>
       </div>` : ''}
       ${placaresProvaveis.length ? (() => {
         const chip = (e, color) => `
@@ -17737,8 +17737,8 @@ function renderLiveGrid(matches) {
     const sCasa = ref ? calcBtTeamScore(ref, true)  : null;
     const sVis  = ref ? calcBtTeamScore(ref, false) : null;
     const sGols = ref ? calcGoalScore(ref)          : null;
-    const redCasa = m.cartaoCasa > 0 ? `<span style="color:#ef4444">🟥${m.cartaoCasa}</span>` : '';
-    const redFora = m.cartaoFora > 0 ? `<span style="color:#ef4444">🟥${m.cartaoFora}</span>` : '';
+    const redCasa = m.cartaoCasa > 0 ? `<span style="color:var(--red)">🟥${m.cartaoCasa}</span>` : '';
+    const redFora = m.cartaoFora > 0 ? `<span style="color:var(--red)">🟥${m.cartaoFora}</span>` : '';
     const isFav   = isLiveMatchFavorite(m.casa, m.fora);
 
     let card = document.getElementById(`liveCard_${m.id}`);
@@ -18705,8 +18705,8 @@ function renderLiveDetail(m) {
   // ── Header ──
   const htScore  = `${m.golCasaHt}-${m.golForaHt}`;
   const ftScore  = `${m.golCasaFt}-${m.golForaFt}`;
-  const redC = m.cartaoCasa > 0 ? `<span style="color:#ef4444;font-size:13px"> 🟥×${m.cartaoCasa}</span>` : '';
-  const redF = m.cartaoFora > 0 ? `<span style="color:#ef4444;font-size:13px"> 🟥×${m.cartaoFora}</span>` : '';
+  const redC = m.cartaoCasa > 0 ? `<span style="color:var(--red);font-size:13px"> 🟥×${m.cartaoCasa}</span>` : '';
+  const redF = m.cartaoFora > 0 ? `<span style="color:var(--red);font-size:13px"> 🟥×${m.cartaoFora}</span>` : '';
 
   const flagImg = '';
 
@@ -18755,7 +18755,7 @@ function renderLiveDetail(m) {
         <div id="uniscorePanel" style="display:none;margin-top:6px"></div>
         <div id="shotmapPanel" style="margin-top:8px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
-          <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:#22c55e">💾 Salvo no histórico</div>
+          <div id="momentumSavedBadge" style="display:none;font-size:9px;font-weight:700;color:var(--green)">💾 Salvo no histórico</div>
         </div>
       </div>
     </div>`;
@@ -19452,7 +19452,7 @@ async function updateMomentumIndicator(points, finished, eventId) {
   } else if (score > T) {
     sigType  = 'home'; sigColor = '#3b82f6'; sigShort = '⚡Casa';
     icon     = _lightningIcon('#3b82f6', 28);
-    label    = `<span style="color:#3b82f6;font-weight:800;font-size:13px">Gol Casa</span>`;
+    label    = `<span style="color:var(--accent2);font-weight:800;font-size:13px">Gol Casa</span>`;
     bg       = 'rgba(59,130,246,.1)';
     border   = '#3b82f6';
     if (isHT) label += ` <span style="font-size:11px;color:#a78bfa">⚽🚨 1º Tempo</span>`;
@@ -19460,7 +19460,7 @@ async function updateMomentumIndicator(points, finished, eventId) {
   } else if (score < -T) {
     sigType  = 'away'; sigColor = '#ef4444'; sigShort = '⚡Vis';
     icon     = _lightningIcon('#ef4444', 28);
-    label    = `<span style="color:#ef4444;font-weight:800;font-size:13px">Gol Visitante</span>`;
+    label    = `<span style="color:var(--red);font-weight:800;font-size:13px">Gol Visitante</span>`;
     bg       = 'rgba(239,68,68,.1)';
     border   = '#ef4444';
     if (isHT) label += ` <span style="font-size:11px;color:#a78bfa">⚽🚨 1º Tempo</span>`;
@@ -19564,13 +19564,13 @@ function _renderSimilarMatches(el, data) {
   // Barra de resultado resumida — agora com % e amostra real
   const outcomeBar = `
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      ${gh ? `<span style="color:#3b82f6;font-weight:700;font-size:11px">⚡Casa ${gh}/${statN} (${pctH}%)</span>` : ''}
-      ${ga ? `<span style="color:#ef4444;font-weight:700;font-size:11px">⚡Vis ${ga}/${statN} (${pctA}%)</span>` : ''}
+      ${gh ? `<span style="color:var(--accent2);font-weight:700;font-size:11px">⚡Casa ${gh}/${statN} (${pctH}%)</span>` : ''}
+      ${ga ? `<span style="color:var(--red);font-weight:700;font-size:11px">⚡Vis ${ga}/${statN} (${pctA}%)</span>` : ''}
       ${gn ? `<span style="color:#64748b;font-weight:700;font-size:11px">🧊 Sem Gol ${gn}/${statN} (${pctN}%)</span>` : ''}
     </div>`;
 
-  const outcomeIcon = o => o === 'home' ? '⚡<span style="color:#3b82f6">Casa</span>'
-                         : o === 'away' ? '⚡<span style="color:#ef4444">Vis</span>'
+  const outcomeIcon = o => o === 'home' ? '⚡<span style="color:var(--accent2)">Casa</span>'
+                         : o === 'away' ? '⚡<span style="color:var(--red)">Vis</span>'
                          : o === 'any'  ? '⚡<span style="color:#fbbf24">Gol</span>'
                          : '🧊';
   const outcomeColor = o => o === 'home' ? '#1e3a5f' : o === 'away' ? '#3f1515' : o === 'any' ? '#3b2c0a' : '#1a1d27';
@@ -19948,7 +19948,7 @@ function _shotmapStatBar(label, total, goals, color) {
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
       <span style="color:var(--text2)">${label}</span>
       <span style="font-weight:700;color:var(--text1)">${total} chutes</span>
-      <span style="color:#22c55e;font-weight:700">${goals} ${_icoBall()}</span>
+      <span style="color:var(--green);font-weight:700">${goals} ${_icoBall()}</span>
     </div>`;
 }
 
@@ -20191,7 +20191,7 @@ function buildIndicatorsHtml(d, homeName, awayName) {
           <span style="font-size:9px;color:#64748b">${src}${nf}</span>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:700;color:#3b82f6">${homeName || 'Casa'} <b>${xg.home.toFixed(2)}</b></span>
+          <span style="font-size:12px;font-weight:700;color:var(--accent2)">${homeName || 'Casa'} <b>${xg.home.toFixed(2)}</b></span>
           <span style="font-size:12px;font-weight:700;color:#f97316">${awayName || 'Fora'} <b>${xg.away.toFixed(2)}</b></span>
         </div>
         ${fields ? `<div style="display:flex;gap:3px;flex-wrap:wrap">${fields}</div>` : ''}
@@ -20602,7 +20602,7 @@ function _renderUniscore(d) {
         `<div style="display:flex;flex-direction:column;align-items:center;min-width:52px">
            <div style="font-size:10px;color:var(--text2);margin-bottom:2px">${ic} ${lb}</div>
            <div style="display:flex;gap:6px;font-size:12px;font-weight:700">
-             <span style="color:#3b82f6">${h??0}</span>
+             <span style="color:var(--accent2)">${h??0}</span>
              <span style="color:var(--text2)">–</span>
              <span style="color:#f59e0b">${a??0}</span>
            </div>
@@ -22485,10 +22485,10 @@ function gerarAlertas(m) {
   if (!alertas.length) return '';
 
   return `
-    <div class="cenario-block" style="border-left-color:#ef4444;background:rgba(239,68,68,.04)">
+    <div class="cenario-block" style="border-left-color:var(--red);background:rgba(239,68,68,.04)">
       <div class="cenario-icon">🚨</div>
       <div class="cenario-content">
-        <div class="cenario-label" style="color:#ef4444;margin-bottom:8px">Alertas de Inconsistência</div>
+        <div class="cenario-label" style="color:var(--red);margin-bottom:8px">Alertas de Inconsistência</div>
         ${alertas.map(a => `<div class="alerta-item">⚠️ ${a}</div>`).join('')}
       </div>
     </div>`;
