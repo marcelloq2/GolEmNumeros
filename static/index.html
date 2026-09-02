@@ -22933,10 +22933,32 @@ let _painelListaViewMode = 'todos'; // 'todos' | 'top10'
 
 // Mercados cobertos pela aba "🏆 Top 10" — pedido do usuário (2026-09-01):
 // começar só com "Over 0.5 HT", ir adicionando mercado por mercado conforme
-// pedir. O nome aqui tem que bater EXATO com o texto de "metodologia" que
-// vem no .txt importado (mesmo texto que aparece nos cards de "Todos os
-// jogos").
-const _PAINEL_LISTA_TOP_MERCADOS = ['Over 0.5 HT'];
+// pedir (2ª leva: os 19 buckets de placar exato + Over 0.5 FT). O nome aqui
+// tem que bater EXATO com o texto de "metodologia" que vem no .txt
+// importado (mesmo texto que aparece nos cards de "Todos os jogos").
+const _PAINEL_LISTA_TOP_MERCADOS = [
+  'Over 0.5 HT',
+  'Over 0.5 FT',
+  'Qualquer outro empate — não ocorreu',
+  'Qualquer outra vitória em casa — não ocorreu',
+  'Qualquer Outra Vitória de Visitante — não ocorreu',
+  'Placar 0-0 — não ocorreu',
+  'Placar 1-0 — não ocorreu',
+  'Placar 0-1 — não ocorreu',
+  'Placar 1-1 — não ocorreu',
+  'Placar 2-0 — não ocorreu',
+  'Placar 0-2 — não ocorreu',
+  'Placar 2-1 — não ocorreu',
+  'Placar 1-2 — não ocorreu',
+  'Placar 2-2 — não ocorreu',
+  'Placar 3-0 — não ocorreu',
+  'Placar 0-3 — não ocorreu',
+  'Placar 3-1 — não ocorreu',
+  'Placar 1-3 — não ocorreu',
+  'Placar 3-2 — não ocorreu',
+  'Placar 2-3 — não ocorreu',
+  'Placar 3-3 — não ocorreu',
+];
 
 async function _painelListaImportFile(file) {
   if (!file) return;
