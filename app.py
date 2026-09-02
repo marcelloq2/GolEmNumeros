@@ -1753,10 +1753,13 @@ _PAINEL_FS_HT_MAX = 80
 
 # Placar do intervalo dos jogos de hoje, mantido quente em BACKGROUND (ver
 # _painel_ht_prewarm_loop) — igual ao motivo das odds (_painel_odds_prewarm_
-# loop): testado localmente, buscar HT de ~80 jogos (1 request cada, mesmo
-# em paralelo com 12 workers) passa de 1 MINUTO. _painel_fetch_matches_
-# flashscore só LÊ esse cache, nunca busca isso na hora — senão vira mais um
-# jeito de travar uma das 4 threads do gunicorn por tempo demais.
+# loop): testado localmente, buscar HT de ~80 jogos (1 request cada) demora
+# demais pra rodar na hora. _painel_fetch_matches_flashscore só LÊ esse
+# cache, nunca busca isso na hora — senão vira mais um jeito de travar uma
+# das 4 threads do gunicorn por tempo demais. Usa _painel_ht_pool (dedicado,
+# ver definição perto de _fs_event_pool) em vez do pool geral — descoberto
+# 2026-09-02 que dividir esse lote com Backtest/H2H/odds/ranking deixava a
+# cobertura real bem abaixo do teto de 80 (só 4/209 em produção).
 _painel_ht_cache = {}
 _painel_ht_lock = threading.Lock()
 
@@ -1765,7 +1768,13 @@ def _painel_ht_prewarm_loop():
     _github_sync_done.wait(timeout=120)
     while True:
         try:
-            fs_matches = _fs_all_matches()
+            # _fs_all_matches() sozinho só cobre 1 dia do feed (UTC) — igual ao
+            # bug já corrigido no Painel principal (ver _fs_all_matches_brt),
+            # a maior parte dos jogos "de hoje" em horário BRT cai no dia UTC
+            # anterior ou seguinte. Usar só _fs_all_matches() aqui fazia esse
+            # prewarm enxergar uns 7 jogos "Encerrado" de ~210 reais — achado
+            # 2026-09-02 junto com a correção do pool acima.
+            fs_matches = _fs_all_matches_brt(_brt_today())
             ids = [m["id"] for m in fs_matches if m.get("status") != _FS_NOT_STARTED and m.get("id")][:_PAINEL_FS_HT_MAX]
 
             def _fetch_ht(eid):
@@ -1775,7 +1784,7 @@ def _painel_ht_prewarm_loop():
                     return eid, None
 
             novo = {}
-            for eid, ht in _fs_event_pool.map(_fetch_ht, ids):
+            for eid, ht in _painel_ht_pool.map(_fetch_ht, ids):
                 if ht:
                     novo[eid] = ht
             with _painel_ht_lock:
@@ -8493,6 +8502,13 @@ _fs_event_pool = ThreadPoolExecutor(max_workers=12)
 # rápida mesmo com um recálculo de ranking rodando ao mesmo tempo.
 _bt2_matches_pool = ThreadPoolExecutor(max_workers=10)
 _bt2_matches_market_pool = ThreadPoolExecutor(max_workers=20)
+
+# Pool dedicado só pro prewarm de HT do Painel Principal (_painel_ht_prewarm_
+# loop) — antes disputava _fs_event_pool com Backtest/H2H/odds/ranking, que
+# usam esse pool por até 1 minuto de cada vez, deixando o lote de até 80 HTs
+# quase sempre incompleto (medido em produção: só 4 de 209 jogos encerrados
+# com HT preenchido). Isolado igual ao par acima, pra não voltar a acontecer.
+_painel_ht_pool = ThreadPoolExecutor(max_workers=10)
 
 # Em dias com muitos jogos (200+), buscar odds de TODOS os agendados demora
 # minutos (até 3 tentativas de casa de apostas x timeout por jogo, dividido

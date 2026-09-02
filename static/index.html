@@ -1268,6 +1268,10 @@
     font-family: var(--font-body);
     font-size: 16px; font-weight: 800; letter-spacing: .2px; color: var(--red);
   }
+  .painel-match-ht {
+    display: block; text-align: center; white-space: nowrap;
+    font-size: 10px; font-weight: 600; color: var(--text2); margin-top: 1px;
+  }
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
   .painel-match-analysis-btn {
@@ -9208,8 +9212,10 @@ function _painelPowerIconCell(icon, teamName, label) {
 function _painelMatchRowHtml(m, leagueName) {
   const isLive = _painelIsLive(m);
   const timeClass = isLive ? 'painel-match-time live' : 'painel-match-time';
+  const htHtml = (m.ht_home !== null && m.ht_home !== undefined && m.ht_away !== null && m.ht_away !== undefined)
+    ? `<span class="painel-match-ht" title="Placar do intervalo">HT ${m.ht_home}:${m.ht_away}</span>` : '';
   const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
-    ? `<span class="painel-match-score">${m.score_home}:${m.score_away}</span>` : '';
+    ? `<span><span class="painel-match-score">${m.score_home}:${m.score_away}</span>${htHtml}</span>` : '';
   const rowLogos = _painelRowLogos(m);
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
