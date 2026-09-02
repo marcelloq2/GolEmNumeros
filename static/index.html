@@ -22958,6 +22958,28 @@ const _PAINEL_LISTA_TOP_MERCADOS = [
   'Placar 3-2 — não ocorreu',
   'Placar 2-3 — não ocorreu',
   'Placar 3-3 — não ocorreu',
+  // 3ª leva (2026-09-01) — vários destes vêm SEMPRE com o time no final da
+  // metodologia (ex: "Jogos em que marcou gol (Warrington)"), nunca sozinhos
+  // — por isso _painelListaMercadoBate casa por prefixo "<isso> (" também,
+  // não só igualdade exata.
+  'Over 1.5 FT',
+  'Jogos em que marcou gol',
+  'Under 3.5 FT',
+  'Over 2.5 FT',
+  'Ambas marcam (BTTS)',
+  'Marcou primeiro',
+  'Sofreu primeiro (adversário marcou primeiro)',
+  'Ambas Equipes Marcam — Não',
+  'Under 2.5 FT',
+  'Sequência atual — Marcando gol',
+  'Empate 1T',
+  'Over 1.5 HT',
+  'Vence 1T',
+  'Sequência atual — Sem perder (invicto)',
+  'Sequência atual — Vencendo',
+  'Sequência atual — Sem sofrer gol',
+  'Fez virada (perdia e venceu)',
+  'Sofreu virada (vencia e perdeu)',
 ];
 
 async function _painelListaImportFile(file) {
@@ -23052,12 +23074,31 @@ function _painelListaLeagueSectionHtml(liga, jogos) {
 // usuário, 2026-09-01: "pegar as 10 que tem maior probabilidade e menor
 // cv"), e devolve só as `n` primeiras. Entradas sem probabilidade (não
 // deveria acontecer, mas por segurança) ficam de fora.
+// Bate exato OU por prefixo "<mercado> (Time)" — várias metodologias vêm
+// SEMPRE com o nome do time no final (ex: "Jogos em que marcou gol
+// (Warrington)", "Sequência atual — Vencendo (Leek)", "Fez virada (perdia e
+// venceu) (Leek)") porque são testadas por lado (casa/fora) separado na
+// ferramenta local — nunca aparecem sem o time. Sem o prefixo, essas nunca
+// dariam match algum e o card ficaria sempre vazio.
+function _painelListaMercadoBate(metodologia, mercado) {
+  return metodologia === mercado || metodologia.startsWith(mercado + ' (');
+}
+
+// Extrai o nome do time do final da metodologia (ex: "Jogos em que marcou
+// gol (Warrington)" + mercado "Jogos em que marcou gol" -> "Warrington") —
+// null quando a metodologia é a combinada/sem lado (bate exato, sem time).
+function _painelListaExtraiTime(metodologia, mercado) {
+  if (metodologia === mercado) return null;
+  const resto = metodologia.slice(mercado.length + 2, -1); // tira " (" do início e ")" do fim
+  return resto || null;
+}
+
 function _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, n) {
   const entradas = [];
   jogosFiltrados.forEach(j => {
     j.metodologias.forEach(met => {
-      if (met.metodologia !== mercado || met.probabilidade_pct == null) return;
-      entradas.push({ jogo: j, met });
+      if (!_painelListaMercadoBate(met.metodologia, mercado) || met.probabilidade_pct == null) return;
+      entradas.push({ jogo: j, met, time: _painelListaExtraiTime(met.metodologia, mercado) });
     });
   });
   entradas.sort((a, b) => {
@@ -23078,11 +23119,17 @@ function _painelListaTop10RowHtml(entrada, idx) {
   const j = entrada.jogo, met = entrada.met;
   const prob = met.probabilidade_pct != null ? `${met.probabilidade_pct}%` : '-';
   const cv = met.cv_pct != null ? `CV ${met.cv_pct}%` : '-';
+  // Mercado testado por lado (tem time no fim da metodologia, ex: "...
+  // (Warrington)") — destaca esse time específico dentro do "casa x fora",
+  // senão fica ambíguo a quem a % se refere.
+  const destaca = t => t ? `<b style="color:var(--accent)">${_bt2EscXml(t)}</b>` : null;
+  const casaHtml = destaca(entrada.time && entrada.time === j.casa ? j.casa : null) || _bt2EscXml(j.casa);
+  const foraHtml = destaca(entrada.time && entrada.time === j.fora ? j.fora : null) || _bt2EscXml(j.fora);
   return `
     <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12px">
       <span style="color:var(--text2);font-weight:700;width:16px;flex-shrink:0;text-align:center">${idx + 1}</span>
       <div style="flex:1;overflow:hidden">
-        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
+        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${casaHtml} <span style="color:var(--text2);font-weight:400">x</span> ${foraHtml}</div>
         <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;white-space:nowrap">
