@@ -23118,6 +23118,14 @@ const _PAINEL_LISTA_VERIFICAR_COMBINADO = {
   const [h, a] = par.split('-').map(Number);
   _PAINEL_LISTA_VERIFICAR_COMBINADO[`Placar ${par} — não ocorreu`] = (pc, pf) => !(pc === h && pf === a);
 });
+// "Qualquer outra vitória/empate — não ocorreu" = fora dos 16 placares comuns
+// (0-0 a 3-3) já cobertos acima — mesma lógica de analise_padroes.html
+// (_dentroDoGrid); "não ocorreu" só falha se o placar for uma vitória/empate
+// "estranho" (4+ gols de algum lado).
+const _painelListaDentroDoGrid = (h, a) => h <= 3 && a <= 3;
+_PAINEL_LISTA_VERIFICAR_COMBINADO['Qualquer outra vitória em casa — não ocorreu'] = (pc, pf) => !(pc > pf && !_painelListaDentroDoGrid(pc, pf));
+_PAINEL_LISTA_VERIFICAR_COMBINADO['Qualquer Outra Vitória de Visitante — não ocorreu'] = (pc, pf) => !(pf > pc && !_painelListaDentroDoGrid(pc, pf));
+_PAINEL_LISTA_VERIFICAR_COMBINADO['Qualquer outro empate — não ocorreu'] = (pc, pf) => !(pc === pf && !_painelListaDentroDoGrid(pc, pf));
 
 // Mercados "por lado" — recebem (própria, adversária, própriaHT,
 // adversáriaHT) já normalizados pro time extraído da metodologia (ver
@@ -23134,10 +23142,10 @@ const _PAINEL_LISTA_VERIFICAR_LADO = {
 };
 const _PAINEL_LISTA_VERIFICAR_PRECISA_HT = new Set(['Vence 1T', 'Fez virada (perdia e venceu)', 'Sofreu virada (vencia e perdeu)']);
 
-// null = não dá pra verificar (jogo não encontrado/ainda sem placar final, ou
-// mercado sem regra de verificação aqui — ex: "Marcou primeiro" precisa de
-// minuto do gol, que o Painel não tem em lote; "Qualquer outra vitória/
-// empate — não ocorreu" nunca teve verificar nem na ferramenta local).
+// null = não dá pra verificar (jogo não encontrado/ainda sem placar final,
+// mercado de HT sem HT disponível no jogo real, ou mercado sem regra de
+// verificação aqui — só "Marcou primeiro"/"Sofreu primeiro", que precisam de
+// minuto do gol, dado que o Painel não tem em lote).
 function _painelListaVerificarEntrada(mercado, time, casa, fora, painelMatch) {
   if (!painelMatch || painelMatch.time !== 'Encerrado') return null;
   const pc = parseInt(painelMatch.score_home, 10), pf = parseInt(painelMatch.score_away, 10);
