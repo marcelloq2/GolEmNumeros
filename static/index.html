@@ -23068,42 +23068,45 @@ function _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, n) {
   return entradas.slice(0, n);
 }
 
-// Card em vez de linha empilhada — mesmo pedido/padrão já aplicado em "Todos
-// os jogos" (usuário não gosta de formato de lista, prefere cards lado a
-// lado em grade, 2026-09-01).
-function _painelListaTop10CardHtml(entrada, idx) {
+// 1 CARD por mercado (tipo do Ao Vivo) com as 10 entradas EMPILHADAS dentro
+// dele — usuário corrigiu (2026-09-01): "está uma bagunça, quero em 1 card
+// só... dentro vai conter as partidas 1 a 10". A ideia de "não quero lista"
+// era sobre virar CARD (não texto solto), não sobre cada entrada virar um
+// card separado — 21 mercados x 10 cards cada tinha virado 210 cards soltos
+// na tela, isso sim ficou bagunçado.
+function _painelListaTop10RowHtml(entrada, idx) {
   const j = entrada.jogo, met = entrada.met;
   const prob = met.probabilidade_pct != null ? `${met.probabilidade_pct}%` : '-';
   const cv = met.cv_pct != null ? `CV ${met.cv_pct}%` : '-';
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px">
-      <span style="color:var(--text2);font-weight:700;font-size:14px;flex-shrink:0;width:20px;text-align:center">${idx + 1}</span>
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12px">
+      <span style="color:var(--text2);font-weight:700;width:16px;flex-shrink:0;text-align:center">${idx + 1}</span>
       <div style="flex:1;overflow:hidden">
-        <div style="font-weight:700;color:var(--text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
+        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
         <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;white-space:nowrap">
-        <div style="font-weight:800;color:var(--text);font-size:14px">${prob}</div>
-        <div style="font-size:10px;color:var(--text2)">${cv}</div>
+        <b style="color:var(--text)">${prob}</b> <span style="color:var(--text2);font-size:10px">${cv}</span>
       </div>
     </div>`;
 }
 
 function _painelListaTop10SectionHtml(mercado, entradas) {
   return `
-    <div style="margin-bottom:16px">
-      <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:8px">🏆 ${_bt2EscXml(mercado)}</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px">
+      <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:2px">🏆 ${_bt2EscXml(mercado)}</div>
       ${entradas.length
-        ? `<div class="live-grid-wrap" style="display:grid;align-items:start">${entradas.map((e, i) => _painelListaTop10CardHtml(e, i)).join('')}</div>`
+        ? entradas.map((e, i) => _painelListaTop10RowHtml(e, i)).join('')
         : `<div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhuma entrada desse mercado nos jogos carregados.</div>`}
     </div>`;
 }
 
 function _painelListaRenderTop10(jogosFiltrados) {
   const body = document.getElementById('painelListaBody');
-  body.innerHTML = _PAINEL_LISTA_TOP_MERCADOS
+  const cards = _PAINEL_LISTA_TOP_MERCADOS
     .map(mercado => _painelListaTop10SectionHtml(mercado, _painelListaTopEntradasParaMercado(jogosFiltrados, mercado, 10)))
     .join('');
+  body.innerHTML = `<div class="live-grid-wrap" style="display:grid;align-items:start">${cards}</div>`;
 }
 
 function _painelListaRenderList(d) {
