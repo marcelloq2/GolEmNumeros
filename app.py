@@ -1974,6 +1974,57 @@ def _painel_power_prewarm_loop():
         time.sleep(_PAINEL_POWER_TTL)
 
 
+_RAIOX_HISTORY_INTERVAL = 1800  # 30min
+
+# Snapshot diário do Raio-X (Painel Principal, static/index.html) — guarda só
+# placar (HT/FT) + ícones de Power Ranking dos jogos Encerrados de hoje, pra
+# alimentar o painel de estatísticas (Ontem/7 dias/30 dias) sem precisar
+# recalcular nada no backend: o frontend já sabe recomputar qualquer um dos
+# ~29 mercados do Raio-X a partir do placar cru salvo aqui.
+#
+# Por que salvar A CADA CICLO (sobrescrevendo o arquivo do dia) em vez de só
+# 1x na virada do dia: _painel_fetch_matches_flashscore só mantém HT/Power
+# Ranking quentes pro cache_key "today" (ver docstring dela) — depois que o
+# dia vira, esses dados ficam vazios pra "ontem". Ou seja, o único jeito de
+# capturar HT+Power Ranking de um jogo é enquanto o dia dele AINDA é "hoje".
+# Cada ciclo pega o retrato mais completo possível até aquele momento; o
+# último ciclo antes da virada do dia (até 30min de atraso) vira o registro
+# final daquele dia. Jogos que terminam nos últimos ~30min antes da meia-
+# noite BRT podem ficar de fora — aceito, não compensa complicar por isso.
+RAIOX_HISTORY_DIR = os.path.join(DATA_DIR, "raiox_history")
+
+
+def _raiox_history_snapshot_fields(m):
+    return {
+        "home": m.get("home"), "away": m.get("away"),
+        "ht_home": m.get("ht_home"), "ht_away": m.get("ht_away"),
+        "score_home": m.get("score_home"), "score_away": m.get("score_away"),
+        "casa_ataque_icon": m.get("casa_ataque_icon"), "casa_defesa_icon": m.get("casa_defesa_icon"),
+        "fora_ataque_icon": m.get("fora_ataque_icon"), "fora_defesa_icon": m.get("fora_defesa_icon"),
+        "kickoff_ts": m.get("kickoff_ts"),
+    }
+
+
+def _raiox_history_loop():
+    _github_sync_done.wait(timeout=120)
+    github_storage.pull_directory("raiox_history", RAIOX_HISTORY_DIR)
+    while True:
+        try:
+            os.makedirs(RAIOX_HISTORY_DIR, exist_ok=True)
+            data = _painel_fetch_matches_flashscore()
+            all_matches = [m for lg in data.get("leagues", []) for m in lg["matches"]]
+            finalizados = [_raiox_history_snapshot_fields(m) for m in all_matches if m.get("time") == "Encerrado"]
+            date_str = _brt_today().isoformat()
+            path = os.path.join(RAIOX_HISTORY_DIR, f"{date_str}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(finalizados, f, ensure_ascii=False)
+            github_storage.push_file_bg(path, f"raiox_history/{date_str}.json")
+            print(f"[raiox-history] {date_str}: {len(finalizados)} jogo(s) finalizado(s) salvos")
+        except Exception as e:
+            print(f"[raiox-history] Erro: {e}")
+        time.sleep(_RAIOX_HISTORY_INTERVAL)
+
+
 def _painel_fetch_matches_flashscore(force=False, date_str=None):
     """Versão Flashscore/Soccerway — substitui o NowGoal (2026-08-30). Motivo:
     o feed do NowGoal não tem paginação e, além do caso raro de vir vazio (já
@@ -2960,6 +3011,29 @@ def load_backtest_day(date_str: str):
         return None
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+@app.route("/api/painel/raiox_history")
+def api_painel_raiox_history():
+    """Histórico diário de jogos Encerrados (placar + ícones de Power
+    Ranking) salvo por _raiox_history_loop — alimenta o painel de
+    estatísticas do Raio-X (Ontem/7 dias/30 dias) no frontend."""
+    try:
+        dias = min(int(request.args.get("dias", 30)), 90)
+    except (TypeError, ValueError):
+        dias = 30
+    if not os.path.exists(RAIOX_HISTORY_DIR):
+        return jsonify({"days": []})
+    files = sorted(glob.glob(os.path.join(RAIOX_HISTORY_DIR, "????-??-??.json")), reverse=True)[:dias]
+    days = []
+    for path in files:
+        date_str = os.path.basename(path).replace(".json", "")
+        try:
+            with open(path, encoding="utf-8") as f:
+                days.append({"date": date_str, "matches": json.load(f)})
+        except Exception:
+            continue
+    return jsonify({"days": days})
 
 
 @app.route("/api/backtest/<date_str>")
@@ -11806,6 +11880,7 @@ threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOdds
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
 threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrewarm").start()
 threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
+threading.Thread(target=_raiox_history_loop, daemon=True, name="RaioXHistory").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
 # segundo plano parece estar competindo por CPU com o resto do site num

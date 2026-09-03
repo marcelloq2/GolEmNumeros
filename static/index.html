@@ -23588,8 +23588,101 @@ async function _painelRaioXRender() {
         <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base);margin-bottom:10px">
           Estatísticas
         </div>
-        <div style="color:var(--text2);font-size:var(--text-sm)">Em breve.</div>
+        <div style="color:var(--text2);font-size:var(--text-sm)">Carregando histórico...</div>
       </div>
+    </div>`;
+
+  _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`);
+}
+
+// Histórico diário salvo em segundo plano pelo backend (_raiox_history_loop,
+// app.py) — 1 snapshot por dia com placar + ícones de Power Ranking dos
+// jogos Encerrados. Cacheado 5min no navegador: a lista de dias não muda por
+// troca de mercado, só a agregação (que é local, reaproveita mkt.hit).
+let _raioXHistoryCache = null;
+async function _painelRaioXFetchHistory() {
+  if (_raioXHistoryCache && (Date.now() - _raioXHistoryCache.fetchedAt) < 5 * 60 * 1000) return _raioXHistoryCache.days;
+  let days = [];
+  try {
+    const r = await fetch('/api/painel/raiox_history?dias=30');
+    const d = await r.json();
+    days = d.days || [];
+  } catch (e) { /* histórico é extra — sem ele o painel principal continua funcionando */ }
+  _raioXHistoryCache = { fetchedAt: Date.now(), days };
+  return days;
+}
+
+function _raioXDiasAtras(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function _raioXAgregarMatches(matches, mkt, campoHome, campoAway, comboKey) {
+  let total = 0, hits = 0, comboTotal = 0, comboHits = 0;
+  matches.forEach(m => {
+    const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
+    if (isNaN(hc) || isNaN(hf)) return;
+    const bateu = mkt.hit(hc, hf);
+    total++;
+    if (bateu) hits++;
+    const key = _raioXIconKey(m.casa_ataque_icon) + _raioXIconKey(m.casa_defesa_icon) + _raioXIconKey(m.fora_ataque_icon) + _raioXIconKey(m.fora_defesa_icon);
+    if (key === comboKey) { comboTotal++; if (bateu) comboHits++; }
+  });
+  return { total, hits, comboTotal, comboHits };
+}
+
+// Trocar de mercado no dropdown dispara uma nova chamada antes da anterior
+// terminar de buscar o histórico — sem controle de ordem, a resposta velha
+// podia chegar DEPOIS da nova (2 fetches concorrentes não têm ordem de
+// resolução garantida) e sobrescrever o painel com o mercado errado. O
+// contador descarta qualquer resposta que não seja mais a mais recente.
+let _raioXStatsRenderSeq = 0;
+async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, comboKey) {
+  const mySeq = ++_raioXStatsRenderSeq;
+  const panel = document.getElementById('painelRaioXStatsPanel');
+  if (!panel) return;
+
+  const dias = await _painelRaioXFetchHistory();
+  if (mySeq !== _raioXStatsRenderSeq) return; // uma chamada mais nova já foi disparada — descarta essa resposta atrasada
+  if (!document.getElementById('painelRaioXStatsPanel')) return; // trocou de aba enquanto buscava
+
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  const ontemStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const janelas = [
+    { label: 'Ontem', dias: dias.filter(d => d.date === ontemStr) },
+    { label: 'Últimos 7 dias', dias: dias.filter(d => d.date >= _raioXDiasAtras(7)) },
+    { label: 'Últimos 30 dias', dias: dias.filter(d => d.date >= _raioXDiasAtras(30)) },
+  ];
+
+  const linhaFmt = (label, taxa, hits, total) => `
+    <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text2);padding:2px 0">
+      <span>${label}</span>
+      <span style="font-family:var(--font-mono);color:var(--text)">${taxa != null ? `${taxa.toFixed(0)}% (${hits}/${total})` : 'sem dado'}</span>
+    </div>`;
+
+  const blocosHtml = janelas.map(j => {
+    const todasMatches = j.dias.flatMap(d => d.matches || []);
+    const agr = _raioXAgregarMatches(todasMatches, mkt, campoHome, campoAway, comboKey);
+    const taxaGeral = agr.total ? (agr.hits / agr.total * 100) : null;
+    const taxaCombo = agr.comboTotal ? (agr.comboHits / agr.comboTotal * 100) : null;
+    return `
+      <div style="padding:6px 0;border-top:1px solid var(--border)">
+        <div style="font-size:var(--text-sm);color:var(--text);font-weight:600;margin-bottom:2px">${j.label}</div>
+        ${linhaFmt('Base geral', taxaGeral, agr.hits, agr.total)}
+        ${linhaFmt('Combinação atual', taxaCombo, agr.comboHits, agr.comboTotal)}
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base);margin-bottom:4px">
+      Estatísticas
+    </div>
+    <div style="font-size:var(--text-xs);color:var(--text2);margin-bottom:2px">${rotuloMercado} · combinação atual: ${_bt2EscXml(comboKey)}</div>
+    ${blocosHtml}
+    <div style="margin-top:8px;font-size:9px;color:var(--text2);line-height:1.4">
+      ${dias.length ? `Histórico salvo desde ${dias[dias.length - 1].date}.` : 'Histórico começou a ser salvo hoje — janelas de Ontem/7/30 dias ainda vão aparecer vazias por alguns dias.'}
+      "Combinação atual" é a taxa da MESMA combinação de Power Ranking (${_bt2EscXml(comboKey)}) mostrada no card, em dias anteriores.
     </div>`;
 }
 
