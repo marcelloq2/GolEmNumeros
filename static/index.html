@@ -14,37 +14,45 @@
 ></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0e0d;
-    --bg2: #121917;
-    --bg3: #1a2320;
-    --border: #26302b;
-    --accent: #00e676;
+    --bg: #0b0d0c;
+    --bg2: #121613;
+    --bg3: #1a211c;
+    --border: #2a332c;
+    --accent: #f0a926;
     --accent2: #3f8fc4;
-    --green: #00e676;
-    --red: #ff4757;
+    --green: #3ddc70;
+    --red: #ff5449;
     --yellow: #f59e0b;
     --gray: #6b7280;
-    --text: #f2f5f3;
-    --text2: #8b958f;
+    --text: #f2f1ec;
+    --text2: #9aa39c;
+    /* Fixas nos dois temas de propósito — o painel de placar é um objeto
+       físico (display de LED de estádio), não uma superfície do site que
+       deveria clarear no tema claro. */
+    --pitch: #0f2318;
+    --scoreboard: #050505;
+    --led: #ff5a36;
     --font-body: 'Segoe UI', 'IBM Plex Sans', system-ui, sans-serif;
     --font-display: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif;
+    --font-condensed: 'Oswald', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Space Mono', monospace;
   }
   html[data-theme="light"] {
-    --bg: #f5f7f5;
+    --bg: #f6f5f0;
     --bg2: #ffffff;
-    --bg3: #e8ede9;
-    --border: #d7ded9;
-    --accent: #087f44;
+    --bg3: #ecead9;
+    --border: #dedbd0;
+    --accent: #996600;
     --accent2: #2569a0;
-    --green: #087f44;
-    --red: #dc2626;
+    --green: #0a6b39;
+    --red: #c22a22;
     --yellow: #b45309;
     --gray: #6b7280;
     --text: #1a1a1a;
-    --text2: #5c5850;
+    --text2: #5c6660;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* Ícones SVG inline (fase 2 da troca de visual — substituem os emojis
@@ -1192,22 +1200,30 @@
 
   /* ── PAINEL PRINCIPAL — jogos + odds importados do BetExplorer ── */
   .painel-league { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  /* Cabeçalho de liga virou "distintivo de competição" (crachá + linha fina,
+     tipo linha de meio-campo) em vez de barra colorida de largura total
+     repetida pra cada liga — era a barra sólida que fazia a página inteira
+     virar um bloco monótono de verde, sem hierarquia nenhuma entre as
+     dezenas de ligas na tela (2026-09-02, pedido de identidade visual
+     própria em vez de "dashboard genérico"). --pitch é fixo nos 2 temas
+     (ver comentário em :root) — o crachá funciona igual no claro/escuro. */
   .painel-league-header {
-    display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer;
-    background: #0c3322; color: #00e676; font-weight: 700; font-size: 13px;
-  }
-  html[data-theme="light"] .painel-league-header {
-    background: #e3f5ea; color: #7a5b00;
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; cursor: pointer;
+    background: transparent; color: var(--text);
+    border-bottom: 1px dashed var(--border);
   }
   .painel-league-header img { width: 16px; height: 16px; flex-shrink: 0; }
-  .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; flex-shrink: 0; }
+  .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; flex-shrink: 0; color: var(--text2); }
   .painel-league-header.collapsed .painel-arrow { transform: rotate(180deg); }
   /* Nomes de liga longos (ex: "ÁFRICA: CAMPEONATO AFRICANO DE FUTEBOL FEMININO")
      sem min-width:0 forçam o flex container (e a página inteira, em mobile) a
      ficar mais larga que a tela — o navegador então "dá zoom out" pra caber tudo,
      fazendo o site inteiro parecer encolhido/desktop num celular de verdade. */
   .painel-league-name {
-    min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: var(--pitch); color: #eafff0; font-family: var(--font-condensed);
+    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+    padding: 5px 12px; border-radius: 20px;
   }
   .painel-league-cols {
     display: grid; grid-template-columns: 64px minmax(260px,1fr) 32px 32px 32px 32px 34px 34px 34px 72px 26px;
@@ -1236,6 +1252,15 @@
   .painel-plat-radar { background: #2f9e8f; color: #fff; }
   .painel-match-minute { color: var(--red); font-weight: 700; font-size: 11px; }
   .painel-match-row:hover { background: var(--bg2); }
+  /* Faixa lateral pulsante nos jogos AO VIVO — referência de "no ar" de
+     transmissão, pra diferenciar da massa de jogos agendados/encerrados em
+     vez de todo mundo ter o mesmo peso visual na tela (2026-09-02). */
+  .painel-match-row-live { position: relative; }
+  .painel-match-row-live::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--red); animation: painelLivePulse 1.6s ease-in-out infinite;
+  }
+  @keyframes painelLivePulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
   .painel-match-row a { color: inherit; text-decoration: none; }
   .painel-match-time { color: var(--text2); font-size: 13px; }
   .painel-match-league-label { font-size: 11px; color: var(--text2); opacity: .8; white-space: nowrap; margin-top: 2px; }
@@ -1251,8 +1276,8 @@
   .painel-match-teams img { width: 20px; height: 20px; flex-shrink: 0; justify-self: center; }
   .painel-match-teams .painel-team {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
-    font-family: var(--font-body);
-    font-size: 15px; font-weight: 600; letter-spacing: .1px; color: var(--text);
+    font-family: var(--font-condensed); text-transform: uppercase;
+    font-size: 14px; font-weight: 600; letter-spacing: .3px; color: var(--text);
   }
   .painel-match-teams .painel-team.away { text-align: left; }
   .painel-team-star {
@@ -1265,14 +1290,24 @@
     padding: 0; flex-shrink: 0; line-height: 1; justify-self: center;
   }
   .painel-team-tag.tagged, .painel-team-tag:hover { opacity: 1; }
+  /* Painel de placar — o elemento-assinatura do redesign (2026-09-02):
+     placar de estádio de verdade usa dígito LED âmbar/vermelho sobre painel
+     quase preto, não texto solto na cor do tema. --scoreboard/--led são
+     fixos nos 2 temas (é um objeto "físico", não uma superfície do site). */
+  .painel-scoreboard {
+    display: block; background: var(--scoreboard); border-radius: 4px;
+    padding: 1px 3px; box-shadow: inset 0 0 3px rgba(0,0,0,.7);
+  }
   .painel-match-score {
     display: block; text-align: center; white-space: nowrap;
-    font-family: var(--font-body);
-    font-size: 16px; font-weight: 800; letter-spacing: .2px; color: var(--red);
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 14px; font-weight: 700; letter-spacing: .5px; color: var(--led);
+    text-shadow: 0 0 5px rgba(255,90,54,.55);
   }
   .painel-match-ht {
     display: block; text-align: center; white-space: nowrap;
-    font-size: 10px; font-weight: 600; color: var(--text2); margin-top: 1px;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 8px; font-weight: 600; color: var(--led); opacity: .55; margin-top: 1px;
   }
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
@@ -9292,14 +9327,14 @@ function _painelMatchRowHtml(m, leagueName) {
   const htHtml = (m.ht_home !== null && m.ht_home !== undefined && m.ht_away !== null && m.ht_away !== undefined)
     ? `<span class="painel-match-ht" title="Placar do intervalo">HT ${m.ht_home}:${m.ht_away}</span>` : '';
   const scoreHtml = (m.score_home !== null && m.score_home !== undefined)
-    ? `<span><span class="painel-match-score">${m.score_home}:${m.score_away}</span>${htHtml}</span>` : '';
+    ? `<span class="painel-scoreboard"><span class="painel-match-score">${m.score_home}:${m.score_away}</span>${htHtml}</span>` : '';
   const rowLogos = _painelRowLogos(m);
   const homeEsc = String(m.home).replace(/'/g, "\\'");
   const awayEsc = String(m.away).replace(/'/g, "\\'");
   const kickoff = _painelKickoffTime(m);
   const minuteHtml = (isLive && m.minute != null) ? `<div class="painel-match-minute">${m.minute}'</div>` : '';
   return `
-    <div class="painel-match-row">
+    <div class="painel-match-row${isLive ? ' painel-match-row-live' : ''}">
       <span class="${timeClass}">${m.time || ''}${minuteHtml}${kickoff ? `<div class="painel-match-kickoff">${kickoff}</div>` : ''}${leagueName ? `<div class="painel-match-league-label">${leagueName}</div>` : ''}</span>
       <span class="painel-match-teams">
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
