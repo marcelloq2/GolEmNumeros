@@ -14022,28 +14022,30 @@ function _today2PowerRankingHtml(rows) {
   return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
       <div style="background:var(--green);color:#062e17;font-weight:700;text-align:center;padding:6px;font-size:14px;text-transform:uppercase;letter-spacing:.4px">Power Ranking</div>
-      <table style="width:100%;font-size:14px;text-align:center;border-collapse:collapse">
+      <div style="overflow-x:auto">
+      <table style="width:100%;min-width:340px;font-size:13px;text-align:center;border-collapse:collapse">
         <thead>
           <tr style="color:var(--text2);background:rgba(255,255,255,.03)">
-            <th style="padding:8px 4px">Power Ranking</th><th style="padding:8px 4px;text-align:left">Time</th>
-            <th style="padding:8px 6px">Partidas Jogadas</th>
-            <th style="padding:8px 6px" title="Gols marcados por jogo ÷ média da liga — maior é melhor">Índice de Ataque</th>
-            <th style="padding:8px 6px" title="Gols sofridos por jogo ÷ média da liga — menor é melhor">Índice de Defesa</th>
-            <th style="padding:8px 6px" title="Índice de Ataque − Índice de Defesa">Índice Geral</th>
+            <th style="padding:8px 3px;white-space:nowrap" title="Posição no Power Ranking">#</th><th style="padding:8px 3px;text-align:left">Time</th>
+            <th style="padding:8px 3px;white-space:nowrap" title="Partidas jogadas">PJ</th>
+            <th style="padding:8px 3px;white-space:nowrap" title="Índice de Ataque — gols marcados por jogo ÷ média da liga — maior é melhor">Ataque</th>
+            <th style="padding:8px 3px;white-space:nowrap" title="Índice de Defesa — gols sofridos por jogo ÷ média da liga — menor é melhor">Defesa</th>
+            <th style="padding:8px 3px;white-space:nowrap" title="Índice Geral — Ataque − Defesa">Geral</th>
           </tr>
         </thead>
         <tbody>
           ${ranked.map((r, i) => `
             <tr style="background:${r.destacado ? 'rgba(79,110,247,.12)' : (i % 2 ? 'rgba(255,255,255,.02)' : 'transparent')}">
-              <td style="padding:6px 4px;font-weight:700">${i + 1}º</td>
-              <td style="padding:6px 4px;text-align:left;font-weight:${r.destacado ? 700 : 400};color:${r.destacado ? 'var(--accent)' : 'var(--text)'}">${r.team}</td>
-              <td style="padding:6px;color:var(--text2)">${r.jogos}</td>
-              <td style="padding:6px;color:var(--text)">${_today2PowerIcon(r.ataque, true, [1.05, 0.90])} ${r.ataque.toFixed(2)}</td>
-              <td style="padding:6px;color:var(--text)">${_today2PowerIcon(r.defesa, false, [0.95, 1.10])} ${r.defesa.toFixed(2)}</td>
-              <td style="padding:6px;font-weight:700;color:${r.geral >= 0 ? 'var(--green)' : 'var(--red)'}">${_today2PowerIcon(r.geral, true, [0.15, -0.15])} ${r.geral >= 0 ? '+' : ''}${r.geral.toFixed(2)}</td>
+              <td style="padding:6px 3px;font-weight:700;white-space:nowrap">${i + 1}º</td>
+              <td style="padding:6px 3px;text-align:left;font-weight:${r.destacado ? 700 : 400};color:${r.destacado ? 'var(--accent)' : 'var(--text)'}">${r.team}</td>
+              <td style="padding:6px 3px;color:var(--text2);white-space:nowrap">${r.jogos}</td>
+              <td style="padding:6px 3px;color:var(--text);white-space:nowrap">${_today2PowerIcon(r.ataque, true, [1.05, 0.90])} ${r.ataque.toFixed(2)}</td>
+              <td style="padding:6px 3px;color:var(--text);white-space:nowrap">${_today2PowerIcon(r.defesa, false, [0.95, 1.10])} ${r.defesa.toFixed(2)}</td>
+              <td style="padding:6px 3px;font-weight:700;color:${r.geral >= 0 ? 'var(--green)' : 'var(--red)'};white-space:nowrap">${_today2PowerIcon(r.geral, true, [0.15, -0.15])} ${r.geral >= 0 ? '+' : ''}${r.geral.toFixed(2)}</td>
             </tr>`).join('')}
         </tbody>
       </table>
+      </div>
     </div>
     <div style="font-size:12px;color:var(--text2);margin-top:6px;padding-left:2px">
       Calculado em cima dos gols marcados/sofridos por jogo de cada time nessa liga, comparados com a média da liga — não é um dado oficial da fonte.
@@ -23790,10 +23792,10 @@ function _painelRaioXStreakPanelHtml(all) {
     const combo = `${r.melhor.ca}${r.melhor.cd}${r.melhor.fa}${r.melhor.fd}`;
     const cor = r.momentum.acerto ? 'var(--green)' : 'var(--red)';
     const icone = r.momentum.acerto ? '🔥' : '⚠';
-    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:var(--text-xs);white-space:nowrap" title="${_bt2EscXml(mkt.label)} — combinação atual: ${_bt2EscXml(combo)}">
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:var(--text-xs);white-space:nowrap" title="${_bt2EscXml(mkt.label)} — combinação atual: ${_bt2EscXml(combo)} — sequência de ${r.momentum.streak} sobre uma amostra total de ${r.melhor.total} jogo(s)">
       <span>${icone}</span>
       <span style="color:var(--text2)">${_bt2EscXml(labelCurto(key))}</span>
-      <b style="color:${cor};font-family:var(--font-mono)">${r.momentum.streak}</b>
+      <b style="color:${cor};font-family:var(--font-mono)">${r.momentum.streak}/${r.melhor.total}</b>
     </span>`;
   }).filter(Boolean);
 
