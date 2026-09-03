@@ -1771,6 +1771,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">FAVORITOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">TIPSTERS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('lista', this)">LISTA</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('raiox', this)"><span data-ico="Target"></span> RAIO-X HT</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0;flex-wrap:wrap;row-gap:6px">
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
@@ -1839,6 +1840,21 @@
         <span id="painelListaStatus" style="font-size:11px;color:var(--text2)"></span>
       </div>
       <div id="painelListaBody"></div>
+    </div>
+
+    <!-- RAIO-X HT — backtest automático (2026-09-03, pedido do usuário):
+         cruza os 4 índices de Power Ranking (Casa-Ataque/Casa-Defesa/
+         Fora-Ataque/Fora-Defesa, ✓/△/▽) de cada jogo FINALIZADO de hoje com
+         o placar do intervalo, pra achar qual COMBINAÇÃO desses 4 sinais
+         teve mais chance real de sair Over 0.5 HT (pelo menos 1 gol no
+         1º tempo). Roda inteiro no navegador, direto em cima do
+         /api/painel/matches que o Painel já carrega — sem endpoint novo. -->
+    <div id="painelRaioXView" style="display:none;padding:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <span id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2)"></span>
+        <button class="painel-sort-time-btn" onclick="_painelRaioXRender()"><span data-ico="Refresh"></span> Recalcular</button>
+      </div>
+      <div id="painelRaioXBody"></div>
     </div>
   </div>
 
@@ -5821,12 +5837,15 @@ function _painelSetFilter(filter, btn) {
 
   const isMeth = filter === 'methodologies';
   const isLista = filter === 'lista';
+  const isRaioX = filter === 'raiox';
   const isSelected = filter === 'selected';
-  document.getElementById('painelMatches').style.display = (isMeth || isLista) ? 'none' : '';
+  const isSideView = isMeth || isLista || isRaioX;
+  document.getElementById('painelMatches').style.display = isSideView ? 'none' : '';
   document.getElementById('painelMethodologiesView').style.display = isMeth ? '' : 'none';
   document.getElementById('painelListaView').style.display = isLista ? '' : 'none';
-  document.querySelector('.painel-search-bar').style.display = (isMeth || isLista) ? 'none' : '';
-  document.getElementById('painelOddsFilterBar').style.display = (isMeth || isLista) ? 'none' : '';
+  document.getElementById('painelRaioXView').style.display = isRaioX ? '' : 'none';
+  document.querySelector('.painel-search-bar').style.display = isSideView ? 'none' : '';
+  document.getElementById('painelOddsFilterBar').style.display = isSideView ? 'none' : '';
   const methodSel = document.getElementById('painelMethodFilterSelect');
   if (methodSel) {
     methodSel.style.display = isSelected ? '' : 'none';
@@ -5837,6 +5856,8 @@ function _painelSetFilter(filter, btn) {
     _painelLoadMethodologies();
   } else if (isLista) {
     _painelListaLoadConfig();
+  } else if (isRaioX) {
+    _painelRaioXRender();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
@@ -23277,6 +23298,129 @@ async function _painelListaImportFile(file) {
   } finally {
     document.getElementById('painelListaFileInput').value = '';
   }
+}
+
+// ── RAIO-X HT — backtest automático (2026-09-03, pedido do usuário): pra
+// cada jogo FINALIZADO hoje que já tem placar de intervalo, monta a
+// "combinação" dos 4 índices de Power Ranking (Casa-Ataque/Casa-Defesa/
+// Fora-Ataque/Fora-Defesa — mesmos ✓/△/▽ já mostrados no Painel Principal)
+// e agrupa por combinação pra ver qual delas teve mais Over 0.5 HT (pelo
+// menos 1 gol no intervalo) na amostra de hoje. Roda tudo no navegador em
+// cima do /api/painel/matches que o Painel já busca — sem endpoint novo,
+// sem persistência (é um retrato de HOJE, recalculado a cada clique em
+// "Recalcular"). Amostra pequena é esperada — nem todo jogo tem os 4
+// índices calculados (exige ≥5 jogos do time na liga) NEM o placar de
+// intervalo preenchido (cobertura parcial, ver [[project_statarea_odds_ao_vivo]]
+// sobre o mesmo tipo de limite de cobertura do live_odds).
+const _RAIOX_MIN_SAMPLE = 3; // mesmo espírito de _SCANNER_MIN_SAMPLE — abaixo disso a taxa é só ruído
+
+function _raioXIconKey(icon) {
+  return (icon === '✓' || icon === '△' || icon === '▽') ? icon : '—';
+}
+function _raioXIconColor(v) {
+  return v === '✓' ? 'var(--green)' : v === '▽' ? 'var(--red)' : v === '△' ? 'var(--yellow)' : 'var(--text2)';
+}
+function _raioXConfColor(n) {
+  if (n >= _RAIOX_MIN_SAMPLE * 3) return 'var(--green)';
+  if (n >= _RAIOX_MIN_SAMPLE) return 'var(--yellow)';
+  return 'var(--text2)';
+}
+
+async function _painelRaioXRender() {
+  const statusEl = document.getElementById('painelRaioXStatus');
+  const body = document.getElementById('painelRaioXBody');
+  statusEl.textContent = 'Calculando...';
+  body.innerHTML = '';
+
+  let all = [];
+  try {
+    const r = await fetch('/api/painel/matches');
+    const d = await r.json();
+    all = (d.leagues || []).flatMap(lg => lg.matches);
+  } catch (e) {
+    statusEl.textContent = `Erro buscando jogos: ${e}`;
+    return;
+  }
+
+  const finalizados = all.filter(m => m.time === 'Encerrado');
+  const comHt = finalizados.filter(m => {
+    const hc = parseInt(m.ht_home, 10), hf = parseInt(m.ht_away, 10);
+    return !isNaN(hc) && !isNaN(hf);
+  });
+
+  const combos = new Map(); // "✓△▽—" -> { ca, cd, fa, fd, total, hits, jogos[] }
+  let baselineHits = 0;
+  comHt.forEach(m => {
+    const hc = parseInt(m.ht_home, 10), hf = parseInt(m.ht_away, 10);
+    const over = (hc + hf) >= 1;
+    if (over) baselineHits++;
+    const ca = _raioXIconKey(m.casa_ataque_icon), cd = _raioXIconKey(m.casa_defesa_icon);
+    const fa = _raioXIconKey(m.fora_ataque_icon), fd = _raioXIconKey(m.fora_defesa_icon);
+    const key = `${ca}${cd}${fa}${fd}`;
+    if (!combos.has(key)) combos.set(key, { ca, cd, fa, fd, total: 0, hits: 0, jogos: [] });
+    const c = combos.get(key);
+    c.total++;
+    if (over) c.hits++;
+    c.jogos.push(m);
+  });
+
+  const baseline = comHt.length ? (baselineHits / comHt.length * 100) : null;
+  const lista = [...combos.values()].sort((a, b) => (b.hits / b.total) - (a.hits / a.total));
+
+  statusEl.textContent = `${finalizados.length} jogo(s) finalizado(s) hoje · ${comHt.length} com placar de intervalo · ${combos.size} combinação(ões)` +
+    (baseline != null ? ` · base geral Over 0.5 HT: ${baseline.toFixed(0)}%` : '');
+
+  if (!lista.length) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:var(--text-base);padding:24px 0;text-align:center;max-width:480px;margin:0 auto">
+      Nenhum jogo finalizado hoje tem placar de intervalo disponível ainda.<br><br>
+      Isso é esperado no começo do dia — o placar de intervalo é preenchido aos poucos em segundo plano
+      (cobertura parcial), e o índice de Power Ranking só existe pra time com 5+ jogos na liga.
+      Clique em "Recalcular" daqui a pouco.
+    </div>`;
+    return;
+  }
+
+  const iconCell = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:var(--text-lg)">${v}</span>`;
+
+  body.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-base);min-width:600px">
+        <thead>
+          <tr style="text-align:left;color:var(--text2);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.3px">
+            <th style="padding:6px 8px" title="Índice de Ataque do time da casa">C-Atq</th>
+            <th style="padding:6px 8px" title="Índice de Defesa do time da casa">C-Def</th>
+            <th style="padding:6px 8px" title="Índice de Ataque do time visitante">F-Atq</th>
+            <th style="padding:6px 8px" title="Índice de Defesa do time visitante">F-Def</th>
+            <th style="padding:6px 8px;text-align:center">Amostra</th>
+            <th style="padding:6px 8px;text-align:center">Over 0.5 HT</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.map(c => {
+            const pct = (c.hits / c.total * 100);
+            const jogosTitle = c.jogos.map(j => `${j.home} x ${j.away} — HT ${j.ht_home}:${j.ht_away}`).join('\n');
+            return `
+              <tr style="border-top:1px solid var(--border)" title="${_bt2EscXml(jogosTitle)}">
+                <td style="padding:6px 8px">${iconCell(c.ca)}</td>
+                <td style="padding:6px 8px">${iconCell(c.cd)}</td>
+                <td style="padding:6px 8px">${iconCell(c.fa)}</td>
+                <td style="padding:6px 8px">${iconCell(c.fd)}</td>
+                <td style="padding:6px 8px;text-align:center;font-family:var(--font-mono);color:${_raioXConfColor(c.total)}">${c.total}</td>
+                <td style="padding:6px 8px;text-align:center">
+                  <b style="font-family:var(--font-mono);color:${_raioXConfColor(c.total)}">${pct.toFixed(0)}%</b>
+                  <span style="color:var(--text2);font-size:var(--text-xs)">(${c.hits}/${c.total})</span>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.6">
+      Amostra em <span style="color:var(--green);font-weight:700">verde</span>: ≥${_RAIOX_MIN_SAMPLE * 3} jogo(s), mais confiável ·
+      <span style="color:var(--yellow);font-weight:700">amarelo</span>: ${_RAIOX_MIN_SAMPLE}-${_RAIOX_MIN_SAMPLE * 3 - 1}, use com cautela ·
+      cinza: menos de ${_RAIOX_MIN_SAMPLE}, pouco confiável (pode ser 1 jogo só) · "—" = time sem índice calculado ainda.
+      Passe o mouse numa linha pra ver os jogos daquela combinação.
+    </div>`;
 }
 
 async function _painelListaLoadConfig() {
