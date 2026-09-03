@@ -23775,16 +23775,21 @@ function _raioXMelhorComboMercado(all, mkt) {
 }
 
 function _painelRaioXStreakPanelHtml(all) {
-  const pills = _RAIOX_MARKETS_GERAL.map(key => {
+  // Pedido do usuário 2026-09-03: incluir também os 19 "placar exato — não
+  // ocorreu" (antes só os 10 gerais, pra não poluir) — label encurtado na
+  // pill (só o placar/nome do catch-all, sem o "— não ocorreu" repetido em
+  // cada uma), nome completo continua no title (tooltip).
+  const labelCurto = key => key.startsWith('csnao_') ? _RAIOX_MARKETS[key].label.replace(' — não ocorreu', '') : _RAIOX_MARKETS[key].label;
+  const pills = Object.keys(_RAIOX_MARKETS).map(key => {
     const mkt = _RAIOX_MARKETS[key];
     const r = _raioXMelhorComboMercado(all, mkt);
-    if (!r || !r.momentum || r.momentum.streak < 2) return null; // só mostra sequência real (>=2) pra não poluir com 10 pills sempre cheios
+    if (!r || !r.momentum || r.momentum.streak < 2) return null; // só mostra sequência real (>=2) pra não poluir com pill sempre cheia
     const combo = `${r.melhor.ca}${r.melhor.cd}${r.melhor.fa}${r.melhor.fd}`;
     const cor = r.momentum.acerto ? 'var(--green)' : 'var(--red)';
     const icone = r.momentum.acerto ? '🔥' : '⚠';
     return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:var(--text-xs);white-space:nowrap" title="${_bt2EscXml(mkt.label)} — combinação atual: ${_bt2EscXml(combo)}">
       <span>${icone}</span>
-      <span style="color:var(--text2)">${_bt2EscXml(mkt.label)}</span>
+      <span style="color:var(--text2)">${_bt2EscXml(labelCurto(key))}</span>
       <b style="color:${cor};font-family:var(--font-mono)">${r.momentum.streak}</b>
     </span>`;
   }).filter(Boolean);
