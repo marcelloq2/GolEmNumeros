@@ -23334,16 +23334,20 @@ const _RAIOX_MARTINGALE_NIVEIS = 4; // apostas de R$50/100/200/400 — 4 erros s
 // combinação, usando a "odd dinâmica" (odd justa implícita na própria taxa
 // histórica: odd = 100/taxa%) como odd fixa em toda aposta simulada. Não é
 // odd de mercado — é só "quanto essa taxa de acerto pagaria se fosse justa".
-function _raioXSimularLucro(bateuFlags, odd) {
-  const stakeFixaTotal = bateuFlags.length * _RAIOX_STAKE_BASE;
+// apostas: [{bateu, odd}] JÁ FILTRADO pros jogos com odd disponível, na
+// ordem cronológica (importa pro Martingale). Odd por aposta em vez de 1
+// odd fixa pra tudo — necessário desde que passou a usar odd REAL de
+// mercado (cada jogo tem a sua), não mais 1 "odd dinâmica" única pro dia.
+function _raioXSimularLucro(apostas) {
+  const stakeFixaTotal = apostas.length * _RAIOX_STAKE_BASE;
   let stakeFixaLucro = 0;
-  bateuFlags.forEach(bateu => {
+  apostas.forEach(({ bateu, odd }) => {
     stakeFixaLucro += bateu ? _RAIOX_STAKE_BASE * (odd - 1) : -_RAIOX_STAKE_BASE;
   });
 
   let martingaleLucro = 0, martingaleStakeInvestido = 0;
   let nivel = 0, perdaAcumulada = 0;
-  bateuFlags.forEach(bateu => {
+  apostas.forEach(({ bateu, odd }) => {
     const stakeAtual = _RAIOX_STAKE_BASE * Math.pow(2, nivel);
     martingaleStakeInvestido += stakeAtual;
     if (bateu) {
@@ -23375,17 +23379,28 @@ function _raioXSimularLucro(bateuFlags, odd) {
 // melhor, montar o card) é o mesmo pra qualquer mercado daqui.
 // "Vence 1T" segue a mesma definição já usada em analise_padroes.html
 // (vence1t_leitura): time da casa termina o intervalo na frente.
+// oddReal(odds): extrai a odd REAL de mercado (salva por _raiox_history_loop,
+// app.py, via bet365/Betano/Tipsport) do objeto "odds" de um jogo — só
+// existe pros mercados abaixo com marcador oddReal, os únicos onde uma casa
+// de apostas oferece uma odd DIRETA pra esse resultado específico (2 lados
+// claros: over/under de uma linha, ou sim/não de ambas marcam). Pedido do
+// usuário 2026-09-03: "Vence 1T"/Over HT (sem mercado de 1º tempo buscado
+// em lugar nenhum do site) e os 19 "placar exato — não ocorreu" (nenhuma
+// casa oferece odd de apostar CONTRA um placar específico) NÃO têm oddReal
+// — pra esses, o card mostra só a taxa de acerto, sem odd/lucro nenhum
+// (nem a antiga odd "justa" estimada — o usuário preferiu tirar a
+// simulação inteira a mostrar uma odd que não é de mercado de verdade).
 const _RAIOX_MARKETS = {
   over05ht:  { label: 'Over 0.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 1 },
   over15ht:  { label: 'Over 1.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 2 },
   vence1t:   { label: 'Vence 1T (casa)', campo: 'ht', hit: (h, a) => h > a },
-  over05ft:  { label: 'Over 0.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 1 },
-  over15ft:  { label: 'Over 1.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 2 },
-  over25ft:  { label: 'Over 2.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 3 },
-  under25ft: { label: 'Under 2.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 2 },
-  under35ft: { label: 'Under 3.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 3 },
-  bttssim:   { label: 'Ambas Marcam — Sim', campo: 'ft', hit: (h, a) => h > 0 && a > 0 },
-  bttsnao:   { label: 'Ambas Equipes Marcam — Não', campo: 'ft', hit: (h, a) => !(h > 0 && a > 0) },
+  over05ft:  { label: 'Over 0.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 1, oddReal: o => o?.over_under?.['0.5']?.over },
+  over15ft:  { label: 'Over 1.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 2, oddReal: o => o?.over_under?.['1.5']?.over },
+  over25ft:  { label: 'Over 2.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 3, oddReal: o => o?.over_under?.['2.5']?.over },
+  under25ft: { label: 'Under 2.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 2, oddReal: o => o?.over_under?.['2.5']?.under },
+  under35ft: { label: 'Under 3.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 3, oddReal: o => o?.over_under?.['3.5']?.under },
+  bttssim:   { label: 'Ambas Marcam — Sim', campo: 'ft', hit: (h, a) => h > 0 && a > 0, oddReal: o => o?.btts_sim },
+  bttsnao:   { label: 'Ambas Equipes Marcam — Não', campo: 'ft', hit: (h, a) => !(h > 0 && a > 0), oddReal: o => o?.btts_nao },
 };
 const _RAIOX_MARKETS_GERAL = Object.keys(_RAIOX_MARKETS);
 
@@ -23442,15 +23457,27 @@ async function _painelRaioXRender() {
   const rotuloPlacar = isHt ? 'placar de intervalo' : 'placar final';
   const prefixoLinha = isHt ? 'HT' : 'FT';
 
-  let all = [];
+  let all = [], historyDays = [];
   try {
-    const r = await fetch('/api/painel/matches');
-    const d = await r.json();
+    const [d, days] = await Promise.all([
+      fetch('/api/painel/matches').then(r => r.json()),
+      _painelRaioXFetchHistory(),
+    ]);
     all = (d.leagues || []).flatMap(lg => lg.matches);
+    historyDays = days;
   } catch (e) {
     statusEl.textContent = `Erro buscando jogos: ${e}`;
     return;
   }
+
+  // Odds reais de hoje (salvas por _raiox_history_loop, app.py) — vêm pelo
+  // MESMO endpoint de histórico, casadas por nome de time (o objeto de jogo
+  // de /api/painel/matches não carrega odds, só o snapshot de histórico).
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  const oddsPorJogoHoje = {};
+  (historyDays.find(d => d.date === hojeStr)?.matches || []).forEach(m => {
+    oddsPorJogoHoje[`${m.home}||${m.away}`] = m.odds;
+  });
 
   const finalizados = all.filter(m => m.time === 'Encerrado');
   const comPlacar = finalizados.filter(m => {
@@ -23483,7 +23510,7 @@ async function _painelRaioXRender() {
   if (!lista.length) {
     body.innerHTML = `<div style="color:var(--text2);font-size:var(--text-base);padding:24px 0;text-align:center;max-width:480px;margin:0 auto">
       Nenhum jogo finalizado hoje tem ${rotuloPlacar} disponível ainda.<br><br>
-      Isso é esperado no começo do dia — ${isFt ? 'o placar final é preenchido conforme os jogos terminam' : 'o placar de intervalo é preenchido aos poucos em segundo plano (cobertura parcial)'},
+      Isso é esperado no começo do dia — ${isHt ? 'o placar de intervalo é preenchido aos poucos em segundo plano (cobertura parcial)' : 'o placar final é preenchido conforme os jogos terminam'},
       e o índice de Power Ranking só existe pra time com 5+ jogos na liga.
       Clique em "Recalcular" daqui a pouco.
     </div>`;
@@ -23514,18 +23541,42 @@ async function _painelRaioXRender() {
   // sequência de jogos.
   const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
   const bateuFlags = jogosOrdenados.map(j => mkt.hit(parseInt(j[campoHome], 10), parseInt(j[campoAway], 10)));
-  const odd = pct > 0 ? (100 / pct) : null;
-  const sim = odd != null ? _raioXSimularLucro(bateuFlags, odd) : null;
+
+  // Só simula lucro pra mercado com odd REAL de mercado (ver comentário em
+  // _RAIOX_MARKETS) — jogo sem essa odd disponível é DESCONSIDERADO do
+  // lucro (mas continua contando pra taxa de acerto/combinação vencedora,
+  // que não depende de odds). Pedido do usuário 2026-09-03.
+  const oddPorJogo = jogosOrdenados.map(j => {
+    if (!mkt.oddReal) return null;
+    const o = mkt.oddReal(oddsPorJogoHoje[`${j.home}||${j.away}`]);
+    return (o != null && !isNaN(o)) ? o : null;
+  });
+  let sim = null, oddMedia = null, jogosComOdd = 0, jogosSemOdd = 0;
+  if (mkt.oddReal) {
+    const apostas = [];
+    jogosOrdenados.forEach((j, i) => {
+      if (oddPorJogo[i] != null) { apostas.push({ bateu: bateuFlags[i], odd: oddPorJogo[i] }); jogosComOdd++; }
+      else jogosSemOdd++;
+    });
+    if (apostas.length) {
+      sim = _raioXSimularLucro(apostas);
+      oddMedia = apostas.reduce((s, a) => s + a.odd, 0) / apostas.length;
+    }
+  }
 
   const rowsHtml = jogosOrdenados.map((j, i) => {
     const bateu = bateuFlags[i];
     const icone = bateu
       ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
       : `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`;
+    const oddTag = !mkt.oddReal ? '' : (oddPorJogo[i] != null
+      ? `<span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--accent)" title="Odd real de mercado">@${oddPorJogo[i].toFixed(2)}</span>`
+      : `<span style="font-size:9px;color:var(--text2)" title="Sem odd real disponível — desconsiderado do lucro">sem odd</span>`);
     return `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:var(--text-base);padding:5px 0;border-top:1px solid var(--border)">
         <span style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.2px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.home)} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${_bt2EscXml(j.away)}</span>
         <span style="white-space:nowrap;display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${oddTag}
           <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text2)">${prefixoLinha} ${j[campoHome]}:${j[campoAway]}</span>${icone}
         </span>
       </div>`;
@@ -23535,25 +23586,31 @@ async function _painelRaioXRender() {
   // (ex.: -0.00000005 arredondaria pra "-R$0", parecendo prejuízo quando é
   // empate técnico) virar "-R$0" na tela.
   const fmtR$ = n => { const r = Math.round(n); return `${r >= 0 ? '' : '-'}R$${Math.abs(r)}`; };
-  const stakeFixaLucroR = Math.round(sim ? sim.stakeFixaLucro : 0);
-  const martingaleLucroR = Math.round(sim ? sim.martingaleLucro : 0);
-  const financeiroHtml = sim ? `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
-      <div style="text-align:center">
-        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Odd justa implícita na taxa de acerto (100 / taxa%) — não é odd de mercado">Odd dinâmica</div>
-        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:var(--accent)">${odd.toFixed(2)}</b>
+  let financeiroHtml = '';
+  if (mkt.oddReal && sim) {
+    const stakeFixaLucroR = Math.round(sim.stakeFixaLucro);
+    const martingaleLucroR = Math.round(sim.martingaleLucro);
+    financeiroHtml = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
+        <div style="text-align:center">
+          <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Média das odds REAIS de mercado (bet365/Betano/Tipsport) dos jogos com odd disponível">Odd média (real)</div>
+          <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:var(--accent)">${oddMedia.toFixed(2)}</b>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Stake fixa de R$50 por jogo, na odd real de cada jogo">Lucro Stake Fixa</div>
+          <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${stakeFixaLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.stakeFixaLucro)}</b>
+          <div style="font-size:9px;color:var(--text2)">ROI ${sim.stakeFixaRoi.toFixed(0)}%</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Martingale base R$50, teto de 4 apostas seguidas (50/100/200/400 — 4 erros zera a sequência), na odd real de cada jogo">Lucro Martingale</div>
+          <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${martingaleLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.martingaleLucro)}</b>
+          <div style="font-size:9px;color:var(--text2)">ROI ${sim.martingaleRoi.toFixed(0)}%</div>
+        </div>
       </div>
-      <div style="text-align:center">
-        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Stake fixa de R$50 por jogo, na odd dinâmica">Lucro Stake Fixa</div>
-        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${stakeFixaLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.stakeFixaLucro)}</b>
-        <div style="font-size:9px;color:var(--text2)">ROI ${sim.stakeFixaRoi.toFixed(0)}%</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Martingale base R$50, teto de 4 apostas seguidas (50/100/200/400 — 4 erros zera a sequência)">Lucro Martingale</div>
-        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${martingaleLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.martingaleLucro)}</b>
-        <div style="font-size:9px;color:var(--text2)">ROI ${sim.martingaleRoi.toFixed(0)}%</div>
-      </div>
-    </div>` : `<div style="font-size:var(--text-xs);color:var(--yellow);padding:6px 0">Combinação com 0% de acerto hoje — odd indefinida, sem simulação de lucro.</div>`;
+      ${jogosSemOdd ? `<div style="font-size:var(--text-xs);color:var(--text2);padding:0 0 6px">${jogosComOdd} de ${jogosOrdenados.length} jogo(s) tinham odd real disponível — ${jogosSemOdd} desconsiderado(s) do lucro por falta de odd.</div>` : ''}`;
+  } else if (mkt.oddReal) {
+    financeiroHtml = `<div style="font-size:var(--text-xs);color:var(--yellow);padding:6px 0">Nenhum jogo dessa combinação tinha odd real de mercado disponível hoje — sem simulação de lucro.</div>`;
+  }
 
   body.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
@@ -23581,7 +23638,9 @@ async function _painelRaioXRender() {
         </div>
         <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.5">
           Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
-          Lucro/ROI são simulação retrospectiva com odd derivada da própria taxa de acerto (não é odd real de mercado) — serve pra comparar Stake Fixa x Martingale, não é previsão de ganho futuro.
+          ${mkt.oddReal
+            ? 'Lucro/ROI usam odd REAL de mercado (bet365/Betano/Tipsport) de cada jogo — jogo sem essa odd disponível é desconsiderado do lucro (mas conta normal pra taxa de acerto). Simulação retrospectiva, não é previsão de ganho futuro.'
+            : 'Esse mercado não tem odd real de mercado disponível pra apostar (nenhuma casa oferece odd direta pra esse resultado específico) — mostrando só a taxa de acerto, sem simulação de lucro.'}
         </div>
       </div>
       <div id="painelRaioXStatsPanel" style="flex:1 1 300px;max-width:400px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px">

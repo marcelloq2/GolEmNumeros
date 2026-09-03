@@ -1996,6 +1996,7 @@ RAIOX_HISTORY_DIR = os.path.join(DATA_DIR, "raiox_history")
 
 def _raiox_history_snapshot_fields(m):
     return {
+        "event_id": m.get("event_id"),
         "home": m.get("home"), "away": m.get("away"),
         "ht_home": m.get("ht_home"), "ht_away": m.get("ht_away"),
         "score_home": m.get("score_home"), "score_away": m.get("score_away"),
@@ -2005,21 +2006,94 @@ def _raiox_history_snapshot_fields(m):
     }
 
 
+def _raiox_history_extract_odds(markets):
+    """Extrai só o que os mercados de FT do Raio-X com odd REAL direta
+    precisam (Over/Under em várias linhas + Ambas Marcam) do dict cru que
+    _fs_odds_all_markets_any_bookmaker devolve. Fora daqui ficam "Vence 1T"/
+    Over HT (sem mercado de 1º tempo buscado em lugar nenhum do site hoje) e
+    os 19 "placar exato — não ocorreu" (nenhuma casa oferece odd direta pra
+    apostar CONTRA um placar específico — só a favor de um placar sair, que
+    não é a mesma coisa) — pedido do usuário 2026-09-03: sem odd real de
+    verdade, esses mercados mostram só a taxa de acerto, sem simulação de
+    lucro nenhuma (nada de odd "justa"/estimada no lugar)."""
+    def _num(v):
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    ou_por_linha = {}
+    for op in ((markets.get("over_under") or {}).get("opportunities") or []):
+        linha = _num((op.get("handicap") or {}).get("value"))
+        if linha in (0.5, 1.5, 2.5, 3.5):
+            ou_por_linha[str(linha)] = {
+                "over": _num((op.get("over") or {}).get("value")),
+                "under": _num((op.get("under") or {}).get("value")),
+            }
+
+    ambos = markets.get("ambos_marcam") or {}
+    return {
+        "over_under": ou_por_linha,
+        "btts_sim": _num((ambos.get("yes") or {}).get("value")),
+        "btts_nao": _num((ambos.get("no") or {}).get("value")),
+    }
+
+
+# Odds reais buscadas por jogo Encerrado, só 1x cada (odd de fechamento de
+# jogo já disputado não muda) — reseta quando o dia vira. Fica só na memória
+# (não precisa sobreviver a redeploy: o resultado de cada fetch já é
+# gravado dentro do raiox_history/{data}.json daquele ciclo, que ESSE sim é
+# persistido/pushado pro GitHub) — pior caso de um restart no meio do dia é
+# rebuscar odds de jogos que já tinham sido processados antes dele.
+_raiox_odds_fetched = {}
+_raiox_odds_fetched_date = None
+
+
 def _raiox_history_loop():
+    global _raiox_odds_fetched, _raiox_odds_fetched_date
     _github_sync_done.wait(timeout=120)
     github_storage.pull_directory("raiox_history", RAIOX_HISTORY_DIR)
     while True:
         try:
             os.makedirs(RAIOX_HISTORY_DIR, exist_ok=True)
+            date_str = _brt_today().isoformat()
+            if _raiox_odds_fetched_date != date_str:
+                _raiox_odds_fetched = {}
+                _raiox_odds_fetched_date = date_str
+
             data = _painel_fetch_matches_flashscore()
             all_matches = [m for lg in data.get("leagues", []) for m in lg["matches"]]
-            finalizados = [_raiox_history_snapshot_fields(m) for m in all_matches if m.get("time") == "Encerrado"]
-            date_str = _brt_today().isoformat()
+            finalizados = [m for m in all_matches if m.get("time") == "Encerrado"]
+
+            # Só busca odds dos jogos NOVOS desde o último ciclo (a maioria já
+            # foi buscada em ciclos anteriores do mesmo dia) — evita rebuscar
+            # ~150 jogos a cada 30min, só o punhado que terminou nesse meio-tempo.
+            novos = [m for m in finalizados if m.get("event_id") and m["event_id"] not in _raiox_odds_fetched]
+
+            def _fetch_odds(m):
+                try:
+                    _, markets = _fs_odds_all_markets_any_bookmaker(
+                        m["event_id"], pool=_fs_market_pool, markets_wanted=["over_under", "ambos_marcam"])
+                    return m["event_id"], _raiox_history_extract_odds(markets)
+                except Exception:
+                    return m["event_id"], None
+
+            if novos:
+                for eid, odds in _fs_event_pool.map(_fetch_odds, novos):
+                    _raiox_odds_fetched[eid] = odds
+
+            snapshot = []
+            for m in finalizados:
+                rec = _raiox_history_snapshot_fields(m)
+                rec["odds"] = _raiox_odds_fetched.get(m.get("event_id"))
+                snapshot.append(rec)
+
             path = os.path.join(RAIOX_HISTORY_DIR, f"{date_str}.json")
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(finalizados, f, ensure_ascii=False)
+                json.dump(snapshot, f, ensure_ascii=False)
             github_storage.push_file_bg(path, f"raiox_history/{date_str}.json")
-            print(f"[raiox-history] {date_str}: {len(finalizados)} jogo(s) finalizado(s) salvos")
+            print(f"[raiox-history] {date_str}: {len(snapshot)} jogo(s) finalizado(s) salvos "
+                  f"({len(novos)} nova(s) odds buscada(s) nesse ciclo)")
         except Exception as e:
             print(f"[raiox-history] Erro: {e}")
         time.sleep(_RAIOX_HISTORY_INTERVAL)
