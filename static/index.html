@@ -1851,8 +1851,7 @@
          /api/painel/matches que o Painel já carrega — sem endpoint novo. -->
     <div id="painelRaioXView" style="display:none;padding:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-        <button class="painel-sort-time-btn active" id="painelRaioXMktHtBtn" onclick="_painelRaioXSetMarket('ht')">Over 0.5 HT</button>
-        <button class="painel-sort-time-btn" id="painelRaioXMktFtBtn" onclick="_painelRaioXSetMarket('ft')">Over 0.5 FT</button>
+        <select id="painelRaioXMarketSelect" class="painel-search-select" style="max-width:260px" onchange="_painelRaioXSetMarket(this.value)"></select>
         <button class="painel-sort-time-btn" onclick="_painelRaioXRender()"><span data-ico="Refresh"></span> Recalcular</button>
       </div>
       <div id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2);margin-bottom:8px"></div>
@@ -23328,33 +23327,56 @@ function _raioXConfColor(n) {
   return 'var(--text2)';
 }
 
-let _painelRaioXMarket = 'ht'; // 'ht' | 'ft' — qual mercado Over 0.5 o Raio-X está calculando agora
+// Cada mercado só precisa dizer de onde tira o placar (ht = intervalo,
+// ft = final) e a regra de "bateu" em cima de (gols casa, gols fora) —
+// todo o resto (agrupar por combinação de Power Ranking, escolher a
+// melhor, montar o card) é o mesmo pra qualquer mercado daqui.
+// "Vence 1T" segue a mesma definição já usada em analise_padroes.html
+// (vence1t_leitura): time da casa termina o intervalo na frente.
+const _RAIOX_MARKETS = {
+  over05ht:  { label: 'Over 0.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 1 },
+  over15ht:  { label: 'Over 1.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 2 },
+  vence1t:   { label: 'Vence 1T (casa)', campo: 'ht', hit: (h, a) => h > a },
+  over05ft:  { label: 'Over 0.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 1 },
+  over15ft:  { label: 'Over 1.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 2 },
+  over25ft:  { label: 'Over 2.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 3 },
+  under25ft: { label: 'Under 2.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 2 },
+  under35ft: { label: 'Under 3.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 3 },
+  bttssim:   { label: 'Ambas Marcam — Sim', campo: 'ft', hit: (h, a) => h > 0 && a > 0 },
+  bttsnao:   { label: 'Ambas Equipes Marcam — Não', campo: 'ft', hit: (h, a) => !(h > 0 && a > 0) },
+};
+let _painelRaioXMarket = 'over05ht';
+
+function _painelRaioXHydrateMarketSelect() {
+  const sel = document.getElementById('painelRaioXMarketSelect');
+  if (!sel || sel.options.length) return;
+  sel.innerHTML = Object.entries(_RAIOX_MARKETS).map(([key, m]) => `<option value="${key}">${m.label}</option>`).join('');
+  sel.value = _painelRaioXMarket;
+}
 
 function _painelRaioXSetMarket(mkt) {
-  if (_painelRaioXMarket === mkt) return;
+  if (!_RAIOX_MARKETS[mkt] || _painelRaioXMarket === mkt) return;
   _painelRaioXMarket = mkt;
-  const htBtn = document.getElementById('painelRaioXMktHtBtn');
-  const ftBtn = document.getElementById('painelRaioXMktFtBtn');
-  if (htBtn) htBtn.classList.toggle('active', mkt === 'ht');
-  if (ftBtn) ftBtn.classList.toggle('active', mkt === 'ft');
   _painelRaioXRender();
 }
 
 async function _painelRaioXRender() {
+  _painelRaioXHydrateMarketSelect();
   const statusEl = document.getElementById('painelRaioXStatus');
   const body = document.getElementById('painelRaioXBody');
   statusEl.textContent = 'Calculando...';
   body.innerHTML = '';
 
-  // FT usa o placar final (score_home/score_away), que já vem junto com todo
-  // jogo Encerrado — HT usa o placar de intervalo (ht_home/ht_away), que é
-  // cobertura parcial via _painel_ht_prewarm_loop (ver comentário no app.py).
-  const isFt = _painelRaioXMarket === 'ft';
-  const campoHome = isFt ? 'score_home' : 'ht_home';
-  const campoAway = isFt ? 'score_away' : 'ht_away';
-  const rotuloMercado = isFt ? 'Over 0.5 FT' : 'Over 0.5 HT';
-  const rotuloPlacar = isFt ? 'placar final' : 'placar de intervalo';
-  const prefixoLinha = isFt ? 'FT' : 'HT';
+  const mkt = _RAIOX_MARKETS[_painelRaioXMarket];
+  // HT usa o placar de intervalo (ht_home/ht_away) — cobertura parcial via
+  // _painel_ht_prewarm_loop (ver comentário no app.py). FT usa o placar
+  // final (score_home/score_away), que já vem junto com todo jogo Encerrado.
+  const isHt = mkt.campo === 'ht';
+  const campoHome = isHt ? 'ht_home' : 'score_home';
+  const campoAway = isHt ? 'ht_away' : 'score_away';
+  const rotuloMercado = mkt.label;
+  const rotuloPlacar = isHt ? 'placar de intervalo' : 'placar final';
+  const prefixoLinha = isHt ? 'HT' : 'FT';
 
   let all = [];
   try {
@@ -23376,15 +23398,15 @@ async function _painelRaioXRender() {
   let baselineHits = 0;
   comPlacar.forEach(m => {
     const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
-    const over = (hc + hf) >= 1;
-    if (over) baselineHits++;
+    const bateu = mkt.hit(hc, hf);
+    if (bateu) baselineHits++;
     const ca = _raioXIconKey(m.casa_ataque_icon), cd = _raioXIconKey(m.casa_defesa_icon);
     const fa = _raioXIconKey(m.fora_ataque_icon), fd = _raioXIconKey(m.fora_defesa_icon);
     const key = `${ca}${cd}${fa}${fd}`;
     if (!combos.has(key)) combos.set(key, { ca, cd, fa, fd, total: 0, hits: 0, jogos: [] });
     const c = combos.get(key);
     c.total++;
-    if (over) c.hits++;
+    if (bateu) c.hits++;
     c.jogos.push(m);
   });
 
@@ -23424,7 +23446,7 @@ async function _painelRaioXRender() {
   const pct = (melhor.hits / melhor.total * 100);
   const rowsHtml = melhor.jogos.map(j => {
     const hc = parseInt(j[campoHome], 10), hf = parseInt(j[campoAway], 10);
-    const bateu = (hc + hf) >= 1;
+    const bateu = mkt.hit(hc, hf);
     const icone = bateu
       ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
       : `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`;
