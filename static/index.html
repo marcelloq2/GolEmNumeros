@@ -1771,7 +1771,7 @@
         <button class="painel-subtab" onclick="_painelSetFilter('selected', this)">FAVORITOS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('methodologies', this)">TIPSTERS</button>
         <button class="painel-subtab" onclick="_painelSetFilter('lista', this)">LISTA</button>
-        <button class="painel-subtab" onclick="_painelSetFilter('raiox', this)"><span data-ico="Target"></span> RAIO-X HT</button>
+        <button class="painel-subtab" onclick="_painelSetFilter('raiox', this)"><span data-ico="Target"></span> RAIO-X</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0 0;flex-wrap:wrap;row-gap:6px">
         <!-- Botão "🚫 Lay Placar" removido a pedido do usuário (2026-08-24) — a
@@ -1850,10 +1850,12 @@
          1º tempo). Roda inteiro no navegador, direto em cima do
          /api/painel/matches que o Painel já carrega — sem endpoint novo. -->
     <div id="painelRaioXView" style="display:none;padding:10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <span id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2)"></span>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+        <button class="painel-sort-time-btn active" id="painelRaioXMktHtBtn" onclick="_painelRaioXSetMarket('ht')">Over 0.5 HT</button>
+        <button class="painel-sort-time-btn" id="painelRaioXMktFtBtn" onclick="_painelRaioXSetMarket('ft')">Over 0.5 FT</button>
         <button class="painel-sort-time-btn" onclick="_painelRaioXRender()"><span data-ico="Refresh"></span> Recalcular</button>
       </div>
+      <div id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2);margin-bottom:8px"></div>
       <div id="painelRaioXBody"></div>
     </div>
   </div>
@@ -23326,11 +23328,33 @@ function _raioXConfColor(n) {
   return 'var(--text2)';
 }
 
+let _painelRaioXMarket = 'ht'; // 'ht' | 'ft' — qual mercado Over 0.5 o Raio-X está calculando agora
+
+function _painelRaioXSetMarket(mkt) {
+  if (_painelRaioXMarket === mkt) return;
+  _painelRaioXMarket = mkt;
+  const htBtn = document.getElementById('painelRaioXMktHtBtn');
+  const ftBtn = document.getElementById('painelRaioXMktFtBtn');
+  if (htBtn) htBtn.classList.toggle('active', mkt === 'ht');
+  if (ftBtn) ftBtn.classList.toggle('active', mkt === 'ft');
+  _painelRaioXRender();
+}
+
 async function _painelRaioXRender() {
   const statusEl = document.getElementById('painelRaioXStatus');
   const body = document.getElementById('painelRaioXBody');
   statusEl.textContent = 'Calculando...';
   body.innerHTML = '';
+
+  // FT usa o placar final (score_home/score_away), que já vem junto com todo
+  // jogo Encerrado — HT usa o placar de intervalo (ht_home/ht_away), que é
+  // cobertura parcial via _painel_ht_prewarm_loop (ver comentário no app.py).
+  const isFt = _painelRaioXMarket === 'ft';
+  const campoHome = isFt ? 'score_home' : 'ht_home';
+  const campoAway = isFt ? 'score_away' : 'ht_away';
+  const rotuloMercado = isFt ? 'Over 0.5 FT' : 'Over 0.5 HT';
+  const rotuloPlacar = isFt ? 'placar final' : 'placar de intervalo';
+  const prefixoLinha = isFt ? 'FT' : 'HT';
 
   let all = [];
   try {
@@ -23343,15 +23367,15 @@ async function _painelRaioXRender() {
   }
 
   const finalizados = all.filter(m => m.time === 'Encerrado');
-  const comHt = finalizados.filter(m => {
-    const hc = parseInt(m.ht_home, 10), hf = parseInt(m.ht_away, 10);
+  const comPlacar = finalizados.filter(m => {
+    const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
     return !isNaN(hc) && !isNaN(hf);
   });
 
   const combos = new Map(); // "✓△▽—" -> { ca, cd, fa, fd, total, hits, jogos[] }
   let baselineHits = 0;
-  comHt.forEach(m => {
-    const hc = parseInt(m.ht_home, 10), hf = parseInt(m.ht_away, 10);
+  comPlacar.forEach(m => {
+    const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
     const over = (hc + hf) >= 1;
     if (over) baselineHits++;
     const ca = _raioXIconKey(m.casa_ataque_icon), cd = _raioXIconKey(m.casa_defesa_icon);
@@ -23364,17 +23388,17 @@ async function _painelRaioXRender() {
     c.jogos.push(m);
   });
 
-  const baseline = comHt.length ? (baselineHits / comHt.length * 100) : null;
+  const baseline = comPlacar.length ? (baselineHits / comPlacar.length * 100) : null;
   const lista = [...combos.values()].sort((a, b) => (b.hits / b.total) - (a.hits / a.total));
 
-  statusEl.textContent = `${finalizados.length} jogo(s) finalizado(s) hoje · ${comHt.length} com placar de intervalo · ${combos.size} combinação(ões)` +
-    (baseline != null ? ` · base geral Over 0.5 HT: ${baseline.toFixed(0)}%` : '');
+  statusEl.textContent = `${finalizados.length} jogo(s) finalizado(s) hoje · ${comPlacar.length} com ${rotuloPlacar} · ${combos.size} combinação(ões)` +
+    (baseline != null ? ` · base geral ${rotuloMercado}: ${baseline.toFixed(0)}%` : '');
 
   if (!lista.length) {
     body.innerHTML = `<div style="color:var(--text2);font-size:var(--text-base);padding:24px 0;text-align:center;max-width:480px;margin:0 auto">
-      Nenhum jogo finalizado hoje tem placar de intervalo disponível ainda.<br><br>
-      Isso é esperado no começo do dia — o placar de intervalo é preenchido aos poucos em segundo plano
-      (cobertura parcial), e o índice de Power Ranking só existe pra time com 5+ jogos na liga.
+      Nenhum jogo finalizado hoje tem ${rotuloPlacar} disponível ainda.<br><br>
+      Isso é esperado no começo do dia — ${isFt ? 'o placar final é preenchido conforme os jogos terminam' : 'o placar de intervalo é preenchido aos poucos em segundo plano (cobertura parcial)'},
+      e o índice de Power Ranking só existe pra time com 5+ jogos na liga.
       Clique em "Recalcular" daqui a pouco.
     </div>`;
     return;
@@ -23399,7 +23423,7 @@ async function _painelRaioXRender() {
   const iconBig = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:22px">${v}</span>`;
   const pct = (melhor.hits / melhor.total * 100);
   const rowsHtml = melhor.jogos.map(j => {
-    const hc = parseInt(j.ht_home, 10), hf = parseInt(j.ht_away, 10);
+    const hc = parseInt(j[campoHome], 10), hf = parseInt(j[campoAway], 10);
     const bateu = (hc + hf) >= 1;
     const icone = bateu
       ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
@@ -23408,7 +23432,7 @@ async function _painelRaioXRender() {
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:var(--text-base);padding:5px 0;border-top:1px solid var(--border)">
         <span style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.2px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.home)} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${_bt2EscXml(j.away)}</span>
         <span style="white-space:nowrap;display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text2)">HT ${j.ht_home}:${j.ht_away}</span>${icone}
+          <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text2)">${prefixoLinha} ${j[campoHome]}:${j[campoAway]}</span>${icone}
         </span>
       </div>`;
   }).join('');
@@ -23421,7 +23445,7 @@ async function _painelRaioXRender() {
         </div>
         <div style="text-align:right">
           <b style="font-family:var(--font-mono);font-size:var(--text-xl);color:${_raioXConfColor(melhor.total)}">${pct.toFixed(0)}%</b>
-          <span style="color:var(--text2);font-size:var(--text-xs)"> Over 0.5 HT (${melhor.hits}/${melhor.total})</span>
+          <span style="color:var(--text2);font-size:var(--text-xs)"> ${rotuloMercado} (${melhor.hits}/${melhor.total})</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;gap:18px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
@@ -23435,7 +23459,7 @@ async function _painelRaioXRender() {
       <div>${rowsHtml}</div>
     </div>
     <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2)">
-      Calculado sobre ${comHt.length} jogo(s) finalizado(s) hoje com placar de intervalo, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
+      Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
     </div>`;
 }
 
