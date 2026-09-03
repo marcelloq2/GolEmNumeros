@@ -1851,7 +1851,7 @@
          /api/painel/matches que o Painel já carrega — sem endpoint novo. -->
     <div id="painelRaioXView" style="display:none;padding:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-        <select id="painelRaioXMarketSelect" class="painel-search-select" style="max-width:260px" onchange="_painelRaioXSetMarket(this.value)"></select>
+        <select id="painelRaioXMarketSelect" class="painel-search-select" style="max-width:320px" onchange="_painelRaioXSetMarket(this.value)"></select>
         <button class="painel-sort-time-btn" onclick="_painelRaioXRender()"><span data-ico="Refresh"></span> Recalcular</button>
       </div>
       <div id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2);margin-bottom:8px"></div>
@@ -23345,12 +23345,34 @@ const _RAIOX_MARKETS = {
   bttssim:   { label: 'Ambas Marcam — Sim', campo: 'ft', hit: (h, a) => h > 0 && a > 0 },
   bttsnao:   { label: 'Ambas Equipes Marcam — Não', campo: 'ft', hit: (h, a) => !(h > 0 && a > 0) },
 };
+const _RAIOX_MARKETS_GERAL = Object.keys(_RAIOX_MARKETS);
+
+// Placar exato "— não ocorreu": reaproveita as mesmas 19 caixas fixas que o
+// resto do site já usa pra placar exato (PLACAR_EXATO_BUCKETS_ORDER /
+// _placarExatoBucketKey, ver Backtest CS em app.py) — 16 placares 0-0..3-3 +
+// 3 "qualquer outro" (vitória casa/visitante/empate com 4+ gols de algum
+// lado). "Bateu" aqui é o inverso do normal: significa que ESSE placar
+// específico NÃO saiu (é uma leitura de "aposta contra", não a favor).
+PLACAR_EXATO_BUCKETS_ORDER.forEach(bucket => {
+  const isScoreNum = /^\d+-\d+$/.test(bucket);
+  const key = 'csnao_' + _painelExportSlug(bucket);
+  _RAIOX_MARKETS[key] = {
+    label: `${isScoreNum ? 'Placar ' + bucket : bucket} — não ocorreu`,
+    campo: 'ft',
+    hit: (h, a) => _placarExatoBucketKey(h, a) !== bucket,
+  };
+});
+const _RAIOX_MARKETS_CS = Object.keys(_RAIOX_MARKETS).filter(k => k.startsWith('csnao_'));
+
 let _painelRaioXMarket = 'over05ht';
 
 function _painelRaioXHydrateMarketSelect() {
   const sel = document.getElementById('painelRaioXMarketSelect');
   if (!sel || sel.options.length) return;
-  sel.innerHTML = Object.entries(_RAIOX_MARKETS).map(([key, m]) => `<option value="${key}">${m.label}</option>`).join('');
+  const opt = key => `<option value="${key}">${_RAIOX_MARKETS[key].label}</option>`;
+  sel.innerHTML = `
+    <optgroup label="Totais e mercados">${_RAIOX_MARKETS_GERAL.map(opt).join('')}</optgroup>
+    <optgroup label="Placar exato — não ocorreu">${_RAIOX_MARKETS_CS.map(opt).join('')}</optgroup>`;
   sel.value = _painelRaioXMarket;
 }
 
