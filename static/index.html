@@ -23391,18 +23391,21 @@ function _raioXSimularLucro(apostas) {
 // app.py, via bet365/Betano/Tipsport) do objeto "odds" de um jogo — só
 // existe pros mercados abaixo com marcador oddReal, os únicos onde uma casa
 // de apostas oferece uma odd DIRETA pra esse resultado específico (2 lados
-// claros: over/under de uma linha, ou sim/não de ambas marcam). Pedido do
-// usuário 2026-09-03: "Vence 1T"/Over HT (sem mercado de 1º tempo buscado
-// em lugar nenhum do site) e os 19 "placar exato — não ocorreu" (nenhuma
-// casa oferece odd de apostar CONTRA um placar específico) NÃO têm oddReal
-// — pra esses, o card mostra só a taxa de acerto, sem odd/lucro nenhum
-// (nem a antiga odd "justa" estimada — o usuário preferiu tirar a
+// claros: over/under de uma linha, sim/não de ambas marcam, ou 1X2). Os 4
+// mercados de HT (over05ht/over15ht/vence1t/vence1tfora) ganharam oddReal
+// em 2026-09-03 via um endpoint SEPARADO (_fs_odds_ht_extract, hash "oce" —
+// ver [[project_statarea_odds_ht_flashscore]]), achado depois de descobrir
+// que o endpoint de FT não aceita nenhum "tempo" além de FULL_TIME. Só os
+// 19 "placar exato — não ocorreu" continuam sem oddReal (nenhuma casa
+// oferece odd de apostar CONTRA um placar específico) — pra esses, o card
+// mostra só a taxa de acerto, sem odd/lucro nenhum (nem a antiga odd
+// "justa" estimada — o usuário preferiu tirar a
 // simulação inteira a mostrar uma odd que não é de mercado de verdade).
 const _RAIOX_MARKETS = {
-  over05ht:  { label: 'Over 0.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 1 },
-  over15ht:  { label: 'Over 1.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 2 },
-  vence1t:   { label: 'Vence 1T (casa)', campo: 'ht', hit: (h, a) => h > a },
-  vence1tfora: { label: 'Vence 1T (fora)', campo: 'ht', hit: (h, a) => a > h },
+  over05ht:  { label: 'Over 0.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 1, oddReal: o => o?.over_under_ht?.['0.5'] },
+  over15ht:  { label: 'Over 1.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 2, oddReal: o => o?.over_under_ht?.['1.5'] },
+  vence1t:   { label: 'Vence 1T (casa)', campo: 'ht', hit: (h, a) => h > a, oddReal: o => o?.odd_1_ht },
+  vence1tfora: { label: 'Vence 1T (fora)', campo: 'ht', hit: (h, a) => a > h, oddReal: o => o?.odd_2_ht },
   over05ft:  { label: 'Over 0.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 1, oddReal: o => o?.over_under?.['0.5']?.over },
   over15ft:  { label: 'Over 1.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 2, oddReal: o => o?.over_under?.['1.5']?.over },
   over25ft:  { label: 'Over 2.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 3, oddReal: o => o?.over_under?.['2.5']?.over },

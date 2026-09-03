@@ -2006,17 +2006,92 @@ def _raiox_history_snapshot_fields(m):
     }
 
 
+# Endpoint SEPARADO do que _fs_odds/_fs_odds_all_markets_any_bookmaker usa
+# (hash de persisted query "oce", não "ope2") — achado inspecionando a rede
+# do navegador numa página de odds do flashscore.com (2026-09-03). É o único
+# jeito encontrado até agora de conseguir odds REAIS de 1º tempo — o
+# endpoint de sempre não aceita nenhum betScope além de FULL_TIME (testado
+# com várias variantes, todas deram 400). Detalhe completo em
+# [[project_statarea_odds_ht_flashscore]]. Devolve TUDO de uma vez (todos os
+# mercados, todos os "tempos" — FULL_TIME/FIRST_HALF/SECOND_HALF —, todas as
+# casas) numa lista plana de {bookmakerId, bettingType, bettingScope, odds[]}.
+_FS_ODDS_BULK_HASH = "oce"
+
+
+def _fs_odds_bulk(event_id):
+    url = "https://global.ds.lsapp.eu/odds/pq_graphql"
+    r = http_req.get(url, params={
+        "_hash": _FS_ODDS_BULK_HASH, "eventId": event_id, "projectId": 2,
+        "geoIpCode": "BR", "geoIpSubdivisionCode": "BRCE",
+    }, headers=FS_HEADERS, timeout=8)
+    r.raise_for_status()
+    return ((r.json().get("data") or {}).get("findOddsByEventId") or {}).get("odds") or []
+
+
+def _fs_odds_ht_extract(event_id, home_participant_id):
+    """Odds REAIS de 1º tempo (Over/Under 0.5/1.5 + 1X2) pros mercados de HT
+    do Raio-X (over05ht/over15ht/vence1t/vence1tfora). Tenta bet365→Betano→
+    Tipsport nessa ordem (mesma prioridade de sempre, FS_ODDS_BOOKMAKERS).
+    home_participant_id vem do mercado 1x2 de FULL_TIME já buscado por quem
+    chama essa função (o eventParticipantId de cada time é o MESMO em
+    qualquer "tempo"/mercado dentro do mesmo jogo) — sem ele, dá pra
+    devolver Over/Under (não depende de lado) mas não dá pra saber qual
+    preço do 1X2 é casa e qual é fora."""
+    try:
+        bulk = _fs_odds_bulk(event_id)
+    except Exception:
+        return {}
+
+    def _num(v):
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    fh = [o for o in bulk if o.get("bettingScope") == "FIRST_HALF"]
+    result = {}
+
+    for bid, _ in FS_ODDS_BOOKMAKERS:
+        entry = next((o for o in fh if o.get("bettingType") == "OVER_UNDER" and o.get("bookmakerId") == bid), None)
+        if not entry:
+            continue
+        linhas = {}
+        for item in (entry.get("odds") or []):
+            linha = _num((item.get("handicap") or {}).get("value"))
+            if linha in (0.5, 1.5) and item.get("selection") == "OVER":
+                linhas[str(linha)] = _num(item.get("value"))
+        if linhas:
+            result["over_under_ht"] = linhas
+            break
+
+    if home_participant_id:
+        for bid, _ in FS_ODDS_BOOKMAKERS:
+            entry = next((o for o in fh if o.get("bettingType") == "HOME_DRAW_AWAY" and o.get("bookmakerId") == bid), None)
+            if not entry:
+                continue
+            items = entry.get("odds") or []
+            home_item = next((i for i in items if i.get("eventParticipantId") == home_participant_id), None)
+            away_item = next((i for i in items if i.get("eventParticipantId") and i.get("eventParticipantId") != home_participant_id), None)
+            if home_item and away_item:
+                result["odd_1_ht"] = _num(home_item.get("value"))
+                result["odd_2_ht"] = _num(away_item.get("value"))
+                break
+
+    return result
+
+
 def _raiox_history_extract_odds(markets):
     """Extrai só o que os mercados de FT do Raio-X com odd REAL direta
     precisam (Over/Under em várias linhas + Ambas Marcam + 1X2, pra Vence FT
-    Casa/Fora) do dict cru que _fs_odds_all_markets_any_bookmaker devolve.
-    Fora daqui ficam "Vence 1T"/Over HT (sem mercado de 1º tempo buscado em
-    lugar nenhum do site hoje) e
-    os 19 "placar exato — não ocorreu" (nenhuma casa oferece odd direta pra
-    apostar CONTRA um placar específico — só a favor de um placar sair, que
-    não é a mesma coisa) — pedido do usuário 2026-09-03: sem odd real de
-    verdade, esses mercados mostram só a taxa de acerto, sem simulação de
-    lucro nenhuma (nada de odd "justa"/estimada no lugar)."""
+    Casa/Fora) do dict cru que _fs_odds_all_markets_any_bookmaker devolve —
+    odds de HT (over_under_ht/odd_1_ht/odd_2_ht) vêm de uma chamada SEPARADA
+    (_fs_odds_ht_extract, endpoint diferente) e são mescladas por quem chama
+    esta função. Fora daqui ficam os 19 "placar exato — não ocorreu"
+    (nenhuma casa oferece odd direta pra apostar CONTRA um placar
+    específico — só a favor de um placar sair, que não é a mesma coisa) —
+    pedido do usuário 2026-09-03: sem odd real de verdade, esses mercados
+    mostram só a taxa de acerto, sem simulação de lucro nenhuma (nada de odd
+    "justa"/estimada no lugar)."""
     def _num(v):
         try:
             return float(v) if v is not None else None
@@ -2078,7 +2153,10 @@ def _raiox_history_loop():
                 try:
                     _, markets = _fs_odds_all_markets_any_bookmaker(
                         m["event_id"], pool=_fs_market_pool, markets_wanted=["over_under", "ambos_marcam", "1x2"])
-                    return m["event_id"], _raiox_history_extract_odds(markets)
+                    odds = _raiox_history_extract_odds(markets)
+                    home_pid = ((markets.get("1x2") or {}).get("home") or {}).get("eventParticipantId")
+                    odds.update(_fs_odds_ht_extract(m["event_id"], home_pid))
+                    return m["event_id"], odds
                 except Exception:
                     return m["event_id"], None
 
