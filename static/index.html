@@ -23556,30 +23556,40 @@ async function _painelRaioXRender() {
     </div>` : `<div style="font-size:var(--text-xs);color:var(--yellow);padding:6px 0">Combinação com 0% de acerto hoje — odd indefinida, sem simulação de lucro.</div>`;
 
   body.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:10px;padding:14px 16px;max-width:560px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base)">
-          ${_icoTarget()} Melhor combinação hoje
+    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="flex:1 1 400px;max-width:560px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:10px;padding:14px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base)">
+              ${_icoTarget()} Melhor combinação hoje
+            </div>
+            <div style="text-align:right">
+              <b style="font-family:var(--font-mono);font-size:var(--text-xl);color:${_raioXConfColor(melhor.total)}">${pct.toFixed(0)}%</b>
+              <span style="color:var(--text2);font-size:var(--text-xs)"> ${rotuloMercado} (${melhor.hits}/${melhor.total})</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:18px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
+            <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time da casa">C-Atq</div>${iconBig(melhor.ca)}</div>
+            <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time da casa">C-Def</div>${iconBig(melhor.cd)}</div>
+            <div style="width:1px;align-self:stretch;background:var(--border)"></div>
+            <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time visitante">F-Atq</div>${iconBig(melhor.fa)}</div>
+            <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time visitante">F-Def</div>${iconBig(melhor.fd)}</div>
+          </div>
+          ${amostraBaixa ? `<div style="font-size:var(--text-xs);color:var(--yellow);padding:2px 0 8px">⚠ Amostra menor que ${_RAIOX_MIN_SAMPLE} jogos hoje — nenhuma combinação com mais dado disponível ainda.</div>` : ''}
+          ${financeiroHtml}
+          <div>${rowsHtml}</div>
         </div>
-        <div style="text-align:right">
-          <b style="font-family:var(--font-mono);font-size:var(--text-xl);color:${_raioXConfColor(melhor.total)}">${pct.toFixed(0)}%</b>
-          <span style="color:var(--text2);font-size:var(--text-xs)"> ${rotuloMercado} (${melhor.hits}/${melhor.total})</span>
+        <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.5">
+          Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
+          Lucro/ROI são simulação retrospectiva com odd derivada da própria taxa de acerto (não é odd real de mercado) — serve pra comparar Stake Fixa x Martingale, não é previsão de ganho futuro.
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:18px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
-        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time da casa">C-Atq</div>${iconBig(melhor.ca)}</div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time da casa">C-Def</div>${iconBig(melhor.cd)}</div>
-        <div style="width:1px;align-self:stretch;background:var(--border)"></div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time visitante">F-Atq</div>${iconBig(melhor.fa)}</div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time visitante">F-Def</div>${iconBig(melhor.fd)}</div>
+      <div id="painelRaioXStatsPanel" style="flex:1 1 300px;max-width:400px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+        <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base);margin-bottom:10px">
+          Estatísticas
+        </div>
+        <div style="color:var(--text2);font-size:var(--text-sm)">Em breve.</div>
       </div>
-      ${amostraBaixa ? `<div style="font-size:var(--text-xs);color:var(--yellow);padding:2px 0 8px">⚠ Amostra menor que ${_RAIOX_MIN_SAMPLE} jogos hoje — nenhuma combinação com mais dado disponível ainda.</div>` : ''}
-      ${financeiroHtml}
-      <div>${rowsHtml}</div>
-    </div>
-    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.5">
-      Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
-      Lucro/ROI são simulação retrospectiva com odd derivada da própria taxa de acerto (não é odd real de mercado) — serve pra comparar Stake Fixa x Martingale, não é previsão de ganho futuro.
     </div>`;
 }
 
