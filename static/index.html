@@ -23400,6 +23400,7 @@ const _RAIOX_MARKETS = {
   over05ht:  { label: 'Over 0.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 1 },
   over15ht:  { label: 'Over 1.5 HT',  campo: 'ht', hit: (h, a) => (h + a) >= 2 },
   vence1t:   { label: 'Vence 1T (casa)', campo: 'ht', hit: (h, a) => h > a },
+  vence1tfora: { label: 'Vence 1T (fora)', campo: 'ht', hit: (h, a) => a > h },
   over05ft:  { label: 'Over 0.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 1, oddReal: o => o?.over_under?.['0.5']?.over },
   over15ft:  { label: 'Over 1.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 2, oddReal: o => o?.over_under?.['1.5']?.over },
   over25ft:  { label: 'Over 2.5 FT',  campo: 'ft', hit: (h, a) => (h + a) >= 3, oddReal: o => o?.over_under?.['2.5']?.over },
@@ -23407,6 +23408,8 @@ const _RAIOX_MARKETS = {
   under35ft: { label: 'Under 3.5 FT', campo: 'ft', hit: (h, a) => (h + a) <= 3, oddReal: o => o?.over_under?.['3.5']?.under },
   bttssim:   { label: 'Ambas Marcam — Sim', campo: 'ft', hit: (h, a) => h > 0 && a > 0, oddReal: o => o?.btts_sim },
   bttsnao:   { label: 'Ambas Equipes Marcam — Não', campo: 'ft', hit: (h, a) => !(h > 0 && a > 0), oddReal: o => o?.btts_nao },
+  venceftcasa: { label: 'Vence FT (Casa)', campo: 'ft', hit: (h, a) => h > a, oddReal: o => o?.odd_1 },
+  venceftfora: { label: 'Vence FT (Fora)', campo: 'ft', hit: (h, a) => a > h, oddReal: o => o?.odd_2 },
 };
 const _RAIOX_MARKETS_GERAL = Object.keys(_RAIOX_MARKETS);
 

@@ -2008,9 +2008,10 @@ def _raiox_history_snapshot_fields(m):
 
 def _raiox_history_extract_odds(markets):
     """Extrai só o que os mercados de FT do Raio-X com odd REAL direta
-    precisam (Over/Under em várias linhas + Ambas Marcam) do dict cru que
-    _fs_odds_all_markets_any_bookmaker devolve. Fora daqui ficam "Vence 1T"/
-    Over HT (sem mercado de 1º tempo buscado em lugar nenhum do site hoje) e
+    precisam (Over/Under em várias linhas + Ambas Marcam + 1X2, pra Vence FT
+    Casa/Fora) do dict cru que _fs_odds_all_markets_any_bookmaker devolve.
+    Fora daqui ficam "Vence 1T"/Over HT (sem mercado de 1º tempo buscado em
+    lugar nenhum do site hoje) e
     os 19 "placar exato — não ocorreu" (nenhuma casa oferece odd direta pra
     apostar CONTRA um placar específico — só a favor de um placar sair, que
     não é a mesma coisa) — pedido do usuário 2026-09-03: sem odd real de
@@ -2032,10 +2033,13 @@ def _raiox_history_extract_odds(markets):
             }
 
     ambos = markets.get("ambos_marcam") or {}
+    m1x2 = markets.get("1x2") or {}
     return {
         "over_under": ou_por_linha,
         "btts_sim": _num((ambos.get("yes") or {}).get("value")),
         "btts_nao": _num((ambos.get("no") or {}).get("value")),
+        "odd_1": _num((m1x2.get("home") or {}).get("value")),
+        "odd_2": _num((m1x2.get("away") or {}).get("value")),
     }
 
 
@@ -2073,7 +2077,7 @@ def _raiox_history_loop():
             def _fetch_odds(m):
                 try:
                     _, markets = _fs_odds_all_markets_any_bookmaker(
-                        m["event_id"], pool=_fs_market_pool, markets_wanted=["over_under", "ambos_marcam"])
+                        m["event_id"], pool=_fs_market_pool, markets_wanted=["over_under", "ambos_marcam", "1x2"])
                     return m["event_id"], _raiox_history_extract_odds(markets)
                 except Exception:
                     return m["event_id"], None
