@@ -17,29 +17,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0c10;
-    --bg2: #14171d;
-    --bg3: #1c2027;
-    --border: #2a2e37;
-    --accent: #d1a13e;
+    --bg: #0a0e0d;
+    --bg2: #121917;
+    --bg3: #1a2320;
+    --border: #26302b;
+    --accent: #00e676;
     --accent2: #3f8fc4;
-    --green: #22c55e;
-    --red: #ef4444;
+    --green: #00e676;
+    --red: #ff4757;
     --yellow: #f59e0b;
     --gray: #6b7280;
-    --text: #eef1f8;
-    --text2: #98a2b8;
+    --text: #f2f5f3;
+    --text2: #8b958f;
     --font-body: 'Segoe UI', 'IBM Plex Sans', system-ui, sans-serif;
     --font-display: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif;
   }
   html[data-theme="light"] {
-    --bg: #f6f5f2;
+    --bg: #f5f7f5;
     --bg2: #ffffff;
-    --bg3: #efece5;
-    --border: #e0ddd3;
-    --accent: #a8791f;
+    --bg3: #e8ede9;
+    --border: #d7ded9;
+    --accent: #087f44;
     --accent2: #2569a0;
-    --green: #15803d;
+    --green: #087f44;
     --red: #dc2626;
     --yellow: #b45309;
     --gray: #6b7280;
@@ -53,11 +53,9 @@
   svg.ico { width: 1em; height: 1em; display: inline-block; vertical-align: -0.15em; flex-shrink: 0; }
   body {
     background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px;
-    background-image: radial-gradient(circle at 15% 0%, rgba(209,161,62,.08), transparent 45%),
-                       radial-gradient(circle at 100% 20%, rgba(63,143,196,.06), transparent 40%);
-    background-attachment: fixed;
+    font-variant-numeric: tabular-nums;
   }
-  ::selection { background: var(--accent); color: #fff; }
+  ::selection { background: var(--accent); color: #051108; }
   ::-webkit-scrollbar { width: 14px; height: 14px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border: 3px solid var(--bg); border-radius: 8px; }
@@ -65,32 +63,26 @@
 
   /* ── HEADER ── */
   header {
-    background: linear-gradient(180deg, var(--bg2) 0%, var(--bg2) 100%);
+    background: var(--bg2);
     border-bottom: 1px solid var(--border);
-    box-shadow: 0 1px 14px rgba(0,0,0,.28);
     padding: 0 20px;
     display: flex;
     align-items: center;
     gap: 24px;
     height: 56px;
     position: sticky; top: 0; z-index: 100;
-    backdrop-filter: blur(10px);
   }
   .logo {
     font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
-    color: #e8e8e8;
+    color: var(--text);
     font-family: var(--font-display);
     display: flex; align-items: baseline; gap: 0.22em;
   }
-  .logo-em { font-weight: 400; color: #c0c0c0; font-size: 0.9em; }
+  .logo-em { font-weight: 400; color: var(--text2); font-size: 0.9em; }
   .logo-numeros {
     font-weight: 800;
-    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 60%, #2f9e8f 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--accent);
     letter-spacing: -1px;
-    text-shadow: none;
-    filter: drop-shadow(0 0 6px rgba(209,161,62,0.22));
   }
   .header-stats { display: flex; gap: 16px; color: var(--text2); font-size: 13px; }
   .header-stats b { color: var(--text); }
@@ -226,9 +218,9 @@
      lista única em vez de sidebar + painel de detalhe fixo. */
   #today2Wrap .league-header {
     font-size: 13px; text-transform: none; letter-spacing: normal;
-    background: #3a3110; color: #e8c95a; font-weight: 700;
+    background: #0c3322; color: #00e676; font-weight: 700;
   }
-  html[data-theme="light"] #today2Wrap .league-header { background: #fff6d5; color: #7a5b00; }
+  html[data-theme="light"] #today2Wrap .league-header { background: #e3f5ea; color: #7a5b00; }
   #today2Wrap .league-header:hover { background: #4a3f14; }
   html[data-theme="light"] #today2Wrap .league-header:hover { background: #ffefb8; }
   #today2Wrap .league-count { font-size: 13px; }
@@ -809,11 +801,11 @@
     border-radius: 5px; color: var(--text2); font-size: 10px; font-weight: 600;
     cursor: pointer; transition: all .1s;
   }
-  .fav-score-btn.selected { background: #d1a13e; border-color: #d1a13e; color: #fff; }
+  .fav-score-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
   .fav-market-badge {
     font-size: 9px; font-weight: 700; padding: 1px 5px;
-    border-radius: 4px; background: #d1a13e44; color: #e8c46e;
-    border: 1px solid #d1a13e44; white-space: nowrap;
+    border-radius: 4px; background: #00e67644; color: #e8c46e;
+    border: 1px solid #00e67644; white-space: nowrap;
   }
   .match-row { position: relative; }
   .fav-count-badge {
@@ -823,10 +815,10 @@
   }
 
   /* Scrollbar visível no painel de detalhe ao vivo */
-  .live-detail { scrollbar-width: thin; scrollbar-color: #d1a13e #1a1d27; }
+  .live-detail { scrollbar-width: thin; scrollbar-color: var(--accent) #1a1d27; }
   .live-detail::-webkit-scrollbar { width: 6px; }
   .live-detail::-webkit-scrollbar-track { background: #1a1d27; border-radius: 3px; }
-  .live-detail::-webkit-scrollbar-thumb { background: #d1a13e; border-radius: 3px; }
+  .live-detail::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
   .live-detail::-webkit-scrollbar-thumb:hover { background: #e8c46e; }
 
   /* ── AO VIVO ── */
@@ -931,7 +923,7 @@
     background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
     overflow: hidden; cursor: pointer; transition: border-color .15s;
   }
-  .live-card:hover { border-color: #d1a13e; }
+  .live-card:hover { border-color: var(--accent); }
   .live-card-pinned { border-color: #f59e0b88; box-shadow: 0 0 0 1px #f59e0b44; }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
@@ -1004,17 +996,21 @@
     justify-content: center;
   }
   .live-card-odds-row {
-    display: flex; justify-content: space-around; align-items: center;
-    padding: 6px 16px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-around; align-items: center; gap: 4px;
+    padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
   }
-  .live-card-odds-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .live-card-odds-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; }
-  .live-card-odds-val { font-size: 13px; font-weight: 800; color: var(--text); }
-  .live-card-odds-val.o1 { color: var(--accent2); }
-  .live-card-odds-val.ox { color: var(--text2); }
-  .live-card-odds-val.o2 { color: var(--red); }
-  .live-card-odds-val.oover { color: var(--green); }
-  .live-card-odds-val.ounder { color: #f59e0b; }
+  .live-card-odds-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+  .live-card-odds-label { font-size: 8px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
+  .live-card-odds-val {
+    font-size: 12px; font-weight: 800; color: var(--text);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 7px; min-width: 30px; text-align: center; white-space: nowrap;
+  }
+  .live-card-odds-val.o1 { border-color: var(--accent2); color: var(--accent2); }
+  .live-card-odds-val.ox { border-color: var(--border); color: var(--text2); }
+  .live-card-odds-val.o2 { border-color: var(--red); color: var(--red); }
+  .live-card-odds-val.oover { border-color: var(--green); color: var(--green); }
+  .live-card-odds-val.ounder { border-color: #f59e0b; color: #f59e0b; }
   .live-card-tabs {
     display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
   }
@@ -1029,7 +1025,7 @@
        inteira, em vez de quebrar dentro do próprio botão. */
     white-space: nowrap;
   }
-  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: #d1a13e; }
+  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: var(--accent); }
   /* Linhas de termômetro / estatística por minuto — colunas fixas pra a "bolinha"
      de domínio cair sempre na mesma posição horizontal em todas as linhas, em vez
      de deslocar conforme o tamanho do texto (que era o problema com justify-content:center) */
@@ -1046,7 +1042,7 @@
     background: transparent; border: none; color: var(--text2); font-size: 11px;
     font-weight: 700; padding: 4px 9px; cursor: pointer;
   }
-  .live-view-toggle button.active { background: #d1a13e; color: #fff; }
+  .live-view-toggle button.active { background: var(--accent); color: #fff; }
 
   /* Painel de detalhes ao vivo */
   .live-detail {
@@ -1196,10 +1192,10 @@
   .painel-league { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .painel-league-header {
     display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer;
-    background: #3a3110; color: #e8c95a; font-weight: 700; font-size: 13px;
+    background: #0c3322; color: #00e676; font-weight: 700; font-size: 13px;
   }
   html[data-theme="light"] .painel-league-header {
-    background: #fff6d5; color: #7a5b00;
+    background: #e3f5ea; color: #7a5b00;
   }
   .painel-league-header img { width: 16px; height: 16px; flex-shrink: 0; }
   .painel-league-header .painel-arrow { margin-left: auto; transition: transform .15s; flex-shrink: 0; }
@@ -1222,7 +1218,11 @@
     border-top: 1px solid var(--border); color: var(--text);
   }
   .painel-power-icon { text-align: center; font-size: 14px; font-weight: 700; color: var(--text2); }
-  .painel-odd-cell { text-align: center; font-size: 11px; color: var(--text2); }
+  .painel-odd-cell {
+    text-align: center; font-size: 11px; font-weight: 700; color: var(--text);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+    padding: 2px 0; margin: 0 1px;
+  }
   .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
   .painel-plat-icon {
     width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
@@ -1287,8 +1287,8 @@
     background: none; border: none; cursor: pointer; padding: 6px 2px 10px; font-size: 12px; font-weight: 700;
     color: var(--text2); letter-spacing: .3px; position: relative; display: flex; align-items: center; gap: 6px;
   }
-  .painel-subtab.active { color: #d32f2f; }
-  .painel-subtab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
+  .painel-subtab.active { color: var(--accent); }
+  .painel-subtab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
   .painel-subtab .badge { background: var(--bg3); color: var(--text2); border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
 
   .painel-search-bar {
@@ -1305,7 +1305,7 @@
     background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 5px;
     font-size: 12px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
   }
-  .painel-sort-time-btn.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+  .painel-sort-time-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
   .painel-odds-filter-bar {
     display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 8px 12px;
@@ -1340,7 +1340,7 @@
     background: var(--bg2); border: 1px solid var(--border); color: var(--text2); border-radius: 14px;
     font-size: 11px; font-weight: 700; padding: 5px 12px; cursor: pointer;
   }
-  .painel-forca-tab.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+  .painel-forca-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .painel-forca-group-title {
     display: inline-block; background: var(--bg2); border-radius: 12px; padding: 3px 12px;
     font-size: 11px; font-weight: 700; color: var(--text2); margin: 10px 0 6px;
@@ -1449,8 +1449,8 @@
     background: none; border: none; cursor: pointer; padding: 6px 2px 10px; font-size: 12px; font-weight: 700;
     color: var(--text2); position: relative;
   }
-  .painel-modal-tab.active { color: #d32f2f; }
-  .painel-modal-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
+  .painel-modal-tab.active { color: var(--accent); }
+  .painel-modal-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
   .painel-modal-close { background: none; border: none; font-size: 18px; color: var(--text2); cursor: pointer; }
 
   .painel-lr-block { margin-bottom: 18px; }
@@ -1499,7 +1499,7 @@
   .painel-h2h-bar-draw { background: #757575; }
   .painel-h2h-bar-away { background: #c62828; }
   .painel-h2h-season {
-    font-size: 11px; font-weight: 700; color: #d32f2f; background: var(--bg3);
+    font-size: 11px; font-weight: 700; color: var(--accent); background: var(--bg3);
     padding: 5px 10px; margin-top: 6px; border-radius: 4px;
   }
   .painel-h2h-row {
@@ -1521,7 +1521,7 @@
   }
   .painel-h2h-stat-group { margin-bottom: 14px; }
   .painel-h2h-stat-group-title {
-    font-size: 11px; font-weight: 700; color: #d32f2f; text-transform: uppercase; letter-spacing: .3px;
+    font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .3px;
     margin-bottom: 4px;
   }
   .painel-h2h-stat-row {
@@ -1544,8 +1544,8 @@
     background: none; border: none; cursor: pointer; padding: 6px 2px 8px; font-size: 11px; font-weight: 700;
     color: var(--text2); position: relative;
   }
-  .painel-std-tab.active { color: #d32f2f; }
-  .painel-std-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #d32f2f; }
+  .painel-std-tab.active { color: var(--accent); }
+  .painel-std-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
   .painel-std-subrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
   .painel-std-subtab { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text2); padding: 2px 0; }
   .painel-std-subtab.active { color: var(--text); font-weight: 700; text-decoration: underline; }
@@ -1554,7 +1554,7 @@
     background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
     font-size: 10px; color: var(--text2); padding: 2px 7px;
   }
-  .painel-std-variant-btn.active { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+  .painel-std-variant-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .painel-std-table-wrap { overflow-x: auto; }
   .painel-std-table { width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
   .painel-std-table th {
@@ -1563,8 +1563,8 @@
   .painel-std-table th:nth-child(2) { text-align: left; }
   .painel-std-table td { text-align: center; padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text); }
   .painel-std-table td:nth-child(2) { text-align: left; }
-  .painel-std-table tr.painel-std-highlight td { background: #fff6d5; }
-  html:not([data-theme="light"]) .painel-std-table tr.painel-std-highlight td { background: #3a3110; }
+  .painel-std-table tr.painel-std-highlight td { background: #e3f5ea; }
+  html:not([data-theme="light"]) .painel-std-table tr.painel-std-highlight td { background: #0c3322; }
   .painel-std-row-name { display: flex; align-items: center; gap: 6px; }
   .painel-std-row-name img { width: 15px; height: 15px; flex-shrink: 0; }
   .painel-std-form { display: flex; gap: 2px; justify-content: center; }
@@ -1688,8 +1688,8 @@
              sem esse ponto de entrada na UI. -->
         <button id="painelExportLeituraBtn" onclick="_painelExportLeituraJson()"
           title="Baixa um .json com as partidas de HOJE já FINALIZADAS: dados básicos (time, escudo, liga, horário, odds), os ícones de Power Ranking (C-Atq/C-Def/F-Atq/F-Def), placar HT/FT, quem marcou primeiro, quem sofreu primeiro e quem fez virada — pra conferir a taxa de acerto das metodologias importadas em 'Lista' contra o resultado real"
-          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-                 color:#d1a13e;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
+          style="background:transparent;border:1px solid #00e67644;border-radius:6px;
+                 color:var(--accent);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;
                  white-space:nowrap;flex-shrink:0">⬇️ Baixar leitura</button>
         <button id="painelExportProximosBtn" onclick="_painelExportProximosJson()"
           title="Baixa um .json com as partidas de HOJE que AINDA NÃO COMEÇARAM: mesmos dados do Baixar leitura (índices de Power Ranking + toda a aba Prognóstico), só que sem placar (é um snapshot pré-jogo, pra comparar com o resultado depois) — busca uma partida de cada vez, pode demorar bastante"
@@ -1735,8 +1735,8 @@
     <div id="painelListaView" style="display:none;padding:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <button onclick="document.getElementById('painelListaFileInput').click()"
-          style="background:transparent;border:1px solid #d1a13e44;border-radius:6px;
-                 color:#d1a13e;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
+          style="background:transparent;border:1px solid #00e67644;border-radius:6px;
+                 color:var(--accent);font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap">📥 Importar .txt</button>
         <input type="file" id="painelListaFileInput" accept=".txt" style="display:none" onchange="_painelListaImportFile(this.files[0])">
         <input type="text" id="painelListaSearchInput" class="painel-search-input" placeholder="🔍 Buscar time ou campeonato..."
           style="max-width:240px" oninput="_painelListaSetSearch(this.value)">
@@ -2598,7 +2598,7 @@ const FAV_MKT_COLORS = {
   btts_yes:'#a78bfa', btts_no:'#6b7280',
   back_home:'#3b82f6', back_away:'#f97316',
   lay_home:'#06b6d4',  lay_away:'#f59e0b',
-  back_cs:'#d1a13e',   lay_cs:'#ec4899',
+  back_cs:'var(--accent)',   lay_cs:'#ec4899',
 };
 
 let _favModalUrl = null;
@@ -2811,8 +2811,8 @@ function favMatchRowHtml(m) {
         ${mktInfo.label}
       </span>
       ${fd.scores && fd.scores.length ? fd.scores.map(sc =>
-        `<span style="font-size:9px;font-weight:700;background:#d1a13e22;color:#e8c46e;
-                      border:1px solid #d1a13e44;border-radius:3px;padding:0 4px">${sc}</span>`
+        `<span style="font-size:9px;font-weight:700;background:#00e67622;color:#e8c46e;
+                      border:1px solid #00e67644;border-radius:3px;padding:0 4px">${sc}</span>`
       ).join('') : ''}
     </div>` : '';
   return `
@@ -3838,7 +3838,7 @@ function _scannerMatchRowHtml(m) {
     } else {
       extraHtml = `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">` +
         modeAlerts.map(a => `
-          <div style="display:flex;align-items:center;gap:9px;background:rgba(209,161,62,.10);border:1px solid #d1a13e55;border-radius:8px;padding:8px 10px">
+          <div style="display:flex;align-items:center;gap:9px;background:rgba(0,230,118,.10);border:1px solid #00e67655;border-radius:8px;padding:8px 10px">
             <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="none" style="width:16px;height:16px;flex-shrink:0"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -15101,7 +15101,7 @@ function _live2OpenProbModal(matchId) {
     </div>
     <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
       ${r.top3.map((t, idx) => `
-        <div style="background:var(--bg2);border:1px solid ${idx === 0 ? '#d1a13e' : 'var(--border)'};border-radius:8px;padding:8px 14px;text-align:center">
+        <div style="background:var(--bg2);border:1px solid ${idx === 0 ? 'var(--accent)' : 'var(--border)'};border-radius:8px;padding:8px 14px;text-align:center">
           <div style="font-size:16px;font-weight:800;color:var(--text)">${t.placar}</div>
           <div style="font-size:10px;color:var(--text2)">${t.pct.toFixed(1)}%</div>
         </div>`).join('')}
@@ -15213,7 +15213,7 @@ function _renderUniscoreCD(d) {
   const dados = d.dados;
   const ppgBadge = (name, ppg) => `
     <div style="flex:1;text-align:center">
-      <span style="display:inline-block;background:#3a3110;color:#e8c95a;border-radius:12px;padding:2px 10px;font-size:12px;font-weight:700;margin-bottom:4px">${ppg != null ? ppg.toFixed(2) : '—'}</span>
+      <span style="display:inline-block;background:#0c3322;color:#00e676;border-radius:12px;padding:2px 10px;font-size:12px;font-weight:700;margin-bottom:4px">${ppg != null ? ppg.toFixed(2) : '—'}</span>
       <div style="font-size:12px;color:var(--text2)">${name}</div>
     </div>`;
   const dadosHtml = !dados ? `<div style="color:var(--text2);font-size:13px;padding:10px 0;text-align:center">Sem dados do Uniscore pra esse jogo agora.</div>` : `
@@ -17822,7 +17822,7 @@ function buildCsResultHtml(data, m) {
       <span style="width:52px;font-weight:800;font-size:14px;text-align:center;
                    background:var(--bg3);border-radius:5px;padding:3px 0">${s.score}</span>
       <div style="flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${s.pct}%;background:#d1a13e;border-radius:4px"></div>
+        <div style="height:100%;width:${s.pct}%;background:var(--accent);border-radius:4px"></div>
       </div>
       <span style="width:32px;text-align:right;font-size:12px;font-weight:700;color:var(--text2)">${s.pct}%</span>
     </div>`).join('');
@@ -20255,7 +20255,7 @@ function buildIndicatorsHtml(d, homeName, awayName) {
     if (v === null || v === undefined) return '#2e3249';
     if (v >= 65) return '#22c55e';
     if (v >= 50) return '#f59e0b';
-    if (v >= 35) return '#d1a13e';
+    if (v >= 35) return 'var(--accent)';
     return '#ef4444';
   };
   const fmtVal = (v) => v === null || v === undefined ? '—' : `${Math.round(v)}`;
