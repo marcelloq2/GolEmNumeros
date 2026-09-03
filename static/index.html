@@ -23327,6 +23327,48 @@ function _raioXConfColor(n) {
   return 'var(--text2)';
 }
 
+const _RAIOX_STAKE_BASE = 50;
+const _RAIOX_MARTINGALE_NIVEIS = 4; // apostas de R$50/100/200/400 — 4 erros seguidos = -R$750, para e reinicia
+
+// Simula stake fixa e martingale sobre a sequência de acertos/erros de uma
+// combinação, usando a "odd dinâmica" (odd justa implícita na própria taxa
+// histórica: odd = 100/taxa%) como odd fixa em toda aposta simulada. Não é
+// odd de mercado — é só "quanto essa taxa de acerto pagaria se fosse justa".
+function _raioXSimularLucro(bateuFlags, odd) {
+  const stakeFixaTotal = bateuFlags.length * _RAIOX_STAKE_BASE;
+  let stakeFixaLucro = 0;
+  bateuFlags.forEach(bateu => {
+    stakeFixaLucro += bateu ? _RAIOX_STAKE_BASE * (odd - 1) : -_RAIOX_STAKE_BASE;
+  });
+
+  let martingaleLucro = 0, martingaleStakeInvestido = 0;
+  let nivel = 0, perdaAcumulada = 0;
+  bateuFlags.forEach(bateu => {
+    const stakeAtual = _RAIOX_STAKE_BASE * Math.pow(2, nivel);
+    martingaleStakeInvestido += stakeAtual;
+    if (bateu) {
+      martingaleLucro += stakeAtual * (odd - 1) - perdaAcumulada;
+      nivel = 0;
+      perdaAcumulada = 0;
+    } else {
+      perdaAcumulada += stakeAtual;
+      nivel++;
+      if (nivel >= _RAIOX_MARTINGALE_NIVEIS) {
+        martingaleLucro += -perdaAcumulada;
+        nivel = 0;
+        perdaAcumulada = 0;
+      }
+    }
+  });
+
+  return {
+    stakeFixaLucro, stakeFixaTotal,
+    stakeFixaRoi: stakeFixaTotal ? (stakeFixaLucro / stakeFixaTotal * 100) : 0,
+    martingaleLucro, martingaleStakeInvestido,
+    martingaleRoi: martingaleStakeInvestido ? (martingaleLucro / martingaleStakeInvestido * 100) : 0,
+  };
+}
+
 // Cada mercado só precisa dizer de onde tira o placar (ht = intervalo,
 // ft = final) e a regra de "bateu" em cima de (gols casa, gols fora) —
 // todo o resto (agrupar por combinação de Power Ranking, escolher a
@@ -23466,9 +23508,17 @@ async function _painelRaioXRender() {
 
   const iconBig = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:22px">${v}</span>`;
   const pct = (melhor.hits / melhor.total * 100);
-  const rowsHtml = melhor.jogos.map(j => {
-    const hc = parseInt(j[campoHome], 10), hf = parseInt(j[campoAway], 10);
-    const bateu = mkt.hit(hc, hf);
+
+  // Ordem cronológica (kickoff_ts) importa pro Martingale — Stake Fixa dá
+  // na mesma em qualquer ordem, mas simular os 2 juntos precisa da mesma
+  // sequência de jogos.
+  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  const bateuFlags = jogosOrdenados.map(j => mkt.hit(parseInt(j[campoHome], 10), parseInt(j[campoAway], 10)));
+  const odd = pct > 0 ? (100 / pct) : null;
+  const sim = odd != null ? _raioXSimularLucro(bateuFlags, odd) : null;
+
+  const rowsHtml = jogosOrdenados.map((j, i) => {
+    const bateu = bateuFlags[i];
     const icone = bateu
       ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
       : `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`;
@@ -23480,6 +23530,30 @@ async function _painelRaioXRender() {
         </span>
       </div>`;
   }).join('');
+
+  // Math.round antes de decidir sinal/cor evita ruído de ponto flutuante
+  // (ex.: -0.00000005 arredondaria pra "-R$0", parecendo prejuízo quando é
+  // empate técnico) virar "-R$0" na tela.
+  const fmtR$ = n => { const r = Math.round(n); return `${r >= 0 ? '' : '-'}R$${Math.abs(r)}`; };
+  const stakeFixaLucroR = Math.round(sim ? sim.stakeFixaLucro : 0);
+  const martingaleLucroR = Math.round(sim ? sim.martingaleLucro : 0);
+  const financeiroHtml = sim ? `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Odd justa implícita na taxa de acerto (100 / taxa%) — não é odd de mercado">Odd dinâmica</div>
+        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:var(--accent)">${odd.toFixed(2)}</b>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Stake fixa de R$50 por jogo, na odd dinâmica">Lucro Stake Fixa</div>
+        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${stakeFixaLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.stakeFixaLucro)}</b>
+        <div style="font-size:9px;color:var(--text2)">ROI ${sim.stakeFixaRoi.toFixed(0)}%</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Martingale base R$50, teto de 4 apostas seguidas (50/100/200/400 — 4 erros zera a sequência)">Lucro Martingale</div>
+        <b style="font-family:var(--font-mono);font-size:var(--text-lg);color:${martingaleLucroR >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtR$(sim.martingaleLucro)}</b>
+        <div style="font-size:9px;color:var(--text2)">ROI ${sim.martingaleRoi.toFixed(0)}%</div>
+      </div>
+    </div>` : `<div style="font-size:var(--text-xs);color:var(--yellow);padding:6px 0">Combinação com 0% de acerto hoje — odd indefinida, sem simulação de lucro.</div>`;
 
   body.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:10px;padding:14px 16px;max-width:560px">
@@ -23500,10 +23574,12 @@ async function _painelRaioXRender() {
         <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time visitante">F-Def</div>${iconBig(melhor.fd)}</div>
       </div>
       ${amostraBaixa ? `<div style="font-size:var(--text-xs);color:var(--yellow);padding:2px 0 8px">⚠ Amostra menor que ${_RAIOX_MIN_SAMPLE} jogos hoje — nenhuma combinação com mais dado disponível ainda.</div>` : ''}
+      ${financeiroHtml}
       <div>${rowsHtml}</div>
     </div>
-    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2)">
+    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.5">
       Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
+      Lucro/ROI são simulação retrospectiva com odd derivada da própria taxa de acerto (não é odd real de mercado) — serve pra comparar Stake Fixa x Martingale, não é previsão de ganho futuro.
     </div>`;
 }
 
