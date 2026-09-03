@@ -23380,46 +23380,62 @@ async function _painelRaioXRender() {
     return;
   }
 
-  const iconCell = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:var(--text-lg)">${v}</span>`;
+  // Usuário pediu (2026-09-03): não mostrar a tabela inteira, só a MELHOR
+  // combinação, num card igual ao "Todos os jogos" da Lista — em vez de
+  // pegar cegamente a maior taxa (que costuma ser 100% de amostra 1,
+  // ruído puro), prioriza combinação com amostra confiável (>=
+  // _RAIOX_MIN_SAMPLE) e que tenha pelo menos 1 sinal de verdade (não
+  // "— — — —", que é só "sem dado" pros 2 times, não é uma combinação
+  // acionável). Só cai pra amostra pequena se não sobrar nenhuma opção
+  // melhor — e avisa isso no card.
+  const isSoTraco = c => c.ca === '—' && c.cd === '—' && c.fa === '—' && c.fd === '—';
+  const porTaxa = (a, b) => (b.hits / b.total - a.hits / a.total) || (b.total - a.total);
+  const comSinalConfiavel = lista.filter(c => c.total >= _RAIOX_MIN_SAMPLE && !isSoTraco(c)).sort(porTaxa);
+  const comAmostraMinima = lista.filter(c => c.total >= _RAIOX_MIN_SAMPLE).sort(porTaxa);
+  const pool = comSinalConfiavel.length ? comSinalConfiavel : (comAmostraMinima.length ? comAmostraMinima : [...lista].sort(porTaxa));
+  const melhor = pool[0];
+  const amostraBaixa = melhor.total < _RAIOX_MIN_SAMPLE;
+
+  const iconBig = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:22px">${v}</span>`;
+  const pct = (melhor.hits / melhor.total * 100);
+  const rowsHtml = melhor.jogos.map(j => {
+    const hc = parseInt(j.ht_home, 10), hf = parseInt(j.ht_away, 10);
+    const bateu = (hc + hf) >= 1;
+    const icone = bateu
+      ? `<span style="color:var(--green);font-weight:700" title="Bateu">✓</span>`
+      : `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:var(--text-base);padding:5px 0;border-top:1px solid var(--border)">
+        <span style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.2px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.home)} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${_bt2EscXml(j.away)}</span>
+        <span style="white-space:nowrap;display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text2)">HT ${j.ht_home}:${j.ht_away}</span>${icone}
+        </span>
+      </div>`;
+  }).join('');
 
   body.innerHTML = `
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:var(--text-base);min-width:600px">
-        <thead>
-          <tr style="text-align:left;color:var(--text2);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.3px">
-            <th style="padding:6px 8px" title="Índice de Ataque do time da casa">C-Atq</th>
-            <th style="padding:6px 8px" title="Índice de Defesa do time da casa">C-Def</th>
-            <th style="padding:6px 8px" title="Índice de Ataque do time visitante">F-Atq</th>
-            <th style="padding:6px 8px" title="Índice de Defesa do time visitante">F-Def</th>
-            <th style="padding:6px 8px;text-align:center">Amostra</th>
-            <th style="padding:6px 8px;text-align:center">Over 0.5 HT</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lista.map(c => {
-            const pct = (c.hits / c.total * 100);
-            const jogosTitle = c.jogos.map(j => `${j.home} x ${j.away} — HT ${j.ht_home}:${j.ht_away}`).join('\n');
-            return `
-              <tr style="border-top:1px solid var(--border)" title="${_bt2EscXml(jogosTitle)}">
-                <td style="padding:6px 8px">${iconCell(c.ca)}</td>
-                <td style="padding:6px 8px">${iconCell(c.cd)}</td>
-                <td style="padding:6px 8px">${iconCell(c.fa)}</td>
-                <td style="padding:6px 8px">${iconCell(c.fd)}</td>
-                <td style="padding:6px 8px;text-align:center;font-family:var(--font-mono);color:${_raioXConfColor(c.total)}">${c.total}</td>
-                <td style="padding:6px 8px;text-align:center">
-                  <b style="font-family:var(--font-mono);color:${_raioXConfColor(c.total)}">${pct.toFixed(0)}%</b>
-                  <span style="color:var(--text2);font-size:var(--text-xs)">(${c.hits}/${c.total})</span>
-                </td>
-              </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:10px;padding:14px 16px;max-width:560px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base)">
+          ${_icoTarget()} Melhor combinação hoje
+        </div>
+        <div style="text-align:right">
+          <b style="font-family:var(--font-mono);font-size:var(--text-xl);color:${_raioXConfColor(melhor.total)}">${pct.toFixed(0)}%</b>
+          <span style="color:var(--text2);font-size:var(--text-xs)"> Over 0.5 HT (${melhor.hits}/${melhor.total})</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:18px;background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px">
+        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time da casa">C-Atq</div>${iconBig(melhor.ca)}</div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time da casa">C-Def</div>${iconBig(melhor.cd)}</div>
+        <div style="width:1px;align-self:stretch;background:var(--border)"></div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Ataque do time visitante">F-Atq</div>${iconBig(melhor.fa)}</div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--text2);text-transform:uppercase;margin-bottom:2px" title="Índice de Defesa do time visitante">F-Def</div>${iconBig(melhor.fd)}</div>
+      </div>
+      ${amostraBaixa ? `<div style="font-size:var(--text-xs);color:var(--yellow);padding:2px 0 8px">⚠ Amostra menor que ${_RAIOX_MIN_SAMPLE} jogos hoje — nenhuma combinação com mais dado disponível ainda.</div>` : ''}
+      <div>${rowsHtml}</div>
     </div>
-    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.6">
-      Amostra em <span style="color:var(--green);font-weight:700">verde</span>: ≥${_RAIOX_MIN_SAMPLE * 3} jogo(s), mais confiável ·
-      <span style="color:var(--yellow);font-weight:700">amarelo</span>: ${_RAIOX_MIN_SAMPLE}-${_RAIOX_MIN_SAMPLE * 3 - 1}, use com cautela ·
-      cinza: menos de ${_RAIOX_MIN_SAMPLE}, pouco confiável (pode ser 1 jogo só) · "—" = time sem índice calculado ainda.
-      Passe o mouse numa linha pra ver os jogos daquela combinação.
+    <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2)">
+      Calculado sobre ${comHt.length} jogo(s) finalizado(s) hoje com placar de intervalo, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
     </div>`;
 }
 
