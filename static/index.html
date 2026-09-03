@@ -1857,6 +1857,7 @@
           <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:painelLivePulse 1.6s ease-in-out infinite"></span>
           Ao vivo (30s)
         </span>
+        <div id="painelRaioXStreakPanel"></div>
       </div>
       <div id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2);margin-bottom:8px"></div>
       <div id="painelRaioXBody"></div>
@@ -23492,6 +23493,9 @@ async function _painelRaioXRender() {
     return;
   }
 
+  const streakPanelEl = document.getElementById('painelRaioXStreakPanel');
+  if (streakPanelEl) streakPanelEl.innerHTML = _painelRaioXStreakPanelHtml(all);
+
   // Odds reais de hoje (salvas por _raiox_history_loop, app.py) — vêm pelo
   // MESMO endpoint de histórico, casadas por nome de time (o objeto de jogo
   // de /api/painel/matches não carrega odds, só o snapshot de histórico).
@@ -23725,6 +23729,72 @@ function _raioXMomentum(bateuFlags) {
   let streak = 1;
   for (let i = bateuFlags.length - 2; i >= 0 && bateuFlags[i] === ultimo; i--) streak++;
   return { acerto: ultimo, streak };
+}
+
+// Painel fixo "Sequências" pedido pelo usuário 2026-09-03, bem ao lado do
+// indicador "Ao vivo" — mostra o momentum da combinação vencedora de CADA
+// mercado geral (não os 19 placar-exato, ficaria grande demais), não só do
+// mercado selecionado no dropdown. Repete a MESMA seleção de melhor
+// combinação do card principal, mas isolada aqui (função própria, não
+// reaproveita _painelRaioXRender) pra não arriscar mexer no fluxo principal
+// já testado — roda 10x sobre os mesmos jogos já carregados, tudo local,
+// sem fetch extra.
+function _raioXMelhorComboMercado(all, mkt) {
+  const isHt = mkt.campo === 'ht';
+  const campoHome = isHt ? 'ht_home' : 'score_home';
+  const campoAway = isHt ? 'ht_away' : 'score_away';
+  const comPlacar = all.filter(m => {
+    if (m.time !== 'Encerrado') return false;
+    const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
+    return !isNaN(hc) && !isNaN(hf);
+  });
+  const combos = new Map();
+  comPlacar.forEach(m => {
+    const hc = parseInt(m[campoHome], 10), hf = parseInt(m[campoAway], 10);
+    const bateu = mkt.hit(hc, hf);
+    const ca = _raioXIconKey(m.casa_ataque_icon), cd = _raioXIconKey(m.casa_defesa_icon);
+    const fa = _raioXIconKey(m.fora_ataque_icon), fd = _raioXIconKey(m.fora_defesa_icon);
+    const key = `${ca}${cd}${fa}${fd}`;
+    if (!combos.has(key)) combos.set(key, { ca, cd, fa, fd, total: 0, hits: 0, jogos: [] });
+    const c = combos.get(key);
+    c.total++;
+    if (bateu) c.hits++;
+    c.jogos.push(m);
+  });
+  const lista = [...combos.values()];
+  if (!lista.length) return null;
+  const isSoTraco = c => c.ca === '—' && c.cd === '—' && c.fa === '—' && c.fd === '—';
+  const porTaxa = (a, b) => (b.hits / b.total - a.hits / a.total) || (b.total - a.total);
+  const comSinalConfiavel = lista.filter(c => c.total >= _RAIOX_MIN_SAMPLE && !isSoTraco(c)).sort(porTaxa);
+  const comAmostraMinima = lista.filter(c => c.total >= _RAIOX_MIN_SAMPLE).sort(porTaxa);
+  const pool = comSinalConfiavel.length ? comSinalConfiavel : (comAmostraMinima.length ? comAmostraMinima : [...lista].sort(porTaxa));
+  const melhor = pool[0];
+  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  const bateuFlags = jogosOrdenados.map(j => mkt.hit(parseInt(j[campoHome], 10), parseInt(j[campoAway], 10)));
+  return { melhor, momentum: _raioXMomentum(bateuFlags) };
+}
+
+function _painelRaioXStreakPanelHtml(all) {
+  const pills = _RAIOX_MARKETS_GERAL.map(key => {
+    const mkt = _RAIOX_MARKETS[key];
+    const r = _raioXMelhorComboMercado(all, mkt);
+    if (!r || !r.momentum || r.momentum.streak < 2) return null; // só mostra sequência real (>=2) pra não poluir com 10 pills sempre cheios
+    const combo = `${r.melhor.ca}${r.melhor.cd}${r.melhor.fa}${r.melhor.fd}`;
+    const cor = r.momentum.acerto ? 'var(--green)' : 'var(--red)';
+    const icone = r.momentum.acerto ? '🔥' : '⚠';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:var(--text-xs);white-space:nowrap" title="${_bt2EscXml(mkt.label)} — combinação atual: ${_bt2EscXml(combo)}">
+      <span>${icone}</span>
+      <span style="color:var(--text2)">${_bt2EscXml(mkt.label)}</span>
+      <b style="color:${cor};font-family:var(--font-mono)">${r.momentum.streak}</b>
+    </span>`;
+  }).filter(Boolean);
+
+  if (!pills.length) return '';
+  return `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Sequência de acertos/erros seguidos da combinação vencedora de cada mercado, hoje">
+      <span style="font-size:var(--text-xs);color:var(--text2);white-space:nowrap">Sequências:</span>
+      ${pills.join('')}
+    </div>`;
 }
 
 // Correlação simples: dentro dos MESMOS jogos da combinação vencedora de
