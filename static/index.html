@@ -1853,6 +1853,10 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
         <select id="painelRaioXMarketSelect" class="painel-search-select" style="max-width:320px" onchange="_painelRaioXSetMarket(this.value)"></select>
         <button class="painel-sort-time-btn" onclick="_painelRaioXRender()"><span data-ico="Refresh"></span> Recalcular</button>
+        <span style="font-size:var(--text-xs);color:var(--text2);display:flex;align-items:center;gap:5px" title="Recalcula sozinho a cada 30s enquanto essa aba estiver aberta">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:painelLivePulse 1.6s ease-in-out infinite"></span>
+          Ao vivo (30s)
+        </span>
       </div>
       <div id="painelRaioXStatus" style="font-size:var(--text-sm);color:var(--text2);margin-bottom:8px"></div>
       <div id="painelRaioXBody"></div>
@@ -5859,6 +5863,7 @@ function _painelSetFilter(filter, btn) {
     _painelListaLoadConfig();
   } else if (isRaioX) {
     _painelRaioXRender();
+    _painelRaioXStartAutoRefresh();
   } else if (_painelLastData) {
     _painelRender(_painelLastData);
   }
@@ -23439,6 +23444,23 @@ function _painelRaioXSetMarket(mkt) {
   _painelRaioXRender();
 }
 
+// "Tempo real" pedido pelo usuário 2026-09-03: mesmo padrão já usado pelo Ao
+// Vivo (setLiveRefreshInterval/liveAutoRefresh) — 1 timer global que só faz
+// algo quando essa aba está de fato aberta (_painelViewFilter === 'raiox'),
+// pra não competir por recursos do servidor quando o usuário está em outra
+// aba (ver [[feedback_ao_vivo_prioridade]]: Ao Vivo tem prioridade de
+// recursos, isso aqui não pode brigar por thread/CPU com ela). Os 2 fetches
+// por ciclo (/api/painel/matches, cacheado 60s no backend, e /api/painel/
+// raiox_history, leitura de arquivo local) são baratos o bastante pra rodar
+// a cada 30s sem sobrecarregar nada.
+let _raioXAutoRefreshTimer = null;
+function _painelRaioXStartAutoRefresh() {
+  if (_raioXAutoRefreshTimer) return;
+  _raioXAutoRefreshTimer = setInterval(() => {
+    if (_painelViewFilter === 'raiox') _painelRaioXRender();
+  }, 30000);
+}
+
 async function _painelRaioXRender() {
   _painelRaioXHydrateMarketSelect();
   const statusEl = document.getElementById('painelRaioXStatus');
@@ -23505,7 +23527,8 @@ async function _painelRaioXRender() {
   const lista = [...combos.values()].sort((a, b) => (b.hits / b.total) - (a.hits / a.total));
 
   statusEl.textContent = `${finalizados.length} jogo(s) finalizado(s) hoje · ${comPlacar.length} com ${rotuloPlacar} · ${combos.size} combinação(ões)` +
-    (baseline != null ? ` · base geral ${rotuloMercado}: ${baseline.toFixed(0)}%` : '');
+    (baseline != null ? ` · base geral ${rotuloMercado}: ${baseline.toFixed(0)}%` : '') +
+    ` · atualizado às ${new Date().toLocaleTimeString('pt-BR')}`;
 
   if (!lista.length) {
     body.innerHTML = `<div style="color:var(--text2);font-size:var(--text-base);padding:24px 0;text-align:center;max-width:480px;margin:0 auto">
@@ -23651,7 +23674,9 @@ async function _painelRaioXRender() {
       </div>
     </div>`;
 
-  _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`);
+  _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`, {
+    bateuFlags, jogosOrdenados, all, pct, oddMedia, jogosComOdd, jogosSemOdd,
+  });
 }
 
 // Histórico diário salvo em segundo plano pelo backend (_raiox_history_loop,
@@ -23691,13 +23716,68 @@ function _raioXAgregarMatches(matches, mkt, campoHome, campoAway, comboKey) {
   return { total, hits, comboTotal, comboHits };
 }
 
+// Sequência (momentum) do fim pra trás em bateuFlags (cronológico) — quantos
+// resultados IGUAIS seguidos terminam a lista. Não precisa de histórico
+// entre dias, já sai dos mesmos jogos de hoje que o card usa.
+function _raioXMomentum(bateuFlags) {
+  if (!bateuFlags.length) return null;
+  const ultimo = bateuFlags[bateuFlags.length - 1];
+  let streak = 1;
+  for (let i = bateuFlags.length - 2; i >= 0 && bateuFlags[i] === ultimo; i--) streak++;
+  return { acerto: ultimo, streak };
+}
+
+// Correlação simples: dentro dos MESMOS jogos da combinação vencedora de
+// hoje, que outros mercados também bateram com mais frequência — não cruza
+// com histórico (amostra pequena, só os jogos de hoje), então é uma leitura
+// do dia, não uma correlação estatística robusta (deixado explícito no
+// texto que acompanha).
+function _raioXCorrelacoes(jogosOrdenados, marketKeyAtual) {
+  const outras = _RAIOX_MARKETS_GERAL.filter(k => k !== marketKeyAtual);
+  const resultados = outras.map(k => {
+    const m2 = _RAIOX_MARKETS[k];
+    const isHt2 = m2.campo === 'ht';
+    const ch = isHt2 ? 'ht_home' : 'score_home', ca = isHt2 ? 'ht_away' : 'score_away';
+    let total = 0, hits = 0;
+    jogosOrdenados.forEach(j => {
+      const hc = parseInt(j[ch], 10), hf = parseInt(j[ca], 10);
+      if (isNaN(hc) || isNaN(hf)) return;
+      total++;
+      if (m2.hit(hc, hf)) hits++;
+    });
+    return { label: m2.label, total, hits, taxa: total ? (hits / total * 100) : null };
+  }).filter(r => r.total >= 2 && r.taxa != null);
+  resultados.sort((a, b) => b.taxa - a.taxa);
+  return resultados.slice(0, 3);
+}
+
+// Previsão: conta jogos AGENDADOS hoje (ainda não jogados) com a MESMA
+// combinação de Power Ranking — o ícone já existe pra jogo agendado (é
+// calculado da tabela da liga, não depende do jogo ter começado). Projeta
+// quantos desses devem bater na taxa atual — é uma extrapolação simples
+// (assume que a taxa de hoje se mantém), não uma garantia.
+function _raioXPrevisao(all, comboKey, pct, mkt, oddMedia) {
+  const agendados = all.filter(m => {
+    if (m.time !== 'Agendado') return false;
+    const key = _raioXIconKey(m.casa_ataque_icon) + _raioXIconKey(m.casa_defesa_icon) + _raioXIconKey(m.fora_ataque_icon) + _raioXIconKey(m.fora_defesa_icon);
+    return key === comboKey;
+  });
+  if (!agendados.length) return null;
+  const hitsEsperados = agendados.length * (pct / 100);
+  let lucroEstimado = null;
+  if (mkt.oddReal && oddMedia != null) {
+    lucroEstimado = hitsEsperados * _RAIOX_STAKE_BASE * (oddMedia - 1) - (agendados.length - hitsEsperados) * _RAIOX_STAKE_BASE;
+  }
+  return { total: agendados.length, hitsEsperados, lucroEstimado };
+}
+
 // Trocar de mercado no dropdown dispara uma nova chamada antes da anterior
 // terminar de buscar o histórico — sem controle de ordem, a resposta velha
 // podia chegar DEPOIS da nova (2 fetches concorrentes não têm ordem de
 // resolução garantida) e sobrescrever o painel com o mercado errado. O
 // contador descarta qualquer resposta que não seja mais a mais recente.
 let _raioXStatsRenderSeq = 0;
-async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, comboKey) {
+async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMercado, comboKey, extras) {
   const mySeq = ++_raioXStatsRenderSeq;
   const panel = document.getElementById('painelRaioXStatsPanel');
   if (!panel) return;
@@ -23720,9 +23800,9 @@ async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMer
       <span style="font-family:var(--font-mono);color:var(--text)">${taxa != null ? `${taxa.toFixed(0)}% (${hits}/${total})` : 'sem dado'}</span>
     </div>`;
 
-  const blocosHtml = janelas.map(j => {
-    const todasMatches = j.dias.flatMap(d => d.matches || []);
-    const agr = _raioXAgregarMatches(todasMatches, mkt, campoHome, campoAway, comboKey);
+  const janelaAgrs = janelas.map(j => _raioXAgregarMatches(j.dias.flatMap(d => d.matches || []), mkt, campoHome, campoAway, comboKey));
+  const blocosHtml = janelas.map((j, i) => {
+    const agr = janelaAgrs[i];
     const taxaGeral = agr.total ? (agr.hits / agr.total * 100) : null;
     const taxaCombo = agr.comboTotal ? (agr.comboHits / agr.comboTotal * 100) : null;
     return `
@@ -23733,6 +23813,59 @@ async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMer
       </div>`;
   }).join('');
 
+  // Alertas — momentum (sequência de hoje), taxa de hoje destoando muito da
+  // média recente, e cobertura de odds ruim. Só aparece quando há sinal de
+  // verdade (limiares abaixo), pra não virar ruído poluindo o painel todo
+  // dia.
+  const alertas = [];
+  const momentum = _raioXMomentum(extras.bateuFlags);
+  if (momentum && momentum.streak >= 3) {
+    alertas.push(momentum.acerto
+      ? `🔥 ${momentum.streak} acerto(s) seguido(s) nessa combinação hoje`
+      : `⚠ ${momentum.streak} erro(s) seguido(s) nessa combinação hoje — momentum negativo`);
+  }
+  const agr7dias = janelaAgrs[1];
+  const taxaCombo7d = agr7dias.comboTotal ? (agr7dias.comboHits / agr7dias.comboTotal * 100) : null;
+  if (taxaCombo7d != null && agr7dias.comboTotal >= 3 && Math.abs(extras.pct - taxaCombo7d) >= 15) {
+    alertas.push(`📊 Taxa de hoje (${extras.pct.toFixed(0)}%) está ${extras.pct > taxaCombo7d ? 'bem acima' : 'bem abaixo'} da média dessa combinação nos últimos 7 dias (${taxaCombo7d.toFixed(0)}%)`);
+  }
+  if (mkt.oddReal && extras.jogosSemOdd > extras.jogosComOdd) {
+    alertas.push(`💸 Maioria dos jogos (${extras.jogosSemOdd} de ${extras.jogosSemOdd + extras.jogosComOdd}) não tem odd real disponível — lucro calculado com amostra reduzida`);
+  }
+  const alertasHtml = alertas.length ? `
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:var(--text-sm);color:var(--text);font-weight:600;margin-bottom:4px">Alertas</div>
+      ${alertas.map(a => `<div style="font-size:var(--text-xs);color:var(--text2);padding:2px 0">${a}</div>`).join('')}
+    </div>` : '';
+
+  // Correlação — dentro dos MESMOS jogos da combinação vencedora de hoje,
+  // quais outros mercados também bateram mais. Amostra pequena de propósito
+  // (só hoje), texto deixa isso explícito.
+  const correlacoes = _raioXCorrelacoes(extras.jogosOrdenados, _painelRaioXMarket);
+  const correlacoesHtml = correlacoes.length ? `
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:var(--text-sm);color:var(--text);font-weight:600;margin-bottom:4px">Correlação (jogos de hoje)</div>
+      ${correlacoes.map(c => `
+        <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text2);padding:2px 0">
+          <span>${_bt2EscXml(c.label)}</span>
+          <span style="font-family:var(--font-mono);color:var(--text)">${c.taxa.toFixed(0)}% (${c.hits}/${c.total})</span>
+        </div>`).join('')}
+      <div style="font-size:9px;color:var(--text2);margin-top:2px">Taxa desses mercados nos MESMOS jogos da combinação vencedora — amostra do dia, não é correlação estatística validada.</div>
+    </div>` : '';
+
+  // Previsão — projeção simples (taxa de hoje × jogos agendados restantes
+  // com a mesma combinação), não uma garantia.
+  const previsao = _raioXPrevisao(extras.all, comboKey, extras.pct, mkt, extras.oddMedia);
+  const previsaoHtml = previsao ? `
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:var(--text-sm);color:var(--text);font-weight:600;margin-bottom:4px">Previsão (resto do dia)</div>
+      <div style="font-size:var(--text-xs);color:var(--text2)">
+        ${previsao.total} jogo(s) agendado(s) hoje com a mesma combinação — na taxa atual (${extras.pct.toFixed(0)}%), cerca de <b style="color:var(--text)">${previsao.hitsEsperados.toFixed(1)}</b> deve(m) bater.
+        ${previsao.lucroEstimado != null ? `<br>Lucro adicional estimado (Stake Fixa, odd média de hoje): <b style="color:${previsao.lucroEstimado >= 0 ? 'var(--green)' : 'var(--red)'}">${previsao.lucroEstimado >= 0 ? '' : '-'}R$${Math.abs(Math.round(previsao.lucroEstimado))}</b>` : ''}
+      </div>
+      <div style="font-size:9px;color:var(--text2);margin-top:2px">Estimativa simples (taxa de hoje × jogos restantes) — não garante que a taxa se mantenha nem que esses jogos vão ter odd real disponível.</div>
+    </div>` : '';
+
   panel.innerHTML = `
     <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base);margin-bottom:4px">
       Estatísticas
@@ -23742,7 +23875,10 @@ async function _painelRaioXRenderStatsPanel(mkt, campoHome, campoAway, rotuloMer
     <div style="margin-top:8px;font-size:9px;color:var(--text2);line-height:1.4">
       ${dias.length ? `Histórico salvo desde ${dias[dias.length - 1].date}.` : 'Histórico começou a ser salvo hoje — janelas de Ontem/7/30 dias ainda vão aparecer vazias por alguns dias.'}
       "Combinação atual" é a taxa da MESMA combinação de Power Ranking (${_bt2EscXml(comboKey)}) mostrada no card, em dias anteriores.
-    </div>`;
+    </div>
+    ${alertasHtml}
+    ${correlacoesHtml}
+    ${previsaoHtml}`;
 }
 
 async function _painelListaLoadConfig() {
