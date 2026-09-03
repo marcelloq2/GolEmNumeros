@@ -1413,8 +1413,12 @@
 
   /* ── Comparação de Força (NowGoal) ── */
   .painel-forca-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .painel-forca-header .home { color: #e8622c; font-weight: 700; font-size: 13px; }
-  .painel-forca-header .away { color: #2c7fe8; font-weight: 700; font-size: 13px; }
+  .painel-forca-header .home, .painel-forca-header .away {
+    font-family: var(--font-condensed); text-transform: uppercase; letter-spacing: .2px;
+    font-weight: 600; font-size: var(--text-base);
+  }
+  .painel-forca-header .home { color: var(--accent2); }
+  .painel-forca-header .away { color: var(--red); }
   .painel-forca-radar-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
   .painel-forca-grade { font-size: 26px; font-weight: 800; }
   .painel-forca-grade.home { color: #e8622c; }
@@ -1498,15 +1502,15 @@
   }
   .painel-meth-item:hover { border-color: var(--accent); background: var(--bg3); }
   .painel-meth-item-head { display: flex; align-items: center; gap: 10px; }
-  .painel-meth-rank { font-size: 20px; font-weight: 800; color: var(--accent); flex-shrink: 0; min-width: 26px; }
+  .painel-meth-rank { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-xl); font-weight: 700; color: var(--accent); flex-shrink: 0; min-width: 26px; }
   .painel-meth-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg3); border: 1px solid var(--border); }
   .painel-meth-name-col { flex: 1 1 auto; min-width: 0; }
-  .painel-meth-name { display: block; font-weight: 700; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .painel-meth-badge { font-size: 10px; color: #2e7d32; font-weight: 700; }
+  .painel-meth-name { display: block; font-weight: 700; color: var(--text); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel-meth-badge { font-size: var(--text-xs); color: var(--green); font-weight: 700; }
   .painel-meth-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 4px; padding-top: 10px; border-top: 1px solid var(--border); }
   .painel-meth-stat { text-align: center; min-width: 0; }
-  .painel-meth-stat .v { font-weight: 700; font-size: 12px; color: var(--accent2); }
-  .painel-meth-stat .l { font-size: 9px; color: var(--text2); display: block; }
+  .painel-meth-stat .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; font-size: var(--text-sm); color: var(--accent2); }
+  .painel-meth-stat .l { font-size: var(--text-xs); color: var(--text2); display: block; }
   .painel-meth-item-footer { display: flex; justify-content: flex-end; gap: 6px; }
   .painel-meth-watch-btn {
     flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
@@ -1515,12 +1519,12 @@
   .painel-meth-watch-btn:hover { opacity: 1; background: var(--bg3); }
   .painel-meth-watch-btn.active { opacity: 1; border-color: #0088cc; background: rgba(0,136,204,.12); }
   .painel-meth-tip { padding: 10px 4px; border-bottom: 1px solid var(--border); }
-  .painel-meth-tip-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
-  .painel-meth-tip-match { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 4px; }
+  .painel-meth-tip-head { display: flex; justify-content: space-between; font-size: var(--text-sm); color: var(--text2); margin-bottom: 4px; }
+  .painel-meth-tip-match { font-family: var(--font-condensed); text-transform: uppercase; letter-spacing: .2px; font-weight: 600; font-size: var(--text-base); color: var(--text); margin-bottom: 4px; }
   .painel-meth-tip-result { font-weight: 700; }
-  .painel-meth-tip-result.win { color: #2e7d32; }
-  .painel-meth-tip-result.lose { color: #c62828; }
-  .painel-meth-tip-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .painel-meth-tip-result.win { color: var(--green); }
+  .painel-meth-tip-result.lose { color: var(--red); }
+  .painel-meth-tip-text { font-size: var(--text-base); color: var(--text); line-height: 1.5; }
 
   .painel-modal-overlay {
     position: fixed; inset: 0; z-index: 9000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px;
@@ -1590,9 +1594,12 @@
   }
   .painel-h2h-row {
     display: grid; grid-template-columns: 1fr 42px 1fr 130px 68px; gap: 6px; align-items: center;
-    padding: 6px 10px; font-size: 11px; color: var(--text); text-decoration: none; border-top: 1px solid var(--border);
+    padding: 6px 10px; font-size: var(--text-sm); color: var(--text); text-decoration: none; border-top: 1px solid var(--border);
   }
   .painel-h2h-row:hover { background: var(--bg3); }
+  .painel-h2h-team-name {
+    font-family: var(--font-condensed); text-transform: uppercase; letter-spacing: .2px; font-weight: 600;
+  }
   .painel-h2h-team-name.away { text-align: right; }
   .painel-h2h-team-name img { width: 14px; height: 14px; vertical-align: middle; margin: 0 4px; }
   .painel-h2h-score { text-align: center; font-weight: 700; }
@@ -17828,15 +17835,15 @@ function buildLineupHtml(m) {
 
   const col = (row) => `
     <div style="flex:0 0 auto;width:38px;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;gap:6px">
-      ${row.map(p => _lineupPlayer(p, '#3b82f6')).join('')}
+      ${row.map(p => _lineupPlayer(p, 'var(--accent2)')).join('')}
     </div>`;
   const colAway = (row) => `
     <div style="flex:0 0 auto;width:38px;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;gap:6px">
-      ${row.map(p => _lineupPlayer(p, '#f97316')).join('')}
+      ${row.map(p => _lineupPlayer(p, 'var(--red)')).join('')}
     </div>`;
 
   const header = (label, formation) => `
-    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase">
+    <div style="font-family:var(--font-condensed);font-size:var(--text-sm);font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.2px">
       ${label} ${formation ? `<span style="color:var(--text)">· ${formation}</span>` : ''}
     </div>`;
 
@@ -23332,8 +23339,8 @@ function _painelListaJogoCardHtml(j) {
   return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-weight:700;color:var(--text);font-size:13px">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400">x</span> ${_bt2EscXml(j.fora)}</div>
-        <div style="font-size:11px;color:var(--text2);white-space:nowrap">${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
+        <div style="font-family:var(--font-condensed);text-transform:uppercase;font-weight:600;color:var(--text);font-size:var(--text-md);letter-spacing:.2px">${_bt2EscXml(j.casa)} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${_bt2EscXml(j.fora)}</div>
+        <div style="font-size:var(--text-sm);color:var(--text2);white-space:nowrap">${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
       <div>${j.metodologias.map(_painelListaMetodologiaRowHtml).join('')}</div>
     </div>`;
@@ -23506,11 +23513,11 @@ function _painelListaTop10RowHtml(entrada, idx) {
     : entrada.resultado === false ? `<span style="color:var(--red);font-weight:700" title="Não bateu">✗</span>`
     : '';
   return `
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12px">
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:var(--text-base)">
       <span style="color:var(--text2);font-weight:700;width:16px;flex-shrink:0;text-align:center">${idx + 1}</span>
       <div style="flex:1;overflow:hidden;min-width:0">
-        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${casaHtml} <span style="color:var(--text2);font-weight:400">x</span> ${foraHtml}</div>
-        <div style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
+        <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.2px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${casaHtml} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${foraHtml}</div>
+        <div style="font-size:var(--text-xs);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.liga || '')} · ${_bt2EscXml(j.horario || '')} · ${_bt2EscXml(j.status || '')}</div>
       </div>
       <span style="width:14px;flex-shrink:0;text-align:center">${icone}</span>
       <div style="text-align:right;flex-shrink:0;white-space:nowrap">
@@ -23521,8 +23528,8 @@ function _painelListaTop10RowHtml(entrada, idx) {
 
 function _painelListaTop10SectionHtml(mercado, entradas) {
   return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px">
-      <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:2px">${_icoTrophy()} ${_bt2EscXml(mercado)}</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:10px;padding:10px 14px">
+      <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-base);margin-bottom:2px">${_icoTrophy()} ${_bt2EscXml(mercado)}</div>
       ${entradas.length
         ? entradas.map((e, i) => _painelListaTop10RowHtml(e, i)).join('')
         : `<div style="color:var(--text2);font-size:12px;padding:6px 0">Nenhuma entrada desse mercado nos jogos carregados.</div>`}
