@@ -23597,9 +23597,16 @@ async function _painelRaioXRender() {
   // Sem sentido mostrar isso quando a "melhor combinação" é ela mesma
   // "— — — —" (nenhum dado de Power Ranking ainda) — não é um perfil
   // acionável, é só "sem informação".
+  // Bug real encontrado pelo usuário (2026-09-04): jogo de liga menor
+  // (amadora/feminina/sub-20) às vezes fica preso em status "Agendado" no
+  // feed mesmo horas depois do horário do apito — o Flashscore não
+  // atualizou (medido em produção: 12 de 518 jogos, 2,3%, todos em ligas
+  // menores). "Agendado" sozinho não é confiável pra decidir "ainda vai
+  // acontecer" — soma com checagem de horário (`m.ts` no futuro).
+  const _raioXAgoraTs = Math.floor(Date.now() / 1000);
   const comboKeyMelhor = `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`;
   const proximosComCombo = isSoTraco(melhor) ? [] : all
-    .filter(m => m.time === 'Agendado')
+    .filter(m => m.time === 'Agendado' && parseInt(m.ts, 10) > _raioXAgoraTs)
     .filter(m => `${_raioXIconKey(m.casa_ataque_icon)}${_raioXIconKey(m.casa_defesa_icon)}${_raioXIconKey(m.fora_ataque_icon)}${_raioXIconKey(m.fora_defesa_icon)}` === comboKeyMelhor)
     .sort((a, b) => (parseInt(a.ts) || 0) - (parseInt(b.ts) || 0));
 
