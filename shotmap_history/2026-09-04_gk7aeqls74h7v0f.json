@@ -1,0 +1,190 @@
+{
+  "event_id": "gk7aeqls74h7v0f",
+  "date": "2026-09-04",
+  "casa": "CA Platense",
+  "fora": "Deportivo Riestra",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "total_shots": 16,
+  "shotmap": [
+    {
+      "id": "2964225263",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Bracamonte",
+      "x": 15.6,
+      "y": 64.2
+    },
+    {
+      "id": "2964219647",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lotti",
+      "x": 9.1,
+      "y": 45.3
+    },
+    {
+      "id": "2964218501",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Zapiola",
+      "x": 15.9,
+      "y": 32.4
+    },
+    {
+      "id": "2964218165",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Díaz",
+      "x": 14.6,
+      "y": 48.6
+    },
+    {
+      "id": "2964217895",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Vazquez",
+      "x": 10,
+      "y": 30.9
+    },
+    {
+      "id": "2964216723",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Retamar",
+      "x": 7.7,
+      "y": 57.4
+    },
+    {
+      "id": "2964215437",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "I.Gómez",
+      "x": 23.7,
+      "y": 58.6
+    },
+    {
+      "id": "2964214673",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Céliz",
+      "x": 14.5,
+      "y": 49.6
+    },
+    {
+      "id": "2964211747",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Zapiola",
+      "x": 29.2,
+      "y": 45.7
+    },
+    {
+      "id": "2964211419",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Lencina",
+      "x": 15.1,
+      "y": 52.5
+    },
+    {
+      "id": "2964205999",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Zapiola",
+      "x": 30,
+      "y": 72.1
+    },
+    {
+      "id": "2964203699",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Benegas",
+      "x": 13.1,
+      "y": 46.4
+    },
+    {
+      "id": "2964203635",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Goitía",
+      "x": 25.5,
+      "y": 62.3
+    },
+    {
+      "id": "2964202213",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lencina",
+      "x": 6.4,
+      "y": 57.5
+    },
+    {
+      "id": "2964201169",
+      "minute": 9,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Retamar",
+      "x": 1.1,
+      "y": 65.8
+    },
+    {
+      "id": "2964200999",
+      "minute": 8,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "T.González",
+      "x": 8,
+      "y": 45.5
+    }
+  ]
+}
