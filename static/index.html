@@ -5022,8 +5022,16 @@ let _painelViewFilter = 'all'; // 'all' | 'live' | 'next'
 function _painelIsLive(m) {
   return m.time === 'Ao vivo';
 }
+// Bug real encontrado pelo usuário no Raio-X (2026-09-04) e confirmado em
+// produção: jogo de liga menor (amadora/feminina/sub-20/amistoso) às vezes
+// fica preso em "Agendado" no feed mesmo horas depois do horário do apito —
+// o Flashscore não atualiza (medido: 12 de 518 jogos, 2,3%, todos ligas
+// menores). Status "Agendado" sozinho não é confiável pra decidir "ainda vai
+// acontecer" — soma com checagem de que o kickoff (m.ts) ainda está no
+// futuro. Correção central: como "PRÓXIMOS"/"Baixar próximos" já passam por
+// essa função, corrigir aqui resolve os dois de uma vez.
 function _painelIsNext(m) {
-  return m.time === 'Agendado';
+  return m.time === 'Agendado' && (!m.ts || parseInt(m.ts, 10) > Date.now() / 1000);
 }
 function _painelIsFinished(m) {
   return m.time === 'Encerrado';
@@ -23597,16 +23605,12 @@ async function _painelRaioXRender() {
   // Sem sentido mostrar isso quando a "melhor combinação" é ela mesma
   // "— — — —" (nenhum dado de Power Ranking ainda) — não é um perfil
   // acionável, é só "sem informação".
-  // Bug real encontrado pelo usuário (2026-09-04): jogo de liga menor
-  // (amadora/feminina/sub-20) às vezes fica preso em status "Agendado" no
-  // feed mesmo horas depois do horário do apito — o Flashscore não
-  // atualizou (medido em produção: 12 de 518 jogos, 2,3%, todos em ligas
-  // menores). "Agendado" sozinho não é confiável pra decidir "ainda vai
-  // acontecer" — soma com checagem de horário (`m.ts` no futuro).
-  const _raioXAgoraTs = Math.floor(Date.now() / 1000);
+  // "Agendado" sozinho não é confiável pra decidir "ainda vai acontecer" —
+  // ver a correção central em _painelIsNext (mesmo bug real achado aqui,
+  // corrigido lá pra valer pra PRÓXIMOS/Baixar próximos também).
   const comboKeyMelhor = `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`;
   const proximosComCombo = isSoTraco(melhor) ? [] : all
-    .filter(m => m.time === 'Agendado' && parseInt(m.ts, 10) > _raioXAgoraTs)
+    .filter(m => _painelIsNext(m))
     .filter(m => `${_raioXIconKey(m.casa_ataque_icon)}${_raioXIconKey(m.casa_defesa_icon)}${_raioXIconKey(m.fora_ataque_icon)}${_raioXIconKey(m.fora_defesa_icon)}` === comboKeyMelhor)
     .sort((a, b) => (parseInt(a.ts) || 0) - (parseInt(b.ts) || 0));
 

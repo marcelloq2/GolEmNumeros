@@ -8473,11 +8473,26 @@ def _lm_gerar_lista_automatica():
     mão, só que automático."""
     data = _painel_fetch_matches_flashscore()
     leagues = data.get("leagues") or []
+    now_ts = time.time()
     candidatos = []
     for lg in leagues:
         for m in lg.get("matches") or []:
             if m.get("time") != "Agendado":
                 continue
+            # Correção central (2026-09-04, mesmo bug do Raio-X): jogo de liga
+            # menor às vezes fica preso em "Agendado" mesmo horas depois do
+            # apito — sem essa checagem, calcularia Prognóstico pra jogo que
+            # já aconteceu (desperdício) e podia sugerir metodologia pra um
+            # jogo que não vai mais rolar. `ts` ausente não desqualifica (sem
+            # evidência contrária, mantém o comportamento de antes) — só
+            # exclui quando dá pra confirmar que o kickoff já passou.
+            ts_val = m.get("ts")
+            if ts_val:
+                try:
+                    if float(ts_val) <= now_ts:
+                        continue
+                except (TypeError, ValueError):
+                    continue
             if not (m.get("home") and m.get("away") and m.get("event_id")):
                 continue
             candidatos.append({
@@ -9835,7 +9850,23 @@ def _bt2_matches_candidatos(include_finished=False):
     disponíveis na Flashscore mesmo depois do jogo acabar (campo "opening" é a
     odd de abertura, "value" fica com o último valor antes do jogo travar)."""
     statuses = ("1", "3") if include_finished else ("1",)
-    candidatos = [m for m in _fs_all_matches() if m.get("status") in statuses]
+    now_ts = time.time()
+
+    def _still_scheduled(m):
+        # Correção central (2026-09-04, mesmo bug achado pelo usuário no
+        # Raio-X): jogo de liga menor às vezes fica preso em status "1"
+        # (Agendado) mesmo horas depois do apito — o Flashscore não
+        # atualiza. Sem essa checagem, um jogo assim (kickoff_ts bem no
+        # passado) ordena pra FRENTE de tudo (menor timestamp) e rouba vaga
+        # dos 60 candidatos de verdade, degradando a cobertura de odds.
+        if m.get("status") != "1":
+            return True
+        try:
+            return float(m.get("kickoff_ts") or 0) > now_ts
+        except (TypeError, ValueError):
+            return True
+
+    candidatos = [m for m in _fs_all_matches() if m.get("status") in statuses and _still_scheduled(m)]
     candidatos.sort(key=lambda m: m.get("kickoff_ts") or "")
     return candidatos[:_BT2_MATCHES_MAX_CANDIDATOS]
 
