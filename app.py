@@ -2002,7 +2002,13 @@ def _raiox_history_snapshot_fields(m):
         "score_home": m.get("score_home"), "score_away": m.get("score_away"),
         "casa_ataque_icon": m.get("casa_ataque_icon"), "casa_defesa_icon": m.get("casa_defesa_icon"),
         "fora_ataque_icon": m.get("fora_ataque_icon"), "fora_defesa_icon": m.get("fora_defesa_icon"),
-        "kickoff_ts": m.get("kickoff_ts"),
+        # Objeto "m" vem de _painel_fetch_matches_flashscore, que usa a chave
+        # "ts" (não "kickoff_ts" — esse só existe no formato cru de
+        # _fs_all_matches, usado por Hoje2/Backtest CS). Bug real encontrado
+        # 2026-09-04: ficou lendo undefined desde sempre, sem quebrar nada
+        # visivelmente (só fazia a ordenação cronológica do Raio-X virar
+        # no-op) — por isso passou despercebido até essa revisão.
+        "kickoff_ts": m.get("ts"),
     }
 
 
@@ -2237,6 +2243,37 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             stale["stale"] = True
             stale["stale_error"] = "Flashscore devolveu feed vazio (possível bloqueio temporário)"
             return stale
+
+        # Incidente real em produção (2026-09-03/04): o feed não veio LITERALMENTE
+        # vazio (a proteção acima não pegou), só devolveu uma fração minúscula do
+        # normal — 22 partidas contra as 500+ de menos de 1min antes, ZERO delas
+        # "Encerrado" — e isso silenciosamente derrubou "Todos os jogos" no
+        # celular, "Baixar leitura" (achava 0 jogo pra exportar), a checagem de
+        # acerto da aba Lista e o cálculo do Raio-X, sem nenhum aviso — o usuário
+        # só percebeu pelo prejuízo. Causa provável: _fs_all_matches_brt junta 2
+        # dias UTC (ver comentário lá) e cada um tem seu próprio cache de 30s
+        # (_fs_live_cache) que, se a 1ª busca daquele dia falhar logo após um
+        # restart/redeploy (processo novo, sem fallback prévio pra usar), volta
+        # vazio SEM levantar exceção — um dos dois lados do "hoje BRT" pode sumir
+        # inteiro (tipicamente o que carrega a maioria dos jogos já ao vivo/
+        # encerrados) enquanto o outro (dia que acabou de começar em UTC, quase
+        # sem jogo ainda) segue voltando normal. `cached_count >= 40` evita
+        # disparar em horários com poucos jogos de verdade (madrugada) — só
+        # dispara numa QUEDA REAL em menos de 1min, que não acontece por causa
+        # natural (jogos não desaparecem aos montes de repente).
+        if cached is not None:
+            cached_count = sum(len(lg.get("matches") or []) for lg in (cached["data"].get("leagues") or []))
+            if cached_count >= 40 and len(fs_matches) < cached_count * 0.3:
+                stale = dict(cached["data"])
+                stale["stale"] = True
+                stale["stale_error"] = (
+                    f"Flashscore devolveu só {len(fs_matches)} partida(s) — bem menos que as "
+                    f"{cached_count} de ~1min atrás (provável falha parcial do feed, não fim "
+                    f"real do dia). Mantendo o último resultado bom até normalizar."
+                )
+                print(f"[painel-flashscore] ⚠ Feed suspeito: {len(fs_matches)} partida(s) vs "
+                      f"{cached_count} em cache — usando cache antigo em vez de sobrescrever.")
+                return stale
 
     # Placar do intervalo — só LÊ o cache que _painel_ht_prewarm_loop mantém
     # quente em background (ver comentário lá em cima do motivo).

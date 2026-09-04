@@ -23571,10 +23571,16 @@ async function _painelRaioXRender() {
   const iconBig = v => `<span style="color:${_raioXIconColor(v)};font-weight:700;font-size:22px">${v}</span>`;
   const pct = (melhor.hits / melhor.total * 100);
 
-  // Ordem cronológica (kickoff_ts) importa pro Martingale — Stake Fixa dá
-  // na mesma em qualquer ordem, mas simular os 2 juntos precisa da mesma
-  // sequência de jogos.
-  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  // Ordem cronológica importa pro Martingale — Stake Fixa dá na mesma em
+  // qualquer ordem, mas simular os 2 juntos precisa da mesma sequência de
+  // jogos. Bug real encontrado 2026-09-04 investigando um incidente maior:
+  // objeto de jogo daqui vem de /api/painel/matches, que usa o campo "ts"
+  // (não "kickoff_ts" — esse só existe nos objetos crus de _fs_all_matches,
+  // usados por Hoje 2/Backtest CS, ver comentário de _painelCalcTurno perto
+  // da linha 5130). Com "kickoff_ts" (sempre undefined aqui), o sort virava
+  // no-op — a sequência do Martingale nunca foi realmente cronológica,
+  // ficava na ordem que a API retornava (agrupada por liga).
+  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.ts) || 0) - (parseInt(b.ts) || 0));
   const bateuFlags = jogosOrdenados.map(j => mkt.hit(parseInt(j[campoHome], 10), parseInt(j[campoAway], 10)));
 
   // Só simula lucro pra mercado com odd REAL de mercado (ver comentário em
@@ -23777,7 +23783,7 @@ function _raioXMelhorComboMercado(all, mkt) {
   const comAmostraMinima = lista.filter(c => c.total >= _RAIOX_MIN_SAMPLE).sort(porTaxa);
   const pool = comSinalConfiavel.length ? comSinalConfiavel : (comAmostraMinima.length ? comAmostraMinima : [...lista].sort(porTaxa));
   const melhor = pool[0];
-  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.kickoff_ts) || 0) - (parseInt(b.kickoff_ts) || 0));
+  const jogosOrdenados = [...melhor.jogos].sort((a, b) => (parseInt(a.ts) || 0) - (parseInt(b.ts) || 0));
   const bateuFlags = jogosOrdenados.map(j => mkt.hit(parseInt(j[campoHome], 10), parseInt(j[campoAway], 10)));
   return { melhor, momentum: _raioXMomentum(bateuFlags) };
 }
