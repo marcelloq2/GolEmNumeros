@@ -23587,6 +23587,34 @@ async function _painelRaioXRender() {
     }
   }
 
+  // Próximos jogos com o mesmo combo da "melhor combinação" de hoje — pedido
+  // do usuário (2026-09-04): "Raio-X como só mostra jogos passados passaria
+  // a mostrar os jogos futuros também" (integração com a Lista, que só
+  // mostra prognóstico pré-jogo — o Raio-X complementa com o retrospecto DO
+  // PRÓPRIO DIA). Ícones de Power Ranking já vêm preenchidos pra jogo
+  // agendado igual pra jogo finalizado (mesmo cache, `_painel_power_cache`),
+  // então é só reaplicar a mesma chave de combo sem buscar nada novo.
+  // Sem sentido mostrar isso quando a "melhor combinação" é ela mesma
+  // "— — — —" (nenhum dado de Power Ranking ainda) — não é um perfil
+  // acionável, é só "sem informação".
+  const comboKeyMelhor = `${melhor.ca}${melhor.cd}${melhor.fa}${melhor.fd}`;
+  const proximosComCombo = isSoTraco(melhor) ? [] : all
+    .filter(m => m.time === 'Agendado')
+    .filter(m => `${_raioXIconKey(m.casa_ataque_icon)}${_raioXIconKey(m.casa_defesa_icon)}${_raioXIconKey(m.fora_ataque_icon)}${_raioXIconKey(m.fora_defesa_icon)}` === comboKeyMelhor)
+    .sort((a, b) => (parseInt(a.ts) || 0) - (parseInt(b.ts) || 0));
+
+  const proximosHtml = isSoTraco(melhor) ? '' : `
+    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+      <div style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.3px;font-weight:600;color:var(--accent);font-size:var(--text-sm);margin-bottom:6px">
+        ${_icoTarget()} Próximos jogos com esse combo (${proximosComCombo.length})
+      </div>
+      ${proximosComCombo.length ? proximosComCombo.map(j => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:var(--text-base);padding:5px 0;border-top:1px solid var(--border)">
+          <span style="font-family:var(--font-condensed);text-transform:uppercase;letter-spacing:.2px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(j.home)} <span style="color:var(--text2);font-weight:400;text-transform:none">x</span> ${_bt2EscXml(j.away)}</span>
+          <span style="white-space:nowrap;font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text2)">${_painelKickoffTime(j) || ''}</span>
+        </div>`).join('') : `<div style="color:var(--text2);font-size:var(--text-xs)">Nenhum jogo agendado hoje ainda tem esse mesmo combo de Power Ranking.</div>`}
+    </div>`;
+
   const rowsHtml = jogosOrdenados.map((j, i) => {
     const bateu = bateuFlags[i];
     const icone = bateu
@@ -23658,6 +23686,7 @@ async function _painelRaioXRender() {
           ${amostraBaixa ? `<div style="font-size:var(--text-xs);color:var(--yellow);padding:2px 0 8px">⚠ Amostra menor que ${_RAIOX_MIN_SAMPLE} jogos hoje — nenhuma combinação com mais dado disponível ainda.</div>` : ''}
           ${financeiroHtml}
           <div>${rowsHtml}</div>
+          ${proximosHtml}
         </div>
         <div style="margin-top:10px;font-size:var(--text-xs);color:var(--text2);line-height:1.5">
           Calculado sobre ${comPlacar.length} jogo(s) finalizado(s) hoje com ${rotuloPlacar}, agrupados em ${combos.size} combinação(ões) diferentes de Power Ranking.
