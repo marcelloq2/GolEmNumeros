@@ -7675,6 +7675,869 @@ def api_lista_metodologias_config():
     return jsonify(_lista_metodologias_load())
 
 
+# ── LISTA DE METODOLOGIAS — geração automática (2026-09-04) ──────────────────
+# Até aqui, a Lista só existia por importação manual: o usuário rodava a
+# ferramenta local (analise_padroes.html) sobre o .json "Baixar próximos"
+# exportado do Painel, ela filtrava os mercados com probabilidade acima da
+# média/CV abaixo da média do lote do dia (LEITURA_MERCADO_PATH/
+# _mercadosQueBatem/calcularMediasPorMetodologia, tudo em JS), baixava um
+# .txt e o usuário subia esse .txt em Lista → "Importar .txt". Pedido do
+# usuário (2026-09-04, vai viajar e não vai poder rodar isso manualmente):
+# portar essa cadeia inteira pra rodar sozinha aqui no servidor, sem depender
+# de navegador nem da ferramenta local.
+#
+# É uma tradução função-a-função da lógica de static/index.html
+# (_painelForcaPrognosticoComputeAll e as dependências dela) e de
+# analise_padroes.html (LEITURA_MERCADO_PATH/_mercadosQueBatem/
+# calcularMediasPorMetodologia) — qualquer mudança de regra feita nesses
+# arquivos JS não se propaga sozinha pra cá, precisa ser replicada à mão.
+# Diferença deliberada: usa o event_id que o Painel já tem (via
+# /api/painel/matches) pra chamar _fs_h2h direto, em vez do fuzzy-match por
+# nome que a ferramenta local usava (/api/flashscore/h2h?casa=&fora=) — mais
+# robusto, sem risco de casar o time errado.
+_LM_COMBINACOES_FONTE_JANELA = [
+    ("confronto_direto", "todos"), ("confronto_direto", "ultimos_4"),
+    ("pontuacoes_anteriores", "todos"), ("pontuacoes_anteriores", "ultimos_4"),
+]
+
+
+def _lm_fs_tab(tabs, label):
+    return next((t for t in (tabs or []) if t.get("label") == label), None)
+
+
+def _lm_fs_section_rows(tab, title_prefix):
+    if not tab:
+        return []
+    for sec in tab.get("sections") or []:
+        if (sec.get("title") or "").startswith(title_prefix):
+            return sec.get("rows") or []
+    return []
+
+
+def _lm_normalize_row(m, team_name):
+    """Porta de _painelForcaNormalizeRow: garante que, depois disso, "home" é
+    sempre o time analisado — inverte casa/fora e os placares quando a linha
+    crua trouxer o time do lado contrário."""
+    if m.get("home") == team_name:
+        return m
+
+    def _swap(s):
+        parts = (s or "").split("-")
+        return f"{parts[1]}-{parts[0]}" if len(parts) == 2 else s
+
+    out = dict(m)
+    out["home"], out["away"] = m.get("away"), m.get("home")
+    out["score_ft"] = _swap(m.get("score_ft"))
+    out["score_ht"] = _swap(m.get("score_ht"))
+    return out
+
+
+def _lm_rows_to_leitura(rows, ht_by_id):
+    """Porta de _painelForcaFsRowsToLeitura: converte linha crua do H2H
+    ({home,away,score:"H:A",id}) pro formato score_ft/score_ht "H-A"."""
+    out = []
+    for r in rows:
+        ht = ht_by_id.get(r.get("id"))
+        out.append({
+            "id": r.get("id"), "home": r.get("home"), "away": r.get("away"),
+            "score_ft": (r.get("score") or "").replace(":", "-"),
+            "score_ht": f"{ht['home']}-{ht['away']}" if ht else None,
+        })
+    return out
+
+
+def _lm_own_rows(tabs, key, home_team, away_team, ht_by_id):
+    """Porta de _painelForcaPrognosticoOwnRows: pega a aba "<Time> - Casa"/
+    "<Time> - Fora" (já vem pré-filtrada pelo Flashscore só com jogos daquele
+    lado específico) e devolve as linhas normalizadas."""
+    team_name = home_team if key == "home" else away_team
+    suffix = " - Fora" if key == "away" else " - Casa"
+    tab = next((t for t in (tabs or []) if (t.get("label") or "").endswith(suffix)), None)
+    raw_rows = _lm_fs_section_rows(tab, "Últimos jogos")
+    conv = _lm_rows_to_leitura(raw_rows, ht_by_id)
+    return [_lm_normalize_row(m, team_name) for m in conv]
+
+
+def _lm_scored_ratio_normalized(rows):
+    scored = total = 0
+    for m in rows:
+        parts = (m.get("score_ft") or "").split("-")
+        if len(parts) != 2:
+            continue
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        total += 1
+        if h > 0:
+            scored += 1
+    return {"scored": scored, "total": total} if total else None
+
+
+def _lm_h2h_scored_ratio(h2h_rows, team_name, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    scored = total = 0
+    for m in rows:
+        parts = (m.get("score") or "").split(":")
+        if len(parts) != 2:
+            continue
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        if (h if is_home_row else a) > 0:
+            scored += 1
+    return {"scored": scored, "total": total} if total else None
+
+
+def _lm_first_scorer_side(gm):
+    if not gm:
+        return None
+    home_goals = gm.get("home") or []
+    away_goals = gm.get("away") or []
+    home_min = min(home_goals) if home_goals else None
+    away_min = min(away_goals) if away_goals else None
+    if home_min is None and away_min is None:
+        return None
+    if home_min is None:
+        return "away"
+    if away_min is None:
+        return "home"
+    if home_min == away_min:
+        return None
+    return "home" if home_min < away_min else "away"
+
+
+def _lm_h2h_first_scorer_ratio(h2h_rows, team_name, gm_by_id, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    hit = total = 0
+    for m in rows:
+        side = _lm_first_scorer_side(gm_by_id.get(m.get("id")))
+        if not side:
+            continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        if (side == "home") == is_home_row:
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_own_first_scorer_ratio(rows, key, gm_by_id):
+    hit = total = 0
+    for m in rows:
+        side = _lm_first_scorer_side(gm_by_id.get(m.get("id")))
+        if not side:
+            continue
+        total += 1
+        if side == key:
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_h2h_first_conceder_ratio(h2h_rows, team_name, gm_by_id, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    hit = total = 0
+    for m in rows:
+        side = _lm_first_scorer_side(gm_by_id.get(m.get("id")))
+        if not side:
+            continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        if (side == "home") != is_home_row:
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_own_first_conceder_ratio(rows, key, gm_by_id):
+    hit = total = 0
+    for m in rows:
+        side = _lm_first_scorer_side(gm_by_id.get(m.get("id")))
+        if not side:
+            continue
+        total += 1
+        if side != key:
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_placar_exato_bucket_key(h, a):
+    if h <= 3 and a <= 3:
+        return f"{h}-{a}"
+    if h > a:
+        return "Qualquer outra vitória em casa"
+    if a > h:
+        return "Qualquer Outra Vitória de Visitante"
+    return "Qualquer outro empate"
+
+
+def _lm_own_placar_not_occurred_ratio(rows, bucket_label):
+    not_occurred = total = 0
+    for m in rows:
+        parts = (m.get("score_ft") or "").split("-")
+        if len(parts) != 2:
+            continue
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        total += 1
+        if _lm_placar_exato_bucket_key(h, a) != bucket_label:
+            not_occurred += 1
+    return {"scored": not_occurred, "total": total} if total else None
+
+
+def _lm_h2h_placar_not_occurred_ratio(h2h_rows, team_name, bucket_label, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    not_occurred = total = 0
+    for m in rows:
+        parts = (m.get("score") or "").split(":")
+        if len(parts) != 2:
+            continue
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        team_goals, opp_goals = (h, a) if is_home_row else (a, h)
+        if _lm_placar_exato_bucket_key(team_goals, opp_goals) != bucket_label:
+            not_occurred += 1
+    return {"scored": not_occurred, "total": total} if total else None
+
+
+_LM_PROGNOSTICO_MARKETS = [
+    ("Over 0.5 FT",  "ft", lambda t, o, tot: tot >= 1),
+    ("Over 1.5 FT",  "ft", lambda t, o, tot: tot >= 2),
+    ("Over 2.5 FT",  "ft", lambda t, o, tot: tot >= 3),
+    ("Under 2.5 FT", "ft", lambda t, o, tot: tot <= 2),
+    ("Under 3.5 FT", "ft", lambda t, o, tot: tot <= 3),
+    ("Ambas Equipes Marcam — Sim", "ft", lambda t, o, tot: t > 0 and o > 0),
+    ("Ambas Equipes Marcam — Não", "ft", lambda t, o, tot: not (t > 0 and o > 0)),
+    ("Over 0.5 HT",  "ht", lambda t, o, tot: tot >= 1),
+    ("Over 1.5 HT",  "ht", lambda t, o, tot: tot >= 2),
+    ("Vence 1T",     "ht", lambda t, o, tot: t > o),
+    ("Empate 1T",    "ht", lambda t, o, tot: t == o),
+]
+
+
+def _lm_own_market_ratio(rows, period, test_fn):
+    score_field = "score_ht" if period == "ht" else "score_ft"
+    hit = total = 0
+    for m in rows:
+        parts = (m.get(score_field) or "").split("-")
+        if len(parts) != 2:
+            continue
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        total += 1
+        if test_fn(h, a, h + a):
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_h2h_market_ratio(h2h_rows, team_name, period, test_fn, ht_by_id, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    hit = total = 0
+    for m in rows:
+        if period == "ht":
+            ht = ht_by_id.get(m.get("id"))
+            if not ht:
+                continue
+            try:
+                h, a = int(ht["home"]), int(ht["away"])
+            except (KeyError, TypeError, ValueError):
+                continue
+        else:
+            parts = (m.get("score") or "").split(":")
+            if len(parts) != 2:
+                continue
+            try:
+                h, a = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        team_goals, opp_goals = (h, a) if is_home_row else (a, h)
+        if test_fn(team_goals, opp_goals, h + a):
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_h2h_virada_ratio(h2h_rows, team_name, test_fn, ht_by_id, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    hit = total = 0
+    for m in rows:
+        ht = ht_by_id.get(m.get("id"))
+        if not ht:
+            continue
+        ft_parts = (m.get("score") or "").split(":")
+        if len(ft_parts) != 2:
+            continue
+        try:
+            ft_h, ft_a = int(ft_parts[0]), int(ft_parts[1])
+            ht_h, ht_a = int(ht["home"]), int(ht["away"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        total += 1
+        is_home_row = m.get("home") == team_name
+        team_ft, opp_ft = (ft_h, ft_a) if is_home_row else (ft_a, ft_h)
+        team_ht, opp_ht = (ht_h, ht_a) if is_home_row else (ht_a, ht_h)
+        if test_fn(team_ht, opp_ht, team_ft, opp_ft):
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_own_virada_ratio(rows, test_fn):
+    hit = total = 0
+    for m in rows:
+        ft_parts = (m.get("score_ft") or "").split("-")
+        ht_parts = (m.get("score_ht") or "").split("-")
+        if len(ft_parts) != 2 or len(ht_parts) != 2:
+            continue
+        try:
+            ft_h, ft_a = int(ft_parts[0]), int(ft_parts[1])
+            ht_h, ht_a = int(ht_parts[0]), int(ht_parts[1])
+        except ValueError:
+            continue
+        total += 1
+        if test_fn(ht_h, ht_a, ft_h, ft_a):
+            hit += 1
+    return {"scored": hit, "total": total} if total else None
+
+
+def _lm_h2h_streak(h2h_rows, team_name, test_fn, limit=None):
+    rows = h2h_rows[:limit] if limit else h2h_rows
+    streak = 0
+    for m in rows:
+        parts = (m.get("score") or "").split(":")
+        if len(parts) != 2:
+            break
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            break
+        is_home_row = m.get("home") == team_name
+        team_goals, opp_goals = (h, a) if is_home_row else (a, h)
+        if not test_fn(team_goals, opp_goals):
+            break
+        streak += 1
+    return {"streak": streak, "sample": len(rows)}
+
+
+def _lm_own_streak(rows, test_fn):
+    streak = 0
+    for m in rows:
+        parts = (m.get("score_ft") or "").split("-")
+        if len(parts) != 2:
+            break
+        try:
+            h, a = int(parts[0]), int(parts[1])
+        except ValueError:
+            break
+        if not test_fn(h, a):
+            break
+        streak += 1
+    return {"streak": streak, "sample": len(rows)}
+
+
+def _lm_ratio_obj(r):
+    if not r:
+        return None
+    return {"n": r["scored"], "total": r["total"], "pct": round(100 * r["scored"] / r["total"])}
+
+
+def _lm_streak_obj(s):
+    if not s:
+        return None
+    return {"jogos": s["streak"], "amostra": s["sample"],
+            "no_limite_amostra": s["streak"] > 0 and s["streak"] == s["sample"]}
+
+
+def _lm_prognostico_pct(r):
+    return 100 * r["scored"] / r["total"] if r else None
+
+
+def _lm_prognostico_streak_val(s):
+    return s["streak"] if s else None
+
+
+def _lm_mean_cv(vals):
+    valid = [v for v in vals if v is not None]
+    if not valid:
+        return None
+    mean = sum(valid) / len(valid)
+    variance = sum((v - mean) ** 2 for v in valid) / len(valid)
+    cv = (variance ** 0.5 / mean * 100) if mean != 0 else 0
+    return {"mean": mean, "cv": cv}
+
+
+def _lm_pair_obj(is_ratio, h2h, h2h4, own, own4):
+    """Porta de _painelPrognosticoPairObj: monta o par Confronto Direto/
+    Pontuações Anteriores × Todos/Últimos 4 + a média/CV dos 4 recortes."""
+    fn = _lm_ratio_obj if is_ratio else _lm_streak_obj
+    val_fn = _lm_prognostico_pct if is_ratio else _lm_prognostico_streak_val
+    mc = _lm_mean_cv([val_fn(x) for x in (h2h, h2h4, own, own4)])
+    return {
+        "confronto_direto": {"todos": fn(h2h), "ultimos_4": fn(h2h4)},
+        "pontuacoes_anteriores": {"todos": fn(own), "ultimos_4": fn(own4)},
+        "media_cv": {"media": round(mc["mean"] * 10) / 10, "cv": round(mc["cv"] * 10) / 10} if mc else None,
+    }
+
+
+def _lm_prognostico_compute_all(tabs, home_team, away_team, ht_by_id, gm_by_id):
+    """Porta de _painelForcaPrognosticoComputeAll."""
+    h2h_rows = _lm_fs_section_rows(_lm_fs_tab(tabs, "Total"), "Confrontos diretos")
+    own_home_rows = _lm_own_rows(tabs, "home", home_team, away_team, ht_by_id)
+    own_away_rows = _lm_own_rows(tabs, "away", home_team, away_team, ht_by_id)
+
+    c = {"h2h_rows": h2h_rows, "ownHomeRows": own_home_rows, "ownAwayRows": own_away_rows}
+
+    c["h2hHomeR"] = _lm_h2h_scored_ratio(h2h_rows, home_team)
+    c["h2hAwayR"] = _lm_h2h_scored_ratio(h2h_rows, away_team)
+    c["h2hHomeR4"] = _lm_h2h_scored_ratio(h2h_rows, home_team, 4)
+    c["h2hAwayR4"] = _lm_h2h_scored_ratio(h2h_rows, away_team, 4)
+    c["lastHomeR"] = _lm_scored_ratio_normalized(own_home_rows)
+    c["lastAwayR"] = _lm_scored_ratio_normalized(own_away_rows)
+    c["lastHomeR4"] = _lm_scored_ratio_normalized(own_home_rows[:4])
+    c["lastAwayR4"] = _lm_scored_ratio_normalized(own_away_rows[:4])
+
+    scoring_test = lambda t, o: t > 0
+    clean_sheet_test = lambda t, o: o == 0
+    winning_test = lambda t, o: t > o
+    unbeaten_test = lambda t, o: t >= o
+
+    for nome, test_fn in (("Streak", scoring_test), ("Cs", clean_sheet_test),
+                           ("Win", winning_test), ("Unb", unbeaten_test)):
+        c[f"h2hHome{nome}"] = _lm_h2h_streak(h2h_rows, home_team, test_fn)
+        c[f"h2hAway{nome}"] = _lm_h2h_streak(h2h_rows, away_team, test_fn)
+        c[f"h2hHome{nome}4"] = _lm_h2h_streak(h2h_rows, home_team, test_fn, 4)
+        c[f"h2hAway{nome}4"] = _lm_h2h_streak(h2h_rows, away_team, test_fn, 4)
+        c[f"lastHome{nome}"] = _lm_own_streak(own_home_rows, test_fn)
+        c[f"lastAway{nome}"] = _lm_own_streak(own_away_rows, test_fn)
+        c[f"lastHome{nome}4"] = _lm_own_streak(own_home_rows[:4], test_fn)
+        c[f"lastAway{nome}4"] = _lm_own_streak(own_away_rows[:4], test_fn)
+
+    fez_virada_test = lambda t_ht, o_ht, t_ft, o_ft: t_ht < o_ht and t_ft > o_ft
+    sofreu_virada_test = lambda t_ht, o_ht, t_ft, o_ft: t_ht > o_ht and t_ft < o_ft
+
+    for nome, test_fn in (("FezV", fez_virada_test), ("SofV", sofreu_virada_test)):
+        c[f"h2hHome{nome}"] = _lm_h2h_virada_ratio(h2h_rows, home_team, test_fn, ht_by_id)
+        c[f"h2hAway{nome}"] = _lm_h2h_virada_ratio(h2h_rows, away_team, test_fn, ht_by_id)
+        c[f"h2hHome{nome}4"] = _lm_h2h_virada_ratio(h2h_rows, home_team, test_fn, ht_by_id, 4)
+        c[f"h2hAway{nome}4"] = _lm_h2h_virada_ratio(h2h_rows, away_team, test_fn, ht_by_id, 4)
+        c[f"lastHome{nome}"] = _lm_own_virada_ratio(own_home_rows, test_fn)
+        c[f"lastAway{nome}"] = _lm_own_virada_ratio(own_away_rows, test_fn)
+        c[f"lastHome{nome}4"] = _lm_own_virada_ratio(own_home_rows[:4], test_fn)
+        c[f"lastAway{nome}4"] = _lm_own_virada_ratio(own_away_rows[:4], test_fn)
+
+    c["h2hHomeFirst"] = _lm_h2h_first_scorer_ratio(h2h_rows, home_team, gm_by_id)
+    c["h2hAwayFirst"] = _lm_h2h_first_scorer_ratio(h2h_rows, away_team, gm_by_id)
+    c["h2hHomeFirst4"] = _lm_h2h_first_scorer_ratio(h2h_rows, home_team, gm_by_id, 4)
+    c["h2hAwayFirst4"] = _lm_h2h_first_scorer_ratio(h2h_rows, away_team, gm_by_id, 4)
+    c["lastHomeFirst"] = _lm_own_first_scorer_ratio(own_home_rows, "home", gm_by_id)
+    c["lastAwayFirst"] = _lm_own_first_scorer_ratio(own_away_rows, "away", gm_by_id)
+    c["lastHomeFirst4"] = _lm_own_first_scorer_ratio(own_home_rows[:4], "home", gm_by_id)
+    c["lastAwayFirst4"] = _lm_own_first_scorer_ratio(own_away_rows[:4], "away", gm_by_id)
+
+    c["h2hHomeConc"] = _lm_h2h_first_conceder_ratio(h2h_rows, home_team, gm_by_id)
+    c["h2hAwayConc"] = _lm_h2h_first_conceder_ratio(h2h_rows, away_team, gm_by_id)
+    c["h2hHomeConc4"] = _lm_h2h_first_conceder_ratio(h2h_rows, home_team, gm_by_id, 4)
+    c["h2hAwayConc4"] = _lm_h2h_first_conceder_ratio(h2h_rows, away_team, gm_by_id, 4)
+    c["lastHomeConc"] = _lm_own_first_conceder_ratio(own_home_rows, "home", gm_by_id)
+    c["lastAwayConc"] = _lm_own_first_conceder_ratio(own_away_rows, "away", gm_by_id)
+    c["lastHomeConc4"] = _lm_own_first_conceder_ratio(own_home_rows[:4], "home", gm_by_id)
+    c["lastAwayConc4"] = _lm_own_first_conceder_ratio(own_away_rows[:4], "away", gm_by_id)
+
+    return c
+
+
+_LM_PLACAR_EXATO_BUCKETS_ORDER = [
+    "0-0", "0-1", "0-2", "0-3", "1-0", "1-1", "1-2", "1-3",
+    "2-0", "2-1", "2-2", "2-3", "3-0", "3-1", "3-2", "3-3",
+    "Qualquer outra vitória em casa", "Qualquer Outra Vitória de Visitante", "Qualquer outro empate",
+]
+
+
+def _lm_slug(s):
+    """Porta de _painelExportSlug."""
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn").lower()
+    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+    return s or "sem_nome"
+
+
+def _lm_build_prognostico_export_data(tabs, home_team, away_team, ht_by_id, gm_by_id):
+    """Porta de _painelBuildPrognosticoExportData."""
+    c = _lm_prognostico_compute_all(tabs, home_team, away_team, ht_by_id, gm_by_id)
+    h2h_rows, own_home_rows, own_away_rows = c["h2h_rows"], c["ownHomeRows"], c["ownAwayRows"]
+
+    casa = {
+        "jogos_marcou_gol": _lm_pair_obj(True, c["h2hHomeR"], c["h2hHomeR4"], c["lastHomeR"], c["lastHomeR4"]),
+        "sequencia_marcando_gol": _lm_pair_obj(False, c["h2hHomeStreak"], c["h2hHomeStreak4"], c["lastHomeStreak"], c["lastHomeStreak4"]),
+        "sequencia_sem_sofrer_gol": _lm_pair_obj(False, c["h2hHomeCs"], c["h2hHomeCs4"], c["lastHomeCs"], c["lastHomeCs4"]),
+        "sequencia_vencendo": _lm_pair_obj(False, c["h2hHomeWin"], c["h2hHomeWin4"], c["lastHomeWin"], c["lastHomeWin4"]),
+        "sequencia_sem_perder": _lm_pair_obj(False, c["h2hHomeUnb"], c["h2hHomeUnb4"], c["lastHomeUnb"], c["lastHomeUnb4"]),
+        "fez_virada": _lm_pair_obj(True, c["h2hHomeFezV"], c["h2hHomeFezV4"], c["lastHomeFezV"], c["lastHomeFezV4"]),
+        "sofreu_virada": _lm_pair_obj(True, c["h2hHomeSofV"], c["h2hHomeSofV4"], c["lastHomeSofV"], c["lastHomeSofV4"]),
+        "marcou_primeiro": _lm_pair_obj(True, c["h2hHomeFirst"], c["h2hHomeFirst4"], c["lastHomeFirst"], c["lastHomeFirst4"]),
+        "sofreu_primeiro": _lm_pair_obj(True, c["h2hHomeConc"], c["h2hHomeConc4"], c["lastHomeConc"], c["lastHomeConc4"]),
+        "mercados": {}, "placar_exato_nao_ocorreu": {},
+    }
+    fora = {
+        "jogos_marcou_gol": _lm_pair_obj(True, c["h2hAwayR"], c["h2hAwayR4"], c["lastAwayR"], c["lastAwayR4"]),
+        "sequencia_marcando_gol": _lm_pair_obj(False, c["h2hAwayStreak"], c["h2hAwayStreak4"], c["lastAwayStreak"], c["lastAwayStreak4"]),
+        "sequencia_sem_sofrer_gol": _lm_pair_obj(False, c["h2hAwayCs"], c["h2hAwayCs4"], c["lastAwayCs"], c["lastAwayCs4"]),
+        "sequencia_vencendo": _lm_pair_obj(False, c["h2hAwayWin"], c["h2hAwayWin4"], c["lastAwayWin"], c["lastAwayWin4"]),
+        "sequencia_sem_perder": _lm_pair_obj(False, c["h2hAwayUnb"], c["h2hAwayUnb4"], c["lastAwayUnb"], c["lastAwayUnb4"]),
+        "fez_virada": _lm_pair_obj(True, c["h2hAwayFezV"], c["h2hAwayFezV4"], c["lastAwayFezV"], c["lastAwayFezV4"]),
+        "sofreu_virada": _lm_pair_obj(True, c["h2hAwaySofV"], c["h2hAwaySofV4"], c["lastAwaySofV"], c["lastAwaySofV4"]),
+        "marcou_primeiro": _lm_pair_obj(True, c["h2hAwayFirst"], c["h2hAwayFirst4"], c["lastAwayFirst"], c["lastAwayFirst4"]),
+        "sofreu_primeiro": _lm_pair_obj(True, c["h2hAwayConc"], c["h2hAwayConc4"], c["lastAwayConc"], c["lastAwayConc4"]),
+        "mercados": {}, "placar_exato_nao_ocorreu": {},
+    }
+
+    for label, period, test_fn in _LM_PROGNOSTICO_MARKETS:
+        key = _lm_slug(label)
+        casa["mercados"][key] = _lm_pair_obj(
+            True,
+            _lm_h2h_market_ratio(h2h_rows, home_team, period, test_fn, ht_by_id),
+            _lm_h2h_market_ratio(h2h_rows, home_team, period, test_fn, ht_by_id, 4),
+            _lm_own_market_ratio(own_home_rows, period, test_fn),
+            _lm_own_market_ratio(own_home_rows[:4], period, test_fn))
+        fora["mercados"][key] = _lm_pair_obj(
+            True,
+            _lm_h2h_market_ratio(h2h_rows, away_team, period, test_fn, ht_by_id),
+            _lm_h2h_market_ratio(h2h_rows, away_team, period, test_fn, ht_by_id, 4),
+            _lm_own_market_ratio(own_away_rows, period, test_fn),
+            _lm_own_market_ratio(own_away_rows[:4], period, test_fn))
+
+    for bucket in _LM_PLACAR_EXATO_BUCKETS_ORDER:
+        key = _lm_slug(bucket)
+        casa["placar_exato_nao_ocorreu"][key] = _lm_pair_obj(
+            True,
+            _lm_h2h_placar_not_occurred_ratio(h2h_rows, home_team, bucket),
+            _lm_h2h_placar_not_occurred_ratio(h2h_rows, home_team, bucket, 4),
+            _lm_own_placar_not_occurred_ratio(own_home_rows, bucket),
+            _lm_own_placar_not_occurred_ratio(own_home_rows[:4], bucket))
+        fora["placar_exato_nao_ocorreu"][key] = _lm_pair_obj(
+            True,
+            _lm_h2h_placar_not_occurred_ratio(h2h_rows, away_team, bucket),
+            _lm_h2h_placar_not_occurred_ratio(h2h_rows, away_team, bucket, 4),
+            _lm_own_placar_not_occurred_ratio(own_away_rows, bucket),
+            _lm_own_placar_not_occurred_ratio(own_away_rows[:4], bucket))
+
+    return {"casa": casa, "fora": fora}
+
+
+def _lm_fetch_prognostico_for_match(event_id, home_team, away_team):
+    """Busca H2H (direto pelo event_id, sem fuzzy-match por nome) + HT/minutos
+    de gol em lote (só os ids que aparecem no H2H/Pontuações Anteriores,
+    mesmo teto de 15/20 que a ferramenta local usava) e devolve o mesmo
+    formato de _painelBuildPrognosticoExportData."""
+    try:
+        tabs = _fs_h2h(event_id)
+    except Exception:
+        return None
+    if not tabs:
+        return None
+
+    h2h_rows = _lm_fs_section_rows(_lm_fs_tab(tabs, "Total"), "Confrontos diretos")
+    own_home_raw = _lm_own_rows(tabs, "home", home_team, away_team, {})
+    own_away_raw = _lm_own_rows(tabs, "away", home_team, away_team, {})
+
+    def _ids(rows, limit):
+        seen, out = set(), []
+        for r in rows[:limit]:
+            rid = r.get("id")
+            if rid and rid not in seen:
+                seen.add(rid)
+                out.append(rid)
+        return out
+
+    ht_ids = list(dict.fromkeys(_ids(h2h_rows, 15) + _ids(own_home_raw, 15) + _ids(own_away_raw, 15)))[:15]
+    gm_ids = list(dict.fromkeys(_ids(h2h_rows, 20) + _ids(own_home_raw, 20) + _ids(own_away_raw, 20)))[:20]
+
+    ht_by_id = {}
+    for rid in ht_ids:
+        try:
+            ht_by_id[rid] = _fs_half_time(rid)
+        except Exception:
+            ht_by_id[rid] = None
+
+    gm_by_id = {}
+    for rid in gm_ids:
+        try:
+            gm_by_id[rid] = _fs_goal_minutes(rid)
+        except Exception:
+            gm_by_id[rid] = None
+
+    return _lm_build_prognostico_export_data(tabs, home_team, away_team, ht_by_id, gm_by_id)
+
+
+# ── LEITURA_MERCADO_PATH (porta de analise_padroes.html) ─────────────────────
+# `per_side` substitui o "mercado.verificar.length >= 2" do JS (lá, a arity da
+# função verificar() decidia se o mercado testa casa/fora separado ou
+# combinado) — aqui vira uma flag explícita, já que o `verificar()` em si
+# (usado só pro Backtest/Lift da ferramenta local, outra feature) não faz
+# parte dessa cadeia.
+def _lm_build_mercado_path():
+    m = {
+        "marcou_gol": {"label": "Jogos em que marcou gol", "path": "jogos_marcou_gol", "per_side": True},
+        "seq_marcando_gol": {"label": "Sequência atual — Marcando gol", "path": "sequencia_marcando_gol", "per_side": True},
+        "seq_sem_sofrer_gol": {"label": "Sequência atual — Sem sofrer gol", "path": "sequencia_sem_sofrer_gol", "per_side": True},
+        "seq_vencendo": {"label": "Sequência atual — Vencendo", "path": "sequencia_vencendo", "per_side": True},
+        "seq_sem_perder": {"label": "Sequência atual — Sem perder (invicto)", "path": "sequencia_sem_perder", "per_side": True},
+        "fez_virada": {"label": "Fez virada (perdia e venceu)", "path": "fez_virada", "per_side": True},
+        "sofreu_virada": {"label": "Sofreu virada (vencia e perdeu)", "path": "sofreu_virada", "per_side": True},
+        "marcou_primeiro": {"label": "Marcou primeiro", "path": "marcou_primeiro", "per_side": True},
+        "sofreu_primeiro": {"label": "Sofreu primeiro (adversário marcou primeiro)", "path": "sofreu_primeiro", "per_side": True},
+        "btts": {"label": "Ambas marcam (BTTS)", "path": "mercados.ambas_equipes_marcam_sim", "per_side": False},
+        "btts_nao_leitura": {"label": "Ambas Equipes Marcam — Não", "path": "mercados.ambas_equipes_marcam_nao", "per_side": False},
+        "over05_leitura": {"label": "Over 0.5 FT", "path": "mercados.over_0_5_ft", "per_side": False},
+        "over15_leitura": {"label": "Over 1.5 FT", "path": "mercados.over_1_5_ft", "per_side": False},
+        "over25_leitura": {"label": "Over 2.5 FT", "path": "mercados.over_2_5_ft", "per_side": False},
+        "under25_leitura": {"label": "Under 2.5 FT", "path": "mercados.under_2_5_ft", "per_side": False},
+        "under35_leitura": {"label": "Under 3.5 FT", "path": "mercados.under_3_5_ft", "per_side": False},
+        "over05ht_leitura": {"label": "Over 0.5 HT", "path": "mercados.over_0_5_ht", "per_side": False},
+        "over15ht_leitura": {"label": "Over 1.5 HT", "path": "mercados.over_1_5_ht", "per_side": False},
+        "vence1t_leitura": {"label": "Vence 1T", "path": "mercados.vence_1t", "per_side": True},
+        "empate1t_leitura": {"label": "Empate 1T", "path": "mercados.empate_1t", "per_side": False},
+    }
+    for chave in ("0_0", "0_1", "0_2", "0_3", "1_0", "1_1", "1_2", "1_3",
+                  "2_0", "2_1", "2_2", "2_3", "3_0", "3_1", "3_2", "3_3"):
+        m[f"placar_nao_{chave}_leitura"] = {
+            "label": f"Placar {chave.replace('_', '-')} — não ocorreu",
+            "path": f"placar_exato_nao_ocorreu.{chave}", "per_side": False,
+        }
+    m["qualquer_vitoria_casa_nao_leitura"] = {
+        "label": "Qualquer outra vitória em casa — não ocorreu",
+        "path": "placar_exato_nao_ocorreu.qualquer_outra_vitoria_em_casa", "per_side": False,
+    }
+    m["qualquer_vitoria_visitante_nao_leitura"] = {
+        "label": "Qualquer Outra Vitória de Visitante — não ocorreu",
+        "path": "placar_exato_nao_ocorreu.qualquer_outra_vitoria_de_visitante", "per_side": False,
+    }
+    m["qualquer_empate_nao_leitura"] = {
+        "label": "Qualquer outro empate — não ocorreu",
+        "path": "placar_exato_nao_ocorreu.qualquer_outro_empate", "per_side": False,
+    }
+    return m
+
+
+_LM_MERCADO_PATH = _lm_build_mercado_path()
+
+
+def _lm_get_path(obj, path):
+    cur = obj
+    for k in path.split("."):
+        if not isinstance(cur, dict) or k not in cur:
+            return None
+        cur = cur[k]
+    return cur
+
+
+def _lm_norm_leitura_obj(obj):
+    if not obj:
+        return None
+    if isinstance(obj.get("pct"), (int, float)):
+        return obj
+    if isinstance(obj.get("jogos"), (int, float)) and isinstance(obj.get("amostra"), (int, float)):
+        amostra = obj["amostra"]
+        return {"n": obj["jogos"], "total": amostra,
+                "pct": round(obj["jogos"] / amostra * 100) if amostra else None}
+    return None
+
+
+def _lm_path_fonte_janela(path_base, fonte, janela):
+    return f"{path_base}.{fonte}.{janela}"
+
+
+def _lm_prob_media_quatro_fontes(prognostico_lado, path_base):
+    valores = []
+    for fonte, janela in _LM_COMBINACOES_FONTE_JANELA:
+        obj = _lm_norm_leitura_obj(_lm_get_path(prognostico_lado, _lm_path_fonte_janela(path_base, fonte, janela)))
+        if obj and isinstance(obj.get("pct"), (int, float)):
+            valores.append(obj["pct"])
+    return sum(valores) / len(valores) if valores else None
+
+
+def _lm_cv_quatro_fontes(prognostico_lado, path_base):
+    base = _lm_get_path(prognostico_lado, path_base)
+    if isinstance(base, dict) and isinstance(base.get("media_cv"), dict) and isinstance(base["media_cv"].get("cv"), (int, float)):
+        return {"cv": base["media_cv"]["cv"], "media": base["media_cv"].get("media"), "de_arquivo": True}
+    valores = []
+    for fonte, janela in _LM_COMBINACOES_FONTE_JANELA:
+        obj = _lm_get_path(prognostico_lado, _lm_path_fonte_janela(path_base, fonte, janela))
+        if isinstance(obj, dict) and isinstance(obj.get("cv"), (int, float)):
+            return {"cv": obj["cv"], "de_arquivo": True}
+        norm = _lm_norm_leitura_obj(obj)
+        if norm and isinstance(norm.get("pct"), (int, float)):
+            valores.append(norm["pct"])
+    if len(valores) < 2:
+        return None
+    media = sum(valores) / len(valores)
+    if media == 0:
+        return None
+    variancia = sum((v - media) ** 2 for v in valores) / len(valores)
+    desvio = variancia ** 0.5
+    return {"media": media, "desvio": desvio, "cv": desvio / media * 100, "n": len(valores), "de_arquivo": False}
+
+
+def _lm_calcular_medias(jogos):
+    """Porta de calcularMediasPorMetodologia."""
+    acum = {}
+    for jogo in jogos:
+        prog = jogo.get("prognostico")
+        if not prog or not prog.get("casa") or not prog.get("fora"):
+            continue
+        for key, mercado in _LM_MERCADO_PATH.items():
+            acc = acum.setdefault(key, {"soma_prob": 0.0, "n_prob": 0, "soma_cv": 0.0, "n_cv": 0})
+            for lado in ("casa", "fora"):
+                prob = _lm_prob_media_quatro_fontes(prog[lado], mercado["path"])
+                if prob is not None:
+                    acc["soma_prob"] += prob
+                    acc["n_prob"] += 1
+                cv_info = _lm_cv_quatro_fontes(prog[lado], mercado["path"])
+                if cv_info and isinstance(cv_info.get("cv"), (int, float)):
+                    acc["soma_cv"] += cv_info["cv"]
+                    acc["n_cv"] += 1
+    resultado = []
+    for key, acc in acum.items():
+        if not acc["n_prob"] and not acc["n_cv"]:
+            continue
+        resultado.append({
+            "key": key,
+            "prob_media": acc["soma_prob"] / acc["n_prob"] if acc["n_prob"] else None,
+            "cv_medio": acc["soma_cv"] / acc["n_cv"] if acc["n_cv"] else None,
+        })
+    return resultado
+
+
+def _lm_mercados_que_batem(jogo, medias):
+    """Porta de _mercadosQueBatem."""
+    prog = jogo.get("prognostico")
+    if not prog or not prog.get("casa") or not prog.get("fora"):
+        return []
+    bateram = []
+    for media in medias:
+        if media["prob_media"] is None or media["cv_medio"] is None:
+            continue
+        mercado = _LM_MERCADO_PATH[media["key"]]
+        if mercado["per_side"]:
+            for lado, nome_time in (("casa", jogo["casa"]), ("fora", jogo["fora"])):
+                prob = _lm_prob_media_quatro_fontes(prog[lado], mercado["path"])
+                cv_info = _lm_cv_quatro_fontes(prog[lado], mercado["path"])
+                if prob is None or not cv_info:
+                    continue
+                if prob > media["prob_media"] and cv_info["cv"] < media["cv_medio"]:
+                    bateram.append({"label": f"{mercado['label']} ({nome_time})", "prob": prob, "cv": cv_info["cv"]})
+        else:
+            prob_casa = _lm_prob_media_quatro_fontes(prog["casa"], mercado["path"])
+            prob_fora = _lm_prob_media_quatro_fontes(prog["fora"], mercado["path"])
+            probs = [p for p in (prob_casa, prob_fora) if p is not None]
+            if not probs:
+                continue
+            prob = sum(probs) / len(probs)
+            cv_casa = _lm_cv_quatro_fontes(prog["casa"], mercado["path"])
+            cv_fora = _lm_cv_quatro_fontes(prog["fora"], mercado["path"])
+            cvs = [c["cv"] for c in (cv_casa, cv_fora) if c and isinstance(c.get("cv"), (int, float))]
+            if not cvs:
+                continue
+            cv = sum(cvs) / len(cvs)
+            if prob > media["prob_media"] and cv < media["cv_medio"]:
+                bateram.append({"label": mercado["label"], "prob": prob, "cv": cv})
+    bateram.sort(key=lambda b: -b["prob"])
+    return bateram
+
+
+def _lm_kickoff_time(ts):
+    if not ts:
+        return ""
+    dt = datetime.utcfromtimestamp(ts) + _BRT_OFFSET
+    return dt.strftime("%H:%M")
+
+
+_LISTA_METODOLOGIAS_AUTO_INTERVAL = 4 * 3600  # 4h — roda algumas vezes por dia sozinho
+
+
+def _lm_gerar_lista_automatica():
+    """Núcleo do que roda em background: pega os jogos "Agendado" de hoje do
+    Painel, calcula o Prognóstico de cada um (H2H direto pelo event_id, sem
+    depender do navegador nem da ferramenta local), aplica o mesmo filtro
+    "acima da média/CV abaixo da média" e escreve direto no arquivo que
+    /api/lista_metodologias/config lê — mesmo efeito de importar o .txt na
+    mão, só que automático."""
+    data = _painel_fetch_matches_flashscore()
+    leagues = data.get("leagues") or []
+    candidatos = []
+    for lg in leagues:
+        for m in lg.get("matches") or []:
+            if m.get("time") != "Agendado":
+                continue
+            if not (m.get("home") and m.get("away") and m.get("event_id")):
+                continue
+            candidatos.append({
+                "casa": m["home"], "fora": m["away"], "liga": lg.get("league_name", ""),
+                "horario": _lm_kickoff_time(m.get("ts")), "status": m["time"],
+                "event_id": m["event_id"],
+            })
+
+    if not candidatos:
+        print("[lista-metodologias-auto] Nenhum jogo agendado pra hoje ainda — pulando ciclo.")
+        return
+
+    print(f"[lista-metodologias-auto] {len(candidatos)} jogo(s) agendado(s) — calculando Prognóstico "
+          f"(pode levar bastante tempo, roda em background sem pressa).")
+
+    def _fetch_one(jogo):
+        jogo["prognostico"] = _lm_fetch_prognostico_for_match(jogo["event_id"], jogo["casa"], jogo["fora"])
+        return jogo
+
+    jogos = list(_lista_metodologias_pool.map(_fetch_one, candidatos))
+    medias = _lm_calcular_medias(jogos)
+
+    jogos_final = []
+    for jogo in jogos:
+        bateram = _lm_mercados_que_batem(jogo, medias)
+        if not bateram:
+            continue
+        jogos_final.append({
+            "casa": jogo["casa"], "fora": jogo["fora"], "liga": jogo["liga"],
+            "horario": jogo["horario"], "status": jogo["status"],
+            "metodologias": [
+                {"metodologia": b["label"], "probabilidade_pct": round(b["prob"], 1),
+                 "cv_pct": round(b["cv"], 1) if b["cv"] is not None else None}
+                for b in bateram
+            ],
+        })
+
+    resultado = {"gerado_em": datetime.utcnow().isoformat() + "Z", "jogos": jogos_final}
+
+    with _lista_metodologias_lock:
+        os.makedirs(os.path.dirname(_LISTA_METODOLOGIAS_CONFIG_FILE), exist_ok=True)
+        with open(_LISTA_METODOLOGIAS_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(resultado, f, ensure_ascii=False)
+    github_storage.push_file_bg(_LISTA_METODOLOGIAS_CONFIG_FILE, "lista_metodologias_config.json")
+
+    total_met = sum(len(j["metodologias"]) for j in jogos_final)
+    print(f"[lista-metodologias-auto] Lista atualizada: {len(jogos_final)} de {len(jogos)} jogo(s) "
+          f"bateram pelo menos 1 metodologia ({total_met} metodologia(s) no total).")
+
+
+def _lista_metodologias_auto_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            _lm_gerar_lista_automatica()
+        except Exception as e:
+            print(f"[lista-metodologias-auto] Erro: {e}")
+        time.sleep(_LISTA_METODOLOGIAS_AUTO_INTERVAL)
+
+
 def _uni_events_today():
     """Retorna lista de eventos de futebol do dia — TODOS os locales + paginação,
     combinando os jogos AO VIVO (live-v2) com os AINDA NÃO COMEÇADOS (scheduled-events).
@@ -8948,6 +9811,15 @@ _painel_ht_pool = ThreadPoolExecutor(max_workers=10)
 # abaixo) — mesmo motivo dos dois acima, um domínio novo (2.ds.lsapp.eu) que
 # não tem nada a ver com o resto, sem disputar pool com ninguém.
 _live_odds_pool = ThreadPoolExecutor(max_workers=8)
+
+# Pool dedicado pra geração automática da Lista de Metodologias (ver
+# _lista_metodologias_auto_loop) — cada worker faz VÁRIAS chamadas sequenciais
+# (H2H + até 15 HT + até 20 minutos de gol) por jogo, então 6 workers já
+# significa até 6 requisições simultâneas reais; isolado dos outros pools
+# porque um ciclo completo pode levar de dezenas de minutos a mais de 1 hora
+# num dia com muitos jogos (mesma ordem de grandeza que a ferramenta local
+# já levava) — não pode competir com nada que precise responder rápido.
+_lista_metodologias_pool = ThreadPoolExecutor(max_workers=6)
 
 # Em dias com muitos jogos (200+), buscar odds de TODOS os agendados demora
 # minutos (até 3 tentativas de casa de apostas x timeout por jogo, dividido
@@ -12236,6 +13108,7 @@ threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrew
 threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
 threading.Thread(target=_painel_shift_prewarm_loop, daemon=True, name="PainelShiftPrewarm").start()
 threading.Thread(target=_raiox_history_loop, daemon=True, name="RaioXHistory").start()
+threading.Thread(target=_lista_metodologias_auto_loop, daemon=True, name="ListaMetodologiasAuto").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
 # segundo plano parece estar competindo por CPU com o resto do site num
