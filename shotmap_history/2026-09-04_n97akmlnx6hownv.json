@@ -1,0 +1,289 @@
+{
+  "event_id": "n97akmlnx6hownv",
+  "date": "2026-09-04",
+  "casa": "Başakşehir",
+  "fora": "Galatasaray",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 3
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2964085661",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Gabriel",
+      "x": 20.3,
+      "y": 55.6
+    },
+    {
+      "id": "2964084211",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "A.Bardakçı",
+      "x": 7.3,
+      "y": 43.6
+    },
+    {
+      "id": "2964073049",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "B.Yilmaz",
+      "x": 9.7,
+      "y": 35
+    },
+    {
+      "id": "2964070685",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Bozok",
+      "x": 13.7,
+      "y": 68.8
+    },
+    {
+      "id": "2964068623",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Gabriel",
+      "x": 22.2,
+      "y": 47.4
+    },
+    {
+      "id": "2964067115",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "own_goal",
+      "bodyPart": "head",
+      "situation": "own_goal",
+      "player": "D.Sánchez",
+      "x": 4.3,
+      "y": 48.5
+    },
+    {
+      "id": "2964068047",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "E. Bayram",
+      "x": 8.3,
+      "y": 51.1
+    },
+    {
+      "id": "2964066041",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S. Kharebashvili",
+      "x": 5.4,
+      "y": 66.4
+    },
+    {
+      "id": "2964061609",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Torreira",
+      "x": 8.6,
+      "y": 51.3
+    },
+    {
+      "id": "2964055993",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "penalty",
+      "situation": "penalty",
+      "player": "Shomurodov",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2964052611",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Fayzullaev",
+      "x": 15.2,
+      "y": 36.7
+    },
+    {
+      "id": "2964052527",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Güneş",
+      "x": 19.3,
+      "y": 36.9
+    },
+    {
+      "id": "2964049271",
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A. S. Olsen",
+      "x": 10.6,
+      "y": 68
+    },
+    {
+      "id": "2964039683",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Sané",
+      "x": 6.8,
+      "y": 56.2
+    },
+    {
+      "id": "2964034891",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Kemen",
+      "x": 5.2,
+      "y": 42.9
+    },
+    {
+      "id": "2964016571",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Kemen",
+      "x": 8.6,
+      "y": 34
+    },
+    {
+      "id": "2964015341",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Shomurodov",
+      "x": 13.1,
+      "y": 41.9
+    },
+    {
+      "id": "2964012587",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Sané",
+      "x": 19.4,
+      "y": 53.7
+    },
+    {
+      "id": "2964003577",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Fayzullaev",
+      "x": 24.9,
+      "y": 25.9
+    },
+    {
+      "id": "2964002873",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Fayzullaev",
+      "x": 19.6,
+      "y": 26.1
+    },
+    {
+      "id": "2964001843",
+      "minute": 16,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Osimhen",
+      "x": 18.4,
+      "y": 57.4
+    },
+    {
+      "id": "2964000433",
+      "minute": 15,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Osimhen",
+      "x": 12.1,
+      "y": 69.3
+    },
+    {
+      "id": "2963999475",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Osimhen",
+      "x": 13.2,
+      "y": 43.2
+    },
+    {
+      "id": "2963995413",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Y. Akgün",
+      "x": 24,
+      "y": 54.4
+    },
+    {
+      "id": "2963992395",
+      "minute": 1,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Osimhen",
+      "x": 4.7,
+      "y": 45.6
+    }
+  ]
+}
