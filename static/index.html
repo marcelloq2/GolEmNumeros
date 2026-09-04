@@ -1806,10 +1806,6 @@
     <div class="painel-search-bar">
       <input type="text" id="painelSearchInput" class="painel-search-input" placeholder="Buscar time ou campeonato..."
         oninput="_painelSetSearch(this.value)">
-      <select id="painelDateSelect" class="painel-search-select" onchange="_painelSetDate(this.value)" title="Dia dos jogos mostrados no Painel">
-        <option value="">📅 Hoje</option>
-        <option value="amanha">📅 Amanhã</option>
-      </select>
       <select id="painelLeagueFilterSelect" class="painel-search-select" onchange="_painelSetLeagueFilter(this.value)">
         <option value="">🏆 Todas as ligas</option>
       </select>
@@ -9465,26 +9461,12 @@ function _painelRenderFlatByTime(leaguesFiltered) {
 // Seletor de dia do Painel (pedido do usuário, 2026-08-31: "e possivel colocar
 // no painel aba jogos de ontem alem da de hoje" — depois trocado de "ontem"
 // pra "amanhã", já que os jogos de amanhã ainda vão acontecer e "ontem" não
-// tinha os índices de Power Ranking disponíveis). '' = hoje (padrão, com
-// auto-refresh de 60s normal); qualquer outro dia não muda mais (amanhã
-// ainda não começou, ontem já encerrou), então não faz sentido continuar
-// atualizando sozinho — só busca 1 vez.
-let _painelDateParam = '';
-function _painelTomorrowStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-function _painelSetDate(value) {
-  _painelDateParam = value === 'amanha' ? _painelTomorrowStr() : '';
-  loadPainelMatches();
-  clearInterval(_painelAutoRefresh);
-  if (!_painelDateParam) _painelAutoRefresh = setInterval(loadPainelMatches, 60000);
-}
-
+// tinha os índices de Power Ranking disponíveis). Removido de novo em
+// 2026-09-04 a pedido do usuário: sem HT/odds/Power Ranking pra "amanhã"
+// (só ficam quentes pro dia atual, ver docstring de
+// _painel_fetch_matches_flashscore no app.py), o Painel sempre mostra hoje.
 function loadPainelMatches() {
-  const qs = _painelDateParam ? `?date=${_painelDateParam}` : '';
-  fetch(`/api/painel/matches${qs}`)
+  fetch('/api/painel/matches')
     .then(r => r.json())
     .then(_painelRender)
     .catch(err => {

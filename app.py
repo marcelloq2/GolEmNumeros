@@ -4,7 +4,7 @@ Servidor Flask — API + frontend para exibir dados do StatArea
 from flask import Flask, jsonify, send_from_directory, abort, request
 import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue, sys
 import requests as http_req
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from bs4 import BeautifulSoup
 import github_storage
 
@@ -1974,6 +1974,159 @@ def _painel_power_prewarm_loop():
         time.sleep(_PAINEL_POWER_TTL)
 
 
+# ── Pré-carga por TURNO da coluna "Forma" (Power Ranking) + odds 1X2 ─────────
+# Pedido do usuário (2026-09-04): mesmo com _painel_power_prewarm_loop/
+# _painel_odds_prewarm_loop já rodando continuamente, muita partida ainda
+# aparecia com "Forma"/1X2 em "-" quando o horário dela chegava — causa: odds
+# só entram no cache quando o jogo cai nos _BT2_MATCHES_MAX_CANDIDATOS=60 mais
+# próximos por horário (_bt2_matches_candidatos), então um dia com muitos
+# jogos deixa partidas de daqui a poucas horas fora dessa janela até quase a
+# hora do apito. Em vez de tentar cobrir o dia inteiro de uma vez (mesma causa
+# dos 2 apagões anteriores), o usuário propôs dividir o dia em 5 turnos e
+# pré-carregar cada um com ~1h de antecedência — carga fica pequena e
+# previsível (só as partidas daquele turno) em vez de "todas as futuras".
+# Horários fixos em BRT (fuso sem DST, ver _BRT_OFFSET).
+_PAINEL_SHIFTS = [
+    # (hora/min do gatilho, hora/min de início da janela, hora/min de fim da
+    #  janela, início da janela cai no dia seguinte ao gatilho?, fim da
+    #  janela cai no dia seguinte ao gatilho?)
+    (5, 0,   5, 0,  12, 0, False, False),
+    (11, 0,  12, 1, 17, 0, False, False),
+    (16, 0,  17, 1, 21, 0, False, False),
+    (20, 0,  21, 1, 0,  0, False, True),
+    (23, 0,  0,  1, 4,  59, True,  True),
+]
+
+_painel_shift_odds_cache = {}  # event_id -> markets (1x2), acumulado o dia todo
+_painel_shift_odds_lock = threading.Lock()
+_painel_shift_done = set()  # {(data_do_gatilho_iso, índice_do_turno)} já executados
+
+_EPOCH = datetime(1970, 1, 1)
+
+
+def _painel_shift_brt_to_ts(brt_naive_dt):
+    return int((brt_naive_dt - _BRT_OFFSET - _EPOCH).total_seconds())
+
+
+def _painel_shift_prewarm_sweep(window_start_brt, window_end_brt):
+    ts_start = _painel_shift_brt_to_ts(window_start_brt)
+    ts_end = _painel_shift_brt_to_ts(window_end_brt)
+
+    dias = {window_start_brt.date(), window_end_brt.date()}
+    fs_matches, seen_ids = [], set()
+    for dia in dias:
+        try:
+            for m in _fs_all_matches_brt(dia):
+                if m.get("id") not in seen_ids:
+                    seen_ids.add(m.get("id"))
+                    fs_matches.append(m)
+        except Exception as e:
+            print(f"[painel-shift-prewarm] Erro buscando jogos de {dia}: {e}")
+
+    candidatos = []
+    for m in fs_matches:
+        try:
+            ts = int(m.get("kickoff_ts") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ts and ts_start <= ts < ts_end:
+            candidatos.append(m)
+
+    if not candidatos:
+        print(f"[painel-shift-prewarm] Janela {window_start_brt.strftime('%H:%M')}-"
+              f"{window_end_brt.strftime('%H:%M')}: nenhum jogo, pulando")
+        return
+
+    print(f"[painel-shift-prewarm] Janela {window_start_brt.strftime('%H:%M')}-"
+          f"{window_end_brt.strftime('%H:%M')}: {len(candidatos)} jogo(s) — "
+          f"buscando odds 1X2 e Power Ranking")
+
+    def _fetch_odds_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(
+                m["id"], pool=_bt2_matches_market_pool, markets_wanted=["1x2"])
+            return m["id"], markets
+        except Exception:
+            return m["id"], None
+
+    for eid, markets in _bt2_matches_pool.map(_fetch_odds_one, candidatos):
+        if markets:
+            with _painel_shift_odds_lock:
+                _painel_shift_odds_cache[eid] = markets
+
+    reps_by_league = {}
+    for m in candidatos:
+        lk = f"{m.get('pais', '')}|{m.get('liga', '')}"
+        reps_by_league.setdefault(lk, (m.get("pais", ""), m.get("id")))
+
+    def _fetch_power_one(item):
+        country, event_id = item
+        try:
+            rows = _fs_standings(event_id)
+            return country, _compute_power_index(rows)
+        except Exception:
+            return country, {}
+
+    total = 0
+    for country, indices in _fs_event_pool.map(_fetch_power_one, reps_by_league.values()):
+        if not indices:
+            continue
+        pais_norm = (country or "").strip().lower()
+        with _painel_power_lock:
+            for team_norm, icons in indices.items():
+                _painel_power_cache[f"{team_norm}|{pais_norm}"] = icons
+        total += len(indices)
+    if total:
+        with _painel_power_lock:
+            snapshot = dict(_painel_power_cache)
+        _save_painel_power_cache(snapshot)
+        github_storage.push_file_bg(_PAINEL_POWER_CACHE_FILE, ".painel_power_cache.json")
+
+    print(f"[painel-shift-prewarm] Turno concluído: {len(candidatos)} jogo(s), "
+          f"{total} time(s) com Power Ranking atualizado")
+
+
+def _painel_shift_prewarm_loop():
+    """Roda os 5 turnos definidos em _PAINEL_SHIFTS. Reavalia a cada 2min (em
+    vez de dormir até o próximo horário exato) pra sobreviver a restart do
+    processo sem perder o turno do dia — se o processo caiu e voltou depois do
+    gatilho, ainda dá tempo de rodar com atraso (checa gatilhos de HOJE e de
+    ONTEM, por causa do turno que atravessa a meia-noite)."""
+    global _painel_shift_done
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            now_brt = datetime.utcnow() + _BRT_OFFSET
+            for dia_offset in (-1, 0):
+                dia = (now_brt + timedelta(days=dia_offset)).date()
+                for idx, (th, tm, wsh, wsm, weh, wem, wstart_next, wend_next) in enumerate(_PAINEL_SHIFTS):
+                    trigger_dt = now_brt.replace(
+                        year=dia.year, month=dia.month, day=dia.day,
+                        hour=th, minute=tm, second=0, microsecond=0)
+                    if now_brt < trigger_dt or now_brt - trigger_dt > timedelta(hours=6):
+                        continue
+                    key = (dia.isoformat(), idx)
+                    if key in _painel_shift_done:
+                        continue
+                    win_start_day = dia + timedelta(days=1) if wstart_next else dia
+                    win_end_day = dia + timedelta(days=1) if wend_next else dia
+                    window_start = now_brt.replace(
+                        year=win_start_day.year, month=win_start_day.month, day=win_start_day.day,
+                        hour=wsh, minute=wsm, second=0, microsecond=0)
+                    window_end = now_brt.replace(
+                        year=win_end_day.year, month=win_end_day.month, day=win_end_day.day,
+                        hour=weh, minute=wem, second=0, microsecond=0)
+                    _painel_shift_prewarm_sweep(window_start, window_end)
+                    _painel_shift_done.add(key)
+                    # limpa marcações com mais de 2 dias pra não crescer sem limite
+                    _painel_shift_done = {
+                        k for k in _painel_shift_done
+                        if (now_brt.date() - date.fromisoformat(k[0])).days <= 2}
+        except Exception as e:
+            print(f"[painel-shift-prewarm] Erro: {e}")
+        time.sleep(120)
+
+
 _RAIOX_HISTORY_INTERVAL = 1800  # 30min
 
 # Snapshot diário do Raio-X (Painel Principal, static/index.html) — guarda só
@@ -2292,6 +2445,14 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
     # verdade é o _painel_odds_prewarm_loop, rodando em background.
     odds_snapshot = _today2_odds_snapshot_cache.get("data") or []
     odds_by_id = {m["id"]: markets for m, markets in odds_snapshot if markets}
+    # Completa com o cache do pré-carregamento por turno (_painel_shift_prewarm_
+    # loop) — cobre jogos que ainda não entraram nos 60 mais próximos do
+    # snapshot acima, mas já tiveram o 1X2 buscado com antecedência pro turno
+    # deles. setdefault: o snapshot de 5min (mais fresco, 6 mercados) tem
+    # prioridade quando os dois têm o mesmo jogo.
+    with _painel_shift_odds_lock:
+        for eid, markets in _painel_shift_odds_cache.items():
+            odds_by_id.setdefault(eid, markets)
 
     # Ataque/Defesa (Power Ranking) — mesma ideia de só LER o cache quente em
     # background (ver _painel_power_prewarm_loop), nunca calcular na hora.
@@ -12073,6 +12234,7 @@ threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOdds
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
 threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrewarm").start()
 threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
+threading.Thread(target=_painel_shift_prewarm_loop, daemon=True, name="PainelShiftPrewarm").start()
 threading.Thread(target=_raiox_history_loop, daemon=True, name="RaioXHistory").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
