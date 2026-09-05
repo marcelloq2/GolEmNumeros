@@ -1,0 +1,333 @@
+{
+  "event_id": "mx7a61lro99ewi4",
+  "date": "2026-09-05",
+  "casa": "Gimnasia Mendoza",
+  "fora": "Boca Juniors",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 29,
+  "shotmap": [
+    {
+      "id": "2965031689",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Fernández",
+      "x": 15.3,
+      "y": 48.9
+    },
+    {
+      "id": "2965030569",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Vargas",
+      "x": 29.3,
+      "y": 46.2
+    },
+    {
+      "id": "2965029001",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "L.Flores",
+      "x": 13.8,
+      "y": 37.9
+    },
+    {
+      "id": "2965026015",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Vargas",
+      "x": 25.2,
+      "y": 58.3
+    },
+    {
+      "id": "2965020081",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "F.Lencioni",
+      "x": 29.7,
+      "y": 63.7
+    },
+    {
+      "id": "2965014369",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Recalde",
+      "x": 10.8,
+      "y": 38.2
+    },
+    {
+      "id": "2965012995",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Belmonte",
+      "x": 11,
+      "y": 61.5
+    },
+    {
+      "id": "2965012505",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L.Flores",
+      "x": 4.7,
+      "y": 32.7
+    },
+    {
+      "id": "2965009641",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "E.Fernández",
+      "x": 12.1,
+      "y": 69.3
+    },
+    {
+      "id": "2965007417",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Cingolani",
+      "x": 28,
+      "y": 68.2
+    },
+    {
+      "id": "2964986125",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "M.Vargas",
+      "x": 28,
+      "y": 51.7
+    },
+    {
+      "id": "2964981167",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "post_left",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Velasco",
+      "x": 10.8,
+      "y": 55.8
+    },
+    {
+      "id": "2964977339",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Zenon",
+      "x": 4.6,
+      "y": 50.4
+    },
+    {
+      "id": "2964977171",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Valencia",
+      "x": 22.8,
+      "y": 40.3
+    },
+    {
+      "id": "2964974631",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Vargas",
+      "x": 14.1,
+      "y": 70.3
+    },
+    {
+      "id": "2964973183",
+      "minute": 32,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Zenon",
+      "x": 14.7,
+      "y": 60.6
+    },
+    {
+      "id": "2964971411",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Zenon",
+      "x": 24.7,
+      "y": 35.7
+    },
+    {
+      "id": "2964969831",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "I.Charparin",
+      "x": 12.6,
+      "y": 47.1
+    },
+    {
+      "id": "2964966767",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "L.Paredes",
+      "x": 4.4,
+      "y": 58.8
+    },
+    {
+      "id": "2964965369",
+      "minute": 22,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "L.Flores",
+      "x": 15.6,
+      "y": 65.7
+    },
+    {
+      "id": "2964961851",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "I.Charparin",
+      "x": 14,
+      "y": 54.1
+    },
+    {
+      "id": "2964959183",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Velasco",
+      "x": 17.8,
+      "y": 48.2
+    },
+    {
+      "id": "2964959101",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Belmonte",
+      "x": 15,
+      "y": 66.7
+    },
+    {
+      "id": "2964958037",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "O'Connor",
+      "x": 10.9,
+      "y": 46.5
+    },
+    {
+      "id": "2964956303",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Flores",
+      "x": 13.6,
+      "y": 22.5
+    },
+    {
+      "id": "2964949549",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "I.Charparin",
+      "x": 20.7,
+      "y": 42.4
+    },
+    {
+      "id": "2964946573",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "I.Charparin",
+      "x": 10.9,
+      "y": 54.4
+    },
+    {
+      "id": "2964942415",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "O'Connor",
+      "x": 10.6,
+      "y": 30.3
+    },
+    {
+      "id": "2964942345",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "F.Lencioni",
+      "x": 6,
+      "y": 52.8
+    }
+  ]
+}
