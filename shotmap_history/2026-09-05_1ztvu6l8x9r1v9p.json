@@ -1,0 +1,289 @@
+{
+  "event_id": "1ztvu6l8x9r1v9p",
+  "date": "2026-09-05",
+  "casa": "Carrarese",
+  "fora": "Empoli",
+  "liga": "",
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2964933891",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "F.Bandinelli",
+      "x": 24.6,
+      "y": 40
+    },
+    {
+      "id": "2964933867",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "F.Bandinelli",
+      "x": 27.2,
+      "y": 46
+    },
+    {
+      "id": "2964928549",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "F.abiuso",
+      "x": 8.9,
+      "y": 58.7
+    },
+    {
+      "id": "2964921171",
+      "minute": 83,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "F.Reale",
+      "x": 12.8,
+      "y": 61.3
+    },
+    {
+      "id": "2964917075",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "F.abiuso",
+      "x": 23.1,
+      "y": 63.3
+    },
+    {
+      "id": "2964913381",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "B.Popov",
+      "x": 8.5,
+      "y": 49.9
+    },
+    {
+      "id": "2964912523",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "N.Corrado",
+      "x": 9.9,
+      "y": 26.2
+    },
+    {
+      "id": "2964910749",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Oliana",
+      "x": 8.4,
+      "y": 49.7
+    },
+    {
+      "id": "2964908673",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "B.Popov",
+      "x": 9.8,
+      "y": 51.9
+    },
+    {
+      "id": "2964905039",
+      "minute": 70,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "B.Popov",
+      "x": 9.4,
+      "y": 51.9
+    },
+    {
+      "id": "2964902483",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "F.D.Stefano",
+      "x": 13.4,
+      "y": 41.2
+    },
+    {
+      "id": "2964901903",
+      "minute": 65,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "F.Bandinelli",
+      "x": 26,
+      "y": 60.3
+    },
+    {
+      "id": "2964897101",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E. Biondini",
+      "x": 34.2,
+      "y": 58.4
+    },
+    {
+      "id": "2964896371",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "N.Corrado",
+      "x": 28.1,
+      "y": 48.5
+    },
+    {
+      "id": "2964893801",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "F.abiuso",
+      "x": 52.8,
+      "y": 56.3
+    },
+    {
+      "id": "2964887599",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S.Shpendi",
+      "x": 22.7,
+      "y": 25
+    },
+    {
+      "id": "2964885739",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "F.D.Stefano",
+      "x": 8.9,
+      "y": 48.9
+    },
+    {
+      "id": "2964862331",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Yepes",
+      "x": 19.7,
+      "y": 50.3
+    },
+    {
+      "id": "2964857517",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Saporiti",
+      "x": 25.3,
+      "y": 49.9
+    },
+    {
+      "id": "2964848391",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "post_left",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "F.abiuso",
+      "x": 9.5,
+      "y": 37.4
+    },
+    {
+      "id": "2964846007",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "M.Cisse",
+      "x": 32.5,
+      "y": 56.2
+    },
+    {
+      "id": "2964831469",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Saporiti",
+      "x": 21.2,
+      "y": 44.2
+    },
+    {
+      "id": "2964830049",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Schiavi",
+      "x": 30,
+      "y": 24.6
+    },
+    {
+      "id": "2964827589",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J. Ceesay",
+      "x": 18.7,
+      "y": 36
+    },
+    {
+      "id": "2964807967",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "F.abiuso",
+      "x": 3.6,
+      "y": 57.5
+    }
+  ]
+}
