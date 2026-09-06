@@ -1,0 +1,234 @@
+{
+  "event_id": "54cvbml33wm7vp4",
+  "date": "2026-09-06",
+  "casa": "Verona",
+  "fora": "Arezzo",
+  "liga": "Serie B",
+  "score": {
+    "home": 5,
+    "away": 0
+  },
+  "total_shots": 20,
+  "shotmap": [
+    {
+      "id": "2965763601",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Iannoni",
+      "x": 14.5,
+      "y": 58.5
+    },
+    {
+      "id": "2965758245",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S. Cerbone",
+      "x": 10.7,
+      "y": 48.5
+    },
+    {
+      "id": "2965755549",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S. Cerbone",
+      "x": 1.9,
+      "y": 47.8
+    },
+    {
+      "id": "2965751479",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "A.Cerri",
+      "x": 14.1,
+      "y": 46.1
+    },
+    {
+      "id": "2965750611",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "E.Iannoni",
+      "x": 7.9,
+      "y": 48.3
+    },
+    {
+      "id": "2965745227",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Bradarić",
+      "x": 25.3,
+      "y": 44.4
+    },
+    {
+      "id": "2965740109",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "A.Cerri",
+      "x": 9.8,
+      "y": 55.5
+    },
+    {
+      "id": "2965731929",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": " Mulattieri",
+      "x": 8.7,
+      "y": 50.3
+    },
+    {
+      "id": "2965731761",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "T. Suslov",
+      "x": 26.2,
+      "y": 72.6
+    },
+    {
+      "id": "2965730077",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Livramento",
+      "x": 20.4,
+      "y": 28.6
+    },
+    {
+      "id": "2965722985",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "other_body_part",
+      "situation": "assisted",
+      "player": "Zappa",
+      "x": 1.1,
+      "y": 52.5
+    },
+    {
+      "id": "2965718185",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Sarr",
+      "x": 14,
+      "y": 69.6
+    },
+    {
+      "id": "2965691397",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "C.Tavernelli",
+      "x": 16,
+      "y": 32.9
+    },
+    {
+      "id": "2965688527",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Livramento",
+      "x": 10.9,
+      "y": 62.6
+    },
+    {
+      "id": "2965687903",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Harroui",
+      "x": 29.7,
+      "y": 48.4
+    },
+    {
+      "id": "2965677239",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Harroui",
+      "x": 12.9,
+      "y": 56.1
+    },
+    {
+      "id": "2965670651",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Bernede",
+      "x": 19.5,
+      "y": 68.8
+    },
+    {
+      "id": "2965665087",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M. Sala",
+      "x": 27.3,
+      "y": 51.5
+    },
+    {
+      "id": "2965656369",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Harroui",
+      "x": 29.1,
+      "y": 33
+    },
+    {
+      "id": "2965653123",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "other_body_part",
+      "situation": "assisted",
+      "player": " Mulattieri",
+      "x": 7.7,
+      "y": 55
+    }
+  ]
+}
