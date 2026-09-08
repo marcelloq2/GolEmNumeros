@@ -13984,6 +13984,11 @@ function renderLive2Card(m) {
         </div>
         <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
       </div>
+      <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
+        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
+      </div>
+      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
+      <div id="live2OddsLiveWrap_${m.id}"></div>
       ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
       <div class="live-card-odds-row">
         <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${m.odd_1 || '-'}</span></div>
@@ -13992,11 +13997,6 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
-      <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
-        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
-      </div>
-      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
-      <div id="live2OddsLiveWrap_${m.id}"></div>
       <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
