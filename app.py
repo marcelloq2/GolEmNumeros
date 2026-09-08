@@ -8938,15 +8938,15 @@ _LIVE_ODDS_TTL = 30  # mesma cadência "quase tempo real" já usada pro resto do
 # _painel_shift_odds_cache): mesmo uma partida com prorrogação nunca passa de
 # poucas horas, bem dentro do teto.
 _LIVE_ODDS_SELECOES = ("casa", "empate", "fora", "ou_over", "ou_under")
-# "Queda rápida" (pedido do usuário 2026-09-08, pra scalping em correções ao
+# Variação recente (pedido do usuário 2026-09-08, pra scalping em correções ao
 # vivo): a variacao_por_min de _live_odds_history_stats é uma MÉDIA desde a
 # 1ª leitura — dilui um movimento forte e recente (exatamente o que scalping
-# precisa detectar) num jogo que ficou parado o resto do tempo. Por isso o
-# alerta usa uma JANELA CURTA (últimos N minutos, não o jogo inteiro).
-# Limiar recomendado ao usuário, ele pediu "qual o melhor" em vez de escolher
-# — ajustável aqui se ele achar sensível/insensível demais depois de ver ao vivo.
-_LIVE_ODDS_QUEDA_RAPIDA_JANELA_MIN = 3
-_LIVE_ODDS_QUEDA_RAPIDA_PCT = 8.0
+# precisa detectar) num jogo que ficou parado o resto do tempo. Por isso essa
+# outra métrica usa uma JANELA CURTA (últimos N minutos, não o jogo inteiro).
+# Primeira versão tinha um limiar/alerta de "queda rápida" em cima disso — o
+# usuário pediu pra tirar ("não quero esse negócio de caindo rápido"), só
+# quer o número puro. Também reduzido de 3min pra 1min (pedido dele).
+_LIVE_ODDS_JANELA_RECENTE_MIN = 1
 _LIVE_ODDS_HISTORY_MAX_POINTS = 500   # 500 * 30s ≈ 4h10 — folga generosa até pro jogo mais demorado
 _LIVE_ODDS_HISTORY_MAX_AGE = 3 * 3600  # partidas encerradas há mais de 3h saem do cache
 _live_odds_history = {}    # event_id -> deque de pontos {ts, minuto, casa, empate, fora, ou_line, ou_over, ou_under}
@@ -9023,10 +9023,10 @@ def _live_odds_history_stats(points):
         abertura, atual = serie[0], serie[-1]
         ticks_sobe = sum(1 for a, b in zip(serie, serie[1:]) if b > a)
         ticks_desce = sum(1 for a, b in zip(serie, serie[1:]) if b < a)
-        # Janela recente (últimos _LIVE_ODDS_QUEDA_RAPIDA_JANELA_MIN minutos, por
-        # TIMESTAMP de verdade, não por minuto de jogo) — o sinal de "caindo
-        # rápido agora" que scalping precisa, separado da média do jogo inteiro.
-        ts_corte = points[-1]["ts"] - _LIVE_ODDS_QUEDA_RAPIDA_JANELA_MIN * 60
+        # Janela recente (último _LIVE_ODDS_JANELA_RECENTE_MIN minuto, por
+        # TIMESTAMP de verdade, não por minuto de jogo) — só o % de variação,
+        # sem alerta/limiar (usuário pediu pra tirar isso, só quer o número).
+        ts_corte = points[-1]["ts"] - _LIVE_ODDS_JANELA_RECENTE_MIN * 60
         janela = [p[sel] for p in points if p.get(sel) is not None and p.get("ts", 0) >= ts_corte]
         janela_pct = None
         if len(janela) >= 2 and janela[0]:
@@ -9040,8 +9040,7 @@ def _live_odds_history_stats(points):
             "ticks_sobe_por_min": round(ticks_sobe / minutos_decorridos, 4),
             "ticks_desce_por_min": round(ticks_desce / minutos_decorridos, 4),
             "janela_recente_pct": janela_pct,
-            "janela_recente_min": _LIVE_ODDS_QUEDA_RAPIDA_JANELA_MIN,
-            "queda_rapida": bool(janela_pct is not None and janela_pct <= -_LIVE_ODDS_QUEDA_RAPIDA_PCT),
+            "janela_recente_min": _LIVE_ODDS_JANELA_RECENTE_MIN,
         }
     return stats
 
