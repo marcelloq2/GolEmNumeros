@@ -4369,12 +4369,20 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         # O endpoint de shotmap só funciona durante o jogo; ao FT fica vazio.
         # Guardamos no disco para sobreviver a restarts/redeploys do Railway.
         live_shots = udata.get("shotmap", [])
-        # DIAGNÓSTICO TEMPORÁRIO — investigando por que shotmap_history/ tem tão
-        # poucas partidas salvas (12) comparado a momentum_history/ (2600+).
-        # Hipótese: o Uniscore só manda chute-a-chute pra uma fatia das ligas
-        # cobertas. Sem custo/chamada nova — só loga o que já veio na busca de
-        # momentum, que já roda de qualquer jeito. Remover depois de confirmar
-        # o padrão em alguns dias de log.
+        # DIAGNÓSTICO (2026-08-23 a 2026-09-08) — investigando por que
+        # shotmap_history/ tem tão poucas partidas salvas (12, depois 336 de
+        # 4877 do momentum_history — 7%). Hipótese original (ligas pequenas
+        # sem chute-a-chute) DESCARTADA: mesmo Premier League/Bundesliga/
+        # Serie A aparecem repetidas vezes sem shotmap salvo. Achado um bug
+        # real em vez disso: o cache abaixo SUBSTITUÍA `live_shots` inteiro a
+        # cada poll (condição "só escreve se mudou A CONTAGEM"), sem nunca
+        # MESCLAR com o que já tinha sido visto — se o Uniscore devolvesse
+        # uma lista MENOR num poll seguinte (lag da fonte, ou só não é
+        # estritamente cumulativa), o código jogava fora chutes já
+        # capturados. Trocado por merge de verdade por `id` do chute — nunca
+        # perde o que já foi visto, só cresce. Mantendo o log de diagnóstico
+        # mais um tempo pra confirmar que `ja_teve_antes` fica True com mais
+        # frequência agora — remover depois de confirmar a melhora.
         if not udata.get("finished"):
             ja_teve_chutes = event_id in _shotmap_live_cache
             print(f"[shotmap-diag] liga='{liga}' | {casa} x {fora} | chutes_agora={len(live_shots)} | ja_teve_antes={ja_teve_chutes}")
@@ -4382,8 +4390,11 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
             with _shotmap_lock:
                 prev = _shotmap_live_cache.get(event_id, [])
                 is_new_event = event_id not in _shotmap_live_cache
-                if len(live_shots) != len(prev):   # só escreve se mudou
-                    _shotmap_live_cache[event_id] = live_shots
+                merged_by_id = {s.get("id"): s for s in prev}
+                merged_by_id.update({s.get("id"): s for s in live_shots})
+                merged = list(merged_by_id.values())
+                if len(merged) != len(prev):   # só escreve se realmente cresceu
+                    _shotmap_live_cache[event_id] = merged
                     _save_shotmap_cache(_shotmap_live_cache)
                     # Push pro GitHub quando é novo evento (sobrevive a restart mid-game)
                     if is_new_event:
