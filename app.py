@@ -3385,6 +3385,49 @@ def _uniscore_minuto(e):
         return None
     return f"{offset + elapsed_min}'"
 
+# Margem de gols no intervalo usada pelos indicadores do 2º tempo (ver
+# _live_2t_indicadores) — pedido do usuário: destacar time que abre vantagem
+# no intervalo e segura o resultado (não sofre mais) e time que fica atrás
+# no intervalo e não consegue marcar. 2 gols segue a mesma referência já
+# calibrada em outras metodologias desta base (ver "Vovô" na memória de
+# trading esportivo — favorito com 2 gols de vantagem).
+_LIVE_2T_MARGEM = 2
+
+def _live_2t_indicadores(gol_casa_ht, gol_fora_ht, gol_casa_ft, gol_fora_ft):
+    """Recalculado a cada poll (não é um estado salvo) — por isso os indicadores
+    "ligam" e "desligam" sozinhos conforme o jogo evolui: assim que o time
+    líder sofre um gol, ou o time atrás marca, a condição deixa de bater
+    naturalmente na próxima chamada.
+    Retorna dict com 'lider_sem_sofrer' e 'atras_sem_marcar' ('casa'|'fora'|None)
+    e 'margem' (diferença de gols no intervalo, sempre >= 0)."""
+    gch = gol_casa_ht or 0
+    gfh = gol_fora_ht or 0
+    gcf = gol_casa_ft or 0
+    gff = gol_fora_ft or 0
+    margem_casa   = gch - gfh          # positivo = casa liderava no intervalo
+    sofridos_casa = gff - gfh          # gols que a casa tomou no 2ºT
+    sofridos_fora = gcf - gch          # gols que o fora tomou no 2ºT
+    marcados_casa = gcf - gch
+    marcados_fora = gff - gfh
+
+    lider_sem_sofrer = None
+    if margem_casa >= _LIVE_2T_MARGEM and sofridos_casa == 0:
+        lider_sem_sofrer = "casa"
+    elif -margem_casa >= _LIVE_2T_MARGEM and sofridos_fora == 0:
+        lider_sem_sofrer = "fora"
+
+    atras_sem_marcar = None
+    if margem_casa >= _LIVE_2T_MARGEM and marcados_fora == 0:
+        atras_sem_marcar = "fora"
+    elif -margem_casa >= _LIVE_2T_MARGEM and marcados_casa == 0:
+        atras_sem_marcar = "casa"
+
+    return {
+        "lider_sem_sofrer": lider_sem_sofrer,
+        "atras_sem_marcar": atras_sem_marcar,
+        "margem": abs(margem_casa),
+    }
+
 def _radar_fetch_live_matches():
     """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
     sem o jsonify) — extraída pra ser reaproveitada por outros consumidores
@@ -3492,6 +3535,20 @@ def _radar_fetch_live_matches():
         # saber a que total de gols o odd_over/odd_under se refere (usado pelo
         # modelo de probabilidade de placar da Ao Vivo, calculado no frontend).
         m["ou_line"] = pm.get("ou_line") if pm else None
+
+    # Indicadores do 2º tempo (líder que não sofre mais / time atrás que não
+    # marca) — só fazem sentido com o placar do intervalo já fechado, por
+    # isso só calcula quando o período atual é literalmente "2nd_half"
+    # (evita falso positivo com o HT ainda em 0-0 default de partida no 1ºT).
+    for m in live:
+        if m.get("tempo") == "2nd_half":
+            ind = _live_2t_indicadores(m.get("golCasaHt"), m.get("golForaHt"),
+                                        m.get("golCasaFt"), m.get("golForaFt"))
+        else:
+            ind = {"lider_sem_sofrer": None, "atras_sem_marcar": None, "margem": 0}
+        m["ind2t_lider_sem_sofrer"] = ind["lider_sem_sofrer"]
+        m["ind2t_atras_sem_marcar"] = ind["atras_sem_marcar"]
+        m["ind2t_margem"] = ind["margem"]
 
     # Se a fetch retornou 0 jogos mas o cache anterior tem dados recentes (< 5 min),
     # mantém o cache antigo para evitar sidebar vazia por falha temporária da API

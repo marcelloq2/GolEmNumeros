@@ -1022,6 +1022,14 @@
   .live-card-tabs-narrow {
     justify-content: center;
   }
+  .live-card-ind2t {
+    font-size: 10.5px; font-weight: 700; text-align: center;
+    padding: 5px 10px; margin: 6px 12px 0; border-radius: 6px;
+    background: var(--bg3);
+  }
+  .live-card-ind2t.holding { border: 1px solid var(--green); color: var(--green); }
+  .live-card-ind2t.blocked { border: 1px solid var(--red); color: var(--red); }
+  .live-card-ind2t + .live-card-ind2t { margin-top: 4px; }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
     padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -13891,6 +13899,9 @@ function _live2UpdateCardNumbers(m) {
   if (htEl)     htEl.textContent     = `HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}`;
   if (minuteEl) minuteEl.textContent = `⏱ ${m.minuto || '--'}`;
 
+  const ind2tEl = document.getElementById(`live2Ind2t_${m.id}`);
+  if (ind2tEl) ind2tEl.innerHTML = _live2Ind2tBadgeHtml(m);
+
   if (golNovo && scoreEl) {
     const who = (curCasa > prev.casa && curFora > prev.fora) ? '⚽ GOL!'
               : (curCasa > prev.casa) ? `⚽ GOL! ${m.casa}`
@@ -13905,6 +13916,26 @@ function _live2UpdateCardNumbers(m) {
     scoreEl.classList.add('goal-flash');
     setTimeout(() => { scoreEl.classList.remove('goal-flash'); banner.remove(); }, 2400);
   }
+}
+
+// Indicadores do 2º tempo (pedido do usuário, 2026-09-08): time que abriu
+// vantagem no intervalo e não sofreu mais gol no 2ºT, e time que ficou atrás
+// no intervalo e não conseguiu marcar no 2ºT. Vem pronto do backend
+// (ind2t_lider_sem_sofrer/ind2t_atras_sem_marcar/ind2t_margem em
+// /api/radar/live, ver _live_2t_indicadores em app.py) — recalculado a cada
+// poll, então o badge some sozinho assim que a condição deixa de bater
+// (time líder sofre gol, ou time atrás marca).
+function _live2Ind2tBadgeHtml(m) {
+  const badges = [];
+  if (m.ind2t_lider_sem_sofrer) {
+    const time = m.ind2t_lider_sem_sofrer === 'casa' ? m.casa : m.fora;
+    badges.push(`<div class="live-card-ind2t holding">🛡️ ${time} lidera por ${m.ind2t_margem} e não sofreu no 2ºT</div>`);
+  }
+  if (m.ind2t_atras_sem_marcar) {
+    const time = m.ind2t_atras_sem_marcar === 'casa' ? m.casa : m.fora;
+    badges.push(`<div class="live-card-ind2t blocked">🔒 ${time} está atrás por ${m.ind2t_margem} e não marcou no 2ºT</div>`);
+  }
+  return badges.join('');
 }
 
 // Card básico de partida — ponto de partida pra ir plugando os experimentos novos
@@ -13944,6 +13975,7 @@ function renderLive2Card(m) {
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
+        <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
       </div>
       ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
       <div class="live-card-odds-row">
