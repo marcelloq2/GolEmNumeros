@@ -13992,6 +13992,7 @@ function renderLive2Card(m) {
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
+        <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Gráfico de odds ao vivo (1X2 + Over/Under) — histórico, taxa e ticks por minuto" onclick="_live2OpenOddsChartModal('${m.id}')">📈</button>
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
              (_live2OpenProbModal) removidos a pedido do usuário (2026-09-01)
              — os modais continuam existindo no código, só sem esse ponto de
@@ -14197,6 +14198,169 @@ function _live2OpenLineupModal(matchId) {
   body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
 }
 
+// ── Gráfico de odds ao vivo (1X2 + Over/Under) — pedido do usuário
+// (2026-09-08): série da partida toda + taxa de variação e frequência de
+// ticks por minuto. Dados vêm prontos de /api/live_odds_history/<event_id>
+// (ver _live_odds_history/_live_odds_history_stats em app.py) — o front só
+// desenha, não recalcula nada. event_id é do Flashscore, resolvido por
+// fuzzy-match de nome em _loadLive2OddsLive e guardado em
+// _live2PainelMatchCache (mesmo pipeline já usado pela pílula "ODDS AO VIVO"
+// do card, só que aqui abre um histórico em vez do valor pontual).
+const _LIVE2_ODDS_SEL_META = {
+  casa:     { label: 'Casa (1)',   color: 'var(--accent2)' },
+  empate:   { label: 'Empate (X)', color: '#8b96ad' },
+  fora:     { label: 'Fora (2)',   color: 'var(--red)' },
+  ou_over:  { label: 'Over',       color: 'var(--green)' },
+  ou_under: { label: 'Under',      color: 'var(--yellow)' },
+};
+
+function _live2ResolveColor(v) {
+  if (typeof v !== 'string' || !v.startsWith('var(')) return v;
+  const varName = v.slice(4, -1).trim();
+  return (getComputedStyle(document.documentElement).getPropertyValue(varName) || '#888').trim() || '#888';
+}
+
+let _live2OddsChartTimer = null;
+
+async function _live2OpenOddsChartModal(matchId) {
+  const { body } = _live2OpenModalCommon(matchId, 'oddschart', '📈 Odds ao vivo — histórico');
+  const pm = _live2PainelMatchCache[matchId];
+  if (!pm || !pm.event_id) {
+    body.innerHTML = `<div class="live-loading">Ainda não encontrei esse jogo na fonte de odds ao vivo (Flashscore) — tenta de novo em alguns segundos, assim que o card carregar a odds ao vivo o gráfico também fica disponível.</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando histórico de odds...</div>`;
+  await _live2FetchAndRenderOddsChart(matchId, pm.event_id);
+  clearInterval(_live2OddsChartTimer);
+  _live2OddsChartTimer = setInterval(() => {
+    if (!_live2OpenModal || _live2OpenModal.type !== 'oddschart' || String(_live2OpenModal.matchId) !== String(matchId)) {
+      clearInterval(_live2OddsChartTimer);
+      return;
+    }
+    _live2FetchAndRenderOddsChart(matchId, pm.event_id);
+  }, 20000);
+}
+
+async function _live2FetchAndRenderOddsChart(matchId, eventId) {
+  const body = document.getElementById('live2StatsModalBody');
+  try {
+    const r = await fetch(`/api/live_odds_history/${eventId}`);
+    const d = await r.json();
+    if (!_live2OpenModal || _live2OpenModal.type !== 'oddschart' || String(_live2OpenModal.matchId) !== String(matchId)) return;
+    if (body) body.innerHTML = _live2OddsChartHtml(d);
+    requestAnimationFrame(() => _live2DrawOddsChart(d.points || []));
+  } catch (e) {
+    if (body) body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
+  }
+}
+
+function _live2OddsChartHtml(d) {
+  const points = d.points || [];
+  if (points.length < 2) {
+    return `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
+  }
+  const stats = d.stats || {};
+  const selsComDado = Object.keys(_LIVE2_ODDS_SEL_META).filter(sel => points.some(p => p[sel] != null));
+
+  const legendHtml = selsComDado.map(sel => {
+    const meta = _LIVE2_ODDS_SEL_META[sel];
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
+      <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>${meta.label}
+    </span>`;
+  }).join('');
+
+  const statsRows = selsComDado.map(sel => {
+    const meta = _LIVE2_ODDS_SEL_META[sel];
+    const s = stats[sel];
+    if (!s) return '';
+    const dir = s.variacao_total > 0 ? '▲' : s.variacao_total < 0 ? '▼' : '—';
+    const dirColor = s.variacao_total > 0 ? 'var(--green)' : s.variacao_total < 0 ? 'var(--red)' : 'var(--text2)';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <span style="font-size:11px;color:${_live2ResolveColor(meta.color)};font-weight:700;min-width:70px">${meta.label}</span>
+        <span style="font-size:11px;color:var(--text2)">${s.abertura} → <b style="color:var(--text)">${s.atual}</b></span>
+        <span style="font-size:11px;color:${dirColor};font-weight:700">${dir} ${Math.abs(s.variacao_por_min).toFixed(4)}/min</span>
+        <span style="font-size:10px;color:var(--text2)">🔼${s.ticks_sobe_por_min.toFixed(2)}/min · 🔽${s.ticks_desce_por_min.toFixed(2)}/min</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px">${legendHtml}</div>
+    <canvas id="live2OddsChartCanvas" height="150" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
+    <div style="margin-top:12px">${statsRows}</div>
+    <div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · atualiza a cada 20s</div>
+  `;
+}
+
+function _live2DrawOddsChart(points) {
+  const canvas = document.getElementById('live2OddsChartCanvas');
+  if (!canvas || points.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 300, H = canvas.clientHeight || 150;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const sels = Object.keys(_LIVE2_ODDS_SEL_META).filter(sel => points.some(p => p[sel] != null));
+  if (!sels.length) return;
+
+  let vmin = Infinity, vmax = -Infinity, mmin = Infinity, mmax = -Infinity;
+  points.forEach(p => {
+    const minuto = p.minuto ?? 0;
+    if (minuto < mmin) mmin = minuto;
+    if (minuto > mmax) mmax = minuto;
+    sels.forEach(sel => {
+      const v = p[sel];
+      if (v == null) return;
+      if (v < vmin) vmin = v;
+      if (v > vmax) vmax = v;
+    });
+  });
+  if (!isFinite(vmin) || !isFinite(vmax)) return;
+  if (vmin === vmax) { vmin -= 0.1; vmax += 0.1; }
+  if (mmax === mmin) mmax = mmin + 1;
+  const padV = (vmax - vmin) * 0.12 || 0.1;
+  vmin -= padV; vmax += padV;
+
+  const PADL = 34, PADR = 8, PADT = 8, PADB = 16;
+  const plotW = Math.max(W - PADL - PADR, 10), plotH = Math.max(H - PADT - PADB, 10);
+  const xOf = minuto => PADL + ((minuto - mmin) / (mmax - mmin)) * plotW;
+  const yOf = v => PADT + plotH - ((v - vmin) / (vmax - vmin)) * plotH;
+
+  ctx.strokeStyle = 'rgba(128,128,128,.18)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(150,150,150,.7)';
+  ctx.font = '9px sans-serif';
+  for (let i = 0; i <= 3; i++) {
+    const v = vmin + (vmax - vmin) * (i / 3);
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(W - PADR, y); ctx.stroke();
+    ctx.fillText(v.toFixed(2), 2, y + 3);
+  }
+
+  sels.forEach(sel => {
+    const meta = _LIVE2_ODDS_SEL_META[sel];
+    ctx.strokeStyle = _live2ResolveColor(meta.color);
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    let started = false;
+    points.forEach(p => {
+      const v = p[sel];
+      if (v == null) { started = false; return; }
+      const x = xOf(p.minuto ?? 0), y = yOf(v);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = 'rgba(150,150,150,.7)';
+  ctx.fillText(`${Math.round(mmin)}'`, PADL, H - 4);
+  ctx.fillText(`${Math.round(mmax)}'`, W - PADR - 20, H - 4);
+}
+
 // CD (Sequências do time) + Dados (Over/BTTS/médias) — reaproveita o mesmo
 // widget do site uniscore.com, achado interceptando as chamadas de rede reais
 // (endpoint team-streaks + cálculo próprio a partir do recent-form, igual à Leitura).
@@ -14278,6 +14442,7 @@ function _renderUniscoreCD(d) {
 function _live2CloseStatsModal() {
   document.getElementById('live2StatsOverlay').style.display = 'none';
   _live2OpenModal = null;
+  clearInterval(_live2OddsChartTimer);
 }
 
 // Oculta só o bloco de estatísticas detalhadas (Destaques/Finalizações/Ataque/...),
@@ -14369,6 +14534,10 @@ function _live2OddsLiveHtml(lo) {
     ${parts.join('')}
   </div>`;
 }
+// pm resolvido (com event_id do Flashscore) por partida do Ao Vivo — guardado
+// aqui pra o gráfico de histórico (_live2OpenOddsChartModal) não precisar
+// refazer o fetch/fuzzy-match de /api/painel/matches na hora de abrir o modal
+let _live2PainelMatchCache = {};
 async function _loadLive2OddsLive(matches) {
   let painelMatches = [];
   try {
@@ -14378,12 +14547,12 @@ async function _loadLive2OddsLive(matches) {
   } catch (e) { return; }
   const cache = new Map();
   for (const m of matches) {
-    const wrap = document.getElementById(`live2OddsLiveWrap_${m.id}`);
-    if (!wrap) continue;
     const key = `${m.casa}|${m.fora}`;
     if (!cache.has(key)) cache.set(key, _live2FindPainelMatch(m.casa, m.fora, painelMatches));
     const pm = cache.get(key);
-    wrap.innerHTML = _live2OddsLiveHtml(pm && pm.live_odds);
+    _live2PainelMatchCache[m.id] = pm;
+    const wrap = document.getElementById(`live2OddsLiveWrap_${m.id}`);
+    if (wrap) wrap.innerHTML = _live2OddsLiveHtml(pm && pm.live_odds);
   }
 }
 
