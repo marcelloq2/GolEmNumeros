@@ -1982,19 +1982,24 @@ def _painel_power_prewarm_loop():
 # próximos por horário (_bt2_matches_candidatos), então um dia com muitos
 # jogos deixa partidas de daqui a poucas horas fora dessa janela até quase a
 # hora do apito. Em vez de tentar cobrir o dia inteiro de uma vez (mesma causa
-# dos 2 apagões anteriores), o usuário propôs dividir o dia em 5 turnos e
+# dos 2 apagões anteriores), o usuário propôs dividir o dia em turnos e
 # pré-carregar cada um com ~1h de antecedência — carga fica pequena e
 # previsível (só as partidas daquele turno) em vez de "todas as futuras".
 # Horários fixos em BRT (fuso sem DST, ver _BRT_OFFSET).
+#
+# Reduzido de 5 pra 3 turnos (2026-09-08, pedido do usuário investigando
+# custo alto do Railway — Memory Usage era 63% da fatura do mês) — corta
+# ~40% da carga dessa parte específica mantendo a granularidade fina só no
+# horário de pico (17h-05h BRT, ver [[feedback_ao_vivo_prioridade]]), onde a
+# pré-carga com antecedência importa mais; o resto do dia (05h-17h, tráfego
+# baixo) vira 1 turno só, mais largo.
 _PAINEL_SHIFTS = [
     # (hora/min do gatilho, hora/min de início da janela, hora/min de fim da
     #  janela, início da janela cai no dia seguinte ao gatilho?, fim da
     #  janela cai no dia seguinte ao gatilho?)
-    (5, 0,   5, 0,  12, 0, False, False),
-    (11, 0,  12, 1, 17, 0, False, False),
+    (5, 0,   5, 0,  17, 0, False, False),
     (16, 0,  17, 1, 21, 0, False, False),
-    (20, 0,  21, 1, 0,  0, False, True),
-    (23, 0,  0,  1, 4,  59, True,  True),
+    (20, 0,  21, 1, 4,  59, False, True),
 ]
 
 _painel_shift_odds_cache = {}  # event_id -> markets (1x2), acumulado o dia todo
@@ -13168,7 +13173,18 @@ threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrew
 threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
 threading.Thread(target=_painel_shift_prewarm_loop, daemon=True, name="PainelShiftPrewarm").start()
 threading.Thread(target=_raiox_history_loop, daemon=True, name="RaioXHistory").start()
-threading.Thread(target=_lista_metodologias_auto_loop, daemon=True, name="ListaMetodologiasAuto").start()
+# ListaMetodologiasAuto DESLIGADA (2026-09-08) — pedido do usuário depois de
+# receber fatura alta do Railway (Memory Usage era 63% do custo do mês). Era
+# a tarefa de fundo mais pesada de todas: a cada 4h (6x/dia), calculava
+# Prognóstico completo (H2H + placar de intervalo + minutos de gol) de TODOS
+# os jogos agendados do dia, podendo levar de dezenas de minutos a mais de 1h
+# por ciclo. Só fazia sentido enquanto o usuário estava viajando e não
+# conseguia importar o .txt manualmente — confirmado com ele que já pode
+# voltar a ser manual. Import continua funcionando normal em
+# "Lista → Importar .txt" (rota /api/lista_metodologias/import intacta); só
+# a geração AUTOMÁTICA foi desligada. Todo o código (_lm_*) fica no arquivo,
+# não removido — reativar é só descomentar a linha abaixo.
+# threading.Thread(target=_lista_metodologias_auto_loop, daemon=True, name="ListaMetodologiasAuto").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
 # segundo plano parece estar competindo por CPU com o resto do site num
