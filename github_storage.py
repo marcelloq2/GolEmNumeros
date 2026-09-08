@@ -267,10 +267,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # redeploy apagava quem estava sendo acompanhado (o sino voltava a
         # aparecer desmarcado).
         pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
-        # Lista de Metodologias (importado do .txt) — mesmo problema, mesma solução:
-        # sem isso, cada redeploy apagava a lista importada (usuário quer que fique
-        # salva até a próxima importação, não só até o próximo restart).
-        pull_file("lista_metodologias_config.json", os.path.join(data_dir, "lista_metodologias_config.json"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)
