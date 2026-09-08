@@ -14278,6 +14278,21 @@ function _live2OddsChartHtml(d, opts = {}) {
     </span>`;
   }).join('');
 
+  // Alerta de "queda rápida" (pedido do usuário 2026-09-08, pra scalping em
+  // correções ao vivo) — sel.queda_rapida já vem calculado do backend
+  // (_live_odds_history_stats), com JANELA CURTA (últimos 3min por padrão),
+  // não a média do jogo inteiro que dilui movimentos recentes fortes.
+  const quedasRapidas = selsComDado.filter(sel => stats[sel] && stats[sel].queda_rapida);
+  const alertaHtml = !quedasRapidas.length ? '' : `
+    <div style="background:color-mix(in srgb, var(--red) 15%, transparent);border:1px solid var(--red);border-radius:6px;
+                padding:${compact ? 4 : 6}px 8px;margin-bottom:6px;text-align:center;animation:pulse 2s infinite">
+      ${quedasRapidas.map(sel => {
+        const meta = _LIVE2_ODDS_SEL_META[sel];
+        const s = stats[sel];
+        return `<div style="font-size:${compact ? 10 : 11}px;font-weight:800;color:var(--red)">🔻 ${meta.label} caindo rápido — ${s.janela_recente_pct}% em ${s.janela_recente_min}min</div>`;
+      }).join('')}
+    </div>`;
+
   // No card (compact) cada seleção vira 1 linha só — "1  1.80 → 1.91  ▲0.0133/min  🔼0.13 🔽0.07"
   // — informação igual à do modal grande, só com menos respiro vertical, pra
   // caber em várias dezenas de cards ao mesmo tempo sem estourar a tela.
@@ -14288,19 +14303,22 @@ function _live2OddsChartHtml(d, opts = {}) {
     const dir = s.variacao_total > 0 ? '▲' : s.variacao_total < 0 ? '▼' : '—';
     const dirColor = s.variacao_total > 0 ? 'var(--green)' : s.variacao_total < 0 ? 'var(--red)' : 'var(--text2)';
     return `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:${compact ? 3 : 6}px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:${compact ? 3 : 6}px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;
+                  ${s.queda_rapida ? 'background:color-mix(in srgb, var(--red) 8%, transparent)' : ''}">
         <span style="font-size:${compact ? 10 : 11}px;color:${_live2ResolveColor(meta.color)};font-weight:700;min-width:${compact ? 46 : 70}px">${meta.label}</span>
         <span style="font-size:${compact ? 10 : 11}px;color:var(--text2)">${s.abertura} → <b style="color:var(--text)">${s.atual}</b></span>
         <span style="font-size:${compact ? 10 : 11}px;color:${dirColor};font-weight:700">${dir} ${Math.abs(s.variacao_por_min).toFixed(4)}/min</span>
         <span style="font-size:9px;color:var(--text2)">🔼${s.ticks_sobe_por_min.toFixed(2)}/min · 🔽${s.ticks_desce_por_min.toFixed(2)}/min</span>
+        ${s.janela_recente_pct != null ? `<span style="font-size:9px;font-weight:700;color:${s.queda_rapida ? 'var(--red)' : 'var(--text2)'}">${s.janela_recente_pct > 0 ? '+' : ''}${s.janela_recente_pct}% / ${s.janela_recente_min}min</span>` : ''}
       </div>`;
   }).join('');
 
   return `
+    ${alertaHtml}
     ${showChart ? `<div style="display:flex;flex-wrap:wrap;gap:${compact ? 6 : 10}px;justify-content:center;margin-bottom:${compact ? 4 : 8}px">${legendHtml}</div>
     <canvas id="${canvasId}" height="${compact ? 90 : 150}" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>` : ''}
     <div style="margin-top:${compact || !showChart ? 6 : 12}px">${statsRows}</div>
-    ${compact ? '' : `<div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · atualiza a cada 20s</div>`}
+    ${compact ? '' : `<div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · alerta 🔻 usa janela recente (últimos minutos), não a média do jogo · atualiza a cada 20s</div>`}
   `;
 }
 
