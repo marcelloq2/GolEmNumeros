@@ -14263,7 +14263,7 @@ async function _live2FetchAndRenderOddsChart(matchId, eventId) {
 }
 
 function _live2OddsChartHtml(d, opts = {}) {
-  const { canvasId = 'live2OddsChartCanvas', compact = false } = opts;
+  const { canvasId = 'live2OddsChartCanvas', compact = false, showChart = true } = opts;
   const points = d.points || [];
   if (points.length < 2) {
     return compact ? '' : `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
@@ -14271,7 +14271,7 @@ function _live2OddsChartHtml(d, opts = {}) {
   const stats = d.stats || {};
   const selsComDado = Object.keys(_LIVE2_ODDS_SEL_META).filter(sel => points.some(p => p[sel] != null));
 
-  const legendHtml = selsComDado.map(sel => {
+  const legendHtml = !showChart ? '' : selsComDado.map(sel => {
     const meta = _LIVE2_ODDS_SEL_META[sel];
     return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:${compact ? 9 : 10}px;color:var(--text2)">
       <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>${meta.label}
@@ -14297,9 +14297,9 @@ function _live2OddsChartHtml(d, opts = {}) {
   }).join('');
 
   return `
-    <div style="display:flex;flex-wrap:wrap;gap:${compact ? 6 : 10}px;justify-content:center;margin-bottom:${compact ? 4 : 8}px">${legendHtml}</div>
-    <canvas id="${canvasId}" height="${compact ? 90 : 150}" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
-    <div style="margin-top:${compact ? 6 : 12}px">${statsRows}</div>
+    ${showChart ? `<div style="display:flex;flex-wrap:wrap;gap:${compact ? 6 : 10}px;justify-content:center;margin-bottom:${compact ? 4 : 8}px">${legendHtml}</div>
+    <canvas id="${canvasId}" height="${compact ? 90 : 150}" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>` : ''}
+    <div style="margin-top:${compact || !showChart ? 6 : 12}px">${statsRows}</div>
     ${compact ? '' : `<div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · atualiza a cada 20s</div>`}
   `;
 }
@@ -14578,7 +14578,6 @@ let _live2OddsChartRunning = false;
 let _live2OddsChartStartedAt = 0;
 const _LIVE2_ODDSCHART_STUCK_MS = 20000;
 const _LIVE2_ODDSCHART_CONCURRENCY = 4;
-let _live2OddsHistoryLenCache = {}; // matchId -> nº de pontos na última desenhada, evita redesenhar à toa
 
 async function _live2LoadInlineOddsCharts(matches) {
   const presoFaz = _live2OddsChartRunning && (Date.now() - _live2OddsChartStartedAt) > _LIVE2_ODDSCHART_STUCK_MS;
@@ -14605,15 +14604,15 @@ async function _live2LoadInlineOddsCharts(matches) {
           const d = await res.json();
           const points = d.points || [];
           if (points.length < 2) { wrap.innerHTML = ''; return; }
-          const canvasId = `live2OddsChartInlineCanvas_${m.id}`;
-          const prevLen = _live2OddsHistoryLenCache[m.id];
-          const existingCanvas = document.getElementById(canvasId);
-          const unchanged = existingCanvas && prevLen === points.length;
-          _live2OddsHistoryLenCache[m.id] = points.length;
+          // Só números — pedido do usuário (2026-09-08: "quero so os numeros
+          // sem o mostrar o grafico"), o card ficava poluído com um gráfico
+          // pequeno demais pra ler direito em cada um de dezenas de cards ao
+          // mesmo tempo. O gráfico completo continua no modal (botão 📈).
+          const unchanged = wrap.dataset.pontos === String(points.length);
           if (!unchanged) {
-            wrap.innerHTML = `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin-top:2px">📈 ODDS AO VIVO — HISTÓRICO</div>` +
-              _live2OddsChartHtml(d, { canvasId, compact: true });
-            requestAnimationFrame(() => _live2DrawOddsChart(points, canvasId));
+            wrap.dataset.pontos = String(points.length);
+            wrap.innerHTML = `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin-top:2px">📊 ODDS AO VIVO — VARIAÇÃO/MIN</div>` +
+              _live2OddsChartHtml(d, { compact: true, showChart: false });
           }
         } catch (e) {
           // silencioso — 1 partida sem histórico ainda não deve sujar o card com erro
