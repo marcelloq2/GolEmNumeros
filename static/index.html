@@ -13945,48 +13945,6 @@ function _live2Ind2tBadgeHtml(m) {
   return badges.join('');
 }
 
-// Indicador de "sequência" (pedido do usuário, 2026-09-08: "quero
-// consecutivos") — quantos minutos SEGUIDOS um time não sofre finalização
-// (o adversário não chuta contra ele), calculado a partir do mapa de chutes
-// já buscado pra desenhar o gráfico de chutes (_live2ShotsCache, sem fetch
-// novo). Só acende com 10+ minutos, pra não virar ruído logo no início do
-// jogo — some sozinho assim que o adversário finaliza de novo, igual aos
-// indicadores do 2ºT (recalculado a cada ciclo, não é um estado salvo).
-const _LIVE2_STREAK_MIN_GAP = 10;
-
-function _live2ShotStreakHtml(shots, m) {
-  if (!shots || !shots.length) return '';
-  const minutoAtual = _live2MinutoNum(m);
-  if (minutoAtual == null) return '';
-
-  const ultimoChuteDe = (isHomeFlag) => {
-    const doTime = shots.filter(s => s.isHome === isHomeFlag);
-    return doTime.length ? Math.max(...doTime.map(s => s.minute || 0)) : null;
-  };
-
-  const badges = [];
-  // Casa "não sofre" quando o FORA (isHome=false) não finaliza contra ela
-  const lastFora = ultimoChuteDe(false);
-  const gapCasa = lastFora == null ? minutoAtual : minutoAtual - lastFora;
-  if (gapCasa >= _LIVE2_STREAK_MIN_GAP) {
-    badges.push(`<div class="live-card-ind2t holding">🧤 ${m.casa} não sofre finalização há ${gapCasa}min</div>`);
-  }
-  const lastCasa = ultimoChuteDe(true);
-  const gapFora = lastCasa == null ? minutoAtual : minutoAtual - lastCasa;
-  if (gapFora >= _LIVE2_STREAK_MIN_GAP) {
-    badges.push(`<div class="live-card-ind2t holding">🧤 ${m.fora} não sofre finalização há ${gapFora}min</div>`);
-  }
-  return badges.join('');
-}
-
-function _live2RefreshShotStreak(matchId) {
-  const el = document.getElementById(`live2StreakBadge_${matchId}`);
-  if (!el) return;
-  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
-  if (!m) return;
-  el.innerHTML = _live2ShotStreakHtml(_live2ShotsCache[matchId] || [], m);
-}
-
 // Card básico de partida — ponto de partida pra ir plugando os experimentos novos
 // (ex: odds do BetExplorer, prognósticos da Academia das Apostas) sem tocar no Ao Vivo original
 function renderLive2Card(m) {
@@ -14025,8 +13983,6 @@ function renderLive2Card(m) {
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
         <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
-        <div id="live2StreakBadge_${m.id}"></div>
-        <div id="live2FormStreak_${m.id}"></div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
@@ -14830,7 +14786,6 @@ async function _loadLive2Shotmap(matches) {
         _live2ShotsCountCache[m.id] = shots.length;
         _live2ShotsCache[m.id] = shots;
         _live2RefreshBadges(m.id);
-        _live2RefreshShotStreak(m.id);
       }
     }
     // Alguma partida escondida acabou de ganhar o 1º chute — reexibe ela agora,
@@ -15562,44 +15517,6 @@ async function _live2XgRowsHtml(m) {
 // stats+odds+h2h juntos). Aqui busca só o h2h (mais leve, é tudo que a forma
 // precisa) pra cada partida visível, uma de cada vez (nunca em paralelo, pra
 // não sobrecarregar o Flashscore), pulando quem já está em cache.
-// Sequência de resultados (pedido do usuário, 2026-09-08: "quero
-// consecutivos") — quantas vitórias/derrotas SEGUIDAS um time vem
-// emendando, a partir das mesmas linhas de forma recente (rows[0] = jogo
-// mais recente, confirmado pelo campo `date` decrescente) que já eram
-// buscadas só pra desenhar as bolinhas V/E/D — sem fetch novo nenhum. Empate
-// quebra a sequência (não conta pra V nem D) e um `result` vazio (jogo sem
-// resultado confirmado, acontece às vezes nesses dados) também quebra, pra
-// não inventar sequência em cima de dado incompleto.
-const _LIVE2_FORM_STREAK_MIN = 3;
-
-function _live2FormStreak(rows) {
-  if (!rows.length || !rows[0].result) return null;
-  const alvo = rows[0].result;
-  if (alvo !== 'V' && alvo !== 'D') return null; // sequência de empate não vira selo por enquanto
-  let n = 0;
-  for (const row of rows) {
-    if (row.result === alvo) n++; else break;
-  }
-  return n >= _LIVE2_FORM_STREAK_MIN ? { result: alvo, n } : null;
-}
-
-function _live2FormStreakBadgeHtml(m, streakCasa, streakFora) {
-  const badges = [];
-  if (streakCasa) {
-    const label = streakCasa.result === 'V' ? `${streakCasa.n} vitórias seguidas` : `${streakCasa.n} derrotas seguidas`;
-    const cls = streakCasa.result === 'V' ? 'holding' : 'blocked';
-    const icon = streakCasa.result === 'V' ? '🔥' : '🥶';
-    badges.push(`<div class="live-card-ind2t ${cls}">${icon} ${m.casa} vem de ${label}</div>`);
-  }
-  if (streakFora) {
-    const label = streakFora.result === 'V' ? `${streakFora.n} vitórias seguidas` : `${streakFora.n} derrotas seguidas`;
-    const cls = streakFora.result === 'V' ? 'holding' : 'blocked';
-    const icon = streakFora.result === 'V' ? '🔥' : '🥶';
-    badges.push(`<div class="live-card-ind2t ${cls}">${icon} ${m.fora} vem de ${label}</div>`);
-  }
-  return badges.join('');
-}
-
 async function _live2AutoLoadForms(matches) {
   for (const m of matches) {
     if (_live2FsFormCache[m.id] !== undefined) continue;
@@ -15609,23 +15526,19 @@ async function _live2AutoLoadForms(matches) {
       const h2hData = await r.json();
       const tabs = h2hData.tabs || [];
       const tab0 = tabs[0];
-      let casaHtml = '', foraHtml = '', streakCasa = null, streakFora = null;
+      let casaHtml = '', foraHtml = '';
       if (tab0) {
         const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
         const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
         const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
         casaHtml = _live2FormRowHtml(homeRows);
         foraHtml = _live2FormRowHtml(awayRows);
-        streakCasa = _live2FormStreak(homeRows);
-        streakFora = _live2FormStreak(awayRows);
       }
       _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
       const wrapCasa = document.getElementById(`live2FormWrapCasa_${m.id}`);
       if (wrapCasa) wrapCasa.innerHTML = casaHtml;
       const wrapFora = document.getElementById(`live2FormWrapFora_${m.id}`);
       if (wrapFora) wrapFora.innerHTML = foraHtml;
-      const streakEl = document.getElementById(`live2FormStreak_${m.id}`);
-      if (streakEl) streakEl.innerHTML = _live2FormStreakBadgeHtml(m, streakCasa, streakFora);
     } catch (e) { /* pula essa partida, não trava o resto */ }
   }
 }
