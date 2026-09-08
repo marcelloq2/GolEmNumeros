@@ -2108,6 +2108,15 @@ def _painel_shift_prewarm_loop():
                     key = (dia.isoformat(), idx)
                     if key in _painel_shift_done:
                         continue
+                    if idx == 0:
+                        # Bug real (2026-09-04 a 2026-09-08, achado investigando
+                        # custo do Railway): _painel_shift_odds_cache nunca era
+                        # limpo, crescia pra sempre (um event_id novo por jogo,
+                        # todo santo dia) — vazamento de memória puro, sem
+                        # ganho nenhum (jogo de dias atrás não serve mais pra
+                        # nada aqui). Limpa 1x por dia, no 1º turno (05:00).
+                        with _painel_shift_odds_lock:
+                            _painel_shift_odds_cache.clear()
                     win_start_day = dia + timedelta(days=1) if wstart_next else dia
                     win_end_day = dia + timedelta(days=1) if wend_next else dia
                     window_start = now_brt.replace(
@@ -3732,8 +3741,27 @@ def api_radar_live():
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
+# Achado investigando custo do Railway (2026-09-08): TTL de 30s aqui é só pra
+# decidir se REUSA a entrada — nunca removia entrada nenhuma do dict, então
+# todo event_id que já passou por "Ao vivo" (centenas por dia, pra sempre)
+# ficava ocupando memória até o próximo redeploy. _momentum_cache_prune corta
+# entradas com mais de 2h (bem além de qualquer jogo ainda em andamento).
 _momentum_cache = {}
 _momentum_lock  = threading.Lock()   # proteção para acesso concorrente
+_MOMENTUM_CACHE_MAX_AGE = 2 * 3600
+
+
+def _momentum_cache_prune():
+    """Chamado só quando o dict já cresceu bastante — evita custo de varrer
+    tudo a cada chamada de _process_momentum (que roda o tempo todo)."""
+    if len(_momentum_cache) < 500:
+        return
+    now = time.time()
+    stale = [eid for eid, v in _momentum_cache.items() if now - v.get("ts", 0) > _MOMENTUM_CACHE_MAX_AGE]
+    for eid in stale:
+        _momentum_cache.pop(eid, None)
+    if stale:
+        print(f"[momentum-cache] Removidas {len(stale)} entrada(s) velha(s) — {len(_momentum_cache)} restante(s)")
 
 # ── Cache de shotmap ao vivo: acumula durante o jogo para não perder ao FT ──
 _SHOTMAP_CACHE_FILE = os.path.join(DATA_DIR, ".shotmap_cache.json")
@@ -4541,6 +4569,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         cached = _momentum_cache.get(event_id)
         if cached and time.time() - cached["ts"] < 30:
             return cached["data"]
+        _momentum_cache_prune()
 
     print(f"[momentum] Buscando '{casa}' vs '{fora}' via UniScore...")
 
