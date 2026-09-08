@@ -997,6 +997,9 @@
   .live-card-momentum-wrap {
     border-top: 1px solid var(--border); padding: 10px 16px 4px;
   }
+  .live-card-oddschart-wrap:not(:empty) {
+    border-top: 1px solid var(--border); padding: 6px 16px 4px;
+  }
   .live-card-shotmap-wrap {
     padding: 6px 16px 0;
   }
@@ -13866,7 +13869,11 @@ async function loadLive2Matches() {
       _loadLive2Standings(matches);
       _loadLive2Escudos(matches);
       _live2AutoLoadForms(matches);
-      _loadLive2OddsLive(matches);
+      // Encadeado (não em paralelo): _live2LoadInlineOddsCharts depende do
+      // event_id do Flashscore que _loadLive2OddsLive resolve por fuzzy-match
+      // e guarda em _live2PainelMatchCache — rodando junto correria o risco de
+      // pegar o cache ainda vazio no 1º ciclo.
+      _loadLive2OddsLive(matches).then(() => _live2LoadInlineOddsCharts(matches));
     }
     // Roda pra todas dentro do teto (visíveis ou não) — é o que descobre quando uma
     // partida escondida passa a ter mapa de chutes e dispara a reexibição dela.
@@ -13986,6 +13993,7 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
       <div id="live2OddsLiveWrap_${m.id}"></div>
+      <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
@@ -14248,27 +14256,31 @@ async function _live2FetchAndRenderOddsChart(matchId, eventId) {
     const d = await r.json();
     if (!_live2OpenModal || _live2OpenModal.type !== 'oddschart' || String(_live2OpenModal.matchId) !== String(matchId)) return;
     if (body) body.innerHTML = _live2OddsChartHtml(d);
-    requestAnimationFrame(() => _live2DrawOddsChart(d.points || []));
+    requestAnimationFrame(() => _live2DrawOddsChart(d.points || [], 'live2OddsChartCanvas'));
   } catch (e) {
     if (body) body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
   }
 }
 
-function _live2OddsChartHtml(d) {
+function _live2OddsChartHtml(d, opts = {}) {
+  const { canvasId = 'live2OddsChartCanvas', compact = false } = opts;
   const points = d.points || [];
   if (points.length < 2) {
-    return `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
+    return compact ? '' : `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
   }
   const stats = d.stats || {};
   const selsComDado = Object.keys(_LIVE2_ODDS_SEL_META).filter(sel => points.some(p => p[sel] != null));
 
   const legendHtml = selsComDado.map(sel => {
     const meta = _LIVE2_ODDS_SEL_META[sel];
-    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:${compact ? 9 : 10}px;color:var(--text2)">
       <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>${meta.label}
     </span>`;
   }).join('');
 
+  // No card (compact) cada seleção vira 1 linha só — "1  1.80 → 1.91  ▲0.0133/min  🔼0.13 🔽0.07"
+  // — informação igual à do modal grande, só com menos respiro vertical, pra
+  // caber em várias dezenas de cards ao mesmo tempo sem estourar a tela.
   const statsRows = selsComDado.map(sel => {
     const meta = _LIVE2_ODDS_SEL_META[sel];
     const s = stats[sel];
@@ -14276,24 +14288,24 @@ function _live2OddsChartHtml(d) {
     const dir = s.variacao_total > 0 ? '▲' : s.variacao_total < 0 ? '▼' : '—';
     const dirColor = s.variacao_total > 0 ? 'var(--green)' : s.variacao_total < 0 ? 'var(--red)' : 'var(--text2)';
     return `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
-        <span style="font-size:11px;color:${_live2ResolveColor(meta.color)};font-weight:700;min-width:70px">${meta.label}</span>
-        <span style="font-size:11px;color:var(--text2)">${s.abertura} → <b style="color:var(--text)">${s.atual}</b></span>
-        <span style="font-size:11px;color:${dirColor};font-weight:700">${dir} ${Math.abs(s.variacao_por_min).toFixed(4)}/min</span>
-        <span style="font-size:10px;color:var(--text2)">🔼${s.ticks_sobe_por_min.toFixed(2)}/min · 🔽${s.ticks_desce_por_min.toFixed(2)}/min</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:${compact ? 3 : 6}px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <span style="font-size:${compact ? 10 : 11}px;color:${_live2ResolveColor(meta.color)};font-weight:700;min-width:${compact ? 46 : 70}px">${meta.label}</span>
+        <span style="font-size:${compact ? 10 : 11}px;color:var(--text2)">${s.abertura} → <b style="color:var(--text)">${s.atual}</b></span>
+        <span style="font-size:${compact ? 10 : 11}px;color:${dirColor};font-weight:700">${dir} ${Math.abs(s.variacao_por_min).toFixed(4)}/min</span>
+        <span style="font-size:9px;color:var(--text2)">🔼${s.ticks_sobe_por_min.toFixed(2)}/min · 🔽${s.ticks_desce_por_min.toFixed(2)}/min</span>
       </div>`;
   }).join('');
 
   return `
-    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px">${legendHtml}</div>
-    <canvas id="live2OddsChartCanvas" height="150" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
-    <div style="margin-top:12px">${statsRows}</div>
-    <div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · atualiza a cada 20s</div>
+    <div style="display:flex;flex-wrap:wrap;gap:${compact ? 6 : 10}px;justify-content:center;margin-bottom:${compact ? 4 : 8}px">${legendHtml}</div>
+    <canvas id="${canvasId}" height="${compact ? 90 : 150}" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
+    <div style="margin-top:${compact ? 6 : 12}px">${statsRows}</div>
+    ${compact ? '' : `<div style="font-size:9.5px;color:var(--text2);text-align:center;margin-top:8px">taxa (subida/descida por minuto) e ticks (nº de vezes que mudou por minuto) calculados desde a 1ª leitura de odds ao vivo capturada · atualiza a cada 20s</div>`}
   `;
 }
 
-function _live2DrawOddsChart(points) {
-  const canvas = document.getElementById('live2OddsChartCanvas');
+function _live2DrawOddsChart(points, canvasId = 'live2OddsChartCanvas') {
+  const canvas = document.getElementById(canvasId);
   if (!canvas || points.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth || 300, H = canvas.clientHeight || 150;
@@ -14553,6 +14565,63 @@ async function _loadLive2OddsLive(matches) {
     _live2PainelMatchCache[m.id] = pm;
     const wrap = document.getElementById(`live2OddsLiveWrap_${m.id}`);
     if (wrap) wrap.innerHTML = _live2OddsLiveHtml(pm && pm.live_odds);
+  }
+}
+
+// Gráfico de odds ao vivo DIRETO no card (pedido do usuário, 2026-09-08:
+// "tem como deixar isso visivel na tela" — antes só existia atrás do botão
+// 📈/modal). Mesmo padrão de concorrência limitada + trava anti-empilhamento
+// de _loadLive2Momentum (1 fetch por partida por ciclo é seguro do mesmo
+// jeito que já é pra pressão/escalação/etc — só roda pras partidas que já
+// têm event_id do Flashscore resolvido por _loadLive2OddsLive).
+let _live2OddsChartRunning = false;
+let _live2OddsChartStartedAt = 0;
+const _LIVE2_ODDSCHART_STUCK_MS = 20000;
+const _LIVE2_ODDSCHART_CONCURRENCY = 4;
+let _live2OddsHistoryLenCache = {}; // matchId -> nº de pontos na última desenhada, evita redesenhar à toa
+
+async function _live2LoadInlineOddsCharts(matches) {
+  const presoFaz = _live2OddsChartRunning && (Date.now() - _live2OddsChartStartedAt) > _LIVE2_ODDSCHART_STUCK_MS;
+  if (_live2OddsChartRunning && !presoFaz) return; // ciclo anterior ainda rodando — não empilha outro
+  _live2OddsChartRunning = true;
+  _live2OddsChartStartedAt = Date.now();
+  try {
+    const alvo = matches.filter(m => _live2PainelMatchCache[m.id] && _live2PainelMatchCache[m.id].event_id);
+    for (let i = 0; i < alvo.length; i += _LIVE2_ODDSCHART_CONCURRENCY) {
+      const lote = alvo.slice(i, i + _LIVE2_ODDSCHART_CONCURRENCY);
+      await Promise.all(lote.map(async (m) => {
+        const wrap = document.getElementById(`live2OddsChartInlineWrap_${m.id}`);
+        if (!wrap) return;
+        const eventId = _live2PainelMatchCache[m.id].event_id;
+        try {
+          const ctrl = new AbortController();
+          const timeoutId = setTimeout(() => ctrl.abort(), 12000);
+          let res;
+          try {
+            res = await fetch(`/api/live_odds_history/${eventId}`, { signal: ctrl.signal });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+          const d = await res.json();
+          const points = d.points || [];
+          if (points.length < 2) { wrap.innerHTML = ''; return; }
+          const canvasId = `live2OddsChartInlineCanvas_${m.id}`;
+          const prevLen = _live2OddsHistoryLenCache[m.id];
+          const existingCanvas = document.getElementById(canvasId);
+          const unchanged = existingCanvas && prevLen === points.length;
+          _live2OddsHistoryLenCache[m.id] = points.length;
+          if (!unchanged) {
+            wrap.innerHTML = `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin-top:2px">📈 ODDS AO VIVO — HISTÓRICO</div>` +
+              _live2OddsChartHtml(d, { canvasId, compact: true });
+            requestAnimationFrame(() => _live2DrawOddsChart(points, canvasId));
+          }
+        } catch (e) {
+          // silencioso — 1 partida sem histórico ainda não deve sujar o card com erro
+        }
+      }));
+    }
+  } finally {
+    _live2OddsChartRunning = false;
   }
 }
 
