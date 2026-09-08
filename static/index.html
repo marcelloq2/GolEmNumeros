@@ -13992,12 +13992,12 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
-      <div id="live2OddsLiveWrap_${m.id}"></div>
-      <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
+      <div id="live2OddsLiveWrap_${m.id}"></div>
+      <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Gráfico de odds ao vivo (1X2 + Over/Under) — histórico, taxa e ticks por minuto" onclick="_live2OpenOddsChartModal('${m.id}')">📈</button>
