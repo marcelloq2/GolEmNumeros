@@ -15606,6 +15606,21 @@ function _live2TotalGoalsStreak(rows, limiar, acima) {
   return n >= _LIVE2_SEQ_MIN ? n : null;
 }
 
+// Ambas Marcam Sim/Não — igual à de gols totais, não depende de saber o lado
+// (casa/fora) do time no jogo passado, só olha os 2 números do placar.
+function _live2BttsStreak(rows, simNao) {
+  let n = 0;
+  for (const row of rows) {
+    const sc = _live2ParseScore(row.score);
+    if (!sc) break;
+    const btts = sc.h > 0 && sc.a > 0;
+    const bate = simNao ? btts : !btts;
+    if (!bate) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
 // ── Sequências de 1º TEMPO (pedido do usuário, 2026-09-08) ─────────────────
 // O H2H só traz placar FINAL de cada jogo passado — pro intervalo, reaproveita
 // o endpoint /api/flashscore/half_time_batch (já existia, já usado na aba
@@ -15673,6 +15688,10 @@ function _live2SeqBadgeHtml(m, seq) {
   if (seq.over25Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 2.5 FT nos últimos ${seq.over25Fora} jogos</div>`);
   if (seq.under25Casa) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.casa} bateu Under 2.5 FT nos últimos ${seq.under25Casa} jogos</div>`);
   if (seq.under25Fora) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.fora} bateu Under 2.5 FT nos últimos ${seq.under25Fora} jogos</div>`);
+  if (seq.bttsSimCasa) badges.push(`<div class="live-card-ind2t holding">⚽⚽ ${m.casa} teve Ambas Marcam nos últimos ${seq.bttsSimCasa} jogos</div>`);
+  if (seq.bttsSimFora) badges.push(`<div class="live-card-ind2t holding">⚽⚽ ${m.fora} teve Ambas Marcam nos últimos ${seq.bttsSimFora} jogos</div>`);
+  if (seq.bttsNaoCasa) badges.push(`<div class="live-card-ind2t blocked">🚫 ${m.casa} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoCasa} jogos</div>`);
+  if (seq.bttsNaoFora) badges.push(`<div class="live-card-ind2t blocked">🚫 ${m.fora} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoFora} jogos</div>`);
   if (seq.over05htCasa) badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 0.5 HT nos últimos ${seq.over05htCasa} jogos</div>`);
   if (seq.over05htFora) badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 0.5 HT nos últimos ${seq.over05htFora} jogos</div>`);
   if (seq.venceHtCasa)  badges.push(`<div class="live-card-ind2t holding">🥇 ${m.casa} venceu o 1ºT nos últimos ${seq.venceHtCasa} jogos</div>`);
@@ -15715,6 +15734,10 @@ async function _live2AutoLoadForms(matches) {
         seq.over25Fora  = _live2TotalGoalsStreak(awayRowsFull, 2.5, true);
         seq.under25Casa = _live2TotalGoalsStreak(homeRowsFull, 2.5, false);
         seq.under25Fora = _live2TotalGoalsStreak(awayRowsFull, 2.5, false);
+        seq.bttsSimCasa = _live2BttsStreak(homeRowsFull, true);
+        seq.bttsSimFora = _live2BttsStreak(awayRowsFull, true);
+        seq.bttsNaoCasa = _live2BttsStreak(homeRowsFull, false);
+        seq.bttsNaoFora = _live2BttsStreak(awayRowsFull, false);
 
         // 1º tempo — 1 chamada em lote pros últimos _LIVE2_HT_JOGOS de cada
         // time (ver comentário acima de _live2HtForAgainst). Se falhar,
