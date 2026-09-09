@@ -15606,6 +15606,57 @@ function _live2TotalGoalsStreak(rows, limiar, acima) {
   return n >= _LIVE2_SEQ_MIN ? n : null;
 }
 
+// ── Sequências de 1º TEMPO (pedido do usuário, 2026-09-08) ─────────────────
+// O H2H só traz placar FINAL de cada jogo passado — pro intervalo, reaproveita
+// o endpoint /api/flashscore/half_time_batch (já existia, já usado na aba
+// "Jogo" do modal — aqui só ganha mais um chamador). 1 chamada só, em lote,
+// pros últimos _LIVE2_HT_JOGOS de CADA time (casa+fora juntos no mesmo
+// lote) — cabe folgado no teto de 15 ids da rota. Cache por partida (igual
+// o resto de _live2AutoLoadForms), não repete a cada ciclo de 20s.
+const _LIVE2_HT_JOGOS = 6; // teto de jogos verificados por time — MIN é 3, isso dá folga sem estourar o lote
+
+function _live2HtForAgainst(row, teamName, htByEventId) {
+  const ht = htByEventId[row.id];
+  if (!ht || !teamName) return null;
+  const h = parseInt(ht.home, 10), a = parseInt(ht.away, 10);
+  if (isNaN(h) || isNaN(a)) return null;
+  if (row.home === teamName) return { pro: h, contra: a };
+  if (row.away === teamName) return { pro: a, contra: h };
+  return null;
+}
+
+function _live2Over05HtStreak(rows, htByEventId) {
+  let n = 0;
+  for (const row of rows) {
+    const ht = htByEventId[row.id];
+    if (!ht) break;
+    const h = parseInt(ht.home, 10), a = parseInt(ht.away, 10);
+    if (isNaN(h) || isNaN(a) || (h + a) < 1) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2VenceHtStreak(rows, teamName, htByEventId) {
+  let n = 0;
+  for (const row of rows) {
+    const ga = _live2HtForAgainst(row, teamName, htByEventId);
+    if (!ga || ga.pro <= ga.contra) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2PerdeHtStreak(rows, teamName, htByEventId) {
+  let n = 0;
+  for (const row of rows) {
+    const ga = _live2HtForAgainst(row, teamName, htByEventId);
+    if (!ga || ga.pro >= ga.contra) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
 function _live2SeqBadgeHtml(m, seq) {
   const badges = [];
   if (seq.homeWinCasa) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.casa} venceu os últimos ${seq.homeWinCasa} jogos em casa</div>`);
@@ -15622,6 +15673,12 @@ function _live2SeqBadgeHtml(m, seq) {
   if (seq.over25Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 2.5 FT nos últimos ${seq.over25Fora} jogos</div>`);
   if (seq.under25Casa) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.casa} bateu Under 2.5 FT nos últimos ${seq.under25Casa} jogos</div>`);
   if (seq.under25Fora) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.fora} bateu Under 2.5 FT nos últimos ${seq.under25Fora} jogos</div>`);
+  if (seq.over05htCasa) badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 0.5 HT nos últimos ${seq.over05htCasa} jogos</div>`);
+  if (seq.over05htFora) badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 0.5 HT nos últimos ${seq.over05htFora} jogos</div>`);
+  if (seq.venceHtCasa)  badges.push(`<div class="live-card-ind2t holding">🥇 ${m.casa} venceu o 1ºT nos últimos ${seq.venceHtCasa} jogos</div>`);
+  if (seq.venceHtFora)  badges.push(`<div class="live-card-ind2t holding">🥇 ${m.fora} venceu o 1ºT nos últimos ${seq.venceHtFora} jogos</div>`);
+  if (seq.perdeHtCasa)  badges.push(`<div class="live-card-ind2t blocked">😓 ${m.casa} perdeu o 1ºT nos últimos ${seq.perdeHtCasa} jogos</div>`);
+  if (seq.perdeHtFora)  badges.push(`<div class="live-card-ind2t blocked">😓 ${m.fora} perdeu o 1ºT nos últimos ${seq.perdeHtFora} jogos</div>`);
   return badges.join('');
 }
 
@@ -15658,6 +15715,27 @@ async function _live2AutoLoadForms(matches) {
         seq.over25Fora  = _live2TotalGoalsStreak(awayRowsFull, 2.5, true);
         seq.under25Casa = _live2TotalGoalsStreak(homeRowsFull, 2.5, false);
         seq.under25Fora = _live2TotalGoalsStreak(awayRowsFull, 2.5, false);
+
+        // 1º tempo — 1 chamada em lote pros últimos _LIVE2_HT_JOGOS de cada
+        // time (ver comentário acima de _live2HtForAgainst). Se falhar,
+        // segue sem os indicadores de 1ºT (não trava o resto).
+        const homeRowsHt = homeRowsFull.slice(0, _LIVE2_HT_JOGOS);
+        const awayRowsHt = awayRowsFull.slice(0, _LIVE2_HT_JOGOS);
+        const idsHt = [...homeRowsHt, ...awayRowsHt].map(row => row.id).filter(Boolean);
+        let htByEventId = {};
+        if (idsHt.length) {
+          try {
+            const htRes = await fetch(`/api/flashscore/half_time_batch?ids=${idsHt.join(',')}`);
+            const htData = await htRes.json();
+            htByEventId = htData.results || {};
+          } catch (e) { /* segue sem HT */ }
+        }
+        seq.over05htCasa = _live2Over05HtStreak(homeRowsHt, htByEventId);
+        seq.over05htFora = _live2Over05HtStreak(awayRowsHt, htByEventId);
+        seq.venceHtCasa  = _live2VenceHtStreak(homeRowsHt, nomeCasa, htByEventId);
+        seq.venceHtFora  = _live2VenceHtStreak(awayRowsHt, nomeFora, htByEventId);
+        seq.perdeHtCasa  = _live2PerdeHtStreak(homeRowsHt, nomeCasa, htByEventId);
+        seq.perdeHtFora  = _live2PerdeHtStreak(awayRowsHt, nomeFora, htByEventId);
       }
       // tabs[1] = só jogos do time da casa QUANDO ele jogou em casa (rótulo
       // "<Time> - Casa"); tabs[2] = só jogos do time de fora QUANDO ele jogou
