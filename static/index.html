@@ -13983,6 +13983,7 @@ function renderLive2Card(m) {
           <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
         </div>
         <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
+        <div id="live2SeqBadge_${m.id}"></div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
@@ -15517,6 +15518,90 @@ async function _live2XgRowsHtml(m) {
 // stats+odds+h2h juntos). Aqui busca só o h2h (mais leve, é tudo que a forma
 // precisa) pra cada partida visível, uma de cada vez (nunca em paralelo, pra
 // não sobrecarregar o Flashscore), pulando quem já está em cache.
+// ── Indicadores de sequência/consecutivos (pedido do usuário, 2026-09-08) ──
+// Reaproveita o MESMO fetch de /api/flashscore/h2h que já buscava a forma
+// recente (bolinhas V/E/D) — sem chamada nova nenhuma. 2 fontes dentro da
+// mesma resposta:
+//  - tabs[0] ("Total"): últimos jogos de CADA time em QUALQUER mando de campo
+//    (mesma seção que já alimentava as bolinhas) — usado pras sequências
+//    gerais (perdeu / marcou / não sofreu gol).
+//  - tabs[1] (rotulado pelo Flashscore como "<Time da Casa> - Casa"): só os
+//    jogos que o time da casa jogou EM CASA — usado só pra sequência de
+//    vitórias em casa (não existe o equivalente pro time de fora nessa
+//    mesma resposta, só dá pra calcular esse indicador pro lado casa).
+const _LIVE2_SEQ_MIN = 3;
+
+function _live2ParseScore(scoreStr) {
+  const mm = /^(\d+)\s*:\s*(\d+)$/.exec((scoreStr || '').trim());
+  return mm ? { h: parseInt(mm[1], 10), a: parseInt(mm[2], 10) } : null;
+}
+
+// O título da seção já vem como "Últimos jogos: <Nome exato do time nessa
+// mesma resposta>" — usa esse nome pra saber de que lado (row.home/row.away)
+// o time estava em cada jogo passado, sem precisar casar nome entre fontes
+// diferentes (row.home/row.away são da MESMA resposta, sempre grafados igual).
+function _live2TeamNameFromSectionTitle(title) {
+  const mm = /:\s*(.+)$/.exec(title || '');
+  return mm ? mm[1].trim() : null;
+}
+
+function _live2GoalsForAgainst(row, teamName) {
+  const sc = _live2ParseScore(row.score);
+  if (!sc || !teamName) return null;
+  if (row.home === teamName) return { pro: sc.h, contra: sc.a };
+  if (row.away === teamName) return { pro: sc.a, contra: sc.h };
+  return null; // não deu pra confirmar o lado — quebra a sequência, não arrisca
+}
+
+// Sequência de resultado (V ou D) — usada tanto pra "vitórias em casa"
+// (rows já vêm só de jogos em casa) quanto poderia servir pra outras, mas
+// hoje só é chamada pro caso de vitória em casa.
+function _live2ResultStreak(rows, letra) {
+  if (!rows.length || rows[0].result !== letra) return null;
+  let n = 0;
+  for (const row of rows) { if (row.result === letra) n++; else break; }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2LossStreak(rows) {
+  if (!rows.length || rows[0].result !== 'D') return null;
+  let n = 0;
+  for (const row of rows) { if (row.result === 'D') n++; else break; }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2ScoringStreak(rows, teamName) {
+  let n = 0;
+  for (const row of rows) {
+    const ga = _live2GoalsForAgainst(row, teamName);
+    if (!ga || ga.pro <= 0) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2CleanSheetStreak(rows, teamName) {
+  let n = 0;
+  for (const row of rows) {
+    const ga = _live2GoalsForAgainst(row, teamName);
+    if (!ga || ga.contra > 0) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
+function _live2SeqBadgeHtml(m, seq) {
+  const badges = [];
+  if (seq.homeWinCasa) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.casa} venceu os últimos ${seq.homeWinCasa} jogos em casa</div>`);
+  if (seq.lossCasa)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.casa} perdeu os últimos ${seq.lossCasa} jogos</div>`);
+  if (seq.lossFora)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.fora} perdeu os últimos ${seq.lossFora} jogos</div>`);
+  if (seq.scoreCasa)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.casa} marcou nos últimos ${seq.scoreCasa} jogos</div>`);
+  if (seq.scoreFora)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.fora} marcou nos últimos ${seq.scoreFora} jogos</div>`);
+  if (seq.cleanCasa)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.casa} não sofreu gol nos últimos ${seq.cleanCasa} jogos</div>`);
+  if (seq.cleanFora)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.fora} não sofreu gol nos últimos ${seq.cleanFora} jogos</div>`);
+  return badges.join('');
+}
+
 async function _live2AutoLoadForms(matches) {
   for (const m of matches) {
     if (_live2FsFormCache[m.id] !== undefined) continue;
@@ -15527,18 +15612,37 @@ async function _live2AutoLoadForms(matches) {
       const tabs = h2hData.tabs || [];
       const tab0 = tabs[0];
       let casaHtml = '', foraHtml = '';
+      const seq = {};
       if (tab0) {
         const sections = tab0.sections.filter(s => !/confront/i.test(s.title));
-        const homeRows = (sections[0] ? sections[0].rows : []).slice(0, 5);
-        const awayRows = (sections[1] ? sections[1].rows : []).slice(0, 5);
-        casaHtml = _live2FormRowHtml(homeRows);
-        foraHtml = _live2FormRowHtml(awayRows);
+        const homeSection = sections[0], awaySection = sections[1];
+        const homeRowsFull = homeSection ? homeSection.rows : [];
+        const awayRowsFull = awaySection ? awaySection.rows : [];
+        casaHtml = _live2FormRowHtml(homeRowsFull.slice(0, 5));
+        foraHtml = _live2FormRowHtml(awayRowsFull.slice(0, 5));
+
+        const nomeCasa = homeSection ? _live2TeamNameFromSectionTitle(homeSection.title) : null;
+        const nomeFora = awaySection ? _live2TeamNameFromSectionTitle(awaySection.title) : null;
+        seq.lossCasa  = _live2LossStreak(homeRowsFull);
+        seq.lossFora  = _live2LossStreak(awayRowsFull);
+        seq.scoreCasa = _live2ScoringStreak(homeRowsFull, nomeCasa);
+        seq.scoreFora = _live2ScoringStreak(awayRowsFull, nomeFora);
+        seq.cleanCasa = _live2CleanSheetStreak(homeRowsFull, nomeCasa);
+        seq.cleanFora = _live2CleanSheetStreak(awayRowsFull, nomeFora);
       }
+      const tabCasaEmCasa = tabs.find(t => /-\s*Casa$/.test(t.label || ''));
+      if (tabCasaEmCasa) {
+        const secao = tabCasaEmCasa.sections.find(s => !/confront/i.test(s.title));
+        if (secao) seq.homeWinCasa = _live2ResultStreak(secao.rows, 'V');
+      }
+
       _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
       const wrapCasa = document.getElementById(`live2FormWrapCasa_${m.id}`);
       if (wrapCasa) wrapCasa.innerHTML = casaHtml;
       const wrapFora = document.getElementById(`live2FormWrapFora_${m.id}`);
       if (wrapFora) wrapFora.innerHTML = foraHtml;
+      const seqEl = document.getElementById(`live2SeqBadge_${m.id}`);
+      if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
     } catch (e) { /* pula essa partida, não trava o resto */ }
   }
 }
