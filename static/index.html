@@ -15590,15 +15590,38 @@ function _live2CleanSheetStreak(rows, teamName) {
   return n >= _LIVE2_SEQ_MIN ? n : null;
 }
 
+// Sequência de gols totais (FT) — Over/Under, não depende de saber o lado
+// (casa/fora) do time no jogo passado, só soma os 2 números do placar. Por
+// isso é mais simples/robusta que as de gol pró/contra acima.
+function _live2TotalGoalsStreak(rows, limiar, acima) {
+  let n = 0;
+  for (const row of rows) {
+    const sc = _live2ParseScore(row.score);
+    if (!sc) break;
+    const total = sc.h + sc.a;
+    const bate = acima ? total > limiar : total <= limiar;
+    if (!bate) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
 function _live2SeqBadgeHtml(m, seq) {
   const badges = [];
   if (seq.homeWinCasa) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.casa} venceu os últimos ${seq.homeWinCasa} jogos em casa</div>`);
+  if (seq.awayWinFora) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.fora} venceu os últimos ${seq.awayWinFora} jogos fora de casa</div>`);
   if (seq.lossCasa)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.casa} perdeu os últimos ${seq.lossCasa} jogos</div>`);
   if (seq.lossFora)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.fora} perdeu os últimos ${seq.lossFora} jogos</div>`);
   if (seq.scoreCasa)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.casa} marcou nos últimos ${seq.scoreCasa} jogos</div>`);
   if (seq.scoreFora)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.fora} marcou nos últimos ${seq.scoreFora} jogos</div>`);
   if (seq.cleanCasa)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.casa} não sofreu gol nos últimos ${seq.cleanCasa} jogos</div>`);
   if (seq.cleanFora)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.fora} não sofreu gol nos últimos ${seq.cleanFora} jogos</div>`);
+  if (seq.over15Casa)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 1.5 FT nos últimos ${seq.over15Casa} jogos</div>`);
+  if (seq.over15Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 1.5 FT nos últimos ${seq.over15Fora} jogos</div>`);
+  if (seq.over25Casa)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 2.5 FT nos últimos ${seq.over25Casa} jogos</div>`);
+  if (seq.over25Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 2.5 FT nos últimos ${seq.over25Fora} jogos</div>`);
+  if (seq.under25Casa) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.casa} bateu Under 2.5 FT nos últimos ${seq.under25Casa} jogos</div>`);
+  if (seq.under25Fora) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.fora} bateu Under 2.5 FT nos últimos ${seq.under25Fora} jogos</div>`);
   return badges.join('');
 }
 
@@ -15629,11 +15652,26 @@ async function _live2AutoLoadForms(matches) {
         seq.scoreFora = _live2ScoringStreak(awayRowsFull, nomeFora);
         seq.cleanCasa = _live2CleanSheetStreak(homeRowsFull, nomeCasa);
         seq.cleanFora = _live2CleanSheetStreak(awayRowsFull, nomeFora);
+        seq.over15Casa  = _live2TotalGoalsStreak(homeRowsFull, 1.5, true);
+        seq.over15Fora  = _live2TotalGoalsStreak(awayRowsFull, 1.5, true);
+        seq.over25Casa  = _live2TotalGoalsStreak(homeRowsFull, 2.5, true);
+        seq.over25Fora  = _live2TotalGoalsStreak(awayRowsFull, 2.5, true);
+        seq.under25Casa = _live2TotalGoalsStreak(homeRowsFull, 2.5, false);
+        seq.under25Fora = _live2TotalGoalsStreak(awayRowsFull, 2.5, false);
       }
+      // tabs[1] = só jogos do time da casa QUANDO ele jogou em casa (rótulo
+      // "<Time> - Casa"); tabs[2] = só jogos do time de fora QUANDO ele jogou
+      // fora (rótulo "<Time> - Fora") — o próprio Flashscore já separa,
+      // cada um só existe pro lado que joga naquele mando NESTA partida.
       const tabCasaEmCasa = tabs.find(t => /-\s*Casa$/.test(t.label || ''));
       if (tabCasaEmCasa) {
         const secao = tabCasaEmCasa.sections.find(s => !/confront/i.test(s.title));
         if (secao) seq.homeWinCasa = _live2ResultStreak(secao.rows, 'V');
+      }
+      const tabForaFora = tabs.find(t => /-\s*Fora$/.test(t.label || ''));
+      if (tabForaFora) {
+        const secao = tabForaFora.sections.find(s => !/confront/i.test(s.title));
+        if (secao) seq.awayWinFora = _live2ResultStreak(secao.rows, 'V');
       }
 
       _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
