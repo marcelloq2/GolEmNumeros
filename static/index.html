@@ -2371,6 +2371,16 @@
                  background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;
                  width:260px;max-height:320px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
           </div>
+          <!-- Filtro de equipes (2026-09-12) — mesma ideia do filtro de
+               competições, só que por time (casa OU fora), pra quem quer
+               acompanhar só jogos de times específicos. -->
+          <div style="position:relative;display:inline-block">
+            <button class="live-refresh-btn" id="live2TeamFilterBtn" onclick="_live2ToggleTeamPanel(event)"
+              title="Mostrar só jogos de equipes específicas">⚽ Equipes</button>
+            <div id="live2TeamPanel" style="display:none;position:absolute;top:100%;left:0;z-index:50;margin-top:4px;
+                 background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;
+                 width:260px;max-height:320px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+          </div>
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
@@ -14016,6 +14026,105 @@ document.addEventListener('click', (ev) => {
   panel.style.display = 'none';
 });
 
+// ── Filtro de equipes (2026-09-12) — mesmo padrão do filtro de competições
+// acima (painel de checkboxes, aplicado ANTES do teto), só que por nome de
+// time (casa OU fora) em vez de competição. Pedido do usuário olhando o
+// painel de Competições: "aqui seria bom filtro equipes também".
+let _live2TeamFilter = new Set(); // vazio = sem filtro, mostra todas
+
+function _live2ToggleTeamPanel(ev) {
+  if (ev) ev.stopPropagation();
+  const panel = document.getElementById('live2TeamPanel');
+  if (!panel) return;
+  const abrindo = panel.style.display === 'none';
+  panel.style.display = abrindo ? 'block' : 'none';
+  if (abrindo) _live2RenderTeamPanel();
+}
+
+function _live2RenderTeamPanel() {
+  const panel = document.getElementById('live2TeamPanel');
+  if (!panel) return;
+  const counts = {};
+  live2MatchesCache.forEach(m => {
+    [m.casa, m.fora].forEach(time => {
+      if (!time) return;
+      counts[time] = (counts[time] || 0) + 1;
+    });
+  });
+  const times = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+  if (!times.length) {
+    panel.innerHTML = `<div style="font-size:11px;color:var(--text2);text-align:center;padding:8px 0">nenhuma partida ao vivo agora</div>`;
+    return;
+  }
+  panel.innerHTML = `
+    <input id="live2TeamSearchInput" type="text" placeholder="Filtrar por nome..." oninput="_live2FilterTeamPanelList(this.value)"
+      style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+             color:var(--text);font-size:11px;padding:5px 8px;margin-bottom:8px">
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button onclick="_live2TeamPanelSelectAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Marcar todas</button>
+      <button onclick="_live2TeamPanelClear()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Desmarcar todas</button>
+    </div>
+    <div id="live2TeamList">
+    ${times.map(time => `
+      <label data-time-norm="${_normLive2(time)}" style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:var(--text);cursor:pointer">
+        <input type="checkbox" data-time="${time.replace(/"/g, '&quot;')}" ${_live2TeamFilter.has(time) ? 'checked' : ''} style="cursor:pointer">
+        <span style="flex:1">${time}</span>
+        <span style="color:var(--text2);font-size:10px">${counts[time]}</span>
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button onclick="_live2TeamPanelApply()" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#04270f;font-size:11px;font-weight:700;padding:6px;cursor:pointer">Aplicar</button>
+      <button onclick="_live2TeamPanelShowAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;padding:6px;cursor:pointer">Mostrar todas</button>
+    </div>`;
+}
+
+function _live2FilterTeamPanelList(texto) {
+  const termo = _normLive2(texto);
+  document.querySelectorAll('#live2TeamList label').forEach(label => {
+    const bate = !termo || (label.dataset.timeNorm || '').includes(termo);
+    label.style.display = bate ? '' : 'none';
+  });
+}
+
+function _live2TeamPanelSelectAll() {
+  document.querySelectorAll('#live2TeamPanel input[type=checkbox]').forEach(cb => { cb.checked = true; });
+}
+function _live2TeamPanelClear() {
+  document.querySelectorAll('#live2TeamPanel input[type=checkbox]').forEach(cb => { cb.checked = false; });
+}
+function _live2UpdateTeamFilterBtnLabel() {
+  const btn = document.getElementById('live2TeamFilterBtn');
+  if (!btn) return;
+  if (_live2TeamFilter.size) {
+    btn.textContent = `⚽ ${_live2TeamFilter.size} equipe${_live2TeamFilter.size === 1 ? '' : 's'}`;
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '⚽ Equipes';
+    btn.classList.remove('active');
+  }
+}
+function _live2TeamPanelApply() {
+  const checked = [...document.querySelectorAll('#live2TeamPanel input[type=checkbox]:checked')].map(cb => cb.dataset.time);
+  _live2TeamFilter = new Set(checked);
+  document.getElementById('live2TeamPanel').style.display = 'none';
+  _live2UpdateTeamFilterBtnLabel();
+  loadLive2Matches();
+}
+function _live2TeamPanelShowAll() {
+  _live2TeamFilter = new Set();
+  document.getElementById('live2TeamPanel').style.display = 'none';
+  _live2UpdateTeamFilterBtnLabel();
+  loadLive2Matches();
+}
+// Fecha o painel ao clicar fora dele (fora do botão e do painel em si)
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('live2TeamPanel');
+  const btn = document.getElementById('live2TeamFilterBtn');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(ev.target) || ev.target === btn) return;
+  panel.style.display = 'none';
+});
+
 // Conta quantos favoritos estão ao vivo agora (não o total de favoritos
 // salvos — alguns podem já ter acabado) e atualiza o número no botão.
 function _live2UpdateFavCount(allMatches) {
@@ -14060,11 +14169,18 @@ async function loadLive2Matches() {
     const matchesFiltradasPorLiga = _live2LeagueFilter.size
       ? allMatches.filter(m => _live2LeagueFilter.has(m.liga))
       : allMatches;
+    // Filtro de equipes (pedido do usuário, 2026-09-12) — combina com o de
+    // competições (E lógico): se os dois estiverem ativos, só sobra jogo que
+    // bate nos dois. Por time, casa OU fora conta (o jogo aparece se
+    // QUALQUER um dos dois times estiver marcado).
+    const matchesFiltradas = _live2TeamFilter.size
+      ? matchesFiltradasPorLiga.filter(m => _live2TeamFilter.has(m.casa) || _live2TeamFilter.has(m.fora))
+      : matchesFiltradasPorLiga;
 
     // Corta pro teto ANTES de qualquer busca de dado (momentum/shotmap/escalação/
     // etc.) — é isso que reduz a carga de verdade, não só o que aparece na tela.
-    const totalAoVivo = matchesFiltradasPorLiga.length;
-    const allMatchesLimited = _live2ShowAllMatches ? matchesFiltradasPorLiga : matchesFiltradasPorLiga.slice(0, _LIVE2_MAX_MATCHES_DEFAULT);
+    const totalAoVivo = matchesFiltradas.length;
+    const allMatchesLimited = _live2ShowAllMatches ? matchesFiltradas : matchesFiltradas.slice(0, _LIVE2_MAX_MATCHES_DEFAULT);
     const cortado = !_live2ShowAllMatches && totalAoVivo > _LIVE2_MAX_MATCHES_DEFAULT;
 
     // Só mostra partidas com mapa de chutes confirmado — as demais continuam sendo
