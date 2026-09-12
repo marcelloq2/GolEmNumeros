@@ -15435,7 +15435,36 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     }
   }
 
-  // 11) Só finaliza de longe — reaproveita a mesma classificação de zona
+  // 11) Reta final sem sinal de gol — pedido do usuário (2026-09-12: "tem
+  // como sinalizar que não vai sair gol depois dos 80?"). Diferente do
+  // "Jogo morto" (#10) acima: NÃO exige placar decidido por 3+ gols — dispara
+  // em qualquer jogo (inclusive apertado ou empatado) quando, a partir do
+  // minuto 80, nenhum dos 2 times finaliza no alvo (nem marca) e a pressão
+  // dos dois lados está baixa. Usa só o que já está acontecendo no jogo
+  // agora — nenhum dado histórico entra aqui (essa versão foi a escolhida;
+  // a alternativa combinando com % histórico de "não marca depois dos 80"
+  // ficou de fora por enquanto).
+  const SEM_GOL_FINAL_MIN_MINUTO  = 80;
+  const SEM_GOL_FINAL_PRESSAO_MAX = 15;
+  if (minutoAtual != null && minutoAtual >= SEM_GOL_FINAL_MIN_MINUTO && points && points.length >= 3) {
+    const finalPts = points.filter(p => (p.minute || 0) >= SEM_GOL_FINAL_MIN_MINUTO);
+    if (finalPts.length >= 3) {
+      // Média do VALOR ABSOLUTO de cada leitura (não a média simples com sinal,
+      // como o resto dos indicadores usa) — com sinal, um jogo em que os 2 lados
+      // alternam pressão forte (um sobe, o outro desce) cancelaria pra perto de
+      // zero por engano, mesmo sem estar "morno" de verdade. Aqui o objetivo é
+      // justamente medir se os 2 lados, cada um, estão calmos.
+      const avgAbsFinal = finalPts.reduce((a, p) => a + Math.abs(p.value || 0), 0) / finalPts.length;
+      const golDepois80 = (goals || []).some(g => (g.minute || 0) >= SEM_GOL_FINAL_MIN_MINUTO);
+      const ON_TARGET_FINAL = new Set(['goal', 'save', 'shot_on_target']);
+      const finalizouNoAlvoDepois80 = shots && shots.some(s => (s.minute || 0) >= SEM_GOL_FINAL_MIN_MINUTO && ON_TARGET_FINAL.has(s.shotType));
+      if (!golDepois80 && !finalizouNoAlvoDepois80 && avgAbsFinal < SEM_GOL_FINAL_PRESSAO_MAX) {
+        badges.push(`<div class="live-card-ind2t blocked" title="A partir do minuto ${SEM_GOL_FINAL_MIN_MINUTO}, nenhum dos 2 times finalizou no alvo (nem marcou) e a pressão dos dois lados está baixa — sinal de que dificilmente sai mais gol, mesmo com o placar ainda em aberto. Baseado só no que está acontecendo nesta partida, sem usar histórico dos times.">🔒 Reta final sem sinal de gol</div>`);
+      }
+    }
+  }
+
+  // 12) Só finaliza de longe — reaproveita a mesma classificação de zona
   // (x da coordenada do chute) já usada em buildShotsBadgeHtml/xGZ. Amostra
   // mínima de 3 chutes pra não disparar com 1 chute isolado de fora.
   if (shots && shots.length) {
@@ -15458,7 +15487,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     soDeLonge(false, m.fora);
   }
 
-  // 12) Empate técnico — o oposto do indicador de "empate com domínio
+  // 13) Empate técnico — o oposto do indicador de "empate com domínio
   // desequilibrado" (nº5 acima): aqui o placar E a pressão estão os dois
   // equilibrados, sinal de jogo genuinamente parelho (sem tendência clara).
   if (golCasa === golFora) {
