@@ -12,36 +12,85 @@
      qualquer coisa nesse arquivo: cores, textos, e a imagem/logo abaixo. */
   :root {
     --bg: #0b0d0c; --bg2: #121613; --bg3: #1a211c; --border: #2a332c;
-    --text: #f2f1ec; --text2: #9aa39c; --red: #ff5449;
+    --text: #f2f1ec; --text2: #9aa39c; --red: #ff5449; --green: #3ddc70;
+    --blue: #3f8fc4; --orange: #f59e0b;
     --brand: #00e676; --brand-bg: #0c3322;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
     background: var(--bg); color: var(--text);
     font-family: 'Segoe UI', 'IBM Plex Sans', system-ui, sans-serif;
-    padding: 16px;
+  }
+
+  /* ── Fundo: grade de "cards" falsos no estilo dos cards reais da Ao Vivo,
+     desfocados — pedido do usuário (2026-09-12), a ideia de uma imagem que
+     "mostra o que tem por dentro do site" logo na tela de login. Em vez de
+     uma imagem gerada (que sempre erra texto pequeno), são cards de
+     mentira mesmo, com o CSS real do site, só borrados — fica mais fiel e
+     não pesa carregar uma imagem grande. Puramente decorativo (sem dado
+     real, sem interação). */
+  .mock-bg {
+    position: fixed; inset: -20px; z-index: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px; padding: 14px;
+    filter: blur(5px);
+    pointer-events: none; user-select: none;
+  }
+  /* Escurece o fundo borrado de forma controlada (independente da cor de
+     cada card) — um filter brightness() direto no .mock-bg escurecia
+     verdes já bem escuros (--bg2/--bg3) até ficarem indistinguíveis do
+     preto da página, sumindo o efeito por completo. */
+  .mock-overlay {
+    position: fixed; inset: 0; z-index: 1;
+    background: rgba(11, 13, 12, .45);
+    pointer-events: none;
+  }
+  .mock-card {
+    /* Um pouco mais claro que --bg2 real de propósito — depois do blur +
+       overlay escurecendo por cima, a cor real do card ficaria fraca
+       demais pra dar a sensação de "grade de cards" no fundo. */
+    background: #232d26; border: 1px solid #3a463d; border-radius: 10px;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .mock-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; }
+  .mock-score { font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+  .mock-dots { display: flex; gap: 3px; }
+  .mock-dots span { width: 8px; height: 8px; border-radius: 50%; }
+  .mock-chart { display: flex; align-items: flex-end; gap: 3px; height: 34px; background: linear-gradient(180deg,#1b3a1b,#0a1a12); border-radius: 4px; padding: 4px; }
+  .mock-chart span { flex: 1; border-radius: 1px; }
+  .mock-pill-row { display: flex; gap: 4px; }
+  .mock-pill { flex: 1; height: 16px; border-radius: 999px; background: var(--bg3); border: 1px solid var(--border); }
+  .mock-btn-row { display: flex; gap: 4px; }
+  .mock-btn { flex: 1; height: 18px; border-radius: 6px; }
+  .mock-btn.solid { background: var(--green); }
+  .mock-btn.alt { background: var(--bg3); border: 1px solid var(--border); }
+
+  /* ── Card de login — "vidro" flutuando sobre o fundo borrado ────────── */
+  .login-wrap {
+    position: relative; z-index: 2; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
   }
   .login-card {
-    width: 100%; max-width: 340px; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 14px; padding: 32px 28px; text-align: center;
+    width: 100%; max-width: 340px; text-align: center;
+    background: rgba(18, 22, 19, 0.82);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 230, 118, 0.25); border-radius: 16px; padding: 34px 28px;
+    box-shadow: 0 0 40px rgba(0, 230, 118, 0.08), 0 20px 50px rgba(0,0,0,.5);
   }
-  /* Espaço reservado pra logo/imagem própria — troque o emoji abaixo por
-     <img src="/static/sua-logo.png" alt="" style="width:100%;height:100%;
-     object-fit:contain"> se quiser usar uma imagem em vez do ícone. */
   .login-logo {
-    width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px;
+    width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 16px;
     background: var(--brand-bg); color: var(--brand);
-    display: flex; align-items: center; justify-content: center; font-size: 30px;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
   }
   .login-title {
     font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif;
-    font-size: 20px; font-weight: 700; margin: 0 0 4px;
+    font-size: 21px; font-weight: 700; margin: 0 0 4px;
   }
   .login-title span { color: var(--brand); }
   .login-sub { font-size: 12px; color: var(--text2); margin: 0 0 24px; }
   .login-input {
-    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    width: 100%; background: rgba(26, 33, 28, .85); border: 1px solid var(--border); border-radius: 8px;
     color: var(--text); font-size: 14px; padding: 11px 14px; margin-bottom: 14px;
   }
   .login-input:focus { outline: none; border-color: var(--brand); }
@@ -53,26 +102,62 @@
   .login-btn:hover { filter: brightness(1.08); }
   .login-btn:active { transform: scale(.98); }
   .login-erro {
-    background: #2a1210; border: 1px solid var(--red); color: var(--red);
+    background: rgba(42, 18, 16, .9); border: 1px solid var(--red); color: var(--red);
     font-size: 12px; border-radius: 8px; padding: 8px 10px; margin-bottom: 14px;
   }
 </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="login-logo">⚽</div>
-    <h1 class="login-title">Gol em <span>Números</span></h1>
-    <p class="login-sub">Acesso restrito — digite a senha pra entrar</p>
-    <div id="loginErro" class="login-erro" style="display:none">Senha incorreta. Tenta de novo.</div>
-    <form method="POST" action="/login">
-      <input class="login-input" type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">
-      <button class="login-btn" type="submit">Entrar</button>
-    </form>
+  <div class="mock-bg" id="mockBg"></div>
+  <div class="mock-overlay"></div>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">⚽</div>
+      <h1 class="login-title">Gol em <span>Números</span></h1>
+      <p class="login-sub">Acesso restrito — digite a senha pra entrar</p>
+      <div id="loginErro" class="login-erro" style="display:none">Senha incorreta. Tenta de novo.</div>
+      <form method="POST" action="/login">
+        <input class="login-input" type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">
+        <button class="login-btn" type="submit">Entrar</button>
+      </form>
+    </div>
   </div>
+
   <script>
     if (new URLSearchParams(location.search).get('erro') === '1') {
       document.getElementById('loginErro').style.display = 'block';
     }
+
+    // Gera os cards de mentira do fundo — dado fictício, só pra parecer os
+    // cards reais da Ao Vivo (placar, forma, mini-gráfico de momentum,
+    // pílulas de odds, botões). Nada aqui é lido de nenhuma API.
+    (function () {
+      const times = ['Rangers', 'Celtic', 'Ajax', 'PSV', 'Boca', 'River', 'Lyon', 'Nice',
+                      'Porto', 'Benfica', 'Genk', 'Brugge', 'Basel', 'Young Boys', 'Slavia', 'Sparta'];
+      const cores = ['var(--green)', 'var(--red)'];
+      const barras = ['var(--blue)', 'var(--orange)'];
+      const wrap = document.getElementById('mockBg');
+      const qtd = Math.ceil((window.innerWidth * window.innerHeight) / 34000);
+      let html = '';
+      for (let i = 0; i < qtd; i++) {
+        const a = times[Math.floor(Math.random() * times.length)];
+        let b = times[Math.floor(Math.random() * times.length)];
+        while (b === a) b = times[Math.floor(Math.random() * times.length)];
+        const golsA = Math.floor(Math.random() * 4), golsB = Math.floor(Math.random() * 4);
+        const dots = Array.from({ length: 5 }, () => cores[Math.random() < 0.6 ? 0 : 1]);
+        const bars = Array.from({ length: 10 }, () => `<span style="height:${10 + Math.random() * 90}%;background:${barras[Math.random() < 0.5 ? 0 : 1]}"></span>`).join('');
+        html += `
+          <div class="mock-card">
+            <div class="mock-head"><span>${a}</span><span class="mock-score">${golsA} - ${golsB}</span><span>${b}</span></div>
+            <div class="mock-dots">${dots.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+            <div class="mock-chart">${bars}</div>
+            <div class="mock-pill-row"><div class="mock-pill"></div><div class="mock-pill"></div><div class="mock-pill"></div></div>
+            <div class="mock-btn-row"><div class="mock-btn solid"></div><div class="mock-btn alt"></div></div>
+          </div>`;
+      }
+      wrap.innerHTML = html;
+    })();
   </script>
 </body>
 </html>
