@@ -14479,6 +14479,7 @@ function renderLive2Card(m) {
         <button class="live-card-cta live-card-cta-alt" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()} Estatísticas</button>
         <button class="live-card-cta live-card-cta-alt" title="Sequências e tendências recentes dos 2 times" onclick="_live2OpenSeqModal('${m.id}')">${_icoTrend()} Tendências</button>
         <button class="live-card-cta live-card-cta-alt" title="Mapa de chutes ao vivo" onclick="_live2OpenShotmapModal('${m.id}')">${_icoBall()} Mapa de Chutes</button>
+        <button class="live-card-cta live-card-cta-alt" title="Média móvel das odds ao vivo (estilo Price Lines) — só carrega quando você abre" onclick="_live2OpenPriceLinesModal('${m.id}')">${_icoTrend()} Price Lines</button>
       </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
@@ -14910,6 +14911,10 @@ function _live2OddsLiveHtml(lo) {
     ${parts.join('')}
   </div>`;
 }
+// pm resolvido (com event_id do Flashscore) por partida do Ao Vivo — guardado
+// aqui só pra quem precisa do event_id sob demanda (Price Lines), sem
+// refazer o fetch/fuzzy-match de /api/painel/matches na hora de abrir o modal.
+let _live2PainelMatchCache = {};
 async function _loadLive2OddsLive(matches) {
   let painelMatches = [];
   try {
@@ -14922,8 +14927,150 @@ async function _loadLive2OddsLive(matches) {
     const key = `${m.casa}|${m.fora}`;
     if (!cache.has(key)) cache.set(key, _live2FindPainelMatch(m.casa, m.fora, painelMatches));
     const pm = cache.get(key);
+    _live2PainelMatchCache[m.id] = pm;
     const wrap = document.getElementById(`live2OddsLiveWrap_${m.id}`);
     if (wrap) wrap.innerHTML = _live2OddsLiveHtml(pm && pm.live_odds);
+  }
+}
+
+// ── Price Lines (2026-09-12) — pedido do usuário depois de ler um artigo
+// sobre trading na Betfair: gráfico de MÉDIA MÓVEL da odds ao vivo (não os
+// pontos crus), mesma ideia do gráfico "Price Lines" do Geeks Toy. Só
+// carrega quando o usuário clica no botão do card — diferente do gráfico de
+// ticks removido mais cedo nesta sessão, aqui não tem nenhum auto-load por
+// card a cada ciclo.
+const _LIVE2_PRICE_LINES_SEL = {
+  casa:     { label: 'Casa (1)',   color: 'var(--accent2)' },
+  empate:   { label: 'Empate (X)', color: '#8b96ad' },
+  fora:     { label: 'Fora (2)',   color: 'var(--red)' },
+  ou_over:  { label: 'Over',       color: 'var(--green)' },
+  ou_under: { label: 'Under',      color: 'var(--yellow)' },
+};
+const _LIVE2_PRICE_LINES_WINDOW_MIN = 15; // mesma janela usada no artigo
+
+function _live2ResolveColor(v) {
+  if (typeof v !== 'string' || !v.startsWith('var(')) return v;
+  const varName = v.slice(4, -1).trim();
+  return (getComputedStyle(document.documentElement).getPropertyValue(varName) || '#888').trim() || '#888';
+}
+
+// Média móvel simples: pra cada ponto, faz a média dos últimos N pontos
+// (N = janela em minutos / 30s de intervalo entre capturas) — suaviza o
+// ruído de tick a tick, igual o gráfico do artigo faz com a odd bruta.
+function _live2MovingAverageSeries(points, sel, windowMin) {
+  const N = Math.max(1, Math.round(windowMin * 60 / 30));
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    const slice = points.slice(Math.max(0, i - N + 1), i + 1)
+      .map(p => p[sel]).filter(v => v != null);
+    if (!slice.length) continue;
+    const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+    out.push({ minuto: points[i].minuto, avg });
+  }
+  return out;
+}
+
+function _live2PriceLinesHtml(points) {
+  const selsComDado = Object.keys(_LIVE2_PRICE_LINES_SEL).filter(sel => points.some(p => p[sel] != null));
+  const legendHtml = selsComDado.map(sel => {
+    const meta = _LIVE2_PRICE_LINES_SEL[sel];
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
+      <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>${meta.label}
+    </span>`;
+  }).join('');
+  return `
+    <div style="font-size:9.5px;color:var(--text2);text-align:center;margin-bottom:6px">Média móvel de ${_LIVE2_PRICE_LINES_WINDOW_MIN}min da odd ao vivo — mesma ideia do gráfico "Price Lines" (Geeks Toy), pra ver a tendência sem o ruído de cada tick isolado.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px">${legendHtml}</div>
+    <canvas id="live2PriceLinesCanvas" height="180" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
+  `;
+}
+
+function _live2DrawPriceLines(points, canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 300, H = canvas.clientHeight || 180;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const sels = Object.keys(_LIVE2_PRICE_LINES_SEL).filter(sel => points.some(p => p[sel] != null));
+  if (!sels.length) return;
+
+  const series = {};
+  sels.forEach(sel => { series[sel] = _live2MovingAverageSeries(points, sel, _LIVE2_PRICE_LINES_WINDOW_MIN); });
+
+  let vmin = Infinity, vmax = -Infinity, mmin = Infinity, mmax = -Infinity;
+  Object.values(series).forEach(s => s.forEach(p => {
+    const minuto = p.minuto ?? 0;
+    if (minuto < mmin) mmin = minuto;
+    if (minuto > mmax) mmax = minuto;
+    if (p.avg < vmin) vmin = p.avg;
+    if (p.avg > vmax) vmax = p.avg;
+  }));
+  if (!isFinite(vmin) || !isFinite(vmax)) return;
+  if (vmin === vmax) { vmin -= 0.1; vmax += 0.1; }
+  if (mmax === mmin) mmax = mmin + 1;
+  const padV = (vmax - vmin) * 0.12 || 0.1;
+  vmin -= padV; vmax += padV;
+
+  const PADL = 34, PADR = 8, PADT = 8, PADB = 16;
+  const plotW = Math.max(W - PADL - PADR, 10), plotH = Math.max(H - PADT - PADB, 10);
+  const xOf = minuto => PADL + ((minuto - mmin) / (mmax - mmin)) * plotW;
+  const yOf = v => PADT + plotH - ((v - vmin) / (vmax - vmin)) * plotH;
+
+  ctx.strokeStyle = 'rgba(128,128,128,.18)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(150,150,150,.7)';
+  ctx.font = '9px sans-serif';
+  for (let i = 0; i <= 3; i++) {
+    const v = vmin + (vmax - vmin) * (i / 3);
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(W - PADR, y); ctx.stroke();
+    ctx.fillText(v.toFixed(2), 2, y + 3);
+  }
+
+  sels.forEach(sel => {
+    const meta = _LIVE2_PRICE_LINES_SEL[sel];
+    ctx.strokeStyle = _live2ResolveColor(meta.color);
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    let started = false;
+    series[sel].forEach(p => {
+      const x = xOf(p.minuto ?? 0), y = yOf(p.avg);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = 'rgba(150,150,150,.7)';
+  ctx.fillText(`${Math.round(mmin)}'`, PADL, H - 4);
+  ctx.fillText(`${Math.round(mmax)}'`, W - PADR - 20, H - 4);
+}
+
+async function _live2OpenPriceLinesModal(matchId) {
+  const { body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — média móvel das odds ao vivo');
+  const pm = _live2PainelMatchCache[matchId];
+  if (!pm || !pm.event_id) {
+    body.innerHTML = `<div class="live-loading">Ainda não encontrei esse jogo na fonte de odds ao vivo (Flashscore) — tenta de novo em alguns segundos, assim que o card carregar a pílula de odds ao vivo o gráfico também fica disponível.</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando histórico de odds...</div>`;
+  try {
+    const r = await fetch(`/api/live_odds_history/${pm.event_id}`);
+    const d = await r.json();
+    const points = d.points || [];
+    if (points.length < 2) {
+      body.innerHTML = `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
+      return;
+    }
+    body.innerHTML = _live2PriceLinesHtml(points);
+    requestAnimationFrame(() => _live2DrawPriceLines(points, 'live2PriceLinesCanvas'));
+  } catch (e) {
+    body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
   }
 }
 

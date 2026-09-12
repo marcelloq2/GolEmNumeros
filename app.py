@@ -8921,18 +8921,74 @@ _live_odds_cache = {}
 _live_odds_lock = threading.Lock()
 _LIVE_ODDS_TTL = 30  # mesma cadência "quase tempo real" já usada pro resto do Ao Vivo
 
+# ── Histórico de odds ao vivo, SÓ SOB DEMANDA (2026-09-12, gráfico "Price
+# Lines" — pedido do usuário depois de ler um artigo sobre trading na
+# Betfair). Diferente da versão removida mais cedo nesta sessão: aqui ninguém
+# busca isso automaticamente pra nenhum card — o front só chama o endpoint
+# abaixo quando o usuário clica pra abrir o gráfico de UM jogo específico.
+# A COLETA em si (esse loop, que já roda de qualquer jeito pra manter a
+# pílula "ODDS AO VIVO" quente) só ganhou mais uma linha pra também guardar
+# cada leitura num histórico limitado — não é uma chamada de rede a mais,
+# só um dict a mais na memória.
+_LIVE_ODDS_HISTORY_MAX_POINTS = 500   # 500 * 30s ≈ 4h10 — folga generosa até pro jogo mais demorado
+_LIVE_ODDS_HISTORY_MAX_AGE = 3 * 3600  # partidas encerradas há mais de 3h saem do cache
+_live_odds_history = {}    # event_id -> deque de pontos {ts, minuto, casa, empate, fora, ou_line, ou_over, ou_under}
+_live_odds_history_lock = threading.Lock()
+
+
+def _live_odds_history_point(d, ts, kickoff_ts):
+    """Monta 1 ponto da série a partir do mesmo dict {'1x2':..., 'ou':...} já
+    calculado pro snapshot (_live_odds_cache) — não busca nada novo."""
+    x1x2 = (d or {}).get("1x2") or {}
+    ou    = (d or {}).get("ou") or {}
+
+    def _val(x):
+        if not x:
+            return None
+        try:
+            return float(x.get("value"))
+        except (TypeError, ValueError):
+            return None
+
+    try:
+        minuto = int((ts - float(kickoff_ts)) / 60) if kickoff_ts else None
+    except (TypeError, ValueError):
+        minuto = None
+
+    return {
+        "ts": ts, "minuto": minuto,
+        "casa":     _val(x1x2.get("casa")),
+        "empate":   _val(x1x2.get("empate")),
+        "fora":     _val(x1x2.get("fora")),
+        "ou_line":  ou.get("line"),
+        "ou_over":  _val(ou.get("over")),
+        "ou_under": _val(ou.get("under")),
+    }
+
+
+def _live_odds_history_prune():
+    """Só varre quando já cresceu bastante — remove partidas cujo último
+    ponto é mais velho que o teto (jogo já encerrou há muito tempo, ninguém
+    mais vai abrir o gráfico dele)."""
+    if len(_live_odds_history) < 200:
+        return
+    now = time.time()
+    stale = [eid for eid, pts in _live_odds_history.items()
+             if not pts or now - pts[-1]["ts"] > _LIVE_ODDS_HISTORY_MAX_AGE]
+    for eid in stale:
+        _live_odds_history.pop(eid, None)
+
+
 def _live_odds_prewarm_loop():
     """Mantém _live_odds_cache quente (usado pela pílula "ODDS AO VIVO" do
-    card, via /api/painel/matches). Até 2026-09-12 também acumulava toda
-    leitura num histórico (_live_odds_history) pra alimentar um gráfico/
-    indicadores de ticks no card — removido a pedido do usuário (mais uma
-    fonte de carga contínua na Ao Vivo, por cima do que já foi cortado do
-    Painel na mesma limpeza)."""
+    card, via /api/painel/matches) e acumula cada leitura em _live_odds_history
+    (usado só sob demanda pelo gráfico "Price Lines" — ver comentário acima)."""
     _github_sync_done.wait(timeout=120)
     while True:
         try:
             fs_matches = _fs_all_matches_brt(_brt_today())
             live_ids = [m["id"] for m in fs_matches if m.get("status") == "2" and m.get("id")]
+            kickoff_by_id = {m["id"]: m.get("kickoff_ts") for m in fs_matches}
 
             def _fetch(eid):
                 try:
@@ -8947,9 +9003,28 @@ def _live_odds_prewarm_loop():
             with _live_odds_lock:
                 _live_odds_cache.clear()
                 _live_odds_cache.update(novo)
+
+            ts_agora = time.time()
+            with _live_odds_history_lock:
+                for eid, d in novo.items():
+                    ponto = _live_odds_history_point(d, ts_agora, kickoff_by_id.get(eid))
+                    if eid not in _live_odds_history:
+                        _live_odds_history[eid] = deque(maxlen=_LIVE_ODDS_HISTORY_MAX_POINTS)
+                    _live_odds_history[eid].append(ponto)
+                _live_odds_history_prune()
         except Exception as e:
             print(f"[live-odds-prewarm] Erro: {e}")
         time.sleep(_LIVE_ODDS_TTL)
+
+
+@app.route("/api/live_odds_history/<event_id>")
+def api_live_odds_history(event_id):
+    """Série histórica de odds ao vivo (1X2 + Over/Under) pra essa partida —
+    base do gráfico "Price Lines" (média móvel), chamado só quando o usuário
+    abre o gráfico de um jogo específico, nunca automaticamente."""
+    with _live_odds_history_lock:
+        pts = list(_live_odds_history.get(event_id, []))
+    return jsonify({"ok": True, "event_id": event_id, "points": pts})
 
 
 @app.route("/api/flashscore/odds_all")
