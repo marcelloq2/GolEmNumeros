@@ -14020,6 +14020,13 @@ function _live2UpdateCardNumbers(m) {
 // /api/radar/live, ver _live_2t_indicadores em app.py) — recalculado a cada
 // poll, então o badge some sozinho assim que a condição deixa de bater
 // (time líder sofre gol, ou time atrás marca).
+// Escapa aspas duplas pra usar nome de time (vem de scraping, pode ter
+// apóstrofo tipo "St. John's" mas raramente aspas dupla) dentro de um
+// atributo title="..." sem quebrar a tag.
+function _live2EscAttr(s) {
+  return String(s ?? '').replace(/"/g, '&quot;');
+}
+
 function _live2Ind2tBadgeHtml(m) {
   const badges = [];
   if (m.ind2t_lider_sem_sofrer) {
@@ -14049,7 +14056,7 @@ function renderLive2Card(m) {
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start">
             <div class="live-card-team" style="justify-content:flex-start">
               <span id="live2EscudoCasa_${m.id}"></span>
-              <span class="tname">${m.casa}</span>
+              <span class="tname" title="${_live2EscAttr(m.casa)}">${m.casa}</span>
               <span id="live2PosCasa_${m.id}" style="color:var(--yellow);font-size:11px;font-weight:700"></span>
             </div>
             <div id="live2FormWrapCasa_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.casa || ''}</div>
@@ -14061,7 +14068,7 @@ function renderLive2Card(m) {
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end">
             <div class="live-card-team" style="justify-content:flex-end;text-align:right">
               <span id="live2PosFora_${m.id}" style="color:var(--yellow);font-size:11px;font-weight:700"></span>
-              <span class="tname">${m.fora}</span>
+              <span class="tname" title="${_live2EscAttr(m.fora)}">${m.fora}</span>
               <span id="live2EscudoFora_${m.id}"></span>
             </div>
             <div id="live2FormWrapFora_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.fora || ''}</div>
@@ -14636,8 +14643,11 @@ async function _loadLive2Escudos(matches) {
 function _live2ApplyEscudo(matchId, escudos) {
   const casaEl = document.getElementById(`live2EscudoCasa_${matchId}`);
   const foraEl = document.getElementById(`live2EscudoFora_${matchId}`);
-  if (casaEl) casaEl.innerHTML = _today2EscudoImg(escudos && escudos.casa);
-  if (foraEl) foraEl.innerHTML = _today2EscudoImg(escudos && escudos.fora);
+  // 28px em vez do padrão 16px de _today2EscudoImg (só aqui na Ao Vivo, os
+  // outros usos continuam no tamanho original) — pedido do usuário
+  // (2026-09-11): escudo pequeno demais pra reconhecer o time de relance.
+  if (casaEl) casaEl.innerHTML = _today2EscudoImg(escudos && escudos.casa, 28);
+  if (foraEl) foraEl.innerHTML = _today2EscudoImg(escudos && escudos.fora, 28);
 }
 
 // Odds AO VIVO (bet365, se movem de verdade durante a partida) — pedido do
