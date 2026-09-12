@@ -14104,10 +14104,10 @@ function renderLive2Card(m) {
            minuto). Fica fora do live-card-body de propósito (como já era),
            pra manter a borda/padding próprios de .live-card-odds-row. -->
       <div id="live2OddsLiveWrap_${m.id}"></div>
-      <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
-        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
-      </div>
-      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
+      <!-- Odds PRÉ-jogo (pílulas 1/X/2/Over/Under) logo abaixo da ODDS AO VIVO
+           — pedido do usuário (2026-09-12): antes ficava lá embaixo, depois
+           do mapa de chutes, longe da odds ao vivo (fazia sentido juntar os
+           dois blocos de odds, um do lado do outro). -->
       ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
       <div class="live-card-odds-row">
         <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${m.odd_1 || '-'}</span></div>
@@ -14116,6 +14116,10 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Over</span><span class="live-card-odds-val oover">${m.odd_over || '-'}</span></div>
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
+      <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
+        <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
+      </div>
+      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-cta-row">
         <button class="live-card-cta" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
