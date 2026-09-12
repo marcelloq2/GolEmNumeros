@@ -1153,166 +1153,6 @@ def api_painel_tips_user():
     return jsonify(data)
 
 
-# ── Watchlist de tipsters — avisa no Telegram a cada prognóstico novo ─────────
-TIPSTER_WATCH_DB_PATH = os.path.join(DATA_DIR, "tipster_watch.db")
-_tipster_watch_db_lock = threading.Lock()
-_TIPSTER_WATCH_POLL_INTERVAL = 5 * 60  # 5min — dicas novas valem a pena avisar rápido
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-
-
-def _tipster_watch_db():
-    conn = sqlite3.connect(TIPSTER_WATCH_DB_PATH, timeout=30)
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS watched_tipster (
-            user_id TEXT PRIMARY KEY,
-            user_name TEXT,
-            added_ts INTEGER
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS seen_tip (
-            user_id TEXT NOT NULL,
-            tip_id TEXT NOT NULL,
-            PRIMARY KEY (user_id, tip_id)
-        )
-    """)
-    return conn
-
-
-def _telegram_send(text):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[tipster-watch] TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID não configurados — aviso não enviado")
-        return
-    try:
-        http_req.post(
-            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            data={"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"[tipster-watch] Erro enviando pro Telegram: {e}")
-
-
-@app.route("/api/painel/tips_watchlist")
-def api_painel_tips_watchlist():
-    with _tipster_watch_db_lock:
-        conn = _tipster_watch_db()
-        try:
-            rows = conn.execute("SELECT user_id, user_name FROM watched_tipster").fetchall()
-        finally:
-            conn.close()
-    return jsonify({"watched": [{"user_id": r[0], "user_name": r[1]} for r in rows]})
-
-
-@app.route("/api/painel/tips_watch", methods=["POST"])
-def api_painel_tips_watch():
-    body = request.get_json(silent=True) or {}
-    user_id = str(body.get("user_id", ""))
-    user_name = body.get("user_name", "")
-    if not user_id or not user_id.isdigit():
-        return jsonify({"error": "user_id inválido"}), 400
-    with _tipster_watch_db_lock:
-        conn = _tipster_watch_db()
-        try:
-            conn.execute(
-                "INSERT OR REPLACE INTO watched_tipster (user_id, user_name, added_ts) VALUES (?,?,?)",
-                (user_id, user_name, int(time.time())),
-            )
-            # Marca as dicas já existentes como "vistas" — só quer aviso de dicas NOVAS
-            # a partir de agora, não um spam retroativo de tudo que o tipster já postou.
-            try:
-                data = _tips_fetch_user_tips_raw(user_id)
-                for t in (data.get("list") or []):
-                    conn.execute("INSERT OR IGNORE INTO seen_tip (user_id, tip_id) VALUES (?,?)", (user_id, str(t["id"])))
-            except Exception:
-                pass
-            conn.commit()
-        finally:
-            conn.close()
-    github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
-    return jsonify({"ok": True})
-
-
-@app.route("/api/painel/tips_unwatch", methods=["POST"])
-def api_painel_tips_unwatch():
-    body = request.get_json(silent=True) or {}
-    user_id = str(body.get("user_id", ""))
-    with _tipster_watch_db_lock:
-        conn = _tipster_watch_db()
-        try:
-            conn.execute("DELETE FROM watched_tipster WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM seen_tip WHERE user_id=?", (user_id,))
-            conn.commit()
-        finally:
-            conn.close()
-    github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
-    return jsonify({"ok": True})
-
-
-def _tipster_watch_poll_cycle():
-    with _tipster_watch_db_lock:
-        conn = _tipster_watch_db()
-        try:
-            watched = conn.execute("SELECT user_id, user_name FROM watched_tipster").fetchall()
-        finally:
-            conn.close()
-
-    for user_id, user_name in watched:
-        try:
-            data = _tips_fetch_user_tips_raw(user_id)
-        except Exception as e:
-            print(f"[tipster-watch] Erro buscando dicas de {user_name} ({user_id}): {e}")
-            continue
-        tips = data.get("list") or []
-        if not tips:
-            continue
-
-        with _tipster_watch_db_lock:
-            conn = _tipster_watch_db()
-            try:
-                seen_ids = {row[0] for row in conn.execute("SELECT tip_id FROM seen_tip WHERE user_id=?", (user_id,)).fetchall()}
-                new_tips = [t for t in tips if str(t["id"]) not in seen_ids]
-                for t in new_tips:
-                    conn.execute("INSERT OR IGNORE INTO seen_tip (user_id, tip_id) VALUES (?,?)", (user_id, str(t["id"])))
-                conn.commit()
-            finally:
-                conn.close()
-
-        for t in new_tips:
-            try:
-                pick = _tips_fetch_article_pick(t["id"])
-            except Exception:
-                pick = None
-            match = f"{t.get('hname', '')} x {t.get('gname', '')}".strip()
-            league = t.get("fname") or t.get("sname") or ""
-            pick_line = "palpite indisponível"
-            if pick:
-                lado = pick["home_label"] if pick.get("home_pick") else pick["away_label"]
-                odd = pick["home_odd"] if pick.get("home_pick") else pick["away_odd"]
-                linha = f" {pick['line']}" if pick.get("line") else ""
-                pick_line = f"{lado}{linha} @ {odd}"
-            text = (
-                f"🔔 <b>{user_name}</b> postou novo prognóstico\n"
-                f"🏆 {league}\n"
-                f"⚽ {match}\n"
-                f"🎯 {pick_line}"
-            )
-            _telegram_send(text)
-
-
-def _tipster_watch_loop():
-    _github_sync_done.wait(timeout=120)  # espera a restauração do GitHub terminar antes do 1º ciclo
-    while True:
-        try:
-            _tipster_watch_poll_cycle()
-            github_storage.push_file_bg(TIPSTER_WATCH_DB_PATH, "tipster_watch.db")
-        except Exception as e:
-            print(f"[tipster-watch] Erro no ciclo: {e}")
-        time.sleep(_TIPSTER_WATCH_POLL_INTERVAL)
-
-
 def _painel_fetch_matches_nowgoal(force=False, date_str=None):
     """Versão NowGoal — só serve o dia atual por enquanto (o feed do NowGoal não
     tem parâmetro de data ainda descoberto; navegação por calendário fica limitada
@@ -4625,10 +4465,10 @@ def _background_monitor():
 threading.Thread(target=_background_monitor, daemon=True, name="MomentumMonitor").start()
 
 # Restaura dados do GitHub ao iniciar (backtest + momentum_history + shotmap_history + cache).
-# _github_sync_done é usado pelo loop de watchlist pra esperar essa restauração
-# terminar antes do 1º ciclo — sem isso, o 1º ciclo (que roda quase instantaneamente)
-# criava um banco novo VAZIO local e o dava PUSH pro GitHub antes dessa restauração
-# (mais lenta, sequencial) conseguir baixar a versão de verdade, apagando o backup bom.
+# _github_sync_done é usado por outros loops de prewarm (ex: odds ao vivo) pra
+# esperar essa restauração terminar antes do 1º ciclo — sem isso, um ciclo que
+# roda quase instantaneamente correria contra a restauração (mais lenta,
+# sequencial) e poderia sobrescrever/pushar um estado local ainda incompleto.
 _github_sync_done = threading.Event()
 
 
@@ -12182,7 +12022,6 @@ def api_lay_placar_config():
             return jsonify({})
 
 
-threading.Thread(target=_tipster_watch_loop, daemon=True, name="TipsterWatch").start()
 # Só aqui embaixo (não perto dos outros threading.Thread(...).start() lá em
 # cima) porque _painel_odds_prewarm_loop chama _today2_odds_snapshot, definida
 # bem mais abaixo no arquivo — startar essa thread mais cedo deu NameError na

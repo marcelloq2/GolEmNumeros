@@ -3084,8 +3084,7 @@ const APP_GUIA_SECTIONS = {
 
       _guiaSec(_icoTrophy(), 'Metodologias — ranking de tipsters', `
         Filtros no topo: <b>Semana/Mês</b> (período) e <b>Taxa de Vitória/ROI</b> (métrica de ordenação) — pra lucrar mais, ROI costuma ser o filtro mais confiável, já que Taxa de Vitória sozinha não pesa o tamanho da odd. Um terceiro botão, <b>"Previsões mais acertivas"</b>, troca a lista pra mostrar o mercado (Handicap Asiático/Over-Under/1X2) em que cada tipster mais acerta.<br><br>
-        Clique num tipster pra abrir os prognósticos recentes dele, com liga, confronto, placar, resultado (✓/✗) e o palpite real (não a descrição bloqueada/paga).<br><br>
-        <b>🔔 Sino:</b> ativa o acompanhamento daquele tipster — você recebe uma mensagem no Telegram assim que ele publicar um prognóstico novo (checagem a cada 5min). Clique de novo pra parar de receber.`),
+        Clique num tipster pra abrir os prognósticos recentes dele, com liga, confronto, placar, resultado (✓/✗) e o palpite real (não a descrição bloqueada/paga).`),
     ].join(''),
   },
 
@@ -5405,40 +5404,11 @@ function _painelMethTabsHtml() {
     </div>`;
 }
 
-let _painelWatchedTipsters = new Set(); // uids (string) sendo acompanhados no Telegram
 let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado, pra mostrar na linha do ranking
 let _painelDrawdownStatCache = {}; // uid -> { maxWinStreak, maxLossStreak } já calculado, pra mostrar na linha do ranking
 
-function _painelLoadWatchlist() {
-  return fetch('/api/painel/tips_watchlist')
-    .then(r => r.json())
-    .then(d => { _painelWatchedTipsters = new Set((d.watched || []).map(w => String(w.user_id))); })
-    .catch(() => {});
-}
-
-function _painelToggleWatch(ev, uid, uname, btn) {
-  ev.stopPropagation();
-  const key = String(uid);
-  const isWatched = _painelWatchedTipsters.has(key);
-  const url = isWatched ? '/api/painel/tips_unwatch' : '/api/painel/tips_watch';
-  const bodyData = isWatched ? { user_id: key } : { user_id: key, user_name: uname };
-  btn.disabled = true;
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) })
-    .then(r => r.json())
-    .then(d => {
-      if (d.ok) {
-        if (isWatched) _painelWatchedTipsters.delete(key); else _painelWatchedTipsters.add(key);
-        btn.textContent = isWatched ? '🔕' : '🔔';
-        btn.title = isWatched ? 'Adicionar aos avisos do Telegram' : 'Remover dos avisos do Telegram (já está recebendo)';
-        btn.classList.toggle('active', !isWatched);
-      }
-    })
-    .finally(() => { btn.disabled = false; });
-}
-
 function _painelMethItemShell(u, statsHtml) {
   const nameEsc = String(u.uname).replace(/'/g, "\\'");
-  const isWatched = _painelWatchedTipsters.has(String(u.uid));
   return `
     <div class="painel-meth-item" onclick="_painelOpenUserTips(${u.uid},'${nameEsc}')">
       <div class="painel-meth-item-head">
@@ -5453,8 +5423,6 @@ function _painelMethItemShell(u, statsHtml) {
       <div class="painel-meth-item-footer">
         <button class="painel-meth-watch-btn" title="Ver gráfico de profit acumulado"
           onclick="event.stopPropagation(); _painelOpenProfitChart(${u.uid}, '${nameEsc}')">${_icoTrend()}</button>
-        <button class="painel-meth-watch-btn ${isWatched ? 'active' : ''}" title="${isWatched ? 'Remover dos avisos do Telegram (já está recebendo)' : 'Adicionar aos avisos do Telegram'}"
-          onclick="_painelToggleWatch(event, ${u.uid}, '${nameEsc}', this)">${isWatched ? '🔔' : '🔕'}</button>
       </div>
     </div>`;
 }
@@ -5463,7 +5431,7 @@ function _painelLoadMethodologies() {
   const el = document.getElementById('painelMethodologiesView');
   el.innerHTML = _painelMethTabsHtml() + `<div id="painelMethList"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>`;
 
-  _painelLoadWatchlist().then(() => _painelLoadMethodologiesList());
+  _painelLoadMethodologiesList();
 }
 
 function _painelLoadMethodologiesList() {

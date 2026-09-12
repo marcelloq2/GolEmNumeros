@@ -263,10 +263,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # recente, senão um redeploy no Railway apagava a configuração do servidor
         # e cada aparelho ia depender só do que tinha salvo localmente de novo.
         pull_file("lay_placar_config.json", os.path.join(data_dir, "lay_placar_config.json"), force=True)
-        # Watchlist de tipsters (Telegram) — mesmo problema: sem isso, cada
-        # redeploy apagava quem estava sendo acompanhado (o sino voltava a
-        # aparecer desmarcado).
-        pull_file("tipster_watch.db", os.path.join(data_dir, "tipster_watch.db"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)
