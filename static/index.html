@@ -1090,14 +1090,14 @@
      Escalações/Estatísticas em vez de casa de aposta, na cor de marca em vez
      de laranja (mantém a identidade verde já estabelecida no DESIGN.md). */
   .live-card-cta-row {
-    display: flex; gap: 8px; padding: 10px 16px 0;
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0;
   }
   .live-card-cta {
-    flex: 1; font-family: var(--font-condensed); font-size: 12px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .4px; padding: 9px 8px; border-radius: 8px;
+    flex: 1 1 calc(50% - 6px); min-width: 90px; font-family: var(--font-condensed); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px; padding: 8px 6px; border-radius: 8px;
     border: 1px solid transparent; cursor: pointer; transition: filter .15s, transform .1s;
-    background: var(--green); color: #04270f;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--green); color: #04270f; white-space: nowrap;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
   }
   .live-card-cta-alt { background: var(--bg3); color: var(--text); border-color: var(--border); }
   .live-card-cta:hover { filter: brightness(1.08); }
@@ -14015,7 +14015,12 @@ function renderLive2Card(m) {
           <div id="live2Minute_${m.id}" class="live-card-meta" style="margin-top:0">${m.minuto || '--'}</div>
         </div>
         <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
-        <div id="live2SeqBadge_${m.id}"></div>
+        <!-- A lista de sequências/tendências (_live2SeqBadgeHtml) continua sendo
+             calculada e escrita aqui do jeito que sempre foi — só que o div virou
+             um depósito invisível em vez de aparecer sempre no card (empurrava o
+             card inteiro pra baixo com 10+ linhas por partida, 2026-09-11). O
+             botão "Tendências" no rodapé abre num modal em cima deste conteúdo. -->
+        <div id="live2SeqBadge_${m.id}" style="display:none"></div>
       </div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
@@ -14034,6 +14039,7 @@ function renderLive2Card(m) {
       <div class="live-card-cta-row">
         <button class="live-card-cta" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-cta live-card-cta-alt" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()} Estatísticas</button>
+        <button class="live-card-cta live-card-cta-alt" title="Sequências e tendências recentes dos 2 times" onclick="_live2OpenSeqModal('${m.id}')">${_icoTrend()} Tendências</button>
       </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Gráfico de odds ao vivo (1X2 + Over/Under) — histórico, taxa e ticks por minuto" onclick="_live2OpenOddsChartModal('${m.id}')">📈</button>
@@ -14239,6 +14245,18 @@ function _live2OpenStatsModal(matchId) {
 function _live2OpenLineupModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'lineup', 'Escalações');
   body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+}
+
+// Reaproveita o conteúdo já calculado por _live2AutoLoadForms em
+// #live2SeqBadge_<id> (o div ficou display:none no card, 2026-09-11 — a
+// lista de sequências/tendências empurrava o card todo pra baixo) em vez de
+// recalcular nada aqui.
+function _live2OpenSeqModal(matchId) {
+  const { body } = _live2OpenModalCommon(matchId, 'seq', 'Tendências');
+  const src = document.getElementById(`live2SeqBadge_${matchId}`);
+  body.innerHTML = (src && src.innerHTML.trim())
+    ? src.innerHTML
+    : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
 }
 
 // ── Gráfico de odds ao vivo (1X2 + Over/Under) — pedido do usuário
