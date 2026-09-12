@@ -947,10 +947,19 @@
      inteira) — com auto-fit ou 1fr, poucos jogos ao vivo viravam 1-2 cards
      gigantes, exatamente o que ele não queria. */
   #live2GridWrap { grid-template-columns: repeat(auto-fill, minmax(280px, 320px)); }
+  /* Cada card tem uma quantidade diferente de conteúdo (nº de selos de
+     pressão, mapa de chutes confirmado ou não, odds ao vivo disponível ou
+     não) — como a grade (grid) já estica todo card da mesma linha pra
+     mesma altura por padrão, virar flex-column + empurrar os botões pro
+     rodapé com margin-top:auto (ver .live-card-cta-row) é o que faz os
+     botões ficarem todos na mesma altura entre os cards, em vez de cada um
+     "flutuar" numa posição diferente dependendo do quanto de conteúdo veio
+     antes (pedido do usuário, 2026-09-11: "está tudo desconfigurado"). */
   .live-card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
     overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s;
     border-left: 3px solid var(--border);
+    display: flex; flex-direction: column;
   }
   .live-card:hover { border-color: var(--accent); transform: translateY(-1px); }
   .live-card:hover { border-left-color: var(--accent); }
@@ -1097,6 +1106,9 @@
      de laranja (mantém a identidade verde já estabelecida no DESIGN.md). */
   .live-card-cta-row {
     display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0;
+    /* Empurra os botões (+ a linha de ícones logo abaixo) pro rodapé do
+       card — ver comentário em .live-card sobre alinhamento entre cards. */
+    margin-top: auto;
   }
   .live-card-cta {
     flex: 1 1 calc(50% - 6px); min-width: 90px; font-family: var(--font-condensed); font-size: 11px; font-weight: 700;
@@ -14086,11 +14098,16 @@ function renderLive2Card(m) {
              botão "Tendências" no rodapé abre num modal em cima deste conteúdo. -->
         <div id="live2SeqBadge_${m.id}" style="display:none"></div>
       </div>
+      <!-- Odds ao vivo (pílula 🔴 ODDS AO VIVO) movida pra logo abaixo do
+           minuto — pedido do usuário (2026-09-11), antes ficava lá embaixo
+           depois do mapa de chutes, longe de onde o olho já está (placar +
+           minuto). Fica fora do live-card-body de propósito (como já era),
+           pra manter a borda/padding próprios de .live-card-odds-row. -->
+      <div id="live2OddsLiveWrap_${m.id}"></div>
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
-      <div id="live2OddsLiveWrap_${m.id}"></div>
       ${(m.odd_1 || m.odd_x || m.odd_2 || m.odd_over || m.odd_under) ? `
       <div class="live-card-odds-row">
         <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${m.odd_1 || '-'}</span></div>
