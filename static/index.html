@@ -2415,6 +2415,15 @@
                  background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;
                  width:260px;max-height:320px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
           </div>
+          <!-- Filtro por indicador (2026-09-12) — texto livre que bate contra
+               os indicadores AO VIVO já mostrados no card (2ºT + os 13 outros
+               de _live2ExtraIndicatorsHtml), tipo "pressão", "xG", "não
+               finaliza". Client-side só (mesmo padrão do filtro de nome) —
+               os indicadores são recalculados a cada ciclo, não dá pra
+               filtrar isso ANTES do teto como liga/equipe. -->
+          <input id="live2IndicatorFilterInput" type="text" placeholder="Filtrar por indicador (ex: pressão, xG)..." oninput="_live2SetIndicatorFilter(this.value)"
+            style="background:var(--bg3);border:1px solid var(--border);border-radius:999px;
+                   color:var(--text);font-size:11px;padding:5px 12px;width:210px;max-width:40vw">
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
@@ -13968,15 +13977,37 @@ function _live2SetSearch(texto) {
   _live2SearchText = _normLive2(texto);
   _live2ApplySearchFilter();
 }
+
+// Filtro por indicador (2026-09-12) — mesmo princípio do filtro de nome
+// acima (client-side, sem mexer no array `matches`), só que compara contra
+// o TEXTO já renderizado dos indicadores do card (live2Ind2t_ + live2LiveIndBadge_)
+// em vez dos dados da partida. Como os indicadores mudam sozinhos a cada
+// ciclo (pressão sobe/desce, chute rola, etc.), esse filtro precisa ser
+// reaplicado toda vez que esses divs são reescritos — não só quando o
+// usuário digita — por isso _live2RefreshBadges também chama
+// _live2ApplySearchFilter no final (ver mais abaixo no arquivo).
+let _live2IndicatorFilterText = '';
+function _live2SetIndicatorFilter(texto) {
+  _live2IndicatorFilterText = _normLive2(texto);
+  _live2ApplySearchFilter();
+}
+
 function _live2ApplySearchFilter() {
   for (const m of live2MatchesCache) {
     const card = document.getElementById(`live2Card_${m.id}`);
     if (!card) continue;
-    const bate = !_live2SearchText
+    const bateNome = !_live2SearchText
       || _normLive2(m.casa).includes(_live2SearchText)
       || _normLive2(m.fora).includes(_live2SearchText)
       || _normLive2(m.liga).includes(_live2SearchText);
-    card.style.display = bate ? '' : 'none';
+    let bateIndicador = true;
+    if (_live2IndicatorFilterText) {
+      const ind2tEl = document.getElementById(`live2Ind2t_${m.id}`);
+      const liveIndEl = document.getElementById(`live2LiveIndBadge_${m.id}`);
+      const textoIndicadores = _normLive2(`${ind2tEl?.textContent || ''} ${liveIndEl?.textContent || ''}`);
+      bateIndicador = textoIndicadores.includes(_live2IndicatorFilterText);
+    }
+    card.style.display = (bateNome && bateIndicador) ? '' : 'none';
   }
 }
 
@@ -15543,7 +15574,13 @@ async function _live2RefreshBadges(matchId) {
   const comboHtml    = _live2CombinedSignalBadgeHtml(points, shots, m);
 
   const liveIndEl = document.getElementById(`live2LiveIndBadge_${matchId}`);
-  if (liveIndEl) liveIndEl.innerHTML = _live2ExtraIndicatorsHtml(m, shots, points, goals);
+  if (liveIndEl) {
+    liveIndEl.innerHTML = _live2ExtraIndicatorsHtml(m, shots, points, goals);
+    // Os indicadores desse card acabaram de mudar — se o filtro por
+    // indicador estiver ativo, reaplica pra esse card refletir na hora
+    // (sem esperar o usuário digitar de novo ou o próximo ciclo inteiro).
+    if (_live2IndicatorFilterText) _live2ApplySearchFilter();
+  }
 
   const freshBadgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
   if (!freshBadgeEl) return;
