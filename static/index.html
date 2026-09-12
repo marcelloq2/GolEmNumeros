@@ -1128,6 +1128,12 @@
     font-family: var(--font-body); font-size: 11px; margin-top: 4px;
   }
   .live2-stat-row .live2-stat-dot { display: inline-block; justify-self: start; width: 16px; height: 16px; border-radius: 50%; }
+  /* Tira horizontal só com as bolinhas de domínio (sem os textos de %/janela
+     que ficavam por trás) — pedido do usuário (2026-09-11): as 3 linhas de
+     termômetro + toques/chutes na área ocupavam espaço demais no card; os
+     dados detalhados continuam disponíveis no modal de Estatísticas. */
+  .live2-dot-strip { display: flex; justify-content: center; gap: 10px; margin-top: 4px; }
+  .live2-dot-strip .live2-stat-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
   .live-view-toggle {
     display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0;
   }
@@ -15121,14 +15127,21 @@ async function _live2RefreshBadges(matchId) {
     const full = _live2ThermometerScore(points, shots, m, null);
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
-    const thermoInner = `
-      ${_live2ThermometerHtml(full, 'Partida toda', 'Acumula pressão + chutes da partida inteira, mais xG oficial — leitura mais estável, muda pouco a cada atualização', _live2ThermoDominanceIconHtml(matchId, full, 'thermo_full', 'Partida toda'))}
-      ${_live2ThermometerHtml(w10, 'Últimos 10min', 'Só considera pressão e chutes dos últimos 10 minutos reais de jogo — mais sensível ao que está acontecendo agora', _live2ThermoDominanceIconHtml(matchId, w10, 'thermo_10', 'Últimos 10min'))}
-      ${_live2ThermometerHtml(w5, 'Últimos 5min', 'Só considera pressão e chutes dos últimos 5 minutos reais de jogo — a leitura mais "quente", pode oscilar bastante', _live2ThermoDominanceIconHtml(matchId, w5, 'thermo_5', 'Últimos 5min'))}
-      ${_live2RateStatsHtml(m)}`;
+    // Só as bolinhas de domínio, sem os textos de %/janela por trás (que
+    // ficavam pesados demais no card) — cada chamada abaixo ainda atualiza
+    // _live2DotCounts via _live2TallyDot (efeito colateral), então o contador
+    // "🔵 Casa X · 🔴 Visitante Y" continua contando certo. Os números
+    // detalhados (Partida toda/10min/5min, Toques/Chutes na área) continuam
+    // no modal de Estatísticas, só saíram do card por padrão.
+    const dotsHtml = [
+      _live2ThermoDominanceIconHtml(matchId, full, 'thermo_full', 'Partida toda'),
+      _live2ThermoDominanceIconHtml(matchId, w10, 'thermo_10', 'Últimos 10min'),
+      _live2ThermoDominanceIconHtml(matchId, w5, 'thermo_5', 'Últimos 5min'),
+    ].join('');
+    const dotStrip = dotsHtml ? `<div class="live2-dot-strip">${dotsHtml}</div>` : '';
     // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
     // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
-    thermoEl.innerHTML = _live2DotCounterHtml(matchId) + thermoInner;
+    thermoEl.innerHTML = _live2DotCounterHtml(matchId) + dotStrip;
   }
 }
 
