@@ -1762,15 +1762,12 @@ def _compute_power_index(standings_rows):
     return out
 
 
-# Ataque/Defesa (Power Ranking) de cada time, mantido quente em BACKGROUND —
-# mesmo motivo/padrão de _painel_odds_prewarm_loop/_painel_ht_prewarm_loop:
-# calcular isso pra ~300 ligas diferentes do Painel na hora da requisição
-# levaria minutos. Chave "time|país" (não só o nome do time) pra reduzir
-# colisão entre times de mesmo nome em países diferentes — ainda pode colidir
-# entre 2 competições do MESMO país com time de nome igual (raro, aceito).
+# Ataque/Defesa (Power Ranking) de cada time. Chave "time|país" (não só o
+# nome do time) pra reduzir colisão entre times de mesmo nome em países
+# diferentes — ainda pode colidir entre 2 competições do MESMO país com time
+# de nome igual (raro, aceito).
 _painel_power_cache = {}
 _painel_power_lock = threading.Lock()
-_PAINEL_POWER_TTL = 900  # 15min — classificação de liga muda pouco durante o dia
 
 # Persistência do cache (sobrevive a redeploy do Railway, que apaga o disco
 # local) — mesmo padrão do _shotmap_live_cache: arquivo local pequeno restaurado
@@ -1799,57 +1796,23 @@ def _save_painel_power_cache(cache: dict):
         print(f"[painel-power] Erro ao salvar cache: {e}")
 
 
-def _painel_power_prewarm_loop():
+def _painel_power_cache_load_once():
+    """Carrega o cache persistido de Power Ranking (ícones Ataque/Defesa) uma
+    única vez no boot, sem loop recorrente. Antes existia um
+    `_painel_power_prewarm_loop` que recalculava isso do zero a cada 15min
+    pra ~300 ligas, usando o mesmo pool de 12 workers (_fs_event_pool) que a
+    Ao Vivo usa em tempo real pra odds/H2H/HT — competia direto com a Ao Vivo
+    e ficou identificado como a maior fonte de congestionamento que sobrou
+    depois dos outros 2 fixes de performance dessa sessão (lazy Tendências +
+    filtro de competições). Removido a pedido do usuário (2026-09-12). Os
+    ícones continuam sendo atualizados por _painel_shift_prewarm_sweep (3x/
+    dia, só pros jogos do turno que vai começar, pool dedicado) — passa de
+    "atualiza a cada 15min pra ~300 ligas" pra "atualiza algumas horas antes
+    do jogo pras ligas que importam agora", bem mais barato pro mesmo efeito
+    prático (ícone de Ataque/Defesa não muda de uma hora pra outra)."""
     _github_sync_done.wait(timeout=120)
     with _painel_power_lock:
         _painel_power_cache.update(_load_painel_power_cache())
-    while True:
-        try:
-            data = _painel_fetch_matches_flashscore()
-            leagues = data.get("leagues", [])
-            # 1 jogo representante por liga só pra achar a tabela de
-            # classificação inteira daquela competição (_fs_standings é por
-            # event_id, mas a tabela que ele devolve é da liga toda).
-            reps = []
-            for lg in leagues:
-                for m in lg["matches"]:
-                    if m.get("event_id"):
-                        reps.append((lg.get("country", ""), m["event_id"]))
-                        break
-
-            def _fetch_one(item):
-                country, event_id = item
-                try:
-                    rows = _fs_standings(event_id)
-                    return country, _compute_power_index(rows)
-                except Exception:
-                    return country, {}
-
-            # Atualiza o cache INCREMENTALMENTE, liga por liga, em vez de
-            # esperar as ~300 ligas todas terminarem pra só então publicar —
-            # com só 12 workers, um ciclo completo pode levar minutos; sem
-            # isso, o Painel inteiro ficava sem nenhum ícone até o ciclo
-            # inteiro fechar. Também nunca limpa o cache entre ciclos: dado
-            # de ataque/defesa de temporada não fica "errado" de um ciclo pro
-            # outro, só desatualizado por alguns minutos — prefere manter o
-            # que já tem a apagar tudo e recomeçar do zero a cada 15min.
-            total = 0
-            for country, indices in _fs_event_pool.map(_fetch_one, reps):
-                if not indices:
-                    continue
-                pais_norm = (country or "").strip().lower()
-                with _painel_power_lock:
-                    for team_norm, icons in indices.items():
-                        _painel_power_cache[f"{team_norm}|{pais_norm}"] = icons
-                total += len(indices)
-            print(f"[painel-power] {total} time(s) com Power Ranking calculado ({len(reps)} liga(s) verificada(s))")
-            with _painel_power_lock:
-                snapshot = dict(_painel_power_cache)
-            _save_painel_power_cache(snapshot)
-            github_storage.push_file_bg(_PAINEL_POWER_CACHE_FILE, ".painel_power_cache.json")
-        except Exception as e:
-            print(f"[painel-power] Erro: {e}")
-        time.sleep(_PAINEL_POWER_TTL)
 
 
 # ── Pré-carga por TURNO da coluna "Forma" (Power Ranking) + odds 1X2 ─────────
@@ -2134,7 +2097,8 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             odds_by_id.setdefault(eid, markets)
 
     # Ataque/Defesa (Power Ranking) — mesma ideia de só LER o cache quente em
-    # background (ver _painel_power_prewarm_loop), nunca calcular na hora.
+    # background (ver _painel_power_cache_load_once/_painel_shift_prewarm_
+    # sweep), nunca calcular na hora.
     with _painel_power_lock:
         power_snapshot = dict(_painel_power_cache)
 
@@ -12040,7 +12004,7 @@ def api_lay_placar_config():
 threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOddsPrewarm").start()
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
 threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrewarm").start()
-threading.Thread(target=_painel_power_prewarm_loop, daemon=True, name="PainelPowerPrewarm").start()
+threading.Thread(target=_painel_power_cache_load_once, daemon=True, name="PainelPowerCacheLoad").start()
 threading.Thread(target=_painel_shift_prewarm_loop, daemon=True, name="PainelShiftPrewarm").start()
 # Pré-carga de força (força-prefetch) DESATIVADA de novo — mesmo com só 1
 # worker + pausa entre partidas, o Playwright rodando quase sem parar em
