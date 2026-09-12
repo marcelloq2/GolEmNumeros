@@ -1831,6 +1831,13 @@
     style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
            background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;
            display:flex;align-items:center;justify-content:center;flex-shrink:0">🌙</button>
+  <!-- Sair (2026-09-12) — só faz sentido quando o site está com senha ativa
+       (SITE_PASSWORD configurada no Railway); sem isso /logout também não
+       faz nada de mais (limpa uma sessão que nunca chegou a existir). -->
+  <a href="/logout" title="Sair"
+    style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+           background:var(--bg2);color:var(--text2);font-size:13px;cursor:pointer;text-decoration:none;
+           display:flex;align-items:center;justify-content:center;flex-shrink:0">🚪</a>
   <!-- Botão "?" (openAppGuia geral) removido a pedido do usuário (2026-09-01)
        — o guia (appGuiaOverlay, openAppGuia) continua existindo no código, só
        sem esse ponto de entrada na UI. -->

@@ -1,7 +1,7 @@
 """
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
-from flask import Flask, jsonify, send_from_directory, abort, request
+from flask import Flask, jsonify, send_from_directory, abort, request, session, redirect
 import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue, sys
 from collections import deque
 import requests as http_req
@@ -43,6 +43,12 @@ FOTMOB_HEADERS = {
 }
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+# Sem SECRET_KEY configurada, gera uma aleatória a cada boot — sessão (login)
+# expira em todo redeploy, mas nunca guarda um segredo fixo no código. Pra
+# não deslogar todo mundo a cada deploy, configure SECRET_KEY fixa no
+# Railway (qualquer string longa aleatória serve).
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(24)
+app.permanent_session_lifetime = timedelta(days=30)
 DATA_DIR     = os.path.dirname(__file__)
 MOMENTUM_DIR = os.path.join(DATA_DIR, "momentum_history")
 SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
@@ -2838,6 +2844,60 @@ def api_painel_last_results():
 @app.route("/version")
 def version():
     return jsonify({"version": APP_VERSION, "ts": datetime.now().isoformat()})
+
+
+# ── Senha única do site (pedido do usuário, 2026-09-12: "travar o site pra
+# visitantes aleatórios", sem conta por pessoa) — trava tudo atrás de UMA
+# senha compartilhada, guardada em variável de ambiente (SITE_PASSWORD no
+# Railway), nunca no código. Sem essa variável configurada, o gate fica
+# DESLIGADO (comportamento de sempre) — assim dev local não exige setup
+# extra pra rodar.
+SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
+
+# Fica de fora do gate: a própria página de login (senão ninguém consegue
+# nem chegar nela) e os arquivos estáticos (a página de login carrega sua
+# própria imagem/CSS de /static/... — travar isso também criaria um
+# problema de ovo-e-galinha). O index.html/JS do site também fica acessível
+# como arquivo estático, mas sem dado nenhum: todo dado real vem de /api/*,
+# que continua atrás do login. Os endpoints de upload/download de backup
+# ficam de fora de propósito — são chamados pelo script local
+# (upload_backup.py) via UPLOAD_TOKEN próprio, não por navegador logado.
+_LOGIN_EXEMPT_PREFIXES = (
+    "/login", "/static/", "/version",
+    "/api/upload-backup", "/api/list-backup", "/api/download-backup",
+)
+
+
+@app.before_request
+def _exigir_login():
+    if not SITE_PASSWORD:
+        return
+    if request.path.startswith(_LOGIN_EXEMPT_PREFIXES):
+        return
+    if session.get("logado"):
+        return
+    return redirect("/login")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        senha = request.form.get("senha", "")
+        if SITE_PASSWORD and senha == SITE_PASSWORD:
+            session.permanent = True
+            session["logado"] = True
+            return redirect("/")
+        return redirect("/login?erro=1")
+    if SITE_PASSWORD and session.get("logado"):
+        return redirect("/")
+    return send_from_directory("static", "login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
 
 @app.route("/")
 def index():
