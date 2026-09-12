@@ -11423,6 +11423,12 @@ function _jogoGoalPatternStats(rows) {
   const primeiroGolBuckets = new Array(9).fill(0);
   const primeiroGolTeamBuckets = new Array(9).fill(0);
   let semGolCount = 0, semGolTeamCount = 0, timeMarcouPrimeiroCount = 0, adversarioMarcouPrimeiroCount = 0;
+  // Pedido do usuário (2026-09-12): "tem estatística de equipes que não
+  // marcam gol depois dos 80 minutos?" — conta em quantas partidas (do
+  // recorte já filtrado, casa/fora/geral) o time NÃO tem nenhum gol próprio
+  // depois do minuto 80 (inclui acréscimos, já que os minutos de gm.home/
+  // gm.away vêm normalizados tipo "45+2" -> 47 antes de chegar aqui).
+  let semGolApos80Count = 0;
 
   withGm.forEach(r => {
     const gm = _goalMinutesCache[r.id];
@@ -11430,6 +11436,7 @@ function _jogoGoalPatternStats(rows) {
     const contra = r.isHome ? gm.away : gm.home;
     pro.forEach(min => { const mm = Math.min(min, 90); allGoalsBuckets[bucket15(mm)]++; allGoalsCount++; teamGoalsBuckets[bucket15(mm)]++; teamGoalsCount++; });
     contra.forEach(min => { const mm = Math.min(min, 90); allGoalsBuckets[bucket15(mm)]++; allGoalsCount++; });
+    if (!pro.some(min => min > 80)) semGolApos80Count++;
 
     const all = [...pro.map(m => ({ m, time: true })), ...contra.map(m => ({ m, time: false }))].sort((a, b) => a.m - b.m);
     if (!all.length) { semGolCount++; semGolTeamCount++; return; }
@@ -11446,7 +11453,7 @@ function _jogoGoalPatternStats(rows) {
     faixa01, faixa23, faixa4mais, ambosMarcam, apenasUm, nenhum, impar, par,
     labels15, allGoalsBuckets, allGoalsCount, teamGoalsBuckets, teamGoalsCount,
     labels10, primeiroGolBuckets, primeiroGolTeamBuckets, semGolCount, semGolTeamCount,
-    timeMarcouPrimeiroCount, adversarioMarcouPrimeiroCount,
+    timeMarcouPrimeiroCount, adversarioMarcouPrimeiroCount, semGolApos80Count,
   };
 }
 
@@ -11525,7 +11532,9 @@ function _jogoGoalPatternHtml(teamName, gp, media) {
     + wrap(`
       ${sectionHeader('Gols nos minutos entre')}
       ${minutosBlock('Todos os gols nas partidas', gp.allGoalsBuckets, gp.labels15, gp.allGoalsCount, media?.allGoalsBuckets_pct)}
-      ${minutosBlock(`${teamName} apenas gols`, gp.teamGoalsBuckets, gp.labels15, gp.teamGoalsCount, media?.teamGoalsBuckets_pct)}`)
+      ${minutosBlock(`${teamName} apenas gols`, gp.teamGoalsBuckets, gp.labels15, gp.teamGoalsCount, media?.teamGoalsBuckets_pct)}
+      ${subHeader('Depois dos 80 minutos')}
+      ${_pctBarRow(`${teamName} não marcou`, gp.semGolApos80Count / gp.totalComGm * 100, media?.semGolApos80_pct)}`)
     + wrap(`
       ${sectionHeader('Primeiro gol nas partidas')}
       ${subHeader('Momento do primeiro gol nas partidas')}
@@ -11640,11 +11649,28 @@ async function _renderToday2Jogo(matchId, targetId) {
       }
       return _jogoStatsCardHtml(b.teamName, s, mediaScope) + _jogoGoalPatternHtml(b.teamName, gp, mediaScope);
     });
-    freshBody.innerHTML = blocks.length > 1
+    // "Geral" das 2 equipes (pedido do usuário, 2026-09-12): junta o
+    // histórico dos 2 times num recorte só (mesmo truque de
+    // _jogo_medias_gerais_compute no backend, geral_rows = casa+fora) só
+    // pra essa 1 métrica — não faz sentido duplicar o bloco inteiro de
+    // características do gol, só "as 2 equipes não marcaram depois dos
+    // 80min em X% dos jogos" combinando a amostra das duas.
+    let geralHtml = '';
+    if (blocks.length > 1) {
+      const gpGeral = _jogoGoalPatternStats([...blocks[0].rows, ...blocks[1].rows]);
+      if (gpGeral && gpGeral.totalComGm) {
+        const pct = gpGeral.semGolApos80Count / gpGeral.totalComGm * 100;
+        geralHtml = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--text2)">
+          ⚽ <b style="color:var(--text)">${blocks[0].teamName} e ${blocks[1].teamName}</b> não marcaram depois dos 80 minutos em
+          <b style="color:${pct >= 50 ? 'var(--green)' : 'var(--text)'}">${pct.toFixed(0)}%</b> das ${gpGeral.totalComGm} partidas analisadas (geral, somando o histórico dos 2 times)
+        </div>`;
+      }
+    }
+    freshBody.innerHTML = geralHtml + (blocks.length > 1
       ? `<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
            ${cardsHtml.map(h => `<div style="flex:1;min-width:340px">${h}</div>`).join('')}
          </div>`
-      : cardsHtml.join('');
+      : cardsHtml.join(''));
   };
 
   renderCards(null);

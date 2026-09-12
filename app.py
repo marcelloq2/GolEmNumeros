@@ -11039,9 +11039,16 @@ def _jogo_goal_pattern_from_rows(rows):
     primeiro_buckets = [0] * 9
     primeiro_team_buckets = [0] * 9
     sem_gol = sem_gol_team = time_primeiro = adversario_primeiro = 0
+    # Pedido do usuário (2026-09-12): % de partidas em que o time não marcou
+    # nenhum gol próprio depois do minuto 80 (inclui acréscimos — os minutos
+    # já vêm normalizados tipo "45+2" -> 47 antes de chegar aqui, ver
+    # _fs_goal_minutes). Mesmo cálculo do gêmeo em JS (_jogoGoalPatternStats).
+    sem_gol_apos_80 = 0
 
     for r in gm_rows:
         pro, contra = r["gm_own"], r["gm_opp"]
+        if not any(m > 80 for m in pro):
+            sem_gol_apos_80 += 1
         for m in pro:
             mm = min(m, 90)
             all_buckets[_bucket15(mm)] += 1
@@ -11086,6 +11093,7 @@ def _jogo_goal_pattern_from_rows(rows):
         "primeiroGolTeamBuckets_pct": _pct_list(primeiro_team_buckets, total_com_gm),
         "semGol_pct": round(sem_gol / total_com_gm * 100, 1) if total_com_gm else None,
         "semGolTeam_pct": round(sem_gol_team / total_com_gm * 100, 1) if total_com_gm else None,
+        "semGolApos80_pct": round(sem_gol_apos_80 / total_com_gm * 100, 1) if total_com_gm else None,
         "timeMarcouPrimeiro_pct": round(time_primeiro / total_com_gm * 100, 1) if total_com_gm else None,
         "adversarioMarcouPrimeiro_pct": round(adversario_primeiro / total_com_gm * 100, 1) if total_com_gm else None,
     }
