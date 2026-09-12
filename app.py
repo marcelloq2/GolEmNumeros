@@ -688,6 +688,19 @@ def _ng_fetch_today_matches():
 _ng_strength_cache = {}   # match_id -> {"ts":, "data": {...}}
 _ng_strength_lock = threading.Lock()
 _NG_STRENGTH_TTL = 900  # 15min — dado muda pouco entre atualizações
+
+def _ng_strength_cache_prune():
+    """Mesmo padrão de _momentum_cache_prune (achado na investigação de custo
+    Railway de 2026-09-08): o TTL acima só decide se um hit de cache serve ou
+    não, nunca REMOVE nada — sem isso, cada match_id que já passou pela
+    Comparação de Força (aberta manualmente ou pelos exports em lote) ficava
+    ocupando memória pra sempre."""
+    if len(_ng_strength_cache) < 500:
+        return
+    now = time.time()
+    stale = [mid for mid, v in _ng_strength_cache.items() if now - v.get("ts", 0) > _NG_STRENGTH_TTL * 4]
+    for mid in stale:
+        _ng_strength_cache.pop(mid, None)
 _ng_playwright_semaphore = threading.Semaphore(2)
 
 
@@ -869,6 +882,7 @@ def _ng_fetch_strength(match_id, _attempt=1):
 
     with _ng_strength_lock:
         _ng_strength_cache[match_id] = {"ts": time.time(), "data": data}
+        _ng_strength_cache_prune()
     return data
 
 
@@ -930,6 +944,14 @@ _tips_user_cache = {}   # user_id -> {"ts":, "data":}
 _tips_user_lock = threading.Lock()
 _TIPS_USER_TTL = 600
 
+def _tips_user_cache_prune():
+    if len(_tips_user_cache) < 500:
+        return
+    now = time.time()
+    stale = [uid for uid, v in _tips_user_cache.items() if now - v.get("ts", 0) > _TIPS_USER_TTL * 4]
+    for uid in stale:
+        _tips_user_cache.pop(uid, None)
+
 
 def _tips_fetch_ranking(kind):
     """kind: 1=Semana+Taxa de vitória, 2=Semana+ROI, 3=Mês+Taxa de vitória, 4=Mês+ROI
@@ -950,6 +972,18 @@ def _tips_fetch_ranking(kind):
 _tips_article_cache = {}   # article_id -> {"ts":, "data":}
 _tips_article_lock = threading.Lock()
 _TIPS_ARTICLE_TTL = 3600  # 1h — o palpite de um artigo já publicado não muda mais
+
+def _tips_article_cache_prune():
+    """O palpite de um artigo publicado não muda mais (comentário acima), mas
+    o site publica artigo novo o tempo todo — sem remover os antigos, essa
+    cache cresce pra sempre (mesmo padrão de vazamento já corrigido 2x nesta
+    sessão: TTL só decide se serve, nunca remove)."""
+    if len(_tips_article_cache) < 2000:
+        return
+    now = time.time()
+    stale = [aid for aid, v in _tips_article_cache.items() if now - v.get("ts", 0) > _TIPS_ARTICLE_TTL * 24]
+    for aid in stale:
+        _tips_article_cache.pop(aid, None)
 
 
 _TIPS_PICK_RE = re.compile(
@@ -995,6 +1029,7 @@ def _tips_fetch_article_pick(article_id):
         pick = None
     with _tips_article_lock:
         _tips_article_cache[article_id] = {"ts": time.time(), "data": pick}
+        _tips_article_cache_prune()
     return pick
 
 
@@ -1012,6 +1047,7 @@ def _tips_fetch_user_tips_raw(user_id):
     data = r.json()
     with _tips_user_lock:
         _tips_user_cache[user_id] = {"ts": time.time(), "data": data}
+        _tips_user_cache_prune()
     return data
 
 
@@ -1061,6 +1097,7 @@ def _tips_fetch_user_tips(user_id):
 
     with _tips_user_lock:
         _tips_user_cache[user_id] = {"ts": time.time(), "data": data}
+        _tips_user_cache_prune()
     return data
 
 
@@ -2390,6 +2427,18 @@ def api_painel_matches():
 _be_context_cache = {}   # match_url -> {"ts":, "data": {"par":, "home":{"id","name"}, "away":{...}}}
 _be_context_lock = threading.Lock()
 _BE_CONTEXT_TTL = 6 * 3600
+
+def _be_context_cache_prune():
+    """Mesmo padrão de _momentum_cache_prune (investigação de custo Railway,
+    2026-09-08): o TTL só decide se um hit serve, nunca remove — cada partida
+    cujo widget de análise já foi aberto uma vez (mesmo há semanas) ficava
+    ocupando memória pra sempre."""
+    if len(_be_context_cache) < 500:
+        return
+    now = time.time()
+    stale = [url for url, v in _be_context_cache.items() if now - v.get("ts", 0) > _BE_CONTEXT_TTL * 2]
+    for url in stale:
+        _be_context_cache.pop(url, None)
 _be_playwright_semaphore = threading.Semaphore(2)  # evita várias janelas headless simultâneas
 
 # Abrir o widget de análise dispara 3 chamadas em paralelo (últimos resultados casa/
@@ -2489,6 +2538,7 @@ def _be_fetch_match_context_uncached(match_url, _attempt=1):
     data = {"par": par, "home": teams[0], "away": teams[1]}
     with _be_context_lock:
         _be_context_cache[match_url] = {"ts": time.time(), "data": data}
+        _be_context_cache_prune()
     return data
 
 
