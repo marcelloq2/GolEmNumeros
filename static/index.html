@@ -14098,10 +14098,11 @@ function renderLive2Card(m) {
              botão "Tendências" no rodapé abre num modal em cima deste conteúdo. -->
         <div id="live2SeqBadge_${m.id}" style="display:none"></div>
         <!-- Indicadores AO VIVO (pressão/chutes/xG do jogo atual, calculados em
-             _live2ExtraIndicatorsHtml) — mesmo tratamento: depósito invisível,
-             some direto pro modal Tendências junto com as sequências pré-jogo,
-             não empilha mais linha no card (mesma lição do 2026-09-11 acima). -->
-        <div id="live2LiveIndBadge_${m.id}" style="display:none"></div>
+             _live2ExtraIndicatorsHtml) — pedido do usuário (2026-09-12): ficam
+             DIRETO no card, mesmo estilo sempre-visível do live2Ind2t_ acima
+             (diferente das sequências pré-jogo logo acima, que continuam só
+             no modal Tendências). -->
+        <div id="live2LiveIndBadge_${m.id}"></div>
       </div>
       <!-- Odds ao vivo (pílula 🔴 ODDS AO VIVO) movida pra logo abaixo do
            minuto — pedido do usuário (2026-09-11), antes ficava lá embaixo
@@ -14340,21 +14341,16 @@ function _live2OpenLineupModal(matchId) {
 // Reaproveita o conteúdo já calculado por _live2AutoLoadForms em
 // #live2SeqBadge_<id> (o div ficou display:none no card, 2026-09-11 — a
 // lista de sequências/tendências empurrava o card todo pra baixo) em vez de
-// recalcular nada aqui.
+// recalcular nada aqui. Os indicadores AO VIVO (_live2ExtraIndicatorsHtml)
+// saíram daqui em 2026-09-12 — usuário pediu pra ficarem direto no card
+// (live2LiveIndBadge_, sempre visível), então não faz sentido duplicar
+// mostrando de novo aqui dentro do modal.
 function _live2OpenSeqModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'seq', 'Tendências');
-  const srcLive = document.getElementById(`live2LiveIndBadge_${matchId}`);
-  const srcSeq  = document.getElementById(`live2SeqBadge_${matchId}`);
-  const liveHtml = (srcLive && srcLive.innerHTML.trim()) ? srcLive.innerHTML : '';
-  const seqHtml  = (srcSeq  && srcSeq.innerHTML.trim())  ? srcSeq.innerHTML  : '';
-  const liveSecHtml = liveHtml
-    ? `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin-bottom:4px">📡 NO JOGO DE AGORA</div>${liveHtml}`
-    : '';
-  const seqSecHtml = seqHtml
-    ? `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin:${liveHtml ? '10px' : '0'} 0 4px">📊 SEQUÊNCIAS PRÉ-JOGO</div>${seqHtml}`
-    : '';
-  const html = liveSecHtml + seqSecHtml;
-  body.innerHTML = html || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
+  const src = document.getElementById(`live2SeqBadge_${matchId}`);
+  body.innerHTML = (src && src.innerHTML.trim())
+    ? src.innerHTML
+    : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
 }
 
 // ── Gráfico de odds ao vivo (1X2 + Over/Under) — pedido do usuário
