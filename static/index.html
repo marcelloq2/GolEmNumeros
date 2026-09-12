@@ -15306,6 +15306,48 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     if (xgA >= 0 && (xgA - golFora) >= 1.0) badges.push(`<div class="live-card-ind2t blocked">🧠 ${m.fora} tem xG de ${xgA.toFixed(2)} mas só marcou ${golFora}</div>`);
   }
 
+  // 7) Finalizações NO ALVO sem marcar, desde o último gol do próprio time
+  // (ou desde o início, se ainda não marcou) — mais específico que "não
+  // finaliza": aqui o time tá finalizando de verdade, só não converte.
+  // "No alvo" = teria entrado sem intervenção externa (gol, defendido pelo
+  // goleiro, ou marcado como chute no alvo) — exclui bloqueado/pra fora/
+  // trave/contra.
+  if (shots && shots.length) {
+    const ON_TARGET = new Set(['goal', 'save', 'shot_on_target']);
+    const onTargetSemMarcar = (isHomeFlag) => {
+      const doTime = shots.filter(s => s.isHome === isHomeFlag);
+      const golsMin = doTime.filter(s => s.shotType === 'goal').map(s => s.minute || 0);
+      const minUltimoGol = golsMin.length ? Math.max(...golsMin) : -1;
+      return doTime.filter(s => (s.minute || 0) > minUltimoGol && ON_TARGET.has(s.shotType)).length;
+    };
+    const nCasa = onTargetSemMarcar(true);
+    if (nCasa >= 3) badges.push(`<div class="live-card-ind2t blocked">🎯 ${m.casa} tem ${nCasa} finalizações no alvo sem marcar</div>`);
+    const nFora = onTargetSemMarcar(false);
+    if (nFora >= 3) badges.push(`<div class="live-card-ind2t blocked">🎯 ${m.fora} tem ${nFora} finalizações no alvo sem marcar</div>`);
+  }
+
+  // 8) Reta final — time que domina AGORA aumentou de verdade a pressão em
+  // relação ao resto do jogo (não só "já dominava desde sempre", que não é
+  // notícia). Só avalia com pontos suficientes dos dois lados da divisa.
+  const RETA_FINAL_MIN = 80;
+  if (points && points.length >= 6) {
+    const final = points.filter(p => (p.minute || 0) >= RETA_FINAL_MIN);
+    const antes = points.filter(p => (p.minute || 0) < RETA_FINAL_MIN);
+    if (final.length >= 3 && antes.length >= 3) {
+      const avgFinal = final.reduce((a, p) => a + (p.value || 0), 0) / final.length;
+      const avgAntes = antes.reduce((a, p) => a + (p.value || 0), 0) / antes.length;
+      if (Math.abs(avgFinal) >= _LIVE2_PRESSURE_THRESHOLD) {
+        const isHome = avgFinal > 0;
+        const nome = isHome ? m.casa : m.fora;
+        const antesDoLado = isHome ? avgAntes : -avgAntes;
+        const finalDoLado = isHome ? avgFinal : -avgFinal;
+        if ((finalDoLado - antesDoLado) >= 15) {
+          badges.push(`<div class="live-card-ind2t holding">⏱️ ${nome} aumentou a pressão na reta final</div>`);
+        }
+      }
+    }
+  }
+
   return badges.join('');
 }
 
