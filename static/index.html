@@ -14043,11 +14043,11 @@ function _live2Ind2tBadgeHtml(m) {
   const badges = [];
   if (m.ind2t_lider_sem_sofrer) {
     const time = m.ind2t_lider_sem_sofrer === 'casa' ? m.casa : m.fora;
-    badges.push(`<div class="live-card-ind2t holding">🛡️ ${time} lidera por ${m.ind2t_margem} e não sofreu no 2ºT</div>`);
+    badges.push(`<div class="live-card-ind2t holding" title="Esse time abriu ${m.ind2t_margem}+ gols de vantagem ainda no intervalo e não sofreu nenhum gol no 2º tempo até agora. Recalculado a cada atualização — some sozinho se ele sofrer.">🛡️ ${time} lidera por ${m.ind2t_margem} e não sofreu no 2ºT</div>`);
   }
   if (m.ind2t_atras_sem_marcar) {
     const time = m.ind2t_atras_sem_marcar === 'casa' ? m.casa : m.fora;
-    badges.push(`<div class="live-card-ind2t blocked">🔒 ${time} está atrás por ${m.ind2t_margem} e não marcou no 2ºT</div>`);
+    badges.push(`<div class="live-card-ind2t blocked" title="Esse time já estava ${m.ind2t_margem}+ gols atrás no intervalo e continua sem marcar no 2º tempo. Recalculado a cada atualização — some sozinho se ele marcar.">🔒 ${time} está atrás por ${m.ind2t_margem} e não marcou no 2ºT</div>`);
   }
   return badges.join('');
 }
@@ -15224,10 +15224,10 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     };
     const lastCasa = ultimoChuteDe(true);
     const gapCasa = lastCasa == null ? minutoAtual : minutoAtual - lastCasa;
-    if (gapCasa >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked">🧊 ${m.casa} não finaliza há ${gapCasa}min</div>`);
+    if (gapCasa >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked" title="Esse time não registra nenhuma finalização (nem pra fora) há ${gapCasa} minutos — sinal de que saiu do ataque.">🧊 ${m.casa} não finaliza há ${gapCasa}min</div>`);
     const lastFora = ultimoChuteDe(false);
     const gapFora = lastFora == null ? minutoAtual : minutoAtual - lastFora;
-    if (gapFora >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked">🧊 ${m.fora} não finaliza há ${gapFora}min</div>`);
+    if (gapFora >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked" title="Esse time não registra nenhuma finalização (nem pra fora) há ${gapFora} minutos — sinal de que saiu do ataque.">🧊 ${m.fora} não finaliza há ${gapFora}min</div>`);
   }
 
   // Pressão média recente (mesmo cálculo do selo já existente) — base pros
@@ -15241,15 +15241,15 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
 
     // 2) Domina a pressão mas ainda não marcou nenhum gol na partida
     if (golsDominante === 0) {
-      badges.push(`<div class="live-card-ind2t blocked">🌊 ${dominante} domina a pressão e ainda não marcou</div>`);
+      badges.push(`<div class="live-card-ind2t blocked" title="Esse time está pressionando bem mais que o adversário nas últimas leituras, mas ainda não converteu isso em gol na partida.">🌊 ${dominante} domina a pressão e ainda não marcou</div>`);
     }
     // 3) Está na frente no placar E segue dominando a pressão agora
     if (dominanteNaFrente) {
-      badges.push(`<div class="live-card-ind2t holding">🔥 ${dominante} está na frente e segue pressionando</div>`);
+      badges.push(`<div class="live-card-ind2t holding" title="Esse time está ganhando e também é quem domina a pressão agora — sinal de que segue no controle do jogo, não só defendendo o resultado.">🔥 ${dominante} está na frente e segue pressionando</div>`);
     }
     // 5) Empate no placar mas domínio de pressão claramente de um lado
     if (golCasa === golFora) {
-      badges.push(`<div class="live-card-ind2t holding">⚖️ Empate no placar, mas ${dominante} domina a pressão</div>`);
+      badges.push(`<div class="live-card-ind2t holding" title="O placar ainda está igual, mas esse time está claramente mandando mais no jogo agora — pode ser sinal de gol a caminho.">⚖️ Empate no placar, mas ${dominante} domina a pressão</div>`);
     }
   }
 
@@ -15272,7 +15272,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
           const pressaoDepois = quemSofreuCasa ? avgDepois : -avgDepois;
           if (pressaoAntes >= 5 && (pressaoAntes - pressaoDepois) >= 15) {
             const nome = quemSofreuCasa ? m.casa : m.fora;
-            badges.push(`<div class="live-card-ind2t blocked">📉 ${nome} sofreu gol e a pressão caiu</div>`);
+            badges.push(`<div class="live-card-ind2t blocked" title="Depois de sofrer o último gol, a pressão desse time caiu bastante comparado a antes — possível baque psicológico ou o adversário passou a controlar o jogo.">📉 ${nome} sofreu gol e a pressão caiu</div>`);
           }
         }
       }
@@ -15302,8 +15302,8 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
       };
       xgH = calcXg(bigH, boxH, outH); xgA = calcXg(bigA, boxA, outA);
     }
-    if (xgH >= 0 && (xgH - golCasa) >= 1.0) badges.push(`<div class="live-card-ind2t blocked">🧠 ${m.casa} tem xG de ${xgH.toFixed(2)} mas só marcou ${golCasa}</div>`);
-    if (xgA >= 0 && (xgA - golFora) >= 1.0) badges.push(`<div class="live-card-ind2t blocked">🧠 ${m.fora} tem xG de ${xgA.toFixed(2)} mas só marcou ${golFora}</div>`);
+    if (xgH >= 0 && (xgH - golCasa) >= 1.0) badges.push(`<div class="live-card-ind2t blocked" title="xG (gols esperados) mede a qualidade das chances criadas. Esse time está criando bem mais chance de gol do que o placar mostra — pode estar 'azarado' ou finalizando mal.">🧠 ${m.casa} tem xG de ${xgH.toFixed(2)} mas só marcou ${golCasa}</div>`);
+    if (xgA >= 0 && (xgA - golFora) >= 1.0) badges.push(`<div class="live-card-ind2t blocked" title="xG (gols esperados) mede a qualidade das chances criadas. Esse time está criando bem mais chance de gol do que o placar mostra — pode estar 'azarado' ou finalizando mal.">🧠 ${m.fora} tem xG de ${xgA.toFixed(2)} mas só marcou ${golFora}</div>`);
   }
 
   // 7) Finalizações NO ALVO sem marcar, desde o último gol do próprio time
@@ -15321,9 +15321,9 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
       return doTime.filter(s => (s.minute || 0) > minUltimoGol && ON_TARGET.has(s.shotType)).length;
     };
     const nCasa = onTargetSemMarcar(true);
-    if (nCasa >= 3) badges.push(`<div class="live-card-ind2t blocked">🎯 ${m.casa} tem ${nCasa} finalizações no alvo sem marcar</div>`);
+    if (nCasa >= 3) badges.push(`<div class="live-card-ind2t blocked" title="Chutes que iam entrar se o goleiro não defendesse (não conta bloqueio/pra fora/trave), contados desde o último gol desse time — ou desde o início, se ele ainda não marcou. Mostra que ele tá finalizando de verdade, só não converte.">🎯 ${m.casa} tem ${nCasa} finalizações no alvo sem marcar</div>`);
     const nFora = onTargetSemMarcar(false);
-    if (nFora >= 3) badges.push(`<div class="live-card-ind2t blocked">🎯 ${m.fora} tem ${nFora} finalizações no alvo sem marcar</div>`);
+    if (nFora >= 3) badges.push(`<div class="live-card-ind2t blocked" title="Chutes que iam entrar se o goleiro não defendesse (não conta bloqueio/pra fora/trave), contados desde o último gol desse time — ou desde o início, se ele ainda não marcou. Mostra que ele tá finalizando de verdade, só não converte.">🎯 ${m.fora} tem ${nFora} finalizações no alvo sem marcar</div>`);
   }
 
   // 8) Reta final — time que domina AGORA aumentou de verdade a pressão em
@@ -15342,7 +15342,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
         const antesDoLado = isHome ? avgAntes : -avgAntes;
         const finalDoLado = isHome ? avgFinal : -avgFinal;
         if ((finalDoLado - antesDoLado) >= 15) {
-          badges.push(`<div class="live-card-ind2t holding">⏱️ ${nome} aumentou a pressão na reta final</div>`);
+          badges.push(`<div class="live-card-ind2t holding" title="Depois do minuto 80, esse time passou a dominar mais o jogo do que vinha dominando antes — comum quando o time parte pro tudo ou nada. Só dispara quando o domínio realmente CRESCEU, não quando ele já dominava o jogo inteiro.">⏱️ ${nome} aumentou a pressão na reta final</div>`);
         }
       }
     }
@@ -15356,7 +15356,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     const lastShotAny = Math.max(...shots.map(s => s.minute || 0));
     const gapMudo = minutoAtual - lastShotAny;
     if (gapMudo >= JOGO_MUDO_MIN_GAP) {
-      badges.push(`<div class="live-card-ind2t blocked">💤 Jogo sem finalização de nenhum lado há ${gapMudo}min</div>`);
+      badges.push(`<div class="live-card-ind2t blocked" title="Nenhum dos dois times finaliza há ${gapMudo} minutos — jogo esfriou dos dois lados, sinal de Under.">💤 Jogo sem finalização de nenhum lado há ${gapMudo}min</div>`);
     }
   }
 
@@ -15370,7 +15370,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
   if (minutoAtual != null && minutoAtual >= JOGO_MORTO_MIN_MINUTO && Math.abs(golCasa - golFora) >= JOGO_MORTO_MARGEM) {
     const avgMorto = _live2PressureAvg(points);
     if (avgMorto != null && Math.abs(avgMorto) < JOGO_MORTO_PRESSAO_MAX) {
-      badges.push(`<div class="live-card-ind2t holding">💀 Jogo morto — placar decidido e pouca pressão dos 2 lados</div>`);
+      badges.push(`<div class="live-card-ind2t holding" title="Placar com ${JOGO_MORTO_MARGEM}+ gols de diferença a partir do minuto ${JOGO_MORTO_MIN_MINUTO} e pouca pressão dos dois lados agora — mesmo critério da metodologia 'Under Limite' já calibrada na base.">💀 Jogo morto — placar decidido e pouca pressão dos 2 lados</div>`);
     }
   }
 
@@ -15390,7 +15390,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
       if (doTime.length < 3) return;
       const longe = doTime.filter(s => classZ(s.x) === 'longa_distancia').length;
       if (longe / doTime.length >= 0.7) {
-        badges.push(`<div class="live-card-ind2t blocked">🏹 ${nome} só finaliza de longe (${longe}/${doTime.length} chutes)</div>`);
+        badges.push(`<div class="live-card-ind2t blocked" title="70% ou mais das finalizações desse time vieram de longa distância — indício de time sem espaço/sem criar chance de verdade perto do gol.">🏹 ${nome} só finaliza de longe (${longe}/${doTime.length} chutes)</div>`);
       }
     };
     soDeLonge(true, m.casa);
@@ -15403,7 +15403,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
   if (golCasa === golFora) {
     const avgEmpate = _live2PressureAvg(points);
     if (avgEmpate != null && Math.abs(avgEmpate) < JOGO_MORTO_PRESSAO_MAX) {
-      badges.push(`<div class="live-card-ind2t holding">🟰 Empate técnico — placar e domínio equilibrados</div>`);
+      badges.push(`<div class="live-card-ind2t holding" title="Placar igual e pressão equilibrada dos dois lados — jogo realmente parelho, sem tendência clara pra nenhum lado.">🟰 Empate técnico — placar e domínio equilibrados</div>`);
     }
   }
 
@@ -16060,30 +16060,31 @@ function _live2PerdeHtStreak(rows, teamName, htByEventId) {
 
 function _live2SeqBadgeHtml(m, seq) {
   const badges = [];
-  if (seq.homeWinCasa) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.casa} venceu os últimos ${seq.homeWinCasa} jogos em casa</div>`);
-  if (seq.awayWinFora) badges.push(`<div class="live-card-ind2t holding">🔥 ${m.fora} venceu os últimos ${seq.awayWinFora} jogos fora de casa</div>`);
-  if (seq.lossCasa)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.casa} perdeu os últimos ${seq.lossCasa} jogos</div>`);
-  if (seq.lossFora)    badges.push(`<div class="live-card-ind2t blocked">🥶 ${m.fora} perdeu os últimos ${seq.lossFora} jogos</div>`);
-  if (seq.scoreCasa)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.casa} marcou nos últimos ${seq.scoreCasa} jogos</div>`);
-  if (seq.scoreFora)   badges.push(`<div class="live-card-ind2t holding">⚽ ${m.fora} marcou nos últimos ${seq.scoreFora} jogos</div>`);
-  if (seq.cleanCasa)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.casa} não sofreu gol nos últimos ${seq.cleanCasa} jogos</div>`);
-  if (seq.cleanFora)   badges.push(`<div class="live-card-ind2t holding">🧤 ${m.fora} não sofreu gol nos últimos ${seq.cleanFora} jogos</div>`);
-  if (seq.over15Casa)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 1.5 FT nos últimos ${seq.over15Casa} jogos</div>`);
-  if (seq.over15Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 1.5 FT nos últimos ${seq.over15Fora} jogos</div>`);
-  if (seq.over25Casa)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 2.5 FT nos últimos ${seq.over25Casa} jogos</div>`);
-  if (seq.over25Fora)  badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 2.5 FT nos últimos ${seq.over25Fora} jogos</div>`);
-  if (seq.under25Casa) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.casa} bateu Under 2.5 FT nos últimos ${seq.under25Casa} jogos</div>`);
-  if (seq.under25Fora) badges.push(`<div class="live-card-ind2t blocked">📉 ${m.fora} bateu Under 2.5 FT nos últimos ${seq.under25Fora} jogos</div>`);
-  if (seq.bttsSimCasa) badges.push(`<div class="live-card-ind2t holding">⚽⚽ ${m.casa} teve Ambas Marcam nos últimos ${seq.bttsSimCasa} jogos</div>`);
-  if (seq.bttsSimFora) badges.push(`<div class="live-card-ind2t holding">⚽⚽ ${m.fora} teve Ambas Marcam nos últimos ${seq.bttsSimFora} jogos</div>`);
-  if (seq.bttsNaoCasa) badges.push(`<div class="live-card-ind2t blocked">🚫 ${m.casa} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoCasa} jogos</div>`);
-  if (seq.bttsNaoFora) badges.push(`<div class="live-card-ind2t blocked">🚫 ${m.fora} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoFora} jogos</div>`);
-  if (seq.over05htCasa) badges.push(`<div class="live-card-ind2t holding">📈 ${m.casa} bateu Over 0.5 HT nos últimos ${seq.over05htCasa} jogos</div>`);
-  if (seq.over05htFora) badges.push(`<div class="live-card-ind2t holding">📈 ${m.fora} bateu Over 0.5 HT nos últimos ${seq.over05htFora} jogos</div>`);
-  if (seq.venceHtCasa)  badges.push(`<div class="live-card-ind2t holding">🥇 ${m.casa} venceu o 1ºT nos últimos ${seq.venceHtCasa} jogos</div>`);
-  if (seq.venceHtFora)  badges.push(`<div class="live-card-ind2t holding">🥇 ${m.fora} venceu o 1ºT nos últimos ${seq.venceHtFora} jogos</div>`);
-  if (seq.perdeHtCasa)  badges.push(`<div class="live-card-ind2t blocked">😓 ${m.casa} perdeu o 1ºT nos últimos ${seq.perdeHtCasa} jogos</div>`);
-  if (seq.perdeHtFora)  badges.push(`<div class="live-card-ind2t blocked">😓 ${m.fora} perdeu o 1ºT nos últimos ${seq.perdeHtFora} jogos</div>`);
+  const CONSEC = 'Sequência CONSECUTIVA, contando do jogo mais recente pra trás — quebra no primeiro jogo (mais antigo) que não bater a condição, não é "em X dos últimos N".';
+  if (seq.homeWinCasa) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Só considera os jogos que esse time jogou EM CASA.">🔥 ${m.casa} venceu os últimos ${seq.homeWinCasa} jogos em casa</div>`);
+  if (seq.awayWinFora) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Só considera os jogos que esse time jogou FORA de casa.">🔥 ${m.fora} venceu os últimos ${seq.awayWinFora} jogos fora de casa</div>`);
+  if (seq.lossCasa)    badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Qualquer mando de campo.">🥶 ${m.casa} perdeu os últimos ${seq.lossCasa} jogos</div>`);
+  if (seq.lossFora)    badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Qualquer mando de campo.">🥶 ${m.fora} perdeu os últimos ${seq.lossFora} jogos</div>`);
+  if (seq.scoreCasa)   badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Marcou pelo menos 1 gol em cada um desses jogos.">⚽ ${m.casa} marcou nos últimos ${seq.scoreCasa} jogos</div>`);
+  if (seq.scoreFora)   badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Marcou pelo menos 1 gol em cada um desses jogos.">⚽ ${m.fora} marcou nos últimos ${seq.scoreFora} jogos</div>`);
+  if (seq.cleanCasa)   badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Não sofreu nenhum gol em cada um desses jogos.">🧤 ${m.casa} não sofreu gol nos últimos ${seq.cleanCasa} jogos</div>`);
+  if (seq.cleanFora)   badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Não sofreu nenhum gol em cada um desses jogos.">🧤 ${m.fora} não sofreu gol nos últimos ${seq.cleanFora} jogos</div>`);
+  if (seq.over15Casa)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Total de gols (casa+visitante) do jogo passou de 1.5 em cada um desses jogos.">📈 ${m.casa} bateu Over 1.5 FT nos últimos ${seq.over15Casa} jogos</div>`);
+  if (seq.over15Fora)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Total de gols (casa+visitante) do jogo passou de 1.5 em cada um desses jogos.">📈 ${m.fora} bateu Over 1.5 FT nos últimos ${seq.over15Fora} jogos</div>`);
+  if (seq.over25Casa)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Total de gols (casa+visitante) do jogo passou de 2.5 em cada um desses jogos.">📈 ${m.casa} bateu Over 2.5 FT nos últimos ${seq.over25Casa} jogos</div>`);
+  if (seq.over25Fora)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Total de gols (casa+visitante) do jogo passou de 2.5 em cada um desses jogos.">📈 ${m.fora} bateu Over 2.5 FT nos últimos ${seq.over25Fora} jogos</div>`);
+  if (seq.under25Casa) badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Total de gols (casa+visitante) do jogo ficou em 2.5 ou menos em cada um desses jogos.">📉 ${m.casa} bateu Under 2.5 FT nos últimos ${seq.under25Casa} jogos</div>`);
+  if (seq.under25Fora) badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Total de gols (casa+visitante) do jogo ficou em 2.5 ou menos em cada um desses jogos.">📉 ${m.fora} bateu Under 2.5 FT nos últimos ${seq.under25Fora} jogos</div>`);
+  if (seq.bttsSimCasa) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Os dois times marcaram em cada um desses jogos.">⚽⚽ ${m.casa} teve Ambas Marcam nos últimos ${seq.bttsSimCasa} jogos</div>`);
+  if (seq.bttsSimFora) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Os dois times marcaram em cada um desses jogos.">⚽⚽ ${m.fora} teve Ambas Marcam nos últimos ${seq.bttsSimFora} jogos</div>`);
+  if (seq.bttsNaoCasa) badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Em cada um desses jogos, pelo menos um dos times ficou sem marcar.">🚫 ${m.casa} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoCasa} jogos</div>`);
+  if (seq.bttsNaoFora) badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Em cada um desses jogos, pelo menos um dos times ficou sem marcar.">🚫 ${m.fora} NÃO teve Ambas Marcam nos últimos ${seq.bttsNaoFora} jogos</div>`);
+  if (seq.over05htCasa) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Saiu pelo menos 1 gol no intervalo (1º tempo) em cada um desses jogos.">📈 ${m.casa} bateu Over 0.5 HT nos últimos ${seq.over05htCasa} jogos</div>`);
+  if (seq.over05htFora) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Saiu pelo menos 1 gol no intervalo (1º tempo) em cada um desses jogos.">📈 ${m.fora} bateu Over 0.5 HT nos últimos ${seq.over05htFora} jogos</div>`);
+  if (seq.venceHtCasa)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Esse time terminou o 1º tempo na frente no placar em cada um desses jogos.">🥇 ${m.casa} venceu o 1ºT nos últimos ${seq.venceHtCasa} jogos</div>`);
+  if (seq.venceHtFora)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Esse time terminou o 1º tempo na frente no placar em cada um desses jogos.">🥇 ${m.fora} venceu o 1ºT nos últimos ${seq.venceHtFora} jogos</div>`);
+  if (seq.perdeHtCasa)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.casa} perdeu o 1ºT nos últimos ${seq.perdeHtCasa} jogos</div>`);
+  if (seq.perdeHtFora)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.fora} perdeu o 1ºT nos últimos ${seq.perdeHtFora} jogos</div>`);
   return badges.join('');
 }
 
