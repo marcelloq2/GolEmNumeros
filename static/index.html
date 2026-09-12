@@ -14429,7 +14429,7 @@ function _live2Ind2tBadgeHtml(m) {
 // (ex: odds do BetExplorer, prognósticos da Academia das Apostas) sem tocar no Ao Vivo original
 function renderLive2Card(m) {
   return `
-    <div class="live-card" id="live2Card_${m.id}" style="border-color:#2f9e8f66">
+    <div class="live-card" id="live2Card_${m.id}">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
@@ -14957,20 +14957,27 @@ async function _loadLive2OddsLive(matches) {
   }
 }
 
-// ── Price Lines (2026-09-12) — pedido do usuário depois de ler um artigo
-// sobre trading na Betfair: gráfico de MÉDIA MÓVEL da odds ao vivo (não os
-// pontos crus), mesma ideia do gráfico "Price Lines" do Geeks Toy. Só
-// carrega quando o usuário clica no botão do card — diferente do gráfico de
-// ticks removido mais cedo nesta sessão, aqui não tem nenhum auto-load por
-// card a cada ciclo.
+// ── Price Lines (2026-09-12, redesenhado no mesmo dia a pedido do usuário
+// depois de ver print de um gráfico de corretora — estilo tabs de intervalo
+// tipo 2m/5m/10m/1h) — gráfico de odds ao vivo SÓ de Casa e Visitante (sem
+// Empate/Over/Under, pedido explícito). Só carrega quando o usuário clica
+// no botão do card, nenhum auto-load por card a cada ciclo.
 const _LIVE2_PRICE_LINES_SEL = {
-  casa:     { label: 'Casa (1)',   color: 'var(--accent2)' },
-  empate:   { label: 'Empate (X)', color: '#8b96ad' },
-  fora:     { label: 'Fora (2)',   color: 'var(--red)' },
-  ou_over:  { label: 'Over',       color: 'var(--green)' },
-  ou_under: { label: 'Under',      color: 'var(--yellow)' },
+  casa: { label: 'Casa',      color: 'var(--accent2)' },
+  fora: { label: 'Visitante', color: 'var(--red)' },
 };
-const _LIVE2_PRICE_LINES_WINDOW_MIN = 15; // mesma janela usada no artigo
+// Abas de intervalo (estilo corretora) — em segundos. "Tudo" cobre a
+// partida inteira (sem limite de janela).
+const _LIVE2_PRICE_LINES_RANGES = [
+  { key: '2m',  label: '2m',   seg: 2 * 60 },
+  { key: '5m',  label: '5m',   seg: 5 * 60 },
+  { key: '10m', label: '10m',  seg: 10 * 60 },
+  { key: '1h',  label: '1h',   seg: 60 * 60 },
+  { key: 'all', label: 'Tudo', seg: null },
+];
+const _LIVE2_PRICE_LINES_DEFAULT_RANGE = '10m';
+let _live2PriceLinesRange = {};   // { [matchId]: rangeKey }
+let _live2PriceLinesPoints = {};  // { [matchId]: points[] } — histórico completo já buscado, pra reaplicar o filtro de intervalo sem rebuscar
 
 function _live2ResolveColor(v) {
   if (typeof v !== 'string' || !v.startsWith('var(')) return v;
@@ -14978,37 +14985,56 @@ function _live2ResolveColor(v) {
   return (getComputedStyle(document.documentElement).getPropertyValue(varName) || '#888').trim() || '#888';
 }
 
-// Média móvel simples: pra cada ponto, faz a média dos últimos N pontos
-// (N = janela em minutos / 30s de intervalo entre capturas) — suaviza o
-// ruído de tick a tick, igual o gráfico do artigo faz com a odd bruta.
-function _live2MovingAverageSeries(points, sel, windowMin) {
-  const N = Math.max(1, Math.round(windowMin * 60 / 30));
-  const out = [];
-  for (let i = 0; i < points.length; i++) {
-    const slice = points.slice(Math.max(0, i - N + 1), i + 1)
-      .map(p => p[sel]).filter(v => v != null);
-    if (!slice.length) continue;
-    const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
-    out.push({ minuto: points[i].minuto, avg });
-  }
-  return out;
+function _live2PriceLinesFiltrarPorIntervalo(points, rangeKey) {
+  const range = _LIVE2_PRICE_LINES_RANGES.find(r => r.key === rangeKey) || _LIVE2_PRICE_LINES_RANGES[2];
+  if (range.seg == null || !points.length) return points;
+  const corte = points[points.length - 1].ts - range.seg;
+  const filtrado = points.filter(p => p.ts >= corte);
+  // Intervalo curto demais pra ter pontos suficientes (jogo tem só 30s
+  // entre capturas) — mostra os últimos pontos disponíveis mesmo assim, em
+  // vez de um gráfico vazio.
+  return filtrado.length >= 2 ? filtrado : points.slice(-5);
 }
 
-function _live2PriceLinesHtml(points) {
+function _live2PriceLinesTabsHtml(matchId) {
+  const atual = _live2PriceLinesRange[matchId] || _LIVE2_PRICE_LINES_DEFAULT_RANGE;
+  return _LIVE2_PRICE_LINES_RANGES.map(r => `
+    <button onclick="_live2SetPriceLinesRange('${matchId}','${r.key}')"
+      style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;
+      border:1px solid ${atual === r.key ? 'var(--green)' : 'var(--border)'};
+      background:${atual === r.key ? 'var(--green)' : 'var(--bg3)'};color:${atual === r.key ? '#04270f' : 'var(--text2)'}">${r.label}</button>
+  `).join('');
+}
+
+function _live2PriceLinesHtml(matchId, points) {
   const selsComDado = Object.keys(_LIVE2_PRICE_LINES_SEL).filter(sel => points.some(p => p[sel] != null));
   const legendHtml = selsComDado.map(sel => {
     const meta = _LIVE2_PRICE_LINES_SEL[sel];
-    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
-      <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>${meta.label}
+    const atual = [...points].reverse().find(p => p[sel] != null)?.[sel];
+    return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">
+      <span style="width:10px;height:3px;background:${_live2ResolveColor(meta.color)};display:inline-block;border-radius:2px"></span>
+      ${meta.label} <b style="color:var(--text);font-family:var(--font-mono)">${atual != null ? atual.toFixed(2) : '-'}</b>
     </span>`;
   }).join('');
   return `
-    <div style="font-size:9.5px;color:var(--text2);text-align:center;margin-bottom:6px">Média móvel de ${_LIVE2_PRICE_LINES_WINDOW_MIN}min da odd ao vivo — mesma ideia do gráfico "Price Lines" (Geeks Toy), pra ver a tendência sem o ruído de cada tick isolado.</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px">${legendHtml}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-bottom:8px">${legendHtml}</div>
     <canvas id="live2PriceLinesCanvas" height="180" style="width:100%;display:block;border-radius:6px;background:var(--bg2)"></canvas>
+    <div id="live2PriceLinesTabs_${matchId}" style="display:flex;gap:6px;justify-content:center;margin-top:8px">${_live2PriceLinesTabsHtml(matchId)}</div>
   `;
 }
 
+function _live2SetPriceLinesRange(matchId, rangeKey) {
+  _live2PriceLinesRange[matchId] = rangeKey;
+  const tabsEl = document.getElementById(`live2PriceLinesTabs_${matchId}`);
+  if (tabsEl) tabsEl.innerHTML = _live2PriceLinesTabsHtml(matchId);
+  const points = _live2PriceLinesPoints[matchId] || [];
+  _live2DrawPriceLines(_live2PriceLinesFiltrarPorIntervalo(points, rangeKey), 'live2PriceLinesCanvas');
+}
+
+// Odds ao vivo tem resolução de 30s (não minuto a minuto de verdade) —
+// desenha por MINUTO DE RELÓGIO (ts), não pelo campo `minuto` da partida,
+// senão uma janela de "2m" viraria só 1 tracinho no eixo (o `minuto` de
+// jogo só muda uma vez por 60s, não a cada captura de 30s).
 function _live2DrawPriceLines(points, canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -15019,30 +15045,27 @@ function _live2DrawPriceLines(points, canvasId) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
+  if (!points.length) return;
 
   const sels = Object.keys(_LIVE2_PRICE_LINES_SEL).filter(sel => points.some(p => p[sel] != null));
   if (!sels.length) return;
 
-  const series = {};
-  sels.forEach(sel => { series[sel] = _live2MovingAverageSeries(points, sel, _LIVE2_PRICE_LINES_WINDOW_MIN); });
-
-  let vmin = Infinity, vmax = -Infinity, mmin = Infinity, mmax = -Infinity;
-  Object.values(series).forEach(s => s.forEach(p => {
-    const minuto = p.minuto ?? 0;
-    if (minuto < mmin) mmin = minuto;
-    if (minuto > mmax) mmax = minuto;
-    if (p.avg < vmin) vmin = p.avg;
-    if (p.avg > vmax) vmax = p.avg;
+  const tsMin = points[0].ts, tsMax = points[points.length - 1].ts;
+  let vmin = Infinity, vmax = -Infinity;
+  sels.forEach(sel => points.forEach(p => {
+    if (p[sel] == null) return;
+    if (p[sel] < vmin) vmin = p[sel];
+    if (p[sel] > vmax) vmax = p[sel];
   }));
   if (!isFinite(vmin) || !isFinite(vmax)) return;
   if (vmin === vmax) { vmin -= 0.1; vmax += 0.1; }
-  if (mmax === mmin) mmax = mmin + 1;
+  const tsRange = Math.max(tsMax - tsMin, 1);
   const padV = (vmax - vmin) * 0.12 || 0.1;
   vmin -= padV; vmax += padV;
 
-  const PADL = 34, PADR = 8, PADT = 8, PADB = 16;
+  const PADL = 36, PADR = 8, PADT = 8, PADB = 16;
   const plotW = Math.max(W - PADL - PADR, 10), plotH = Math.max(H - PADT - PADB, 10);
-  const xOf = minuto => PADL + ((minuto - mmin) / (mmax - mmin)) * plotW;
+  const xOf = ts => PADL + ((ts - tsMin) / tsRange) * plotW;
   const yOf = v => PADT + plotH - ((v - vmin) / (vmax - vmin)) * plotH;
 
   ctx.strokeStyle = 'rgba(128,128,128,.18)';
@@ -15059,24 +15082,26 @@ function _live2DrawPriceLines(points, canvasId) {
   sels.forEach(sel => {
     const meta = _LIVE2_PRICE_LINES_SEL[sel];
     ctx.strokeStyle = _live2ResolveColor(meta.color);
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     let started = false;
-    series[sel].forEach(p => {
-      const x = xOf(p.minuto ?? 0), y = yOf(p.avg);
+    points.forEach(p => {
+      if (p[sel] == null) { started = false; return; }
+      const x = xOf(p.ts), y = yOf(p[sel]);
       if (!started) { ctx.moveTo(x, y); started = true; }
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
   });
 
+  const fmt = ts => new Date(ts * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   ctx.fillStyle = 'rgba(150,150,150,.7)';
-  ctx.fillText(`${Math.round(mmin)}'`, PADL, H - 4);
-  ctx.fillText(`${Math.round(mmax)}'`, W - PADR - 20, H - 4);
+  ctx.fillText(fmt(tsMin), PADL, H - 4);
+  ctx.fillText(fmt(tsMax), W - PADR - 34, H - 4);
 }
 
 async function _live2OpenPriceLinesModal(matchId) {
-  const { body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — média móvel das odds ao vivo');
+  const { body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — odds ao vivo (Casa/Visitante)');
   const pm = _live2PainelMatchCache[matchId];
   if (!pm || !pm.event_id) {
     body.innerHTML = `<div class="live-loading">Ainda não encontrei esse jogo na fonte de odds ao vivo (Flashscore) — tenta de novo em alguns segundos, assim que o card carregar a pílula de odds ao vivo o gráfico também fica disponível.</div>`;
@@ -15091,8 +15116,11 @@ async function _live2OpenPriceLinesModal(matchId) {
       body.innerHTML = `<div class="live-loading">Ainda não tem histórico suficiente pra desenhar o gráfico — a odds ao vivo é capturada a cada 30s, volta em alguns minutos.</div>`;
       return;
     }
-    body.innerHTML = _live2PriceLinesHtml(points);
-    requestAnimationFrame(() => _live2DrawPriceLines(points, 'live2PriceLinesCanvas'));
+    _live2PriceLinesPoints[matchId] = points;
+    if (!_live2PriceLinesRange[matchId]) _live2PriceLinesRange[matchId] = _LIVE2_PRICE_LINES_DEFAULT_RANGE;
+    body.innerHTML = _live2PriceLinesHtml(matchId, points);
+    const pontosFiltrados = _live2PriceLinesFiltrarPorIntervalo(points, _live2PriceLinesRange[matchId]);
+    requestAnimationFrame(() => _live2DrawPriceLines(pontosFiltrados, 'live2PriceLinesCanvas'));
   } catch (e) {
     body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
   }
@@ -15863,9 +15891,16 @@ function _live2RedrawMomentumFiltrado(matchId) {
   const shotsOnTargetTodos = (_live2ShotsCache[matchId] || []).filter(s => ON_TARGET_CHART.has(s.shotType));
   const shotsOnTarget = period === 'all' ? shotsOnTargetTodos
     : shotsOnTargetTodos.filter(s => period === '1' ? (s.minute || 0) <= 45 : (s.minute || 0) > 45);
-  drawMiniMomentum(canvasEl, usar, _live2GoalsCache[matchId] || [], shotsOnTarget);
+  // Chute pra fora (pedido do usuário, 2026-09-12) — tudo que não é gol nem
+  // um dos tipos "no alvo" acima (tipicamente 'miss' de arremesso largado,
+  // 'block' bloqueado por um defensor, 'post' na trave).
+  const shotsOffTargetTodos = (_live2ShotsCache[matchId] || []).filter(s => s.shotType !== 'goal' && !ON_TARGET_CHART.has(s.shotType));
+  const shotsOffTarget = period === 'all' ? shotsOffTargetTodos
+    : shotsOffTargetTodos.filter(s => period === '1' ? (s.minute || 0) <= 45 : (s.minute || 0) > 45);
+  drawMiniMomentum(canvasEl, usar, _live2GoalsCache[matchId] || [], shotsOnTarget, shotsOffTarget);
   _live2AttachMomentumTooltip(canvasEl, usar);
   _live2RenderMomentumMarkers(matchId, usar);
+  _live2RenderShotDotsOverlay(matchId, usar, shotsOnTarget, shotsOffTarget);
 }
 
 // Busca o gráfico de momentum (mesmo endpoint/desenho do Ao Vivo original — só reaproveita
@@ -16156,6 +16191,90 @@ function _live2RenderMomentumMarkers(matchId, points, extraMarkers) {
       if (!_live2MomentumTooltipEl) return;
       const tip = _live2MomentumTooltipEl;
       tip.innerHTML = `<div>${mk.label}</div>`;
+      tip.style.left = (ev.clientX + 12) + 'px';
+      tip.style.top = (ev.clientY - 36) + 'px';
+      tip.style.display = 'block';
+    };
+    el.addEventListener('mouseenter', showTip);
+    el.addEventListener('mousemove', showTip);
+    el.addEventListener('mouseleave', () => { if (_live2MomentumTooltipEl) _live2MomentumTooltipEl.style.display = 'none'; });
+    el.addEventListener('click', showTip); // tap em mobile
+  });
+}
+
+// Rótulo legível pro tipo de chute — usado só no tooltip dos pontinhos abaixo
+// (pedido do usuário, 2026-09-12: "adicione descrição quando passar o mouse
+// por cima ele informar qual foi o chute").
+function _live2ShotTypeLabel(shotType) {
+  const map = {
+    save: 'Defendido pelo goleiro', shot_on_target: 'Chute no alvo',
+    miss: 'Chute pra fora', block: 'Bloqueado', post: 'Na trave',
+  };
+  return map[shotType] || 'Chute';
+}
+
+// Tooltip por cima dos pontinhos de chute no alvo/pra fora do gráfico de
+// pressão — overlay de <span> invisíveis posicionados igual aos pontinhos
+// desenhados no canvas por drawMiniMomentum (mesmo bucketing por minuto+time,
+// pra ficarem exatamente em cima do desenho), reaproveitando o mesmo elemento
+// de tooltip já usado pelos marcadores de pressão (_live2MomentumTooltipEl).
+function _live2RenderShotDotsOverlay(matchId, points, shotsOnTarget, shotsOffTarget) {
+  const wrap = document.getElementById(`live2MomentumWrap_${matchId}`);
+  const canvasEl = document.getElementById(`live2MomentumCanvas_${matchId}`);
+  const prev = document.getElementById(`live2ShotDotsOverlay_${matchId}`);
+  if (prev) prev.remove();
+  if (!wrap || !canvasEl || !points || !points.length) return;
+
+  const todos = [...(shotsOnTarget || []).map(s => ({ s, onTarget: true })), ...(shotsOffTarget || []).map(s => ({ s, onTarget: false }))];
+  if (!todos.length) return;
+
+  wrap.style.position = wrap.style.position || 'relative';
+  const topOffset = canvasEl.offsetTop;
+
+  // Mesmo bucketing (índice do ponto mais próximo + time) que drawMiniMomentum
+  // usa pra posicionar os pontinhos — precisa bater exatamente, senão a área
+  // de hover fica deslocada do desenho.
+  const buckets = {};
+  todos.forEach(item => {
+    let closest = 0, bestDiff = Infinity;
+    points.forEach((d, i) => {
+      const dif = Math.abs(Math.floor(d.minute) - (item.s.minute || 0));
+      if (dif < bestDiff) { bestDiff = dif; closest = i; }
+    });
+    const isHome = !!item.s.isHome;
+    const key = `${closest}_${isHome ? 'home' : 'away'}`;
+    (buckets[key] = buckets[key] || []).push(item);
+  });
+
+  const overlay = document.createElement('div');
+  overlay.id = `live2ShotDotsOverlay_${matchId}`;
+  overlay.style.cssText = `position:absolute;left:0;right:0;top:${topOffset}px;height:90px;pointer-events:none`;
+
+  let html = '';
+  Object.keys(buckets).forEach(key => {
+    const [closestStr, team] = key.split('_');
+    const closest = parseInt(closestStr, 10);
+    const list = buckets[key];
+    const pct = ((closest + 0.5) / points.length) * 100;
+    const y = team === 'home' ? 6 : 84;
+    list.forEach((item, idx) => {
+      const offsetPx = (idx - (list.length - 1) / 2) * 9;
+      const radius = item.onTarget ? 5 : 3;
+      const minuto = item.s.minute != null ? `${item.s.minute}'` : '';
+      const label = `${_live2ShotTypeLabel(item.s.shotType)} — ${item.s.player || 'Jogador não identificado'} · ${minuto} · ${team === 'home' ? 'Casa' : 'Visitante'}`;
+      html += `<span class="live2-shotdot-hit" data-label="${label.replace(/"/g, '&quot;')}"
+        style="position:absolute;left:calc(${pct}% + ${offsetPx}px);top:${y}px;width:${radius * 2 + 6}px;height:${radius * 2 + 6}px;
+        transform:translate(-50%,-50%);cursor:help;pointer-events:auto"></span>`;
+    });
+  });
+  overlay.innerHTML = html;
+  wrap.appendChild(overlay);
+
+  overlay.querySelectorAll('.live2-shotdot-hit').forEach(el => {
+    const showTip = (ev) => {
+      if (!_live2MomentumTooltipEl) return;
+      const tip = _live2MomentumTooltipEl;
+      tip.innerHTML = `<div>${el.dataset.label}</div>`;
       tip.style.left = (ev.clientX + 12) + 'px';
       tip.style.top = (ev.clientY - 36) + 'px';
       tip.style.display = 'block';
@@ -18911,7 +19030,7 @@ function buildPressureBadgeHtml(points, m) {
   </span>`;
 }
 
-function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
+function drawMiniMomentum(canvas, points, goals, shotsOnTarget, shotsOffTarget) {
   if (!canvas || !points.length) return;
   const W = canvas.parentElement.offsetWidth || 280;
   const H = 90;
@@ -18972,14 +19091,17 @@ function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
   // ícone que representa chute no gol?") — defendido pelo goleiro ou que
   // teria entrado sem intervenção externa (mesmo critério ON_TARGET já
   // usado nos indicadores ao vivo), SEM contar os que já viraram gol (esses
-  // já têm a bolinha ⚽ acima). Pontinho pequeno, mesma cor pra casa e fora
-  // (pedido do usuário: com a cor do próprio time, o ponto azul sumia em
-  // cima das barras azuis, e o vermelho em cima das vermelhas) — amarelo
-  // com contorno escuro, cor que não é usada em mais nada nesse gráfico,
-  // então contrasta contra os dois lados igual.
-  if (shotsOnTarget && shotsOnTarget.length) {
+  // já têm a bolinha ⚽ acima). Mesma cor pra casa e fora (pedido do
+  // usuário: com a cor do próprio time, o ponto azul sumia em cima das
+  // barras azuis, e o vermelho em cima das vermelhas) — amarelo com
+  // contorno escuro, cor que não é usada em mais nada nesse gráfico, então
+  // contrasta contra os dois lados igual. Maior que o de chute pra fora
+  // (pedido do usuário, mesmo dia: "chute no alvo quero icone maior") —
+  // reforça que é o mais relevante dos dois.
+  const _drawShotDots = (shots, radius, color) => {
+    if (!shots || !shots.length) return;
     const dotBuckets = {};
-    shotsOnTarget.forEach(s => {
+    shots.forEach(s => {
       let closest = 0, bestDiff = Infinity;
       points.forEach((d, i) => {
         const dif = Math.abs(Math.floor(d.minute) - (s.minute || 0));
@@ -18995,17 +19117,23 @@ function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
       const baseX = closest * barW + barW / 2;
       const y = team === 'home' ? 6 : H - 6;
       list.forEach((s, idx) => {
-        const x = baseX + (idx - (list.length - 1) / 2) * 8;
+        const x = baseX + (idx - (list.length - 1) / 2) * 9;
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#f5c518';
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
         ctx.lineWidth = 1;
         ctx.strokeStyle = 'rgba(0,0,0,0.6)';
         ctx.stroke();
       });
     });
-  }
+  };
+  // Chute pra fora (pedido do usuário, 2026-09-12) — mesmo tamanho que o
+  // chute no alvo tinha ANTES dessa mudança (raio 3), cor diferente (cinza-
+  // azulado, não compete visualmente com o dourado do chute no alvo nem
+  // com as barras azul/vermelha).
+  _drawShotDots(shotsOffTarget, 3, '#94a3b8');
+  _drawShotDots(shotsOnTarget, 5, '#f5c518');
 }
 
 // ── SVG compacto de mapa de chutes pra grid (sem legenda/zonas, só campo+bolinhas) ──
