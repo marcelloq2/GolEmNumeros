@@ -15358,7 +15358,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
   }
 
   // Pressão média recente (mesmo cálculo do selo já existente) — base pros
-  // indicadores 2, 3, 5 e "protege o placar" abaixo.
+  // indicadores 2, 3 e 5 abaixo.
   const avg = _live2PressureAvg(points);
   if (avg != null && Math.abs(avg) >= _LIVE2_PRESSURE_THRESHOLD) {
     const dominaCasa = avg > 0;
@@ -15373,15 +15373,6 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     // 3) Está na frente no placar E segue dominando a pressão agora
     if (dominanteNaFrente) {
       badges.push(`<div class="live-card-ind2t holding" title="Esse time está ganhando e também é quem domina a pressão agora — sinal de que segue no controle do jogo, não só defendendo o resultado.">🔥 ${dominante} está na frente e segue pressionando</div>`);
-    }
-    // Protege o placar (pedido do usuário, 2026-09-12) — o oposto do #3
-    // acima: aqui quem está NA FRENTE no placar cedeu a pressão pro
-    // adversário agora, sinal de time recuando pra segurar o resultado em
-    // vez de seguir atacando. Ex: time faz 1x0 e passa a jogar mais atrás.
-    const casaNaFrente = golCasa > golFora, foraNaFrente = golFora > golCasa;
-    if ((casaNaFrente && !dominaCasa) || (foraNaFrente && dominaCasa)) {
-      const protegendo = casaNaFrente ? m.casa : m.fora;
-      badges.push(`<div class="live-card-ind2t holding" title="Esse time está ganhando, mas quem domina a pressão agora é o adversário — sinal de que recuou pra proteger o resultado em vez de seguir atacando.">🛡️ ${protegendo} protege o placar</div>`);
     }
     // 5) Empate no placar mas domínio de pressão claramente de um lado
     if (golCasa === golFora) {
