@@ -15427,7 +15427,13 @@ function _live2RenderMomentumMarkers(matchId, points, extraMarkers) {
 
   const overlay = document.createElement('div');
   overlay.id = `live2MarkersOverlay_${matchId}`;
-  overlay.style.cssText = 'position:absolute;left:16px;right:16px;top:10px;height:90px;pointer-events:none';
+  // O overlay era ancorado num top fixo relativo ao wrap inteiro — funcionava
+  // enquanto o canvas era o primeiro filho, mas quebrou (ícone em cima do
+  // texto) assim que o toggle Geral/1ºT/2ºT virou uma linha de pílulas visível
+  // acima do gráfico (2026-09-11). Ancorar no offsetTop do canvas em vez do
+  // wrap resolve pros dois casos, com ou sem a linha de botões antes dele.
+  const topOffset = canvasEl.offsetTop + 10;
+  overlay.style.cssText = `position:absolute;left:16px;right:16px;top:${topOffset}px;height:90px;pointer-events:none`;
   overlay.innerHTML = all.map((mk, idx) => {
     const pct = Math.min(97, Math.max(1, ((mk.minute - minMinute) / span) * 100));
     let topPx = 2;
