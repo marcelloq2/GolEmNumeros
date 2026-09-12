@@ -13948,20 +13948,36 @@ function _live2RenderLeaguePanel() {
     return;
   }
   panel.innerHTML = `
+    <input id="live2LeagueSearchInput" type="text" placeholder="Filtrar por nome..." oninput="_live2FilterLeaguePanelList(this.value)"
+      style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+             color:var(--text);font-size:11px;padding:5px 8px;margin-bottom:8px">
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <button onclick="_live2LeaguePanelSelectAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Marcar todas</button>
       <button onclick="_live2LeaguePanelClear()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Desmarcar todas</button>
     </div>
+    <div id="live2LeagueList">
     ${ligas.map(liga => `
-      <label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:var(--text);cursor:pointer">
+      <label data-liga-norm="${_normLive2(liga)}" style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:var(--text);cursor:pointer">
         <input type="checkbox" data-liga="${liga.replace(/"/g, '&quot;')}" ${_live2LeagueFilter.has(liga) ? 'checked' : ''} style="cursor:pointer">
         <span style="flex:1">${liga}</span>
         <span style="color:var(--text2);font-size:10px">${counts[liga]}</span>
       </label>`).join('')}
+    </div>
     <div style="display:flex;gap:6px;margin-top:10px">
       <button onclick="_live2LeaguePanelApply()" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#04270f;font-size:11px;font-weight:700;padding:6px;cursor:pointer">Aplicar</button>
       <button onclick="_live2LeaguePanelShowAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;padding:6px;cursor:pointer">Mostrar todas</button>
     </div>`;
+}
+
+// Filtra a lista de checkboxes por nome — não mexe em quem tá marcado/
+// desmarcado (só esconde via display:none), então "Marcar todas"/"Aplicar"
+// continuam considerando também o que ficou fora do filtro de texto no momento.
+function _live2FilterLeaguePanelList(texto) {
+  const termo = _normLive2(texto);
+  document.querySelectorAll('#live2LeagueList label').forEach(label => {
+    const bate = !termo || (label.dataset.ligaNorm || '').includes(termo);
+    label.style.display = bate ? '' : 'none';
+  });
 }
 
 function _live2LeaguePanelSelectAll() {
