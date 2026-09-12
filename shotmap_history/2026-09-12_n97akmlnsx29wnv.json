@@ -1,0 +1,300 @@
+{
+  "event_id": "n97akmlnsx29wnv",
+  "date": "2026-09-12",
+  "casa": "Chippa Utd",
+  "fora": "Mamelodi Sundowns",
+  "liga": "Premier League",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "total_shots": 26,
+  "shotmap": [
+    {
+      "id": "2968447177",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Kammies",
+      "x": 8.2,
+      "y": 40.7
+    },
+    {
+      "id": "2968442487",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "G.Kekana",
+      "x": 7.1,
+      "y": 50.1
+    },
+    {
+      "id": "2968442047",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Wyk",
+      "x": 9.9,
+      "y": 35.5
+    },
+    {
+      "id": "2968441535",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Allende",
+      "x": 19.9,
+      "y": 63.7
+    },
+    {
+      "id": "2968438193",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Figuareido",
+      "x": 13.8,
+      "y": 31.8
+    },
+    {
+      "id": "2968438067",
+      "minute": 70,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Mokoena",
+      "x": 18.5,
+      "y": 61.1
+    },
+    {
+      "id": "2968436059",
+      "minute": 68,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Rayners",
+      "x": 30.1,
+      "y": 58.1
+    },
+    {
+      "id": "2968430527",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Mailula",
+      "x": 13.8,
+      "y": 41.6
+    },
+    {
+      "id": "2968428143",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "T.Morena",
+      "x": 26.2,
+      "y": 49.6
+    },
+    {
+      "id": "2968426561",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Morena",
+      "x": 13.9,
+      "y": 56.9
+    },
+    {
+      "id": "2968419543",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Morena",
+      "x": 20.9,
+      "y": 74.2
+    },
+    {
+      "id": "2968416905",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Matthews",
+      "x": 13.1,
+      "y": 28.2
+    },
+    {
+      "id": "2968415497",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Matrose",
+      "x": 14.1,
+      "y": 70.2
+    },
+    {
+      "id": "2968414155",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "N. Mlotshwa",
+      "x": 7.7,
+      "y": 45.4
+    },
+    {
+      "id": "2968412535",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mokoena",
+      "x": 21.4,
+      "y": 44.8
+    },
+    {
+      "id": "2968375669",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Ndamane",
+      "x": 11.4,
+      "y": 42.1
+    },
+    {
+      "id": "2968359797",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Figuareido",
+      "x": 22.5,
+      "y": 30.9
+    },
+    {
+      "id": "2968352489",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Figuareido",
+      "x": 9.4,
+      "y": 27.6
+    },
+    {
+      "id": "2968341535",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Matthews",
+      "x": 12,
+      "y": 24.3
+    },
+    {
+      "id": "2968329791",
+      "minute": 15,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "B.L.Muniz",
+      "x": 10.2,
+      "y": 55.2
+    },
+    {
+      "id": "2968324401",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Matthews",
+      "x": 6.9,
+      "y": 49.7
+    },
+    {
+      "id": "2968466731",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Wyk",
+      "x": 15.9,
+      "y": 33.9
+    },
+    {
+      "id": "2968465817",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Mokoena",
+      "x": 8.2,
+      "y": 48.2
+    },
+    {
+      "id": "2968463787",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Rayners",
+      "x": 11.9,
+      "y": 54.3
+    },
+    {
+      "id": "2968460963",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Wyk",
+      "x": 15.4,
+      "y": 29.1
+    },
+    {
+      "id": "2968475915",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Wyk",
+      "x": 9.3,
+      "y": 44.7
+    }
+  ]
+}
