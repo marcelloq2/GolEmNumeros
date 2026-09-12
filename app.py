@@ -8921,6 +8921,13 @@ def _live_odds_history_stats(points):
         janela_pct = None
         if len(janela) >= 2 and janela[0]:
             janela_pct = round((janela[-1] - janela[0]) / janela[0] * 100, 2)
+        # Ticks (nº de vezes que o valor mudou, não a magnitude) só DENTRO da
+        # janela recente — pedido do usuário (2026-09-12): a "Δ 1min" do card
+        # passa a mostrar quantos ticks subiu/desceu no último minuto, em vez
+        # de %. Igual à contagem de ticks_sobe/ticks_desce acima, só que
+        # recortada pra janela em vez do histórico inteiro desde a abertura.
+        janela_ticks_sobe = sum(1 for a, b in zip(janela, janela[1:]) if b > a)
+        janela_ticks_desce = sum(1 for a, b in zip(janela, janela[1:]) if b < a)
 
         stats[sel] = {
             "abertura": abertura, "atual": atual,
@@ -8931,6 +8938,8 @@ def _live_odds_history_stats(points):
             "ticks_desce_por_min": round(ticks_desce / minutos_decorridos, 4),
             "janela_recente_pct": janela_pct,
             "janela_recente_min": _LIVE_ODDS_JANELA_RECENTE_MIN,
+            "janela_ticks_sobe": janela_ticks_sobe,
+            "janela_ticks_desce": janela_ticks_desce,
         }
     return stats
 

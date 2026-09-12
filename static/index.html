@@ -14438,20 +14438,27 @@ function _live2OddsChartHtml(d, opts = {}) {
     const janelaMin = selsComDado.map(sel => stats[sel]?.janela_recente_min).find(v => v != null) || 1;
     return `
     <div style="display:grid;grid-template-columns:56px 1fr 60px;gap:4px;padding:2px 2px 4px;font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px">
-      <span></span><span>Odd</span><span style="text-align:right">Δ ${janelaMin}min</span>
+      <span></span><span>Odd</span><span style="text-align:right" title="Quantas vezes a odd mudou de valor (não o tamanho da mudança) nos últimos ${janelaMin} minuto(s) — baseado na mesma odds ao vivo do 🔴 ODDS AO VIVO.">Ticks ${janelaMin}min</span>
     </div>
     ${selsComDado.map(sel => {
       const meta = _LIVE2_ODDS_SEL_META[sel];
       const s = stats[sel];
       if (!s) return '';
-      const pct = s.janela_recente_pct;
-      const pctColor = pct == null ? 'var(--text2)' : pct > 0 ? 'var(--green)' : pct < 0 ? 'var(--red)' : 'var(--text2)';
-      const pctTxt = pct == null ? '—' : `${pct > 0 ? '▲+' : pct < 0 ? '▼' : '—'}${pct}%`;
+      // Ticks (pedido do usuário 2026-09-12): quantas vezes a odd SUBIU e
+      // quantas vezes DESCEU na janela recente — não a magnitude (% saiu
+      // daqui). Mesma base de dado do pill "🔴 ODDS AO VIVO" (só que ali só
+      // mostra a direção da ÚLTIMA mudança, aqui conta todas na janela).
+      const upT = s.janela_ticks_sobe ?? 0, downT = s.janela_ticks_desce ?? 0;
+      let tickTxt, tickColor;
+      if (upT === 0 && downT === 0)      { tickTxt = '—'; tickColor = 'var(--text2)'; }
+      else if (downT === 0)              { tickTxt = `▲${upT}`; tickColor = 'var(--green)'; }
+      else if (upT === 0)                { tickTxt = `▼${downT}`; tickColor = 'var(--red)'; }
+      else                                { tickTxt = `▲${upT}▼${downT}`; tickColor = 'var(--text2)'; }
       return `
         <div style="display:grid;grid-template-columns:56px 1fr 60px;gap:4px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--border)">
           <span style="font-size:10px;color:${_live2ResolveColor(meta.color)};font-weight:700">${meta.label}</span>
           <span style="font-size:11px;color:var(--text2)">${s.abertura}→<b style="color:var(--text)">${s.atual}</b></span>
-          <span style="font-size:11px;font-weight:800;text-align:right;color:${pctColor}">${pctTxt}</span>
+          <span style="font-size:11px;font-weight:800;text-align:right;color:${tickColor}" title="${upT} tick(s) de alta e ${downT} tick(s) de baixa nos últimos ${janelaMin} minuto(s).">${tickTxt}</span>
         </div>`;
     }).join('')}`;
   }
