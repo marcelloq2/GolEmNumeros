@@ -15348,6 +15348,65 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     }
   }
 
+  // 9) Jogo inteiro mudo — nenhum dos 2 lados finaliza. Limiar maior que o
+  // individual (10min) de propósito: os 2 pararem JUNTOS é mais raro/forte
+  // que só um time sumir do ataque.
+  const JOGO_MUDO_MIN_GAP = 15;
+  if (shots && shots.length && minutoAtual != null) {
+    const lastShotAny = Math.max(...shots.map(s => s.minute || 0));
+    const gapMudo = minutoAtual - lastShotAny;
+    if (gapMudo >= JOGO_MUDO_MIN_GAP) {
+      badges.push(`<div class="live-card-ind2t blocked">💤 Jogo sem finalização de nenhum lado há ${gapMudo}min</div>`);
+    }
+  }
+
+  // 10) "Jogo morto" — mesmo critério da metodologia Under Limite já
+  // catalogada (placar decidido, 3+ gols de diferença, a partir do minuto
+  // 80) + pouca pressão dos 2 lados agora. Nunca tinha virado indicador
+  // declarativo no card, só existia como metodologia catalogada à parte.
+  const JOGO_MORTO_MIN_MINUTO = 80;
+  const JOGO_MORTO_MARGEM     = 3;
+  const JOGO_MORTO_PRESSAO_MAX = 15;
+  if (minutoAtual != null && minutoAtual >= JOGO_MORTO_MIN_MINUTO && Math.abs(golCasa - golFora) >= JOGO_MORTO_MARGEM) {
+    const avgMorto = _live2PressureAvg(points);
+    if (avgMorto != null && Math.abs(avgMorto) < JOGO_MORTO_PRESSAO_MAX) {
+      badges.push(`<div class="live-card-ind2t holding">💀 Jogo morto — placar decidido e pouca pressão dos 2 lados</div>`);
+    }
+  }
+
+  // 11) Só finaliza de longe — reaproveita a mesma classificação de zona
+  // (x da coordenada do chute) já usada em buildShotsBadgeHtml/xGZ. Amostra
+  // mínima de 3 chutes pra não disparar com 1 chute isolado de fora.
+  if (shots && shots.length) {
+    const classZ = (x) => {
+      const xv = x ?? 50;
+      if (xv < 12) return 'area_pequena';
+      if (xv < 32) return 'area_grande';
+      if (xv < 55) return 'meia_distancia';
+      return 'longa_distancia';
+    };
+    const soDeLonge = (isHomeFlag, nome) => {
+      const doTime = shots.filter(s => s.isHome === isHomeFlag);
+      if (doTime.length < 3) return;
+      const longe = doTime.filter(s => classZ(s.x) === 'longa_distancia').length;
+      if (longe / doTime.length >= 0.7) {
+        badges.push(`<div class="live-card-ind2t blocked">🏹 ${nome} só finaliza de longe (${longe}/${doTime.length} chutes)</div>`);
+      }
+    };
+    soDeLonge(true, m.casa);
+    soDeLonge(false, m.fora);
+  }
+
+  // 12) Empate técnico — o oposto do indicador de "empate com domínio
+  // desequilibrado" (nº5 acima): aqui o placar E a pressão estão os dois
+  // equilibrados, sinal de jogo genuinamente parelho (sem tendência clara).
+  if (golCasa === golFora) {
+    const avgEmpate = _live2PressureAvg(points);
+    if (avgEmpate != null && Math.abs(avgEmpate) < JOGO_MORTO_PRESSAO_MAX) {
+      badges.push(`<div class="live-card-ind2t holding">🟰 Empate técnico — placar e domínio equilibrados</div>`);
+    }
+  }
+
   return badges.join('');
 }
 
