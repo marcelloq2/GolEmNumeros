@@ -14110,6 +14110,11 @@ function renderLive2Card(m) {
            minuto). Fica fora do live-card-body de propósito (como já era),
            pra manter a borda/padding próprios de .live-card-odds-row. -->
       <div id="live2OddsLiveWrap_${m.id}"></div>
+      <!-- Tabela de ticks (Odd + quantos ticks subiu/desceu no último minuto)
+           logo abaixo da pílula ODDS AO VIVO — pedido do usuário (2026-09-12):
+           antes ficava lá embaixo depois do mapa de chutes, longe da odds ao
+           vivo que ela mede. -->
+      <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <!-- Odds PRÉ-jogo (pílulas 1/X/2/Over/Under) logo abaixo da ODDS AO VIVO
            — pedido do usuário (2026-09-12): antes ficava lá embaixo, depois
            do mapa de chutes, longe da odds ao vivo (fazia sentido juntar os
@@ -14126,7 +14131,6 @@ function renderLive2Card(m) {
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
       <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
-      <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
       <div class="live-card-cta-row">
         <button class="live-card-cta" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-cta live-card-cta-alt" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()} Estatísticas</button>
