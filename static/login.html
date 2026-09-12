@@ -117,16 +117,35 @@
       <h1 class="login-title">Gol em <span>Números</span></h1>
       <p class="login-sub">Acesso restrito — digite a senha pra entrar</p>
       <div id="loginErro" class="login-erro" style="display:none">Senha incorreta. Tenta de novo.</div>
-      <form method="POST" action="/login">
-        <input class="login-input" type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">
-        <button class="login-btn" type="submit">Entrar</button>
+      <form id="loginForm" method="POST" action="/login">
+        <input id="loginSenhaInput" class="login-input" type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">
+        <button id="loginBtn" class="login-btn" type="submit">Entrar</button>
       </form>
     </div>
   </div>
 
   <script>
-    if (new URLSearchParams(location.search).get('erro') === '1') {
-      document.getElementById('loginErro').style.display = 'block';
+    // Bloqueio por tentativas erradas (pedido do usuário, 2026-09-12: "se
+    // errar a senha +de 4x a conta é bloqueada e tem que aguardar 10
+    // minutos") — a trava de verdade é no servidor (app.py, rota /login);
+    // aqui só mostra o aviso e desativa o formulário, pra não deixar
+    // parecer que dá pra tentar de novo antes da hora.
+    const qs = new URLSearchParams(location.search);
+    const erroEl = document.getElementById('loginErro');
+    if (qs.get('bloqueado') === '1') {
+      const min = qs.get('min') || '10';
+      erroEl.textContent = `Muitas tentativas erradas. Aguarde ${min} minuto${min === '1' ? '' : 's'} antes de tentar de novo.`;
+      erroEl.style.display = 'block';
+      document.getElementById('loginSenhaInput').disabled = true;
+      document.getElementById('loginBtn').disabled = true;
+      document.getElementById('loginBtn').style.opacity = '.5';
+      document.getElementById('loginBtn').style.cursor = 'not-allowed';
+    } else if (qs.get('erro') === '1') {
+      const restam = qs.get('restam');
+      erroEl.textContent = restam != null
+        ? `Senha incorreta. ${restam} tentativa${restam === '1' ? '' : 's'} restante${restam === '1' ? '' : 's'} antes do bloqueio.`
+        : 'Senha incorreta. Tenta de novo.';
+      erroEl.style.display = 'block';
     }
     // Cair aqui (por qualquer motivo — sair, sessão vencida, redirect do
     // gate) significa que ESSA aba não está mais logada — limpa a marca do

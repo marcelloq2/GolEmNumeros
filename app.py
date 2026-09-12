@@ -2866,6 +2866,41 @@ _LOGIN_EXEMPT_PREFIXES = (
     "/api/upload-backup", "/api/list-backup", "/api/download-backup",
 )
 
+# Bloqueio por tentativas erradas (pedido do usuário, 2026-09-12: "se errar a
+# senha +de 4x a conta é bloqueada e tem que aguardar 10 minutos"). Sem conta
+# por pessoa (senha única), então quem identifica "de onde vêm as tentativas"
+# é o IP — guardado só em memória (reinicia a cada deploy, sem problema: o
+# objetivo é atrapalhar um brute-force na hora, não manter histórico).
+_login_attempts = {}
+_login_attempts_lock = threading.Lock()
+_LOGIN_MAX_TENTATIVAS = 4       # erradas permitidas — a 5ª bloqueia
+_LOGIN_BLOQUEIO_SEG = 10 * 60
+
+
+def _login_client_ip():
+    """IP de quem está tentando logar. Railway (como a maioria dos PaaS) fica
+    atrás de um proxy reverso — sem olhar X-Forwarded-For, request.remote_addr
+    sempre devolveria o IP interno do proxy, e todo visitante pareceria vir
+    do mesmo lugar (1 pessoa errando a senha bloquearia todo mundo, dono do
+    site incluído). O X-Forwarded-For carrega o IP original como 1º item."""
+    fwd = request.headers.get("X-Forwarded-For", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.remote_addr or "desconhecido"
+
+
+def _login_lockout_minutos(ip):
+    """None = liberado pra tentar. Caso contrário, minutos restantes de bloqueio (arredondado pra cima)."""
+    with _login_attempts_lock:
+        info = _login_attempts.get(ip)
+        if not info or not info.get("locked_until"):
+            return None
+        restante = info["locked_until"] - time.time()
+        if restante <= 0:
+            _login_attempts.pop(ip, None)
+            return None
+        return math.ceil(restante / 60)
+
 
 @app.before_request
 def _exigir_login():
@@ -2880,9 +2915,16 @@ def _exigir_login():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    ip = _login_client_ip()
     if request.method == "POST":
+        minutos = _login_lockout_minutos(ip)
+        if minutos is not None:
+            return redirect(f"/login?bloqueado=1&min={minutos}")
+
         senha = request.form.get("senha", "")
         if SITE_PASSWORD and senha == SITE_PASSWORD:
+            with _login_attempts_lock:
+                _login_attempts.pop(ip, None)
             # Sem session.permanent = True de propósito (pedido do usuário,
             # 2026-09-12): cookie de sessão "de navegador" — o navegador some
             # com ele quando fecha, então da próxima vez que abrir o site
@@ -2894,7 +2936,24 @@ def login():
             # ao contrário do cookie, que vale pro navegador inteiro). Ver
             # comentário no início de static/index.html.
             return redirect("/?logged=1")
-        return redirect("/login?erro=1")
+
+        with _login_attempts_lock:
+            info = _login_attempts.setdefault(ip, {"count": 0, "locked_until": None})
+            info["count"] += 1
+            if info["count"] > _LOGIN_MAX_TENTATIVAS:
+                info["locked_until"] = time.time() + _LOGIN_BLOQUEIO_SEG
+                info["count"] = 0
+                return redirect(f"/login?bloqueado=1&min={_LOGIN_BLOQUEIO_SEG // 60}")
+            restam = _LOGIN_MAX_TENTATIVAS - info["count"]
+        return redirect(f"/login?erro=1&restam={restam}")
+
+    # GET — só reencaminha com o aviso de bloqueio se ainda não veio com ele
+    # (evita loop: essa mesma rota redireciona pra ela mesma só 1x, com o
+    # parâmetro; na 2ª vez (já com "bloqueado" na URL) só renderiza a página).
+    if "bloqueado" not in request.args:
+        minutos = _login_lockout_minutos(ip)
+        if minutos is not None:
+            return redirect(f"/login?bloqueado=1&min={minutos}")
     # Sem "if já logado, pula pro /" aqui de propósito — pedido do usuário
     # (2026-09-12): "quero que peça login quando eu fechar o SITE [a aba],
     # não só o navegador". O cookie sozinho não dá conta disso (é
