@@ -48,7 +48,6 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 # não deslogar todo mundo a cada deploy, configure SECRET_KEY fixa no
 # Railway (qualquer string longa aleatória serve).
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(24)
-app.permanent_session_lifetime = timedelta(days=30)
 DATA_DIR     = os.path.dirname(__file__)
 MOMENTUM_DIR = os.path.join(DATA_DIR, "momentum_history")
 SHOTMAP_DIR  = os.path.join(DATA_DIR, "shotmap_history")
@@ -2884,7 +2883,11 @@ def login():
     if request.method == "POST":
         senha = request.form.get("senha", "")
         if SITE_PASSWORD and senha == SITE_PASSWORD:
-            session.permanent = True
+            # Sem session.permanent = True de propósito (pedido do usuário,
+            # 2026-09-12): cookie de sessão "de navegador" — o navegador some
+            # com ele quando fecha, então da próxima vez que abrir o site
+            # pede login de novo. Com permanent=True (como era antes) o
+            # cookie sobrevivia até 30 dias, mesmo fechando o navegador.
             session["logado"] = True
             return redirect("/")
         return redirect("/login?erro=1")
