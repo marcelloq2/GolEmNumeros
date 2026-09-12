@@ -1369,12 +1369,14 @@
   /* Card por partida (2026-09-12, pedido do usuário: "tem como deixar o
      Painel Principal assim" mostrando um app mobile de placares — mesmas
      colunas de sempre (Forma, 1/X/2, ícones de plataforma, análise), só
-     reorganizadas em card em vez de linha de tabela). Lista empilhada e
-     estreita de propósito, mesma sensação do print do app mesmo em tela
-     larga — decisão minha, usuário topou eu escolher e ajustar depois. */
+     reorganizadas em card em vez de linha de tabela). Largura cheia,
+     alinhado com o cabeçalho da liga acima (mesmo inset de 12px que
+     .painel-league-header já usa) — a primeira versão centralizava o card
+     com largura fixa, sobrando vazio nas laterais em tela larga; pedido do
+     usuário pra alinhar com o resto da página. */
   .painel-match-card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 12px; margin: 8px auto; max-width: 640px; color: var(--text);
+    padding: 10px 12px; margin: 8px 12px; color: var(--text);
     position: relative;
   }
   .painel-match-card:hover { border-color: var(--accent2); }
