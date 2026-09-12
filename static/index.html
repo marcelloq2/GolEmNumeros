@@ -15336,10 +15336,18 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
 
   // 1) "Não finaliza há N min" — espelho ofensivo do indicador de defesa
   // (mesma técnica: último chute DO PRÓPRIO time, em vez de do adversário).
+  // Pedido do usuário (2026-09-12): não carregar o gap do 1ºT pro 2ºT — se
+  // o intervalo (ou um início de 2ºT atrasado) durar uns 30min reais, isso
+  // não é o time "sem finalizar", é o jogo que tá parado. A partir do
+  // minuto 46, a contagem reinicia: só considera chutes DENTRO do 2ºT pra
+  // achar o "último chute" desse time, e se ainda não teve nenhum, conta a
+  // partir do fim do 1ºT (minuto 45) em vez de um chute de antes do intervalo.
   if (shots && shots.length && minutoAtual != null) {
     const ultimoChuteDe = (isHomeFlag) => {
       const doTime = shots.filter(s => s.isHome === isHomeFlag);
-      return doTime.length ? Math.max(...doTime.map(s => s.minute || 0)) : null;
+      const relevantes = minutoAtual > 45 ? doTime.filter(s => (s.minute || 0) > 45) : doTime;
+      if (relevantes.length) return Math.max(...relevantes.map(s => s.minute || 0));
+      return minutoAtual > 45 ? 45 : null;
     };
     const lastCasa = ultimoChuteDe(true);
     const gapCasa = lastCasa == null ? minutoAtual : minutoAtual - lastCasa;
@@ -15350,7 +15358,7 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
   }
 
   // Pressão média recente (mesmo cálculo do selo já existente) — base pros
-  // indicadores 2, 3 e 5 abaixo.
+  // indicadores 2, 3, 5 e "protege o placar" abaixo.
   const avg = _live2PressureAvg(points);
   if (avg != null && Math.abs(avg) >= _LIVE2_PRESSURE_THRESHOLD) {
     const dominaCasa = avg > 0;
@@ -15365,6 +15373,15 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
     // 3) Está na frente no placar E segue dominando a pressão agora
     if (dominanteNaFrente) {
       badges.push(`<div class="live-card-ind2t holding" title="Esse time está ganhando e também é quem domina a pressão agora — sinal de que segue no controle do jogo, não só defendendo o resultado.">🔥 ${dominante} está na frente e segue pressionando</div>`);
+    }
+    // Protege o placar (pedido do usuário, 2026-09-12) — o oposto do #3
+    // acima: aqui quem está NA FRENTE no placar cedeu a pressão pro
+    // adversário agora, sinal de time recuando pra segurar o resultado em
+    // vez de seguir atacando. Ex: time faz 1x0 e passa a jogar mais atrás.
+    const casaNaFrente = golCasa > golFora, foraNaFrente = golFora > golCasa;
+    if ((casaNaFrente && !dominaCasa) || (foraNaFrente && dominaCasa)) {
+      const protegendo = casaNaFrente ? m.casa : m.fora;
+      badges.push(`<div class="live-card-ind2t holding" title="Esse time está ganhando, mas quem domina a pressão agora é o adversário — sinal de que recuou pra proteger o resultado em vez de seguir atacando.">🛡️ ${protegendo} protege o placar</div>`);
     }
     // 5) Empate no placar mas domínio de pressão claramente de um lado
     if (golCasa === golFora) {
