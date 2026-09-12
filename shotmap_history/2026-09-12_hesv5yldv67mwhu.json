@@ -1,0 +1,311 @@
+{
+  "event_id": "hesv5yldv67mwhu",
+  "date": "2026-09-12",
+  "casa": "Cesena",
+  "fora": "Cremonese",
+  "liga": "Serie B",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2968602181",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Bonazzoli",
+      "x": 5.2,
+      "y": 60.7
+    },
+    {
+      "id": "2968601477",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Ličina",
+      "x": 18.3,
+      "y": 68.7
+    },
+    {
+      "id": "2968597563",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Bianchetti",
+      "x": 7.7,
+      "y": 38.8
+    },
+    {
+      "id": "2968594783",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Collocolo",
+      "x": 18.2,
+      "y": 62
+    },
+    {
+      "id": "2968584205",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Bonazzoli",
+      "x": 10.2,
+      "y": 61.4
+    },
+    {
+      "id": "2968581821",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Luperto",
+      "x": 10,
+      "y": 65.2
+    },
+    {
+      "id": "2968578769",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "penalty",
+      "player": "C.Shpendi",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2968573191",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Vandeputte",
+      "x": 15.4,
+      "y": 44.4
+    },
+    {
+      "id": "2968573135",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gerli",
+      "x": 15.2,
+      "y": 68.5
+    },
+    {
+      "id": "2968573019",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gerli",
+      "x": 22.6,
+      "y": 71.2
+    },
+    {
+      "id": "2968572697",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Bonazzoli",
+      "x": 22,
+      "y": 50.4
+    },
+    {
+      "id": "2968572661",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Luperto",
+      "x": 27.7,
+      "y": 30.4
+    },
+    {
+      "id": "2968572603",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Bonazzoli",
+      "x": 25.3,
+      "y": 49.5
+    },
+    {
+      "id": "2968572027",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Bonazzoli",
+      "x": 18.7,
+      "y": 51.6
+    },
+    {
+      "id": "2968569835",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "A.Fiori",
+      "x": 14.3,
+      "y": 38.8
+    },
+    {
+      "id": "2968551537",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Vandeputte",
+      "x": 7.7,
+      "y": 17.4
+    },
+    {
+      "id": "2968548433",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "M.Mangraviti",
+      "x": 18.4,
+      "y": 47.3
+    },
+    {
+      "id": "2968548397",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "R.Pagano",
+      "x": 11.9,
+      "y": 48.8
+    },
+    {
+      "id": "2968548333",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "M.Mangraviti",
+      "x": 15.2,
+      "y": 45.2
+    },
+    {
+      "id": "2968541169",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "T.Berti",
+      "x": 29.7,
+      "y": 45.7
+    },
+    {
+      "id": "2968539257",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Fiori",
+      "x": 15.1,
+      "y": 46.9
+    },
+    {
+      "id": "2968532577",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Guidi",
+      "x": 29.4,
+      "y": 47
+    },
+    {
+      "id": "2968531099",
+      "minute": 30,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Bonazzoli",
+      "x": 24.1,
+      "y": 62.4
+    },
+    {
+      "id": "2968531033",
+      "minute": 30,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T.Berti",
+      "x": 14.6,
+      "y": 57.4
+    },
+    {
+      "id": "2968529289",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vogliacco",
+      "x": 10.4,
+      "y": 72
+    },
+    {
+      "id": "2968526315",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C.Shpendi",
+      "x": 18.1,
+      "y": 64.2
+    },
+    {
+      "id": "2968496649",
+      "minute": 4,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Bonazzoli",
+      "x": 17,
+      "y": 49.9
+    }
+  ]
+}
