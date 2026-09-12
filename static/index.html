@@ -15593,7 +15593,16 @@ function _live2RedrawMomentumFiltrado(matchId) {
   const period = _live2MomentumPeriod[matchId] || 'all';
   const filtrados = _live2FiltrarPointsPorPeriodo(points, period);
   const usar = filtrados.length ? filtrados : points; // sem pontos no período (ex: 2ºT ainda não começou) — mostra Geral em vez de vazio
-  drawMiniMomentum(canvasEl, usar, _live2GoalsCache[matchId] || []);
+  // Chutes no alvo (defendido ou que entraria) — exclui os que já viraram gol
+  // (mesmo ON_TARGET dos indicadores ao vivo, sem 'goal') pra não desenhar 2
+  // marcadores em cima do mesmo chute. Filtra por período igual aos pontos
+  // (1º/2º Tempo), senão um chute do 2ºT aparecia grudado na borda do
+  // gráfico ao filtrar só o 1ºT (e vice-versa).
+  const ON_TARGET_CHART = new Set(['save', 'shot_on_target']);
+  const shotsOnTargetTodos = (_live2ShotsCache[matchId] || []).filter(s => ON_TARGET_CHART.has(s.shotType));
+  const shotsOnTarget = period === 'all' ? shotsOnTargetTodos
+    : shotsOnTargetTodos.filter(s => period === '1' ? (s.minute || 0) <= 45 : (s.minute || 0) > 45);
+  drawMiniMomentum(canvasEl, usar, _live2GoalsCache[matchId] || [], shotsOnTarget);
   _live2AttachMomentumTooltip(canvasEl, usar);
   _live2RenderMomentumMarkers(matchId, usar);
 }
@@ -18641,7 +18650,7 @@ function buildPressureBadgeHtml(points, m) {
   </span>`;
 }
 
-function drawMiniMomentum(canvas, points, goals) {
+function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
   if (!canvas || !points.length) return;
   const W = canvas.parentElement.offsetWidth || 280;
   const H = 90;
@@ -18697,6 +18706,40 @@ function drawMiniMomentum(canvas, points, goals) {
       ctx.fillText('⚽', gx, team === 'home' ? 10 : H - 10);
     });
   });
+
+  // Chutes no gol (pedido do usuário, 2026-09-12: "tem como adicionar um
+  // ícone que representa chute no gol?") — defendido pelo goleiro ou que
+  // teria entrado sem intervenção externa (mesmo critério ON_TARGET já
+  // usado nos indicadores ao vivo), SEM contar os que já viraram gol (esses
+  // já têm a bolinha ⚽ acima). Pontinho colorido por time (mesma cor das
+  // barras) em vez de outro emoji, de propósito — menor e mais discreto que
+  // a bolinha de gol, pra não competir visualmente com ela.
+  if (shotsOnTarget && shotsOnTarget.length) {
+    const dotBuckets = {};
+    shotsOnTarget.forEach(s => {
+      let closest = 0, bestDiff = Infinity;
+      points.forEach((d, i) => {
+        const dif = Math.abs(Math.floor(d.minute) - (s.minute || 0));
+        if (dif < bestDiff) { bestDiff = dif; closest = i; }
+      });
+      const key = `${closest}_${s.isHome ? 'home' : 'away'}`;
+      (dotBuckets[key] = dotBuckets[key] || []).push(s);
+    });
+    Object.keys(dotBuckets).forEach(key => {
+      const [closestStr, team] = key.split('_');
+      const closest = parseInt(closestStr, 10);
+      const list = dotBuckets[key];
+      const baseX = closest * barW + barW / 2;
+      const y = team === 'home' ? 6 : H - 6;
+      list.forEach((s, idx) => {
+        const x = baseX + (idx - (list.length - 1) / 2) * 8;
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = team === 'home' ? 'rgba(59,130,246,0.95)' : 'rgba(220,80,80,0.95)';
+        ctx.fill();
+      });
+    });
+  }
 }
 
 // ── SVG compacto de mapa de chutes pra grid (sem legenda/zonas, só campo+bolinhas) ──
