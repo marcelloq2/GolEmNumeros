@@ -2360,6 +2360,10 @@
                de precisar rolar a lista toda procurando quem foi favoritado. -->
           <button class="live-refresh-btn" id="live2FavOnlyBtn" onclick="_live2ToggleFavoritesOnly()"
             title="Mostrar só as partidas favoritadas (⭐) que estão ao vivo agora">⭐ Favoritos <span id="live2FavCount">0</span></button>
+          <!-- Busca por time/competição (2026-09-12), ao lado do Favoritos -->
+          <input id="live2SearchInput" type="text" placeholder="Buscar time ou competição..." oninput="_live2SetSearch(this.value)"
+            style="background:var(--bg3);border:1px solid var(--border);border-radius:999px;
+                   color:var(--text);font-size:11px;padding:5px 12px;width:180px;max-width:40vw">
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
@@ -13874,6 +13878,31 @@ let _live2ShowAllMatches = false;
 // já acontece naturalmente (a partida favoritada continua no mesmo grid).
 let _live2ShowOnlyFavorites = false;
 
+// Busca por time/competição (pedido do usuário, 2026-09-12) — ao lado do
+// botão Favoritos. Filtra os cards JÁ RENDERIZADOS trocando só o display
+// (mesma técnica de filterLiveGridBySearch, o painel Ao Vivo antigo), em vez
+// de mexer no array `matches` que decide o que renderizar — se filtrasse ali,
+// cada tecla digitada mudaria o conjunto de ids e forçaria recriar todos os
+// cards do zero (o "piscar" que essa distinção já resolveu em outro lugar
+// desta mesma aba), fora que interromperia os loaders de fundo (momentum/
+// chutes/etc, que rodam sobre TODOS os jogos dentro do teto, escondidos ou não).
+let _live2SearchText = '';
+function _live2SetSearch(texto) {
+  _live2SearchText = _normLive2(texto);
+  _live2ApplySearchFilter();
+}
+function _live2ApplySearchFilter() {
+  for (const m of live2MatchesCache) {
+    const card = document.getElementById(`live2Card_${m.id}`);
+    if (!card) continue;
+    const bate = !_live2SearchText
+      || _normLive2(m.casa).includes(_live2SearchText)
+      || _normLive2(m.fora).includes(_live2SearchText)
+      || _normLive2(m.liga).includes(_live2SearchText);
+    card.style.display = bate ? '' : 'none';
+  }
+}
+
 function _live2ToggleFavoritesOnly() {
   _live2ShowOnlyFavorites = !_live2ShowOnlyFavorites;
   const btn = document.getElementById('live2FavOnlyBtn');
@@ -13964,6 +13993,7 @@ async function loadLive2Matches() {
         wrap.innerHTML = matches.map(m => renderLive2Card(m)).join('');
         _live2RenderedIds = newIds;
       }
+      _live2ApplySearchFilter();
       _loadLive2Momentum(matches);
       _loadLive2Lineups(matches);
       _loadLive2Standings(matches);
@@ -14056,7 +14086,7 @@ function _live2Ind2tBadgeHtml(m) {
 // (ex: odds do BetExplorer, prognósticos da Academia das Apostas) sem tocar no Ao Vivo original
 function renderLive2Card(m) {
   return `
-    <div class="live-card" style="border-color:#2f9e8f66">
+    <div class="live-card" id="live2Card_${m.id}" style="border-color:#2f9e8f66">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
         <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
