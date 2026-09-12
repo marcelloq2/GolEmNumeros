@@ -1330,11 +1330,16 @@
   .painel-league-cols .painel-power-group-label {
     grid-column: span 1; display: flex; align-items: center; justify-content: center; gap: 6px;
   }
+  /* Pílula colorida por mercado — mesma linguagem visual dos odds da Ao Vivo
+     (2026-09-11): 1 recebe o tom azul (--accent2), 2 o vermelho, X fica neutro.
+     color-mix() em cima dos tokens existentes, sem hex novo. */
   .painel-odd-cell {
     text-align: center; font-size: var(--text-sm); font-weight: 700; color: var(--text);
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
-    padding: 2px 0; margin: 0 1px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
+    padding: 2px 0; margin: 0 1px; font-family: var(--font-mono);
   }
+  .painel-match-row .painel-odd-cell:nth-of-type(1) { border-color: var(--accent2); color: var(--accent2); background: color-mix(in srgb, var(--accent2) 12%, var(--bg3)); }
+  .painel-match-row .painel-odd-cell:nth-of-type(3) { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--bg3)); }
   .painel-plat-icons { display: flex; align-items: center; justify-content: center; gap: 4px; }
   .painel-plat-icon {
     width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
@@ -1417,11 +1422,14 @@
   .painel-odd { text-align: center; font-weight: 600; }
   .painel-odd.empty { color: var(--text2); }
   .painel-match-analysis-btn {
-    background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); padding: 0 2px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 50%;
+    cursor: pointer; font-size: 12px; color: var(--text2);
+    width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color .15s, color .15s;
   }
-  .painel-match-analysis-btn:hover { color: var(--accent); }
+  .painel-match-analysis-btn:hover { color: var(--green); border-color: var(--green); }
   .painel-match-analysis-btn.disabled { opacity: .3; cursor: not-allowed; }
-  .painel-match-analysis-btn.disabled:hover { color: var(--text2); }
+  .painel-match-analysis-btn.disabled:hover { color: var(--text2); border-color: var(--border); }
 
 
   .painel-subtabs { display: flex; align-items: center; gap: 20px; padding: 10px 12px 0; border-bottom: 1px solid var(--border); }
