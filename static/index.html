@@ -1002,9 +1002,15 @@
        tipo "Independiente Petrolero" invadindo o card do time visitante). */
     min-width: 0;
   }
+  /* Placar LED — a versão com --text-2xl (26px) ficava alta demais pro card
+     estreito (280-320px): o box crescia mais que a linha de nome+escudo ao
+     lado, e a linha do HT logo abaixo acabava caindo na mesma altura das
+     bolinhas de forma (V/E/D) do time, parecendo sobreposto (2026-09-11).
+     20px + padding vertical bem justo mantém a coluna do placar do tamanho
+     de UMA linha, igual as colunas de time ao lado. */
   .live-card-score {
-    font-family: var(--font-mono); font-size: var(--text-2xl); font-weight: 700; color: var(--led);
-    letter-spacing: 1px; font-variant-numeric: tabular-nums; padding: 2px 12px; flex-shrink: 0;
+    font-family: var(--font-mono); font-size: 20px; line-height: 1; font-weight: 700; color: var(--led);
+    letter-spacing: 1px; font-variant-numeric: tabular-nums; padding: 3px 10px; flex-shrink: 0;
     background: var(--scoreboard); border-radius: 6px;
     box-shadow: inset 0 0 4px rgba(0,0,0,.7);
     text-shadow: 0 0 6px rgba(255,90,54,.5);
