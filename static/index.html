@@ -943,21 +943,41 @@
      gigantes, exatamente o que ele não queria. */
   #live2GridWrap { grid-template-columns: repeat(auto-fill, minmax(280px, 320px)); }
   .live-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-    overflow: hidden; cursor: pointer; transition: border-color .15s;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s;
+    border-left: 3px solid var(--border);
   }
-  .live-card:hover { border-color: var(--accent); }
+  .live-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .live-card:hover { border-left-color: var(--accent); }
   .live-card-pinned { border-color: #f59e0b88; box-shadow: 0 0 0 1px #f59e0b44; }
+  /* Faixa esquerda reflete o indicador 2T (holding/blocked) já calculado em JS
+     — leitura de pressão num piscar de olho, sem precisar ler o card inteiro,
+     no espírito da grade de indicadores coloridos do print de referência do
+     usuário (2026-09-11). Setada via JS logo abaixo (_live2Ind2tBadgeHtml já
+     roda no render; aqui só reaproveitamos a mesma classe no card pai). */
+  .live-card:has(.live-card-ind2t.holding) { border-left-color: var(--green); }
+  .live-card:has(.live-card-ind2t.blocked) { border-left-color: var(--red); }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 14px; background: var(--bg3); font-size: 12px; color: var(--text2);
     font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   }
+  /* Ponto pulsante "ao vivo" — motivo visual padrão de transmissão esportiva,
+     reforça a diferença entre Ao Vivo e o resto do app num piscar de olho. */
+  .live-pulse-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red); flex-shrink: 0; animation: livePulse 1.6s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,84,73,.5); }
+    50% { opacity: .55; box-shadow: 0 0 0 4px rgba(255,84,73,0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-pulse-dot { animation: none; } }
   .live-card-body { padding: 14px 16px; }
   .live-card-teams { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .live-card-team {
-    flex: 1; font-size: var(--text-md); font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0;
-    font-family: var(--font-condensed); text-transform: uppercase; letter-spacing: .2px;
+    flex: 1; font-size: var(--text-lg); font-weight: 700; display: flex; align-items: center; gap: 6px; min-width: 0;
+    font-family: var(--font-condensed); text-transform: uppercase; letter-spacing: .3px;
     /* width:100% é o que faltava pro nome comprido truncar em vez de vazar por
        cima do card vizinho: essa div fica dentro de um wrapper column-flex com
        align-items:flex-start (renderLive2Card), que por padrão NÃO estica os
@@ -985,7 +1005,7 @@
     text-shadow: 0 0 6px rgba(255,90,54,.5);
   }
   .live-card-meta {
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
     font-size: 13px; color: var(--red); font-weight: 700; margin-top: 8px;
   }
   .live-card-stats {
@@ -994,8 +1014,15 @@
     font-variant-numeric: tabular-nums;
   }
   .live-card-stats > * { max-width: 80%; margin-left: auto; margin-right: auto; }
+  /* Painel de pressão com fundo de campo — pega emprestado o verde-gramado do
+     print de referência (2026-09-11) reaproveitando o token --pitch que já
+     existe (mesma família visual do placar de LED: "objeto físico" do jogo,
+     não superfície do site — por isso cor fixa nos 2 temas). O gráfico em si
+     (canvas) já pinta um degradê bipolar translúcido por cima disto — aqui só
+     dá o "chão" ao painel em vez de deixar flutuando solto no --bg2. */
   .live-card-momentum-wrap {
-    border-top: 1px solid var(--border); padding: 10px 16px 4px;
+    border-top: 1px solid var(--border); padding: 10px 16px 6px;
+    background: linear-gradient(180deg, var(--pitch) 0%, #0a1a12 100%);
   }
   .live-card-oddschart-wrap:not(:empty) {
     border-top: 1px solid var(--border); padding: 6px 16px 4px;
@@ -1039,23 +1066,45 @@
   }
   .live-card-odds-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
   .live-card-odds-label { font-size: 8px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
+  /* Odds em pílula (regra do DESIGN.md) com preenchimento translúcido na cor
+     semântica de cada mercado — a leitura fica por cor, não só por borda, no
+     mesmo espírito das colunas coloridas do print de referência (2026-09-11).
+     color-mix() em vez de hex+alpha novo — deriva sempre do token existente. */
   .live-card-odds-val {
-    font-size: 12px; font-weight: 800; color: var(--text);
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
-    padding: 3px 7px; min-width: 30px; text-align: center; white-space: nowrap;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--text);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 10px; min-width: 32px; text-align: center; white-space: nowrap;
   }
-  .live-card-odds-val.o1 { border-color: var(--accent2); color: var(--accent2); }
+  .live-card-odds-val.o1 { border-color: var(--accent2); color: var(--accent2); background: color-mix(in srgb, var(--accent2) 14%, var(--bg3)); }
   .live-card-odds-val.ox { border-color: var(--border); color: var(--text2); }
-  .live-card-odds-val.o2 { border-color: var(--red); color: var(--red); }
-  .live-card-odds-val.oover { border-color: var(--green); color: var(--green); }
-  .live-card-odds-val.ounder { border-color: var(--yellow); color: var(--yellow); }
+  .live-card-odds-val.o2 { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 14%, var(--bg3)); }
+  .live-card-odds-val.oover { border-color: var(--green); color: var(--green); background: color-mix(in srgb, var(--green) 14%, var(--bg3)); }
+  .live-card-odds-val.ounder { border-color: var(--yellow); color: var(--yellow); background: color-mix(in srgb, var(--yellow) 14%, var(--bg3)); }
+  /* Par de CTA sólidos cheios — a dupla de botões grandes lado a lado é o
+     elemento mais reconhecível do print de referência (2026-09-11); aqui vira
+     Escalações/Estatísticas em vez de casa de aposta, na cor de marca em vez
+     de laranja (mantém a identidade verde já estabelecida no DESIGN.md). */
+  .live-card-cta-row {
+    display: flex; gap: 8px; padding: 10px 16px 0;
+  }
+  .live-card-cta {
+    flex: 1; font-family: var(--font-condensed); font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px; padding: 9px 8px; border-radius: 8px;
+    border: 1px solid transparent; cursor: pointer; transition: filter .15s, transform .1s;
+    background: var(--green); color: #04270f;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .live-card-cta-alt { background: var(--bg3); color: var(--text); border-color: var(--border); }
+  .live-card-cta:hover { filter: brightness(1.08); }
+  .live-card-cta:active { transform: scale(.98); }
   .live-card-tabs {
-    display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px 10px; border-top: 1px solid var(--border);
   }
   .live-card-tab-btn {
-    background: transparent; border: 1px solid var(--border); color: var(--text2);
-    font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px 6px 0 0;
-    cursor: pointer; border-bottom: none; text-transform: uppercase; letter-spacing: .3px;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+    font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 999px;
+    cursor: pointer; text-transform: uppercase; letter-spacing: .3px;
+    transition: border-color .15s, color .15s;
     /* Card mais estreito não tem largura pra "Escalações"/"CD / Dados" + os
        ícones de link tudo numa linha só — sem isso o texto do botão quebrava
        no meio ("CD /" numa linha, "Dados" na outra). Com nowrap + o
@@ -1063,7 +1112,8 @@
        inteira, em vez de quebrar dentro do próprio botão. */
     white-space: nowrap;
   }
-  .live-card-tab-btn.active { background: var(--bg3); color: var(--text); border-color: var(--accent); }
+  .live-card-tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .live-card-tab-btn.active { background: color-mix(in srgb, var(--green) 16%, var(--bg3)); color: var(--green); border-color: var(--green); }
   /* Linhas de termômetro / estatística por minuto — colunas fixas pra a "bolinha"
      de domínio cair sempre na mesma posição horizontal em todas as linhas, em vez
      de deslocar conforme o tamanho do texto (que era o problema com justify-content:center) */
@@ -13872,7 +13922,7 @@ function _live2UpdateCardNumbers(m) {
 
   if (scoreEl)  scoreEl.textContent  = `${curCasa} - ${curFora}`;
   if (htEl)     htEl.textContent     = `HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}`;
-  if (minuteEl) minuteEl.textContent = `⏱ ${m.minuto || '--'}`;
+  if (minuteEl) minuteEl.textContent = m.minuto || '--';
 
   const ind2tEl = document.getElementById(`live2Ind2t_${m.id}`);
   if (ind2tEl) ind2tEl.innerHTML = _live2Ind2tBadgeHtml(m);
@@ -13934,9 +13984,9 @@ function renderLive2Card(m) {
             </div>
             <div id="live2FormWrapCasa_${m.id}" style="display:flex;gap:3px;margin-top:3px">${_live2FsFormCache[m.id]?.casa || ''}</div>
           </div>
-          <div style="text-align:center;flex-shrink:0;padding:0 10px">
-            <div id="live2Score_${m.id}" style="font-size:22px;font-weight:800">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
-            <div id="live2HT_${m.id}" style="font-size:10px;color:var(--text2)">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
+          <div style="text-align:center;flex-shrink:0;padding:0 6px">
+            <div id="live2Score_${m.id}" class="live-card-score">${m.golCasaFt ?? 0} - ${m.golForaFt ?? 0}</div>
+            <div id="live2HT_${m.id}" style="font-size:10px;color:var(--text2);margin-top:4px">HT: ${m.golCasaHt ?? 0}-${m.golForaHt ?? 0}</div>
           </div>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end">
             <div class="live-card-team" style="justify-content:flex-end;text-align:right">
@@ -13948,7 +13998,8 @@ function renderLive2Card(m) {
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px">
-          <div id="live2Minute_${m.id}" class="live-card-meta">⏱ ${m.minuto || '--'}</div>
+          <span class="live-pulse-dot"></span>
+          <div id="live2Minute_${m.id}" class="live-card-meta" style="margin-top:0">${m.minuto || '--'}</div>
         </div>
         <div id="live2Ind2t_${m.id}">${_live2Ind2tBadgeHtml(m)}</div>
         <div id="live2SeqBadge_${m.id}"></div>
@@ -13967,8 +14018,11 @@ function renderLive2Card(m) {
         <div class="live-card-odds-cell"><span class="live-card-odds-label">Under</span><span class="live-card-odds-val ounder">${m.odd_under || '-'}</span></div>
       </div>` : ''}
       <div class="live-card-oddschart-wrap" id="live2OddsChartInlineWrap_${m.id}"></div>
+      <div class="live-card-cta-row">
+        <button class="live-card-cta" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
+        <button class="live-card-cta live-card-cta-alt" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()} Estatísticas</button>
+      </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
-        <button class="live-card-tab-btn" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Gráfico de odds ao vivo (1X2 + Over/Under) — histórico, taxa e ticks por minuto" onclick="_live2OpenOddsChartModal('${m.id}')">📈</button>
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
              (_live2OpenProbModal) removidos a pedido do usuário (2026-09-01)
@@ -13977,7 +14031,6 @@ function renderLive2Card(m) {
         ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
         ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
         ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
-        <button class="live-card-tab-btn" style="flex:0 0 auto;padding:0 8px" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()}</button>
       </div>
     </div>`;
 }
@@ -15069,10 +15122,11 @@ function _live2FiltrarPointsPorPeriodo(points, period) {
 function _live2MomentumPeriodBtnsHtml(matchId) {
   const atual = _live2MomentumPeriod[matchId] || 'all';
   const btn = (val, lbl) => `<button onclick="_live2SetMomentumPeriod('${matchId}','${val}',this)"
-    style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;cursor:pointer;
-    border:1px solid ${atual===val?'var(--accent)':'var(--border)'};
-    background:${atual===val?'var(--accent)':'none'};color:${atual===val?'#fff':'var(--text2)'}">${lbl}</button>`;
-  return `<div style="display:flex;justify-content:center;gap:4px;margin-bottom:2px">
+    style="font-size:10px;font-weight:700;padding:4px 12px;border-radius:999px;cursor:pointer;
+    text-transform:uppercase;letter-spacing:.3px;
+    border:1px solid ${atual===val?'var(--green)':'rgba(255,255,255,.14)'};
+    background:${atual===val?'var(--green)':'rgba(0,0,0,.25)'};color:${atual===val?'#04270f':'#c8d6ce'}">${lbl}</button>`;
+  return `<div style="display:flex;justify-content:center;gap:6px;margin-bottom:6px">
     ${btn('all','Geral')}${btn('1','1º Tempo')}${btn('2','2º Tempo')}
   </div>`;
 }
