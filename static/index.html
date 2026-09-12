@@ -998,6 +998,16 @@
      roda no render; aqui só reaproveitamos a mesma classe no card pai). */
   .live-card:has(.live-card-ind2t.holding) { border-left-color: var(--green); }
   .live-card:has(.live-card-ind2t.blocked) { border-left-color: var(--red); }
+  /* Borda dourada — pedido do usuário (2026-09-12): destacar visualmente o
+     card quando um lado tem pelo menos 3 "bolinhas" de domínio (contador
+     acumulado, ver _live2DotCounts) E o dobro do adversário. Cor mais viva
+     (#ffd700, ouro de verdade) que o âmbar já usado em favoritos
+     (.live-card-pinned, #f59e0b) de propósito — são dois sinais diferentes,
+     não podem parecer a mesma coisa. Vem depois das regras de 2T/favorito
+     na cascata pra ganhar prioridade quando mais de uma bater ao mesmo tempo. */
+  .live-card.live2-card-gold {
+    border-color: #ffd700; border-left-color: #ffd700;
+  }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 14px; background: var(--bg3); font-size: 12px; color: var(--text2);
@@ -15451,6 +15461,23 @@ function _live2DotCounterHtml(matchId) {
   </div>`;
 }
 
+// Borda dourada no card (pedido do usuário, 2026-09-12) — dispara quando um
+// lado acumulou pelo menos 3 bolinhas de domínio E o dobro do adversário.
+// Reavaliado a cada ciclo (chamado de _live2RefreshBadges, logo depois de
+// _live2DotCounts ser atualizado) — some sozinho se a proporção deixar de
+// bater (ex: o outro lado emparelhar).
+const _LIVE2_GOLD_MIN_DOTS = 3;
+function _live2CheckGoldBorder(matchId) {
+  const c = _live2DotCounts[matchId];
+  const card = document.getElementById(`live2Card_${matchId}`);
+  if (!card) return;
+  const bate = !!c && (
+    (c.casa >= _LIVE2_GOLD_MIN_DOTS && c.casa >= c.fora * 2) ||
+    (c.fora >= _LIVE2_GOLD_MIN_DOTS && c.fora >= c.casa * 2)
+  );
+  card.classList.toggle('live2-card-gold', bate);
+}
+
 // Uma bolinha POR LINHA (Partida toda / Últimos 10min / Últimos 5min), cada
 // uma julgada isoladamente pela própria janela — pedido do usuário
 // (2026-08-29): a versão anterior só acendia uma bolinha combinada (as 3
@@ -15777,6 +15804,7 @@ async function _live2RefreshBadges(matchId) {
     // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
     // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
     thermoEl.innerHTML = _live2DotCounterHtml(matchId) + dotStrip;
+    _live2CheckGoldBorder(matchId);
   }
 }
 
