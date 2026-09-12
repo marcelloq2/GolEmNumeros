@@ -14097,6 +14097,11 @@ function renderLive2Card(m) {
              card inteiro pra baixo com 10+ linhas por partida, 2026-09-11). O
              botão "Tendências" no rodapé abre num modal em cima deste conteúdo. -->
         <div id="live2SeqBadge_${m.id}" style="display:none"></div>
+        <!-- Indicadores AO VIVO (pressão/chutes/xG do jogo atual, calculados em
+             _live2ExtraIndicatorsHtml) — mesmo tratamento: depósito invisível,
+             some direto pro modal Tendências junto com as sequências pré-jogo,
+             não empilha mais linha no card (mesma lição do 2026-09-11 acima). -->
+        <div id="live2LiveIndBadge_${m.id}" style="display:none"></div>
       </div>
       <!-- Odds ao vivo (pílula 🔴 ODDS AO VIVO) movida pra logo abaixo do
            minuto — pedido do usuário (2026-09-11), antes ficava lá embaixo
@@ -14338,10 +14343,18 @@ function _live2OpenLineupModal(matchId) {
 // recalcular nada aqui.
 function _live2OpenSeqModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'seq', 'Tendências');
-  const src = document.getElementById(`live2SeqBadge_${matchId}`);
-  body.innerHTML = (src && src.innerHTML.trim())
-    ? src.innerHTML
-    : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
+  const srcLive = document.getElementById(`live2LiveIndBadge_${matchId}`);
+  const srcSeq  = document.getElementById(`live2SeqBadge_${matchId}`);
+  const liveHtml = (srcLive && srcLive.innerHTML.trim()) ? srcLive.innerHTML : '';
+  const seqHtml  = (srcSeq  && srcSeq.innerHTML.trim())  ? srcSeq.innerHTML  : '';
+  const liveSecHtml = liveHtml
+    ? `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin-bottom:4px">📡 NO JOGO DE AGORA</div>${liveHtml}`
+    : '';
+  const seqSecHtml = seqHtml
+    ? `<div style="font-size:9px;font-weight:700;color:var(--text2);text-align:center;margin:${liveHtml ? '10px' : '0'} 0 4px">📊 SEQUÊNCIAS PRÉ-JOGO</div>${seqHtml}`
+    : '';
+  const html = liveSecHtml + seqSecHtml;
+  body.innerHTML = html || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
 }
 
 // ── Gráfico de odds ao vivo (1X2 + Over/Under) — pedido do usuário
@@ -15182,6 +15195,124 @@ function _live2ThermoDominanceIconHtml(matchId, score, slot, janelaLabel) {
 
 // Recombina os 5 selos (mesma ordem do Ao Vivo original: combo, pressão, chutes, xG
 // oficial, xG por chutes) sempre que momentum OU shotmap terminam de carregar
+// ── Indicadores AO VIVO adicionais (pedido do usuário, 2026-09-12) — mesmo
+// estilo declarativo dos indicadores do 2ºT, mas olhando o jogo inteiro, não
+// só o 2ºT. Reaproveita os MESMOS cálculos já usados pelos selos existentes
+// (buildPressureBadgeHtml usa média das últimas 8 leituras de pressão,
+// limiar 20 — aqui uso a mesma janela/limiar por consistência) e o mesmo
+// dado (_live2PointsCache/_live2ShotsCache/_live2GoalsCache/_uniCache) — sem
+// nenhuma chamada nova ao servidor.
+const _LIVE2_PRESSURE_WINDOW    = 8;   // mesma janela de buildPressureBadgeHtml
+const _LIVE2_PRESSURE_THRESHOLD = 20;  // mesmo limiar de buildPressureBadgeHtml
+const _LIVE2_NOSHOT_MIN_GAP     = 10;  // minutos sem finalizar pra virar indicador
+
+function _live2PressureAvg(points, slice) {
+  if (!points || !points.length) return null;
+  const N = Math.min(_LIVE2_PRESSURE_WINDOW, points.length);
+  const recent = (slice || points).slice(-N).map(p => p.value || 0);
+  if (!recent.length) return null;
+  return recent.reduce((a, b) => a + b, 0) / recent.length;
+}
+
+function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
+  const badges = [];
+  const minutoAtual = _live2MinutoNum(m);
+  const golCasa = m.golCasaFt ?? 0, golFora = m.golForaFt ?? 0;
+
+  // 1) "Não finaliza há N min" — espelho ofensivo do indicador de defesa
+  // (mesma técnica: último chute DO PRÓPRIO time, em vez de do adversário).
+  if (shots && shots.length && minutoAtual != null) {
+    const ultimoChuteDe = (isHomeFlag) => {
+      const doTime = shots.filter(s => s.isHome === isHomeFlag);
+      return doTime.length ? Math.max(...doTime.map(s => s.minute || 0)) : null;
+    };
+    const lastCasa = ultimoChuteDe(true);
+    const gapCasa = lastCasa == null ? minutoAtual : minutoAtual - lastCasa;
+    if (gapCasa >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked">🧊 ${m.casa} não finaliza há ${gapCasa}min</div>`);
+    const lastFora = ultimoChuteDe(false);
+    const gapFora = lastFora == null ? minutoAtual : minutoAtual - lastFora;
+    if (gapFora >= _LIVE2_NOSHOT_MIN_GAP) badges.push(`<div class="live-card-ind2t blocked">🧊 ${m.fora} não finaliza há ${gapFora}min</div>`);
+  }
+
+  // Pressão média recente (mesmo cálculo do selo já existente) — base pros
+  // indicadores 2, 3 e 5 abaixo.
+  const avg = _live2PressureAvg(points);
+  if (avg != null && Math.abs(avg) >= _LIVE2_PRESSURE_THRESHOLD) {
+    const dominaCasa = avg > 0;
+    const dominante  = dominaCasa ? m.casa : m.fora;
+    const golsDominante = dominaCasa ? golCasa : golFora;
+    const dominanteNaFrente = dominaCasa ? (golCasa > golFora) : (golFora > golCasa);
+
+    // 2) Domina a pressão mas ainda não marcou nenhum gol na partida
+    if (golsDominante === 0) {
+      badges.push(`<div class="live-card-ind2t blocked">🌊 ${dominante} domina a pressão e ainda não marcou</div>`);
+    }
+    // 3) Está na frente no placar E segue dominando a pressão agora
+    if (dominanteNaFrente) {
+      badges.push(`<div class="live-card-ind2t holding">🔥 ${dominante} está na frente e segue pressionando</div>`);
+    }
+    // 5) Empate no placar mas domínio de pressão claramente de um lado
+    if (golCasa === golFora) {
+      badges.push(`<div class="live-card-ind2t holding">⚖️ Empate no placar, mas ${dominante} domina a pressão</div>`);
+    }
+  }
+
+  // 4) Sofreu gol e a pressão caiu — compara a pressão média de ANTES do
+  // último gol com a de DEPOIS (mesma janela de 8 leituras cada lado). Só
+  // dispara se o time que sofreu tinha pressão real antes (não só ruído).
+  if (goals && goals.length && points && points.length >= 4) {
+    const ultimoGol = [...goals].sort((a, b) => (b.minute || 0) - (a.minute || 0))[0];
+    if (ultimoGol) {
+      const idxGol = points.findIndex(p => (p.minute || 0) >= (ultimoGol.minute || 0));
+      if (idxGol > 1 && idxGol < points.length) {
+        const antes  = points.slice(Math.max(0, idxGol - _LIVE2_PRESSURE_WINDOW), idxGol);
+        const depois = points.slice(idxGol, idxGol + _LIVE2_PRESSURE_WINDOW);
+        const avgAntes  = _live2PressureAvg(antes, antes);
+        const avgDepois = _live2PressureAvg(depois, depois);
+        if (avgAntes != null && avgDepois != null) {
+          // quem SOFREU o gol é o lado oposto de quem marcou
+          const quemSofreuCasa = ultimoGol.team !== 'home';
+          const pressaoAntes  = quemSofreuCasa ? avgAntes  : -avgAntes;
+          const pressaoDepois = quemSofreuCasa ? avgDepois : -avgDepois;
+          if (pressaoAntes >= 5 && (pressaoAntes - pressaoDepois) >= 15) {
+            const nome = quemSofreuCasa ? m.casa : m.fora;
+            badges.push(`<div class="live-card-ind2t blocked">📉 ${nome} sofreu gol e a pressão caiu</div>`);
+          }
+        }
+      }
+    }
+  }
+
+  // 6) xG bem maior que o placar — reaproveita a MESMA extração/fórmula de
+  // buildXgBadgeHtml (não duplica a lógica, só lê o mesmo _uniCache), só que
+  // aqui compara o xG do time com os GOLS QUE ELE FEZ, não com o xG do rival.
+  const d = _uniCache[`${m.casa}|${m.fora}`];
+  const stats = d && d.statistics;
+  if (stats) {
+    let xgH, xgA;
+    const xg = stats.expected_goals;
+    if (xg && (xg.homeValue || xg.awayValue)) {
+      xgH = parseFloat(xg.homeValue); xgA = parseFloat(xg.awayValue);
+    } else {
+      const gv = (key) => { const it = stats[key]; return it ? [it.homeValue || 0, it.awayValue || 0] : [0, 0]; };
+      const [bigH, bigA] = gv('big_chances');
+      const [boxH, boxA] = gv('shots_inside_box');
+      const [outH, outA] = gv('shots_outside_box');
+      const calcXg = (big, boxIn, boxOut) => {
+        const bc = Number(big) || 0;
+        const insideReg = Math.max(0, (Number(boxIn) || 0) - bc);
+        const outside = Number(boxOut) || 0;
+        return Math.round((bc * 0.40 + insideReg * 0.12 + outside * 0.04) * 100) / 100;
+      };
+      xgH = calcXg(bigH, boxH, outH); xgA = calcXg(bigA, boxA, outA);
+    }
+    if (xgH >= 0 && (xgH - golCasa) >= 1.0) badges.push(`<div class="live-card-ind2t blocked">🧠 ${m.casa} tem xG de ${xgH.toFixed(2)} mas só marcou ${golCasa}</div>`);
+    if (xgA >= 0 && (xgA - golFora) >= 1.0) badges.push(`<div class="live-card-ind2t blocked">🧠 ${m.fora} tem xG de ${xgA.toFixed(2)} mas só marcou ${golFora}</div>`);
+  }
+
+  return badges.join('');
+}
+
 async function _live2RefreshBadges(matchId) {
   const badgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
   if (!badgeEl) return;
@@ -15189,12 +15320,16 @@ async function _live2RefreshBadges(matchId) {
   if (!m) return;
   const points = _live2PointsCache[matchId] || [];
   const shots  = _live2ShotsCache[matchId] || [];
+  const goals  = _live2GoalsCache[matchId] || [];
 
   const pressureHtml = buildPressureBadgeHtml(points, m);
   const shotsHtml    = _live2ShotsBadgeHtml(shots, m);
   const xgHtml       = buildXgBadgeHtml(m);
   const xgzHtml      = await buildIndicatorXgBadgeHtml(shots, m);
   const comboHtml    = _live2CombinedSignalBadgeHtml(points, shots, m);
+
+  const liveIndEl = document.getElementById(`live2LiveIndBadge_${matchId}`);
+  if (liveIndEl) liveIndEl.innerHTML = _live2ExtraIndicatorsHtml(m, shots, points, goals);
 
   const freshBadgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
   if (!freshBadgeEl) return;
