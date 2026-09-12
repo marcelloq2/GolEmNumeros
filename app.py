@@ -1,7 +1,7 @@
 """
 Servidor Flask — API + frontend para exibir dados do StatArea
 """
-from flask import Flask, jsonify, send_from_directory, abort, request, session, redirect
+from flask import Flask, jsonify, send_from_directory, abort, request, session, redirect, make_response
 import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue, sys
 from collections import deque
 import requests as http_req
@@ -2889,10 +2889,20 @@ def login():
             # pede login de novo. Com permanent=True (como era antes) o
             # cookie sobrevivia até 30 dias, mesmo fechando o navegador.
             session["logado"] = True
-            return redirect("/")
+            # ?logged=1 avisa o front (index.html) que acabou de logar nessa
+            # ABA/janela — ele marca isso no sessionStorage (que é por aba,
+            # ao contrário do cookie, que vale pro navegador inteiro). Ver
+            # comentário no início de static/index.html.
+            return redirect("/?logged=1")
         return redirect("/login?erro=1")
-    if SITE_PASSWORD and session.get("logado"):
-        return redirect("/")
+    # Sem "if já logado, pula pro /" aqui de propósito — pedido do usuário
+    # (2026-09-12): "quero que peça login quando eu fechar o SITE [a aba],
+    # não só o navegador". O cookie sozinho não dá conta disso (é
+    # compartilhado por todas as abas do navegador, sobrevive fechando só
+    # uma aba); quem decide isso é o sessionStorage no index.html, que
+    # redireciona pra cá quando a aba é nova/foi reaberta, mesmo com cookie
+    # ainda válido. Se essa rota pulasse de volta pro / nesse caso, virava
+    # loop: index manda pra /login, /login manda de volta pro index.
     return send_from_directory("static", "login.html")
 
 
@@ -2904,7 +2914,16 @@ def logout():
 
 @app.route("/")
 def index():
-    resp = send_from_directory("static", "index.html")
+    # Injeta uma flag no <head> avisando se a trava de senha está ativa —
+    # index.html é servido como arquivo estático puro (sem Jinja), então o
+    # jeito mais simples de passar essa 1 informação dinâmica é um replace
+    # de string no HTML já pronto, sem virar um template inteiro por causa
+    # disso. Usada pelo script de sessionStorage (ver início do arquivo).
+    with open(os.path.join(DATA_DIR, "static", "index.html"), "r", encoding="utf-8") as f:
+        html = f.read()
+    flag = "true" if SITE_PASSWORD else "false"
+    html = html.replace("<head>", f"<head><script>window.__SITE_LOGIN_ATIVO = {flag};</script>", 1)
+    resp = make_response(html)
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"]        = "no-cache"
     resp.headers["Expires"]       = "0"

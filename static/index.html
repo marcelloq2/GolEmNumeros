@@ -1,6 +1,33 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- Pedido do usuário (2026-09-12): pedir login de novo quando fecha o
+     SITE (a aba), não só quando fecha o navegador inteiro. O cookie de
+     sessão sozinho não dá conta disso — ele é do NAVEGADOR (compartilhado
+     entre todas as abas, sobrevive fechando só uma). sessionStorage é POR
+     ABA: some quando essa aba/janela fecha, mesmo com o resto do navegador
+     ainda aberto. window.__SITE_LOGIN_ATIVO é injetado pelo backend
+     (rota "/" em app.py) — só existe/roda esse redirect quando a trava de
+     senha (SITE_PASSWORD) está realmente configurada. -->
+<script>
+(function () {
+  if (typeof window.__SITE_LOGIN_ATIVO === 'undefined' || !window.__SITE_LOGIN_ATIVO) return;
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('logged') === '1') {
+      sessionStorage.setItem('golLogado', '1');
+      params.delete('logged');
+      const resto = params.toString();
+      history.replaceState(null, '', location.pathname + (resto ? '?' + resto : '') + location.hash);
+      return;
+    }
+    if (sessionStorage.getItem('golLogado') !== '1') location.href = '/login';
+  } catch (e) {
+    // sessionStorage bloqueado (modo privado restrito etc.) — não trava o
+    // site por causa disso, o cookie de sessão comum continua protegendo.
+  }
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gol em Números — Previsões do Dia</title>

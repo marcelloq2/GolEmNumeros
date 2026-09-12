@@ -128,6 +128,11 @@
     if (new URLSearchParams(location.search).get('erro') === '1') {
       document.getElementById('loginErro').style.display = 'block';
     }
+    // Cair aqui (por qualquer motivo — sair, sessão vencida, redirect do
+    // gate) significa que ESSA aba não está mais logada — limpa a marca do
+    // sessionStorage (ver script no início de index.html) pra não ficar um
+    // "logado" desatualizado se o usuário voltar pro / sem logar de novo.
+    try { sessionStorage.removeItem('golLogado'); } catch (e) {}
 
     // Gera os cards de mentira do fundo — dado fictício, só pra parecer os
     // cards reais da Ao Vivo (placar, forma, mini-gráfico de momentum,
