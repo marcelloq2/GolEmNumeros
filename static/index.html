@@ -14383,11 +14383,11 @@ function renderLive2Card(m) {
       <div class="live-card-momentum-wrap" id="live2MomentumWrap_${m.id}">
         <div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">${_icoTrend()} pressão — carregando...</div>
       </div>
-      <div class="live-card-shotmap-wrap" id="live2ShotmapWrap_${m.id}"></div>
       <div class="live-card-cta-row">
         <button class="live-card-cta" onclick="_live2OpenLineupModal('${m.id}')">Escalações</button>
         <button class="live-card-cta live-card-cta-alt" title="Ver estatísticas + odds em widget" onclick="_live2OpenStatsModal('${m.id}')">${_icoChart()} Estatísticas</button>
         <button class="live-card-cta live-card-cta-alt" title="Sequências e tendências recentes dos 2 times" onclick="_live2OpenSeqModal('${m.id}')">${_icoTrend()} Tendências</button>
+        <button class="live-card-cta live-card-cta-alt" title="Mapa de chutes ao vivo" onclick="_live2OpenShotmapModal('${m.id}')">${_icoBall()} Mapa de Chutes</button>
       </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
@@ -14592,6 +14592,27 @@ function _live2OpenStatsModal(matchId) {
 function _live2OpenLineupModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'lineup', 'Escalações');
   body.innerHTML = _live2LineupCache[matchId] || '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">escalação ainda não disponível</div>';
+}
+
+// Mapa de chutes movido pra dentro do modal (pedido do usuário, 2026-09-12:
+// "tem como colocar dentro de um card tipo esses" olhando os botões
+// Escalações/Estatísticas/Tendências) — antes ficava sempre visível no
+// corpo do card, ocupando espaço mesmo pra quem não queria ver agora. A
+// busca em segundo plano (_loadLive2Shotmap) não mudou em nada: ela já só
+// escreve no DOM se achar um elemento com id live2ShotmapWrap_<id> — como
+// esse id agora só existe enquanto o modal desse jogo está aberto, o mapa
+// continua atualizando sozinho a cada ciclo (20s) igual sempre atualizou,
+// só que a atualização fica "invisível" (não roda nada a mais) quando o
+// modal está fechado, em vez de redesenhar um SVG que ninguém está vendo.
+function _live2OpenShotmapModal(matchId) {
+  const { m } = _live2OpenModalCommon(matchId, 'shotmap', 'Mapa de Chutes');
+  const body = document.getElementById('live2StatsModalBody');
+  const shots = _live2ShotsCache[matchId] || [];
+  body.innerHTML = `<div id="live2ShotmapWrap_${matchId}">${
+    shots.length
+      ? buildShotMapHtml(shots, m && m.casa, m && m.fora, matchId)
+      : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">ainda não teve chute registrado nesse jogo — atualiza sozinho assim que o 1º chute rolar</div>'
+  }</div>`;
 }
 
 // Reaproveita o conteúdo já calculado por _live2AutoLoadForms em
