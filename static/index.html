@@ -2341,7 +2341,14 @@
   <div class="live-panel" id="live2Panel">
     <div class="live-grid-view active" id="live2GridView" style="width:100%">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;flex-wrap:wrap;row-gap:6px;background:var(--bg2);border-bottom:1px solid var(--border)">
-        <span style="font-size:12px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px"><span class="live-pulse-dot"></span>Ao Vivo</span>
+        <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
+          <span style="font-size:12px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px"><span class="live-pulse-dot"></span>Ao Vivo</span>
+          <!-- Aba "Favoritos" ao lado do título (2026-09-11) — filtra a mesma
+               grade pra só as partidas marcadas com ⭐ (toggleLive2Pin), em vez
+               de precisar rolar a lista toda procurando quem foi favoritado. -->
+          <button class="live-refresh-btn" id="live2FavOnlyBtn" onclick="_live2ToggleFavoritesOnly()"
+            title="Mostrar só as partidas favoritadas (⭐) que estão ao vivo agora">⭐ Favoritos <span id="live2FavCount">0</span></button>
+        </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
             style="background:var(--bg3);border:1px solid var(--accent2);border-radius:999px;
@@ -13778,12 +13785,17 @@ function toggleLive2Pin(id) {
     pinEl.textContent = isPinned ? '⭐' : '☆';
     pinEl.title = isPinned ? 'Remover dos favoritos' : 'Favoritar partida';
   }
+  _live2UpdateFavCount(live2MatchesCache);
   // Re-renderiza o grid pra reordenar (favoritos primeiro), reaproveitando o
   // último resultado buscado — não precisa esperar o próximo refresh de 20s
   if (live2MatchesCache.length) {
     const wrap = document.getElementById('live2GridWrap');
     if (wrap) {
-      const sorted = _live2SortByPin(live2MatchesCache);
+      let sorted = _live2SortByPin(live2MatchesCache);
+      // Com a aba Favoritos ativa, desfavoritar um card precisa tirar ele da
+      // tela na hora (não só no próximo poll de 20s) — mesma lógica do filtro
+      // em loadLive2Matches.
+      if (_live2ShowOnlyFavorites) sorted = sorted.filter(m => _pinnedLive2.has(String(m.id)));
       wrap.innerHTML = sorted.map(m => renderLive2Card(m)).join('');
       _live2RenderedIds = sorted.map(m => m.id);
       _loadLive2Momentum(sorted);
@@ -13843,6 +13855,29 @@ let _live2RenderedIds = [];
 const _LIVE2_MAX_MATCHES_DEFAULT = 60;
 let _live2ShowAllMatches = false;
 
+// "Aba" Favoritos ao lado do título Ao Vivo — filtra a mesma grade pra só as
+// partidas com ⭐ (toggleLive2Pin/_pinnedLive2, já usado pra ordenar favoritos
+// sempre primeiro). Não é uma view separada de verdade — clicar simplesmente
+// filtra o #live2GridWrap existente, então "abrir a aba onde a partida está"
+// já acontece naturalmente (a partida favoritada continua no mesmo grid).
+let _live2ShowOnlyFavorites = false;
+
+function _live2ToggleFavoritesOnly() {
+  _live2ShowOnlyFavorites = !_live2ShowOnlyFavorites;
+  const btn = document.getElementById('live2FavOnlyBtn');
+  if (btn) btn.classList.toggle('active', _live2ShowOnlyFavorites);
+  loadLive2Matches();
+}
+
+// Conta quantos favoritos estão ao vivo agora (não o total de favoritos
+// salvos — alguns podem já ter acabado) e atualiza o número no botão.
+function _live2UpdateFavCount(allMatches) {
+  const el = document.getElementById('live2FavCount');
+  if (!el) return;
+  const n = allMatches.filter(m => _pinnedLive2.has(String(m.id))).length;
+  el.textContent = n;
+}
+
 function _live2ToggleShowAll() {
   _live2ShowAllMatches = !_live2ShowAllMatches;
   const btn = document.getElementById('live2ShowAllBtn');
@@ -13867,6 +13902,7 @@ async function loadLive2Matches() {
     const data = await res.json();
     const allMatches = _live2SortByPin(data.live || []);
     live2MatchesCache = allMatches;
+    _live2UpdateFavCount(allMatches);
 
     // Corta pro teto ANTES de qualquer busca de dado (momentum/shotmap/escalação/
     // etc.) — é isso que reduz a carga de verdade, não só o que aparece na tela.
@@ -13878,7 +13914,10 @@ async function loadLive2Matches() {
     // buscadas em segundo plano (_loadLive2Shotmap roda pra TODAS dentro do teto,
     // não só as visíveis) pra ir alimentando a base, e aparecem sozinhas assim
     // que o 1º chute rolar.
-    const matches = allMatchesLimited.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
+    let matches = allMatchesLimited.filter(m => (_live2ShotsCountCache[m.id] || 0) > 0);
+    // "Aba" Favoritos ativa — filtra por cima, depois do corte normal (o
+    // favorito continua contando pro teto de 60, só a exibição é que muda).
+    if (_live2ShowOnlyFavorites) matches = matches.filter(m => _pinnedLive2.has(String(m.id)));
 
     const badge = document.getElementById('live2CountBadge');
     if (badge) badge.textContent = matches.length;
@@ -13888,7 +13927,13 @@ async function loadLive2Matches() {
       : '';
 
     if (!matches.length) {
-      wrap.innerHTML = `<div class="live-empty" style="grid-column:1/-1">
+      wrap.innerHTML = _live2ShowOnlyFavorites
+        ? `<div class="live-empty" style="grid-column:1/-1">
+        <div style="font-size:36px">⭐</div>
+        <div style="font-size:13px;font-weight:600">Nenhuma partida favoritada está ao vivo agora</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Clique na ☆ de um card pra favoritar — ela aparece aqui assim que a partida começar</div>
+      </div>`
+        : `<div class="live-empty" style="grid-column:1/-1">
         <div style="font-size:36px">😴</div>
         <div style="font-size:13px;font-weight:600">Nenhuma partida com mapa de chutes disponível agora</div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px">Os dados continuam sendo coletados em segundo plano — assim que algum jogo tiver o 1º chute registrado, ele aparece aqui</div>
