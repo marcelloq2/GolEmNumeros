@@ -18711,9 +18711,11 @@ function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
   // ícone que representa chute no gol?") — defendido pelo goleiro ou que
   // teria entrado sem intervenção externa (mesmo critério ON_TARGET já
   // usado nos indicadores ao vivo), SEM contar os que já viraram gol (esses
-  // já têm a bolinha ⚽ acima). Pontinho colorido por time (mesma cor das
-  // barras) em vez de outro emoji, de propósito — menor e mais discreto que
-  // a bolinha de gol, pra não competir visualmente com ela.
+  // já têm a bolinha ⚽ acima). Pontinho pequeno, mesma cor pra casa e fora
+  // (pedido do usuário: com a cor do próprio time, o ponto azul sumia em
+  // cima das barras azuis, e o vermelho em cima das vermelhas) — amarelo
+  // com contorno escuro, cor que não é usada em mais nada nesse gráfico,
+  // então contrasta contra os dois lados igual.
   if (shotsOnTarget && shotsOnTarget.length) {
     const dotBuckets = {};
     shotsOnTarget.forEach(s => {
@@ -18734,9 +18736,12 @@ function drawMiniMomentum(canvas, points, goals, shotsOnTarget) {
       list.forEach((s, idx) => {
         const x = baseX + (idx - (list.length - 1) / 2) * 8;
         ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = team === 'home' ? 'rgba(59,130,246,0.95)' : 'rgba(220,80,80,0.95)';
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#f5c518';
         ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.stroke();
       });
     });
   }
