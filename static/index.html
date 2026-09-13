@@ -14928,13 +14928,20 @@ async function _live2OpenSeqModal(matchId) {
       : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
   };
   // As sequências de FT (vitória/derrota/marcou/Over-Under/BTTS) já vêm
-  // prontas de _live2AutoLoadForms (roda no ciclo normal). Só o lote de 1º
-  // tempo é buscado agora, na hora que o modal abre de fato — ver comentário
-  // em _live2LoadHtStreaks sobre por que isso deixou de ser automático.
+  // prontas de _live2AutoLoadForms (roda no ciclo normal). O lote de 1º
+  // tempo E o de minuto de gol (1º gol marcado/sofrido) são buscados agora,
+  // em paralelo, na hora que o modal abre de fato — ver comentário em
+  // _live2LoadHtStreaks/_live2LoadGoalPatterns sobre por que isso deixou de
+  // ser automático pra toda a lista.
   renderAtual();
-  if (!_live2HtLoaded.has(matchId) && _live2H2hRowsCache[matchId]) {
-    body.insertAdjacentHTML('beforeend', `<div id="live2SeqHtLoading_${matchId}" style="text-align:center;padding:8px 0;font-size:11px;color:var(--text2)"><div class="spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px"></div>buscando sequências de 1º tempo...</div>`);
-    await _live2LoadHtStreaks(matchId);
+  const faltaHt = !_live2HtLoaded.has(matchId) && _live2H2hRowsCache[matchId];
+  const faltaGp = !_live2GpLoaded.has(matchId) && _live2H2hRowsCache[matchId];
+  if (faltaHt || faltaGp) {
+    body.insertAdjacentHTML('beforeend', `<div id="live2SeqHtLoading_${matchId}" style="text-align:center;padding:8px 0;font-size:11px;color:var(--text2)"><div class="spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px"></div>buscando mais tendências...</div>`);
+    await Promise.all([
+      faltaHt ? _live2LoadHtStreaks(matchId) : Promise.resolve(),
+      faltaGp ? _live2LoadGoalPatterns(matchId) : Promise.resolve(),
+    ]);
     if (_live2OpenModal && _live2OpenModal.type === 'seq' && String(_live2OpenModal.matchId) === String(matchId)) {
       renderAtual();
     }
@@ -16749,6 +16756,21 @@ function _live2SeqBadgeHtml(m, seq) {
   if (seq.venceHtFora)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Esse time terminou o 1º tempo na frente no placar em cada um desses jogos.">🥇 ${m.fora} venceu o 1ºT nos últimos ${seq.venceHtFora} jogos</div>`);
   if (seq.perdeHtCasa)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.casa} perdeu o 1ºT nos últimos ${seq.perdeHtCasa} jogos</div>`);
   if (seq.perdeHtFora)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.fora} perdeu o 1ºT nos últimos ${seq.perdeHtFora} jogos</div>`);
+  // Primeiro gol marcado/sofrido (2026-09-13, pedido do usuário: "media de
+  // gols marcados e sofridos ultimos 5 jogos geral" → depois "tem como
+  // adicionar essas estatisticas tambem em tendencia?"). "Geral" = qualquer
+  // mando de campo (tabs[0] "Total", não split casa/fora) — mesma régua já
+  // usada na Leitura da Partida (_jogoGoalPatternStats), buscada sob
+  // demanda só quando esse modal abre (ver _live2LoadGoalPatterns), não pra
+  // toda a lista do Ao Vivo.
+  const gpBadge = (teamName, gp) => {
+    if (!gp || gp.totalComGm < 8) return '';
+    const pctMarcou = gp.timeMarcouPrimeiroCount / gp.totalComGm * 100;
+    const pctSofreu = gp.adversarioMarcouPrimeiroCount / gp.totalComGm * 100;
+    return `<div class="live-card-ind2t" title="Considerando os últimos ${gp.totalComGm} jogos (qualquer mando de campo) com minuto de gol disponível">⚽ ${teamName} marcou 1º em ${pctMarcou.toFixed(0)}% e sofreu 1º em ${pctSofreu.toFixed(0)}% dos jogos</div>`;
+  };
+  if (seq.gpCasa) badges.push(gpBadge(m.casa, seq.gpCasa));
+  if (seq.gpFora) badges.push(gpBadge(m.fora, seq.gpFora));
   return badges.join('');
 }
 
@@ -16809,10 +16831,20 @@ async function _live2AutoLoadForms(matches) {
         // fonte de carga nova da sessão, uma 2ª chamada ao Flashscore pra
         // TODA partida em tela, mesmo escondida dentro do modal Tendências
         // até alguém clicar). Agora só busca quando o modal abre de verdade.
+        // blockCasaGeral/blockForaGeral (2026-09-13) — recorte "geral"
+        // (tabs[0] "Total", qualquer mando de campo) já no formato que
+        // _jogoGoalPatternStats espera (golsPro/golsContra/isHome por
+        // jogo). Só reaproveita o `tabs` já em mãos aqui (zero fetch novo)
+        // — o minuto de gol em si (goal_minutes_batch) continua sendo
+        // buscado sob demanda em _live2LoadGoalPatterns, só quando o
+        // modal Tendências abre pra essa partida.
+        const blockCasaGeral = _jogoStatsRowsFromSection(tabs, 0, true);
+        const blockForaGeral = _jogoStatsRowsFromSection(tabs, 0, false);
         _live2H2hRowsCache[m.id] = {
           homeRowsHt: homeRowsFull.slice(0, _LIVE2_HT_JOGOS),
           awayRowsHt: awayRowsFull.slice(0, _LIVE2_HT_JOGOS),
           nomeCasa, nomeFora,
+          blockCasaGeral, blockForaGeral,
         };
       }
       // tabs[1] = só jogos do time da casa QUANDO ele jogou em casa (rótulo
@@ -16869,6 +16901,42 @@ async function _live2LoadHtStreaks(matchId) {
     const seqEl = document.getElementById(`live2SeqBadge_${matchId}`);
     if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
   } catch (e) { /* segue só com as sequências de FT, sem travar nada */ }
+}
+
+// Quais partidas já tiveram o lote de minuto de gol (1º gol marcado/sofrido)
+// buscado — mesmo padrão de _live2HtLoaded, evita repetir a cada reabertura
+// do modal Tendências da mesma partida.
+let _live2GpLoaded = new Set();
+
+// Busca sob demanda o minuto de gol (goal_minutes_batch, endpoint já
+// existente — mesmo usado na Leitura da Partida) só dos jogos do recorte
+// "geral" de cada time (blockCasaGeral/blockForaGeral, já calculados sem
+// custo em _live2AutoLoadForms) — chamado só quando o usuário abre o modal
+// Tendências dessa partida específica (_live2OpenSeqModal), nunca pra toda
+// a lista do Ao Vivo de uma vez. Pedido do usuário (2026-09-13): "tem como
+// adicionar essas estatisticas tambem em tendencia? no ao vivo, isso vai
+// pesar?" — não pesa, é o mesmo padrão já usado pra 1ºT (_live2LoadHtStreaks).
+async function _live2LoadGoalPatterns(matchId) {
+  if (_live2GpLoaded.has(matchId)) return;
+  const info = _live2H2hRowsCache[matchId];
+  const seq = _live2SeqCache[matchId];
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  if (!info || !seq || !m) return;
+  _live2GpLoaded.add(matchId);
+  const { blockCasaGeral, blockForaGeral } = info;
+  const rowsCasa = blockCasaGeral?.rows || [];
+  const rowsFora = blockForaGeral?.rows || [];
+  if (!rowsCasa.length && !rowsFora.length) return;
+  try {
+    await Promise.all([
+      rowsCasa.length ? _jogoEnsureGoalMinutes(rowsCasa) : Promise.resolve(),
+      rowsFora.length ? _jogoEnsureGoalMinutes(rowsFora) : Promise.resolve(),
+    ]);
+    seq.gpCasa = rowsCasa.length ? _jogoGoalPatternStats(rowsCasa) : null;
+    seq.gpFora = rowsFora.length ? _jogoGoalPatternStats(rowsFora) : null;
+    const seqEl = document.getElementById(`live2SeqBadge_${matchId}`);
+    if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
+  } catch (e) { /* silencioso — bônus, não pode travar o resto do modal */ }
 }
 
 async function loadLive2Flashscore(matchId, btn, targetWrap) {
