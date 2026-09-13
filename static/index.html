@@ -2578,6 +2578,15 @@
           <input id="live2IndicatorFilterInput" type="text" placeholder="Filtrar por indicador (ex: pressão, xG)..." oninput="_live2SetIndicatorFilter(this.value)"
             style="background:var(--bg3);border:1px solid var(--border);border-radius:999px;
                    color:var(--text);font-size:11px;padding:5px 12px;width:210px;max-width:40vw">
+          <!-- Filtro de tempo de jogo (2026-09-13, pedido do usuário) — só
+               1ºT ou só 2ºT (intervalo/encerrado somem em qualquer um dos
+               dois, "Todos" volta a mostrar tudo). Client-side, mesmo padrão
+               do filtro de indicador (_live2ApplySearchFilter). -->
+          <span id="live2HalfFilterGroup" style="display:flex;gap:4px">
+            <button class="live-refresh-btn active" data-half="" onclick="_live2SetHalfFilter('')" title="Mostrar jogos em qualquer momento (1ºT, intervalo, 2ºT...)">Todos</button>
+            <button class="live-refresh-btn" data-half="1" onclick="_live2SetHalfFilter('1')" title="Mostrar só jogos que estão no 1º tempo agora">1ºT</button>
+            <button class="live-refresh-btn" data-half="2" onclick="_live2SetHalfFilter('2')" title="Mostrar só jogos que estão no 2º tempo agora">2ºT</button>
+          </span>
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
@@ -14215,6 +14224,30 @@ function _live2SetIndicatorFilter(texto) {
   _live2ApplySearchFilter();
 }
 
+// Filtro de tempo de jogo (2026-09-13, pedido do usuário) — deduz o tempo
+// (1ºT/2ºT) a partir de m.tempo ("45'", "45+2'", "78'", "HT", "FT"...), o
+// mesmo campo que os cards já usam pra mostrar o minuto. O número antes do
+// "+"/"'" já basta: minuto <= 45 é 1ºT (inclui acréscimos "45+2"), senão é
+// 2ºT (inclui acréscimos "90+3"). HT/FT/ET/P não são nem um nem outro —
+// somem quando o filtro está em "1" ou "2", só aparecem em "Todos".
+function _live2MatchHalf(m) {
+  const t = (m && m.tempo || '').trim();
+  if (!t) return null;
+  if (t === 'HT' || t === 'FT' || t === 'ET' || t === 'P') return null;
+  const base = parseInt(t, 10);
+  if (isNaN(base)) return null;
+  return base <= 45 ? '1' : '2';
+}
+
+let _live2HalfFilter = ''; // '' = todos, '1' = só 1ºT, '2' = só 2ºT
+function _live2SetHalfFilter(half) {
+  _live2HalfFilter = half;
+  document.querySelectorAll('#live2HalfFilterGroup .live-refresh-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.half === half);
+  });
+  _live2ApplySearchFilter();
+}
+
 function _live2ApplySearchFilter() {
   for (const m of live2MatchesCache) {
     const card = document.getElementById(`live2Card_${m.id}`);
@@ -14230,7 +14263,8 @@ function _live2ApplySearchFilter() {
       const textoIndicadores = _normLive2(`${ind2tEl?.textContent || ''} ${liveIndEl?.textContent || ''}`);
       bateIndicador = textoIndicadores.includes(_live2IndicatorFilterText);
     }
-    card.style.display = (bateNome && bateIndicador) ? '' : 'none';
+    const bateTempo = !_live2HalfFilter || _live2MatchHalf(m) === _live2HalfFilter;
+    card.style.display = (bateNome && bateIndicador && bateTempo) ? '' : 'none';
   }
 }
 
