@@ -1,0 +1,256 @@
+{
+  "event_id": "7xdat6l3vds9v72",
+  "date": "2026-09-13",
+  "casa": "Terek Grozny",
+  "fora": "Makhachkala",
+  "liga": "",
+  "score": {
+    "home": 3,
+    "away": 2
+  },
+  "total_shots": 22,
+  "shotmap": [
+    {
+      "id": "2969135811",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "V.Khubulov",
+      "x": 9.5,
+      "y": 46.2
+    },
+    {
+      "id": "2969134591",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Melkadze",
+      "x": 26.3,
+      "y": 68.2
+    },
+    {
+      "id": "2969130277",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "G.Kenzhebek",
+      "x": 29.7,
+      "y": 28.3
+    },
+    {
+      "id": "2969127113",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Keliano",
+      "x": 18.8,
+      "y": 57
+    },
+    {
+      "id": "2969122489",
+      "minute": 83,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Samorodov",
+      "x": 15.4,
+      "y": 56.6
+    },
+    {
+      "id": "2969119127",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Cacintura",
+      "x": 24.4,
+      "y": 31.8
+    },
+    {
+      "id": "2969116283",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Smelov",
+      "x": 8,
+      "y": 57.7
+    },
+    {
+      "id": "2969113925",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Cacintura",
+      "x": 10.4,
+      "y": 31.2
+    },
+    {
+      "id": "2969099425",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "own_goal",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "A.Alarcon",
+      "x": 95.9,
+      "y": 49.4
+    },
+    {
+      "id": "2969098043",
+      "minute": 64,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Sundukov",
+      "x": 13.7,
+      "y": 45.1
+    },
+    {
+      "id": "2969097391",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Smelov",
+      "x": 30.2,
+      "y": 68.4
+    },
+    {
+      "id": "2969093907",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Sidibe",
+      "x": 3.2,
+      "y": 54.2
+    },
+    {
+      "id": "2969092841",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "I.Silva",
+      "x": 26.4,
+      "y": 67.9
+    },
+    {
+      "id": "2969091263",
+      "minute": 55,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "I.Silva",
+      "x": 24.7,
+      "y": 52.1
+    },
+    {
+      "id": "2969083525",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Agalarov",
+      "x": 14.7,
+      "y": 48.1
+    },
+    {
+      "id": "2969058661",
+      "minute": 40,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "I.Silva",
+      "x": 22.2,
+      "y": 69.3
+    },
+    {
+      "id": "2969056867",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mrezigue",
+      "x": 30.6,
+      "y": 41.9
+    },
+    {
+      "id": "2969052115",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Samorodov",
+      "x": 9.2,
+      "y": 32.4
+    },
+    {
+      "id": "2969052023",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Schetinin",
+      "x": 28.9,
+      "y": 55.2
+    },
+    {
+      "id": "2969042247",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Samorodov",
+      "x": 12,
+      "y": 44.6
+    },
+    {
+      "id": "2969041015",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Samorodov",
+      "x": 8.7,
+      "y": 29.4
+    },
+    {
+      "id": "2969036367",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Schetinin",
+      "x": 18.4,
+      "y": 51.7
+    }
+  ]
+}
