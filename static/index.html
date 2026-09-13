@@ -8598,8 +8598,13 @@ function _painelMatchRowHtml(m, leagueName) {
   // ao vivo de O/U nessa fonte) já que ainda é informação útil; Encerrado
   // não mostra mais.
   const mostrarOdds = !_painelIsFinished(m);
+  // Grupo 1X2 sempre aparece quando mostrarOdds (mesmo sem nenhuma odd
+  // ainda em cache — usa "-" nos 3, igual o X sozinho já fazia antes do
+  // agrupamento) — pedido do usuário, achou que tinha "sumido" quando um
+  // jogo "Agendado" bem no futuro (fora da janela de odds já em cache)
+  // ficava sem NENHUMA pílula, sem nenhum indício de que a linha existe.
   const oddCell = (label, val, cls) => `<span class="painel-1x2-cell${cls ? ' ' + cls : ''}"><b>${label}</b> ${val ?? '-'}</span>`;
-  const grupo1x2Html = (mostrarOdds && (m.odd_1 != null || m.odd_x != null || m.odd_2 != null))
+  const grupo1x2Html = mostrarOdds
     ? `<span class="painel-1x2-group">${oddCell('1', m.odd_1, 'home')}${oddCell('X', m.odd_x, '')}${oddCell('2', m.odd_2, 'away')}</span>` : '';
   const ouHtml = (mostrarOdds && m.odd_over != null && m.odd_under != null && m.ou_line != null)
     ? `<span class="painel-ou-pill" title="Over/Under ${m.ou_line}">O/U ${m.ou_line}: <span class="over">${m.odd_over}</span>/<span class="under">${m.odd_under}</span></span>` : '';
