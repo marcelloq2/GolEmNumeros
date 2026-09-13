@@ -1182,6 +1182,36 @@
   .live-card-ind2t.holding { border: 1px solid var(--green); color: var(--green); }
   .live-card-ind2t.blocked { border: 1px solid var(--red); color: var(--red); }
   .live-card-ind2t + .live-card-ind2t { margin-top: 4px; }
+  /* Modal Confronto (2026-09-13) — H2H pré-jogo + últimos 5 jogos, estilo
+     inspirado num print de outro app que o usuário mandou (cards escuros
+     com pílula de placar colorida por resultado). */
+  .live-h2h-section-title {
+    font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .4px;
+    text-align: center; margin-bottom: 8px; font-weight: 700;
+  }
+  .live-h2h-agg { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+  .live-h2h-agg-num { font-family: var(--font-mono); font-size: 20px; font-weight: 800; }
+  .live-h2h-agg-sep { font-size: 10px; color: var(--text2); text-transform: uppercase; }
+  .live-h2h-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .live-h2h-row:last-child { border-bottom: none; }
+  .live-h2h-row-team { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; color: var(--text); }
+  .live-h2h-row-team.away { justify-content: flex-end; text-align: right; }
+  .live-h2h-row-team img { width: 18px; height: 18px; flex-shrink: 0; }
+  .live-h2h-score-pill {
+    font-family: var(--font-mono); font-weight: 800; font-size: 12px;
+    padding: 3px 12px; border-radius: 7px; min-width: 46px; text-align: center; flex-shrink: 0;
+  }
+  .live-h2h-score-pill.win  { background: color-mix(in srgb, var(--green) 20%, var(--bg2)); color: var(--green); }
+  .live-h2h-score-pill.loss { background: color-mix(in srgb, var(--red) 20%, var(--bg2)); color: var(--red); }
+  .live-h2h-score-pill.draw { background: var(--bg3); color: var(--text2); }
+  .live-h2h-form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .live-h2h-form-col-title {
+    font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
+    color: var(--text); text-align: center; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
     padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -14839,6 +14869,7 @@ function renderLive2Card(m) {
         <button class="live-card-cta live-card-cta-alt" title="Sequências e tendências recentes dos 2 times" onclick="_live2OpenSeqModal('${m.id}')">${_icoTrend()} Tendências</button>
         <button class="live-card-cta live-card-cta-alt" title="Mapa de chutes ao vivo" onclick="_live2OpenShotmapModal('${m.id}')">${_icoBall()} Mapa de Chutes</button>
         <button class="live-card-cta live-card-cta-alt" title="Média móvel das odds ao vivo (estilo Price Lines) — só carrega quando você abre" onclick="_live2OpenPriceLinesModal('${m.id}')">${_icoTrend()} Price Lines</button>
+        <button class="live-card-cta live-card-cta-alt" title="Confronto direto e últimos 5 jogos de cada time" onclick="_live2OpenH2hModal('${m.id}')">${_icoBall()} Confronto</button>
       </div>
       <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
         <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
@@ -15106,6 +15137,115 @@ async function _live2OpenSeqModal(matchId) {
       renderAtual();
     }
   }
+}
+
+// Confronto Direto + Últimos 5 jogos (2026-09-13, pedido do usuário a
+// partir de print de outro app: "e possivel criar um cad ao lado desses
+// que mostra o confronto direto e ultimos 5 jogos de cada equipe") — abre
+// na hora, sem spinner: os dados (confrontoRows/homeRowsFull/awayRowsFull)
+// já vêm prontos de _live2AutoLoadForms, que roda automaticamente pra toda
+// partida em tela (mesmo fetch que já alimenta a Forma/Tendências) — zero
+// busca nova, diferente do Tendências (que ainda espera o lote de 1ºT/gol).
+//
+// Logos: só dá pra mostrar escudo nas linhas do Confronto Direto (é sempre
+// entre os 2 times da partida atual, cujos escudos já estão em
+// _live2EscudoCache) — nas linhas de "Últimos 5 jogos" o adversário é
+// sempre um time DIFERENTE a cada jogo, e a fonte de H2H não manda escudo
+// de time nenhum, só nome — por isso ali é só texto mesmo, sem imagem.
+function _live2H2hResultPillHtml(scoreStr, resultLetra) {
+  const cor = resultLetra === 'V' ? 'win' : resultLetra === 'D' ? 'loss' : 'draw';
+  return `<span class="live-h2h-score-pill ${cor}">${scoreStr || '-'}</span>`;
+}
+
+function _live2H2hConfrontoRowHtml(m, row, escudos) {
+  const sc = _live2ParseScore(row.score);
+  const casaEhHome = _normLive2(row.home) === _normLive2(m.casa);
+  // Cor sempre relativa ao time da CASA desta partida (m.casa), pra ficar
+  // consistente com a moldura verde/vermelha do próprio card — não é sobre
+  // quem era mandante naquele jogo antigo.
+  let resultLetra = 'E';
+  if (sc) {
+    const scCasa = casaEhHome ? sc.h : sc.a, scFora = casaEhHome ? sc.a : sc.h;
+    resultLetra = scCasa > scFora ? 'V' : scCasa < scFora ? 'D' : 'E';
+  }
+  const escudoHome = casaEhHome ? escudos?.casa : escudos?.fora;
+  const escudoAway = casaEhHome ? escudos?.fora : escudos?.casa;
+  return `
+    <div class="live-h2h-row" title="${row.league ? _bt2EscXml(row.league) : ''}${row.date ? ' · ' + row.date : ''}">
+      <span class="live-h2h-row-team">${_today2EscudoImg(escudoHome, 18)}<span>${_bt2EscXml(row.home)}</span></span>
+      ${_live2H2hResultPillHtml(row.score, resultLetra)}
+      <span class="live-h2h-row-team away">${_bt2EscXml(row.away)}<span>${_today2EscudoImg(escudoAway, 18)}</span></span>
+    </div>`;
+}
+
+function _live2H2hFormRowHtml(row, teamName) {
+  const sc = _live2ParseScore(row.score);
+  const teamIsHome = _normLive2(row.home) === _normLive2(teamName);
+  const oponente = teamIsHome ? row.away : row.home;
+  const scoreTxt = sc ? (teamIsHome ? `${sc.h}-${sc.a}` : `${sc.a}-${sc.h}`) : (row.score || '-');
+  return `
+    <div class="live-h2h-row" title="${row.league ? _bt2EscXml(row.league) : ''}${row.date ? ' · ' + row.date : ''}">
+      <span class="live-h2h-row-team" style="flex:1;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_bt2EscXml(oponente || '—')}</span></span>
+      ${_live2H2hResultPillHtml(scoreTxt, row.result)}
+    </div>`;
+}
+
+function _live2H2hModalHtml(m, info) {
+  const escudos = _live2EscudoCache[m.id];
+  const confrontoRows = (info.confrontoRows || []).slice(0, 5);
+  const homeRows = (info.homeRowsFull || []).slice(0, 5);
+  const awayRows = (info.awayRowsFull || []).slice(0, 5);
+  const nomeCasa = info.nomeCasa || m.casa, nomeFora = info.nomeFora || m.fora;
+
+  let vCasa = 0, vFora = 0, empates = 0;
+  confrontoRows.forEach(row => {
+    const sc = _live2ParseScore(row.score);
+    if (!sc) return;
+    const casaEhHome = _normLive2(row.home) === _normLive2(m.casa);
+    const scCasa = casaEhHome ? sc.h : sc.a, scFora = casaEhHome ? sc.a : sc.h;
+    if (scCasa > scFora) vCasa++; else if (scCasa < scFora) vFora++; else empates++;
+  });
+
+  const aggHtml = confrontoRows.length ? `
+    <div class="live-h2h-agg">
+      ${_today2EscudoImg(escudos?.casa, 32)}
+      <span class="live-h2h-agg-num" style="color:var(--accent2)">${vCasa}</span>
+      <span class="live-h2h-agg-sep">V · E · D</span>
+      <span class="live-h2h-agg-num" style="color:var(--text2)">${empates}</span>
+      <span class="live-h2h-agg-sep">·</span>
+      <span class="live-h2h-agg-num" style="color:var(--red)">${vFora}</span>
+      ${_today2EscudoImg(escudos?.fora, 32)}
+    </div>` : '';
+
+  const confrontoHtml = confrontoRows.length
+    ? `<div class="live-h2h-section-title">H2H pré-jogo — últimos confrontos diretos</div>${aggHtml}${confrontoRows.map(r => _live2H2hConfrontoRowHtml(m, r, escudos)).join('')}`
+    : `<div class="live-h2h-section-title">H2H pré-jogo</div><div style="text-align:center;color:var(--text2);font-size:11px;padding:10px 0">Esses 2 times ainda não se enfrentaram no histórico disponível.</div>`;
+
+  const formHtml = `
+    <div class="live-h2h-section-title" style="margin-top:14px">Desempenho da equipe — últimos 5 jogos</div>
+    <div class="live-h2h-form-cols">
+      <div class="live-h2h-form-col">
+        <div class="live-h2h-form-col-title">${_bt2EscXml(nomeCasa)}</div>
+        ${homeRows.length ? homeRows.map(r => _live2H2hFormRowHtml(r, nomeCasa)).join('') : `<div style="text-align:center;color:var(--text2);font-size:11px;padding:8px 0">sem jogos suficientes</div>`}
+      </div>
+      <div class="live-h2h-form-col">
+        <div class="live-h2h-form-col-title">${_bt2EscXml(nomeFora)}</div>
+        ${awayRows.length ? awayRows.map(r => _live2H2hFormRowHtml(r, nomeFora)).join('') : `<div style="text-align:center;color:var(--text2);font-size:11px;padding:8px 0">sem jogos suficientes</div>`}
+      </div>
+    </div>`;
+
+  return confrontoHtml + formHtml;
+}
+
+function _live2OpenH2hModal(matchId) {
+  const { m, body } = _live2OpenModalCommon(matchId, 'h2h', 'Confronto');
+  if (!m) { body.innerHTML = `<div class="live-loading">Jogo não encontrado.</div>`; return; }
+  const info = _live2H2hRowsCache[matchId];
+  if (!info) {
+    body.innerHTML = `<div class="live-loading">Ainda não tenho o histórico dessa partida — o card busca isso sozinho logo depois de aparecer na tela, tenta de novo em alguns segundos.</div>`;
+    return;
+  }
+  body.innerHTML = _live2H2hModalHtml(m, info);
 }
 
 // CD (Sequências do time) + Dados (Over/BTTS/médias) — reaproveita o mesmo
@@ -17006,9 +17146,21 @@ async function _live2AutoLoadForms(matches) {
         // modal Tendências abre pra essa partida.
         const blockCasaGeral = _jogoStatsRowsFromSection(tabs, 0, true);
         const blockForaGeral = _jogoStatsRowsFromSection(tabs, 0, false);
+        // Confronto direto (2026-09-13, pedido do usuário: "e possivel criar
+        // um cad ao lado desses que mostra o confronto direto e ultimos 5
+        // jogos de cada equipe") — a seção "Confrontos" (mesmo regex que já
+        // era usado só pra EXCLUIR ela de homeRowsFull/awayRowsFull acima)
+        // tem os jogos entre ESSES 2 times especificamente. Reaproveita o
+        // `tabs` já em mãos aqui — zero fetch novo, mesmo dado que já é
+        // buscado automaticamente pra Forma/sequências de toda partida em
+        // tela (não precisa esperar clicar em nada, ao contrário do lote de
+        // minuto de gol usado em Tendências).
+        const confrontoSection = tab0.sections.find(s => /confront/i.test(s.title));
         _live2H2hRowsCache[m.id] = {
           homeRowsHt: homeRowsFull.slice(0, _LIVE2_HT_JOGOS),
           awayRowsHt: awayRowsFull.slice(0, _LIVE2_HT_JOGOS),
+          homeRowsFull, awayRowsFull,
+          confrontoRows: confrontoSection ? confrontoSection.rows : [],
           nomeCasa, nomeFora,
           blockCasaGeral, blockForaGeral,
         };
