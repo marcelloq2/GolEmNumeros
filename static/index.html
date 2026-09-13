@@ -1994,8 +1994,16 @@
     <span><div class="status-dot"></div>Carregando...</span>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" id="navTabPainel" onclick="switchView('painel', this)">🏠 Painel Principal</button>
-    <button class="nav-tab" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
+    <!-- Painel Principal desativado a pedido do usuário (2026-09-13) — a aba
+         (painelWrapper, switchView('painel',...)) continua existindo no
+         código, só sem esse ponto de entrada na UI. O Tipsters, que morava
+         como subaba de dentro do Painel, ganhou seu próprio atalho no header
+         (botão "🏷️ Tipsters" ao lado do "Raspar", ver openTipstersFromHeader).
+         Tudo que a Ao Vivo usava do Painel (odds ao vivo via /api/painel/matches
+         em _loadLive2OddsLive) já era um fetch direto ao backend, independente
+         dessa aba estar visível — continua funcionando normalmente. -->
+    <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)" style="display:none">🏠 Painel Principal</button>
+    <button class="nav-tab active" id="navTabLive2" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <!-- Botão "▶️ Replay" removido a pedido do usuário (2026-08-27) — a aba
          (replayPanel, switchView('replay',...)) continua existindo no
          código, só sem esse ponto de entrada na UI. -->
@@ -3796,6 +3804,16 @@ function switchView(view, btn) {
     replayPanel.classList.add('active');
     _loadReplayList();
   }
+}
+
+// Abre a aba Tipsters direto do botão no header (2026-09-13) — reaproveita o
+// Painel Principal por trás (painelWrapper/switchView), só que já cai
+// direto na subaba "methodologies" em vez de "TODOS OS JOGOS", sem precisar
+// do botão de nav do Painel (removido da UI, mas o código continua igual).
+function openTipstersFromHeader() {
+  switchView('painel', document.getElementById('navTabPainel'));
+  const btn = document.querySelector('#painelSubtabs .painel-subtab:last-child');
+  if (btn) _painelSetFilter('methodologies', btn);
 }
 
 // ── SCANNER — mostra os jogos ao vivo (mesma fonte do Ao Vivo, /api/radar/live,
@@ -22044,11 +22062,21 @@ async function loadMatches() {
     🔄 <span id="scrapeNowLabel">Raspar</span>
   </button>`;
 
+  // Tipsters (2026-09-13) — antes só existia como subaba dentro do Painel
+  // Principal, que saiu da navegação; ganhou esse atalho direto no header
+  // pra continuar acessível sem precisar reativar a aba.
+  const tipstersBtn = `<button onclick="openTipstersFromHeader()" title="Ranking de tipsters (tips.nowgoal.net)"
+    style="display:flex;align-items:center;gap:4px;background:#3a1e5f;border:1px solid #8b5cf6;
+           color:#c4b5fd;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
+    🏷️ Tipsters
+  </button>`;
+
   document.getElementById('headerStats').innerHTML = `
     <span><div class="status-dot" style="background:${dotColor}"></div><b>${data.total}</b> partidas</span>
     ${ageHtml}
     <span style="font-size:11px;color:#888">Fonte: <b>${data.source || '—'}</b></span>
     ${scrapeBtn}
+    ${tipstersBtn}
     <!-- Toggle Desktop/Mobile (_viewModeToggleHtml) removido a pedido do
          usuário (2026-09-01) — sem efeito visual desde que o CSS responsivo
          de mobile foi removido do site (ver comentário grande no <style>,
@@ -23883,19 +23911,18 @@ function gerarBlocoHistorico(m) {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Garante estado inicial correto (Painel Principal como aba padrão — a Hoje
-  // saiu da navegação, mas seus dados (today2MatchesCache) continuam
-  // carregando em segundo plano porque o Painel Principal depende deles pros
-  // botões importados (Lay Placar/Guia/Escanear/Exportar) e pra aba "Jogo/
-  // Odds/H2H (Hoje)" da Análise da partida; allMatches/btPatterns também
-  // continuam sendo buscados porque a Leitura da Partida (Hoje) depende deles)
+  // Garante estado inicial correto (Ao Vivo como aba padrão desde que o
+  // Painel Principal saiu da navegação, 2026-09-13 — allMatches/btPatterns/
+  // today2MatchesCache continuam sendo buscados em segundo plano porque
+  // outras telas ainda dependem deles: Leitura da Partida (Hoje), Tipsters
+  // (acessível pelo botão no header) e a Comparação de força)
   document.getElementById('todayWrapper').style.display = 'none';
   document.getElementById('favsPanel').classList.remove('active');
   _icoHydrateStatic();
   updateFavCount();
   loadMatches();
   loadPatterns();
-  switchView('painel', document.getElementById('navTabPainel'));
+  switchView('live2', document.getElementById('navTabLive2'));
   _today2StartBackgroundRefresh();
   loadToday2Matches();
   _painelExportUpdateBadge();
