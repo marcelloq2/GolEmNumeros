@@ -1495,29 +1495,11 @@
   .painel-match-card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .painel-match-card-team-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
   .painel-match-card-team-row .painel-match-card-logo { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
-  /* flex:0 1 auto (não mais 1) + max-width — pedido do usuário (2026-09-13):
-     em tela larga, o nome do time (curto) esticava sozinho até a odd lá na
-     ponta, deixando um vão vazio enorme na linha. Agora o nome só ocupa o
-     que precisa (até 46%) e sobra espaço de verdade pro .painel-match-card-extra
-     (Handicap Asiático por lado) preencher, logo depois do nome. */
   .painel-match-card-team-row .painel-team {
-    flex: 0 1 auto; max-width: 46%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
     font-family: var(--font-condensed); text-transform: uppercase;
     font-size: var(--text-md); font-weight: 600; letter-spacing: .3px; color: var(--text);
   }
-  /* Handicap Asiático por lado (2026-09-13) — já vinha nos dados do Painel
-     (mesmo snapshot de odds do 1X2, sem busca extra nenhuma), só não tinha
-     onde aparecer na linha compacta. Ocupa o vão que sobrou do nome do time
-     acima, ficando perto da odd 1X2 que já mora na ponta direita. */
-  .painel-match-card-extra {
-    flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-  }
-  .painel-ah-pill {
-    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--text2);
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px;
-    white-space: nowrap;
-  }
-  .painel-ah-pill b { color: var(--text); }
   .painel-match-card-value {
     min-width: 44px; text-align: center; font-family: var(--font-mono); font-weight: 700;
     font-size: var(--text-sm); padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
@@ -8581,19 +8563,12 @@ function _painelMatchRowHtml(m, leagueName) {
   const valorFora = temPlacar
     ? `<span class="painel-match-card-value score" title="Placar visitante">${m.score_away}</span>`
     : `<span class="painel-match-card-value odd-away" title="Odd 2 (fora vence)">${m.odd_2 ?? '-'}</span>`;
-  // Handicap Asiático por lado + Over/Under (2026-09-13, pedido do usuário:
-  // "nesse campo tão grande já dá pra colocar informações" — apontando o
-  // vão vazio da linha do time em tela larga). Já vêm no mesmo snapshot de
-  // odds do 1X2 (_today2_odds_snapshot/_painel_shift_odds_cache, lido em
-  // background) — SEM busca extra nenhuma, só ficam de fora quando o jogo
-  // ainda não entrou nesse cache (fora da janela de ~60 mais próximos ou
-  // do turno já pré-carregado). Só mostra depois do jogo começar (temPlacar)
-  // que a linha de handicap/OU deixa de fazer sentido, mesmo critério já
-  // usado pra sumir com odd_1/2 e trocar pelo placar.
-  const ahHomeHtml = (!temPlacar && m.ah_home != null && m.ah_line != null)
-    ? `<span class="painel-ah-pill" title="Handicap Asiático ${m.ah_line} — casa">AH ${m.ah_line} <b>${m.ah_home}</b></span>` : '';
-  const ahAwayHtml = (!temPlacar && m.ah_away != null && m.ah_line != null)
-    ? `<span class="painel-ah-pill" title="Handicap Asiático ${m.ah_line} — visitante">AH ${m.ah_line} <b>${m.ah_away}</b></span>` : '';
+  // Over/Under (2026-09-13, pedido do usuário: só 1X2 + Over/Under, sem
+  // Handicap Asiático). Já vem no mesmo snapshot de odds do 1X2
+  // (_today2_odds_snapshot/_painel_shift_odds_cache, lido em background) —
+  // SEM busca extra nenhuma, só fica de fora quando o jogo ainda não entrou
+  // nesse cache. Só mostra antes do jogo começar (temPlacar), mesmo critério
+  // já usado pra sumir com odd_1/2 e trocar pelo placar.
   const ouHtml = (!temPlacar && m.odd_over != null && m.odd_under != null && m.ou_line != null)
     ? `<span class="painel-ou-pill" title="Over/Under ${m.ou_line}">O/U ${m.ou_line}: <span class="over">${m.odd_over}</span>/<span class="under">${m.odd_under}</span></span>` : '';
   const empateHtml = temPlacar
@@ -8631,7 +8606,6 @@ function _painelMatchRowHtml(m, leagueName) {
         ${rowLogos.home ? `<img class="painel-match-card-logo" src="${rowLogos.home}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
         ${_painelTeamTagBtnHtml(m.home, homeEsc)}
-        <span class="painel-match-card-extra">${ahHomeHtml}</span>
         ${valorCasa}
       </div>
       <div class="painel-match-card-team-row">
@@ -8639,7 +8613,6 @@ function _painelMatchRowHtml(m, leagueName) {
         ${rowLogos.away ? `<img class="painel-match-card-logo" src="${rowLogos.away}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${awayEsc}">${m.away}</span>
         ${_painelTeamTagBtnHtml(m.away, awayEsc)}
-        <span class="painel-match-card-extra">${ahAwayHtml}</span>
         ${valorFora}
       </div>
       ${empateHtml}
