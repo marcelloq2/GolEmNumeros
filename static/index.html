@@ -1448,6 +1448,44 @@
     position: relative;
   }
   .painel-match-card:hover { border-color: var(--accent2); }
+  /* Vidro no Painel Principal (2026-09-13) — mesmo tratamento já escolhido
+     (Variante B) pro Ao Vivo, aplicado aqui pra ficar consistente entre as
+     duas telas. Escopado em #painelMatches (o container só da lista de
+     jogos, sem a barra de sub-abas/filtros acima) e só no tema escuro —
+     mesmos 2 cuidados do Ao Vivo: nunca border-color aqui (um #id venceria
+     o :hover acima e qualquer indicador futuro que use border-color), e
+     .painel-match-card-value fica de fora (cor semântica por mercado). */
+  html:not([data-theme="light"]) #painelMatches {
+    padding: 16px; border-radius: 16px; margin: 0 12px;
+    background:
+      radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--green) 14%, transparent), transparent 40%),
+      radial-gradient(circle at 86% 8%, color-mix(in srgb, var(--accent2) 14%, transparent), transparent 40%),
+      radial-gradient(circle at 50% 98%, color-mix(in srgb, var(--green) 10%, transparent), transparent 46%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 26px),
+      #050807;
+  }
+  html:not([data-theme="light"]) #painelMatches .painel-match-card {
+    background: color-mix(in srgb, var(--bg2) 44%, transparent) !important;
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 26%, transparent),
+                0 0 18px color-mix(in srgb, var(--green) 14%, transparent),
+                0 6px 20px rgba(0,0,0,.35);
+  }
+  html:not([data-theme="light"]) #painelMatches .painel-league-name {
+    background: rgba(0,230,118,.16); color: #c8ffe0;
+  }
+  html:not([data-theme="light"]) #painelMatches .painel-power-group,
+  html:not([data-theme="light"]) #painelMatches .painel-match-analysis-btn {
+    background: rgba(255,255,255,.05);
+  }
+  /* .painel-match-card-value fica de fora de propósito (igual .live-card-odds-val
+     no Ao Vivo): tem cor semântica por mercado (.odd-home/.odd-away/.score)
+     que um seletor por #id apagaria. */
+  html:not([data-theme="light"]) #painelMatches .painel-match-card-value.score {
+    text-shadow: 0 0 8px currentColor, 0 0 3px rgba(255,90,54,.6);
+  }
   .painel-match-card-live { position: relative; }
   .painel-match-card-top {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
