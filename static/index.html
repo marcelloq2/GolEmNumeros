@@ -3892,11 +3892,18 @@ function openTipstersFromHeader() {
 // /api/painel/matches é o mesmo endpoint que a Ao Vivo já chama por baixo
 // dos panos pra cruzar odds (ver [[project_statarea_painel_desativado]]) —
 // já vem do cache do backend, não dispara nenhuma busca nova.
-async function _live2OpenProximosWidget() {
-  document.getElementById('live2StatsModalTitle').textContent = '📅 Próximos Jogos';
+//
+// Auto-atualiza a cada 25s ENQUANTO o modal estiver aberto nesse widget
+// (pedido do usuário, 2026-09-13, depois de confirmar o custo real no
+// Railway — ver conversa: /api/painel/matches é cacheado no backend, então
+// reabrir/reconsultar não dispara scraping novo, só reenvia o mesmo JSON já
+// pronto). _live2ProximosRefreshInterval guarda o timer; _live2CloseStatsModal
+// já cancela ele ao fechar QUALQUER modal (mesma função usada por todos).
+let _live2ProximosRefreshInterval = null;
+
+async function _live2FetchAndRenderProximos(silent) {
   const body = document.getElementById('live2StatsModalBody');
-  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
-  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  if (!silent) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
     const r = await fetch('/api/painel/matches');
     const data = await r.json();
@@ -3914,8 +3921,26 @@ async function _live2OpenProximosWidget() {
     const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
     body.innerHTML = proximos.slice(0, TETO).map(_live2ProximoRowHtml).join('') + nota;
   } catch (e) {
-    body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
+    if (!silent) body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
+    // silencioso no refresh automático — um erro passageiro não pode apagar
+    // a lista que já estava na tela, só tenta de novo no próximo ciclo.
   }
+}
+
+async function _live2OpenProximosWidget() {
+  document.getElementById('live2StatsModalTitle').textContent = '📅 Próximos Jogos';
+  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  _live2OpenModal = { matchId: null, type: 'proximos' };
+  if (_live2ProximosRefreshInterval) clearInterval(_live2ProximosRefreshInterval);
+  await _live2FetchAndRenderProximos(false);
+  _live2ProximosRefreshInterval = setInterval(() => {
+    if (!_live2OpenModal || _live2OpenModal.type !== 'proximos') {
+      clearInterval(_live2ProximosRefreshInterval);
+      _live2ProximosRefreshInterval = null;
+      return;
+    }
+    _live2FetchAndRenderProximos(true); // silent = não pisca "Carregando..." de novo
+  }, 25000);
 }
 
 // Troquei odds 1X2 por média de gols marcados/sofridos por time (2026-09-13,
@@ -15424,6 +15449,13 @@ function _renderUniscoreCD(d) {
 function _live2CloseStatsModal() {
   document.getElementById('live2StatsOverlay').style.display = 'none';
   _live2OpenModal = null;
+  // Para o auto-atualizar do widget Próximos Jogos (2026-09-13) se estiver
+  // rodando — fechar QUALQUER modal (esta função é genérica pra todos) não
+  // pode deixar um setInterval órfão buscando dado com o modal escondido.
+  if (_live2ProximosRefreshInterval) {
+    clearInterval(_live2ProximosRefreshInterval);
+    _live2ProximosRefreshInterval = null;
+  }
 }
 
 // Oculta só o bloco de estatísticas detalhadas (Destaques/Finalizações/Ataque/...),
