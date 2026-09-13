@@ -1214,6 +1214,24 @@
     font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
     color: var(--text); text-align: center; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* Widget "Próximos Jogos" (2026-09-13) — lista compacta no modal genérico,
+     escudo+nome+horário+odds 1X2, em ordem crescente de horário. */
+  .live-prox-row {
+    display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--border);
+  }
+  .live-prox-row:last-child { border-bottom: none; }
+  .live-prox-time { font-family: var(--font-mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 34px; text-align: center; }
+  .live-prox-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .live-prox-team {
+    display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
+  }
+  .live-prox-team img { width: 16px; height: 16px; flex-shrink: 0; }
+  .live-prox-odds { display: flex; gap: 4px; flex-shrink: 0; }
+  .live-prox-odd {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--text);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; min-width: 26px; text-align: center;
+  }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
     padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -3863,6 +3881,54 @@ function openTipstersFromHeader() {
   switchView('painel', document.getElementById('navTabPainel'));
   const btn = document.querySelector('#painelSubtabs .painel-subtab:last-child');
   if (btn) _painelSetFilter('methodologies', btn);
+}
+
+// Widget "Próximos Jogos" (2026-09-13, pedido do usuário: botão ao lado do
+// Tipsters, "quero que mostre o nome dos times, emblema, horario, odds
+// 1x2", em ordem crescente) — abre num modal (reaproveita o mesmo overlay
+// genérico #live2StatsOverlay já usado pelos modais do Ao Vivo, sem
+// depender de nenhum card específico), não navega pra outra tela.
+// /api/painel/matches é o mesmo endpoint que a Ao Vivo já chama por baixo
+// dos panos pra cruzar odds (ver [[project_statarea_painel_desativado]]) —
+// já vem do cache do backend, não dispara nenhuma busca nova.
+async function _live2OpenProximosWidget() {
+  document.getElementById('live2StatsModalTitle').textContent = '📅 Próximos Jogos';
+  const body = document.getElementById('live2StatsModalBody');
+  body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  try {
+    const r = await fetch('/api/painel/matches');
+    const data = await r.json();
+    const now = Date.now() / 1000;
+    const todos = (data.leagues || []).flatMap(lg => (lg.matches || []).map(m => ({ ...m, _liga: lg.league_name })));
+    const proximos = todos
+      .filter(m => m.time === 'Agendado' && m.ts && m.ts > now)
+      .sort((a, b) => a.ts - b.ts);
+    if (!proximos.length) {
+      body.innerHTML = `<div class="live-loading">Nenhum jogo agendado encontrado agora.</div>`;
+      return;
+    }
+    const TETO = 40;
+    const cortado = proximos.length > TETO;
+    const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
+    body.innerHTML = proximos.slice(0, TETO).map(_live2ProximoRowHtml).join('') + nota;
+  } catch (e) {
+    body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
+  }
+}
+
+function _live2ProximoRowHtml(m) {
+  const hora = _painelKickoffTime(m) || '--:--';
+  const oddCell = val => `<span class="live-prox-odd">${val ?? '-'}</span>`;
+  return `
+    <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
+      <span class="live-prox-time">${hora}</span>
+      <div class="live-prox-teams">
+        <span class="live-prox-team">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
+        <span class="live-prox-team">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
+      </div>
+      <div class="live-prox-odds">${oddCell(m.odd_1)}${oddCell(m.odd_x)}${oddCell(m.odd_2)}</div>
+    </div>`;
 }
 
 // ── SCANNER — mostra os jogos ao vivo (mesma fonte do Ao Vivo, /api/radar/live,
@@ -22333,12 +22399,25 @@ async function loadMatches() {
     🏷️ Tipsters
   </button>`;
 
+  // Próximos Jogos (2026-09-13, pedido do usuário) — widget rápido (modal,
+  // não navega pra lugar nenhum) com os próximos jogos do dia em ordem
+  // crescente de horário — nome, escudo, horário, odds 1X2. Reaproveita
+  // /api/painel/matches (mesmo endpoint que a Ao Vivo já usa por baixo dos
+  // panos pra cruzar odds, ver [[project_statarea_painel_desativado]]) —
+  // já cacheado no backend, não dispara scraping novo nenhum.
+  const proximosBtn = `<button onclick="_live2OpenProximosWidget()" title="Próximos jogos do dia, em ordem de horário"
+    style="display:flex;align-items:center;gap:4px;background:#1e3a2a;border:1px solid #16a34a;
+           color:#86efac;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
+    📅 Próximos
+  </button>`;
+
   document.getElementById('headerStats').innerHTML = `
     <span><div class="status-dot" style="background:${dotColor}"></div><b>${data.total}</b> partidas</span>
     ${ageHtml}
     <span style="font-size:11px;color:#888">Fonte: <b>${data.source || '—'}</b></span>
     ${scrapeBtn}
     ${tipstersBtn}
+    ${proximosBtn}
     <!-- Toggle Desktop/Mobile (_viewModeToggleHtml) removido a pedido do
          usuário (2026-09-01) — sem efeito visual desde que o CSS responsivo
          de mobile foi removido do site (ver comentário grande no <style>,
