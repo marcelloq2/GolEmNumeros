@@ -1215,22 +1215,23 @@
     color: var(--text); text-align: center; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* Widget "Próximos Jogos" (2026-09-13) — lista compacta no modal genérico,
-     escudo+nome+horário+odds 1X2, em ordem crescente de horário. */
+     escudo+nome+horário+média de gols marcados/sofridos, em ordem
+     crescente de horário. */
   .live-prox-row {
     display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--border);
   }
   .live-prox-row:last-child { border-bottom: none; }
   .live-prox-time { font-family: var(--font-mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 34px; text-align: center; }
   .live-prox-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .live-prox-team {
-    display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .live-prox-team { display: flex; align-items: center; gap: 8px; }
+  .live-prox-team-name {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
   }
-  .live-prox-team img { width: 16px; height: 16px; flex-shrink: 0; }
-  .live-prox-odds { display: flex; gap: 4px; flex-shrink: 0; }
-  .live-prox-odd {
-    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--text);
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; min-width: 26px; text-align: center;
+  .live-prox-team-name img { width: 16px; height: 16px; flex-shrink: 0; }
+  .live-prox-goals {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2); flex-shrink: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
   }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
@@ -3917,17 +3918,33 @@ async function _live2OpenProximosWidget() {
   }
 }
 
+// Troquei odds 1X2 por média de gols marcados/sofridos por time (2026-09-13,
+// pedido do usuário: "se a gente trocar as odds por medias de gols marcados
+// e sofridos é melhor?... escolha o melhor"). Escolhi a média (não os ícones
+// ✓/△/▽ do Power Ranking) por ser mais precisa, e porque é o MESMO dado e
+// MESMO formato "marcados/sofridos" já usado no card do Painel Principal
+// (.painel-team-goals) — consistente entre as duas telas. Motivo de trocar:
+// odds só existem pros ~60 jogos mais próximos no mundo inteiro (ver
+// _BT2_MATCHES_MAX_CANDIDATOS), então a maioria dos "Próximos" aparecia com
+// "-" — casa_gf_avg/ga_avg vêm da tabela de classificação (Power Ranking),
+// que cobre MUITO mais jogo (qualquer time com >=5 partidas na liga).
 function _live2ProximoRowHtml(m) {
   const hora = _painelKickoffTime(m) || '--:--';
-  const oddCell = val => `<span class="live-prox-odd">${val ?? '-'}</span>`;
+  const golsCell = (gf, ga) => (gf != null && ga != null)
+    ? `<span class="live-prox-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${gf}/${ga}</span>` : '';
   return `
     <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
       <span class="live-prox-time">${hora}</span>
       <div class="live-prox-teams">
-        <span class="live-prox-team">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
-        <span class="live-prox-team">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
+        <span class="live-prox-team">
+          <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
+          ${golsCell(m.casa_gf_avg, m.casa_ga_avg)}
+        </span>
+        <span class="live-prox-team">
+          <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
+          ${golsCell(m.fora_gf_avg, m.fora_ga_avg)}
+        </span>
       </div>
-      <div class="live-prox-odds">${oddCell(m.odd_1)}${oddCell(m.odd_x)}${oddCell(m.odd_2)}</div>
     </div>`;
 }
 
