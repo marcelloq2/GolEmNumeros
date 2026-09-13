@@ -1056,6 +1056,25 @@
      na cascata pra ganhar prioridade quando mais de uma bater ao mesmo tempo. */
   .live-card.live2-card-gold {
     border-color: #ffd700; border-left-color: #ffd700;
+    box-shadow: 0 0 0 2px #ffd70088, 0 0 26px 3px #ffd70055;
+    animation: live2GoldPulse 1.8s ease-in-out infinite;
+  }
+  /* Anel/glow dourado mais forte que o do vidro normal do Ao Vivo escuro —
+     pedido do usuário (2026-09-13): "dourado mais destacado". Precisa de um
+     seletor por #id aqui porque o box-shadow do vidro comum
+     (#live2GridWrap .live-card, acima) tem especificidade maior que
+     .live-card.live2-card-gold sozinho e venceria mesmo vindo antes no
+     arquivo — sem isso a borda ficava dourada mas o brilho ao redor
+     continuava verde. */
+  html:not([data-theme="light"]) #live2GridWrap .live-card.live2-card-gold {
+    box-shadow: 0 0 0 2px #ffd700aa, 0 0 32px 5px #ffd70066, 0 8px 26px rgba(0,0,0,.4);
+  }
+  @keyframes live2GoldPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live2-card-gold { animation: none; }
   }
   .live-card-top {
     display: flex; align-items: center; justify-content: space-between;
@@ -15540,20 +15559,24 @@ function _live2DotCounterHtml(matchId) {
   </div>`;
 }
 
-// Borda dourada no card (pedido do usuário, 2026-09-12) — dispara quando um
-// lado acumulou pelo menos 3 bolinhas de domínio E o dobro do adversário.
-// Reavaliado a cada ciclo (chamado de _live2RefreshBadges, logo depois de
-// _live2DotCounts ser atualizado) — some sozinho se a proporção deixar de
-// bater (ex: o outro lado emparelhar).
-const _LIVE2_GOLD_MIN_DOTS = 3;
-function _live2CheckGoldBorder(matchId) {
-  const c = _live2DotCounts[matchId];
+// Borda dourada no card (pedido do usuário, 2026-09-12) — critério trocado
+// em 2026-09-13: a versão original usava o contador ACUMULADO de bolinhas
+// (_live2DotCounts, só cresce, nunca reseta), e por isso a borda ficava
+// "grudada" muito tempo depois da pressão real já ter mudado de lado —
+// pedido do usuário: "o dourado é só pra durar enquanto o padrão estiver
+// acontecendo". Agora reavalia direto das 3 janelas (Partida toda/10min/
+// 5min) A CADA ciclo, sem nenhuma memória entre ciclos: só acende quando as
+// 3 CONCORDAM, ao mesmo tempo, que o mesmo lado domina com o dobro do
+// percentual do outro — sinal mais raro e mais forte que só 1 janela
+// batendo sozinha (pedido junto: "dourado mais destacado") — e apaga
+// sozinho no ciclo seguinte assim que qualquer uma das 3 deixar de bater.
+function _live2CheckGoldBorder(matchId, full, w10, w5) {
   const card = document.getElementById(`live2Card_${matchId}`);
   if (!card) return;
-  const bate = !!c && (
-    (c.casa >= _LIVE2_GOLD_MIN_DOTS && c.casa >= c.fora * 2) ||
-    (c.fora >= _LIVE2_GOLD_MIN_DOTS && c.fora >= c.casa * 2)
-  );
+  const ladoFull = _live2ThermoDominance(full);
+  const lado10   = _live2ThermoDominance(w10);
+  const lado5    = _live2ThermoDominance(w5);
+  const bate = !!ladoFull && ladoFull === lado10 && ladoFull === lado5;
   card.classList.toggle('live2-card-gold', bate);
 }
 
@@ -15883,7 +15906,7 @@ async function _live2RefreshBadges(matchId) {
     // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
     // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
     thermoEl.innerHTML = _live2DotCounterHtml(matchId) + dotStrip;
-    _live2CheckGoldBorder(matchId);
+    _live2CheckGoldBorder(matchId, full, w10, w5);
   }
 }
 
