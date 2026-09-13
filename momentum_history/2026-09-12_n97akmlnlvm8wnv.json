@@ -1,11 +1,11 @@
 {
   "event_id": "n97akmlnlvm8wnv",
   "date": "2026-09-12",
-  "saved_at": "2026-09-12T15:02:03.351132",
+  "saved_at": "2026-09-12T12:02:54.732004",
   "source": "uniscore",
   "casa": "Genoa",
   "fora": "Frosinone",
-  "liga": "Serie A",
+  "liga": "",
   "graphPoints": [
     {
       "minute": 1,
@@ -413,6 +413,72 @@
     "away": 1
   },
   "shotmap": [
+    {
+      "id": "2968243869",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Zerbin",
+      "x": 10.1,
+      "y": 49.9
+    },
+    {
+      "id": "2968242681",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "L.Hasa",
+      "x": 22.5,
+      "y": 34.3
+    },
+    {
+      "id": "2968242229",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "G.Bracaglia",
+      "x": 7.8,
+      "y": 54.7
+    },
+    {
+      "id": "2968241769",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "G.Bracaglia",
+      "x": 20,
+      "y": 43.3
+    },
+    {
+      "id": "2968241285",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "T. Bobcek",
+      "x": 3.4,
+      "y": 59.1
+    },
+    {
+      "id": "2968240819",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Calò",
+      "x": 16.2,
+      "y": 58.1
+    },
     {
       "id": "2968239175",
       "minute": 89,
@@ -830,50 +896,6 @@
       "player": "Ehizibue",
       "x": 28.2,
       "y": 50.9
-    },
-    {
-      "id": "2968240819",
-      "minute": 90,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
-      "player": "G.Calò",
-      "x": 16.2,
-      "y": 58.1
-    },
-    {
-      "id": "2968242229",
-      "minute": 90,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "head",
-      "situation": "corner",
-      "player": "G.Bracaglia",
-      "x": 7.8,
-      "y": 54.7
-    },
-    {
-      "id": "2968241769",
-      "minute": 90,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "G.Bracaglia",
-      "x": 20,
-      "y": 43.3
-    },
-    {
-      "id": "2968241285",
-      "minute": 90,
-      "isHome": false,
-      "shotType": "save",
-      "bodyPart": "head",
-      "situation": "corner",
-      "player": "T. Bobcek",
-      "x": 3.4,
-      "y": 59.1
     }
   ],
   "statistics": {
@@ -891,27 +913,27 @@
     },
     "shots": {
       "home": "17",
-      "away": "27",
+      "away": "24",
       "homeValue": 17,
-      "awayValue": 27
+      "awayValue": 24
     },
     "shots_on_target": {
       "home": "5",
-      "away": "6",
+      "away": "4",
       "homeValue": 5,
-      "awayValue": 6
+      "awayValue": 4
     },
     "blocked_shots": {
       "home": "6",
-      "away": "13",
+      "away": "12",
       "homeValue": 6,
-      "awayValue": 13
+      "awayValue": 12
     },
     "corner_kicks": {
       "home": "8",
-      "away": "9",
+      "away": "7",
       "homeValue": 8,
-      "awayValue": 9
+      "awayValue": 7
     },
     "freekicks": {
       "home": "12",
@@ -920,9 +942,9 @@
       "awayValue": 12
     },
     "saves": {
-      "home": "5",
+      "home": "3",
       "away": "4",
-      "homeValue": 5,
+      "homeValue": 3,
       "awayValue": 4
     },
     "fouls": {
@@ -938,10 +960,10 @@
       "awayValue": 3
     },
     "passes": {
-      "home": "275",
-      "away": "355",
-      "homeValue": 275,
-      "awayValue": 355
+      "home": "274",
+      "away": "346",
+      "homeValue": 274,
+      "awayValue": 346
     },
     "red_cards": {
       "home": "1",
@@ -992,10 +1014,10 @@
       "awayValue": 1
     },
     "passes_accuracy": {
-      "home": "176/275",
-      "away": "277/355",
+      "home": "175/274",
+      "away": "268/346",
       "homeValue": 64,
-      "awayValue": 78
+      "awayValue": 77
     },
     "throw_in": {
       "home": "25",
@@ -1035,9 +1057,9 @@
     },
     "crosses_accuracy": {
       "home": "5/21",
-      "away": "3/23",
+      "away": "3/19",
       "homeValue": 24,
-      "awayValue": 13
+      "awayValue": 16
     },
     "duels_accuracy": {
       "home": "50/98",
@@ -1094,15 +1116,15 @@
       "awayValue": 35
     },
     "tackles": {
-      "home": "18",
+      "home": "17",
       "away": "10",
-      "homeValue": 18,
+      "homeValue": 17,
       "awayValue": 10
     },
     "tackles_won": {
-      "home": "13/18",
+      "home": "13/17",
       "away": "8/10",
-      "homeValue": 72,
+      "homeValue": 76,
       "awayValue": 80
     },
     "interceptions": {
@@ -1160,10 +1182,10 @@
       "awayValue": 142
     },
     "ball_possession": {
-      "home": "44%",
-      "away": "56%",
-      "homeValue": 44,
-      "awayValue": 56
+      "home": "45%",
+      "away": "55%",
+      "homeValue": 45,
+      "awayValue": 55
     }
   },
   "statistics_periods": {
@@ -1182,27 +1204,27 @@
       },
       "shots": {
         "home": "17",
-        "away": "27",
+        "away": "24",
         "homeValue": 17,
-        "awayValue": 27
+        "awayValue": 24
       },
       "shots_on_target": {
         "home": "5",
-        "away": "6",
+        "away": "4",
         "homeValue": 5,
-        "awayValue": 6
+        "awayValue": 4
       },
       "blocked_shots": {
         "home": "6",
-        "away": "13",
+        "away": "12",
         "homeValue": 6,
-        "awayValue": 13
+        "awayValue": 12
       },
       "corner_kicks": {
         "home": "8",
-        "away": "9",
+        "away": "7",
         "homeValue": 8,
-        "awayValue": 9
+        "awayValue": 7
       },
       "freekicks": {
         "home": "12",
@@ -1211,9 +1233,9 @@
         "awayValue": 12
       },
       "saves": {
-        "home": "5",
+        "home": "3",
         "away": "4",
-        "homeValue": 5,
+        "homeValue": 3,
         "awayValue": 4
       },
       "fouls": {
@@ -1229,10 +1251,10 @@
         "awayValue": 3
       },
       "passes": {
-        "home": "275",
-        "away": "355",
-        "homeValue": 275,
-        "awayValue": 355
+        "home": "274",
+        "away": "346",
+        "homeValue": 274,
+        "awayValue": 346
       },
       "red_cards": {
         "home": "1",
@@ -1283,10 +1305,10 @@
         "awayValue": 1
       },
       "passes_accuracy": {
-        "home": "176/275",
-        "away": "277/355",
+        "home": "175/274",
+        "away": "268/346",
         "homeValue": 64,
-        "awayValue": 78
+        "awayValue": 77
       },
       "throw_in": {
         "home": "25",
@@ -1326,9 +1348,9 @@
       },
       "crosses_accuracy": {
         "home": "5/21",
-        "away": "3/23",
+        "away": "3/19",
         "homeValue": 24,
-        "awayValue": 13
+        "awayValue": 16
       },
       "duels_accuracy": {
         "home": "50/98",
@@ -1385,15 +1407,15 @@
         "awayValue": 35
       },
       "tackles": {
-        "home": "18",
+        "home": "17",
         "away": "10",
-        "homeValue": 18,
+        "homeValue": 17,
         "awayValue": 10
       },
       "tackles_won": {
-        "home": "13/18",
+        "home": "13/17",
         "away": "8/10",
-        "homeValue": 72,
+        "homeValue": 76,
         "awayValue": 80
       },
       "interceptions": {
@@ -1451,10 +1473,10 @@
         "awayValue": 142
       },
       "ball_possession": {
-        "home": "44%",
-        "away": "56%",
-        "homeValue": 44,
-        "awayValue": 56
+        "home": "45%",
+        "away": "55%",
+        "homeValue": 45,
+        "awayValue": 55
       }
     },
     "1ST": {
@@ -1744,27 +1766,27 @@
       },
       "shots": {
         "home": "8",
-        "away": "23",
+        "away": "20",
         "homeValue": 8,
-        "awayValue": 23
+        "awayValue": 20
       },
       "shots_on_target": {
+        "home": "3",
+        "away": "3",
+        "homeValue": 3,
+        "awayValue": 3
+      },
+      "blocked_shots": {
+        "home": "3",
+        "away": "11",
+        "homeValue": 3,
+        "awayValue": 11
+      },
+      "corner_kicks": {
         "home": "3",
         "away": "5",
         "homeValue": 3,
         "awayValue": 5
-      },
-      "blocked_shots": {
-        "home": "3",
-        "away": "12",
-        "homeValue": 3,
-        "awayValue": 12
-      },
-      "corner_kicks": {
-        "home": "3",
-        "away": "7",
-        "homeValue": 3,
-        "awayValue": 7
       },
       "freekicks": {
         "home": "5",
@@ -1773,9 +1795,9 @@
         "awayValue": 3
       },
       "saves": {
-        "home": "5",
+        "home": "3",
         "away": "2",
-        "homeValue": 5,
+        "homeValue": 3,
         "awayValue": 2
       },
       "fouls": {
@@ -1791,10 +1813,10 @@
         "awayValue": 1
       },
       "passes": {
-        "home": "123",
-        "away": "179",
-        "homeValue": 123,
-        "awayValue": 179
+        "home": "122",
+        "away": "170",
+        "homeValue": 122,
+        "awayValue": 170
       },
       "red_cards": {
         "home": "1",
@@ -1833,10 +1855,10 @@
         "awayValue": 0
       },
       "passes_accuracy": {
-        "home": "74/123",
-        "away": "139/179",
+        "home": "73/122",
+        "away": "130/170",
         "homeValue": 60,
-        "awayValue": 78
+        "awayValue": 76
       },
       "throw_in": {
         "home": "8",
@@ -1876,9 +1898,9 @@
       },
       "crosses_accuracy": {
         "home": "3/12",
-        "away": "3/16",
+        "away": "3/12",
         "homeValue": 25,
-        "awayValue": 19
+        "awayValue": 25
       },
       "duels_accuracy": {
         "home": "28/48",
@@ -1935,15 +1957,15 @@
         "awayValue": 50
       },
       "tackles": {
-        "home": "9",
+        "home": "8",
         "away": "6",
-        "homeValue": 9,
+        "homeValue": 8,
         "awayValue": 6
       },
       "tackles_won": {
-        "home": "6/9",
+        "home": "6/8",
         "away": "4/6",
-        "homeValue": 67,
+        "homeValue": 75,
         "awayValue": 67
       },
       "interceptions": {
@@ -1989,10 +2011,10 @@
         "awayValue": 72
       },
       "ball_possession": {
-        "home": "44%",
-        "away": "56%",
-        "homeValue": 44,
-        "awayValue": 56
+        "home": "43%",
+        "away": "57%",
+        "homeValue": 43,
+        "awayValue": 57
       }
     }
   },
@@ -2008,7 +2030,7 @@
   },
   "xg": {
     "home": 4.72,
-    "away": 5.37,
+    "away": 4.66,
     "source": "estimated",
     "fields_used": [
       "shots_on_target",
@@ -2023,11 +2045,11 @@
     "n_fields": 8
   },
   "opening_odds": {
-    "h": "29.00",
-    "x": "1.03",
-    "a": "17.00",
+    "h": "2.15",
+    "x": "3.30",
+    "a": "3.50",
     "ou_line": "2.5",
-    "ou_over": "4.90",
-    "ou_under": "1.14"
+    "ou_over": "1.91",
+    "ou_under": "1.91"
   }
 }
