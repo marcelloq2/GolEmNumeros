@@ -3893,11 +3893,14 @@ function openTipstersFromHeader() {
 // dos panos pra cruzar odds (ver [[project_statarea_painel_desativado]]) —
 // já vem do cache do backend, não dispara nenhuma busca nova.
 //
-// Auto-atualiza a cada 25s ENQUANTO o modal estiver aberto nesse widget
+// Auto-atualiza a cada 60s ENQUANTO o modal estiver aberto nesse widget
 // (pedido do usuário, 2026-09-13, depois de confirmar o custo real no
-// Railway — ver conversa: /api/painel/matches é cacheado no backend, então
-// reabrir/reconsultar não dispara scraping novo, só reenvia o mesmo JSON já
-// pronto). _live2ProximosRefreshInterval guarda o timer; _live2CloseStatsModal
+// Railway — ver conversa). 60s = o MESMO TTL do cache de
+// /api/painel/matches (_PAINEL_CACHE_TTL no app.py): consultar mais rápido
+// que isso só reenviaria o mesmo JSON de novo sem nenhum dado novo, então
+// 60s é o intervalo que dá a atualização mais rápida possível sem
+// desperdiçar request (pedido do usuário: "faça isso o que consumir
+// menos"). _live2ProximosRefreshInterval guarda o timer; _live2CloseStatsModal
 // já cancela ele ao fechar QUALQUER modal (mesma função usada por todos).
 let _live2ProximosRefreshInterval = null;
 
@@ -3940,7 +3943,9 @@ async function _live2OpenProximosWidget() {
       return;
     }
     _live2FetchAndRenderProximos(true); // silent = não pisca "Carregando..." de novo
-  }, 25000);
+  }, 60000); // 60s = mesmo TTL do cache (_PAINEL_CACHE_TTL no app.py) — atualizar
+             // mais rápido que isso só reenviaria o mesmo dado de novo, sem
+             // nenhum ganho (pedido do usuário: "faça isso o que consumir menos").
 }
 
 // Troquei odds 1X2 por média de gols marcados/sofridos por time (2026-09-13,
