@@ -1735,7 +1735,10 @@ def _compute_power_index(standings_rows):
     """Porta de _today2PowerRankingRows (index.html) — Índice de Ataque/Defesa
     de cada time = gols marcados/sofridos por jogo ÷ média da liga. Só devolve
     time com >= 5 jogos na tabela (amostra pequena demais falseia a média).
-    Retorna {team_normalizado: {"ataque": icone, "defesa": icone}}."""
+    Retorna {team_normalizado: {"ataque": icone, "defesa": icone, "pos": posição}}.
+    "pos" (2026-09-13, pedido do usuário: mostrar posição na tabela ao lado do
+    nome do time) reaproveita o MESMO standings_rows já buscado aqui pro
+    Ataque/Defesa — zero busca nova."""
     parsed = []
     for r in standings_rows:
         try:
@@ -1749,7 +1752,7 @@ def _compute_power_index(standings_rows):
             jogos = 0
         if jogos <= 0:
             continue
-        parsed.append({"team": r.get("team", ""), "jogos": jogos, "gf": gf, "ga": ga})
+        parsed.append({"team": r.get("team", ""), "jogos": jogos, "gf": gf, "ga": ga, "pos": r.get("pos")})
     if not parsed:
         return {}
     media_gf = sum(p["gf"] / p["jogos"] for p in parsed) / len(parsed)
@@ -1763,8 +1766,30 @@ def _compute_power_index(standings_rows):
         out[p["team"].strip().lower()] = {
             "ataque": _power_icon(ataque, True, 1.05, 0.90),
             "defesa": _power_icon(defesa, False, 0.95, 1.10),
+            "pos": p["pos"] or None,
         }
     return out
+
+
+# Palavras que indicam competição de mata-mata/copa (sem tabela de liga que
+# valha a pena mostrar como "posição") — pedido do usuário (2026-09-13):
+# "a frente do nome das equipes adicione a posição na tabela se for copa nao
+# adicione nada". Heurística por nome (a fonte não manda um campo explícito
+# "é copa") — cobre os padrões vistos nas ligas/copas continentais e
+# nacionais mais comuns; se aparecer um caso não coberto, é só adicionar a
+# palavra aqui.
+_CUP_NAME_KEYWORDS = (
+    "copa", "cup", "taça", "taca", "trophy", "troféu", "trofeu",
+    "playoff", "play-off", "play off",
+    "champions league", "liga dos campeões", "liga dos campeoes",
+    "libertadores", "sudamericana", "recopa", "supercopa", "super copa",
+    "confederações", "confederacoes", "confederations",
+)
+
+
+def _is_cup_competition(liga_name):
+    nome = (liga_name or "").strip().lower()
+    return any(kw in nome for kw in _CUP_NAME_KEYWORDS)
 
 
 # Ataque/Defesa (Power Ranking) de cada time. Chave "time|país" (não só o
@@ -2127,6 +2152,14 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
         pais_norm = (m.get("pais") or "").strip().lower()
         casa_power = power_snapshot.get(f"{(m.get('home') or '').strip().lower()}|{pais_norm}", {})
         fora_power = power_snapshot.get(f"{(m.get('away') or '').strip().lower()}|{pais_norm}", {})
+        # Posição na tabela (2026-09-13) — some de propósito em copa/mata-mata
+        # (_is_cup_competition, heurística por nome da liga: "posição" não
+        # faz sentido numa chave eliminatória) e quando o Power Ranking ainda
+        # não calculou esse time (mesmo "pos" da tabela, já vem ou não vem
+        # junto do ataque/defesa acima, sem busca extra).
+        e_copa = _is_cup_competition(m.get("liga", ""))
+        casa_pos = None if e_copa else casa_power.get("pos")
+        fora_pos = None if e_copa else fora_power.get("pos")
 
         matches.append({
             "event_id": eid,
@@ -2144,6 +2177,7 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             "live_odds": live_odds_by_id.get(eid),
             "casa_ataque_icon": casa_power.get("ataque"), "casa_defesa_icon": casa_power.get("defesa"),
             "fora_ataque_icon": fora_power.get("ataque"), "fora_defesa_icon": fora_power.get("defesa"),
+            "casa_pos": casa_pos, "fora_pos": fora_pos,
             **odds_fields,
             "ts": ts,
         })

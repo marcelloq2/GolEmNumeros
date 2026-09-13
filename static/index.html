@@ -1481,8 +1481,8 @@
     background: rgba(255,255,255,.05);
   }
   /* .painel-match-card-value fica de fora de propósito (igual .live-card-odds-val
-     no Ao Vivo): tem cor semântica por mercado (.odd-home/.odd-away/.score)
-     que um seletor por #id apagaria. */
+     no Ao Vivo): tem cor semântica por mercado (.score, e o grupo 1X2 abaixo
+     tem a própria cor) que um seletor por #id apagaria. */
   html:not([data-theme="light"]) #painelMatches .painel-match-card-value.score {
     text-shadow: 0 0 8px currentColor, 0 0 3px rgba(255,90,54,.6);
   }
@@ -1500,13 +1500,21 @@
     font-family: var(--font-condensed); text-transform: uppercase;
     font-size: var(--text-md); font-weight: 600; letter-spacing: .3px; color: var(--text);
   }
+  /* Posição na tabela (2026-09-13) — logo depois do nome do time ("à frente
+     do nome"), pedido do usuário. Só aparece quando o backend manda
+     casa_pos/fora_pos — fica de fora sozinho pra copa/mata-mata (ver
+     _is_cup_competition no app.py) e pra time com menos de 5 jogos na
+     tabela (mesmo piso do Power Ranking, amostra pequena demais). */
+  .painel-team-pos {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
+    padding: 1px 7px; flex-shrink: 0;
+  }
   .painel-match-card-value {
     min-width: 44px; text-align: center; font-family: var(--font-mono); font-weight: 700;
     font-size: var(--text-sm); padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
     background: var(--bg3); border: 1px solid var(--border); color: var(--text);
   }
-  .painel-match-card-value.odd-home { border-color: var(--accent2); color: var(--accent2); background: color-mix(in srgb, var(--accent2) 12%, var(--bg3)); }
-  .painel-match-card-value.odd-away { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--bg3)); }
   .painel-match-card-value.score {
     background: var(--scoreboard); border-color: var(--scoreboard); color: var(--led);
     font-size: var(--text-md); text-shadow: 0 0 5px rgba(255,90,54,.55); border-radius: 4px;
@@ -1516,9 +1524,20 @@
     text-align: center; font-size: var(--text-xs); color: var(--text2); margin: -3px 0 3px 32px;
   }
   .painel-match-card-draw b { color: var(--text); font-family: var(--font-mono); }
+  /* Grupo 1X2 (2026-09-13, pedido do usuário: "as odds 1x2 coloque juntas
+     organizadas") — antes 1/2 ficavam grudados em cada linha de time e o X
+     sozinho aqui embaixo; agora os 3 formam um bloco só, na mesma linha
+     compartilhada do HT/Over-Under. */
+  .painel-1x2-group { display: inline-flex; align-items: center; gap: 8px; }
+  .painel-1x2-cell { font-family: var(--font-mono); font-weight: 700; color: var(--text) }
+  .painel-1x2-cell b { color: var(--text2); font-weight: 700; margin-right: 2px }
+  .painel-1x2-cell.home { color: var(--accent2) }
+  .painel-1x2-cell.home b { color: var(--accent2) }
+  .painel-1x2-cell.away { color: var(--red) }
+  .painel-1x2-cell.away b { color: var(--red) }
   /* Over/Under (2026-09-13) — mesma lógica do Handicap: já vinha nos dados,
      só faltava aparecer. É de jogo inteiro (não tem lado casa/fora), por
-     isso entra na linha compartilhada do X em vez de numa linha por time. */
+     isso entra na linha compartilhada em vez de numa linha por time. */
   .painel-ou-pill { color: var(--text2) }
   .painel-ou-pill .over { color: var(--green); font-family: var(--font-mono); font-weight: 700 }
   .painel-ou-pill .under { color: var(--yellow); font-family: var(--font-mono); font-weight: 700 }
@@ -8553,33 +8572,41 @@ function _painelMatchRowHtml(m, leagueName) {
   const kickoff = _painelKickoffTime(m);
   const minuteHtml = (isLive && m.minute != null) ? `<span class="painel-match-minute">${m.minute}'</span>` : '';
 
-  // Casa/fora ficam em linhas separadas (pedido do usuário, 2026-09-12: layout
-  // de card tipo app mobile de placares) — cada linha mostra a odd daquele
-  // lado (ou o placar daquele lado, se o jogo já começou); o empate vira uma
-  // pilulazinha central entre as duas linhas, só quando ainda não há placar.
+  // Placar por linha (pedido do usuário, 2026-09-12: layout de card tipo app
+  // mobile de placares). Odds 1X2 saíram daqui (2026-09-13, pedido do
+  // usuário: "as odds 1x2 coloque juntas organizadas") — viram um grupo só
+  // (grupo1x2Html abaixo), em vez de 1/2 grudados em cada linha de time e
+  // X sozinho na linha de baixo.
   const valorCasa = temPlacar
-    ? `<span class="painel-match-card-value score" title="Placar casa">${m.score_home}</span>`
-    : `<span class="painel-match-card-value odd-home" title="Odd 1 (casa vence)">${m.odd_1 ?? '-'}</span>`;
+    ? `<span class="painel-match-card-value score" title="Placar casa">${m.score_home}</span>` : '';
   const valorFora = temPlacar
-    ? `<span class="painel-match-card-value score" title="Placar visitante">${m.score_away}</span>`
-    : `<span class="painel-match-card-value odd-away" title="Odd 2 (fora vence)">${m.odd_2 ?? '-'}</span>`;
-  // Over/Under + X (2026-09-13, pedido do usuário: só 1X2 + Over/Under, sem
-  // Handicap Asiático — e depois, mostrar isso em Ao Vivo/Próximos, não só
-  // Próximos). Já vem no mesmo snapshot de odds do 1X2
-  // (_today2_odds_snapshot/_painel_shift_odds_cache, lido em background) —
-  // SEM busca extra nenhuma, só fica de fora quando o jogo ainda não entrou
-  // nesse cache. "mostrarOdds" usa o mesmo critério de _painelIsFinished —
-  // Ao Vivo mantém a odd pré-jogo congelada (não tem odd ao vivo de O/U
-  // nessa fonte) já que ainda é informação útil; Encerrado não mostra mais.
+    ? `<span class="painel-match-card-value score" title="Placar visitante">${m.score_away}</span>` : '';
+  // Posição na tabela (2026-09-13, pedido do usuário: "a frente do nome das
+  // equipes adicione a posição na tabela se for copa nao adicione nada") —
+  // casa_pos/fora_pos só vêm preenchidos do backend quando NÃO é competição
+  // de mata-mata/copa (heurística por nome da liga, ver _is_cup_competition
+  // no app.py) — aqui só decide COMO mostrar, não decide mais SE mostra.
+  const posCasaHtml = (m.casa_pos != null) ? `<span class="painel-team-pos" title="Posição na tabela">#${m.casa_pos}</span>` : '';
+  const posForaHtml = (m.fora_pos != null) ? `<span class="painel-team-pos" title="Posição na tabela">#${m.fora_pos}</span>` : '';
+  // Over/Under + 1X2 agrupado (2026-09-13, pedido do usuário: só 1X2 +
+  // Over/Under, sem Handicap Asiático — depois, mostrar em Ao Vivo/Próximos,
+  // não só Próximos — depois, juntar o 1X2 num grupo só). Já vem no mesmo
+  // snapshot de odds do 1X2 (_today2_odds_snapshot/_painel_shift_odds_cache,
+  // lido em background) — SEM busca extra nenhuma, só fica de fora quando o
+  // jogo ainda não entrou nesse cache. "mostrarOdds" usa o mesmo critério de
+  // _painelIsFinished — Ao Vivo mantém a odd pré-jogo congelada (não tem odd
+  // ao vivo de O/U nessa fonte) já que ainda é informação útil; Encerrado
+  // não mostra mais.
   const mostrarOdds = !_painelIsFinished(m);
+  const oddCell = (label, val, cls) => `<span class="painel-1x2-cell${cls ? ' ' + cls : ''}"><b>${label}</b> ${val ?? '-'}</span>`;
+  const grupo1x2Html = (mostrarOdds && (m.odd_1 != null || m.odd_x != null || m.odd_2 != null))
+    ? `<span class="painel-1x2-group">${oddCell('1', m.odd_1, 'home')}${oddCell('X', m.odd_x, '')}${oddCell('2', m.odd_2, 'away')}</span>` : '';
   const ouHtml = (mostrarOdds && m.odd_over != null && m.odd_under != null && m.ou_line != null)
     ? `<span class="painel-ou-pill" title="Over/Under ${m.ou_line}">O/U ${m.ou_line}: <span class="over">${m.odd_over}</span>/<span class="under">${m.odd_under}</span></span>` : '';
   const drawParts = [];
   if (htHtml) drawParts.push(htHtml);
-  if (mostrarOdds) {
-    drawParts.push(`X <b>${m.odd_x ?? '-'}</b>`);
-    if (ouHtml) drawParts.push(ouHtml);
-  }
+  if (grupo1x2Html) drawParts.push(grupo1x2Html);
+  if (ouHtml) drawParts.push(ouHtml);
   const empateHtml = drawParts.length ? `<div class="painel-match-card-draw">${drawParts.join(' · ')}</div>` : '';
 
   return `
@@ -8612,6 +8639,7 @@ function _painelMatchRowHtml(m, leagueName) {
         <button class="painel-team-star${_painelIsTeamSelected(m.home) ? ' selected' : ''}" title="Adicionar ${homeEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${homeEsc}')">${_painelIsTeamSelected(m.home) ? '★' : '☆'}</button>
         ${rowLogos.home ? `<img class="painel-match-card-logo" src="${rowLogos.home}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
+        ${posCasaHtml}
         ${_painelTeamTagBtnHtml(m.home, homeEsc)}
         ${valorCasa}
       </div>
@@ -8619,6 +8647,7 @@ function _painelMatchRowHtml(m, leagueName) {
         <button class="painel-team-star${_painelIsTeamSelected(m.away) ? ' selected' : ''}" title="Adicionar ${awayEsc} às Minhas Seleções" onclick="event.stopPropagation();_painelToggleTeamSelection('${awayEsc}')">${_painelIsTeamSelected(m.away) ? '★' : '☆'}</button>
         ${rowLogos.away ? `<img class="painel-match-card-logo" src="${rowLogos.away}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${awayEsc}">${m.away}</span>
+        ${posForaHtml}
         ${_painelTeamTagBtnHtml(m.away, awayEsc)}
         ${valorFora}
       </div>
