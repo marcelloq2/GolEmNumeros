@@ -8563,17 +8563,24 @@ function _painelMatchRowHtml(m, leagueName) {
   const valorFora = temPlacar
     ? `<span class="painel-match-card-value score" title="Placar visitante">${m.score_away}</span>`
     : `<span class="painel-match-card-value odd-away" title="Odd 2 (fora vence)">${m.odd_2 ?? '-'}</span>`;
-  // Over/Under (2026-09-13, pedido do usuário: só 1X2 + Over/Under, sem
-  // Handicap Asiático). Já vem no mesmo snapshot de odds do 1X2
+  // Over/Under + X (2026-09-13, pedido do usuário: só 1X2 + Over/Under, sem
+  // Handicap Asiático — e depois, mostrar isso em Ao Vivo/Próximos, não só
+  // Próximos). Já vem no mesmo snapshot de odds do 1X2
   // (_today2_odds_snapshot/_painel_shift_odds_cache, lido em background) —
   // SEM busca extra nenhuma, só fica de fora quando o jogo ainda não entrou
-  // nesse cache. Só mostra antes do jogo começar (temPlacar), mesmo critério
-  // já usado pra sumir com odd_1/2 e trocar pelo placar.
-  const ouHtml = (!temPlacar && m.odd_over != null && m.odd_under != null && m.ou_line != null)
+  // nesse cache. "mostrarOdds" usa o mesmo critério de _painelIsFinished —
+  // Ao Vivo mantém a odd pré-jogo congelada (não tem odd ao vivo de O/U
+  // nessa fonte) já que ainda é informação útil; Encerrado não mostra mais.
+  const mostrarOdds = !_painelIsFinished(m);
+  const ouHtml = (mostrarOdds && m.odd_over != null && m.odd_under != null && m.ou_line != null)
     ? `<span class="painel-ou-pill" title="Over/Under ${m.ou_line}">O/U ${m.ou_line}: <span class="over">${m.odd_over}</span>/<span class="under">${m.odd_under}</span></span>` : '';
-  const empateHtml = temPlacar
-    ? (htHtml ? `<div class="painel-match-card-draw">${htHtml}</div>` : '')
-    : `<div class="painel-match-card-draw">X <b>${m.odd_x ?? '-'}</b>${ouHtml ? ` · ${ouHtml}` : ''}</div>`;
+  const drawParts = [];
+  if (htHtml) drawParts.push(htHtml);
+  if (mostrarOdds) {
+    drawParts.push(`X <b>${m.odd_x ?? '-'}</b>`);
+    if (ouHtml) drawParts.push(ouHtml);
+  }
+  const empateHtml = drawParts.length ? `<div class="painel-match-card-draw">${drawParts.join(' · ')}</div>` : '';
 
   return `
     <div class="painel-match-card${isLive ? ' painel-match-card-live' : ''}">
