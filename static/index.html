@@ -14921,10 +14921,19 @@ function _live2OpenShotmapModal(matchId) {
 // mostrando de novo aqui dentro do modal.
 async function _live2OpenSeqModal(matchId) {
   const { body } = _live2OpenModalCommon(matchId, 'seq', 'Tendências');
+  // Dois containers estáveis (badges + detalhes de gol) — precisam existir
+  // no DOM mesmo antes da busca terminar, pra _live2LoadGoalPatterns
+  // conseguir atualizar #live2SeqDetalhes_${matchId} direto se o modal
+  // ainda estiver aberto quando o fetch (mais lento, precisa da rede)
+  // terminar depois do render inicial.
   const renderAtual = () => {
     const src = document.getElementById(`live2SeqBadge_${matchId}`);
-    body.innerHTML = (src && src.innerHTML.trim())
-      ? src.innerHTML
+    const badgesHtml = (src && src.innerHTML.trim()) ? src.innerHTML : '';
+    const seq = _live2SeqCache[matchId];
+    const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+    const detalhesHtml = (seq && m) ? _live2GoalPatternHtml(m, seq) : '';
+    body.innerHTML = (badgesHtml || detalhesHtml)
+      ? `<div>${badgesHtml}</div><div id="live2SeqDetalhes_${matchId}">${detalhesHtml}</div>`
       : '<div style="opacity:.5;padding:14px 0;text-align:center;font-size:11px">nenhuma tendência recente encontrada pra essa partida</div>';
   };
   // As sequências de FT (vitória/derrota/marcou/Over-Under/BTTS) já vêm
@@ -16934,9 +16943,49 @@ async function _live2LoadGoalPatterns(matchId) {
     ]);
     seq.gpCasa = rowsCasa.length ? _jogoGoalPatternStats(rowsCasa) : null;
     seq.gpFora = rowsFora.length ? _jogoGoalPatternStats(rowsFora) : null;
+    // "Vencedor após X minutos" (2026-09-13, pedido do usuário, item 10) e
+    // "minuto médio do 1º gol" (item 1) — mesmas rowsCasa/rowsFora, mesmo
+    // _goalMinutesCache já preenchido pela linha acima, zero busca nova.
+    // _jogoGoalPatternHtml (reaproveitada de _jogoGoalPatternStatsHtml, a
+    // mesma usada na Leitura da Partida) já sabe renderizar gp.vencedor
+    // quando ele existe.
+    if (seq.gpCasa) seq.gpCasa.vencedor = _jogoWinnerAtMinuteStats(rowsCasa);
+    if (seq.gpFora) seq.gpFora.vencedor = _jogoWinnerAtMinuteStats(rowsFora);
+    seq.csCasa = rowsCasa.length ? _jogoComputeStats(rowsCasa) : null;
+    seq.csFora = rowsFora.length ? _jogoComputeStats(rowsFora) : null;
     const seqEl = document.getElementById(`live2SeqBadge_${matchId}`);
     if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
+    if (_live2OpenModal && _live2OpenModal.type === 'seq' && String(_live2OpenModal.matchId) === String(matchId)) {
+      const detEl = document.getElementById(`live2SeqDetalhes_${matchId}`);
+      if (detEl) detEl.innerHTML = _live2GoalPatternHtml(m, seq);
+    }
   } catch (e) { /* silencioso — bônus, não pode travar o resto do modal */ }
+}
+
+// Estatísticas detalhadas de gol (itens 1-6, 8-10 pedidos pelo usuário em
+// 2026-09-13) — reaproveita 100% os renderizadores já usados na Leitura da
+// Partida (_jogoGoalPatternHtml/_pctBarRow), sem `media` (não tem uma média
+// da liga calculada pro contexto do Ao Vivo, os blocos funcionam normal sem
+// isso, só sem a comparação "méd: X%" ao lado). Item 7 (par/ímpar) não foi
+// pedido, mas vem junto de graça — faz parte do mesmo bloco reaproveitado
+// ("Características gerais do gol"), não vale a pena duplicar a função só
+// pra tirar uma linha.
+function _live2GoalPatternHtml(m, seq) {
+  if (!seq.gpCasa && !seq.gpFora) return '';
+  const avgMinRow = (teamName, cs) => {
+    if (!cs || cs.tempoPrimeiroGolPartida == null) return '';
+    return `<div style="font-size:12px;color:var(--text2);padding:5px 10px;text-align:center">
+      <b style="color:var(--text)">${teamName}</b> — minuto médio do 1º gol: marcado <b style="color:var(--text)">${cs.tempoSemMarcar.toFixed(0)}'</b> · sofrido <b style="color:var(--text)">${cs.tempoSemSofrer.toFixed(0)}'</b> · da partida <b style="color:var(--text)">${cs.tempoPrimeiroGolPartida.toFixed(0)}'</b>
+    </div>`;
+  };
+  return `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;text-align:center">Estatísticas de gol (últimos jogos, qualquer mando de campo)</div>
+      ${avgMinRow(m.casa, seq.csCasa)}
+      ${avgMinRow(m.fora, seq.csFora)}
+      ${_jogoGoalPatternHtml(m.casa, seq.gpCasa)}
+      ${_jogoGoalPatternHtml(m.fora, seq.gpFora)}
+    </div>`;
 }
 
 async function loadLive2Flashscore(matchId, btn, targetWrap) {
