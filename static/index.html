@@ -3930,8 +3930,11 @@ async function _live2OpenProximosWidget() {
 // que cobre MUITO mais jogo (qualquer time com >=5 partidas na liga).
 function _live2ProximoRowHtml(m) {
   const hora = _painelKickoffTime(m) || '--:--';
-  const golsCell = (gf, ga) => (gf != null && ga != null)
-    ? `<span class="live-prox-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${gf}/${ga}</span>` : '';
+  // Sempre mostra o badge, com "-/-" quando não tem o dado (time sem 5
+  // jogos na liga, ou liga sem tabela de classificação rastreada) — usuário
+  // achou que "tinha sumido tudo" quando o badge ficava ausente por
+  // completo em vez de indicar visualmente "sem dado aqui".
+  const golsCell = (gf, ga) => `<span class="live-prox-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${gf ?? '-'}/${ga ?? '-'}</span>`;
   return `
     <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
       <span class="live-prox-time">${hora}</span>
