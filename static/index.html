@@ -974,6 +974,55 @@
      inteira) — com auto-fit ou 1fr, poucos jogos ao vivo viravam 1-2 cards
      gigantes, exatamente o que ele não queria. */
   #live2GridWrap { grid-template-columns: repeat(auto-fill, minmax(280px, 320px)); }
+  /* Fundo "vidro" do Ao Vivo (2026-09-12) — pedido do usuário a partir de um
+     print de referência (dashboard escuro, grade de pontos + manchas de
+     glow, cards translúcidos). Escopado só no #live2GridWrap (id = mais
+     específico que .live-card sozinho) pra não vazar pro Painel/Lista, pro
+     Scanner (que reaproveita a mesma classe .live-card) nem pro Ao Vivo
+     original (#liveGridWrap) — só a aba Ao Vivo pediu essa mudança.
+     Comparado com 2 variantes (vidro sutil vs. este, completo) antes de
+     aplicar — usuário escolheu este, mesmo sabendo que reintroduz o
+     "glow decorativo" que tinha sido removido de propósito no redesign de
+     identidade visual anterior (ver DESIGN.md).
+     SÓ no tema escuro (html:not([data-theme="light"]), mesmo guarda usado
+     em outras regras fixas do site): o texto do card usa var(--text), que
+     no tema claro vira escuro — card translúcido misturado com um fundo
+     escuro fixo (#050807) + texto escuro ficaria ilegível. No claro, o card
+     volta a ser o sólido de sempre, sem vidro nem glow. */
+  html:not([data-theme="light"]) #live2GridWrap {
+    padding: 20px; border-radius: 16px;
+    background:
+      radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--green) 16%, transparent), transparent 42%),
+      radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--accent2) 16%, transparent), transparent 42%),
+      radial-gradient(circle at 50% 96%, color-mix(in srgb, var(--green) 10%, transparent), transparent 48%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 26px),
+      #050807;
+  }
+  /* Cards em vidro — só background/blur/glow (box-shadow), nunca border-color
+     aqui: a especificidade de #id ganha de QUALQUER regra .classe sozinha,
+     incluir border-color nesta regra quebraria os indicadores que já usam
+     border-color/border-left-color (.live2-card-gold, o 2T holding/blocked
+     logo abaixo) — eles continuam funcionando por cima disso normalmente. */
+  html:not([data-theme="light"]) #live2GridWrap .live-card {
+    position: relative;
+    background: color-mix(in srgb, var(--bg2) 42%, transparent) !important;
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 30%, transparent),
+                0 0 20px color-mix(in srgb, var(--green) 16%, transparent),
+                0 8px 26px rgba(0,0,0,.4);
+  }
+  html:not([data-theme="light"]) #live2GridWrap .live-card-top,
+  html:not([data-theme="light"]) #live2GridWrap .live-card-odds-row {
+    background: rgba(255,255,255,.03);
+  }
+  /* .live-card-odds-val fica de fora de propósito: tem cor semântica por
+     mercado (.o1/.ox/.o2/.oover/.ounder, ver DESIGN.md "odds em pílula") e
+     um seletor por #id ganharia dessas classes, apagando a cor de cada
+     mercado — a pílula em si já tem contraste suficiente sobre o vidro. */
+  html:not([data-theme="light"]) #live2GridWrap .live-card-cta-alt { background: rgba(255,255,255,.06); }
+  html:not([data-theme="light"]) #live2GridWrap .live-card-score { text-shadow: 0 0 10px currentColor, 0 0 4px rgba(255,90,54,.6); }
   /* Cada card tem uma quantidade diferente de conteúdo (nº de selos de
      pressão, mapa de chutes confirmado ou não, odds ao vivo disponível ou
      não) — como a grade (grid) já estica todo card da mesma linha pra
