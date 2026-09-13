@@ -16794,7 +16794,9 @@ function _live2SeqBadgeHtml(m, seq) {
     if (!gp || gp.totalComGm < 8) return '';
     const pctMarcou = gp.timeMarcouPrimeiroCount / gp.totalComGm * 100;
     const pctSofreu = gp.adversarioMarcouPrimeiroCount / gp.totalComGm * 100;
-    return `<div class="live-card-ind2t" title="Considerando os últimos ${gp.totalComGm} jogos (qualquer mando de campo) com minuto de gol disponível">⚽ ${teamName} marcou 1º em ${pctMarcou.toFixed(0)}% e sofreu 1º em ${pctSofreu.toFixed(0)}% dos jogos</div>`;
+    const diff = pctMarcou - pctSofreu;
+    const diffStr = `${diff > 0 ? '+' : ''}${diff.toFixed(0)}%`;
+    return `<div class="live-card-ind2t" title="Considerando os últimos ${gp.totalComGm} jogos (qualquer mando de campo) com minuto de gol disponível. Diff = marcou 1º − sofreu 1º.">⚽ ${teamName} marcou 1º em ${pctMarcou.toFixed(0)}% e sofreu 1º em ${pctSofreu.toFixed(0)}% dos jogos (diff ${diffStr})</div>`;
   };
   if (seq.gpCasa) badges.push(gpBadge(m.casa, seq.gpCasa));
   if (seq.gpFora) badges.push(gpBadge(m.fora, seq.gpFora));
