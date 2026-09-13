@@ -1510,6 +1510,14 @@
     background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
     padding: 1px 7px; flex-shrink: 0;
   }
+  /* Média de gols da temporada (2026-09-13) — mesmo estilo do badge de
+     posição, formato "marcados/sofridos" (ex: "1.8/1.1"). Mesmo gate de
+     copa que a posição (ver app.py _is_cup_competition). */
+  .painel-team-goals {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
+    padding: 1px 7px; flex-shrink: 0;
+  }
   .painel-match-card-value {
     min-width: 44px; text-align: center; font-family: var(--font-mono); font-weight: 700;
     font-size: var(--text-sm); padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
@@ -8588,6 +8596,15 @@ function _painelMatchRowHtml(m, leagueName) {
   // no app.py) — aqui só decide COMO mostrar, não decide mais SE mostra.
   const posCasaHtml = (m.casa_pos != null) ? `<span class="painel-team-pos" title="Posição na tabela">#${m.casa_pos}</span>` : '';
   const posForaHtml = (m.fora_pos != null) ? `<span class="painel-team-pos" title="Posição na tabela">#${m.fora_pos}</span>` : '';
+  // Média de gols da temporada (2026-09-13, pedido do usuário: "media de
+  // gols marcados e sofridos ultimos 5 jogos geral" — topou a alternativa
+  // grátis, média da temporada inteira, em vez de últimos 5 jogos de
+  // verdade, que exigiria busca extra por time). Mesmo gate de copa que a
+  // posição, mesma fonte (casa_gf_avg/ga_avg vêm do backend).
+  const golsCasaHtml = (m.casa_gf_avg != null && m.casa_ga_avg != null)
+    ? `<span class="painel-team-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${m.casa_gf_avg}/${m.casa_ga_avg}</span>` : '';
+  const golsForaHtml = (m.fora_gf_avg != null && m.fora_ga_avg != null)
+    ? `<span class="painel-team-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${m.fora_gf_avg}/${m.fora_ga_avg}</span>` : '';
   // Over/Under + 1X2 agrupado (2026-09-13, pedido do usuário: só 1X2 +
   // Over/Under, sem Handicap Asiático — depois, mostrar em Ao Vivo/Próximos,
   // não só Próximos — depois, juntar o 1X2 num grupo só). Já vem no mesmo
@@ -8645,6 +8662,7 @@ function _painelMatchRowHtml(m, leagueName) {
         ${rowLogos.home ? `<img class="painel-match-card-logo" src="${rowLogos.home}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${homeEsc}">${m.home}</span>
         ${posCasaHtml}
+        ${golsCasaHtml}
         ${_painelTeamTagBtnHtml(m.home, homeEsc)}
         ${valorCasa}
       </div>
@@ -8653,6 +8671,7 @@ function _painelMatchRowHtml(m, leagueName) {
         ${rowLogos.away ? `<img class="painel-match-card-logo" src="${rowLogos.away}" alt="" onerror="this.style.display='none'">` : ''}
         <span class="painel-team" title="${awayEsc}">${m.away}</span>
         ${posForaHtml}
+        ${golsForaHtml}
         ${_painelTeamTagBtnHtml(m.away, awayEsc)}
         ${valorFora}
       </div>

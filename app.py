@@ -1735,10 +1735,15 @@ def _compute_power_index(standings_rows):
     """Porta de _today2PowerRankingRows (index.html) — Índice de Ataque/Defesa
     de cada time = gols marcados/sofridos por jogo ÷ média da liga. Só devolve
     time com >= 5 jogos na tabela (amostra pequena demais falseia a média).
-    Retorna {team_normalizado: {"ataque": icone, "defesa": icone, "pos": posição}}.
-    "pos" (2026-09-13, pedido do usuário: mostrar posição na tabela ao lado do
-    nome do time) reaproveita o MESMO standings_rows já buscado aqui pro
-    Ataque/Defesa — zero busca nova."""
+    Retorna {team_normalizado: {"ataque": icone, "defesa": icone, "pos": posição,
+    "gf_avg": gols marcados/jogo, "ga_avg": gols sofridos/jogo}}.
+    "pos"/"gf_avg"/"ga_avg" (2026-09-13, pedido do usuário: mostrar posição e
+    média de gols da temporada ao lado do nome do time) reaproveitam o MESMO
+    standings_rows já buscado aqui pro Ataque/Defesa — zero busca nova. A
+    média pedida era "últimos 5 jogos", mas isso exigiria busca extra por
+    time (mesma categoria de custo do H2H) — usuário topou a alternativa
+    grátis (média da temporada inteira, mesma fonte que já alimenta
+    Ataque/Defesa) em vez disso."""
     parsed = []
     for r in standings_rows:
         try:
@@ -1767,6 +1772,8 @@ def _compute_power_index(standings_rows):
             "ataque": _power_icon(ataque, True, 1.05, 0.90),
             "defesa": _power_icon(defesa, False, 0.95, 1.10),
             "pos": p["pos"] or None,
+            "gf_avg": round(p["gf"] / p["jogos"], 1),
+            "ga_avg": round(p["ga"] / p["jogos"], 1),
         }
     return out
 
@@ -2160,6 +2167,13 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
         e_copa = _is_cup_competition(m.get("liga", ""))
         casa_pos = None if e_copa else casa_power.get("pos")
         fora_pos = None if e_copa else fora_power.get("pos")
+        # Média de gols da temporada (2026-09-13, pedido do usuário) — mesmo
+        # gate de copa/mata-mata acima (ver comentário) e mesma fonte
+        # (_compute_power_index), zero busca nova.
+        casa_gf_avg = None if e_copa else casa_power.get("gf_avg")
+        casa_ga_avg = None if e_copa else casa_power.get("ga_avg")
+        fora_gf_avg = None if e_copa else fora_power.get("gf_avg")
+        fora_ga_avg = None if e_copa else fora_power.get("ga_avg")
 
         matches.append({
             "event_id": eid,
@@ -2178,6 +2192,8 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
             "casa_ataque_icon": casa_power.get("ataque"), "casa_defesa_icon": casa_power.get("defesa"),
             "fora_ataque_icon": fora_power.get("ataque"), "fora_defesa_icon": fora_power.get("defesa"),
             "casa_pos": casa_pos, "fora_pos": fora_pos,
+            "casa_gf_avg": casa_gf_avg, "casa_ga_avg": casa_ga_avg,
+            "fora_gf_avg": fora_gf_avg, "fora_ga_avg": fora_ga_avg,
             **odds_fields,
             "ts": ts,
         })
