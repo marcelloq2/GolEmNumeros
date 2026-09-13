@@ -14225,16 +14225,20 @@ function _live2SetIndicatorFilter(texto) {
 }
 
 // Filtro de tempo de jogo (2026-09-13, pedido do usuário) — deduz o tempo
-// (1ºT/2ºT) a partir de m.tempo ("45'", "45+2'", "78'", "HT", "FT"...), o
-// mesmo campo que os cards já usam pra mostrar o minuto. O número antes do
-// "+"/"'" já basta: minuto <= 45 é 1ºT (inclui acréscimos "45+2"), senão é
-// 2ºT (inclui acréscimos "90+3"). HT/FT/ET/P não são nem um nem outro —
-// somem quando o filtro está em "1" ou "2", só aparecem em "Todos".
+// (1ºT/2ºT) a partir de m.minuto ("45'", "45+2'", "78'", "HT", "FT"...), o
+// mesmo campo que o card usa pra mostrar o minuto (live2Minute_, era m.tempo
+// por engano numa 1ª versão — corrigido no mesmo dia, uma partida aos 58'
+// aparecia com o filtro "1ºT" ligado). parseInt já para no "'"/"+", igual
+// já é feito em outros lugares do arquivo (ex: linha ~14151): minuto <= 45
+// é 1ºT (inclui acréscimos "45+2"), senão é 2ºT (inclui "90+3"). HT/FT/ET/P
+// não são nem um nem outro — somem quando o filtro está em "1" ou "2", só
+// aparecem em "Todos".
 function _live2MatchHalf(m) {
-  const t = (m && m.tempo || '').trim();
-  if (!t) return null;
-  if (t === 'HT' || t === 'FT' || t === 'ET' || t === 'P') return null;
-  const base = parseInt(t, 10);
+  const raw = m && m.minuto;
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (s === 'HT' || s === 'FT' || s === 'ET' || s === 'P') return null;
+  const base = parseInt(s, 10);
   if (isNaN(base)) return null;
   return base <= 45 ? '1' : '2';
 }
