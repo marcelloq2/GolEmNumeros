@@ -1,0 +1,300 @@
+{
+  "event_id": "a8qv3rleogazr1c",
+  "date": "2026-09-13",
+  "casa": "Integracion Norte SJ",
+  "fora": "Univ de Sucre",
+  "liga": "Reserve Cup",
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "total_shots": 26,
+  "shotmap": [
+    {
+      "id": "2969508057",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "S.Mena",
+      "x": 26.6,
+      "y": 46
+    },
+    {
+      "id": "2969504381",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Armas",
+      "x": 29.4,
+      "y": 50.9
+    },
+    {
+      "id": "2969503097",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Armas",
+      "x": 7.6,
+      "y": 31.9
+    },
+    {
+      "id": "2969501195",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Estupiñan",
+      "x": 39.3,
+      "y": 68.7
+    },
+    {
+      "id": "2969500335",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "M.Luque",
+      "x": 9.2,
+      "y": 59.7
+    },
+    {
+      "id": "2969497805",
+      "minute": 36,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Delgado",
+      "x": 7.4,
+      "y": 45.3
+    },
+    {
+      "id": "2969491275",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "M.Orobio",
+      "x": 12,
+      "y": 83
+    },
+    {
+      "id": "2969485229",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "P.Madero",
+      "x": 10.2,
+      "y": 49.6
+    },
+    {
+      "id": "2969484605",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "J.Anangonó",
+      "x": 3.7,
+      "y": 32.2
+    },
+    {
+      "id": "2969482577",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "fast_break",
+      "player": "J.Anangonó",
+      "x": 8.9,
+      "y": 51.4
+    },
+    {
+      "id": "2969475385",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Delgado",
+      "x": 10.8,
+      "y": 69.1
+    },
+    {
+      "id": "2969473475",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Solano",
+      "x": 27.7,
+      "y": 25
+    },
+    {
+      "id": "2969464541",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Griffa",
+      "x": 30,
+      "y": 48.7
+    },
+    {
+      "id": "2969540701",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "other_body_part",
+      "situation": "set_piece",
+      "player": "J.Majao",
+      "x": 8.3,
+      "y": 48.5
+    },
+    {
+      "id": "2969552485",
+      "minute": 71,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "J.Majao",
+      "x": 29.2,
+      "y": 66.6
+    },
+    {
+      "id": "2969550203",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Solano",
+      "x": 13.1,
+      "y": 62.9
+    },
+    {
+      "id": "2969549315",
+      "minute": 67,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Estupiñan",
+      "x": 17.9,
+      "y": 64.2
+    },
+    {
+      "id": "2969551223",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "T.Amilivia",
+      "x": 14.3,
+      "y": 39.1
+    },
+    {
+      "id": "2969574529",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "D.Pazmino",
+      "x": 22.5,
+      "y": 38.3
+    },
+    {
+      "id": "2969573015",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Anangonó",
+      "x": 8.4,
+      "y": 43.7
+    },
+    {
+      "id": "2969572113",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Solano",
+      "x": 11.4,
+      "y": 37.3
+    },
+    {
+      "id": "2969571593",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Anangonó",
+      "x": 30.1,
+      "y": 48.2
+    },
+    {
+      "id": "2969570381",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Solano",
+      "x": 9.8,
+      "y": 34.9
+    },
+    {
+      "id": "2969568577",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Solano",
+      "x": 11.2,
+      "y": 41.9
+    },
+    {
+      "id": "2969574285",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Luque",
+      "x": 13.3,
+      "y": 51
+    },
+    {
+      "id": "2969545063",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "E.Griffa",
+      "x": 29.8,
+      "y": 66.6
+    }
+  ]
+}
