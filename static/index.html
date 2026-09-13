@@ -2569,15 +2569,23 @@
                  background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;
                  width:260px;max-height:320px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
           </div>
-          <!-- Filtro por indicador (2026-09-12) — texto livre que bate contra
-               os indicadores AO VIVO já mostrados no card (2ºT + os 13 outros
-               de _live2ExtraIndicatorsHtml), tipo "pressão", "xG", "não
-               finaliza". Client-side só (mesmo padrão do filtro de nome) —
-               os indicadores são recalculados a cada ciclo, não dá pra
-               filtrar isso ANTES do teto como liga/equipe. -->
-          <input id="live2IndicatorFilterInput" type="text" placeholder="Filtrar por indicador (ex: pressão, xG)..." oninput="_live2SetIndicatorFilter(this.value)"
-            style="background:var(--bg3);border:1px solid var(--border);border-radius:999px;
-                   color:var(--text);font-size:11px;padding:5px 12px;width:210px;max-width:40vw">
+          <!-- Filtro por indicador (2026-09-12, virou lista de checkboxes em
+               2026-09-13 — pedido do usuário: "tem como mostrar lista dos
+               indicadores ativos em vez de colocar o nome" — mesmo padrão
+               visual do painel de Equipes/Competições, só que com um
+               catálogo FIXO (_LIVE2_INDICATOR_CATALOG) em vez de valores
+               tirados dos jogos da rodada, já que indicador não é um dado
+               do jogo, é um tipo calculado). Continua client-side (mesmo
+               princípio do filtro de nome) — os indicadores são recalculados
+               a cada ciclo, não dá pra filtrar isso ANTES do teto como
+               liga/equipe. -->
+          <div style="position:relative;display:inline-block">
+            <button class="live-refresh-btn" id="live2IndicatorFilterBtn" onclick="_live2ToggleIndicatorPanel(event)"
+              title="Mostrar só jogos com indicadores AO VIVO específicos (pressão, xG, não finaliza...)">📊 Indicadores</button>
+            <div id="live2IndicatorPanel" style="display:none;position:absolute;top:100%;left:0;z-index:50;margin-top:4px;
+                 background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;
+                 width:280px;max-height:340px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+          </div>
           <!-- Filtro de tempo de jogo (2026-09-13, pedido do usuário) — só
                1ºT ou só 2ºT (intervalo/encerrado somem em qualquer um dos
                dois, "Todos" volta a mostrar tudo). Client-side, mesmo padrão
@@ -14210,19 +14218,109 @@ function _live2SetSearch(texto) {
   _live2ApplySearchFilter();
 }
 
-// Filtro por indicador (2026-09-12) — mesmo princípio do filtro de nome
-// acima (client-side, sem mexer no array `matches`), só que compara contra
-// o TEXTO já renderizado dos indicadores do card (live2Ind2t_ + live2LiveIndBadge_)
-// em vez dos dados da partida. Como os indicadores mudam sozinhos a cada
-// ciclo (pressão sobe/desce, chute rola, etc.), esse filtro precisa ser
+// Filtro por indicador (2026-09-12, virou painel de checkboxes em
+// 2026-09-13) — mesmo princípio do filtro de nome acima (client-side, sem
+// mexer no array `matches`), só que compara contra o TEXTO já renderizado
+// dos indicadores do card (live2Ind2t_ + live2LiveIndBadge_) em vez dos
+// dados da partida. Como os indicadores mudam sozinhos a cada ciclo
+// (pressão sobe/desce, chute rola, etc.), esse filtro precisa ser
 // reaplicado toda vez que esses divs são reescritos — não só quando o
-// usuário digita — por isso _live2RefreshBadges também chama
+// usuário marca um checkbox — por isso _live2RefreshBadges também chama
 // _live2ApplySearchFilter no final (ver mais abaixo no arquivo).
-let _live2IndicatorFilterText = '';
-function _live2SetIndicatorFilter(texto) {
-  _live2IndicatorFilterText = _normLive2(texto);
+//
+// Catálogo fixo dos indicadores possíveis — cada `key` é um trecho único do
+// texto que _live2Ind2tBadgeHtml/_live2ExtraIndicatorsHtml realmente
+// escrevem no card (ver essas duas funções pra conferir), comparado depois
+// de normalizado (_normLive2, minúsculo/sem acento) contra o texto do
+// badge. Um jogo bate no filtro se tiver PELO MENOS UM dos indicadores
+// marcados (OU, não E — são tipos diferentes, não faz sentido exigir todos).
+const _LIVE2_INDICATOR_CATALOG = [
+  { key: 'lidera por',                          label: '🛡️ Lidera e não sofreu no 2ºT' },
+  { key: 'esta atras por',                      label: '🔒 Está atrás e não marcou no 2ºT' },
+  { key: 'nao finaliza ha',                     label: '🧊 Não finaliza há N min' },
+  { key: 'domina a pressao e ainda nao marcou', label: '🌊 Domina a pressão e não marcou' },
+  { key: 'esta na frente e segue pressionando', label: '🔥 Na frente e segue pressionando' },
+  { key: 'sofreu gol e a pressao caiu',         label: '📉 Sofreu gol e a pressão caiu' },
+  { key: 'empate no placar, mas',               label: '⚖️ Empate no placar, mas domina a pressão' },
+  { key: 'mas so marcou',                       label: '🧠 xG bem maior que o placar' },
+  { key: 'finalizacoes no alvo sem marcar',     label: '🎯 Finalizações no alvo sem marcar' },
+  { key: 'aumentou a pressao na reta final',    label: '⏱️ Aumentou a pressão na reta final' },
+  { key: 'sem finalizacao de nenhum lado',      label: '💤 Jogo sem finalização de nenhum lado' },
+  { key: 'jogo morto',                          label: '💀 Jogo morto (placar decidido)' },
+  { key: 'reta final sem sinal de gol',         label: '🔒 Reta final sem sinal de gol' },
+  { key: 'so finaliza de longe',                label: '🏹 Só finaliza de longe' },
+  { key: 'empate tecnico',                      label: '🟰 Empate técnico' },
+];
+let _live2IndicatorFilter = new Set(); // vazio = sem filtro, mostra todos
+
+function _live2ToggleIndicatorPanel(ev) {
+  if (ev) ev.stopPropagation();
+  const panel = document.getElementById('live2IndicatorPanel');
+  if (!panel) return;
+  const abrindo = panel.style.display === 'none';
+  panel.style.display = abrindo ? 'block' : 'none';
+  if (abrindo) _live2RenderIndicatorPanel();
+}
+
+function _live2RenderIndicatorPanel() {
+  const panel = document.getElementById('live2IndicatorPanel');
+  if (!panel) return;
+  panel.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button onclick="_live2IndicatorPanelSelectAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Marcar todos</button>
+      <button onclick="_live2IndicatorPanelClear()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:10px;padding:4px;cursor:pointer">Desmarcar todos</button>
+    </div>
+    <div id="live2IndicatorList">
+    ${_LIVE2_INDICATOR_CATALOG.map(ind => `
+      <label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:var(--text);cursor:pointer">
+        <input type="checkbox" data-key="${ind.key}" ${_live2IndicatorFilter.has(ind.key) ? 'checked' : ''} style="cursor:pointer">
+        <span style="flex:1">${ind.label}</span>
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button onclick="_live2IndicatorPanelApply()" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#04270f;font-size:11px;font-weight:700;padding:6px;cursor:pointer">Aplicar</button>
+      <button onclick="_live2IndicatorPanelShowAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;padding:6px;cursor:pointer">Mostrar todos</button>
+    </div>`;
+}
+
+function _live2IndicatorPanelSelectAll() {
+  document.querySelectorAll('#live2IndicatorPanel input[type=checkbox]').forEach(cb => { cb.checked = true; });
+}
+function _live2IndicatorPanelClear() {
+  document.querySelectorAll('#live2IndicatorPanel input[type=checkbox]').forEach(cb => { cb.checked = false; });
+}
+function _live2UpdateIndicatorFilterBtnLabel() {
+  const btn = document.getElementById('live2IndicatorFilterBtn');
+  if (!btn) return;
+  if (_live2IndicatorFilter.size) {
+    btn.textContent = `📊 ${_live2IndicatorFilter.size} indicador${_live2IndicatorFilter.size === 1 ? '' : 'es'}`;
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '📊 Indicadores';
+    btn.classList.remove('active');
+  }
+}
+function _live2IndicatorPanelApply() {
+  const checked = [...document.querySelectorAll('#live2IndicatorPanel input[type=checkbox]:checked')].map(cb => cb.dataset.key);
+  _live2IndicatorFilter = new Set(checked);
+  document.getElementById('live2IndicatorPanel').style.display = 'none';
+  _live2UpdateIndicatorFilterBtnLabel();
   _live2ApplySearchFilter();
 }
+function _live2IndicatorPanelShowAll() {
+  _live2IndicatorFilter = new Set();
+  document.getElementById('live2IndicatorPanel').style.display = 'none';
+  _live2UpdateIndicatorFilterBtnLabel();
+  _live2ApplySearchFilter();
+}
+// Fecha o painel ao clicar fora dele (fora do botão e do painel em si)
+document.addEventListener('click', (ev) => {
+  const panel = document.getElementById('live2IndicatorPanel');
+  const btn = document.getElementById('live2IndicatorFilterBtn');
+  if (!panel || panel.style.display === 'none') return;
+  if (panel.contains(ev.target) || ev.target === btn) return;
+  panel.style.display = 'none';
+});
 
 // Filtro de tempo de jogo (2026-09-13, pedido do usuário) — deduz o tempo
 // (1ºT/2ºT) a partir de m.minuto ("45'", "45+2'", "78'", "HT", "FT"...), o
@@ -14261,11 +14359,11 @@ function _live2ApplySearchFilter() {
       || _normLive2(m.fora).includes(_live2SearchText)
       || _normLive2(m.liga).includes(_live2SearchText);
     let bateIndicador = true;
-    if (_live2IndicatorFilterText) {
+    if (_live2IndicatorFilter.size) {
       const ind2tEl = document.getElementById(`live2Ind2t_${m.id}`);
       const liveIndEl = document.getElementById(`live2LiveIndBadge_${m.id}`);
       const textoIndicadores = _normLive2(`${ind2tEl?.textContent || ''} ${liveIndEl?.textContent || ''}`);
-      bateIndicador = textoIndicadores.includes(_live2IndicatorFilterText);
+      bateIndicador = [..._live2IndicatorFilter].some(key => textoIndicadores.includes(key));
     }
     const bateTempo = !_live2HalfFilter || _live2MatchHalf(m) === _live2HalfFilter;
     card.style.display = (bateNome && bateIndicador && bateTempo) ? '' : 'none';
@@ -16057,7 +16155,7 @@ async function _live2RefreshBadges(matchId) {
     // Os indicadores desse card acabaram de mudar — se o filtro por
     // indicador estiver ativo, reaplica pra esse card refletir na hora
     // (sem esperar o usuário digitar de novo ou o próximo ciclo inteiro).
-    if (_live2IndicatorFilterText) _live2ApplySearchFilter();
+    if (_live2IndicatorFilter.size) _live2ApplySearchFilter();
   }
 
   const freshBadgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
