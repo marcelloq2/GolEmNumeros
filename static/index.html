@@ -1189,9 +1189,11 @@
     font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .4px;
     text-align: center; margin-bottom: 8px; font-weight: 700;
   }
-  .live-h2h-agg { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
-  .live-h2h-agg-num { font-family: var(--font-mono); font-size: 20px; font-weight: 800; }
-  .live-h2h-agg-sep { font-size: 10px; color: var(--text2); text-transform: uppercase; }
+  .live-h2h-agg { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 10px; }
+  .live-h2h-agg-nums { display: flex; align-items: center; gap: 18px; }
+  .live-h2h-agg-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .live-h2h-agg-num { font-family: var(--font-mono); font-size: 20px; font-weight: 800; line-height: 1; }
+  .live-h2h-agg-lbl { font-size: 9px; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; }
   .live-h2h-row {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
     padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: 12px;
@@ -15206,14 +15208,21 @@ function _live2H2hModalHtml(m, info) {
     if (scCasa > scFora) vCasa++; else if (scCasa < scFora) vFora++; else empates++;
   });
 
+  // Rótulo embaixo de CADA número (não mais um texto "V · E · D" espremido
+  // no meio) — pedido do usuário, achou o formato anterior esquisito.
+  const aggItem = (num, cor, label) => `
+    <div class="live-h2h-agg-item">
+      <span class="live-h2h-agg-num" style="color:${cor}">${num}</span>
+      <span class="live-h2h-agg-lbl">${label}</span>
+    </div>`;
   const aggHtml = confrontoRows.length ? `
     <div class="live-h2h-agg">
       ${_today2EscudoImg(escudos?.casa, 32)}
-      <span class="live-h2h-agg-num" style="color:var(--accent2)">${vCasa}</span>
-      <span class="live-h2h-agg-sep">V · E · D</span>
-      <span class="live-h2h-agg-num" style="color:var(--text2)">${empates}</span>
-      <span class="live-h2h-agg-sep">·</span>
-      <span class="live-h2h-agg-num" style="color:var(--red)">${vFora}</span>
+      <div class="live-h2h-agg-nums">
+        ${aggItem(vCasa, 'var(--accent2)', 'V')}
+        ${aggItem(empates, 'var(--text2)', 'E')}
+        ${aggItem(vFora, 'var(--red)', 'V')}
+      </div>
       ${_today2EscudoImg(escudos?.fora, 32)}
     </div>` : '';
 
