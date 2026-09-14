@@ -15720,8 +15720,71 @@ function _live2DrawPriceLines(points, canvasId) {
   ctx.fillText(fmt(tsMax), W - PADR - 34, H - 4);
 }
 
+// ── Reação da odd quando sai gol (2026-09-14, pedido do usuário: "quero
+// saber pra onde a odd vai se marcar/sofrer, pra saber meu possível lucro/
+// red") — busca /api/momentum/odds_goal_reaction 1x e cacheia por 30min no
+// navegador (mesmo TTL do cache no backend, não faz sentido rebuscar mais
+// rápido que isso — mesmo padrão já usado em _live2GetChancePatternStats).
+const _LIVE2_ODDS_LIVE_BUCKETS = [
+  ['1.01–1.30', 1.01, 1.30], ['1.31–1.60', 1.31, 1.60], ['1.61–2.00', 1.61, 2.00],
+  ['2.01–3.00', 2.01, 3.00], ['3.01–5.00', 3.01, 5.00], ['>5.00', 5.01, 99.0],
+];
+function _live2OddsBucketLabel(odd) {
+  for (const [lbl, lo, hi] of _LIVE2_ODDS_LIVE_BUCKETS) if (odd >= lo && odd <= hi) return lbl;
+  return null;
+}
+let _live2OddsGoalReactionCache = null;
+let _live2OddsGoalReactionFetchedAt = 0;
+async function _live2GetOddsGoalReaction() {
+  const now = Date.now();
+  if (_live2OddsGoalReactionCache && (now - _live2OddsGoalReactionFetchedAt) < 30 * 60 * 1000) {
+    return _live2OddsGoalReactionCache;
+  }
+  try {
+    const r = await fetch('/api/momentum/odds_goal_reaction');
+    _live2OddsGoalReactionCache = await r.json();
+    _live2OddsGoalReactionFetchedAt = now;
+  } catch (e) {
+    _live2OddsGoalReactionCache = null;
+  }
+  return _live2OddsGoalReactionCache;
+}
+// Amostra mínima antes de mostrar um número (mesmo piso usado em outros
+// padrões estatísticos desse app, tipo _jogoGoalPatternStats) — a coleta
+// dessa base começou em 14/09/2026, então no início a maioria das faixas
+// vai aparecer como "ainda sem dados suficientes" mesmo — isso é esperado,
+// vai preenchendo sozinho conforme mais partidas terminam.
+const _LIVE2_ODDS_REACTION_MIN_N = 5;
+function _live2GoalReactionRow(teamName, odd, reaction) {
+  if (odd == null) return '';
+  const lbl = _live2OddsBucketLabel(odd);
+  const bucket = lbl && reaction?.buckets?.find(b => b.label === lbl);
+  const colorFor = pct => pct == null ? 'var(--text2)' : (pct < 0 ? 'var(--green)' : pct > 0 ? 'var(--red)' : 'var(--text2)');
+  const fmtPct = pct => pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`;
+  const parte = (n, pct, rotulo) => (bucket && n >= _LIVE2_ODDS_REACTION_MIN_N)
+    ? `${rotulo}: <b style="color:${colorFor(pct)}">${fmtPct(pct)}</b> <span style="color:var(--text2)">(${n} gols parecidos)</span>`
+    : `${rotulo}: <span style="color:var(--text2)">ainda sem dados suficientes</span>`;
+  return `
+    <div style="font-size:11px;padding:5px 0;border-top:1px solid var(--border)">
+      <b style="color:var(--text)">${teamName}</b> <span style="color:var(--text2)">(odd atual ${odd.toFixed(2)})</span><br>
+      ⚽ Se marcar — ${parte(bucket?.marcou_n, bucket?.marcou_pct, 'lucro potencial')}<br>
+      🥅 Se sofrer — ${parte(bucket?.sofreu_n, bucket?.sofreu_pct, 'red potencial')}
+    </div>`;
+}
+function _live2GoalReactionHtml(m, points, reaction) {
+  const ultimo = [...points].reverse().find(p => p.casa != null || p.fora != null);
+  if (!ultimo) return '';
+  const html = _live2GoalReactionRow(m.casa, ultimo.casa, reaction) + _live2GoalReactionRow(m.fora, ultimo.fora, reaction);
+  if (!html) return '';
+  return `
+    <div style="margin-top:10px">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;text-align:center;margin-bottom:2px" title="Baseado em como a odd ao vivo se moveu nos minutos seguintes a gols de partidas passadas com odd parecida (mesma faixa) na hora do gol — base ainda em formação, começou a coletar em 14/09.">Reação histórica da odd a gol (beta)</div>
+      ${html}
+    </div>`;
+}
+
 async function _live2OpenPriceLinesModal(matchId) {
-  const { body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — odds ao vivo (Casa/Visitante)');
+  const { m, body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — odds ao vivo (Casa/Visitante)');
   const pm = _live2PainelMatchCache[matchId];
   if (!pm || !pm.event_id) {
     body.innerHTML = `<div class="live-loading">Ainda não encontrei esse jogo na fonte de odds ao vivo (Flashscore) — tenta de novo em alguns segundos, assim que o card carregar a pílula de odds ao vivo o gráfico também fica disponível.</div>`;
@@ -15741,6 +15804,14 @@ async function _live2OpenPriceLinesModal(matchId) {
     body.innerHTML = _live2PriceLinesHtml(matchId, points);
     const pontosFiltrados = _live2PriceLinesFiltrarPorIntervalo(points, _live2PriceLinesRange[matchId]);
     requestAnimationFrame(() => _live2DrawPriceLines(pontosFiltrados, 'live2PriceLinesCanvas'));
+    // Reação a gol busca em paralelo, não trava o gráfico (que já é o mais
+    // importante) — insere/atualiza um container próprio quando terminar.
+    body.insertAdjacentHTML('beforeend', `<div id="live2GoalReaction_${matchId}"></div>`);
+    _live2GetOddsGoalReaction().then(reaction => {
+      if (!reaction) return;
+      const el = document.getElementById(`live2GoalReaction_${matchId}`);
+      if (el) el.innerHTML = _live2GoalReactionHtml(m, points, reaction);
+    });
   } catch (e) {
     body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
   }

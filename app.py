@@ -7065,6 +7065,146 @@ def api_odds_patterns():
     return jsonify(result)
 
 
+# ── Reação da odd ao vivo quando sai gol (2026-09-14) ───────────────────────
+# Pedido do usuário: "quero saber pra onde a odd vai se o time casa marcar
+# gol, pra onde vai se tomar gol, o mesmo pro visitante — é mais pra eu saber
+# meu possível lucro se pegar o gol e possível red se tomar o gol". Mesmo
+# padrão arquitetural do bloco de cima (_odds_patterns_cache/_ODDS_BUCKETS_H):
+# varre momentum_history, bucketiza, cacheia 30min — só que aqui o campo
+# novo usado é "odds_history" (gravado a partir de 2026-09-14, ver
+# _build_save_payload) cruzado com "goals" (minuto de cada gol), não mais
+# "opening_odds" sozinho. Partidas salvas ANTES de 14/09 simplesmente não
+# têm "odds_history" e são puladas (.get retorna [], não quebra nada).
+_ODDS_LIVE_BUCKETS = [
+    ("1.01–1.30", 1.01, 1.30),
+    ("1.31–1.60", 1.31, 1.60),
+    ("1.61–2.00", 1.61, 2.00),
+    ("2.01–3.00", 2.01, 3.00),
+    ("3.01–5.00", 3.01, 5.00),
+    (">5.00",     5.01, 99.0),
+]
+# Janela de reação: olha a odd JUNTO do minuto do gol (pré) e de novo uns
+# minutos depois (pós), pra deixar o mercado "assentar" em vez de pegar o
+# pico de volatilidade do instante exato do gol. 8min de teto pra achar o
+# ponto pós — gol muito perto do fim de tempo (ex: aos 89') não tem reação
+# observável depois e é descartado pra essa amostra.
+_ODDS_REACTION_MIN_AFTER = 2
+_ODDS_REACTION_MAX_AFTER = 8
+
+_odds_goal_reaction_cache = {"ts": 0, "data": None}
+
+
+def _odds_bucket_label(odd):
+    for lbl, lo, hi in _ODDS_LIVE_BUCKETS:
+        if lo <= odd <= hi:
+            return lbl
+    return None
+
+
+def _odds_reaction_points(odds_history, goal_minute):
+    """Acha o ponto de odds mais próximo ANTES/NO minuto do gol (pré) e o
+    primeiro disponível de _ODDS_REACTION_MIN_AFTER a _ODDS_REACTION_MAX_AFTER
+    minutos depois (pós). Retorna (pre, pos) ou (None, None) se não achar os dois."""
+    pre = None
+    for p in odds_history:
+        m = p.get("minuto")
+        if m is None or m > goal_minute:
+            continue
+        if pre is None or m > pre.get("minuto", -1):
+            pre = p
+    pos = None
+    for p in odds_history:
+        m = p.get("minuto")
+        if m is None:
+            continue
+        if goal_minute + _ODDS_REACTION_MIN_AFTER <= m <= goal_minute + _ODDS_REACTION_MAX_AFTER:
+            if pos is None or m < pos.get("minuto", 999):
+                pos = p
+    return pre, pos
+
+
+def _compute_odds_goal_reaction():
+    # {(role, bucket_label): {"n": int, "sum_pct": float}} — role é "marcou" ou "sofreu"
+    acc = {}
+    total_partidas = 0
+    total_gols_usaveis = 0
+
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            odds_history = d.get("odds_history") or []
+            goals = d.get("goals") or []
+            if not odds_history or not goals:
+                continue
+            total_partidas += 1
+
+            for g in goals:
+                minute = g.get("minute")
+                team = g.get("team")
+                if minute is None or team not in ("home", "away"):
+                    continue
+                pre, pos = _odds_reaction_points(odds_history, minute)
+                if not pre or not pos:
+                    continue
+
+                marcou_lado = "casa" if team == "home" else "fora"
+                sofreu_lado = "fora" if team == "home" else "casa"
+
+                for role, lado in (("marcou", marcou_lado), ("sofreu", sofreu_lado)):
+                    pre_odd = pre.get(lado)
+                    pos_odd = pos.get(lado)
+                    if not pre_odd or not pos_odd or pre_odd <= 0:
+                        continue
+                    lbl = _odds_bucket_label(pre_odd)
+                    if not lbl:
+                        continue
+                    pct = (pos_odd - pre_odd) / pre_odd * 100
+                    key = (role, lbl)
+                    if key not in acc:
+                        acc[key] = {"n": 0, "sum_pct": 0.0}
+                    acc[key]["n"] += 1
+                    acc[key]["sum_pct"] += pct
+                total_gols_usaveis += 1
+        except Exception:
+            continue
+
+    buckets_out = []
+    for lbl, lo, hi in _ODDS_LIVE_BUCKETS:
+        marcou = acc.get(("marcou", lbl))
+        sofreu = acc.get(("sofreu", lbl))
+        row = {"label": lbl}
+        row["marcou_n"]   = marcou["n"] if marcou else 0
+        row["marcou_pct"] = round(marcou["sum_pct"] / marcou["n"], 1) if marcou and marcou["n"] else None
+        row["sofreu_n"]   = sofreu["n"] if sofreu else 0
+        row["sofreu_pct"] = round(sofreu["sum_pct"] / sofreu["n"], 1) if sofreu and sofreu["n"] else None
+        buckets_out.append(row)
+
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "total_gols_usaveis": total_gols_usaveis,
+        "buckets": buckets_out,
+        "computed_at": datetime.now().isoformat(),
+    }
+
+
+@app.route("/api/momentum/odds_goal_reaction")
+def api_odds_goal_reaction():
+    """Quanto a odd ao vivo costuma se mover, em %, quando um time marca (ou
+    sofre) um gol — bucketizado pela odd do time NO MOMENTO do gol. Usado no
+    Price Lines pra estimar lucro potencial (se marcar) / red potencial (se
+    sofrer). Cache de 30min — mesmo padrão de /api/momentum/odds-patterns,
+    o cálculo em si varre todo o momentum_history (pode crescer bastante),
+    não pode rodar a cada request."""
+    global _odds_goal_reaction_cache
+    if (time.time() - _odds_goal_reaction_cache["ts"] < 1800
+            and _odds_goal_reaction_cache["data"] is not None):
+        return jsonify(_odds_goal_reaction_cache["data"])
+    result = _compute_odds_goal_reaction()
+    _odds_goal_reaction_cache = {"ts": time.time(), "data": result}
+    return jsonify(result)
+
+
 # ── Indicadores ao vivo ──────────────────────────────────────────────────────
 
 def _profile_similarity(current: dict, profile: dict) -> float | None:
