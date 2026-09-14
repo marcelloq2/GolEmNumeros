@@ -4335,7 +4335,7 @@ def _extract_score(goals: list) -> dict:
 def _build_save_payload(
     event_id, casa, fora, liga,
     graph_points, goals, stats_flat, stats_periods,
-    opening_odds, source, shotmap=None
+    opening_odds, source, shotmap=None, odds_history=None
 ) -> dict:
     """Monta o payload completo para salvar no momentum_history."""
     today = datetime.now().strftime("%Y-%m-%d")
@@ -4362,6 +4362,16 @@ def _build_save_payload(
         "xg":                 _calc_xg(stats_flat),
         # Odds
         "opening_odds":       opening_odds,
+        # Histórico de odds ao vivo (2026-09-14, pedido do usuário: base de
+        # dados pra saber como a odd se move quando sai gol) — a mesma série
+        # de pontos {ts, minuto, casa, empate, fora, ou_line, ou_over,
+        # ou_under} que já alimenta o gráfico "Price Lines" sob demanda
+        # (_live_odds_history em memória, populada pelo _live_odds_prewarm_loop
+        # que já roda de qualquer jeito) — aqui só congela ela no arquivo
+        # quando a partida termina, junto com "goals" acima (mesmo evento,
+        # mesmo timestamp de partida) pra dar pra cruzar odd x minuto do gol
+        # depois. Zero busca nova: só grava o que já estava em memória.
+        "odds_history":       odds_history or [],
     }
 
 
@@ -4530,6 +4540,12 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 with _shotmap_lock:
                     best_shotmap = _shotmap_live_cache.get(event_id) or udata.get("shotmap", [])
 
+                # Histórico de odds ao vivo acumulado durante o jogo (2026-09-14)
+                # — mesmo dict em memória que já alimenta o Price Lines sob
+                # demanda, só congela aqui no momento de salvar.
+                with _live_odds_history_lock:
+                    odds_hist = list(_live_odds_history.get(event_id, []))
+
                 payload = _build_save_payload(
                     event_id=event_id,
                     casa=casa, fora=fora, liga=liga,
@@ -4540,6 +4556,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                     opening_odds=opening_odds,
                     source="uniscore",
                     shotmap=best_shotmap,
+                    odds_history=odds_hist,
                 )
                 with open(save_file, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
