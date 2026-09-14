@@ -1223,7 +1223,7 @@
   .live-prox-row:last-child { border-bottom: none; }
   .live-prox-time { font-family: var(--font-mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 34px; text-align: center; }
   .live-prox-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .live-prox-team { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .live-prox-team { display: flex; align-items: center; gap: 6px; }
   .live-prox-team-name {
     flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
@@ -1238,13 +1238,13 @@
      H2H por nome já usada no Ao Vivo (_live2AutoLoadForms, endpoint
      /api/flashscore/h2h), zero rota nova. As bolinhas de forma são as MESMAS
      que _live2FormRowHtml já gera pro Ao Vivo (18px), só encolhidas aqui via
-     !important pra caber numa lista compacta de até 40 linhas — evita ter
-     que forkar a função só por causa do tamanho. Ficam numa linha própria
-     (width:100%, flex-wrap no pai) pra não espremer o nome do time; somem
-     por completo (:empty) enquanto a busca ainda não voltou. */
-  .live-prox-forma { display: flex; align-items: center; gap: 2px; width: 100%; padding-left: 22px; min-height: 14px; }
-  .live-prox-forma:empty { display: none; min-height: 0; }
-  .live-prox-forma span { width: 14px !important; height: 14px !important; font-size: 8px !important; }
+     !important pra caber na frente do nome do time (pedido do usuário,
+     2026-09-14, depois de ver na linha de baixo) — evita ter que forkar a
+     função só por causa do tamanho. Somem por completo (:empty) enquanto a
+     busca ainda não voltou, sem deixar buraco antes do nome. */
+  .live-prox-forma { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+  .live-prox-forma:empty { display: none; }
+  .live-prox-forma span { width: 10px !important; height: 10px !important; font-size: 6px !important; }
   .live-prox-h2h {
     font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--text2);
     text-align: center; width: 100%;
@@ -4006,14 +4006,14 @@ function _live2ProximoRowHtml(m) {
       <span class="live-prox-time">${hora}</span>
       <div class="live-prox-teams">
         <span class="live-prox-team">
+          <span id="live2FormWrapCasa_${m.event_id}" class="live-prox-forma">${formaCasaHtml}</span>
           <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
           ${golsCell(m.casa_gf_avg, m.casa_ga_avg)}
-          <span id="live2FormWrapCasa_${m.event_id}" class="live-prox-forma">${formaCasaHtml}</span>
         </span>
         <span class="live-prox-team">
+          <span id="live2FormWrapFora_${m.event_id}" class="live-prox-forma">${formaForaHtml}</span>
           <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
           ${golsCell(m.fora_gf_avg, m.fora_ga_avg)}
-          <span id="live2FormWrapFora_${m.event_id}" class="live-prox-forma">${formaForaHtml}</span>
         </span>
         <span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span>
       </div>
