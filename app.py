@@ -4335,7 +4335,7 @@ def _extract_score(goals: list) -> dict:
 def _build_save_payload(
     event_id, casa, fora, liga,
     graph_points, goals, stats_flat, stats_periods,
-    opening_odds, source, shotmap=None, odds_history=None
+    opening_odds, source, shotmap=None, odds_history=None, stats_history=None
 ) -> dict:
     """Monta o payload completo para salvar no momentum_history."""
     today = datetime.now().strftime("%Y-%m-%d")
@@ -4372,6 +4372,12 @@ def _build_save_payload(
         # mesmo timestamp de partida) pra dar pra cruzar odd x minuto do gol
         # depois. Zero busca nova: só grava o que já estava em memória.
         "odds_history":       odds_history or [],
+        # Histórico de estatísticas-chave ao vivo (2026-09-14, base pras 5
+        # ideias de trading: xG, escanteios, chutes no alvo, toques na área,
+        # bloqueados, defesas — ver _stats_history_point) — mesmo espírito
+        # do odds_history acima, congela o que já estava em _stats_history
+        # (populado de graça dentro de _process_momentum) no momento do save.
+        "stats_history":      stats_history or [],
     }
 
 
@@ -4440,6 +4446,62 @@ def _fetch_sofa_playwright(event_id):
     return result["graph"], result["incidents"], result["statistics"]
 
 
+# ── Histórico ao vivo de estatísticas-chave (2026-09-14) ────────────────────
+# Base pras 5 ideias de trading discutidas com o usuário (xG x movimento de
+# odds, escanteios como sinal antecipado, goleiro "roubando" xG, domínio
+# estéril vs real). Reaproveita 100% o `stats_live` que _process_momentum já
+# busca a cada ciclo (via UniScore, mesmo dado que alimenta a tela
+# "Estatísticas + Odds") — ZERO fetch novo, só guarda os poucos campos que as
+# análises precisam (não o pacote inteiro de 40+ stats) pra não pesar memória
+# à toa — Memória já era o maior item do custo no Railway na conversa em que
+# isso foi combinado com o usuário.
+_STATS_HISTORY_MAX_POINTS = 500
+_STATS_HISTORY_MAX_AGE = 3 * 3600
+_stats_history = {}   # event_id -> deque de pontos {ts, minuto, xg_casa/fora, escanteios_casa/fora, ...}
+_stats_history_lock = threading.Lock()
+
+_STAT_NAME_CANDIDATES = {
+    "escanteios":  ["Corner Kicks", "Corners", "cornerKicks"],
+    "chutes_alvo": ["Shots on Target", "Shots On Target", "shotsOnTarget"],
+    "toques_area": ["Touches in Box", "Touches In Box", "touches_in_box"],
+    "bloqueados":  ["Blocked Shots", "blockedShots"],
+    "defesas":     ["Saves", "Goalkeeper Saves"],
+}
+
+
+def _stat_pair(stats_live, key):
+    for name in _STAT_NAME_CANDIDATES[key]:
+        item = stats_live.get(name)
+        if item and isinstance(item, dict):
+            hv = item.get("homeValue") if item.get("homeValue") is not None else item.get("home", 0)
+            av = item.get("awayValue") if item.get("awayValue") is not None else item.get("away", 0)
+            try:
+                return float(str(hv).replace("%", "").strip() or 0), float(str(av).replace("%", "").strip() or 0)
+            except (TypeError, ValueError):
+                return None, None
+    return None, None
+
+
+def _stats_history_point(stats_live, xg_live, ts, minuto):
+    ponto = {"ts": ts, "minuto": minuto,
+             "xg_casa": xg_live.get("home"), "xg_fora": xg_live.get("away")}
+    for key in _STAT_NAME_CANDIDATES:
+        h, a = _stat_pair(stats_live, key)
+        ponto[f"{key}_casa"] = h
+        ponto[f"{key}_fora"] = a
+    return ponto
+
+
+def _stats_history_prune():
+    if len(_stats_history) < 200:
+        return
+    now = time.time()
+    stale = [eid for eid, pts in _stats_history.items()
+             if not pts or now - pts[-1]["ts"] > _STATS_HISTORY_MAX_AGE]
+    for eid in stale:
+        _stats_history.pop(eid, None)
+
+
 def _process_momentum(event_id, casa="", fora="", liga=""):
     """Busca momentum exclusivamente via UniScore (busca por nome de time).
     Cache de 30s (reduzido de 90s a pedido do usuário, 2026-09-01, pra deixar
@@ -4474,6 +4536,25 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
         stats_live = udata.get("statistics", {})
         xg_live    = _calc_xg(stats_live) if stats_live else {}
         ps_live    = _pressure_summary(pts) if pts else {}
+
+        # ── Acumula ponto no histórico de estatísticas (2026-09-14) ─────
+        # Mesmo espírito do _live_odds_prewarm_loop pra odds: só guarda o
+        # que já foi calculado acima, sem buscar nada a mais. Não salva se
+        # já terminou (nesse caso a partida está indo pro save completo
+        # logo abaixo, não faz sentido crescer o histórico depois do fim).
+        if stats_live and not udata.get("finished"):
+            minuto = None
+            if pts:
+                try:
+                    minuto = int(pts[-1].get("minute") or 0)
+                except (TypeError, ValueError):
+                    minuto = None
+            ponto_stats = _stats_history_point(stats_live, xg_live, time.time(), minuto)
+            with _stats_history_lock:
+                if event_id not in _stats_history:
+                    _stats_history[event_id] = deque(maxlen=_STATS_HISTORY_MAX_POINTS)
+                _stats_history[event_id].append(ponto_stats)
+                _stats_history_prune()
 
         data = {**udata, "saved": False,
                 "xg": xg_live, "pressure_summary": ps_live}
@@ -4546,6 +4627,13 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 with _live_odds_history_lock:
                     odds_hist = list(_live_odds_history.get(event_id, []))
 
+                # Histórico de estatísticas-chave ao vivo (2026-09-14) — mesmo
+                # espírito do odds_hist acima, congela o que já estava em
+                # _stats_history (populado de graça dentro deste mesmo loop)
+                # no momento do save.
+                with _stats_history_lock:
+                    stats_hist = list(_stats_history.get(event_id, []))
+
                 payload = _build_save_payload(
                     event_id=event_id,
                     casa=casa, fora=fora, liga=liga,
@@ -4557,6 +4645,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                     source="uniscore",
                     shotmap=best_shotmap,
                     odds_history=odds_hist,
+                    stats_history=stats_hist,
                 )
                 with open(save_file, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
