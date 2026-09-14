@@ -1,0 +1,278 @@
+{
+  "event_id": "9zuz9plc04j8rm3",
+  "date": "2026-09-14",
+  "casa": "Al-Qadasiya",
+  "fora": "Al-Wasl SC",
+  "liga": "",
+  "score": {
+    "home": 2,
+    "away": 1
+  },
+  "total_shots": 24,
+  "shotmap": [
+    {
+      "id": "2969984025",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Reijnders",
+      "x": 9.9,
+      "y": 53.6
+    },
+    {
+      "id": "2969982939",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Al-Qahtani",
+      "x": 24.3,
+      "y": 58.2
+    },
+    {
+      "id": "2969992891",
+      "minute": 16,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "S.Bouftini",
+      "x": 9.9,
+      "y": 53.2
+    },
+    {
+      "id": "2969988321",
+      "minute": 12,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Adryelson",
+      "x": 14.2,
+      "y": 44.8
+    },
+    {
+      "id": "2970006103",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Quiñones",
+      "x": 25.1,
+      "y": 43.7
+    },
+    {
+      "id": "2970003413",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Reijnders",
+      "x": 24.3,
+      "y": 40.1
+    },
+    {
+      "id": "2970000067",
+      "minute": 24,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Adryelson",
+      "x": 13.9,
+      "y": 30.5
+    },
+    {
+      "id": "2969999739",
+      "minute": 23,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "N.Giménez",
+      "x": 29.8,
+      "y": 69.3
+    },
+    {
+      "id": "2970013413",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Shamat",
+      "x": 1.5,
+      "y": 63.7
+    },
+    {
+      "id": "2970023005",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Andrade",
+      "x": 24.8,
+      "y": 34.6
+    },
+    {
+      "id": "2970044491",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Quiñones",
+      "x": 8.5,
+      "y": 51.3
+    },
+    {
+      "id": "2970043599",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Reijnders",
+      "x": 10.8,
+      "y": 43.6
+    },
+    {
+      "id": "2970052045",
+      "minute": 61,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Retegui",
+      "x": 5.1,
+      "y": 47.7
+    },
+    {
+      "id": "2970051201",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "fast_break",
+      "player": "Adryelson",
+      "x": 11.6,
+      "y": 46
+    },
+    {
+      "id": "2970049327",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Quiñones",
+      "x": 4.5,
+      "y": 58.3
+    },
+    {
+      "id": "2970044991",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Andrade",
+      "x": 11.4,
+      "y": 31.2
+    },
+    {
+      "id": "2970061053",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Quiñones",
+      "x": 19.5,
+      "y": 43.7
+    },
+    {
+      "id": "2970058603",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Retegui",
+      "x": 20.3,
+      "y": 45.8
+    },
+    {
+      "id": "2970069015",
+      "minute": 87,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Saleh",
+      "x": 13.3,
+      "y": 28.9
+    },
+    {
+      "id": "2970068003",
+      "minute": 85,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Lima",
+      "x": 2.4,
+      "y": 58.8
+    },
+    {
+      "id": "2970066293",
+      "minute": 82,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "R.Tapia",
+      "x": 24.1,
+      "y": 53.1
+    },
+    {
+      "id": "2970074595",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.S.Leite",
+      "x": 9,
+      "y": 65
+    },
+    {
+      "id": "2970072221",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "P.Malheiro",
+      "x": 32.4,
+      "y": 67.2
+    },
+    {
+      "id": "2970071067",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Shamat",
+      "x": 12.2,
+      "y": 47
+    }
+  ]
+}
