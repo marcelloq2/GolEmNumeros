@@ -1223,7 +1223,7 @@
   .live-prox-row:last-child { border-bottom: none; }
   .live-prox-time { font-family: var(--font-mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 34px; text-align: center; }
   .live-prox-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .live-prox-team { display: flex; align-items: center; gap: 8px; }
+  .live-prox-team { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .live-prox-team-name {
     flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
@@ -1233,6 +1233,23 @@
     font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2); flex-shrink: 0;
     background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
   }
+  /* Forma recente (últimos 5 jogos) e confronto direto no widget "Próximos
+     Jogos" (2026-09-14, pedido do usuário) — reaproveitam 100% a mesma busca
+     H2H por nome já usada no Ao Vivo (_live2AutoLoadForms, endpoint
+     /api/flashscore/h2h), zero rota nova. As bolinhas de forma são as MESMAS
+     que _live2FormRowHtml já gera pro Ao Vivo (18px), só encolhidas aqui via
+     !important pra caber numa lista compacta de até 40 linhas — evita ter
+     que forkar a função só por causa do tamanho. Ficam numa linha própria
+     (width:100%, flex-wrap no pai) pra não espremer o nome do time; somem
+     por completo (:empty) enquanto a busca ainda não voltou. */
+  .live-prox-forma { display: flex; align-items: center; gap: 2px; width: 100%; padding-left: 22px; min-height: 14px; }
+  .live-prox-forma:empty { display: none; min-height: 0; }
+  .live-prox-forma span { width: 14px !important; height: 14px !important; font-size: 8px !important; }
+  .live-prox-h2h {
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--text2);
+    text-align: center; width: 100%;
+  }
+  .live-prox-h2h:empty { display: none; }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
     padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -3922,7 +3939,16 @@ async function _live2FetchAndRenderProximos(silent) {
     const TETO = 40;
     const cortado = proximos.length > TETO;
     const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
-    body.innerHTML = proximos.slice(0, TETO).map(_live2ProximoRowHtml).join('') + nota;
+    const mostrados = proximos.slice(0, TETO);
+    body.innerHTML = mostrados.map(_live2ProximoRowHtml).join('') + nota;
+    // Forma recente + confronto direto (2026-09-14, pedido do usuário: "3,4"
+    // da lista de estatísticas sugeridas) — reaproveita _live2AutoLoadForms,
+    // a MESMA busca H2H por nome já usada no Ao Vivo, zero rota nova. Só
+    // adapta os nomes de campo: Painel usa home/away + event_id, Ao Vivo usa
+    // casa/fora + id. _live2AutoLoadForms já pula sozinho quem já está em
+    // _live2FsFormCache, então chamar isso a cada refresh (inclusive nos
+    // silenciosos de 60s) só busca H2H de partida NOVA na lista.
+    _live2AutoLoadForms(mostrados.map(m => ({ ...m, id: m.event_id, casa: m.home, fora: m.away })));
   } catch (e) {
     if (!silent) body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
     // silencioso no refresh automático — um erro passageiro não pode apagar
@@ -3965,6 +3991,16 @@ function _live2ProximoRowHtml(m) {
   // achou que "tinha sumido tudo" quando o badge ficava ausente por
   // completo em vez de indicar visualmente "sem dado aqui".
   const golsCell = (gf, ga) => `<span class="live-prox-goals" title="Média de gols marcados/sofridos por jogo nesta temporada">${gf ?? '-'}/${ga ?? '-'}</span>`;
+  // Forma recente (últimos 5 jogos) e confronto direto (2026-09-14) — os
+  // spans nascem vazios (:empty some sozinho via CSS) e são preenchidos por
+  // _live2AutoLoadForms assim que a busca H2H dessa partida voltar; se a
+  // linha for re-renderizada DEPOIS (ex: refresh silencioso de 60s) e o
+  // cache já tiver o dado, mostra na hora sem esperar de novo.
+  const formCache = _live2FsFormCache[m.event_id];
+  const h2hInfo = _live2H2hRowsCache[m.event_id];
+  const formaCasaHtml = formCache ? formCache.casa : '';
+  const formaForaHtml = formCache ? formCache.fora : '';
+  const confrontoHtml = h2hInfo ? _live2ProxConfrontoHtml(m, h2hInfo.confrontoRows) : '';
   return `
     <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
       <span class="live-prox-time">${hora}</span>
@@ -3972,13 +4008,35 @@ function _live2ProximoRowHtml(m) {
         <span class="live-prox-team">
           <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
           ${golsCell(m.casa_gf_avg, m.casa_ga_avg)}
+          <span id="live2FormWrapCasa_${m.event_id}" class="live-prox-forma">${formaCasaHtml}</span>
         </span>
         <span class="live-prox-team">
           <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
           ${golsCell(m.fora_gf_avg, m.fora_ga_avg)}
+          <span id="live2FormWrapFora_${m.event_id}" class="live-prox-forma">${formaForaHtml}</span>
         </span>
+        <span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span>
       </div>
     </div>`;
+}
+
+// Confronto direto resumido pro widget "Próximos Jogos" (2026-09-14) — versão
+// compacta do mesmo cálculo já usado no modal "Confronto" do Ao Vivo
+// (_live2H2hModalHtml: conta V/E/D olhando o placar de cada jogo passado
+// relativo a quem era o time da casa NESTA partida), só sem escudo grande
+// nem linha por linha — cabe numa lista de até 40 jogos.
+function _live2ProxConfrontoHtml(m, confrontoRows) {
+  confrontoRows = confrontoRows || [];
+  if (!confrontoRows.length) return '';
+  let vCasa = 0, vFora = 0, empates = 0;
+  confrontoRows.forEach(row => {
+    const sc = _live2ParseScore(row.score);
+    if (!sc) return;
+    const casaEhHome = _normLive2(row.home) === _normLive2(m.home);
+    const scCasa = casaEhHome ? sc.h : sc.a, scFora = casaEhHome ? sc.a : sc.h;
+    if (scCasa > scFora) vCasa++; else if (scCasa < scFora) vFora++; else empates++;
+  });
+  return `<span title="Confronto direto — últimos ${confrontoRows.length} jogo(s) entre os dois">🆚 <b style="color:var(--accent2)">${vCasa}V</b> <b style="color:var(--text2)">${empates}E</b> <b style="color:var(--red)">${vFora}V</b></span>`;
 }
 
 // ── SCANNER — mostra os jogos ao vivo (mesma fonte do Ao Vivo, /api/radar/live,
@@ -17391,6 +17449,11 @@ async function _live2AutoLoadForms(matches) {
       if (wrapFora) wrapFora.innerHTML = foraHtml;
       const seqEl = document.getElementById(`live2SeqBadge_${m.id}`);
       if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
+      // Confronto direto resumido no widget "Próximos Jogos" (2026-09-14) —
+      // esse elemento só existe nas linhas desse widget; nos cards do Ao
+      // Vivo o getElementById dá null e essa parte não faz nada.
+      const confrontoEl = document.getElementById(`live2ProxConfronto_${m.id}`);
+      if (confrontoEl) confrontoEl.innerHTML = _live2ProxConfrontoHtml(m, _live2H2hRowsCache[m.id] ? _live2H2hRowsCache[m.id].confrontoRows : []);
     } catch (e) { /* pula essa partida, não trava o resto */ }
   }
 }
