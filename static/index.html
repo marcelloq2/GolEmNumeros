@@ -16643,6 +16643,92 @@ function _live2ExtraIndicatorsHtml(m, shots, points, goals) {
   return badges.join('');
 }
 
+// ── Semáforo de risco de gol contra a posição (2026-09-15) ──────────────────
+// O usuário opera LAY na pior equipe (zebra): a posição dele morre quando a
+// ZEBRA marca. A tabela histórica (lay_risk_table.json, 3.974 partidas) diz,
+// por estado de jogo, qual a chance de cada lado marcar nos próximos 10min —
+// o estado é (pressão média dos últimos 5min orientada ao favorito + placar).
+// Medido no histórico: esse risco varia de 7,4% a 14,6% dependendo SÓ do
+// momento da entrada. É esse número que o selo mostra.
+//
+// Custo zero: os graphPoints já são buscados a cada ciclo pro gráfico de
+// pressão (_live2PointsCache) e a tabela é um arquivo estático de poucos KB,
+// buscado 1x por sessão.
+let _live2RiskTable = null;
+let _live2RiskTableFetching = false;
+async function _live2GetRiskTable() {
+  if (_live2RiskTable || _live2RiskTableFetching) return _live2RiskTable;
+  _live2RiskTableFetching = true;
+  try {
+    const r = await fetch('/api/momentum/lay_risk_table');
+    const d = await r.json();
+    if (d && d.celulas) _live2RiskTable = d;
+  } catch (e) {
+    // silencioso — sem tabela o selo simplesmente não aparece
+  } finally {
+    _live2RiskTableFetching = false;
+  }
+  return _live2RiskTable;
+}
+
+// Traduz a partida ao vivo pro MESMO formato de estado usado na tabela.
+// Favorito vem da odd PRÉ-JOGO (odd_1 x odd_2), igual foi definido no
+// histórico — usar a odd ao vivo trocaria quem é o favorito no meio do jogo e
+// deixaria de bater com o modelo.
+function _live2RiskState(m, points, tabela) {
+  const pm = _live2PainelMatchCache[m.id];
+  const o1 = parseFloat(pm && pm.odd_1), o2 = parseFloat(pm && pm.odd_2);
+  if (!o1 || !o2 || Math.abs(o1 - o2) < 0.15) return null; // sem favorito claro
+  const favEhCasa = o1 < o2;
+  const janela = tabela.janela_tras || 5;
+  const ult = points.slice(-janela);
+  if (ult.length < janela) return null;
+  const sinal = favEhCasa ? 1 : -1;
+  const pressao = ult.reduce((s, p) => s + (Number(p.value) || 0) * sinal, 0) / ult.length;
+  const faixas = tabela.faixas || [];
+  const faixa = faixas.find(f => pressao >= f.lo && pressao < f.hi)
+    || (pressao >= 0 ? faixas[faixas.length - 1] : faixas[0]);
+  if (!faixa) return null;
+
+  const golsFav = favEhCasa ? (m.golCasaFt ?? 0) : (m.golForaFt ?? 0);
+  const golsZeb = favEhCasa ? (m.golForaFt ?? 0) : (m.golCasaFt ?? 0);
+  const estado = golsFav > golsZeb ? 'favorito_ganhando'
+    : golsFav < golsZeb ? 'favorito_perdendo' : 'empatado';
+
+  const celula = (tabela.celulas || {})[`${faixa.nome}|${estado}`];
+  const minN = tabela.min_amostra_celula || 200;
+  const dados = (celula && celula.n >= minN) ? celula : (tabela.por_faixa || {})[faixa.nome];
+  if (!dados || dados.zebra_pct == null) return null;
+  return {
+    zebraNome: favEhCasa ? m.fora : m.casa,
+    favNome:   favEhCasa ? m.casa : m.fora,
+    riscoZebra: dados.zebra_pct,
+    chanceFav:  dados.fav_pct,
+    n: dados.n,
+    estado, faixa: faixa.nome,
+  };
+}
+
+function _live2RiskBadgeHtml(m, points) {
+  if (!_live2RiskTable || !points || !points.length) return '';
+  const s = _live2RiskState(m, points, _live2RiskTable);
+  if (!s) return '';
+  // Faixas de cor calibradas pelo próprio histórico: o risco observado vai de
+  // 7,4% (melhor estado) a 14,6% (pior). Verde = melhor terço, vermelho = pior.
+  const verde = s.riscoZebra <= 8.5, amarelo = s.riscoZebra <= 11.5;
+  const cor = verde ? 'var(--green)' : amarelo ? 'var(--yellow)' : 'var(--red)';
+  const icone = verde ? '🟢' : amarelo ? '🟡' : '🔴';
+  const titulo = `Risco de gol CONTRA uma posição de lay em ${s.zebraNome}, nos próximos 10 min. `
+    + `Baseado em ${s.n.toLocaleString('pt-BR')} situações históricas com a mesma pressão e o mesmo placar. `
+    + `Nesse mesmo estado, ${s.favNome} marca em ${s.chanceFav}% das vezes. `
+    + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero.`;
+  return `<span title="${_bt2EscXml(titulo)}" style="display:inline-flex;align-items:center;gap:4px;
+    font-size:9px;font-weight:700;color:${cor};background:color-mix(in srgb, ${cor} 14%, transparent);
+    border:1px solid color-mix(in srgb, ${cor} 45%, transparent);border-radius:10px;padding:2px 8px">
+    ${icone} Lay ${_bt2EscXml(s.zebraNome)}: risco ${s.riscoZebra}%
+  </span>`;
+}
+
 async function _live2RefreshBadges(matchId) {
   const badgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
   if (!badgeEl) return;
@@ -16651,6 +16737,9 @@ async function _live2RefreshBadges(matchId) {
   const points = _live2PointsCache[matchId] || [];
   const shots  = _live2ShotsCache[matchId] || [];
   const goals  = _live2GoalsCache[matchId] || [];
+  // Busca a tabela de risco 1x por sessão, sem travar os selos: o primeiro
+  // ciclo pode sair sem o selo e o seguinte já mostra.
+  if (!_live2RiskTable) _live2GetRiskTable();
 
   const pressureHtml = buildPressureBadgeHtml(points, m);
   const shotsHtml    = _live2ShotsBadgeHtml(shots, m);
@@ -16669,7 +16758,8 @@ async function _live2RefreshBadges(matchId) {
 
   const freshBadgeEl = document.getElementById(`live2PressureBadge_${matchId}`);
   if (!freshBadgeEl) return;
-  const html = comboHtml + pressureHtml + shotsHtml + xgHtml + xgzHtml;
+  // Selo de risco primeiro: é o que decide entrar ou não entrar.
+  const html = _live2RiskBadgeHtml(m, points) + comboHtml + pressureHtml + shotsHtml + xgHtml + xgzHtml;
   freshBadgeEl.style.cssText = html
     ? 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px'
     : 'text-align:center;margin-top:4px';

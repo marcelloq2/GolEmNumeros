@@ -7695,6 +7695,38 @@ def _compute_sterile_dominance():
     }
 
 
+# ── Semáforo de risco de gol contra a posição (2026-09-15) ───────────────────
+# O usuário opera LAY na pior equipe (zebra) e o problema real dele é tomar gol
+# contra a posição. Esta tabela responde, por estado de jogo (pressão dos
+# últimos 5min orientada ao favorito + placar), qual a chance de cada lado
+# marcar nos próximos 10min — medida em 3.974 partidas do histórico.
+#
+# A tabela é GERADA LOCALMENTE por gerar_tabela_risco.py e versionada como
+# lay_risk_table.json (poucos KB). O servidor só lê o arquivo: varrer milhares
+# de JSONs pra recalcular isso seria o tipo de carga que não vale rodar no
+# Railway, e o número praticamente não muda com mais um dia de jogos.
+_lay_risk_table_cache = {"ts": 0, "data": None}
+_LAY_RISK_TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "lay_risk_table.json")
+
+
+@app.route("/api/momentum/lay_risk_table")
+def api_lay_risk_table():
+    """Tabela de risco de gol por estado de jogo (ver comentário acima).
+    Lida do disco 1x e mantida em memória — arquivo estático, some do disco só
+    se alguém rodar o gerador de novo."""
+    global _lay_risk_table_cache
+    if _lay_risk_table_cache["data"] is not None:
+        return jsonify(_lay_risk_table_cache["data"])
+    try:
+        with open(_LAY_RISK_TABLE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        return jsonify({"ok": False, "erro": str(e)}), 503
+    _lay_risk_table_cache = {"ts": time.time(), "data": data}
+    return jsonify(data)
+
+
 _trading_signals_cache = {"ts": 0, "data": None}
 
 
