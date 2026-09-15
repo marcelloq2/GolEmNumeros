@@ -15829,10 +15829,37 @@ function _live2GoalReactionRow(teamName, odd, reaction) {
       🥅 Se sofrer — ${parte(bucket?.sofreu_n, bucket?.sofreu_pct, 'red potencial')}
     </div>`;
 }
+// Over/Under (2026-09-15, pedido do usuário: "da para utilizar tambem over e
+// under?") — mesmo espírito de _live2GoalReactionRow, só que a faixa é pela
+// odd Over/Under atual (não 1X2) e lê reaction.ou_buckets (mesmo objeto,
+// campo novo trazido pela mesma chamada, zero fetch a mais).
+function _live2OuReactionRow(ouLine, ouOver, ouUnder, reaction) {
+  if (ouOver == null && ouUnder == null) return '';
+  const lblOver = ouOver != null ? _live2OddsBucketLabel(ouOver) : null;
+  const lblUnder = ouUnder != null ? _live2OddsBucketLabel(ouUnder) : null;
+  const bucketOver = lblOver && reaction?.ou_buckets?.find(b => b.label === lblOver);
+  const bucketUnder = lblUnder && reaction?.ou_buckets?.find(b => b.label === lblUnder);
+  const colorFor = pct => pct == null ? 'var(--text2)' : (pct < 0 ? 'var(--green)' : pct > 0 ? 'var(--red)' : 'var(--text2)');
+  const fmtPct = pct => pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`;
+  const linhaTxt = ouLine != null ? ` linha ${ouLine}` : '';
+  const parteOver = (bucketOver && bucketOver.over_n >= _LIVE2_ODDS_REACTION_MIN_N)
+    ? `Over: <b style="color:${colorFor(bucketOver.over_pct)}">${fmtPct(bucketOver.over_pct)}</b> <span style="color:var(--text2)">(${bucketOver.over_n} gols parecidos)</span>`
+    : `Over: <span style="color:var(--text2)">ainda sem dados suficientes</span>`;
+  const parteUnder = (bucketUnder && bucketUnder.under_n >= _LIVE2_ODDS_REACTION_MIN_N)
+    ? `Under: <b style="color:${colorFor(bucketUnder.under_pct)}">${fmtPct(bucketUnder.under_pct)}</b> <span style="color:var(--text2)">(${bucketUnder.under_n} gols parecidos)</span>`
+    : `Under: <span style="color:var(--text2)">ainda sem dados suficientes</span>`;
+  return `
+    <div style="font-size:11px;padding:5px 0;border-top:1px solid var(--border)">
+      <b style="color:var(--text)">Over/Under</b> <span style="color:var(--text2)">(odd atual${linhaTxt}: over ${ouOver?.toFixed(2) ?? '-'} / under ${ouUnder?.toFixed(2) ?? '-'})</span><br>
+      ⚽ Quando sai gol — ${parteOver} · ${parteUnder}
+    </div>`;
+}
 function _live2GoalReactionHtml(m, points, reaction) {
   const ultimo = [...points].reverse().find(p => p.casa != null || p.fora != null);
   if (!ultimo) return '';
-  const html = _live2GoalReactionRow(m.casa, ultimo.casa, reaction) + _live2GoalReactionRow(m.fora, ultimo.fora, reaction);
+  const ultimoOu = [...points].reverse().find(p => p.ou_over != null || p.ou_under != null);
+  const html = _live2GoalReactionRow(m.casa, ultimo.casa, reaction) + _live2GoalReactionRow(m.fora, ultimo.fora, reaction)
+    + (ultimoOu ? _live2OuReactionRow(ultimoOu.ou_line, ultimoOu.ou_over, ultimoOu.ou_under, reaction) : '');
   if (!html) return '';
   return `
     <div style="margin-top:10px">

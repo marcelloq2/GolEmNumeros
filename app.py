@@ -7213,10 +7213,13 @@ def _odds_reaction_points(odds_history, goal_minute):
 
 
 def _compute_odds_goal_reaction():
-    # {(role, bucket_label): {"n": int, "sum_pct": float}} — role é "marcou" ou "sofreu"
+    # {(role, bucket_label): {"n": int, "sum_pct": float}} — role é "marcou"/"sofreu"
+    # (1X2) ou "over"/"under" (Over/Under, 2026-09-15, pedido do usuário: "da
+    # para utilizar tambem over e under?").
     acc = {}
     total_partidas = 0
     total_gols_usaveis = 0
+    total_ou_gols_usaveis = 0
 
     for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
         try:
@@ -7255,6 +7258,33 @@ def _compute_odds_goal_reaction():
                     acc[key]["n"] += 1
                     acc[key]["sum_pct"] += pct
                 total_gols_usaveis += 1
+
+                # Over/Under: só entra na amostra se a LINHA for a mesma antes
+                # e depois do gol (_fs_live_odds_ou troca de linha sozinha
+                # conforme o placar/tempo — ex: linha pula de 2.5 pra 3.5 já
+                # com 0-0 no fim do jogo — comparar odd de linhas diferentes
+                # não mostraria reação nenhuma de verdade, só ruído).
+                ou_line_pre, ou_line_pos = pre.get("ou_line"), pos.get("ou_line")
+                if ou_line_pre is None or ou_line_pre != ou_line_pos:
+                    continue
+                ou_usavel = False
+                for role in ("over", "under"):
+                    pre_odd = pre.get(f"ou_{role}")
+                    pos_odd = pos.get(f"ou_{role}")
+                    if not pre_odd or not pos_odd or pre_odd <= 0:
+                        continue
+                    lbl = _odds_bucket_label(pre_odd)
+                    if not lbl:
+                        continue
+                    pct = (pos_odd - pre_odd) / pre_odd * 100
+                    key = (role, lbl)
+                    if key not in acc:
+                        acc[key] = {"n": 0, "sum_pct": 0.0}
+                    acc[key]["n"] += 1
+                    acc[key]["sum_pct"] += pct
+                    ou_usavel = True
+                if ou_usavel:
+                    total_ou_gols_usaveis += 1
         except Exception:
             continue
 
@@ -7269,10 +7299,23 @@ def _compute_odds_goal_reaction():
         row["sofreu_pct"] = round(sofreu["sum_pct"] / sofreu["n"], 1) if sofreu and sofreu["n"] else None
         buckets_out.append(row)
 
+    ou_buckets_out = []
+    for lbl, lo, hi in _ODDS_LIVE_BUCKETS:
+        over = acc.get(("over", lbl))
+        under = acc.get(("under", lbl))
+        row = {"label": lbl}
+        row["over_n"]    = over["n"] if over else 0
+        row["over_pct"]  = round(over["sum_pct"] / over["n"], 1) if over and over["n"] else None
+        row["under_n"]   = under["n"] if under else 0
+        row["under_pct"] = round(under["sum_pct"] / under["n"], 1) if under and under["n"] else None
+        ou_buckets_out.append(row)
+
     return {
         "total_partidas_com_dado": total_partidas,
         "total_gols_usaveis": total_gols_usaveis,
+        "total_ou_gols_usaveis": total_ou_gols_usaveis,
         "buckets": buckets_out,
+        "ou_buckets": ou_buckets_out,
         "computed_at": datetime.now().isoformat(),
     }
 
@@ -7280,9 +7323,13 @@ def _compute_odds_goal_reaction():
 @app.route("/api/momentum/odds_goal_reaction")
 def api_odds_goal_reaction():
     """Quanto a odd ao vivo costuma se mover, em %, quando um time marca (ou
-    sofre) um gol — bucketizado pela odd do time NO MOMENTO do gol. Usado no
-    Price Lines pra estimar lucro potencial (se marcar) / red potencial (se
-    sofrer). Cache de 30min — mesmo padrão de /api/momentum/odds-patterns,
+    sofre) um gol — bucketizado pela odd do time NO MOMENTO do gol (campo
+    "buckets", 1X2). "ou_buckets" traz o mesmo cálculo pro Over/Under (odd
+    Over/Under NO MOMENTO do gol, só contando gol onde a linha não mudou
+    entre antes/depois — ver comentário em _compute_odds_goal_reaction).
+    Usado no Price Lines pra estimar lucro potencial (se marcar/pegar Over) /
+    red potencial (se sofrer/pegar Under). Cache de 30min — mesmo padrão de
+    /api/momentum/odds-patterns,
     o cálculo em si varre todo o momentum_history (pode crescer bastante),
     não pode rodar a cada request."""
     global _odds_goal_reaction_cache
