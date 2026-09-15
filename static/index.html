@@ -16721,12 +16721,268 @@ function _live2RiskBadgeHtml(m, points) {
   const titulo = `Risco de gol CONTRA uma posição de lay em ${s.zebraNome}, nos próximos 10 min. `
     + `Baseado em ${s.n.toLocaleString('pt-BR')} situações históricas com a mesma pressão e o mesmo placar. `
     + `Nesse mesmo estado, ${s.favNome} marca em ${s.chanceFav}% das vezes. `
-    + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero.`;
-  return `<span title="${_bt2EscXml(titulo)}" style="display:inline-flex;align-items:center;gap:4px;
+    + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero. `
+    + `Clique pra registrar uma entrada no diário com esse risco gravado.`;
+  return `<span title="${_bt2EscXml(titulo)}"
+    onclick="event.stopPropagation();_diarioAbrirRegistro('${m.id}')"
+    style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;
     font-size:9px;font-weight:700;color:${cor};background:color-mix(in srgb, ${cor} 14%, transparent);
     border:1px solid color-mix(in srgb, ${cor} 45%, transparent);border-radius:10px;padding:2px 8px">
     ${icone} Lay ${_bt2EscXml(s.zebraNome)}: risco ${s.riscoZebra}%
   </span>`;
+}
+
+// ── Diário de operações (2026-09-15) ────────────────────────────────────────
+// O usuário descreveu o emocional como o principal inimigo: entra em tilt
+// depois de um red e não enxerga o próprio padrão. O diário registra cada
+// operação real dele JUNTO com a cor do semáforo no momento da entrada — é
+// isso que, com o tempo, prova (ou desmente) se seguir o risco medido paga.
+function _diarioFmtLucro(v) {
+  if (v == null || isNaN(v)) return '—';
+  const cor = v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'var(--text2)';
+  return `<b style="color:${cor}">${v > 0 ? '+' : ''}${Number(v).toFixed(2).replace('.', ',')}</b>`;
+}
+
+function _diarioLinhaStat(rotulo, b, cor) {
+  if (!b || !b.n) {
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0">
+      <span style="color:${cor || 'var(--text)'}">${rotulo}</span>
+      <span style="color:var(--text2)">sem operação ainda</span></div>`;
+  }
+  return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0">
+    <span style="color:${cor || 'var(--text)'}">${rotulo}</span>
+    <span style="color:var(--text2)">${b.n} op · ${b.acerto_pct}% acerto · ${_diarioFmtLucro(b.lucro)}</span>
+  </div>`;
+}
+
+function _diarioIconeCor(cor) {
+  return cor === 'verde' ? '🟢' : cor === 'amarelo' ? '🟡' : cor === 'vermelho' ? '🔴' : '⚪';
+}
+
+function _diarioOpAbertaHtml(o) {
+  const e = o.entrada || {};
+  const inp = `background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);
+               font-size:10px;padding:3px 6px;width:88px`;
+  const btn = (c) => `background:color-mix(in srgb, ${c} 18%, transparent);border:1px solid ${c};color:${c};
+               border-radius:5px;font-size:10px;font-weight:700;padding:3px 10px;cursor:pointer`;
+  return `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;color:var(--text)">Lay ${_bt2EscXml(o.lay_time || '—')}
+        <span style="color:var(--text2);font-weight:400">· ${_bt2EscXml(o.casa || '')} x ${_bt2EscXml(o.fora || '')}</span></div>
+      <div style="font-size:10px;color:var(--text2);margin:2px 0 6px">
+        entrada: odd ${e.odd ?? '—'} · ${e.minuto ?? '—'}' · ${_diarioIconeCor(e.risco_cor)} risco ${e.risco_pct ?? '—'}%
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+        <input id="diarioOddSaida_${o.id}" type="number" step="0.01" placeholder="odd saída" style="${inp}">
+        <input id="diarioLucro_${o.id}" type="number" step="0.01" placeholder="lucro (+/-)" style="${inp}">
+        <button onclick="_diarioFechar('${o.id}','green')" style="${btn('var(--green)')}">green</button>
+        <button onclick="_diarioFechar('${o.id}','red')" style="${btn('var(--red)')}">red</button>
+      </div>
+    </div>`;
+}
+
+function _diarioOpFechadaHtml(o) {
+  const e = o.entrada || {}, s = o.saida || {};
+  const cor = s.resultado === 'green' ? 'var(--green)' : 'var(--red)';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;
+                font-size:10px;padding:5px 0;border-top:1px solid var(--border)">
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${_diarioIconeCor(e.risco_cor)} <b style="color:var(--text)">Lay ${_bt2EscXml(o.lay_time || '—')}</b>
+        <span style="color:var(--text2)">· ${e.minuto ?? '—'}' odd ${e.odd ?? '—'} → ${s.odd ?? '—'}</span>
+      </span>
+      <span style="flex-shrink:0;display:flex;align-items:center;gap:6px">
+        <b style="color:${cor}">${s.resultado === 'green' ? 'GREEN' : 'RED'}</b>
+        ${_diarioFmtLucro(Number(s.lucro))}
+        <span onclick="_diarioApagar('${o.id}')" title="Apagar esse registro"
+              style="cursor:pointer;color:var(--text2)">✕</span>
+      </span>
+    </div>`;
+}
+
+function _diarioHtml(d) {
+  const st = d.stats || {};
+  const ops = d.operacoes || [];
+  const abertas = ops.filter(o => o.status === 'aberta');
+  const fechadas = ops.filter(o => o.status === 'fechada').slice(-25).reverse();
+
+  const alerta = (st.reds_seguidos_hoje >= 2) ? `
+    <div style="background:color-mix(in srgb, var(--red) 15%, transparent);border:1px solid var(--red);
+                border-radius:8px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--red);font-weight:700">
+      ⛔ ${st.reds_seguidos_hoje} reds seguidos hoje. Esse é o ponto em que a operação costuma virar revanche —
+      considere parar por hoje.
+    </div>` : '';
+
+  const titulo = (t, hint) => `<div style="font-size:10px;color:var(--text2);text-transform:uppercase;
+    letter-spacing:.3px;margin:12px 0 4px" ${hint ? `title="${_bt2EscXml(hint)}"` : ''}>${t}</div>`;
+
+  const porCor = [
+    ['verde', '🟢 Entrada no verde (risco baixo)', 'var(--green)'],
+    ['amarelo', '🟡 Entrada no amarelo', 'var(--yellow)'],
+    ['vermelho', '🔴 Entrada no vermelho (risco alto)', 'var(--red)'],
+    ['sem_dado', '⚪ Sem semáforo no momento', 'var(--text2)'],
+  ].map(([k, rot, cor]) => _diarioLinhaStat(rot, (st.por_cor || {})[k], cor)).join('');
+
+  const porMin = Object.entries(st.por_minuto || {})
+    .map(([rot, b]) => _diarioLinhaStat(rot, b)).join('');
+
+  return `
+    ${alerta}
+    ${titulo('Resumo')}
+    ${_diarioLinhaStat('Hoje', st.hoje)}
+    ${_diarioLinhaStat('Geral', st.geral)}
+
+    ${titulo('Resultado por risco na entrada', 'Cruza o que você ganhou/perdeu com a cor do semáforo no momento em que entrou. É aqui que se vê, com o seu dinheiro, se respeitar o risco medido paga.')}
+    ${porCor}
+
+    ${titulo('Seu padrão')}
+    ${_diarioLinhaStat('Operação logo depois de um RED', st.depois_de_red, 'var(--yellow)')}
+    ${porMin}
+
+    ${titulo(`Operações abertas (${abertas.length})`)}
+    ${abertas.length ? abertas.map(_diarioOpAbertaHtml).join('')
+      : `<div style="font-size:11px;color:var(--text2);padding:4px 0">Nenhuma aberta. Clique no selo de risco 🟢/🟡/🔴 de um card ao vivo pra registrar uma entrada.</div>`}
+
+    ${titulo('Últimas operações')}
+    ${fechadas.length ? fechadas.map(_diarioOpFechadaHtml).join('')
+      : `<div style="font-size:11px;color:var(--text2);padding:4px 0">Nada fechado ainda.</div>`}
+  `;
+}
+
+async function _diarioRenderizar() {
+  const body = document.getElementById('live2StatsModalBody');
+  if (!body) return;
+  try {
+    const r = await fetch('/api/diario');
+    body.innerHTML = _diarioHtml(await r.json());
+  } catch (e) {
+    body.innerHTML = `<div class="live-loading">Erro ao carregar o diário.</div>`;
+  }
+}
+
+async function _diarioAbrir() {
+  document.getElementById('live2StatsModalTitle').textContent = '📓 Diário de Operações';
+  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  _live2OpenModal = { matchId: null, type: 'diario' };
+  document.getElementById('live2StatsModalBody').innerHTML =
+    `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
+  await _diarioRenderizar();
+}
+
+async function _diarioFechar(id, resultado) {
+  const odd = parseFloat((document.getElementById(`diarioOddSaida_${id}`) || {}).value);
+  const lucro = parseFloat((document.getElementById(`diarioLucro_${id}`) || {}).value);
+  try {
+    await fetch(`/api/diario/${id}/fechar`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resultado, odd: isNaN(odd) ? null : odd, lucro: isNaN(lucro) ? 0 : lucro }),
+    });
+    await _diarioRenderizar();
+  } catch (e) { /* mantém a tela como está */ }
+}
+
+async function _diarioApagar(id) {
+  if (!confirm('Apagar esse registro do diário?')) return;
+  try {
+    await fetch(`/api/diario/${id}`, { method: 'DELETE' });
+    await _diarioRenderizar();
+  } catch (e) { /* mantém a tela como está */ }
+}
+
+// Registro de entrada direto do card ao vivo: já chega com o time que ele
+// estaria "layando" (a zebra), a odd ao vivo desse lado, o minuto e — o mais
+// importante — a foto do risco naquele instante.
+function _diarioOddNumero(v) {
+  if (v == null) return null;
+  const n = parseFloat(typeof v === 'object' ? v.value : v);
+  return isNaN(n) ? null : n;
+}
+
+// Snapshot do que vai ser gravado, tirado no momento em que o formulário abre
+// (não na hora de salvar): o ciclo do Ao Vivo reescreve live2MatchesCache a
+// cada 20s, e se a partida sair de lá no meio do preenchimento o registro
+// falharia calado. Além disso é mais correto gravar o risco que ele VIU na
+// hora de decidir, não um recalculado segundos depois.
+let _diarioRegistroPendente = null;
+
+function _diarioAbrirRegistro(matchId) {
+  const m = live2MatchesCache.find(x => String(x.id) === String(matchId));
+  if (!m) return;
+  const points = _live2PointsCache[matchId] || [];
+  const s = _live2RiskTable ? _live2RiskState(m, points, _live2RiskTable) : null;
+  if (!s) return;
+  const pm = _live2PainelMatchCache[matchId];
+  const lo = pm && pm.live_odds && pm.live_odds['1x2'];
+  const zebraEhCasa = s.zebraNome === m.casa;
+  const oddZebra = lo ? _diarioOddNumero(zebraEhCasa ? lo.casa : lo.fora) : null;
+  const minuto = _scannerParseMinuto(m);
+  const cor = s.riscoZebra <= 8.5 ? 'verde' : s.riscoZebra <= 11.5 ? 'amarelo' : 'vermelho';
+
+  _diarioRegistroPendente = {
+    match_id: matchId, casa: m.casa, fora: m.fora, liga: m.liga, lay_time: s.zebraNome,
+    entrada: {
+      placar: `${m.golCasaFt ?? 0}-${m.golForaFt ?? 0}`,
+      risco_pct: s.riscoZebra, risco_cor: cor,
+      chance_favorito: s.chanceFav, faixa: s.faixa, estado: s.estado,
+    },
+  };
+
+  document.getElementById('live2StatsModalTitle').textContent = '📓 Registrar entrada';
+  document.getElementById('live2StatsOverlay').style.display = 'flex';
+  _live2OpenModal = { matchId, type: 'diario_registro' };
+  const inp = `background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);
+               font-size:12px;padding:6px 8px;width:100%`;
+  document.getElementById('live2StatsModalBody').innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--text)">Lay ${_bt2EscXml(s.zebraNome)}</div>
+    <div style="font-size:11px;color:var(--text2);margin:3px 0 10px">
+      ${_bt2EscXml(m.casa)} x ${_bt2EscXml(m.fora)} · ${_diarioIconeCor(cor)}
+      risco de gol contra: <b>${s.riscoZebra}%</b> · ${_bt2EscXml(s.favNome)} marca em ${s.chanceFav}%
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div style="flex:1"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">Odd de entrada</div>
+        <input id="diarioNovaOdd" type="number" step="0.01" value="${oddZebra ?? ''}" style="${inp}"></div>
+      <div style="flex:1"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">Minuto</div>
+        <input id="diarioNovoMinuto" type="number" value="${isNaN(minuto) ? '' : minuto}" style="${inp}"></div>
+    </div>
+    <div style="margin-bottom:10px"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">Nota (opcional)</div>
+      <input id="diarioNovaNota" type="text" placeholder="por que você entrou?" style="${inp}"></div>
+    <button onclick="_diarioSalvarRegistro()"
+      style="width:100%;background:var(--accent2);border:none;border-radius:6px;color:var(--bg);
+             font-size:12px;font-weight:700;padding:8px;cursor:pointer">Registrar entrada</button>
+    <div id="diarioRegistroErro" style="font-size:10px;color:var(--red);margin-top:6px;text-align:center"></div>
+    <div style="font-size:10px;color:var(--text2);margin-top:8px;text-align:center">
+      O risco acima fica gravado junto — é o que vai mostrar, lá na frente, se entrar no verde paga mais.
+    </div>`;
+}
+
+async function _diarioSalvarRegistro() {
+  const base = _diarioRegistroPendente;
+  const erroEl = document.getElementById('diarioRegistroErro');
+  if (!base) {
+    if (erroEl) erroEl.textContent = 'Formulário expirou — abra de novo pelo selo de risco do card.';
+    return;
+  }
+  const odd = parseFloat((document.getElementById('diarioNovaOdd') || {}).value);
+  const minuto = parseInt((document.getElementById('diarioNovoMinuto') || {}).value, 10);
+  const nota = (document.getElementById('diarioNovaNota') || {}).value || '';
+  try {
+    const r = await fetch('/api/diario', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...base, nota,
+        entrada: {
+          ...base.entrada,
+          minuto: isNaN(minuto) ? null : minuto,
+          odd: isNaN(odd) ? null : odd,
+        },
+      }),
+    });
+    if (!r.ok) throw new Error('falhou');
+    _diarioRegistroPendente = null;
+    await _diarioAbrir();
+  } catch (e) {
+    if (erroEl) erroEl.textContent = 'Não consegui salvar. Tente de novo.';
+  }
 }
 
 async function _live2RefreshBadges(matchId) {
@@ -22800,6 +23056,14 @@ async function loadMatches() {
     📅 Próximos
   </button>`;
 
+  // Diário de operações (2026-09-15) — registro das entradas/saídas reais do
+  // usuário, cruzado com a cor do semáforo de risco no momento da entrada.
+  const diarioBtn = `<button onclick="_diarioAbrir()" title="Diário de operações — seu resultado real, cruzado com o risco medido na hora da entrada"
+    style="display:flex;align-items:center;gap:4px;background:color-mix(in srgb, var(--accent2) 18%, var(--bg2));
+           border:1px solid var(--accent2);color:var(--accent2);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
+    📓 Diário
+  </button>`;
+
   document.getElementById('headerStats').innerHTML = `
     <span><div class="status-dot" style="background:${dotColor}"></div><b>${data.total}</b> partidas</span>
     ${ageHtml}
@@ -22807,6 +23071,7 @@ async function loadMatches() {
     ${scrapeBtn}
     ${tipstersBtn}
     ${proximosBtn}
+    ${diarioBtn}
     <!-- Toggle Desktop/Mobile (_viewModeToggleHtml) removido a pedido do
          usuário (2026-09-01) — sem efeito visual desde que o CSS responsivo
          de mobile foi removido do site (ver comentário grande no <style>,

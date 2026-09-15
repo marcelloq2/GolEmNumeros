@@ -12809,6 +12809,158 @@ def api_telegram_send_now():
 LAY_PLACAR_CONFIG_FILE = os.path.join(DATA_DIR, "lay_placar_config.json")
 
 
+# ── Diário de operações (2026-09-15) ─────────────────────────────────────────
+# O usuário disse que o maior inimigo dele não é técnico, é o emocional: perde
+# a consistência, entra em tilt depois de um red e não enxerga o próprio
+# padrão. O diário existe pra devolver isso em número — principalmente cruzar
+# o resultado de cada operação com a COR DO SEMÁFORO no momento da entrada
+# (ver lay_risk_table.json): é o que prova, com o dinheiro dele, se seguir o
+# risco medido paga ou não.
+#
+# Um arquivo só, sincronizado com o GitHub igual ao resto (sobrevive a
+# redeploy do Railway). Volume é irrisório: ~300 bytes por operação.
+DIARIO_FILE = os.path.join(DATA_DIR, "diario_operacoes.json")
+
+
+def _diario_load():
+    if not os.path.exists(DIARIO_FILE):
+        return []
+    try:
+        with open(DIARIO_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, list) else []
+    except Exception:
+        return []
+
+
+def _diario_save(ops):
+    with open(DIARIO_FILE, "w", encoding="utf-8") as f:
+        json.dump(ops, f, ensure_ascii=False, indent=2)
+    github_storage.push_file_bg(DIARIO_FILE, "diario_operacoes.json")
+
+
+def _diario_stats(ops):
+    """Estatísticas que o usuário não consegue enxergar sozinho no calor do
+    jogo. O bloco `por_cor` é o mais importante: mostra se entrar no verde
+    (risco baixo medido) realmente dá mais resultado que entrar no vermelho."""
+    fechadas = [o for o in ops if o.get("status") == "fechada" and o.get("saida")]
+    fechadas.sort(key=lambda o: o.get("criado_em") or "")
+
+    def bloco(lista):
+        n = len(lista)
+        if not n:
+            return {"n": 0, "greens": 0, "acerto_pct": None, "lucro": 0.0}
+        greens = sum(1 for o in lista if (o["saida"].get("resultado") == "green"))
+        lucro = sum(float(o["saida"].get("lucro") or 0) for o in lista)
+        return {
+            "n": n,
+            "greens": greens,
+            "acerto_pct": round(greens / n * 100, 1),
+            "lucro": round(lucro, 2),
+        }
+
+    por_cor = {}
+    for cor in ("verde", "amarelo", "vermelho", "sem_dado"):
+        por_cor[cor] = bloco([o for o in fechadas
+                              if (o.get("entrada") or {}).get("risco_cor", "sem_dado") == cor])
+
+    # Tilt: como foi a operação IMEDIATAMENTE depois de um red.
+    depois_de_red = []
+    for i, o in enumerate(fechadas[1:], start=1):
+        if fechadas[i - 1]["saida"].get("resultado") == "red":
+            depois_de_red.append(o)
+
+    por_minuto = {}
+    for rotulo, lo, hi in (("0-30min", 0, 30), ("30-60min", 30, 60), ("60min+", 60, 200)):
+        por_minuto[rotulo] = bloco([o for o in fechadas
+                                    if lo <= ((o.get("entrada") or {}).get("minuto") or 0) < hi])
+
+    # Sequência de reds do dia (base pra regra de parada)
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    do_dia = [o for o in fechadas if (o.get("criado_em") or "").startswith(hoje)]
+    reds_seguidos = 0
+    for o in reversed(do_dia):
+        if o["saida"].get("resultado") == "red":
+            reds_seguidos += 1
+        else:
+            break
+
+    return {
+        "geral": bloco(fechadas),
+        "por_cor": por_cor,
+        "depois_de_red": bloco(depois_de_red),
+        "por_minuto": por_minuto,
+        "hoje": bloco(do_dia),
+        "reds_seguidos_hoje": reds_seguidos,
+        "abertas": sum(1 for o in ops if o.get("status") == "aberta"),
+    }
+
+
+@app.route("/api/diario", methods=["GET", "POST"])
+def api_diario():
+    ops = _diario_load()
+    if request.method == "POST":
+        d = request.json or {}
+        op = {
+            # timestamp + sufixo aleatório: só o timestamp em ms colide quando
+            # duas operações são criadas no mesmo milissegundo (acontece em
+            # teste automatizado, e colisão aqui faria uma operação fechar a
+            # outra por engano).
+            "id": f"{int(time.time() * 1000)}-{os.urandom(3).hex()}",
+            "criado_em": datetime.now().isoformat(),
+            "status": "aberta",
+            "match_id": d.get("match_id"),
+            "casa": d.get("casa"), "fora": d.get("fora"), "liga": d.get("liga"),
+            "lay_time": d.get("lay_time"),
+            "entrada": d.get("entrada") or {},
+            "nota": d.get("nota") or "",
+        }
+        ops.append(op)
+        try:
+            _diario_save(ops)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": True, "operacao": op})
+    return jsonify({"operacoes": ops, "stats": _diario_stats(ops)})
+
+
+@app.route("/api/diario/<op_id>/fechar", methods=["POST"])
+def api_diario_fechar(op_id):
+    d = request.json or {}
+    ops = _diario_load()
+    for op in ops:
+        if op.get("id") == op_id:
+            op["status"] = "fechada"
+            op["saida"] = {
+                "minuto": d.get("minuto"),
+                "odd": d.get("odd"),
+                "resultado": d.get("resultado"),   # "green" | "red"
+                "lucro": d.get("lucro"),
+                "fechado_em": datetime.now().isoformat(),
+            }
+            if d.get("nota"):
+                op["nota"] = d["nota"]
+            try:
+                _diario_save(ops)
+            except Exception as e:
+                return jsonify({"ok": False, "error": str(e)}), 500
+            return jsonify({"ok": True, "operacao": op})
+    return jsonify({"ok": False, "error": "operação não encontrada"}), 404
+
+
+@app.route("/api/diario/<op_id>", methods=["DELETE"])
+def api_diario_apagar(op_id):
+    ops = _diario_load()
+    novas = [o for o in ops if o.get("id") != op_id]
+    if len(novas) == len(ops):
+        return jsonify({"ok": False, "error": "operação não encontrada"}), 404
+    try:
+        _diario_save(novas)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
 @app.route("/api/lay_placar/config", methods=["GET", "POST"])
 def api_lay_placar_config():
     if request.method == "POST":
