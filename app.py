@@ -7190,14 +7190,19 @@ def _odds_bucket_label(odd):
     return None
 
 
-def _odds_reaction_points(odds_history, goal_minute):
-    """Acha o ponto de odds mais próximo ANTES/NO minuto do gol (pré) e o
-    primeiro disponível de _ODDS_REACTION_MIN_AFTER a _ODDS_REACTION_MAX_AFTER
-    minutos depois (pós). Retorna (pre, pos) ou (None, None) se não achar os dois."""
+def _odds_reaction_points(odds_history, event_minute, min_after=None, max_after=None):
+    """Acha o ponto de odds mais próximo ANTES/NO minuto de um evento (pré) e o
+    primeiro disponível de min_after a max_after minutos depois (pós) — janela
+    default é a de gol (_ODDS_REACTION_MIN_AFTER/_MAX_AFTER), mas outros sinais
+    (2026-09-15: xG x odds, janela mais larga porque é sinal mais lento que gol)
+    podem passar a própria janela. Retorna (pre, pos) ou (None, None) se não
+    achar os dois."""
+    min_after = _ODDS_REACTION_MIN_AFTER if min_after is None else min_after
+    max_after = _ODDS_REACTION_MAX_AFTER if max_after is None else max_after
     pre = None
     for p in odds_history:
         m = p.get("minuto")
-        if m is None or m > goal_minute:
+        if m is None or m > event_minute:
             continue
         if pre is None or m > pre.get("minuto", -1):
             pre = p
@@ -7206,7 +7211,7 @@ def _odds_reaction_points(odds_history, goal_minute):
         m = p.get("minuto")
         if m is None:
             continue
-        if goal_minute + _ODDS_REACTION_MIN_AFTER <= m <= goal_minute + _ODDS_REACTION_MAX_AFTER:
+        if event_minute + min_after <= m <= event_minute + max_after:
             if pos is None or m < pos.get("minuto", 999):
                 pos = p
     return pre, pos
@@ -7338,6 +7343,379 @@ def api_odds_goal_reaction():
         return jsonify(_odds_goal_reaction_cache["data"])
     result = _compute_odds_goal_reaction()
     _odds_goal_reaction_cache = {"ts": time.time(), "data": result}
+    return jsonify(result)
+
+
+# ── 5 sinais de trading com stats ao vivo (2026-09-15) ───────────────────────
+# Pedido do usuário em 2026-09-14 (a partir do modal "Estatísticas + Odds"):
+# "da pra gente criar algumas coisas bacanas com essses dados no trade?".
+# Aprovado com "sim" e, no dia seguinte, "tudo que vamos fazer sexta feira
+# podemos criar logo agora?" — construído direto em vez de esperar a rotina
+# agendada pra sexta (2026-09-18), que foi desativada nesse momento. Mesmo
+# padrão arquitetural de tudo isso (scan momentum_history + cache 30min +
+# piso mínimo de amostra no frontend), reaproveitando 100% dado que já era
+# coletado (odds_history, stats_history, shotmap, statistics) — zero fetch
+# novo. A base começou a coletar stats_history em 14/09, então a amostra
+# ainda é pequena nessa data — cresce sozinha conforme partidas terminam.
+
+def _stat_flat_pair(stats_flat, key_names, fallback=0.0):
+    """Mesmo padrão de resolução de nome de stat usado em _calc_xg (UniScore
+    usa Title Case com espaços, várias variações) — extraído aqui pra
+    reaproveitar fora de _calc_xg."""
+    for k in key_names:
+        item = stats_flat.get(k)
+        if item and isinstance(item, dict):
+            hv = item.get("homeValue")
+            av = item.get("awayValue")
+            if hv is None: hv = item.get("home", 0)
+            if av is None: av = item.get("away", 0)
+            try:
+                return (float(str(hv).replace("%", "").strip() or 0),
+                        float(str(av).replace("%", "").strip() or 0))
+            except (TypeError, ValueError):
+                pass
+    return fallback, fallback
+
+
+# ── Ideia 1: scalping em "chute perigoso sem gol" ────────────────────────────
+# Quando um time cria uma chance clara (chute de dentro da pequena área, "zone
+# 0" — mesma zona já usada em _shotmap_feature_vector) e NÃO marca, o que
+# costuma acontecer com a odd desse time logo depois? Reaproveita shotmap +
+# odds_history (zero coleta nova) e a MESMA _odds_reaction_points de cima.
+_SHOT_MISS_ZONE_MAX_X = 12  # "Área Pequena" — mesmo corte de _shotmap_feature_vector
+
+
+def _compute_shot_miss_reaction():
+    acc = {}  # bucket_label -> {"n":, "sum_pct":}
+    total_partidas = 0
+    total_chances_usaveis = 0
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            odds_history = d.get("odds_history") or []
+            shots = d.get("shotmap") or []
+            if not odds_history or not shots:
+                continue
+            total_partidas += 1
+            for s in shots:
+                if s.get("shotType") == "goal":
+                    continue
+                try:
+                    x = float(s.get("x", 50))
+                except (TypeError, ValueError):
+                    continue
+                if x > _SHOT_MISS_ZONE_MAX_X:
+                    continue
+                minute = s.get("minute")
+                if minute is None:
+                    continue
+                lado = "casa" if s.get("isHome") else "fora"
+                pre, pos = _odds_reaction_points(odds_history, minute)
+                if not pre or not pos:
+                    continue
+                pre_odd, pos_odd = pre.get(lado), pos.get(lado)
+                if not pre_odd or not pos_odd or pre_odd <= 0:
+                    continue
+                lbl = _odds_bucket_label(pre_odd)
+                if not lbl:
+                    continue
+                pct = (pos_odd - pre_odd) / pre_odd * 100
+                if lbl not in acc:
+                    acc[lbl] = {"n": 0, "sum_pct": 0.0}
+                acc[lbl]["n"] += 1
+                acc[lbl]["sum_pct"] += pct
+                total_chances_usaveis += 1
+        except Exception:
+            continue
+
+    buckets_out = []
+    for lbl, lo, hi in _ODDS_LIVE_BUCKETS:
+        b = acc.get(lbl)
+        buckets_out.append({
+            "label": lbl,
+            "n":   b["n"] if b else 0,
+            "pct": round(b["sum_pct"] / b["n"], 1) if b and b["n"] else None,
+        })
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "total_chances_usaveis": total_chances_usaveis,
+        "buckets": buckets_out,
+    }
+
+
+# ── Ideia 2: escanteios como sinal antecipado de gol ─────────────────────────
+# Nos _CORNER_PRE_GOAL_WINDOW minutos antes de um gol, a taxa de escanteios do
+# time que marcou fica acima da média dele no resto do jogo? stats_history
+# guarda o TOTAL acumulado de escanteios a cada ciclo (não a contagem do
+# intervalo), então a taxa da janela é a diferença entre os dois pontos mais
+# próximos dela.
+_CORNER_PRE_GOAL_WINDOW = 10
+
+
+def _corner_value_at(stats_history, minute, lado):
+    """Total acumulado de escanteios do lado no ponto mais próximo com
+    minuto <= o pedido (None se não achar nenhum ponto tão cedo)."""
+    melhor = None
+    for p in stats_history:
+        m = p.get("minuto")
+        v = p.get(f"escanteios_{lado}")
+        if m is None or v is None or m > minute:
+            continue
+        if melhor is None or m > melhor[0]:
+            melhor = (m, v)
+    return melhor[1] if melhor else None
+
+
+def _compute_corner_goal_signal():
+    ratios = []
+    total_partidas = 0
+    total_gols_usaveis = 0
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            stats_history = d.get("stats_history") or []
+            goals = d.get("goals") or []
+            if not stats_history or not goals or len(stats_history) < 3:
+                continue
+            total_partidas += 1
+            minutos = [p.get("minuto") for p in stats_history if p.get("minuto") is not None]
+            if not minutos:
+                continue
+            fim = max(minutos)
+            if fim <= 0:
+                continue
+            for g in goals:
+                minute = g.get("minute")
+                team = g.get("team")
+                if minute is None or team not in ("home", "away") or minute < _CORNER_PRE_GOAL_WINDOW:
+                    continue
+                lado = "casa" if team == "home" else "fora"
+                c_no_gol = _corner_value_at(stats_history, minute, lado)
+                c_antes  = _corner_value_at(stats_history, minute - _CORNER_PRE_GOAL_WINDOW, lado)
+                c_fim    = _corner_value_at(stats_history, fim, lado)
+                c_inicio = _corner_value_at(stats_history, 0, lado) or 0
+                if c_no_gol is None or c_antes is None or c_fim is None:
+                    continue
+                total_jogo = c_fim - c_inicio
+                if total_jogo <= 0:
+                    continue
+                taxa_media = total_jogo / fim
+                taxa_pre = (c_no_gol - c_antes) / _CORNER_PRE_GOAL_WINDOW
+                if taxa_media <= 0:
+                    continue
+                ratios.append((taxa_pre - taxa_media) / taxa_media * 100)
+                total_gols_usaveis += 1
+        except Exception:
+            continue
+
+    n = len(ratios)
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "total_gols_usaveis": total_gols_usaveis,
+        "n": n,
+        "media_pct": round(sum(ratios) / n, 1) if n else None,
+    }
+
+
+# ── Ideia 3: xG x movimento de odds ──────────────────────────────────────────
+# Quando um time abre uma vantagem de xG (>= _XG_DIVERGENCE_THRESHOLD) sobre o
+# adversário PELA PRIMEIRA VEZ na partida, a odd dele continua encurtando nos
+# minutos seguintes (mercado "correndo atrás" do domínio real) ou já tinha
+# precificado isso? Janela de reação mais larga que gol (8-15min) porque é um
+# sinal mais lento de formar (não é um evento instantâneo como um gol).
+_XG_DIVERGENCE_THRESHOLD = 1.0
+_XG_REACTION_MIN_AFTER = 8
+_XG_REACTION_MAX_AFTER = 15
+
+
+def _xg_lead_crossings(stats_history):
+    """Primeiro minuto em que cada lado abre vantagem de xG >= threshold
+    (só a primeira vez por lado, pra não contar o mesmo domínio repetido)."""
+    eventos = []
+    cruzou = {"casa": False, "fora": False}
+    for p in sorted(stats_history, key=lambda p: p.get("minuto") if p.get("minuto") is not None else 9999):
+        m = p.get("minuto")
+        xc, xf = p.get("xg_casa"), p.get("xg_fora")
+        if m is None or xc is None or xf is None:
+            continue
+        diff = xc - xf
+        if diff >= _XG_DIVERGENCE_THRESHOLD and not cruzou["casa"]:
+            eventos.append(("casa", m)); cruzou["casa"] = True
+        if -diff >= _XG_DIVERGENCE_THRESHOLD and not cruzou["fora"]:
+            eventos.append(("fora", m)); cruzou["fora"] = True
+    return eventos
+
+
+def _compute_xg_odds_divergence():
+    acc = {}
+    total_partidas = 0
+    total_eventos_usaveis = 0
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            stats_history = d.get("stats_history") or []
+            odds_history = d.get("odds_history") or []
+            if not stats_history or not odds_history:
+                continue
+            total_partidas += 1
+            for lado, minute in _xg_lead_crossings(stats_history):
+                pre, pos = _odds_reaction_points(odds_history, minute, _XG_REACTION_MIN_AFTER, _XG_REACTION_MAX_AFTER)
+                if not pre or not pos:
+                    continue
+                pre_odd, pos_odd = pre.get(lado), pos.get(lado)
+                if not pre_odd or not pos_odd or pre_odd <= 0:
+                    continue
+                lbl = _odds_bucket_label(pre_odd)
+                if not lbl:
+                    continue
+                pct = (pos_odd - pre_odd) / pre_odd * 100
+                if lbl not in acc:
+                    acc[lbl] = {"n": 0, "sum_pct": 0.0}
+                acc[lbl]["n"] += 1
+                acc[lbl]["sum_pct"] += pct
+                total_eventos_usaveis += 1
+        except Exception:
+            continue
+
+    buckets_out = []
+    for lbl, lo, hi in _ODDS_LIVE_BUCKETS:
+        b = acc.get(lbl)
+        buckets_out.append({
+            "label": lbl,
+            "n":   b["n"] if b else 0,
+            "pct": round(b["sum_pct"] / b["n"], 1) if b and b["n"] else None,
+        })
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "total_eventos_usaveis": total_eventos_usaveis,
+        "buckets": buckets_out,
+    }
+
+
+# ── Ideia 4: goleiro "roubando" xG ───────────────────────────────────────────
+# Quando um time tem MUITO mais defesas do que o xG sofrido explicaria
+# (goleiro "roubando" resultado), qual a % desses momentos em que esse time
+# acaba sofrendo gol nos _KEEPER_FOLLOWUP_WINDOW minutos seguintes — proxy de
+# "sorte que tende a reverter". Só conta 1x por lado por partida (o primeiro
+# momento em que cruza o limiar), senão um jogo com 1 goleiro inspirado a
+# partida toda pesaria demais sozinho na amostra.
+_KEEPER_LUCK_MIN_EXTRA = 1.5
+_KEEPER_FOLLOWUP_WINDOW = 15
+
+
+def _compute_keeper_overperform():
+    total_partidas = 0
+    eventos_sorte = 0
+    sofreu_depois = 0
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            stats_history = d.get("stats_history") or []
+            goals = d.get("goals") or []
+            if not stats_history:
+                continue
+            total_partidas += 1
+            ja_contou = {"casa": False, "fora": False}
+            for p in sorted(stats_history, key=lambda p: p.get("minuto") if p.get("minuto") is not None else 9999):
+                m = p.get("minuto")
+                if m is None:
+                    continue
+                for lado, adversario, quem_marcaria in (("casa", "fora", "away"), ("fora", "casa", "home")):
+                    if ja_contou[lado]:
+                        continue
+                    defesas = p.get(f"defesas_{lado}")
+                    xg_sofrido = p.get(f"xg_{adversario}")
+                    if defesas is None or xg_sofrido is None:
+                        continue
+                    if defesas - xg_sofrido < _KEEPER_LUCK_MIN_EXTRA:
+                        continue
+                    ja_contou[lado] = True
+                    eventos_sorte += 1
+                    if any(g.get("team") == quem_marcaria and g.get("minute") is not None
+                           and m < g.get("minute") <= m + _KEEPER_FOLLOWUP_WINDOW for g in goals):
+                        sofreu_depois += 1
+        except Exception:
+            continue
+
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "eventos_sorte": eventos_sorte,
+        "sofreu_depois": sofreu_depois,
+        "pct_sofreu_depois": round(sofreu_depois / eventos_sorte * 100, 1) if eventos_sorte else None,
+    }
+
+
+# ── Ideia 5: domínio estéril vs real ─────────────────────────────────────────
+# Times que terminam a partida com posse alta mas SEM criar mais chutes no
+# alvo que o adversário — "dominaram" sem converter isso em perigo de verdade.
+# Posse/chutes no alvo só existem como snapshot FINAL (campo "statistics",
+# não têm série temporal no stats_history), então isso é uma análise
+# pós-jogo (não dá pra virar sinal ao vivo com o dado atual — diferente das
+# outras 4 ideias).
+_STERILE_POSSESSION_MIN = 55.0
+
+
+def _compute_sterile_dominance():
+    total_partidas = 0
+    total_dominios = 0
+    nao_venceu = 0
+    for fpath in glob.glob(os.path.join(MOMENTUM_DIR, "*.json")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                d = json.load(f)
+            stats_flat = d.get("statistics") or {}
+            score = d.get("score") or {}
+            if not stats_flat or score.get("home") is None or score.get("away") is None:
+                continue
+            posse_h, posse_a = _stat_flat_pair(stats_flat, ["Ball Possession"])
+            if posse_h <= 0 and posse_a <= 0:
+                continue
+            total_partidas += 1
+            alvo_h, alvo_a = _stat_flat_pair(stats_flat, ["Shots on Target", "Shots On Target", "shotsOnTarget"])
+            for lado, posse, alvo_proprio, alvo_adv, gols_proprio, gols_adv in (
+                ("casa", posse_h, alvo_h, alvo_a, score["home"], score["away"]),
+                ("fora", posse_a, alvo_a, alvo_h, score["away"], score["home"]),
+            ):
+                if posse < _STERILE_POSSESSION_MIN or alvo_proprio > alvo_adv:
+                    continue
+                total_dominios += 1
+                if gols_proprio <= gols_adv:
+                    nao_venceu += 1
+        except Exception:
+            continue
+
+    return {
+        "total_partidas_com_dado": total_partidas,
+        "total_dominios_estereis": total_dominios,
+        "nao_venceu_pct": round(nao_venceu / total_dominios * 100, 1) if total_dominios else None,
+    }
+
+
+_trading_signals_cache = {"ts": 0, "data": None}
+
+
+@app.route("/api/momentum/trading_signals")
+def api_trading_signals():
+    """As 5 ideias de sinais de trading combinadas numa resposta só (menos
+    round-trip que 5 rotas separadas) — cada uma varre momentum_history
+    independente, cache de 30min (mesmo padrão de odds_goal_reaction)."""
+    global _trading_signals_cache
+    if (time.time() - _trading_signals_cache["ts"] < 1800
+            and _trading_signals_cache["data"] is not None):
+        return jsonify(_trading_signals_cache["data"])
+    result = {
+        "shot_miss":   _compute_shot_miss_reaction(),
+        "corner_goal": _compute_corner_goal_signal(),
+        "xg_odds":     _compute_xg_odds_divergence(),
+        "keeper":      _compute_keeper_overperform(),
+        "sterile":     _compute_sterile_dominance(),
+        "computed_at": datetime.now().isoformat(),
+    }
+    _trading_signals_cache = {"ts": time.time(), "data": result}
     return jsonify(result)
 
 

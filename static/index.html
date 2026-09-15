@@ -15868,6 +15868,79 @@ function _live2GoalReactionHtml(m, points, reaction) {
     </div>`;
 }
 
+// ── 5 sinais de trading (2026-09-15, pedido do usuário: "tudo que vamos
+// fazer sexta feria podemos criar logo agora?") — busca /api/momentum/
+// trading_signals 1x e cacheia 30min no navegador, mesmo padrão de
+// _live2GetOddsGoalReaction logo acima. 2 das 5 ideias (chance clara sem
+// gol, xG sem odd acompanhar) usam a odd ATUAL do time igual à reação de
+// gol; as outras 3 (escanteios, goleiro, domínio estéril) são achados
+// agregados do histórico, não específicos dessa partida — mostradas do
+// mesmo jeito pra todo jogo.
+let _live2TradingSignalsCache = null;
+let _live2TradingSignalsFetchedAt = 0;
+async function _live2GetTradingSignals() {
+  const now = Date.now();
+  if (_live2TradingSignalsCache && (now - _live2TradingSignalsFetchedAt) < 30 * 60 * 1000) {
+    return _live2TradingSignalsCache;
+  }
+  try {
+    const r = await fetch('/api/momentum/trading_signals');
+    _live2TradingSignalsCache = await r.json();
+    _live2TradingSignalsFetchedAt = now;
+  } catch (e) {
+    _live2TradingSignalsCache = null;
+  }
+  return _live2TradingSignalsCache;
+}
+function _live2ShotMissRow(teamName, odd, signals) {
+  if (odd == null) return '';
+  const lbl = _live2OddsBucketLabel(odd);
+  const bucket = lbl && signals?.shot_miss?.buckets?.find(b => b.label === lbl);
+  const colorFor = pct => pct == null ? 'var(--text2)' : (pct < 0 ? 'var(--green)' : pct > 0 ? 'var(--red)' : 'var(--text2)');
+  const fmtPct = pct => pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`;
+  const texto = (bucket && bucket.n >= _LIVE2_ODDS_REACTION_MIN_N)
+    ? `<b style="color:${colorFor(bucket.pct)}">${fmtPct(bucket.pct)}</b> <span style="color:var(--text2)">(${bucket.n} chances parecidas)</span>`
+    : `<span style="color:var(--text2)">ainda sem dados suficientes</span>`;
+  return `<div style="font-size:11px;padding:3px 0">⚡ <b style="color:var(--text)">${teamName}</b> cria chance clara e não marca — odd tende a: ${texto}</div>`;
+}
+function _live2XgOddsRow(teamName, odd, signals) {
+  if (odd == null) return '';
+  const lbl = _live2OddsBucketLabel(odd);
+  const bucket = lbl && signals?.xg_odds?.buckets?.find(b => b.label === lbl);
+  const colorFor = pct => pct == null ? 'var(--text2)' : (pct < 0 ? 'var(--green)' : pct > 0 ? 'var(--red)' : 'var(--text2)');
+  const fmtPct = pct => pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`;
+  const texto = (bucket && bucket.n >= _LIVE2_ODDS_REACTION_MIN_N)
+    ? `<b style="color:${colorFor(bucket.pct)}">${fmtPct(bucket.pct)}</b> <span style="color:var(--text2)">(${bucket.n} casos parecidos)</span>`
+    : `<span style="color:var(--text2)">ainda sem dados suficientes</span>`;
+  return `<div style="font-size:11px;padding:3px 0">📈 <b style="color:var(--text)">${teamName}</b> abre vantagem clara de xG — odd tende a: ${texto}</div>`;
+}
+function _live2AggSignalRow(emoji, label, n, pct, unidade) {
+  if (n == null || n < _LIVE2_ODDS_REACTION_MIN_N) {
+    return `<div style="font-size:11px;padding:3px 0">${emoji} <b style="color:var(--text)">${label}</b> — <span style="color:var(--text2)">ainda sem dados suficientes</span></div>`;
+  }
+  return `<div style="font-size:11px;padding:3px 0">${emoji} <b style="color:var(--text)">${label}</b> — <b style="color:var(--accent2)">${pct}${unidade}</b> <span style="color:var(--text2)">(${n} amostras)</span></div>`;
+}
+function _live2TradingSignalsHtml(m, points, signals) {
+  if (!signals) return '';
+  const ultimo = [...points].reverse().find(p => p.casa != null || p.fora != null);
+  const casaOdd = ultimo?.casa, foraOdd = ultimo?.fora;
+  const linhas = [
+    _live2ShotMissRow(m.casa, casaOdd, signals),
+    _live2ShotMissRow(m.fora, foraOdd, signals),
+    _live2XgOddsRow(m.casa, casaOdd, signals),
+    _live2XgOddsRow(m.fora, foraOdd, signals),
+    _live2AggSignalRow('🚩', 'Escanteios costumam acelerar antes de um gol', signals.corner_goal?.n, signals.corner_goal?.media_pct, '% acima da média do time no jogo'),
+    _live2AggSignalRow('🧤', 'Goleiro "roubando" xG sofre gol logo depois', signals.keeper?.eventos_sorte, signals.keeper?.pct_sofreu_depois, '% das vezes'),
+    _live2AggSignalRow('🌫️', 'Domínio estéril (posse sem chutes no alvo) não vence', signals.sterile?.total_dominios_estereis, signals.sterile?.nao_venceu_pct, '% das vezes'),
+  ].filter(Boolean).join('');
+  if (!linhas) return '';
+  return `
+    <div style="margin-top:10px">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;text-align:center;margin-bottom:2px" title="5 sinais construídos a partir do histórico de partidas encerradas (xG, escanteios, chutes no alvo, posse, defesas) — base ainda em formação, começou a coletar em 14-15/09.">Sinais de Trading (beta)</div>
+      ${linhas}
+    </div>`;
+}
+
 async function _live2OpenPriceLinesModal(matchId) {
   const { m, body } = _live2OpenModalCommon(matchId, 'pricelines', 'Price Lines — odds ao vivo (Casa/Visitante)');
   const pm = _live2PainelMatchCache[matchId];
@@ -15896,6 +15969,14 @@ async function _live2OpenPriceLinesModal(matchId) {
       if (!reaction) return;
       const el = document.getElementById(`live2GoalReaction_${matchId}`);
       if (el) el.innerHTML = _live2GoalReactionHtml(m, points, reaction);
+    });
+    // 5 sinais de trading (2026-09-15) — mesmo espírito: busca em paralelo,
+    // não trava o gráfico, insere quando terminar.
+    body.insertAdjacentHTML('beforeend', `<div id="live2TradingSignals_${matchId}"></div>`);
+    _live2GetTradingSignals().then(signals => {
+      if (!signals) return;
+      const el = document.getElementById(`live2TradingSignals_${matchId}`);
+      if (el) el.innerHTML = _live2TradingSignalsHtml(m, points, signals);
     });
   } catch (e) {
     body.innerHTML = `<div class="live-loading">Erro ao carregar histórico de odds.</div>`;
