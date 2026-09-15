@@ -10,7 +10,11 @@ precisa acontecer no Railway): gera `lay_risk_table.json`, que é pequeno e vai
 versionado junto do código. O backend só lê esse arquivo.
 
 Uso:
-    python gerar_tabela_risco.py [caminho_do_momentum_history]
+    python gerar_tabela_risco.py [pasta1] [pasta2] ...
+
+Sem argumento, lê as duas pastas que costumam ter partes diferentes da base
+(a do projeto tem as mais recentes, o backup tem as mais antigas) e junta,
+descartando o mesmo jogo repetido pelo nome do arquivo.
 """
 import json
 import glob
@@ -59,8 +63,26 @@ def favorito_de(d):
     return "home" if h < a else "away"
 
 
-def gerar(base_dir):
-    arquivos = glob.glob(os.path.join(base_dir, "*.json"))
+def coletar_arquivos(dirs):
+    """Junta os .json de várias pastas, ficando com UMA ocorrência de cada
+    partida (o nome do arquivo é <data>_<event_id>.json, então serve de chave).
+    Necessário porque a base viva está espalhada: a pasta do projeto tem as
+    partidas recentes e o backup tem as antigas, com sobreposição no meio."""
+    por_nome = {}
+    for d in dirs:
+        if not os.path.isdir(d):
+            print(f"  (ignorando, não existe: {d})")
+            continue
+        achados = glob.glob(os.path.join(d, "*.json"))
+        print(f"  {len(achados):>6} arquivos em {d}")
+        for f in achados:
+            por_nome.setdefault(os.path.basename(f), f)
+    return list(por_nome.values())
+
+
+def gerar(dirs):
+    arquivos = coletar_arquivos(dirs if isinstance(dirs, (list, tuple)) else [dirs])
+    print(f"  {len(arquivos):>6} partidas únicas após juntar")
     acc = defaultdict(lambda: {"n": 0, "fav": 0, "zebra": 0})       # (faixa, estado)
     acc_faixa = defaultdict(lambda: {"n": 0, "fav": 0, "zebra": 0})  # faixa (fallback)
     partidas = 0
@@ -132,10 +154,13 @@ def gerar(base_dir):
 
 
 if __name__ == "__main__":
-    base = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "momentum_history")
-    print(f"lendo: {base}")
-    tabela = gerar(base)
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    dirs = sys.argv[1:] or [
+        os.path.join(aqui, "momentum_history"),
+        os.path.join(aqui, "..", "dados_gol_em_numeros_backup", "momentum_history"),
+    ]
+    print("lendo:")
+    tabela = gerar(dirs)
     destino = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lay_risk_table.json")
     with open(destino, "w", encoding="utf-8") as f:
         json.dump(tabela, f, ensure_ascii=False, indent=2)
