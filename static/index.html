@@ -16721,11 +16721,9 @@ function _live2RiskBadgeHtml(m, points) {
   const titulo = `Risco de gol CONTRA uma posição de lay em ${s.zebraNome}, nos próximos 10 min. `
     + `Baseado em ${s.n.toLocaleString('pt-BR')} situações históricas com a mesma pressão e o mesmo placar. `
     + `Nesse mesmo estado, ${s.favNome} marca em ${s.chanceFav}% das vezes. `
-    + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero. `
-    + `Clique pra registrar uma entrada no diário com esse risco gravado.`;
+    + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero.`;
   return `<span title="${_bt2EscXml(titulo)}"
-    onclick="event.stopPropagation();_diarioAbrirRegistro('${m.id}')"
-    style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+    style="display:inline-flex;align-items:center;gap:4px;
     font-size:9px;font-weight:700;color:${cor};background:color-mix(in srgb, ${cor} 14%, transparent);
     border:1px solid color-mix(in srgb, ${cor} 45%, transparent);border-radius:10px;padding:2px 8px">
     ${icone} Lay ${_bt2EscXml(s.zebraNome)}: risco ${s.riscoZebra}%
@@ -23056,14 +23054,6 @@ async function loadMatches() {
     📅 Próximos
   </button>`;
 
-  // Diário de operações (2026-09-15) — registro das entradas/saídas reais do
-  // usuário, cruzado com a cor do semáforo de risco no momento da entrada.
-  const diarioBtn = `<button onclick="_diarioAbrir()" title="Diário de operações — seu resultado real, cruzado com o risco medido na hora da entrada"
-    style="display:flex;align-items:center;gap:4px;background:color-mix(in srgb, var(--accent2) 18%, var(--bg2));
-           border:1px solid var(--accent2);color:var(--accent2);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
-    📓 Diário
-  </button>`;
-
   document.getElementById('headerStats').innerHTML = `
     <span><div class="status-dot" style="background:${dotColor}"></div><b>${data.total}</b> partidas</span>
     ${ageHtml}
@@ -23071,7 +23061,6 @@ async function loadMatches() {
     ${scrapeBtn}
     ${tipstersBtn}
     ${proximosBtn}
-    ${diarioBtn}
     <!-- Toggle Desktop/Mobile (_viewModeToggleHtml) removido a pedido do
          usuário (2026-09-01) — sem efeito visual desde que o CSS responsivo
          de mobile foi removido do site (ver comentário grande no <style>,
