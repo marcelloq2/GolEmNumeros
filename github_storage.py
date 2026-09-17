@@ -259,10 +259,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
             print("[github] ⚠ Não deu pra confirmar a restauração de backtest2.db — "
                   "pushes desse arquivo ficam BLOQUEADOS até o próximo boot bem-sucedido, "
                   "pra não arriscar sobrescrever o backup bom no GitHub com um estado ruim.")
-        # Configuração do Lay Placar (importada pelo usuário) — sempre baixa a mais
-        # recente, senão um redeploy no Railway apagava a configuração do servidor
-        # e cada aparelho ia depender só do que tinha salvo localmente de novo.
-        pull_file("lay_placar_config.json", os.path.join(data_dir, "lay_placar_config.json"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)

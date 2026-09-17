@@ -12800,15 +12800,6 @@ def api_telegram_send_now():
     return jsonify({"ok": True})
 
 
-# ── Configuração do Lay Placar (persistida no SERVIDOR, não só no navegador) ─
-# Antes só ficava salva no localStorage do navegador — cada aparelho/navegador
-# tinha que reimportar o mesmo arquivo. Guardando aqui também, importar 1x (de
-# qualquer aparelho) já fica disponível em qualquer outro que acessar o site,
-# sem reimportar. Sincroniza com o GitHub (mesmo padrão de todo o resto do
-# app) pra sobreviver a redeploy no Railway.
-LAY_PLACAR_CONFIG_FILE = os.path.join(DATA_DIR, "lay_placar_config.json")
-
-
 # ── Diário de operações (2026-09-15) ─────────────────────────────────────────
 # O usuário disse que o maior inimigo dele não é técnico, é o emocional: perde
 # a consistência, entra em tilt depois de um red e não enxerga o próprio
@@ -12959,27 +12950,6 @@ def api_diario_apagar(op_id):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True})
-
-
-@app.route("/api/lay_placar/config", methods=["GET", "POST"])
-def api_lay_placar_config():
-    if request.method == "POST":
-        data = request.json or {}
-        try:
-            with open(LAY_PLACAR_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False)
-            github_storage.push_file_bg(LAY_PLACAR_CONFIG_FILE, "lay_placar_config.json")
-            return jsonify({"ok": True})
-        except Exception as e:
-            return jsonify({"ok": False, "error": str(e)}), 500
-    else:
-        if not os.path.exists(LAY_PLACAR_CONFIG_FILE):
-            return jsonify({})
-        try:
-            with open(LAY_PLACAR_CONFIG_FILE, "r", encoding="utf-8") as f:
-                return jsonify(json.load(f))
-        except Exception:
-            return jsonify({})
 
 
 # Só aqui embaixo (não perto dos outros threading.Thread(...).start() lá em
