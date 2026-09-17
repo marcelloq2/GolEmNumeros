@@ -14425,7 +14425,12 @@ let _live2RenderedIds = [];
 // uma vez sobrecarrega o servidor (só 4 threads pro site inteiro). Corta pras
 // N primeiras (favoritos sempre entram primeiro, ver _live2SortByPin) por
 // padrão, com opção de ver tudo.
-const _LIVE2_MAX_MATCHES_DEFAULT = 60;
+// Reduzido de 60 para 30 (2026-09-17, investigação de custo Railway: cada
+// jogo processado dispara 7 sub-buscas por ciclo de 20s — pressão, mapa de
+// chutes, escalação, classificação, escudo, forma, odds — cortar o teto pela
+// metade corta o volume de requisições/CPU/memória por ciclo na mesma
+// proporção, sem mudar a velocidade de 20s que o usuário já tinha pedido).
+const _LIVE2_MAX_MATCHES_DEFAULT = 30;
 let _live2ShowAllMatches = false;
 
 // "Aba" Favoritos ao lado do título Ao Vivo — filtra a mesma grade pra só as
