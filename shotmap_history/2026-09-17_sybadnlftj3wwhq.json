@@ -1,0 +1,245 @@
+{
+  "event_id": "sybadnlftj3wwhq",
+  "date": "2026-09-17",
+  "casa": "Chattanooga Red",
+  "fora": "Forward Madison",
+  "liga": "",
+  "score": {
+    "home": 1,
+    "away": 0
+  },
+  "total_shots": 21,
+  "shotmap": [
+    {
+      "id": "2970917223",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "O.Hernandez",
+      "x": 12.5,
+      "y": 82.6
+    },
+    {
+      "id": "2970914365",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "P. Hernandez",
+      "x": 9.4,
+      "y": 52.3
+    },
+    {
+      "id": "2970924557",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "P. Hernandez",
+      "x": 24.9,
+      "y": 34.8
+    },
+    {
+      "id": "2970922569",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Brandon McManus",
+      "x": 8.5,
+      "y": 43.4
+    },
+    {
+      "id": "2970921731",
+      "minute": 20,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "K. Carmichael",
+      "x": 6.5,
+      "y": 73.3
+    },
+    {
+      "id": "2970930355",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Knapp",
+      "x": 5.4,
+      "y": 47.6
+    },
+    {
+      "id": "2970929451",
+      "minute": 37,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Brandon McManus",
+      "x": 25.7,
+      "y": 25.3
+    },
+    {
+      "id": "2970928397",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Brandon McManus",
+      "x": 14.8,
+      "y": 56.9
+    },
+    {
+      "id": "2970935331",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "K.Toure",
+      "x": 3.2,
+      "y": 37.8
+    },
+    {
+      "id": "2970922101",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "K. Carmichael",
+      "x": 5,
+      "y": 49.7
+    },
+    {
+      "id": "2970922565",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "J.Ramos",
+      "x": 6.1,
+      "y": 55.8
+    },
+    {
+      "id": "2970939449",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Edwards",
+      "x": 11.5,
+      "y": 53.4
+    },
+    {
+      "id": "2970939433",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "D.NgoubouDakau",
+      "x": 5.4,
+      "y": 55.6
+    },
+    {
+      "id": "2970939241",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "M.Knapp",
+      "x": 8,
+      "y": 45.8
+    },
+    {
+      "id": "2970944101",
+      "minute": 64,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "B. Augee",
+      "x": 25.4,
+      "y": 58.5
+    },
+    {
+      "id": "2970949849",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Bentley",
+      "x": 7.7,
+      "y": 67.2
+    },
+    {
+      "id": "2970949639",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "K.Toure",
+      "x": 7,
+      "y": 37.4
+    },
+    {
+      "id": "2970951563",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "O.Gomez",
+      "x": 29.2,
+      "y": 62.6
+    },
+    {
+      "id": "2970956495",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "S.Annor",
+      "x": 7.1,
+      "y": 48.5
+    },
+    {
+      "id": "2970955667",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "W. Wessels",
+      "x": 29.8,
+      "y": 54.5
+    },
+    {
+      "id": "2970954911",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "P. Hernandez",
+      "x": 10.5,
+      "y": 67.3
+    }
+  ]
+}
