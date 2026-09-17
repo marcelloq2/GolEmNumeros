@@ -2663,6 +2663,14 @@
             <button class="live-refresh-btn" data-half="1" onclick="_live2SetHalfFilter('1')" title="Mostrar só jogos que estão no 1º tempo agora">1ºT</button>
             <button class="live-refresh-btn" data-half="2" onclick="_live2SetHalfFilter('2')" title="Mostrar só jogos que estão no 2º tempo agora">2ºT</button>
           </span>
+          <!-- Filtro por selo de risco (2026-09-17, pedido do usuário) — só
+               partidas com o selo verde/amarelo/vermelho do lay (ver
+               _live2RiskBadgeHtml). Clicar de novo na cor já ativa desliga. -->
+          <span id="live2RiskFilterGroup" style="display:flex;gap:4px">
+            <button class="live-refresh-btn" data-risco="verde" onclick="_live2SetRiskFilter('verde')" title="Mostrar só partidas com selo verde (risco ≤8,5%)">🟢</button>
+            <button class="live-refresh-btn" data-risco="amarelo" onclick="_live2SetRiskFilter('amarelo')" title="Mostrar só partidas com selo amarelo (risco ≤11,5%)">🟡</button>
+            <button class="live-refresh-btn" data-risco="vermelho" onclick="_live2SetRiskFilter('vermelho')" title="Mostrar só partidas com selo vermelho (risco >11,5%)">🔴</button>
+          </span>
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
@@ -14556,6 +14564,20 @@ function _live2SetHalfFilter(half) {
   _live2ApplySearchFilter();
 }
 
+// Filtro por selo de risco (2026-09-17, pedido do usuário) — mostra só
+// partidas com o selo 🟢/🟡/🔴 (ver _live2RiskBadgeHtml) de uma cor
+// específica. Partidas SEM selo (sem favorito claro, ou histórico
+// insuficiente pra esse estado) somem quando qualquer cor está ativa —
+// faz sentido pro caso de uso: ele quer ver só o que já tem risco medido.
+let _live2RiskFilter = ''; // '' = todos, 'verde' | 'amarelo' | 'vermelho'
+function _live2SetRiskFilter(cor) {
+  _live2RiskFilter = (_live2RiskFilter === cor) ? '' : cor; // clicar de novo desliga
+  document.querySelectorAll('#live2RiskFilterGroup .live-refresh-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.risco === _live2RiskFilter);
+  });
+  _live2ApplySearchFilter();
+}
+
 function _live2ApplySearchFilter() {
   for (const m of live2MatchesCache) {
     const card = document.getElementById(`live2Card_${m.id}`);
@@ -14572,7 +14594,12 @@ function _live2ApplySearchFilter() {
       bateIndicador = [..._live2IndicatorFilter].some(key => textoIndicadores.includes(key));
     }
     const bateTempo = !_live2HalfFilter || _live2MatchHalf(m) === _live2HalfFilter;
-    card.style.display = (bateNome && bateIndicador && bateTempo) ? '' : 'none';
+    let bateRisco = true;
+    if (_live2RiskFilter) {
+      const riskEl = document.getElementById(`live2RiskBadge_${m.id}`);
+      bateRisco = !!riskEl && riskEl.dataset.riscoCor === _live2RiskFilter;
+    }
+    card.style.display = (bateNome && bateIndicador && bateTempo && bateRisco) ? '' : 'none';
   }
 }
 
@@ -16718,11 +16745,14 @@ function _live2RiskBadgeHtml(m, points) {
   const verde = s.riscoZebra <= 8.5, amarelo = s.riscoZebra <= 11.5;
   const cor = verde ? 'var(--green)' : amarelo ? 'var(--yellow)' : 'var(--red)';
   const icone = verde ? '🟢' : amarelo ? '🟡' : '🔴';
+  const corKey = verde ? 'verde' : amarelo ? 'amarelo' : 'vermelho';
   const titulo = `Risco de gol CONTRA uma posição de lay em ${s.zebraNome}, nos próximos 10 min. `
     + `Baseado em ${s.n.toLocaleString('pt-BR')} situações históricas com a mesma pressão e o mesmo placar. `
     + `Nesse mesmo estado, ${s.favNome} marca em ${s.chanceFav}% das vezes. `
     + `No histórico esse risco varia de 7,4% (melhor momento) a 14,6% (pior) — não existe risco zero.`;
-  return `<span title="${_bt2EscXml(titulo)}"
+  // data-risco-cor: usado pelo filtro de selo (🟢/🟡/🔴) no header, ver
+  // _live2SetRiskFilter/_live2ApplySearchFilter (2026-09-17).
+  return `<span id="live2RiskBadge_${m.id}" data-risco-cor="${corKey}" title="${_bt2EscXml(titulo)}"
     style="display:inline-flex;align-items:center;gap:4px;
     font-size:9px;font-weight:700;color:${cor};background:color-mix(in srgb, ${cor} 14%, transparent);
     border:1px solid color-mix(in srgb, ${cor} 45%, transparent);border-radius:10px;padding:2px 8px">
@@ -17018,6 +17048,9 @@ async function _live2RefreshBadges(matchId) {
     ? 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px'
     : 'text-align:center;margin-top:4px';
   freshBadgeEl.innerHTML = html;
+  // Selo de risco desse card acabou de (re)aparecer/mudar — se o filtro por
+  // cor estiver ativo, reaplica pra esse card refletir na hora.
+  if (_live2RiskFilter) _live2ApplySearchFilter();
 
   const thermoEl = document.getElementById(`live2Thermo_${matchId}`);
   if (thermoEl) {
