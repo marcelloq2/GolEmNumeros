@@ -2485,37 +2485,6 @@
 
   </div>
 
-  <!-- PASSADAS wrapper (sidebar + detail) -->
-  <div id="passadasWrapper" style="display:none;flex:1;position:relative;overflow:hidden">
-
-    <!-- SIDEBAR -->
-    <div class="sidebar" id="passadasSidebar">
-      <div class="sidebar-top">
-        <input class="search-box" id="passadasSearchBox" placeholder="Buscar time ou liga..." oninput="filterPassadas()">
-        <button class="filter-btn active" onclick="setPassadasFilter('all', this)">Todos</button>
-        <button class="filter-btn" onclick="setPassadasFilter('tip1', this)">TIP 1</button>
-        <button class="filter-btn" onclick="setPassadasFilter('tipx', this)">TIP X</button>
-        <button class="filter-btn" onclick="setPassadasFilter('tip2', this)">TIP 2</button>
-        <button class="filter-btn" onclick="setPassadasFilter('acertou', this)">✅ Acertou</button>
-        <button class="filter-btn" onclick="setPassadasFilter('errou', this)">❌ Errou</button>
-        <div class="sf-divider"></div>
-        <span id="passadasCount" style="font-size:11px;color:var(--text2);white-space:nowrap"></span>
-      </div>
-      <div id="passadasMatchList"><div class="loading"><div class="spinner"></div></div></div>
-    </div>
-
-    <!-- DETAIL -->
-    <div class="detail-panel" id="passadasDetail">
-      <div class="detail-placeholder">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
-        </svg>
-        <div>Selecione uma partida passada para ver os detalhes</div>
-      </div>
-    </div>
-
-  </div>
-
   <!-- FAVORITOS -->
   <div class="favs-panel" id="favsPanel">
     <div class="favs-sidebar">
@@ -3718,7 +3687,6 @@ function switchView(view, btn) {
   const favsPanel       = document.getElementById('favsPanel');
   const livePanel       = document.getElementById('livePanel');
   const live2Panel      = document.getElementById('live2Panel');
-  const passadasWrapper = document.getElementById('passadasWrapper');
   const painelWrapper = document.getElementById('painelWrapper');
   // Oculta tudo
   todayWrapper.style.display  = 'none';
@@ -3726,7 +3694,6 @@ function switchView(view, btn) {
   favsPanel.classList.remove('active');
   livePanel.classList.remove('active');
   live2Panel.classList.remove('active');
-  passadasWrapper.style.display = 'none';
   painelWrapper.style.display = 'none';
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -21117,114 +21084,7 @@ function renderBtMatchRow(m, handler) {
     </div>`;
 }
 
-// ── PASSADAS — mesmo layout da aba Hoje, mas navegando o histórico completo ──
-let passadasAllMatches = [];
-let passadasFilter     = 'all';
-let passadasLoaded     = false;
-
-async function loadPassadas() {
-  const list = document.getElementById('passadasMatchList');
-  if (passadasLoaded) { filterPassadas(); return; }
-  list.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Carregando histórico...</div>';
-  try {
-    const res  = await fetch('/api/passadas');
-    const data = await res.json();
-    passadasAllMatches = data.matches || [];
-    passadasLoaded = true;
-    document.getElementById('passadasCount').textContent =
-      `${data.total} jogos · ${data.dates} dias · ${data.tip_acuracia != null ? data.tip_acuracia + '% acurácia' : ''}`;
-    filterPassadas();
-  } catch(e) {
-    list.innerHTML = '<div class="loading">Não foi possível carregar o histórico.</div>';
-  }
-}
-
-function setPassadasFilter(f, btn) {
-  passadasFilter = f;
-  document.querySelectorAll('#passadasSidebar .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  filterPassadas();
-}
-
-function filterPassadas() {
-  const q = (document.getElementById('passadasSearchBox').value || '').toLowerCase();
-  let filtered = passadasAllMatches;
-
-  if (passadasFilter === 'tip1')         filtered = filtered.filter(m => m.tip === '1');
-  else if (passadasFilter === 'tipx')    filtered = filtered.filter(m => m.tip === 'X');
-  else if (passadasFilter === 'tip2')    filtered = filtered.filter(m => m.tip === '2');
-  else if (passadasFilter === 'acertou') filtered = filtered.filter(m => m.tip_acertou === true);
-  else if (passadasFilter === 'errou')   filtered = filtered.filter(m => m.tip_acertou === false);
-
-  if (q) filtered = filtered.filter(m =>
-    (m.casa || '').toLowerCase().includes(q) ||
-    (m.fora || '').toLowerCase().includes(q) ||
-    (m.liga || '').toLowerCase().includes(q)
-  );
-
-  renderPassadasList(filtered);
-}
-
-function renderPassadasList(matches) {
-  const list = document.getElementById('passadasMatchList');
-  if (!matches.length) {
-    list.innerHTML = '<div class="bt-empty"><div>Nenhuma partida encontrada.</div></div>';
-    return;
-  }
-
-  // Agrupa por data (mais recente primeiro — já vem ordenado do backend)
-  const byDate = {};
-  matches.forEach(m => {
-    const k = m.data_partida || '—';
-    (byDate[k] = byDate[k] || []).push(m);
-  });
-
-  let html = '';
-  for (const [date, dayMatches] of Object.entries(byDate)) {
-    html += `
-      <div class="live-league-header">${formatDate(date)} · ${dayMatches.length} jogos</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
-        ${dayMatches.map(m => renderBtMatchRow(m, 'openPassadaDetail')).join('')}
-      </div>`;
-  }
-  list.innerHTML = html;
-}
-
-async function openPassadaDetail(url, rowEl) {
-  document.querySelectorAll('#passadasMatchList .bt-match-row').forEach(r => r.classList.remove('active'));
-  rowEl.classList.add('active');
-  const detail = document.getElementById('passadasDetail');
-  detail.innerHTML = '<div class="loading"><div class="spinner"></div><br><br>Buscando detalhes...</div>';
-
-  const btMatch = passadasAllMatches.find(m => m.url_detalhes === url) || {};
-
-  try {
-    const encoded = encodeURIComponent((url.split('/compare/teams/')[1] || url));
-    let res = await fetch('/api/match/' + encoded);
-    let match;
-    if (res.ok) {
-      const cached = await res.json();
-      match = { ...btMatch, ...cached };
-    } else {
-      const liveEncoded = (url.split('/compare/teams/')[1] || url);
-      res = await fetch('/api/match/live/' + liveEncoded);
-      if (!res.ok) throw new Error('not found');
-      const liveData = await res.json();
-      match = { ...btMatch, detalhes: liveData.detalhes };
-    }
-    detail.innerHTML = buildDetailHtml(match);
-  } catch(e) {
-    detail.innerHTML = buildDetailHtml(btMatch);
-  }
-}
-
 function pct(n, total) { return total ? Math.round(n/total*100) : 0; }
-function formatDate(d) {
-  if (!d) return '';
-  const [y,m,day] = d.split('-');
-  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  return `${parseInt(day)} de ${months[parseInt(m)-1]} de ${y}`;
-}
 
 // ── LOAD MATCHES ─────────────────────────────
 // ── Toggle Desktop/Mobile — botões no cabeçalho pra forçar a visualização

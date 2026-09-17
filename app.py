@@ -3253,32 +3253,6 @@ def api_backtest_day(date_str):
     })
 
 
-@app.route("/api/passadas")
-def api_passadas():
-    """Retorna todas as partidas passadas (todos os dias de backtest) em uma lista única,
-    já com placar final e HT, pra alimentar a aba Partidas Passadas."""
-    dates = load_backtest_dates()
-    all_matches = []
-    for date_str in dates:
-        matches = load_backtest_day(date_str) or []
-        for m in matches:
-            if m.get("resultado"):
-                m.setdefault("data_partida", date_str)
-                all_matches.append(m)
-
-    all_matches.sort(key=lambda m: (m.get("data_partida") or "", m.get("hora") or ""), reverse=True)
-
-    decididos = [m for m in all_matches if m.get("tip_acertou") is not None]
-    acertaram = [m for m in decididos if m.get("tip_acertou") is True]
-
-    return jsonify({
-        "total": len(all_matches),
-        "dates": len(dates),
-        "tip_acuracia": round(len(acertaram) / len(decididos) * 100, 1) if decididos else None,
-        "matches": all_matches,
-    })
-
-
 @app.route("/api/patterns")
 def api_patterns():
     """Cruza padrões do backtest (probabilidades × placares reais)."""
