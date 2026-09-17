@@ -23055,7 +23055,12 @@ if (localStorage.getItem('viewMode') === 'mobile') document.body.classList.add('
 async function loadMatches() {
   const res = await fetch('/api/matches');
   const data = await res.json();
-  allMatches = data.matches;
+  // Defensivo (2026-09-17, achado via Sentry: TypeError "reading 'length'"
+  // em produção) — se /api/matches falhar ou responder algo sem "matches"
+  // (erro 500, timeout parcial, resposta malformada), allMatches virava
+  // undefined e quebrava a tela inteira no boot. Agora degrada pra lista
+  // vazia em vez de travar a página.
+  allMatches = Array.isArray(data.matches) ? data.matches : [];
 
   // Calcula idade dos dados a partir do data_coleta do primeiro jogo
   const firstColeta = allMatches.length ? allMatches[0].data_coleta : null;
