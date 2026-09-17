@@ -1216,38 +1216,51 @@
   }
   /* Widget "Próximos Jogos" (2026-09-13) — lista compacta no modal genérico,
      escudo+nome+horário+média de gols marcados/sofridos, em ordem
-     crescente de horário. */
+     crescente de horário.
+     Redesenhado em grid (2026-09-17, pedido do usuário: "abrir maior e
+     organizar as informações" — no layout flex antigo forma/confronto/gols
+     ficavam desalinhados entre a linha da casa e a de fora, difícil de ler
+     rápido). Modal ganha a classe .painel-modal-box-wide só enquanto esse
+     widget está aberto (ver _live2OpenProximosWidget/_live2CloseStatsModal),
+     os outros modais que reaproveitam o mesmo overlay continuam no
+     max-width padrão. */
+  .painel-modal-box-wide { max-width: min(760px, 94vw) !important; }
   .live-prox-row {
-    display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 40px 1fr; gap: 2px 12px;
+    padding: 10px 6px; border-bottom: 1px solid var(--border);
   }
   .live-prox-row:last-child { border-bottom: none; }
-  .live-prox-time { font-family: var(--font-mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 34px; text-align: center; }
-  .live-prox-teams { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .live-prox-team { display: flex; align-items: center; gap: 6px; }
-  .live-prox-team-name {
-    flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 11.5px; font-weight: 600;
+  .live-prox-time {
+    grid-row: 1 / 3; align-self: center;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text2); text-align: center;
   }
-  .live-prox-team-name img { width: 16px; height: 16px; flex-shrink: 0; }
+  .live-prox-teams { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .live-prox-h2h-row { display: flex; justify-content: flex-end; min-height: 13px; }
+  .live-prox-team {
+    display: grid; grid-template-columns: 1fr 58px 52px; align-items: center; gap: 8px;
+  }
+  .live-prox-team-name {
+    min-width: 0; display: flex; align-items: center; gap: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 12.5px; font-weight: 600;
+  }
+  .live-prox-team-name img { width: 18px; height: 18px; flex-shrink: 0; }
   .live-prox-goals {
-    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2); flex-shrink: 0;
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--text2); flex-shrink: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; text-align: center;
   }
   /* Forma recente (últimos 5 jogos) e confronto direto no widget "Próximos
      Jogos" (2026-09-14, pedido do usuário) — reaproveitam 100% a mesma busca
      H2H por nome já usada no Ao Vivo (_live2AutoLoadForms, endpoint
      /api/flashscore/h2h), zero rota nova. As bolinhas de forma são as MESMAS
-     que _live2FormRowHtml já gera pro Ao Vivo (18px), só encolhidas aqui via
-     !important pra caber no lado direito da linha, entre o nome do time e o
-     badge de gols (pedido do usuário, 2026-09-14) — evita ter que forkar a
-     função só por causa do tamanho. Somem por completo (:empty) enquanto a
-     busca ainda não voltou. */
-  .live-prox-forma { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+     que _live2FormRowHtml já gera pro Ao Vivo (18px), encolhidas aqui via
+     !important pra caber na coluna de forma (evita ter que forkar a função
+     só por causa do tamanho). Somem por completo (:empty) enquanto a busca
+     ainda não voltou. */
+  .live-prox-forma { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .live-prox-forma:empty { display: none; }
-  .live-prox-forma span { width: 10px !important; height: 10px !important; font-size: 6px !important; }
+  .live-prox-forma span { width: 12px !important; height: 12px !important; font-size: 7px !important; }
   .live-prox-h2h {
-    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--text2);
-    text-align: center; width: 100%;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2);
   }
   .live-prox-h2h:empty { display: none; }
   .live-card-odds-row {
@@ -3967,6 +3980,10 @@ async function _live2FetchAndRenderProximos(silent) {
 async function _live2OpenProximosWidget() {
   document.getElementById('live2StatsModalTitle').textContent = '📅 Próximos Jogos';
   document.getElementById('live2StatsOverlay').style.display = 'flex';
+  // Modal mais largo só pra esse widget (pedido do usuário, 2026-09-17: "tem
+  // como abrir maior?") — os outros modais que reaproveitam o mesmo overlay
+  // continuam no max-width padrão, removido em _live2CloseStatsModal.
+  document.querySelector('#live2StatsOverlay .painel-modal-box')?.classList.add('painel-modal-box-wide');
   _live2OpenModal = { matchId: null, type: 'proximos' };
   if (_live2ProximosRefreshInterval) clearInterval(_live2ProximosRefreshInterval);
   await _live2FetchAndRenderProximos(false);
@@ -4013,17 +4030,17 @@ function _live2ProximoRowHtml(m) {
     <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
       <span class="live-prox-time">${hora}</span>
       <div class="live-prox-teams">
-        <span class="live-prox-team">
-          <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 16)}${_bt2EscXml(m.home)}</span>
+        <div class="live-prox-h2h-row"><span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span></div>
+        <div class="live-prox-team">
+          <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 18)}${_bt2EscXml(m.home)}</span>
           <span id="live2FormWrapCasa_${m.event_id}" class="live-prox-forma">${formaCasaHtml}</span>
           ${golsCell(m.casa_gf_avg, m.casa_ga_avg)}
-        </span>
-        <span class="live-prox-team">
-          <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 16)}${_bt2EscXml(m.away)}</span>
+        </div>
+        <div class="live-prox-team">
+          <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 18)}${_bt2EscXml(m.away)}</span>
           <span id="live2FormWrapFora_${m.event_id}" class="live-prox-forma">${formaForaHtml}</span>
           ${golsCell(m.fora_gf_avg, m.fora_ga_avg)}
-        </span>
-        <span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span>
+        </div>
       </div>
     </div>`;
 }
@@ -15538,6 +15555,9 @@ function _renderUniscoreCD(d) {
 
 function _live2CloseStatsModal() {
   document.getElementById('live2StatsOverlay').style.display = 'none';
+  // Desfaz o modal largo do widget Próximos Jogos (ver _live2OpenProximosWidget)
+  // — sem isso o próximo modal genérico (Estatísticas+Odds etc) abriria largo também.
+  document.querySelector('#live2StatsOverlay .painel-modal-box')?.classList.remove('painel-modal-box-wide');
   _live2OpenModal = null;
   // Para o auto-atualizar do widget Próximos Jogos (2026-09-13) se estiver
   // rodando — fechar QUALQUER modal (esta função é genérica pra todos) não
