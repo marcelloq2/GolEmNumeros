@@ -1223,6 +1223,7 @@
   .live-prox-time {
     font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: var(--accent2);
   }
+  .live-prox-pin { cursor: pointer; font-size: 18px; line-height: 1; user-select: none; }
   .live-prox-liga {
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: 10px; color: var(--text2); text-align: right;
@@ -3544,6 +3545,7 @@ async function _live2FetchAndRenderProximos(silent) {
     const cortado = proximos.length > TETO;
     const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
     const mostrados = proximos.slice(0, TETO);
+    mostrados.forEach(m => { _proximosById[m.event_id] = m; });
     body.innerHTML = mostrados.map(_live2ProximoRowHtml).join('') + nota;
     // Forma recente + confronto direto (2026-09-14, pedido do usuário: "3,4"
     // da lista de estatísticas sugeridas) — reaproveita _live2AutoLoadForms,
@@ -3557,6 +3559,66 @@ async function _live2FetchAndRenderProximos(silent) {
     if (!silent) body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
     // silencioso no refresh automático — um erro passageiro não pode apagar
     // a lista que já estava na tela, só tenta de novo no próximo ciclo.
+  }
+}
+
+// ── Favoritar em "Próximos Jogos" → já entra favoritado no Ao Vivo (2026-09-18,
+// pedido do usuário). O jogo agendado tem ID do Flashscore e o mesmo jogo ao
+// vivo tem ID do UniScore, então guardamos o NOME dos times e casamos quando
+// ele aparecer em /api/radar/live (mesmo comparador aproximado _live2SideScore
+// já usado pra cruzar essas duas fontes). Depois de promovido, a entrada sai
+// daqui — se o usuário desfavoritar o card ao vivo, não volta sozinho.
+let _proximosPinned = {};   // { [event_id Flashscore]: { home, away, ts } }
+try { _proximosPinned = JSON.parse(localStorage.getItem('pinnedProximos') || '{}') || {}; } catch (e) { _proximosPinned = {}; }
+let _proximosById = {};     // último resultado listado, pra toggle achar nome/horário
+
+function _proximosSavePinned() {
+  // descarta favorito com jogo começado há mais de 6h (nunca virou ao vivo, ou já passou)
+  const limite = Date.now() / 1000 - 6 * 3600;
+  Object.keys(_proximosPinned).forEach(k => { if ((_proximosPinned[k].ts || 0) < limite) delete _proximosPinned[k]; });
+  try { localStorage.setItem('pinnedProximos', JSON.stringify(_proximosPinned)); } catch (e) {}
+}
+
+function toggleProximoPin(eventId) {
+  eventId = String(eventId);
+  if (_proximosPinned[eventId]) {
+    delete _proximosPinned[eventId];
+  } else {
+    const m = _proximosById[eventId];
+    if (!m) return;
+    _proximosPinned[eventId] = { home: m.home, away: m.away, ts: m.ts || 0 };
+  }
+  _proximosSavePinned();
+  const el = document.getElementById(`proxPin_${eventId}`);
+  if (el) {
+    const on = !!_proximosPinned[eventId];
+    el.textContent = on ? '⭐' : '☆';
+    el.title = on ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar';
+  }
+}
+
+// Chamada a cada ciclo do Ao Vivo, ANTES de ordenar por favoritos: jogo ao vivo
+// cujos dois times batem com um favorito do Próximos vira ⭐ automaticamente.
+function _live2AutoPinFromProximos(liveMatches) {
+  const ids = Object.keys(_proximosPinned);
+  if (!ids.length) return;
+  let mudou = false;
+  for (const m of liveMatches) {
+    const lid = String(m.id);
+    const ch = _normLive2(m.casa), fo = _normLive2(m.fora);
+    const achou = ids.find(k => {
+      const f = _proximosPinned[k];
+      if (!f) return false; // já promovido nesta mesma passada
+      return _live2SideScore(_normLive2(f.home), ch) >= 2 && _live2SideScore(_normLive2(f.away), fo) >= 2;
+    });
+    if (!achou) continue;
+    _pinnedLive2.add(lid);
+    delete _proximosPinned[achou];
+    mudou = true;
+  }
+  if (mudou) {
+    localStorage.setItem('pinnedLive2Matches', JSON.stringify([..._pinnedLive2]));
+    _proximosSavePinned();
   }
 }
 
@@ -3647,6 +3709,8 @@ function _live2ProximoRowHtml(m) {
   return `
     <div class="live-prox-card" title="${_bt2EscXml(m._liga || '')}">
       <div class="live-prox-card-head">
+        <span id="proxPin_${m.event_id}" class="live-prox-pin" onclick="toggleProximoPin('${m.event_id}')"
+          title="${_proximosPinned[m.event_id] ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar'}">${_proximosPinned[m.event_id] ? '⭐' : '☆'}</span>
         <span class="live-prox-time">${hora}</span>
         <span class="live-prox-liga">${_bt2EscXml(m._liga || '')}</span>
       </div>
@@ -12551,6 +12615,7 @@ async function loadLive2Matches() {
   try {
     const res  = await fetch('/api/radar/live');
     const data = await res.json();
+    _live2AutoPinFromProximos(data.live || []);
     const allMatches = _live2SortByPin(data.live || []);
     live2MatchesCache = allMatches;
     _live2UpdateFavCount(allMatches);
