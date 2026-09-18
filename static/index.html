@@ -1044,8 +1044,9 @@
   .live-card:has(.live-card-ind2t.holding) { border-left-color: var(--green); }
   .live-card:has(.live-card-ind2t.blocked) { border-left-color: var(--red); }
   /* Borda dourada — pedido do usuário (2026-09-12): destacar visualmente o
-     card quando um lado tem pelo menos 3 "bolinhas" de domínio (contador
-     acumulado, ver _live2DotCounts) E o dobro do adversário. Cor mais viva
+     card quando um lado domina nas 3 janelas (Partida toda/10min/5min) ao
+     mesmo tempo, com o dobro do percentual do adversário (ver
+     _live2CheckGoldBorder). Cor mais viva
      (#ffd700, ouro de verdade) que o âmbar já usado em favoritos
      (.live-card-pinned, #f59e0b) de propósito — são dois sinais diferentes,
      não podem parecer a mesma coisa. Vem depois das regras de 2T/favorito
@@ -14059,7 +14060,6 @@ function _live2RateStatsHtml(m) {
   // dobro do valor do outro nessa estatística específica.
   const dotHtml = (h, a, slot) => {
     const side = h >= a * 2 && h > 0 ? 'casa' : (a >= h * 2 && a > 0 ? 'fora' : null);
-    _live2TallyDot(m.id, slot, side);
     if (!side) return '';
     const cor = side === 'casa' ? '#3b82f6' : 'var(--red)';
     return `<span class="live2-stat-dot" style="background:${cor}"></span>`;
@@ -14094,32 +14094,6 @@ function _live2ThermoDominance(score) {
   return null;
 }
 
-// ── Contador de bolinhas — quantas vezes, ao longo da partida, cada lado
-// "acendeu" um sinal de domínio (qualquer uma das 4 bolinhas: consistência nas
-// 3 janelas, ataque perigoso, toques na área, chutes na área). Cada card
-// atualiza a cada ~20s (_loadLive2Momentum); contar toda atualização em que a
-// bolinha aparece inflaria demais (pode chegar a centenas numa partida
-// inteira), então só soma quando o sinal MUDA de estado (apareceu de novo
-// depois de ter sumido, ou trocou de lado) — isso conta "quantas vezes
-// aconteceu", não "em quantos ciclos ficou ligado".
-let _live2DotState = {};   // { [matchId]: { [slot]: 'casa'|'fora'|null } }
-let _live2DotCounts = {};  // { [matchId]: { casa, fora } }
-function _live2TallyDot(matchId, slot, side) {
-  const state = _live2DotState[matchId] || (_live2DotState[matchId] = {});
-  const counts = _live2DotCounts[matchId] || (_live2DotCounts[matchId] = { casa: 0, fora: 0 });
-  if (side && side !== state[slot]) counts[side]++;
-  state[slot] = side || null;
-}
-function _live2DotCounterHtml(matchId) {
-  const c = _live2DotCounts[matchId];
-  if (!c || (!c.casa && !c.fora)) return '';
-  return `<div style="display:flex;justify-content:center;gap:12px;font-size:9px;font-weight:700;margin-bottom:4px"
-    title="Quantas vezes um sinal de domínio (bolinha azul/vermelha) apareceu de novo pra cada lado durante a partida">
-    <span style="color:var(--accent2)">🔵 Casa ${c.casa}</span>
-    <span style="color:var(--red)">🔴 Visitante ${c.fora}</span>
-  </div>`;
-}
-
 // Borda dourada no card (pedido do usuário, 2026-09-12) — critério trocado
 // em 2026-09-13: a versão original usava o contador ACUMULADO de bolinhas
 // (_live2DotCounts, só cresce, nunca reseta), e por isso a borda ficava
@@ -14149,7 +14123,6 @@ function _live2CheckGoldBorder(matchId, full, w10, w5) {
 // "Últimos 10min" batiam o dobro sozinhas (a bolinha não aparecia ali).
 function _live2ThermoDominanceIconHtml(matchId, score, slot, janelaLabel) {
   const side = _live2ThermoDominance(score);
-  _live2TallyDot(matchId, slot, side);
   if (!side) return '';
   const cor = side === 'casa' ? '#3b82f6' : 'var(--red)';
   const lado = side === 'casa' ? 'Casa' : 'Visitante';
@@ -14811,20 +14784,17 @@ async function _live2RefreshBadges(matchId) {
     const w10  = _live2ThermometerScore(points, shots, m, 10);
     const w5   = _live2ThermometerScore(points, shots, m, 5);
     // Só as bolinhas de domínio, sem os textos de %/janela por trás (que
-    // ficavam pesados demais no card) — cada chamada abaixo ainda atualiza
-    // _live2DotCounts via _live2TallyDot (efeito colateral), então o contador
-    // "🔵 Casa X · 🔴 Visitante Y" continua contando certo. Os números
-    // detalhados (Partida toda/10min/5min, Toques/Chutes na área) continuam
-    // no modal de Estatísticas, só saíram do card por padrão.
+    // ficavam pesados demais no card). Os números detalhados (Partida
+    // toda/10min/5min, Toques/Chutes na área) continuam no modal de
+    // Estatísticas, só saíram do card por padrão. Contador "🔵 Casa X ·
+    // 🔴 Visitante Y" removido a pedido do usuário (2026-09-18).
     const dotsHtml = [
       _live2ThermoDominanceIconHtml(matchId, full, 'thermo_full', 'Partida toda'),
       _live2ThermoDominanceIconHtml(matchId, w10, 'thermo_10', 'Últimos 10min'),
       _live2ThermoDominanceIconHtml(matchId, w5, 'thermo_5', 'Últimos 5min'),
     ].join('');
     const dotStrip = dotsHtml ? `<div class="live2-dot-strip">${dotsHtml}</div>` : '';
-    // Renderiza o contador DEPOIS do conteúdo acima (que já atualizou _live2DotCounts
-    // via _live2TallyDot como efeito colateral) pra refletir a contagem desse ciclo.
-    thermoEl.innerHTML = _live2DotCounterHtml(matchId) + dotStrip;
+    thermoEl.innerHTML = dotStrip;
     _live2CheckGoldBorder(matchId, full, w10, w5);
   }
 }
