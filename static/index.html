@@ -15508,6 +15508,38 @@ function _live2BttsStreak(rows, simNao) {
   return n >= _LIVE2_SEQ_MIN ? n : null;
 }
 
+// ── Sequências novas (2026-09-18, pedido do usuário) ───────────────────────
+// Todas calculadas em cima de linhas que _live2AutoLoadForms já baixa (últimos
+// jogos de cada time, jogos só em casa/só fora, confronto direto) e, pras de
+// 2º tempo, do lote de intervalo que o modal Tendências já busca — zero
+// chamada nova. Mesma regra das outras: conta do jogo mais recente pra trás,
+// quebra no primeiro que não bater, e só aparece com pelo menos
+// _LIVE2_SEQ_MIN jogos seguidos.
+function _live2StreakWhile(rows, cond) {
+  let n = 0;
+  for (const row of rows) { if (!cond(row)) break; n++; }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+// result: 'V' | 'E' | 'D' (do ponto de vista do time dono da seção)
+const _live2UnbeatenStreak = (rows) => _live2StreakWhile(rows, r => r.result === 'V' || r.result === 'E');
+const _live2WinlessStreak  = (rows) => _live2StreakWhile(rows, r => r.result === 'E' || r.result === 'D');
+const _live2DrawStreak     = (rows) => _live2StreakWhile(rows, r => r.result === 'E');
+const _live2NoScoreStreak = (rows, team) => _live2StreakWhile(rows, r => { const g = _live2GoalsForAgainst(r, team); return !!g && g.pro === 0; });
+const _live2ConcedeStreak = (rows, team) => _live2StreakWhile(rows, r => { const g = _live2GoalsForAgainst(r, team); return !!g && g.contra > 0; });
+const _live2BigWinStreak  = (rows, team) => _live2StreakWhile(rows, r => { const g = _live2GoalsForAgainst(r, team); return !!g && g.pro - g.contra >= 2; });
+
+// Gols do time no 2º tempo = gols do jogo (FT) − gols do intervalo (HT). null
+// se faltar um dos dois ou os números não fecharem (HT maior que FT).
+function _live2SecondHalfFor(row, teamName, htByEventId) {
+  const ga = _live2GoalsForAgainst(row, teamName);
+  const ht = _live2HtForAgainst(row, teamName, htByEventId);
+  if (!ga || !ht) return null;
+  const pro = ga.pro - ht.pro, contra = ga.contra - ht.contra;
+  return (pro < 0 || contra < 0) ? null : { pro, contra };
+}
+const _live2Goal2tStreak = (rows, team, htBy) => _live2StreakWhile(rows, r => { const g = _live2SecondHalfFor(r, team, htBy); return !!g && g.pro + g.contra >= 1; });
+const _live2Win2tStreak  = (rows, team, htBy) => _live2StreakWhile(rows, r => { const g = _live2SecondHalfFor(r, team, htBy); return !!g && g.pro > g.contra; });
+
 // ── Sequências de 1º TEMPO (pedido do usuário, 2026-09-08) ─────────────────
 // O H2H só traz placar FINAL de cada jogo passado — pro intervalo, reaproveita
 // o endpoint /api/flashscore/half_time_batch (já existia, já usado na aba
@@ -15586,6 +15618,25 @@ function _live2SeqBadgeHtml(m, seq) {
   if (seq.venceHtFora)  badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Esse time terminou o 1º tempo na frente no placar em cada um desses jogos.">🥇 ${m.fora} venceu o 1ºT nos últimos ${seq.venceHtFora}/${seq.totalHtFora} jogos</div>`);
   if (seq.perdeHtCasa)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.casa} perdeu o 1ºT nos últimos ${seq.perdeHtCasa}/${seq.totalHtCasa} jogos</div>`);
   if (seq.perdeHtFora)  badges.push(`<div class="live-card-ind2t blocked" title="${CONSEC} Esse time terminou o 1º tempo atrás no placar em cada um desses jogos.">😓 ${m.fora} perdeu o 1ºT nos últimos ${seq.perdeHtFora}/${seq.totalHtFora} jogos</div>`);
+  // Sequências novas (2026-09-18, pedido do usuário). Texto "N jogos seguidos"
+  // (não "N/total" como as acima, que parece "N em 25" mas é sequência).
+  const add = (cls, icone, time, texto, n, tip) => { if (n) badges.push(`<div class="live-card-ind2t${cls ? ' ' + cls : ''}" title="${CONSEC} ${tip}">${icone} ${time} ${texto.replace('{n}', n)}</div>`); };
+  const dois = (campo, cls, icone, texto, tip) => { add(cls, icone, m.casa, texto, seq[campo + 'Casa'], tip); add(cls, icone, m.fora, texto, seq[campo + 'Fora'], tip); };
+  dois('winAny',    'holding', '🔥', 'está com {n} vitórias seguidas', 'Vitórias em qualquer mando de campo.');
+  dois('unbeaten',  'holding', '🛡️', 'está invicto há {n} jogos seguidos', 'Vitória ou empate em cada um desses jogos.');
+  dois('winless',   'blocked', '📉', 'está sem vencer há {n} jogos seguidos', 'Empate ou derrota em cada um desses jogos.');
+  dois('draw',      '',        '🤝', 'empatou os últimos {n} jogos seguidos', 'Empate em cada um desses jogos.');
+  dois('noScore',   'blocked', '🚫', 'está sem marcar há {n} jogos seguidos', 'Não fez nenhum gol em cada um desses jogos.');
+  dois('concede',   'blocked', '🕳️', 'sofreu gol nos últimos {n} jogos seguidos', 'Sofreu pelo menos 1 gol em cada um desses jogos.');
+  dois('bigWin',    'holding', '💪', 'venceu por 2+ gols de diferença os últimos {n} jogos seguidos', 'Venceu com pelo menos 2 gols de diferença em cada um desses jogos.');
+  dois('over35',    'holding', '📈', 'bateu Over 3.5 FT nos últimos {n} jogos seguidos', 'Total de gols (casa+visitante) do jogo passou de 3.5 em cada um desses jogos.');
+  dois('under15',   'blocked', '📉', 'bateu Under 1.5 FT (0 ou 1 gol) nos últimos {n} jogos seguidos', 'Total de gols (casa+visitante) do jogo ficou em 1.5 ou menos em cada um desses jogos.');
+  add('blocked', '🥶', m.casa, 'perdeu os últimos {n} jogos seguidos em casa', seq.homeLossCasa, 'Só considera os jogos que esse time jogou EM CASA.');
+  add('blocked', '🥶', m.fora, 'perdeu os últimos {n} jogos seguidos fora de casa', seq.awayLossFora, 'Só considera os jogos que esse time jogou FORA de casa.');
+  dois('goal2t',    'holding', '📈', 'teve gol no 2º tempo nos últimos {n} jogos seguidos', 'Saiu pelo menos 1 gol no 2º tempo (gols do jogo menos os do intervalo) em cada um desses jogos.');
+  dois('win2t',     'holding', '🥇', 'venceu o 2ºT nos últimos {n} jogos seguidos', 'Marcou mais gols que o adversário no 2º tempo em cada um desses jogos.');
+  if (seq.cdOver25) badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Confrontos diretos entre esses 2 times: total de gols passou de 2.5 em cada um.">🆚 Confronto direto: Over 2.5 FT nos últimos ${seq.cdOver25} confrontos seguidos</div>`);
+  if (seq.cdBtts)   badges.push(`<div class="live-card-ind2t holding" title="${CONSEC} Confrontos diretos entre esses 2 times: os dois marcaram em cada um.">🆚 Confronto direto: Ambas Marcam nos últimos ${seq.cdBtts} confrontos seguidos</div>`);
   // Primeiro gol marcado/sofrido (2026-09-13, pedido do usuário: "media de
   // gols marcados e sofridos ultimos 5 jogos geral" → depois "tem como
   // adicionar essas estatisticas tambem em tendencia?"). "Geral" = qualquer
@@ -15657,6 +15708,25 @@ async function _live2AutoLoadForms(matches) {
         seq.bttsSimFora = _live2BttsStreak(awayRowsFull, true);
         seq.bttsNaoCasa = _live2BttsStreak(homeRowsFull, false);
         seq.bttsNaoFora = _live2BttsStreak(awayRowsFull, false);
+        // Sequências novas (2026-09-18) — resultado, gols e Over/Under extras
+        seq.winAnyCasa   = _live2ResultStreak(homeRowsFull, 'V');
+        seq.winAnyFora   = _live2ResultStreak(awayRowsFull, 'V');
+        seq.unbeatenCasa = _live2UnbeatenStreak(homeRowsFull);
+        seq.unbeatenFora = _live2UnbeatenStreak(awayRowsFull);
+        seq.winlessCasa  = _live2WinlessStreak(homeRowsFull);
+        seq.winlessFora  = _live2WinlessStreak(awayRowsFull);
+        seq.drawCasa     = _live2DrawStreak(homeRowsFull);
+        seq.drawFora     = _live2DrawStreak(awayRowsFull);
+        seq.noScoreCasa  = _live2NoScoreStreak(homeRowsFull, nomeCasa);
+        seq.noScoreFora  = _live2NoScoreStreak(awayRowsFull, nomeFora);
+        seq.concedeCasa  = _live2ConcedeStreak(homeRowsFull, nomeCasa);
+        seq.concedeFora  = _live2ConcedeStreak(awayRowsFull, nomeFora);
+        seq.bigWinCasa   = _live2BigWinStreak(homeRowsFull, nomeCasa);
+        seq.bigWinFora   = _live2BigWinStreak(awayRowsFull, nomeFora);
+        seq.over35Casa   = _live2TotalGoalsStreak(homeRowsFull, 3.5, true);
+        seq.over35Fora   = _live2TotalGoalsStreak(awayRowsFull, 3.5, true);
+        seq.under15Casa  = _live2TotalGoalsStreak(homeRowsFull, 1.5, false);
+        seq.under15Fora  = _live2TotalGoalsStreak(awayRowsFull, 1.5, false);
         // Total de jogos considerados na janela — usado só pra exibir "N/Total"
         // no badge (ex.: "4/20"), o cálculo da sequência em si não muda.
         seq.totalCasa = homeRowsFull.length;
@@ -15686,6 +15756,12 @@ async function _live2AutoLoadForms(matches) {
         // tela (não precisa esperar clicar em nada, ao contrário do lote de
         // minuto de gol usado em Tendências).
         const confrontoSection = tab0.sections.find(s => /confront/i.test(s.title));
+        // Confronto direto: Over 2.5 / Ambas Marcam nos últimos confrontos entre
+        // os DOIS (mesma seção já usada acima, sem busca nova) — 2026-09-18.
+        const cdRows = confrontoSection ? confrontoSection.rows : [];
+        seq.cdOver25 = _live2TotalGoalsStreak(cdRows, 2.5, true);
+        seq.cdBtts   = _live2BttsStreak(cdRows, true);
+        seq.totalCd  = cdRows.length;
         _live2H2hRowsCache[m.id] = {
           homeRowsHt: homeRowsFull.slice(0, _LIVE2_HT_JOGOS),
           awayRowsHt: awayRowsFull.slice(0, _LIVE2_HT_JOGOS),
@@ -15702,12 +15778,18 @@ async function _live2AutoLoadForms(matches) {
       const tabCasaEmCasa = tabs.find(t => /-\s*Casa$/.test(t.label || ''));
       if (tabCasaEmCasa) {
         const secao = tabCasaEmCasa.sections.find(s => !/confront/i.test(s.title));
-        if (secao) { seq.homeWinCasa = _live2ResultStreak(secao.rows, 'V'); seq.homeWinCasaTotal = secao.rows.length; }
+        if (secao) {
+          seq.homeWinCasa = _live2ResultStreak(secao.rows, 'V'); seq.homeWinCasaTotal = secao.rows.length;
+          seq.homeLossCasa = _live2ResultStreak(secao.rows, 'D');   // derrotas seguidas EM CASA
+        }
       }
       const tabForaFora = tabs.find(t => /-\s*Fora$/.test(t.label || ''));
       if (tabForaFora) {
         const secao = tabForaFora.sections.find(s => !/confront/i.test(s.title));
-        if (secao) { seq.awayWinFora = _live2ResultStreak(secao.rows, 'V'); seq.awayWinForaTotal = secao.rows.length; }
+        if (secao) {
+          seq.awayWinFora = _live2ResultStreak(secao.rows, 'V'); seq.awayWinForaTotal = secao.rows.length;
+          seq.awayLossFora = _live2ResultStreak(secao.rows, 'D');   // derrotas seguidas FORA
+        }
       }
 
       _live2FsFormCache[m.id] = { casa: casaHtml, fora: foraHtml };
@@ -15751,6 +15833,11 @@ async function _live2LoadHtStreaks(matchId) {
     seq.venceHtFora  = _live2VenceHtStreak(awayRowsHt, nomeFora, htByEventId);
     seq.perdeHtCasa  = _live2PerdeHtStreak(homeRowsHt, nomeCasa, htByEventId);
     seq.perdeHtFora  = _live2PerdeHtStreak(awayRowsHt, nomeFora, htByEventId);
+    // 2º tempo (2026-09-18) — gols do jogo menos gols do intervalo, mesmo lote acima
+    seq.goal2tCasa = _live2Goal2tStreak(homeRowsHt, nomeCasa, htByEventId);
+    seq.goal2tFora = _live2Goal2tStreak(awayRowsHt, nomeFora, htByEventId);
+    seq.win2tCasa  = _live2Win2tStreak(homeRowsHt, nomeCasa, htByEventId);
+    seq.win2tFora  = _live2Win2tStreak(awayRowsHt, nomeFora, htByEventId);
     seq.totalHtCasa = homeRowsHt.length;
     seq.totalHtFora = awayRowsHt.length;
     const seqEl = document.getElementById(`live2SeqBadge_${matchId}`);
