@@ -80,20 +80,6 @@
     --text-xl: 20px;   /* título de seção */
     --text-2xl: 26px;  /* título de página/hero */
   }
-  html[data-theme="light"] {
-    --bg: #f6f5f0;
-    --bg2: #ffffff;
-    --bg3: #ecead9;
-    --border: #dedbd0;
-    --accent: #996600;
-    --accent2: #2569a0;
-    --green: #0a6b39;
-    --red: #c22a22;
-    --yellow: #b45309;
-    --gray: #6b7280;
-    --text: #1a1a1a;
-    --text2: #5c6660;
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* Ícones SVG inline (fase 2 da troca de visual — substituem os emojis
      puramente decorativos por ícones de linha, herdam a cor do texto ao
@@ -274,9 +260,7 @@
     font-size: 13px; text-transform: none; letter-spacing: normal;
     background: #0c3322; color: #00e676; font-weight: 700;
   }
-  html[data-theme="light"] #today2Wrap .league-header { background: #e3f5ea; color: #7a5b00; }
   #today2Wrap .league-header:hover { background: #4a3f14; }
-  html[data-theme="light"] #today2Wrap .league-header:hover { background: #ffefb8; }
   #today2Wrap .league-count { font-size: 13px; }
   #today2Wrap .league-flag { font-size: 17px; }
 
@@ -980,12 +964,9 @@
      aplicar — usuário escolheu este, mesmo sabendo que reintroduz o
      "glow decorativo" que tinha sido removido de propósito no redesign de
      identidade visual anterior (ver DESIGN.md).
-     SÓ no tema escuro (html:not([data-theme="light"]), mesmo guarda usado
-     em outras regras fixas do site): o texto do card usa var(--text), que
-     no tema claro vira escuro — card translúcido misturado com um fundo
-     escuro fixo (#050807) + texto escuro ficaria ilegível. No claro, o card
-     volta a ser o sólido de sempre, sem vidro nem glow. */
-  html:not([data-theme="light"]) #live2GridWrap {
+     Fundo escuro fixo (#050807) — site só tem o tema escuro (modo claro
+     removido a pedido do usuário, 2026-09-18). */
+  #live2GridWrap {
     padding: 20px; border-radius: 16px;
     background:
       radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--green) 16%, transparent), transparent 42%),
@@ -1000,7 +981,7 @@
      incluir border-color nesta regra quebraria os indicadores que já usam
      border-color/border-left-color (.live2-card-gold, o 2T holding/blocked
      logo abaixo) — eles continuam funcionando por cima disso normalmente. */
-  html:not([data-theme="light"]) #live2GridWrap .live-card {
+  #live2GridWrap .live-card {
     position: relative;
     background: color-mix(in srgb, var(--bg2) 42%, transparent) !important;
     backdrop-filter: blur(10px) saturate(140%);
@@ -1009,16 +990,16 @@
                 0 0 20px color-mix(in srgb, var(--green) 16%, transparent),
                 0 8px 26px rgba(0,0,0,.4);
   }
-  html:not([data-theme="light"]) #live2GridWrap .live-card-top,
-  html:not([data-theme="light"]) #live2GridWrap .live-card-odds-row {
+  #live2GridWrap .live-card-top,
+  #live2GridWrap .live-card-odds-row {
     background: rgba(255,255,255,.03);
   }
   /* .live-card-odds-val fica de fora de propósito: tem cor semântica por
      mercado (.o1/.ox/.o2/.oover/.ounder, ver DESIGN.md "odds em pílula") e
      um seletor por #id ganharia dessas classes, apagando a cor de cada
      mercado — a pílula em si já tem contraste suficiente sobre o vidro. */
-  html:not([data-theme="light"]) #live2GridWrap .live-card-cta-alt { background: rgba(255,255,255,.06); }
-  html:not([data-theme="light"]) #live2GridWrap .live-card-score { text-shadow: 0 0 10px currentColor, 0 0 4px rgba(255,90,54,.6); }
+  #live2GridWrap .live-card-cta-alt { background: rgba(255,255,255,.06); }
+  #live2GridWrap .live-card-score { text-shadow: 0 0 10px currentColor, 0 0 4px rgba(255,90,54,.6); }
   /* Cada card tem uma quantidade diferente de conteúdo (nº de selos de
      pressão, mapa de chutes confirmado ou não, odds ao vivo disponível ou
      não) — como a grade (grid) já estica todo card da mesma linha pra
@@ -1063,7 +1044,7 @@
      .live-card.live2-card-gold sozinho e venceria mesmo vindo antes no
      arquivo — sem isso a borda ficava dourada mas o brilho ao redor
      continuava verde. */
-  html:not([data-theme="light"]) #live2GridWrap .live-card.live2-card-gold {
+  #live2GridWrap .live-card.live2-card-gold {
     box-shadow: 0 0 0 2px #ffd700aa, 0 0 32px 5px #ffd70066, 0 8px 26px rgba(0,0,0,.4);
   }
   @keyframes live2GoldPulse {
@@ -1557,7 +1538,7 @@
      mesmos 2 cuidados do Ao Vivo: nunca border-color aqui (um #id venceria
      o :hover acima e qualquer indicador futuro que use border-color), e
      .painel-match-card-value fica de fora (cor semântica por mercado). */
-  html:not([data-theme="light"]) #painelMatches {
+  #painelMatches {
     padding: 16px; border-radius: 16px; margin: 0 12px;
     background:
       radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--green) 14%, transparent), transparent 40%),
@@ -1567,7 +1548,7 @@
       repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 26px),
       #050807;
   }
-  html:not([data-theme="light"]) #painelMatches .painel-match-card {
+  #painelMatches .painel-match-card {
     background: color-mix(in srgb, var(--bg2) 44%, transparent) !important;
     backdrop-filter: blur(10px) saturate(140%);
     -webkit-backdrop-filter: blur(10px) saturate(140%);
@@ -1575,17 +1556,17 @@
                 0 0 18px color-mix(in srgb, var(--green) 14%, transparent),
                 0 6px 20px rgba(0,0,0,.35);
   }
-  html:not([data-theme="light"]) #painelMatches .painel-league-name {
+  #painelMatches .painel-league-name {
     background: rgba(0,230,118,.16); color: #c8ffe0;
   }
-  html:not([data-theme="light"]) #painelMatches .painel-power-group,
-  html:not([data-theme="light"]) #painelMatches .painel-match-analysis-btn {
+  #painelMatches .painel-power-group,
+  #painelMatches .painel-match-analysis-btn {
     background: rgba(255,255,255,.05);
   }
   /* .painel-match-card-value fica de fora de propósito (igual .live-card-odds-val
      no Ao Vivo): tem cor semântica por mercado (.score, e o grupo 1X2 abaixo
      tem a própria cor) que um seletor por #id apagaria. */
-  html:not([data-theme="light"]) #painelMatches .painel-match-card-value.score {
+  #painelMatches .painel-match-card-value.score {
     text-shadow: 0 0 8px currentColor, 0 0 3px rgba(255,90,54,.6);
   }
   .painel-match-card-live { position: relative; }
@@ -2027,7 +2008,7 @@
   .painel-std-table td { text-align: center; padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text); }
   .painel-std-table td:nth-child(2) { text-align: left; }
   .painel-std-table tr.painel-std-highlight td { background: #e3f5ea; }
-  html:not([data-theme="light"]) .painel-std-table tr.painel-std-highlight td { background: #0c3322; }
+  .painel-std-table tr.painel-std-highlight td { background: #0c3322; }
   .painel-std-row-name { display: flex; align-items: center; gap: 6px; }
   .painel-std-row-name img { width: 15px; height: 15px; flex-shrink: 0; }
   .painel-std-form { display: flex; gap: 2px; justify-content: center; }
@@ -2080,13 +2061,6 @@
     .live-grid-wrap { grid-template-columns: minmax(0, 1fr); }
   }
 </style>
-<script>
-  // aplica o tema salvo ANTES do body renderizar, pra não piscar no tema errado
-  (function () {
-    var saved = localStorage.getItem('theme');
-    if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
-  })();
-</script>
 </head>
 <body>
 
@@ -2107,10 +2081,6 @@
     <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)" style="display:none">🏠 Painel Principal</button>
     <button class="nav-tab active" id="navTabLive2" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
   </div>
-  <button onclick="toggleTheme()" id="themeToggleBtn" title="Alternar modo claro/escuro"
-    style="margin-left:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
-           background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;
-           display:flex;align-items:center;justify-content:center;flex-shrink:0">🌙</button>
   <!-- Sair (2026-09-12) — só faz sentido quando o site está com senha ativa
        (SITE_PASSWORD configurada no Railway); sem isso /logout também não
        faz nada de mais (limpa uma sessão que nunca chegou a existir). -->
@@ -2846,24 +2816,6 @@ function _icoHydrateStatic() {
     if (typeof fn === 'function') el.innerHTML = fn();
   });
 }
-
-// ── Modo claro/escuro ────────────────────────────────────────────────────────
-function _themeApplyIcon() {
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) btn.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
-}
-function toggleTheme() {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  if (isLight) {
-    document.documentElement.removeAttribute('data-theme');
-    localStorage.setItem('theme', 'dark');
-  } else {
-    document.documentElement.setAttribute('data-theme', 'light');
-    localStorage.setItem('theme', 'light');
-  }
-  _themeApplyIcon();
-}
-_themeApplyIcon();
 
 let allMatches = [];
 let activeFilter = 'all';
