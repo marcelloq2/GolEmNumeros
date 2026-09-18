@@ -1,0 +1,267 @@
+{
+  "event_id": "cq0afiln75y3v78",
+  "date": "2026-09-18",
+  "casa": "Aguilas Doradas",
+  "fora": "Dep. Pereira",
+  "liga": "Primeira A",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 23,
+  "shotmap": [
+    {
+      "id": "2971534511",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Acosta",
+      "x": 15.1,
+      "y": 32.2
+    },
+    {
+      "id": "2971530525",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "F.Suárez",
+      "x": 22,
+      "y": 71.8
+    },
+    {
+      "id": "2971530377",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mena",
+      "x": 29.6,
+      "y": 33.9
+    },
+    {
+      "id": "2971530027",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J.Avalo",
+      "x": 11.9,
+      "y": 48.8
+    },
+    {
+      "id": "2971529649",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "J.Largacha",
+      "x": 3.3,
+      "y": 34.3
+    },
+    {
+      "id": "2971529731",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Lozano",
+      "x": 14.9,
+      "y": 60.2
+    },
+    {
+      "id": "2971529585",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Lozano",
+      "x": 7.6,
+      "y": 66.5
+    },
+    {
+      "id": "2971529185",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Arízalas",
+      "x": 14.5,
+      "y": 31.8
+    },
+    {
+      "id": "2971528415",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "T.Bovone",
+      "x": 4.8,
+      "y": 28.7
+    },
+    {
+      "id": "2971527743",
+      "minute": 27,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "T.Bovone",
+      "x": 16.9,
+      "y": 31.9
+    },
+    {
+      "id": "2971527449",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "F.Suárez",
+      "x": 5.2,
+      "y": 67.2
+    },
+    {
+      "id": "2971526887",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "F.Suárez",
+      "x": 12.3,
+      "y": 62.4
+    },
+    {
+      "id": "2971534557",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Melendez",
+      "x": 12.1,
+      "y": 52.9
+    },
+    {
+      "id": "2971536271",
+      "minute": 69,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Largacha",
+      "x": 4.9,
+      "y": 51.2
+    },
+    {
+      "id": "2971536529",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "other_body_part",
+      "situation": "assisted",
+      "player": "Vásquez",
+      "x": 13,
+      "y": 65.2
+    },
+    {
+      "id": "2971537553",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Largacha",
+      "x": 14.8,
+      "y": 63.2
+    },
+    {
+      "id": "2971537961",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Pérez",
+      "x": 15,
+      "y": 63.6
+    },
+    {
+      "id": "2971538311",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Pérez",
+      "x": 15,
+      "y": 55.6
+    },
+    {
+      "id": "2971538701",
+      "minute": 83,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M. Ramírez",
+      "x": 24.4,
+      "y": 37.9
+    },
+    {
+      "id": "2971538623",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "R.Rentería",
+      "x": 15.2,
+      "y": 56.5
+    },
+    {
+      "id": "2971539303",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Vásquez",
+      "x": 12.6,
+      "y": 36.8
+    },
+    {
+      "id": "2971539791",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "D.Ortiz",
+      "x": 14.5,
+      "y": 54.1
+    },
+    {
+      "id": "2971540223",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Pérez",
+      "x": 15.8,
+      "y": 55.3
+    }
+  ]
+}
