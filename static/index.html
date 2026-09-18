@@ -15804,23 +15804,12 @@ function _live2SeqBadgeHtml(m, seq) {
     if (cd.casaWinEmCasa) badges.push(`<div class="live-card-ind2t holding" title="${CD} Só os confrontos em que ${_bt2EscXml(m.casa)} foi mandante — mínimo de 2.">🏠 ${m.casa} venceu os últimos ${cd.casaWinEmCasa} confrontos diretos jogando em casa</div>`);
     if (cd.same)          badges.push(`<div class="live-card-ind2t" title="${CD} Mesmo placar em cada um.">🔁 Confronto direto repetiu o placar ${m.casa} ${cd.same.casa} x ${cd.same.fora} ${m.fora} nos últimos ${cd.same.n} confrontos</div>`);
   }
-  // Primeiro gol marcado/sofrido (2026-09-13, pedido do usuário: "media de
-  // gols marcados e sofridos ultimos 5 jogos geral" → depois "tem como
-  // adicionar essas estatisticas tambem em tendencia?"). "Geral" = qualquer
-  // mando de campo (tabs[0] "Total", não split casa/fora) — mesma régua já
-  // usada na Leitura da Partida (_jogoGoalPatternStats), buscada sob
-  // demanda só quando esse modal abre (ver _live2LoadGoalPatterns), não pra
-  // toda a lista do Ao Vivo.
-  const gpBadge = (teamName, gp) => {
-    if (!gp || gp.totalComGm < 8) return '';
-    const pctMarcou = gp.timeMarcouPrimeiroCount / gp.totalComGm * 100;
-    const pctSofreu = gp.adversarioMarcouPrimeiroCount / gp.totalComGm * 100;
-    const diff = pctMarcou - pctSofreu;
-    const diffStr = `${diff > 0 ? '+' : ''}${diff.toFixed(0)}%`;
-    return `<div class="live-card-ind2t" title="Considerando os últimos ${gp.totalComGm} jogos (qualquer mando de campo) com minuto de gol disponível. Diff = marcou 1º − sofreu 1º.">⚽ ${teamName} marcou 1º em ${pctMarcou.toFixed(0)}% e sofreu 1º em ${pctSofreu.toFixed(0)}% dos jogos (diff ${diffStr})</div>`;
-  };
-  if (seq.gpCasa) badges.push(gpBadge(m.casa, seq.gpCasa));
-  if (seq.gpFora) badges.push(gpBadge(m.fora, seq.gpFora));
+  // Primeiro gol (2026-09-13 como percentual; virou SEQUÊNCIA em 2026-09-18, pedido
+  // do usuário: "quero mudar para sequência, do mesmo jeito que os cards verdes").
+  // "Geral" = qualquer mando de campo; o minuto dos gols é buscado sob demanda só
+  // quando esse modal abre (ver _live2LoadGoalPatterns), não pra toda a lista.
+  dois('first',       'holding', '🥇', 'marcou o 1º gol nos últimos {n} jogos seguidos', 'O time abriu o placar (fez o primeiro gol do jogo) em cada um desses jogos. Jogo sem gols ou com gols no mesmo minuto dos dois lados quebra a sequência.');
+  dois('concedeFirst', 'blocked', '🎯', 'sofreu o 1º gol nos últimos {n} jogos seguidos', 'O adversário abriu o placar (fez o primeiro gol do jogo) em cada um desses jogos. Jogo sem gols ou com gols no mesmo minuto dos dois lados quebra a sequência.');
   return badges.join('');
 }
 
@@ -16020,6 +16009,29 @@ async function _live2LoadHtStreaks(matchId) {
   } catch (e) { /* segue só com as sequências de FT, sem travar nada */ }
 }
 
+// Quem abriu o placar em cada jogo passado, do mais recente pra trás. `rows` é
+// o recorte "geral" do time (id + isHome, ver _jogoStatsRowsFromSection) e o
+// minuto dos gols vem de _goalMinutesCache. Sem minuto de gol disponível, jogo
+// sem gols ou gols no MESMO minuto dos dois lados (ordem desconhecida) → não dá
+// pra afirmar quem abriu, então quebra a sequência em vez de chutar.
+// timeMarcou=true: sequência de jogos em que o time fez o 1º gol; false: em que sofreu.
+function _live2FirstGoalStreak(rows, timeMarcou) {
+  let n = 0;
+  for (const r of rows) {
+    const gm = _goalMinutesCache[r.id];
+    if (!gm) break;
+    const pro = r.isHome ? gm.home : gm.away, contra = r.isHome ? gm.away : gm.home;
+    const p = pro.length ? Math.min(...pro) : null, c = contra.length ? Math.min(...contra) : null;
+    let primeiro = null;
+    if (p === null && c === null) primeiro = null;
+    else if (c === null || (p !== null && p < c)) primeiro = 'time';
+    else if (p === null || c < p) primeiro = 'adv';
+    if (primeiro !== (timeMarcou ? 'time' : 'adv')) break;
+    n++;
+  }
+  return n >= _LIVE2_SEQ_MIN ? n : null;
+}
+
 // Quais partidas já tiveram o lote de minuto de gol (1º gol marcado/sofrido)
 // buscado — mesmo padrão de _live2HtLoaded, evita repetir a cada reabertura
 // do modal Tendências da mesma partida.
@@ -16049,14 +16061,12 @@ async function _live2LoadGoalPatterns(matchId) {
       rowsCasa.length ? _jogoEnsureGoalMinutes(rowsCasa) : Promise.resolve(),
       rowsFora.length ? _jogoEnsureGoalMinutes(rowsFora) : Promise.resolve(),
     ]);
-    // gpCasa/gpFora alimentam só o badge curto "marcou 1º/sofreu 1º" de
-    // _live2SeqBadgeHtml — o painel expandido "Estatísticas de gol" que
-    // existia aqui (minuto médio do 1º gol, Mais/Menos gols, Faixas de
-    // gols, Vencedor após X minutos etc., adicionado 2026-09-13) foi
-    // removido a pedido do usuário no mesmo dia (_live2GoalPatternHtml e o
-    // cálculo de csCasa/csFora/vencedor que só ele consumia).
-    seq.gpCasa = rowsCasa.length ? _jogoGoalPatternStats(rowsCasa) : null;
-    seq.gpFora = rowsFora.length ? _jogoGoalPatternStats(rowsFora) : null;
+    // Sequências de "quem marcou o 1º gol" (antes era um selo de percentual
+    // via _jogoGoalPatternStats; virou sequência em 2026-09-18).
+    seq.firstCasa        = _live2FirstGoalStreak(rowsCasa, true);
+    seq.firstFora        = _live2FirstGoalStreak(rowsFora, true);
+    seq.concedeFirstCasa = _live2FirstGoalStreak(rowsCasa, false);
+    seq.concedeFirstFora = _live2FirstGoalStreak(rowsFora, false);
     const seqEl = document.getElementById(`live2SeqBadge_${matchId}`);
     if (seqEl) seqEl.innerHTML = _live2SeqBadgeHtml(m, seq);
   } catch (e) { /* silencioso — bônus, não pode travar o resto do modal */ }
