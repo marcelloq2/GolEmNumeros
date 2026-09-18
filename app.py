@@ -4598,8 +4598,7 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 # Histórico de odds ao vivo acumulado durante o jogo (2026-09-14)
                 # — mesmo dict em memória que já alimenta o Price Lines sob
                 # demanda, só congela aqui no momento de salvar.
-                with _live_odds_history_lock:
-                    odds_hist = list(_live_odds_history.get(event_id, []))
+                odds_hist = _live_odds_history_for_teams(casa, fora)
 
                 # Histórico de estatísticas-chave ao vivo (2026-09-14) — mesmo
                 # espírito do odds_hist acima, congela o que já estava em
@@ -8979,6 +8978,22 @@ _LIVE_ODDS_HISTORY_MAX_POINTS = 500   # 500 * 30s ≈ 4h10 — folga generosa at
 _LIVE_ODDS_HISTORY_MAX_AGE = 3 * 3600  # partidas encerradas há mais de 3h saem do cache
 _live_odds_history = {}    # event_id -> deque de pontos {ts, minuto, casa, empate, fora, ou_line, ou_over, ou_under}
 _live_odds_history_lock = threading.Lock()
+# event_id (Flashscore) -> (home, away). O histórico acima é indexado pelo ID do
+# Flashscore, mas o salvamento da partida (auto-save em _process_momentum) só
+# conhece o ID do UniScore — sem esse dicionário de nomes, a busca nunca
+# achava nada e odds_history era gravado VAZIO em todo jogo (bug achado em
+# 2026-09-18: 0 de 127 arquivos desde 14/09 tinham o histórico).
+_live_odds_names = {}
+
+
+def _live_odds_history_for_teams(casa, fora):
+    """Histórico de odds ao vivo de uma partida achada pelo NOME dos times
+    (ponte entre o ID do UniScore e o do Flashscore). Vazio se não achar."""
+    with _live_odds_history_lock:
+        for eid, (h, a) in _live_odds_names.items():
+            if _name_match(casa or "", h or "") and _name_match(fora or "", a or ""):
+                return list(_live_odds_history.get(eid, []))
+    return []
 
 
 def _live_odds_history_point(d, ts, kickoff_ts):
@@ -9022,6 +9037,7 @@ def _live_odds_history_prune():
              if not pts or now - pts[-1]["ts"] > _LIVE_ODDS_HISTORY_MAX_AGE]
     for eid in stale:
         _live_odds_history.pop(eid, None)
+        _live_odds_names.pop(eid, None)
 
 
 def _live_odds_prewarm_loop():
@@ -9034,6 +9050,7 @@ def _live_odds_prewarm_loop():
             fs_matches = _fs_all_matches_brt(_brt_today())
             live_ids = [m["id"] for m in fs_matches if m.get("status") == "2" and m.get("id")]
             kickoff_by_id = {m["id"]: m.get("kickoff_ts") for m in fs_matches}
+            names_by_id = {m["id"]: (m.get("home"), m.get("away")) for m in fs_matches}
 
             def _fetch(eid):
                 try:
@@ -9056,6 +9073,7 @@ def _live_odds_prewarm_loop():
                     if eid not in _live_odds_history:
                         _live_odds_history[eid] = deque(maxlen=_LIVE_ODDS_HISTORY_MAX_POINTS)
                     _live_odds_history[eid].append(ponto)
+                    _live_odds_names[eid] = names_by_id.get(eid) or ("", "")
                 _live_odds_history_prune()
         except Exception as e:
             print(f"[live-odds-prewarm] Erro: {e}")
