@@ -1222,55 +1222,68 @@
      os outros modais que reaproveitam o mesmo overlay continuam no
      max-width padrão. */
   .painel-modal-box-wide { max-width: min(760px, 94vw) !important; }
-  .live-prox-row {
-    display: grid; grid-template-columns: 40px 1fr; gap: 2px 12px;
-    padding: 10px 6px; border-bottom: 1px solid var(--border);
+  /* Redesenhado como cards empilhados, mobile-first (2026-09-18, pedido do
+     usuário: "está tudo bagunçado... quero estilo mobile ícones grandes e
+     organizados" — o grid horizontal anterior forçava forma+ícones+gols na
+     MESMA linha do nome, e numa tela estreita (celular) isso sobrava tão
+     pouco espaço pro nome que ele truncava em 1-2 letras ("AL", "M...").
+     Agora cada time é uma linha alta (nome com espaço de verdade) e forma +
+     ícones de poder ficam numa SUB-linha por baixo, nunca competindo com o
+     nome pela mesma largura. */
+  .live-prox-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
   }
-  .live-prox-row:last-child { border-bottom: none; }
+  .live-prox-card:last-child { margin-bottom: 0; }
+  .live-prox-card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
   .live-prox-time {
-    grid-row: 1 / 3; align-self: center;
-    font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text2); text-align: center;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: var(--accent2);
   }
-  .live-prox-teams { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-  .live-prox-h2h-row { display: flex; justify-content: flex-end; min-height: 13px; }
+  .live-prox-liga {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 10px; color: var(--text2); text-align: right;
+  }
   .live-prox-team {
-    display: grid; grid-template-columns: 1fr 34px 58px 52px; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 10px; padding: 4px 0;
   }
+  .live-prox-team > img { width: 26px; height: 26px; flex-shrink: 0; border-radius: 4px; }
+  .live-prox-team-main {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;
+  }
+  .live-prox-team-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .live-prox-team-name {
-    min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 12.5px; font-weight: 600;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text); font-family: var(--font-condensed); text-transform: uppercase; font-size: 15px; font-weight: 700;
   }
-  .live-prox-team-name img { width: 18px; height: 18px; flex-shrink: 0; }
-  /* Posição na tabela (#3) dentro do nome do time (2026-09-17) — mesma
-     pílula .painel-team-pos do Painel Principal, só encolhida via
-     !important pra não estourar a linha condensada do widget. */
-  .live-prox-team-name .painel-team-pos { font-size: 9px !important; padding: 1px 5px !important; }
-  .live-prox-goals {
-    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--text2); flex-shrink: 0;
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; text-align: center;
-  }
-  /* Ícones Ataque/Defesa (Power Ranking) no widget Próximos Jogos
-     (2026-09-17) — reaproveita _painelPowerIconCell/.painel-power-icon do
-     Painel Principal, só com fonte um pouco menor pra caber na coluna
-     estreita ao lado da forma. */
-  .live-prox-team .painel-power-icon { font-size: 11px !important; }
-  .live-prox-odds-row { display: flex; justify-content: flex-end; margin-top: 2px; }
-  .live-prox-odds-row .painel-1x2-group { font-size: 10.5px; }
-  /* Forma recente (últimos 5 jogos) e confronto direto no widget "Próximos
-     Jogos" (2026-09-14, pedido do usuário) — reaproveitam 100% a mesma busca
-     H2H por nome já usada no Ao Vivo (_live2AutoLoadForms, endpoint
-     /api/flashscore/h2h), zero rota nova. As bolinhas de forma são as MESMAS
-     que _live2FormRowHtml já gera pro Ao Vivo (18px), encolhidas aqui via
-     !important pra caber na coluna de forma (evita ter que forkar a função
-     só por causa do tamanho). Somem por completo (:empty) enquanto a busca
-     ainda não voltou. */
-  .live-prox-forma { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  /* Posição na tabela (#3) — mesma pílula .painel-team-pos do Painel
+     Principal, tamanho normal (cabe de sobra agora que tem a própria linha). */
+  .live-prox-team-name-row .painel-team-pos { flex-shrink: 0; }
+  .live-prox-team-sub { display: flex; align-items: center; gap: 8px; min-height: 16px; }
+  /* Forma recente (últimos 5 jogos) e confronto direto (2026-09-14) —
+     reaproveitam 100% a mesma busca H2H por nome já usada no Ao Vivo
+     (_live2AutoLoadForms, endpoint /api/flashscore/h2h), zero rota nova.
+     Bolinhas em tamanho de leitura confortável (16px) — cabem de sobra na
+     sub-linha própria, sem precisar encolher feito no layout antigo. */
+  .live-prox-forma { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
   .live-prox-forma:empty { display: none; }
-  .live-prox-forma span { width: 12px !important; height: 12px !important; font-size: 7px !important; }
+  .live-prox-forma span { width: 16px !important; height: 16px !important; font-size: 9px !important; }
+  /* Ícones Ataque/Defesa (Power Ranking) — reaproveita _painelPowerIconCell/
+     .painel-power-icon do Painel Principal, tamanho normal. */
+  .live-prox-team-sub .painel-power-icon { font-size: 13px; }
+  .live-prox-goals {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text2); flex-shrink: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
+  }
+  .live-prox-h2h-row { display: flex; justify-content: center; margin: 2px 0; }
   .live-prox-h2h {
-    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text2);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text2);
   }
   .live-prox-h2h:empty { display: none; }
+  .live-prox-odds-row { display: flex; justify-content: center; margin-top: 8px; }
+  .live-prox-odds-row .painel-1x2-group { font-size: 12px; gap: 12px; }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
     padding: 8px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -3661,25 +3674,35 @@ function _live2ProximoRowHtml(m) {
   // sumido tudo quando a pílula desaparecia por completo).
   const oddCell = (label, val, cls) => `<span class="painel-1x2-cell${cls ? ' ' + cls : ''}"><b>${label}</b> ${val ?? '-'}</span>`;
   const odds1x2Html = `<span class="painel-1x2-group">${oddCell('1', m.odd_1, 'home')}${oddCell('X', m.odd_x, '')}${oddCell('2', m.odd_2, 'away')}</span>`;
-  return `
-    <div class="live-prox-row" title="${_bt2EscXml(m._liga || '')}">
-      <span class="live-prox-time">${hora}</span>
-      <div class="live-prox-teams">
-        <div class="live-prox-h2h-row"><span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span></div>
-        <div class="live-prox-team">
-          <span class="live-prox-team-name">${_today2EscudoImg(m.home_logo, 18)}${_bt2EscXml(m.home)}${posCell(m.casa_pos)}</span>
-          <span id="live2FormWrapCasa_${m.event_id}" class="live-prox-forma">${formaCasaHtml}</span>
-          ${_painelPowerIconCell(m.casa_ataque_icon, m.home, 'Ataque (casa)')}${_painelPowerIconCell(m.casa_defesa_icon, m.home, 'Defesa (casa)')}
-          ${golsCell(m.casa_gf_avg, m.casa_ga_avg)}
+  // Cada time é seu próprio card empilhado (2026-09-18, redesenho mobile) —
+  // escudo + nome + posição numa linha alta (nome tem espaço de verdade,
+  // nunca mais compete por largura com forma/ícones/gols), forma + ícones
+  // de poder numa sub-linha por baixo, gols na ponta direita.
+  const teamRow = (logo, nome, pos, formWrapId, formaHtml, atkIcon, defIcon, gf, ga, label) => `
+    <div class="live-prox-team">
+      ${_today2EscudoImg(logo, 26)}
+      <div class="live-prox-team-main">
+        <div class="live-prox-team-name-row">
+          <span class="live-prox-team-name">${_bt2EscXml(nome)}</span>
+          ${posCell(pos)}
         </div>
-        <div class="live-prox-team">
-          <span class="live-prox-team-name">${_today2EscudoImg(m.away_logo, 18)}${_bt2EscXml(m.away)}${posCell(m.fora_pos)}</span>
-          <span id="live2FormWrapFora_${m.event_id}" class="live-prox-forma">${formaForaHtml}</span>
-          ${_painelPowerIconCell(m.fora_ataque_icon, m.away, 'Ataque (visitante)')}${_painelPowerIconCell(m.fora_defesa_icon, m.away, 'Defesa (visitante)')}
-          ${golsCell(m.fora_gf_avg, m.fora_ga_avg)}
+        <div class="live-prox-team-sub">
+          <span id="${formWrapId}" class="live-prox-forma">${formaHtml}</span>
+          ${_painelPowerIconCell(atkIcon, nome, `Ataque (${label})`)}${_painelPowerIconCell(defIcon, nome, `Defesa (${label})`)}
         </div>
-        <div class="live-prox-odds-row">${odds1x2Html}</div>
       </div>
+      ${golsCell(gf, ga)}
+    </div>`;
+  return `
+    <div class="live-prox-card" title="${_bt2EscXml(m._liga || '')}">
+      <div class="live-prox-card-head">
+        <span class="live-prox-time">${hora}</span>
+        <span class="live-prox-liga">${_bt2EscXml(m._liga || '')}</span>
+      </div>
+      <div class="live-prox-h2h-row"><span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span></div>
+      ${teamRow(m.home_logo, m.home, m.casa_pos, `live2FormWrapCasa_${m.event_id}`, formaCasaHtml, m.casa_ataque_icon, m.casa_defesa_icon, m.casa_gf_avg, m.casa_ga_avg, 'casa')}
+      ${teamRow(m.away_logo, m.away, m.fora_pos, `live2FormWrapFora_${m.event_id}`, formaForaHtml, m.fora_ataque_icon, m.fora_defesa_icon, m.fora_gf_avg, m.fora_ga_avg, 'visitante')}
+      <div class="live-prox-odds-row">${odds1x2Html}</div>
     </div>`;
 }
 
