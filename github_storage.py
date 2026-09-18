@@ -259,6 +259,9 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
             print("[github] ⚠ Não deu pra confirmar a restauração de backtest2.db — "
                   "pushes desse arquivo ficam BLOQUEADOS até o próximo boot bem-sucedido, "
                   "pra não arriscar sobrescrever o backup bom no GitHub com um estado ruim.")
+        # Favoritos com alerta de Telegram (15 min antes do jogo) — sem isso cada
+        # redeploy apagava os favoritos e o aviso nunca saía.
+        pull_file("telegram_favoritos.json", os.path.join(data_dir, "telegram_favoritos.json"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)

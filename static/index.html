@@ -3546,6 +3546,13 @@ async function _live2FetchAndRenderProximos(silent) {
     const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
     const mostrados = proximos.slice(0, TETO);
     mostrados.forEach(m => { _proximosById[m.event_id] = m; });
+    Object.keys(_proximosPinned).forEach(id => {
+      const f = _proximosPinned[id];
+      if (!_proximosSincronizados.has(id) && (f.ts || 0) > Date.now() / 1000) {
+        _proximosSincronizados.add(id);
+        _proximosSyncServidor(id, 'add', f);
+      }
+    });
     body.innerHTML = mostrados.map(_live2ProximoRowHtml).join('') + nota;
     // Forma recente + confronto direto (2026-09-14, pedido do usuário: "3,4"
     // da lista de estatísticas sugeridas) — reaproveita _live2AutoLoadForms,
@@ -3579,14 +3586,31 @@ function _proximosSavePinned() {
   try { localStorage.setItem('pinnedProximos', JSON.stringify(_proximosPinned)); } catch (e) {}
 }
 
+// Manda o favorito pro servidor, que avisa no Telegram 15min antes do jogo
+// (o aviso tem que sair mesmo com o site fechado, então não dá pra ficar só
+// no localStorage). Falha de rede é silenciosa: o favorito local continua valendo.
+function _proximosSyncServidor(eventId, acao, f) {
+  const corpo = acao === 'remove'
+    ? { action: 'remove', event_id: eventId }
+    : { action: 'add', event_id: eventId, home: f.home, away: f.away, liga: f.liga || '', ts: f.ts || 0 };
+  fetch('/api/favoritos/proximos', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
+  }).catch(() => {});
+}
+let _proximosSincronizados = new Set();  // 1x por sessão: reenvia favoritos feitos antes do alerta existir
+
 function toggleProximoPin(eventId) {
   eventId = String(eventId);
   if (_proximosPinned[eventId]) {
     delete _proximosPinned[eventId];
+    _proximosSincronizados.delete(eventId);
+    _proximosSyncServidor(eventId, 'remove');
   } else {
     const m = _proximosById[eventId];
     if (!m) return;
-    _proximosPinned[eventId] = { home: m.home, away: m.away, ts: m.ts || 0 };
+    _proximosPinned[eventId] = { home: m.home, away: m.away, liga: m._liga || '', ts: m.ts || 0 };
+    _proximosSincronizados.add(eventId);
+    _proximosSyncServidor(eventId, 'add', _proximosPinned[eventId]);
   }
   _proximosSavePinned();
   const el = document.getElementById(`proxPin_${eventId}`);

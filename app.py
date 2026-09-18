@@ -12110,6 +12110,159 @@ def api_telegram_send_now():
     return jsonify({"ok": True})
 
 
+# ── Alerta de Telegram 15 min antes do jogo favoritado (2026-09-18) ──────────
+# Pedido do usuário: favoritou um jogo em "Próximos Jogos" → avisa no Telegram
+# quando faltar 15 minutos pro início. Não acompanha jogo ao vivo nem faz
+# nenhuma busca externa: só compara o horário de início (que o site manda junto
+# com o favorito) com o relógio, a cada 30s — custo praticamente zero.
+# O favorito vive no SERVIDOR (arquivo sincronizado com o GitHub, sobrevive a
+# deploy) porque o site guarda os favoritos só no localStorage do navegador e o
+# aviso tem que sair mesmo com o site fechado.
+# Token/chat do bot: variáveis TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID no Railway
+# (nunca no código). Cai pro telegram_config.json antigo se elas não existirem.
+FAV_ALERTA_FILE = os.path.join(DATA_DIR, "telegram_favoritos.json")
+_FAV_ALERTA_ANTECEDENCIA = 15 * 60
+_fav_alerta_lock = threading.Lock()
+
+
+def _tg_creds():
+    cfg = _tg_load_config()
+    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or cfg.get("token") or "").strip()
+    chat = str(os.environ.get("TELEGRAM_CHAT_ID") or cfg.get("chat_id") or "").strip()
+    return token, chat
+
+
+def _fav_alerta_load():
+    try:
+        with open(FAV_ALERTA_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _fav_alerta_save(favs):
+    with open(FAV_ALERTA_FILE, "w", encoding="utf-8") as f:
+        json.dump(favs, f, ensure_ascii=False)
+    github_storage.push_file_bg(FAV_ALERTA_FILE, "telegram_favoritos.json")
+
+
+def _fav_alerta_msg(f, falta):
+    import html as _html
+    from datetime import timezone
+    brt = timezone(timedelta(hours=-3))
+    hora = datetime.fromtimestamp(f["ts"], tz=brt).strftime("%H:%M")
+    minutos = max(1, round(falta / 60))
+    linhas = [f"⏰ <b>Falta {minutos} min</b> — começa às {hora}",
+              f"⚽ <b>{_html.escape(f.get('home') or '?')} × {_html.escape(f.get('away') or '?')}</b>"]
+    if f.get("liga"):
+        linhas.append(f"🏆 {_html.escape(f['liga'])}")
+    return "\n".join(linhas)
+
+
+def _fav_alerta_tick():
+    now = time.time()
+    devidos = []   # [(event_id, mensagem)]
+    with _fav_alerta_lock:
+        favs = _fav_alerta_load()
+        if not favs:
+            return
+        mudou = False
+        for eid, f in list(favs.items()):
+            falta = (f.get("ts") or 0) - now
+            if f.get("alertado"):
+                if falta < -3 * 3600:      # já avisado e o jogo já passou: limpa
+                    del favs[eid]; mudou = True
+                continue
+            if falta <= 0:                  # começou sem aviso (servidor fora do ar, etc)
+                del favs[eid]; mudou = True
+            elif falta <= _FAV_ALERTA_ANTECEDENCIA:
+                devidos.append((eid, _fav_alerta_msg(f, falta)))
+        if mudou:
+            _fav_alerta_save(favs)
+    if not devidos:
+        return
+    token, chat = _tg_creds()
+    if not token or not chat:
+        return                              # bot ainda não configurado: tenta de novo no próximo ciclo
+    enviados = []
+    for eid, msg in devidos:
+        try:
+            if _tg_send_message(token, chat, msg).get("ok"):
+                enviados.append(eid)
+            else:
+                print(f"[fav-alerta] Telegram recusou o aviso do jogo {eid}")
+        except Exception as e:
+            print(f"[fav-alerta] Erro enviando aviso do jogo {eid}: {e}")
+    if enviados:
+        with _fav_alerta_lock:
+            favs = _fav_alerta_load()
+            for eid in enviados:
+                if eid in favs:
+                    favs[eid]["alertado"] = True
+            _fav_alerta_save(favs)
+        print(f"[fav-alerta] {len(enviados)} aviso(s) de 15min enviado(s)")
+
+
+def _fav_alerta_loop():
+    _github_sync_done.wait(timeout=120)   # espera restaurar o arquivo do GitHub antes do 1º ciclo
+    while True:
+        try:
+            _fav_alerta_tick()
+        except Exception as e:
+            print(f"[fav-alerta] {e}")
+        time.sleep(30)
+
+
+threading.Thread(target=_fav_alerta_loop, daemon=True, name="FavAlerta15min").start()
+
+
+@app.route("/api/favoritos/proximos", methods=["POST"])
+def api_favoritos_proximos():
+    """O site avisa quando o usuário favorita/desfavorita um jogo em Próximos
+    Jogos. Idempotente: adicionar 2x o mesmo jogo não duplica nem reenvia aviso."""
+    d = request.get_json(silent=True) or {}
+    eid = str(d.get("event_id") or "").strip()
+    if not eid or len(eid) > 64:
+        return jsonify({"ok": False, "error": "event_id inválido"}), 400
+    with _fav_alerta_lock:
+        favs = _fav_alerta_load()
+        if d.get("action") == "remove":
+            if favs.pop(eid, None) is not None:
+                _fav_alerta_save(favs)
+            return jsonify({"ok": True})
+        try:
+            ts = int(d.get("ts") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "ts inválido"}), 400
+        if ts <= time.time():
+            return jsonify({"ok": True, "ignorado": "jogo já começou"})
+        atual = favs.get(eid, {})
+        favs[eid] = {
+            "home": str(d.get("home") or "")[:120], "away": str(d.get("away") or "")[:120],
+            "liga": str(d.get("liga") or "")[:160], "ts": ts,
+            "alertado": bool(atual.get("alertado")) and atual.get("ts") == ts,
+        }
+        _fav_alerta_save(favs)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/telegram/teste")
+def api_telegram_teste():
+    """Manda uma mensagem de teste pro grupo — confere se token/chat_id estão certos."""
+    token, chat = _tg_creds()
+    faltam = [n for n, v in (("TELEGRAM_BOT_TOKEN", token), ("TELEGRAM_CHAT_ID", chat)) if not v]
+    if faltam:
+        return jsonify({"ok": False, "error": "faltam variáveis: " + ", ".join(faltam)}), 400
+    try:
+        res = _tg_send_message(token, chat, "✅ <b>Gol em Números</b>: alertas de 15 min conectados.")
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"falha de rede: {type(e).__name__}"}), 502
+    if res.get("ok"):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": res.get("description") or "Telegram recusou"}), 400
+
+
 # ── Diário de operações (2026-09-15) ─────────────────────────────────────────
 # O usuário disse que o maior inimigo dele não é técnico, é o emocional: perde
 # a consistência, entra em tilt depois de um red e não enxerga o próprio
