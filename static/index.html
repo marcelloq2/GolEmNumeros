@@ -12741,6 +12741,19 @@ function renderLive2Card(m) {
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
           title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
+        <!-- Links RadarFutebol/Betfair Exchange/Bolsa de Aposta (2026-09-18,
+             pedido do usuário: "clicar no jogo pra apostar" — já existiam no
+             rodapé do card, movidos pro topo por serem pouco visíveis lá.
+             Cobertura parcial por natureza (só jogos que o próprio
+             RadarFutebol rastreia com esses links prontos, ver
+             _get_radar_futebol_links em app.py) — some sozinho quando não
+             tem nenhum dos 3. -->
+        ${(m.link_radar || m.link_betfair || m.link_bolsa) ? `
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;gap:3px">
+          ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
+          ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
+          ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
+        </span>` : ''}
       </div>
       <div class="live-card-body">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
@@ -12811,15 +12824,6 @@ function renderLive2Card(m) {
         <button class="live-card-cta live-card-cta-alt" title="Mapa de chutes ao vivo" onclick="_live2OpenShotmapModal('${m.id}')">${_icoBall()} Mapa de Chutes</button>
         <button class="live-card-cta live-card-cta-alt" title="Média móvel das odds ao vivo (estilo Price Lines) — só carrega quando você abre" onclick="_live2OpenPriceLinesModal('${m.id}')">${_icoTrend()} Price Lines</button>
         <button class="live-card-cta live-card-cta-alt" title="Confronto direto e últimos 5 jogos de cada time" onclick="_live2OpenH2hModal('${m.id}')">${_icoBall()} Confronto</button>
-      </div>
-      <div class="live-card-tabs live-card-tabs-narrow" id="live2Tabs_${m.id}">
-        <!-- Botões "CD / Dados" (_live2OpenUniscoreCDModal) e "🎯 Placar"
-             (_live2OpenProbModal) removidos a pedido do usuário (2026-09-01)
-             — os modais continuam existindo no código, só sem esse ponto de
-             entrada na UI. -->
-        ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" style="flex:0 0 auto" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
-        ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" style="flex:0 0 auto" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
-        ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" style="flex:0 0 auto" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
       </div>
     </div>`;
 }
