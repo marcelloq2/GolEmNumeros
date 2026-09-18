@@ -1657,7 +1657,6 @@
   .painel-plat-icon:hover { filter: brightness(1.15); transform: scale(1.08); }
   .painel-plat-betfair { background: #ffb80c; color: #05262b; }
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
-  .painel-plat-radar { background: #2f9e8f; color: #fff; }
   .painel-match-minute { color: var(--red); font-weight: 700; font-size: var(--text-sm); }
   /* Faixa lateral pulsante nos jogos AO VIVO — referência de "no ar" de
      transmissão, pra diferenciar da massa de jogos agendados/encerrados em
@@ -7069,7 +7068,6 @@ function _painelMatchRowHtml(m, leagueName) {
             ${_painelPowerIconCell(m.fora_defesa_icon, m.away, 'Defesa (visitante)')}
           </span>
           <span class="painel-plat-icons">
-            ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
             ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
             ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
           </span>
@@ -12717,16 +12715,15 @@ function renderLive2Card(m) {
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
           title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>
-        <!-- Links RadarFutebol/Betfair Exchange/Bolsa de Aposta (2026-09-18,
-             pedido do usuário: "clicar no jogo pra apostar" — já existiam no
-             rodapé do card, movidos pro topo por serem pouco visíveis lá.
-             Cobertura parcial por natureza (só jogos que o próprio
-             RadarFutebol rastreia com esses links prontos, ver
-             _get_radar_futebol_links em app.py) — some sozinho quando não
-             tem nenhum dos 3. -->
-        ${(m.link_radar || m.link_betfair || m.link_bolsa) ? `
+        <!-- Links Betfair Exchange/Bolsa de Aposta (2026-09-18, pedido do
+             usuário: "clicar no jogo pra apostar" — já existiam no rodapé do
+             card, movidos pro topo por serem pouco visíveis lá. Link do
+             RadarFutebol removido a pedido do usuário (2026-09-18). Cobertura
+             parcial por natureza (só jogos que o próprio RadarFutebol
+             rastreia com esses links prontos, ver _get_radar_futebol_links
+             em app.py) — some sozinho quando não tem nenhum dos 2. -->
+        ${(m.link_betfair || m.link_bolsa) ? `
         <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;gap:3px">
-          ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Ver no RadarFutebol" onclick="event.stopPropagation()">R</a>` : ''}
           ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange" onclick="event.stopPropagation()">B</a>` : ''}
           ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta" onclick="event.stopPropagation()">$</a>` : ''}
         </span>` : ''}
