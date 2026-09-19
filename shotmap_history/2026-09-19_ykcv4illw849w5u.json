@@ -1,0 +1,267 @@
+{
+  "event_id": "ykcv4illw849w5u",
+  "date": "2026-09-19",
+  "casa": "Paris FC",
+  "fora": "Strasbourg",
+  "liga": "Ligue 1",
+  "score": {
+    "home": 2,
+    "away": 1
+  },
+  "total_shots": 23,
+  "shotmap": [
+    {
+      "id": "2972198879",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Doukoure",
+      "x": 19.3,
+      "y": 43.6
+    },
+    {
+      "id": "2972187111",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "own_goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Mbow",
+      "x": 96,
+      "y": 48.6
+    },
+    {
+      "id": "2972176879",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Ameyaw",
+      "x": 3.8,
+      "y": 67
+    },
+    {
+      "id": "2972170607",
+      "minute": 74,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Matondo",
+      "x": 32.1,
+      "y": 56.4
+    },
+    {
+      "id": "2972156473",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Koleosho",
+      "x": 14.1,
+      "y": 31.6
+    },
+    {
+      "id": "2972155829",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Koleosho",
+      "x": 10.9,
+      "y": 44.1
+    },
+    {
+      "id": "2972145113",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Pagis",
+      "x": 13.3,
+      "y": 47.6
+    },
+    {
+      "id": "2972142089",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "El Mourabet",
+      "x": 15.5,
+      "y": 46.9
+    },
+    {
+      "id": "2972139933",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Mitchell",
+      "x": 28.5,
+      "y": 61.8
+    },
+    {
+      "id": "2972134027",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Nanasi",
+      "x": 7.8,
+      "y": 37.6
+    },
+    {
+      "id": "2972131375",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Koleosho",
+      "x": 13.2,
+      "y": 21.4
+    },
+    {
+      "id": "2972131301",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Pagis",
+      "x": 8.9,
+      "y": 35.5
+    },
+    {
+      "id": "2972088521",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.López",
+      "x": 29.3,
+      "y": 50.1
+    },
+    {
+      "id": "2972088427",
+      "minute": 34,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Sinayoko",
+      "x": 15.3,
+      "y": 47.7
+    },
+    {
+      "id": "2972083677",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Sinayoko",
+      "x": 15.2,
+      "y": 69.9
+    },
+    {
+      "id": "2972051601",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Kebbal",
+      "x": 16.2,
+      "y": 64.8
+    },
+    {
+      "id": "2972048485",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Sinayoko",
+      "x": 12.9,
+      "y": 56.1
+    },
+    {
+      "id": "2972048053",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Sinayoko",
+      "x": 14.4,
+      "y": 60.8
+    },
+    {
+      "id": "2972036083",
+      "minute": 10,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.López",
+      "x": 29.5,
+      "y": 64.3
+    },
+    {
+      "id": "2972033331",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Melou",
+      "x": 31.8,
+      "y": 49.6
+    },
+    {
+      "id": "2972031011",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Koleosho",
+      "x": 7.4,
+      "y": 37
+    },
+    {
+      "id": "2972026517",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Kebbal",
+      "x": 21.9,
+      "y": 74.8
+    },
+    {
+      "id": "2972025545",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sinayoko",
+      "x": 11.3,
+      "y": 58.5
+    }
+  ]
+}
