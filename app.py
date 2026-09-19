@@ -1867,19 +1867,10 @@ def _painel_shift_prewarm_sweep(window_start_brt, window_end_brt):
           f"{window_end_brt.strftime('%H:%M')}: {len(candidatos)} jogo(s) — "
           f"buscando odds 1X2 e Power Ranking")
 
-    def _fetch_odds_one(m):
-        try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(
-                m["id"], pool=_bt2_matches_market_pool, markets_wanted=["1x2"])
-            return m["id"], markets
-        except Exception:
-            return m["id"], None
-
-    for eid, markets in _bt2_matches_pool.map(_fetch_odds_one, candidatos):
-        if markets:
-            with _painel_shift_odds_lock:
-                _painel_shift_odds_cache[eid] = markets
-
+    # Ordem (2026-09-19): primeiro o Power Ranking (posição, média de gols e ícones,
+    # ~1 requisição por liga) e SÓ DEPOIS as odds 1X2 de cada jogo (centenas de
+    # requisições). Assim, logo após um restart, posição/gols voltam em ~1 min em vez
+    # de esperar as odds da janela inteira terminarem.
     reps_by_league = {}
     for m in candidatos:
         lk = f"{m.get('pais', '')}|{m.get('liga', '')}"
@@ -1907,6 +1898,19 @@ def _painel_shift_prewarm_sweep(window_start_brt, window_end_brt):
             snapshot = dict(_painel_power_cache)
         _save_painel_power_cache(snapshot)
         github_storage.push_file_bg(_PAINEL_POWER_CACHE_FILE, ".painel_power_cache.json")
+
+    def _fetch_odds_one(m):
+        try:
+            _, markets = _fs_odds_all_markets_any_bookmaker(
+                m["id"], pool=_bt2_matches_market_pool, markets_wanted=["1x2"])
+            return m["id"], markets
+        except Exception:
+            return m["id"], None
+
+    for eid, markets in _bt2_matches_pool.map(_fetch_odds_one, candidatos):
+        if markets:
+            with _painel_shift_odds_lock:
+                _painel_shift_odds_cache[eid] = markets
 
     print(f"[painel-shift-prewarm] Turno concluído: {len(candidatos)} jogo(s), "
           f"{total} time(s) com Power Ranking atualizado")
@@ -8931,7 +8935,16 @@ def _today2_odds_snapshot(force=False):
             markets = {}
         return m, markets
 
-    snapshot = list(_bt2_matches_pool.map(_fetch_one, candidatos))
+    # Publica em LOTES de 20 (2026-09-19): antes o cache só era gravado depois de
+    # TODOS os jogos (cerca de 3 min em cache frio, ex: logo após um deploy), então
+    # os Próximos Jogos ficavam sem odds esse tempo todo. Agora cada lote já fica
+    # visível; o que existia do ciclo anterior continua valendo até ser refeito.
+    antigo = list(_today2_odds_snapshot_cache["data"] or [])
+    snapshot = []
+    for i in range(0, len(candidatos), 20):
+        snapshot.extend(_bt2_matches_pool.map(_fetch_one, candidatos[i:i + 20]))
+        vistos = {m["id"] for m, _ in snapshot}
+        _today2_odds_snapshot_cache["data"] = snapshot + [x for x in antigo if x[0]["id"] not in vistos]
     _today2_odds_snapshot_cache["ts"] = now
     _today2_odds_snapshot_cache["data"] = snapshot
     return snapshot
