@@ -4814,6 +4814,34 @@ def api_radar_momentum(event_id):
     return jsonify(data)
 
 
+# Último mapa de chutes bom de cada jogo (2026-09-19). O Ao Vivo só mostra jogo
+# com chute > 0, e essa rota devolvia shots=[] em qualquer falha do UniScore
+# (429, timeout, resposta sem dados) — o site entendia "jogo sem chutes" e
+# escondia TODOS os cards de uma vez até a próxima varredura dar certo (era o
+# "os jogos aparecem, ficam uns minutos e somem todos"). Chutes de um jogo só
+# crescem, então numa falha vale servir o último resultado bom.
+_shotmap_api_last = {}   # event_id -> {"ts":, "shots":}
+_shotmap_api_lock = threading.Lock()
+_SHOTMAP_API_MAX_AGE = 4 * 3600
+
+
+def _shotmap_api_remember(event_id, shots):
+    now = time.time()
+    with _shotmap_api_lock:
+        _shotmap_api_last[event_id] = {"ts": now, "shots": shots}
+        if len(_shotmap_api_last) > 600:
+            for k in [k for k, v in _shotmap_api_last.items() if now - v["ts"] > _SHOTMAP_API_MAX_AGE]:
+                _shotmap_api_last.pop(k, None)
+
+
+def _shotmap_api_fallback(event_id):
+    with _shotmap_api_lock:
+        v = _shotmap_api_last.get(event_id)
+    if v and v["shots"] and time.time() - v["ts"] < _SHOTMAP_API_MAX_AGE:
+        return jsonify({"ok": True, "shots": v["shots"], "source": "cache"})
+    return None
+
+
 @app.route("/api/radar/shotmap/<event_id>")
 def api_shotmap(event_id):
     """Retorna mapa de chutes via UniScore para uma partida.
@@ -4848,7 +4876,9 @@ def api_shotmap(event_id):
             headers=_UNISCORE_HEADERS, timeout=12,
         )
         if rsm.status_code == 200:
-            raw = rsm.json().get("data", {}).get("shotmap", [])
+            # "shotmap" vem null (não lista) em jogo sem mapa de chutes — o `or []`
+            # evita o TypeError "'NoneType' object is not iterable" dos logs.
+            raw = ((rsm.json().get("data") or {}).get("shotmap")) or []
             shots = [
                 {
                     "id":        s.get("id"),
@@ -4863,11 +4893,19 @@ def api_shotmap(event_id):
                 }
                 for s in raw
             ]
-            return jsonify({"ok": True, "shots": shots, "source": "live"})
+            if shots:
+                _shotmap_api_remember(event_id, shots)
+                return jsonify({"ok": True, "shots": shots, "source": "live"})
+            # Lista vazia: pode ser jogo sem chutes ainda, ou resposta ruim da fonte
+            fb = _shotmap_api_fallback(event_id)
+            return fb if fb is not None else jsonify({"ok": True, "shots": [], "source": "live"})
     except Exception as e:
         print(f"[shotmap] Erro: {e}")
 
-    return jsonify({"ok": False, "shots": [], "source": "none"}), 200
+    # Falha real (429/timeout/erro): serve o último bom; senão avisa ok=False pro
+    # site NÃO tratar como "jogo sem chutes".
+    fb = _shotmap_api_fallback(event_id)
+    return fb if fb is not None else (jsonify({"ok": False, "shots": [], "source": "none"}), 200)
 
 
 def _momentum_detect_chance_spikes(points, chance_pct=0.8, over_pct=0.6):

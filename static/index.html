@@ -13999,12 +13999,18 @@ async function _loadLive2Shotmap(matches) {
             clearTimeout(timeoutId);
           }
           const data = await res.json();
+          // ok:false = a fonte falhou (429/timeout), NÃO "jogo sem chutes": ignora,
+          // mantém o que já se sabia — senão o card some até a próxima varredura.
+          if (data.ok === false) return null;
           return { m, shots: data.shots || [] };
         } catch (e) { return null; }
       }));
       for (const r of results) {
         if (!r) continue;
         const { m, shots } = r;
+        // Chutes só crescem: resposta com MENOS chutes do que já vimos é dado ruim
+        // da fonte, não jogo que "perdeu" chutes — não deixa o card sumir por isso.
+        if (shots.length < (_live2ShotsCountCache[m.id] || 0)) continue;
         const wasVisible = (_live2ShotsCountCache[m.id] || 0) > 0;
         const isVisible  = shots.length > 0;
         if (!wasVisible && isVisible) newlyVisible = true;
