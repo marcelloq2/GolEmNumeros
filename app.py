@@ -1199,9 +1199,29 @@ _RADAR_LINKS_HEADERS = {
 _RADAR_LINKS_TTL = 90  # feed muda pouco de um minuto pro outro, evita bater toda hora
 _radar_links_cache = {"ts": 0.0, "events": []}
 _radar_links_lock = threading.Lock()
+_radar_links_memo = {"events": None, "r": {}}
 
 
 def _get_radar_futebol_links():
+    """Só LÊ o cache dos links (Betfair/Bolsa). Quem atualiza é o _radar_links_loop,
+    em segundo plano. Antes, a requisição que achava o cache vencido (TTL 90s) fazia a
+    busca ela mesma — 10 a 22s com o servidor do RadarFutebol lento, sem nada
+    protegendo as demais requisições (Próximos Jogos e a lista do Ao Vivo ficavam
+    esperando, ou buscavam em paralelo) — medido em 2026-09-19: a 1ª chamada de
+    /api/painel/matches levava 25s, 22s só nisso."""
+    return _radar_links_cache["events"]
+
+
+def _radar_links_loop():
+    while True:
+        try:
+            _radar_links_atualiza()
+        except Exception as e:
+            print(f"[radar-links] loop: {e}")
+        time.sleep(_RADAR_LINKS_TTL)
+
+
+def _radar_links_atualiza():
     """Busca o feed público (SSE) do RadarFutebol e extrai, de cada partida,
     o link pronto pra Betfair Exchange e pra Bolsa de Aposta. Só lê a primeira
     linha 'data: {...}' do stream e fecha a conexão — não fica pendurado
@@ -1218,9 +1238,6 @@ def _get_radar_futebol_links():
     gunicorn ficaram presas nisso por horas). Agora `ts` marca a hora da
     ÚLTIMA TENTATIVA (sucesso ou falha), então uma falha só tenta de novo
     depois do TTL passar, nunca a cada chamada."""
-    with _radar_links_lock:
-        if time.time() - _radar_links_cache["ts"] < _RADAR_LINKS_TTL:
-            return _radar_links_cache["events"]
     try:
         r = http_req.get(_RADAR_LINKS_URL, headers=_RADAR_LINKS_HEADERS, stream=True, timeout=15)
         # O servidor não declara charset no Content-Type do SSE, então o requests
@@ -1297,15 +1314,27 @@ def _find_radar_links(home, away, ts=None):
     if not home or not away:
         return None, None, None
     events = _get_radar_futebol_links()
+    # Memo por (casa, fora, horário): o Painel refaz isso pra ~1800 jogos a cada
+    # minuto e o resultado só muda quando a lista de links é atualizada (objeto novo).
+    memo = _radar_links_memo
+    if memo["events"] is not events:
+        memo["events"], memo["r"] = events, {}
+    chave = (home, away, ts)
+    if chave in memo["r"]:
+        return memo["r"][chave]
     candidates = [ev for ev in events if _name_match(home, ev["home"]) and _name_match(away, ev["away"])]
     if not candidates:
-        return None, None, None
-    if len(candidates) > 1 and ts:
-        candidates.sort(key=lambda ev: abs((ev["ts"] or 0) - ts))
-        if abs((candidates[0]["ts"] or 0) - ts) > 3 * 3600:
-            return None, None, None
-    ev = candidates[0]
-    return ev.get("link_betfair"), ev.get("link_bolsa"), ev.get("link_radar")
+        res = (None, None, None)
+    else:
+        if len(candidates) > 1 and ts:
+            candidates.sort(key=lambda ev: abs((ev["ts"] or 0) - ts))
+        if len(candidates) > 1 and ts and abs((candidates[0]["ts"] or 0) - ts) > 3 * 3600:
+            res = (None, None, None)
+        else:
+            ev = candidates[0]
+            res = (ev.get("link_betfair"), ev.get("link_bolsa"), ev.get("link_radar"))
+    memo["r"][chave] = res
+    return res
 
 
 # ── Pré-carga de Força (versão leve) — enche o _ng_strength_cache sozinho, em
@@ -2217,7 +2246,41 @@ def _painel_fetch_matches_flashscore(force=False, date_str=None):
 def api_painel_matches():
     force = request.args.get("force") == "1"
     date_str = request.args.get("date") or None  # "YYYY-MM-DD"
-    return jsonify(_painel_fetch_matches_flashscore(force=force, date_str=date_str))
+    dados = _painel_fetch_matches_flashscore(force=force, date_str=date_str)
+    escopo = request.args.get("escopo")
+    if escopo not in ("ao_vivo", "proximos"):
+        return jsonify(dados)
+    # A resposta completa tem ~1800 jogos (1,5 MB). O Ao Vivo pedia ela inteira a
+    # cada 20s só pra achar as odds de ~30 cards, e os Próximos pra listar 40 jogos.
+    # Com "escopo" o servidor já devolve só o que a tela usa.
+    agora = time.time()
+    try:
+        limite = max(1, min(200, int(request.args.get("limite") or 60)))
+    except ValueError:
+        limite = 60
+
+    def _ts(m):
+        try:
+            return float(m.get("ts") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    todos = [(lg.get("league_name"), m) for lg in dados.get("leagues", []) for m in lg.get("matches", [])]
+    if escopo == "proximos":
+        sel = sorted((x for x in todos if x[1].get("time") == "Agendado" and _ts(x[1]) > agora), key=lambda x: _ts(x[1]))[:limite]
+    else:
+        # ao vivo agora + "Agendado" que já devia ter começado (últimas 3h) ou começa em
+        # 30 min: o status do Flashscore pode estar atrasado em relação ao UniScore,
+        # que manda no Ao Vivo. Encerrados ficam de fora (saem da lista do Ao Vivo).
+        sel = [x for x in todos if x[1].get("time") == "Ao vivo"
+               or (x[1].get("time") == "Agendado" and (agora - 3 * 3600) <= _ts(x[1]) <= (agora + 1800))]
+    por_liga = {}
+    for nome, m in sel:
+        por_liga.setdefault(nome, []).append(m)
+    out = {k: v for k, v in dados.items() if k != "leagues"}
+    out["leagues"] = [{"league_name": n, "matches": ms} for n, ms in por_liga.items()]
+    out["escopo"] = escopo
+    return jsonify(out)
 
 
 # ── Widget de análise — "Últimos resultados" de cada time (BetExplorer) ────────
@@ -10819,6 +10882,7 @@ def api_diario_apagar(op_id):
 # hora que ela acordou (o .wait() do _github_sync_done retorna quase na hora
 # quando GITHUB_TOKEN não está configurado, antes do resto do módulo terminar
 # de carregar).
+threading.Thread(target=_radar_links_loop, daemon=True, name="RadarLinksPrewarm").start()
 threading.Thread(target=_painel_odds_prewarm_loop, daemon=True, name="PainelOddsPrewarm").start()
 threading.Thread(target=_painel_ht_prewarm_loop, daemon=True, name="PainelHtPrewarm").start()
 threading.Thread(target=_live_odds_prewarm_loop, daemon=True, name="LiveOddsPrewarm").start()

@@ -3019,7 +3019,7 @@ async function _live2FetchAndRenderProximos(silent) {
   const body = document.getElementById('live2StatsModalBody');
   if (!silent) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
-    const r = await fetch('/api/painel/matches');
+    const r = await fetch('/api/painel/matches?escopo=proximos&limite=60');
     const data = await r.json();
     const now = Date.now() / 1000;
     const todos = (data.leagues || []).flatMap(lg => (lg.matches || []).map(m => ({ ...m, _liga: lg.league_name })));
@@ -9708,7 +9708,7 @@ let _live2PainelMatchCache = {};
 async function _loadLive2OddsLive(matches) {
   let painelMatches = [];
   try {
-    const r = await fetch('/api/painel/matches');
+    const r = await fetch('/api/painel/matches?escopo=ao_vivo');
     const d = await r.json();
     painelMatches = (d.leagues || []).flatMap(lg => lg.matches);
   } catch (e) { return; }
