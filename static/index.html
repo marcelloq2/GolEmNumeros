@@ -1265,6 +1265,12 @@
   }
   .live-prox-h2h:empty { display: none; }
   .live-prox-odds-row { display: flex; justify-content: center; margin-top: 8px; }
+  .live-prox-metodo {
+    display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 7px 10px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 12px; font-family: inherit;
+  }
+  .live-prox-metodo:focus { outline: none; border-color: var(--accent2); }
   .live-prox-odds-row .painel-1x2-group { font-size: 12px; gap: 12px; }
   .live-card-odds-row {
     display: flex; justify-content: space-around; align-items: center; gap: 4px;
@@ -3546,13 +3552,18 @@ async function _live2FetchAndRenderProximos(silent) {
     const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
     const mostrados = proximos.slice(0, TETO);
     mostrados.forEach(m => { _proximosById[m.event_id] = m; });
-    Object.keys(_proximosPinned).forEach(id => {
+    // Reenvia os favoritos ao servidor a cada atualização, com a foto atual do
+    // card (odds/forma mudam). Só os que estão nesta lista têm foto para mandar.
+    const reenviarFavoritos = () => Object.keys(_proximosPinned).forEach(id => {
       const f = _proximosPinned[id];
-      if (!_proximosSincronizados.has(id) && (f.ts || 0) > Date.now() / 1000) {
+      if (_proximosById[id] && (f.ts || 0) > Date.now() / 1000) {
         _proximosSincronizados.add(id);
         _proximosSyncServidor(id, 'add', f);
       }
     });
+    // Não redesenha a lista enquanto o usuário digita a metodologia (perderia o foco/texto)
+    const digitando = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('live-prox-metodo');
+    if (digitando) { reenviarFavoritos(); return; }
     body.innerHTML = mostrados.map(_live2ProximoRowHtml).join('') + nota;
     // Forma recente + confronto direto (2026-09-14, pedido do usuário: "3,4"
     // da lista de estatísticas sugeridas) — reaproveita _live2AutoLoadForms,
@@ -3561,7 +3572,8 @@ async function _live2FetchAndRenderProximos(silent) {
     // casa/fora + id. _live2AutoLoadForms já pula sozinho quem já está em
     // _live2FsFormCache, então chamar isso a cada refresh (inclusive nos
     // silenciosos de 60s) só busca H2H de partida NOVA na lista.
-    _live2AutoLoadForms(mostrados.map(m => ({ ...m, id: m.event_id, casa: m.home, fora: m.away })));
+    // Reenvia de novo quando a forma/confronto terminarem de carregar (1ª abertura)
+    _live2AutoLoadForms(mostrados.map(m => ({ ...m, id: m.event_id, casa: m.home, fora: m.away }))).then(reenviarFavoritos, reenviarFavoritos);
   } catch (e) {
     if (!silent) body.innerHTML = `<div class="live-loading">Erro ao carregar jogos próximos.</div>`;
     // silencioso no refresh automático — um erro passageiro não pode apagar
@@ -3592,12 +3604,52 @@ function _proximosSavePinned() {
 function _proximosSyncServidor(eventId, acao, f) {
   const corpo = acao === 'remove'
     ? { action: 'remove', event_id: eventId }
-    : { action: 'add', event_id: eventId, home: f.home, away: f.away, liga: f.liga || '', ts: f.ts || 0 };
+    : { action: 'add', event_id: eventId, home: f.home, away: f.away, liga: f.liga || '', ts: f.ts || 0,
+        metodologia: f.metodologia || '', info: _proximosInfo(eventId) };
   fetch('/api/favoritos/proximos', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
   }).catch(() => {});
 }
+
+// Foto do card (posição, forma, ícones, gols, confronto, odds 1X2) que vai junto
+// com o favorito pro servidor montar a mensagem do Telegram com as MESMAS
+// informações que o usuário vê no card. Tudo vem do que já está em memória —
+// nenhuma busca nova. Reenviada a cada atualização do widget, então odds que
+// só aparecem perto do jogo entram no aviso.
+function _proximosInfo(eventId) {
+  const m = _proximosById[eventId];
+  if (!m) return null;
+  const c = _live2H2hRowsCache[eventId];
+  const forma = rows => (rows || []).slice(0, 5).map(r => r.result).filter(Boolean).join('');
+  const conf = c ? _live2ProxConfrontoCounts(m, c.confrontoRows) : null;
+  return {
+    pos_casa: m.casa_pos ?? null, pos_fora: m.fora_pos ?? null,
+    forma_casa: c ? forma(c.homeRowsFull) : '', forma_fora: c ? forma(c.awayRowsFull) : '',
+    atk_casa: m.casa_ataque_icon || '', def_casa: m.casa_defesa_icon || '',
+    atk_fora: m.fora_ataque_icon || '', def_fora: m.fora_defesa_icon || '',
+    gols_casa: [m.casa_gf_avg ?? null, m.casa_ga_avg ?? null], gols_fora: [m.fora_gf_avg ?? null, m.fora_ga_avg ?? null],
+    h2h: conf ? [conf.vCasa, conf.empates, conf.vFora] : null,
+    odds: [m.odd_1 ?? null, m.odd_x ?? null, m.odd_2 ?? null],
+  };
+}
 let _proximosSincronizados = new Set();  // 1x por sessão: reenvia favoritos feitos antes do alerta existir
+
+function _proximosAtualizaEstrela(eventId) {
+  const el = document.getElementById(`proxPin_${eventId}`);
+  if (el) {
+    const on = !!_proximosPinned[eventId];
+    el.textContent = on ? '⭐' : '☆';
+    el.title = on ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar';
+  }
+}
+
+function _proximosFavoritar(eventId) {
+  const m = _proximosById[eventId];
+  if (!m) return false;
+  _proximosPinned[eventId] = { home: m.home, away: m.away, liga: m._liga || '', ts: m.ts || 0, metodologia: '' };
+  _proximosSincronizados.add(eventId);
+  return true;
+}
 
 function toggleProximoPin(eventId) {
   eventId = String(eventId);
@@ -3606,19 +3658,31 @@ function toggleProximoPin(eventId) {
     _proximosSincronizados.delete(eventId);
     _proximosSyncServidor(eventId, 'remove');
   } else {
-    const m = _proximosById[eventId];
-    if (!m) return;
-    _proximosPinned[eventId] = { home: m.home, away: m.away, liga: m._liga || '', ts: m.ts || 0 };
-    _proximosSincronizados.add(eventId);
+    if (!_proximosFavoritar(eventId)) return;
     _proximosSyncServidor(eventId, 'add', _proximosPinned[eventId]);
   }
   _proximosSavePinned();
-  const el = document.getElementById(`proxPin_${eventId}`);
-  if (el) {
-    const on = !!_proximosPinned[eventId];
-    el.textContent = on ? '⭐' : '☆';
-    el.title = on ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar';
+  _proximosAtualizaEstrela(eventId);
+}
+
+// Campo "Metodologia" do card (2026-09-19): o que o usuário digita aqui vai no
+// aviso de Telegram. Digitar já favorita o jogo (sem favorito não há aviso).
+// Salva localmente a cada tecla e manda pro servidor 700ms depois de parar de
+// digitar, pra não disparar um POST (e gravação) por letra.
+let _proximosMetodoTimers = {};
+function _proximosSetMetodo(eventId, valor) {
+  eventId = String(eventId);
+  valor = String(valor || '').slice(0, 120);
+  if (!_proximosPinned[eventId]) {
+    if (!valor.trim() || !_proximosFavoritar(eventId)) return;
+    _proximosAtualizaEstrela(eventId);
   }
+  _proximosPinned[eventId].metodologia = valor;
+  _proximosSavePinned();
+  clearTimeout(_proximosMetodoTimers[eventId]);
+  _proximosMetodoTimers[eventId] = setTimeout(() => {
+    if (_proximosPinned[eventId]) _proximosSyncServidor(eventId, 'add', _proximosPinned[eventId]);
+  }, 700);
 }
 
 // Chamada a cada ciclo do Ao Vivo, ANTES de ordenar por favoritos: jogo ao vivo
@@ -3742,6 +3806,9 @@ function _live2ProximoRowHtml(m) {
       ${teamRow(m.home_logo, m.home, m.casa_pos, `live2FormWrapCasa_${m.event_id}`, formaCasaHtml, m.casa_ataque_icon, m.casa_defesa_icon, m.casa_gf_avg, m.casa_ga_avg, 'casa')}
       ${teamRow(m.away_logo, m.away, m.fora_pos, `live2FormWrapFora_${m.event_id}`, formaForaHtml, m.fora_ataque_icon, m.fora_defesa_icon, m.fora_gf_avg, m.fora_ga_avg, 'visitante')}
       <div class="live-prox-odds-row">${odds1x2Html}</div>
+      <input class="live-prox-metodo" type="text" maxlength="120" placeholder="Metodologia (vai no aviso do Telegram)"
+        value="${_bt2EscXml((_proximosPinned[m.event_id] || {}).metodologia || '')}"
+        oninput="_proximosSetMetodo('${m.event_id}', this.value)">
     </div>`;
 }
 
@@ -3750,9 +3817,9 @@ function _live2ProximoRowHtml(m) {
 // (_live2H2hModalHtml: conta V/E/D olhando o placar de cada jogo passado
 // relativo a quem era o time da casa NESTA partida), só sem escudo grande
 // nem linha por linha — cabe numa lista de até 40 jogos.
-function _live2ProxConfrontoHtml(m, confrontoRows) {
+function _live2ProxConfrontoCounts(m, confrontoRows) {
   confrontoRows = confrontoRows || [];
-  if (!confrontoRows.length) return '';
+  if (!confrontoRows.length) return null;
   let vCasa = 0, vFora = 0, empates = 0;
   confrontoRows.forEach(row => {
     const sc = _live2ParseScore(row.score);
@@ -3761,7 +3828,13 @@ function _live2ProxConfrontoHtml(m, confrontoRows) {
     const scCasa = casaEhHome ? sc.h : sc.a, scFora = casaEhHome ? sc.a : sc.h;
     if (scCasa > scFora) vCasa++; else if (scCasa < scFora) vFora++; else empates++;
   });
-  return `<span title="Confronto direto — últimos ${confrontoRows.length} jogo(s) entre os dois">🆚 <b style="color:var(--accent2)">${vCasa}V</b> <b style="color:var(--text2)">${empates}E</b> <b style="color:var(--red)">${vFora}V</b></span>`;
+  return { vCasa, vFora, empates, n: confrontoRows.length };
+}
+
+function _live2ProxConfrontoHtml(m, confrontoRows) {
+  const c = _live2ProxConfrontoCounts(m, confrontoRows);
+  if (!c) return '';
+  return `<span title="Confronto direto — últimos ${c.n} jogo(s) entre os dois">🆚 <b style="color:var(--accent2)">${c.vCasa}V</b> <b style="color:var(--text2)">${c.empates}E</b> <b style="color:var(--red)">${c.vFora}V</b></span>`;
 }
 
 // ── PAINEL PRINCIPAL — jogos + odds (1X2 e Over/Under) do BetExplorer ──────────

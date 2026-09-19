@@ -12141,22 +12141,91 @@ def _fav_alerta_load():
         return {}
 
 
-def _fav_alerta_save(favs):
+def _fav_alerta_save(favs, push=True):
     with open(FAV_ALERTA_FILE, "w", encoding="utf-8") as f:
         json.dump(favs, f, ensure_ascii=False)
-    github_storage.push_file_bg(FAV_ALERTA_FILE, "telegram_favoritos.json")
+    if push:
+        github_storage.push_file_bg(FAV_ALERTA_FILE, "telegram_favoritos.json")
+
+
+def _fav_alerta_info(raw):
+    """Saneia a "foto do card" que o site manda junto com o favorito (posição,
+    forma, ícones, gols, confronto, odds) — vem do navegador, então nada é confiado."""
+    if not isinstance(raw, dict):
+        return {}
+
+    def txt(v, n):
+        return str(v or "")[:n]
+
+    def num(v):
+        try:
+            return float(v) if v is not None and not isinstance(v, bool) else None
+        except (TypeError, ValueError):
+            return None
+
+    def par(v, k):
+        v = v if isinstance(v, (list, tuple)) else []
+        return [num(v[i]) if i < len(v) else None for i in range(k)]
+
+    h2h = raw.get("h2h")
+    return {
+        "pos_casa": int(num(raw.get("pos_casa"))) if num(raw.get("pos_casa")) is not None else None,
+        "pos_fora": int(num(raw.get("pos_fora"))) if num(raw.get("pos_fora")) is not None else None,
+        "forma_casa": "".join(c for c in txt(raw.get("forma_casa"), 5) if c in "VED"),
+        "forma_fora": "".join(c for c in txt(raw.get("forma_fora"), 5) if c in "VED"),
+        "atk_casa": txt(raw.get("atk_casa"), 2), "def_casa": txt(raw.get("def_casa"), 2),
+        "atk_fora": txt(raw.get("atk_fora"), 2), "def_fora": txt(raw.get("def_fora"), 2),
+        "gols_casa": par(raw.get("gols_casa"), 2), "gols_fora": par(raw.get("gols_fora"), 2),
+        "h2h": [int(x) for x in par(h2h, 3) if x is not None] if isinstance(h2h, (list, tuple)) and len(h2h) == 3 else None,
+        "odds": par(raw.get("odds"), 3),
+    }
+
+
+_FAV_FORMA_EMOJI = {"V": "🟢", "E": "🟡", "D": "🔴"}
 
 
 def _fav_alerta_msg(f, falta):
     import html as _html
     from datetime import timezone
+    esc = lambda v: _html.escape(str(v))
     brt = timezone(timedelta(hours=-3))
     hora = datetime.fromtimestamp(f["ts"], tz=brt).strftime("%H:%M")
     minutos = max(1, round(falta / 60))
-    linhas = [f"⏰ <b>Falta {minutos} min</b> — começa às {hora}",
-              f"⚽ <b>{_html.escape(f.get('home') or '?')} × {_html.escape(f.get('away') or '?')}</b>"]
+    info = f.get("info") or {}
+    linhas = [f"⏰ <b>Falta {minutos} min</b> — começa às {hora}"]
     if f.get("liga"):
-        linhas.append(f"🏆 {_html.escape(f['liga'])}")
+        linhas.append(f"🏆 {esc(f['liga'])}")
+    linhas.append("")
+
+    def fmt(x):
+        return f"{x:g}" if x is not None else "-"
+
+    def time_bloco(icone, nome, pos, forma, atk, dfs, gols):
+        cab = f"{icone} <b>{esc(nome or '?')}</b>" + (f"  #{pos}" if pos is not None else "")
+        det = []
+        if forma:
+            det.append("Forma " + "".join(_FAV_FORMA_EMOJI.get(c, "") for c in forma))
+        if atk or dfs:
+            det.append(f"Ataque {atk or '-'} · Defesa {dfs or '-'}")
+        if gols and any(g is not None for g in gols):
+            det.append(f"Gols {fmt(gols[0])}/{fmt(gols[1])} (marc./sofr.)")
+        return [cab] + [f"    {d}" for d in det]
+
+    linhas += time_bloco("🏠", f.get("home"), info.get("pos_casa"), info.get("forma_casa"),
+                         info.get("atk_casa"), info.get("def_casa"), info.get("gols_casa"))
+    linhas += time_bloco("✈️", f.get("away"), info.get("pos_fora"), info.get("forma_fora"),
+                         info.get("atk_fora"), info.get("def_fora"), info.get("gols_fora"))
+    h2h = info.get("h2h")
+    if h2h:
+        linhas.append("")
+        linhas.append(f"🆚 Confronto direto: {h2h[0]}V {h2h[1]}E {h2h[2]}V")
+    odds = info.get("odds") or []
+    if any(o is not None for o in odds):
+        linhas.append("💰 Odds  1: <b>{}</b>  ·  X: <b>{}</b>  ·  2: <b>{}</b>".format(*[fmt(o) for o in (odds + [None] * 3)[:3]]))
+    metodo = (f.get("metodologia") or "").strip()
+    if metodo:
+        linhas.append("")
+        linhas.append(f"📋 <b>Metodologia:</b> {esc(metodo)}")
     return "\n".join(linhas)
 
 
@@ -12238,12 +12307,20 @@ def api_favoritos_proximos():
         if ts <= time.time():
             return jsonify({"ok": True, "ignorado": "jogo já começou"})
         atual = favs.get(eid, {})
-        favs[eid] = {
+        novo = {
             "home": str(d.get("home") or "")[:120], "away": str(d.get("away") or "")[:120],
             "liga": str(d.get("liga") or "")[:160], "ts": ts,
+            "metodologia": str(d.get("metodologia") or "").strip()[:120],
+            "info": _fav_alerta_info(d.get("info")) or atual.get("info") or {},
             "alertado": bool(atual.get("alertado")) and atual.get("ts") == ts,
         }
-        _fav_alerta_save(favs)
+        favs[eid] = novo
+        # O site reenvia a "foto do card" a cada atualização (odds mudam): isso só
+        # grava no disco. Só sobe pro GitHub quando o favorito é novo ou a
+        # metodologia/horário mudou — senão seria 1 commit por jogo por minuto.
+        estrutural = (not atual or atual.get("metodologia") != novo["metodologia"]
+                      or atual.get("ts") != ts)
+        _fav_alerta_save(favs, push=estrutural)
     return jsonify({"ok": True})
 
 
