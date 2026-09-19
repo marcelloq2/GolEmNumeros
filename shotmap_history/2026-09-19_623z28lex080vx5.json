@@ -1,0 +1,278 @@
+{
+  "event_id": "623z28lex080vx5",
+  "date": "2026-09-19",
+  "casa": "Lincoln City",
+  "fora": "Swansea City",
+  "liga": "Championship",
+  "score": {
+    "home": 0,
+    "away": 2
+  },
+  "total_shots": 24,
+  "shotmap": [
+    {
+      "id": "2971990399",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Yeo",
+      "x": 4.3,
+      "y": 54.5
+    },
+    {
+      "id": "2971968993",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Stamenić",
+      "x": 25.2,
+      "y": 62.9
+    },
+    {
+      "id": "2971967167",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Widell",
+      "x": 26.3,
+      "y": 54.3
+    },
+    {
+      "id": "2971961239",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Just",
+      "x": 29.5,
+      "y": 53.8
+    },
+    {
+      "id": "2971953109",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Yeo",
+      "x": 14,
+      "y": 63.9
+    },
+    {
+      "id": "2971947727",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "penalty",
+      "player": "Fairchild",
+      "x": 11.6,
+      "y": 50.1
+    },
+    {
+      "id": "2971913067",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Cabango",
+      "x": 14,
+      "y": 48.8
+    },
+    {
+      "id": "2971903169",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Fairchild",
+      "x": 20.7,
+      "y": 50.2
+    },
+    {
+      "id": "2971901017",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Coubiș",
+      "x": 9.4,
+      "y": 43
+    },
+    {
+      "id": "2971898265",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Fairchild",
+      "x": 9.3,
+      "y": 61.6
+    },
+    {
+      "id": "2971895761",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Draper",
+      "x": 20.6,
+      "y": 56.5
+    },
+    {
+      "id": "2971867789",
+      "minute": 8,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Just",
+      "x": 53.9,
+      "y": 50.5
+    },
+    {
+      "id": "2971858711",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "other_body_part",
+      "situation": "throw_in",
+      "player": "Elerewe",
+      "x": 10.4,
+      "y": 54.6
+    },
+    {
+      "id": "2971856413",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "Fairchild",
+      "x": 13.9,
+      "y": 58.8
+    },
+    {
+      "id": "2971854451",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Fairchild",
+      "x": 21.5,
+      "y": 58.3
+    },
+    {
+      "id": "2971996645",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Eustáquio",
+      "x": 23.5,
+      "y": 58.3
+    },
+    {
+      "id": "2972042121",
+      "minute": 72,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Bayliss",
+      "x": 25.8,
+      "y": 44.4
+    },
+    {
+      "id": "2972038757",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Coubiș",
+      "x": 20.5,
+      "y": 57.9
+    },
+    {
+      "id": "2972027775",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ladefoged",
+      "x": 14.1,
+      "y": 69.6
+    },
+    {
+      "id": "2972073425",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Pereira",
+      "x": 18.9,
+      "y": 57
+    },
+    {
+      "id": "2972070731",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Bradley",
+      "x": 4,
+      "y": 58.5
+    },
+    {
+      "id": "2972065367",
+      "minute": 83,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "Konak",
+      "x": 11.9,
+      "y": 43.8
+    },
+    {
+      "id": "2972058281",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Ladefoged",
+      "x": 8.5,
+      "y": 53.1
+    },
+    {
+      "id": "2972053609",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Widell",
+      "x": 19.3,
+      "y": 31.6
+    }
+  ]
+}
