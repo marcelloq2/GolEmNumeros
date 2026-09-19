@@ -3,6 +3,7 @@ Servidor Flask — API + frontend para exibir dados do StatArea
 """
 from flask import Flask, jsonify, send_from_directory, abort, request, session, redirect, make_response
 import json, os, glob, re, threading, time, sqlite3, itertools, math, traceback, queue, sys
+from functools import lru_cache
 from collections import deque
 import requests as http_req
 from datetime import datetime, timedelta, date
@@ -3082,6 +3083,77 @@ def _radar_fetch_live_matches():
         _radar_live_lock.release()
 
 
+_MARCADOR_TIME = re.compile(r"\b(u-?\d{2}|sub-?\d{2}|w|women|fem\w*|ii|iii|b|res|reserves?)\b", re.I)
+
+
+@lru_cache(maxsize=60000)
+def _nome_forte_feats(nome):
+    """(nome normalizado, marcadores, palavras próprias) de um time. Marcadores são
+    U19/Sub-20/feminino/II/B/reservas; ficam FORA das palavras próprias — senão
+    "Lecco U19" casaria com qualquer outro time U19 só pelo "u19"."""
+    n = _norm(nome or "")
+    marc = frozenset(m.lower().replace("-", "") for m in _MARCADOR_TIME.findall(n))
+    proprias = _name_features(n)[1] - {m for m in re.findall(r"[a-z0-9]+", n) if m.replace("-", "") in marc}
+    return n, marc, proprias
+
+
+def _nome_forte(a, b):
+    """Casamento de nomes de time mais rigoroso que _name_match, pra decisões que
+    ESCONDEM jogo: _name_match casa "Redditch Utd" com "Oxford Utd" só porque as
+    duas têm "utd". Aqui vale nome igual, um contido no outro, ou palavra própria
+    em comum (sem "utd/city/fc..."), e os marcadores (U19, feminino, II, B...) têm
+    que ser os mesmos — "Lecco U19" não é "Lecco"."""
+    na, ma, pa = _nome_forte_feats(a)
+    nb, mb, pb = _nome_forte_feats(b)
+    if not na or not nb or ma != mb:
+        return False
+    if na == nb or na in nb or nb in na:
+        return True
+    return bool(pa & pb)
+
+
+def _minuto_num(v):
+    try:
+        return int(str(v).replace("'", "").split("+")[0])
+    except (TypeError, ValueError):
+        return None
+
+
+def _radar_tira_encerrados(live):
+    """Tira do Ao Vivo os jogos que o Flashscore já marca como ENCERRADOS.
+    O UniScore segue listando o jogo como "2º tempo" com 94' a 106' (ou preso em
+    "intervalo") por bastante tempo depois do apito final — medido em 2026-09-19:
+    cerca de 1/3 dos jogos "ao vivo" já estavam encerrados. Regra: os dois times
+    casam (_nome_forte) com um jogo ENCERRADO do Flashscore E (o placar é o mesmo OU
+    o jogo já passou de 88 min — em ligas pequenas o placar do UniScore fica
+    atrasado, ex: 0-0 quando já acabou 3-0). Só afeta a lista da tela; o monitor de
+    fundo continua vendo esses jogos pra gravá-los quando o UniScore os finalizar."""
+    try:
+        fs = _fs_all_matches()
+    except Exception:
+        return live
+    enc = [m for m in fs if str(m.get("status")) == "3"]
+    if not enc:
+        return live
+    por_placar = {}
+    for c in enc:
+        por_placar.setdefault((str(c.get("home_score")), str(c.get("away_score"))), []).append(c)
+    vivos, tirados = [], 0
+    for m in live:
+        casa, fora = m.get("casa") or "", m.get("fora") or ""
+        minuto = _minuto_num(m.get("minuto"))
+        avancado = minuto is not None and minuto >= 88 and m.get("tempo") == "2nd_half"
+        placar = (str(m.get("golCasaFt")), str(m.get("golForaFt")))
+        candidatos = enc if avancado else por_placar.get(placar, ())
+        if any(_nome_forte(casa, c["home"]) and _nome_forte(fora, c["away"]) for c in candidatos):
+            tirados += 1
+        else:
+            vivos.append(m)
+    if tirados:
+        print(f"[live] {tirados} jogo(s) já encerrados no Flashscore tirados da lista ao vivo")
+    return vivos
+
+
 def _radar_fetch_live_matches_impl():
     """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
     sem o jsonify) — extraída pra ser reaproveitada por outros consumidores
@@ -3127,6 +3199,7 @@ def _radar_fetch_live_matches_impl():
 
     live = list(all_by_id.values())
     print(f"[live] {len(live)} jogos ao vivo retornados")
+    live = _radar_tira_encerrados(live)
 
     # Mesmo link direto pra Betfair Exchange / Bolsa de Aposta usado no Painel
     # Principal (ver _find_radar_links) — aqui não temos horário de início (o
