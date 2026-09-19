@@ -3495,6 +3495,7 @@ def _radar_fetch_live_matches():
                         "fora":      e.get("awayTeam", {}).get("name", ""),
                         "liga":      e.get("tournament", {}).get("name", ""),
                         "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
+                        "priority":  e.get("tournament", {}).get("priority"),
                         "tempo":     e.get("status", {}).get("description", ""),
                         "minuto":    _uniscore_minuto(e),
                         "golCasaFt": hs.get("current", 0),
@@ -3581,10 +3582,82 @@ def _radar_fetch_live_matches():
     return {"live": live, "total": len(live), "stale": False}
 
 
+# ── Corte por prioridade da liga (2026-09-19, pedido do usuário) ──────────────
+# O UniScore dá a cada torneio um "priority" (posição no ranking mundial deles:
+# 11 = Premier League, 1000 = sem ranking). O usuário só opera as ligas de cima,
+# então o Ao Vivo e o monitor de fundo (que grava a base) só trabalham com jogos
+# de liga com priority <= corte, em ordem da mais importante pra menos. Ligas
+# abaixo do corte não são exibidas NEM gravadas. O corte é ajustável na tela do
+# Ao Vivo (campo "Prioridade ≤") e fica guardado num arquivo sincronizado com o
+# GitHub pra sobreviver a deploy.
+AO_VIVO_CFG_FILE = os.path.join(DATA_DIR, "ao_vivo_config.json")
+_AO_VIVO_PRIORITY_PADRAO = 200
+_ao_vivo_cfg = {"priority_max": None}
+_ao_vivo_cfg_lock = threading.Lock()
+
+
+def _prio_de(m):
+    """priority do jogo como número; sem informação = 1000 (o mesmo que 'sem ranking')."""
+    try:
+        return int(m.get("priority") if m.get("priority") is not None else 1000)
+    except (TypeError, ValueError):
+        return 1000
+
+
+def _ao_vivo_priority_max():
+    with _ao_vivo_cfg_lock:
+        if _ao_vivo_cfg["priority_max"] is None:
+            try:
+                with open(AO_VIVO_CFG_FILE, "r", encoding="utf-8") as f:
+                    v = int(json.load(f).get("priority_max"))
+                _ao_vivo_cfg["priority_max"] = min(1000, max(1, v))
+            except Exception:
+                _ao_vivo_cfg["priority_max"] = _AO_VIVO_PRIORITY_PADRAO
+        return _ao_vivo_cfg["priority_max"]
+
+
+def _ao_vivo_filtra_por_prioridade(matches):
+    """[jogos visíveis ordenados por prioridade, jogos ocultos]."""
+    pmax = _ao_vivo_priority_max()
+    vis = sorted((m for m in matches if _prio_de(m) <= pmax), key=_prio_de)   # sorted é estável
+    ocultos = [m for m in matches if _prio_de(m) > pmax]
+    return vis, ocultos
+
+
+@app.route("/api/ao-vivo/config", methods=["GET", "POST"])
+def api_ao_vivo_config():
+    if request.method == "POST":
+        d = request.get_json(silent=True) or {}
+        try:
+            v = int(d.get("priority_max"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "priority_max inválido"}), 400
+        if not 1 <= v <= 1000:
+            return jsonify({"ok": False, "error": "priority_max deve ficar entre 1 e 1000"}), 400
+        with _ao_vivo_cfg_lock:
+            _ao_vivo_cfg["priority_max"] = v
+            with open(AO_VIVO_CFG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"priority_max": v}, f)
+        github_storage.push_file_bg(AO_VIVO_CFG_FILE, "ao_vivo_config.json")
+    return jsonify({"ok": True, "priority_max": _ao_vivo_priority_max()})
+
+
 @app.route("/api/radar/live")
 def api_radar_live():
-    """Lista TODOS os jogos ao vivo via UniScore (todos os locales + paginação)."""
-    return jsonify(_radar_fetch_live_matches())
+    """Lista os jogos ao vivo via UniScore (todos os locales + paginação), só das
+    ligas dentro do corte de prioridade, da mais importante pra menos."""
+    res = _radar_fetch_live_matches()
+    todos = res.get("live") or []
+    vis, ocultos = _ao_vivo_filtra_por_prioridade(todos)
+    resumo = {}
+    for m in ocultos:
+        k = (m.get("liga") or "", m.get("pais") or "", _prio_de(m))
+        resumo[k] = resumo.get(k, 0) + 1
+    ligas_ocultas = [{"liga": k[0], "pais": k[1], "priority": k[2], "jogos": n}
+                     for k, n in sorted(resumo.items(), key=lambda kv: (kv[0][2], kv[0][0]))]
+    return jsonify({**res, "live": vis, "total": len(vis), "total_ao_vivo": len(todos),
+                    "ocultos": len(ocultos), "priority_max": _ao_vivo_priority_max(),
+                    "ligas_ocultas": ligas_ocultas})
 
 
 # ── Cache simples de momentum em memória (evita abrir browser repetidamente) ──
@@ -3640,9 +3713,12 @@ _shotmap_live_cache = _load_shotmap_cache()
 def _fetch_live_matches_for_monitor():
     """Busca lista de jogos ao vivo via UniScore para o monitor de fundo."""
     matches = _get_uniscore_live_matches()
+    # Só as ligas dentro do corte de prioridade, da mais importante pra menos —
+    # as demais nem são gravadas (decisão do usuário, 2026-09-19).
+    vis, _ = _ao_vivo_filtra_por_prioridade(matches)
     return [
-        {"id": m["id"], "casa": m["home"], "fora": m["away"], "liga": ""}
-        for m in matches
+        {"id": m["id"], "casa": m["home"], "fora": m["away"], "liga": m.get("liga", "")}
+        for m in vis
     ]
 
 

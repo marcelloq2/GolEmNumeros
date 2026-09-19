@@ -2595,6 +2595,12 @@
                    color:var(--accent2);font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer;
                    text-transform:uppercase;letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
+          <label title="Só aparecem (e são gravadas) as ligas com prioridade até esse número — menor = liga mais importante no ranking do UniScore (ex: 11 Premier League, 20 Championship, 200 ligas médias). A lista das ligas ocultas com o número de cada uma está no botão Competições."
+            style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.2px;white-space:nowrap">
+            🏷 Prioridade ≤
+            <input id="live2PrioInput" type="number" min="1" max="1000" value="200" onchange="_live2SetPriorityMax(this.value)"
+              style="width:58px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:3px 6px">
+          </label>
           <span id="live2CutNote" style="font-size:10px;color:var(--text2)"></span>
           <button class="live-refresh-btn" id="live2ShowAllBtn" onclick="_live2ToggleShowAll()"
             title="Por padrão a Ao Vivo processa só as 60 primeiras partidas pra não sobrecarregar o servidor em dias com muito jogo — clique pra ver todas mesmo assim">👁 Mostrar todos</button>
@@ -12488,6 +12494,26 @@ function _live2ToggleFavoritesOnly() {
 // a carga de verdade em dias de muito jogo, não só esconder card já pronto.
 let _live2LeagueFilter = new Set(); // vazio = sem filtro, mostra todas
 
+// Corte por prioridade da liga (2026-09-19) — o servidor já entrega só as ligas
+// dentro do corte, em ordem de importância; aqui só guardamos o que ele diz
+// (corte atual, quantos jogos ficaram de fora e quais ligas) e deixamos mudar.
+let _live2PrioMax = 200, _live2Ocultos = 0, _live2LigasOcultas = [];
+function _live2PrioAtualiza(data) {
+  if (data.priority_max != null) _live2PrioMax = data.priority_max;
+  _live2Ocultos = data.ocultos || 0;
+  _live2LigasOcultas = data.ligas_ocultas || [];
+  const inp = document.getElementById('live2PrioInput');
+  if (inp && document.activeElement !== inp) inp.value = _live2PrioMax;
+}
+async function _live2SetPriorityMax(v) {
+  v = parseInt(v, 10);
+  if (!(v >= 1 && v <= 1000)) return;
+  try {
+    await fetch('/api/ao-vivo/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority_max: v }) });
+  } catch (e) {}
+  loadLive2Matches();
+}
+
 function _live2ToggleLeaguePanel(ev) {
   if (ev) ev.stopPropagation();
   const panel = document.getElementById('live2LeaguePanel');
@@ -12500,10 +12526,11 @@ function _live2ToggleLeaguePanel(ev) {
 function _live2RenderLeaguePanel() {
   const panel = document.getElementById('live2LeaguePanel');
   if (!panel) return;
-  const counts = {};
+  const counts = {}, prios = {};
   live2MatchesCache.forEach(m => {
     const k = m.liga || '(sem competição)';
     counts[k] = (counts[k] || 0) + 1;
+    if (m.priority != null && (prios[k] == null || m.priority < prios[k])) prios[k] = m.priority;
   });
   const ligas = Object.keys(counts).sort((a, b) => a.localeCompare(b));
   if (!ligas.length) {
@@ -12523,9 +12550,20 @@ function _live2RenderLeaguePanel() {
       <label data-liga-norm="${_normLive2(liga)}" style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:var(--text);cursor:pointer">
         <input type="checkbox" data-liga="${liga.replace(/"/g, '&quot;')}" ${_live2LeagueFilter.has(liga) ? 'checked' : ''} style="cursor:pointer">
         <span style="flex:1">${liga}</span>
-        <span style="color:var(--text2);font-size:10px">${counts[liga]}</span>
+        ${prios[liga] != null ? `<span style="color:var(--text2);font-size:9px" title="Prioridade da liga">#${prios[liga]}</span>` : ''}
+        <span style="color:var(--text2);font-size:10px;min-width:16px;text-align:right">${counts[liga]}</span>
       </label>`).join('')}
     </div>
+    ${_live2LigasOcultas.length ? `
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">Ocultas (prioridade acima de ${_live2PrioMax}) — mude o número "Prioridade ≤" na barra pra incluir</div>
+      ${_live2LigasOcultas.map(l => `
+        <div style="display:flex;gap:6px;font-size:10px;color:var(--text2);padding:1px 0">
+          <span style="flex:1">${_bt2EscXml(l.liga)}${l.pais ? ` (${_bt2EscXml(l.pais)})` : ''}</span>
+          <span>#${l.priority}</span>
+          <span style="min-width:16px;text-align:right">${l.jogos}</span>
+        </div>`).join('')}
+    </div>` : ''}
     <div style="display:flex;gap:6px;margin-top:10px">
       <button onclick="_live2LeaguePanelApply()" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#04270f;font-size:11px;font-weight:700;padding:6px;cursor:pointer">Aplicar</button>
       <button onclick="_live2LeaguePanelShowAll()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;padding:6px;cursor:pointer">Mostrar todas</button>
@@ -12712,6 +12750,7 @@ async function loadLive2Matches() {
   try {
     const res  = await fetch('/api/radar/live');
     const data = await res.json();
+    _live2PrioAtualiza(data);
     _live2AutoPinFromProximos(data.live || []);
     const allMatches = _live2SortByPin(data.live || []);
     live2MatchesCache = allMatches;
@@ -12752,9 +12791,10 @@ async function loadLive2Matches() {
     const badge = document.getElementById('live2CountBadge');
     if (badge) badge.textContent = matches.length;
     const cutNote = document.getElementById('live2CutNote');
-    if (cutNote) cutNote.textContent = cortado
-      ? `mostrando as ${_LIVE2_MAX_MATCHES_DEFAULT} primeiras de ${totalAoVivo} ao vivo`
-      : '';
+    if (cutNote) cutNote.textContent = [
+      cortado ? `mostrando as ${_LIVE2_MAX_MATCHES_DEFAULT} primeiras de ${totalAoVivo} ao vivo` : '',
+      _live2Ocultos ? `${_live2Ocultos} ocultos por prioridade` : '',
+    ].filter(Boolean).join(' · ');
 
     if (!matches.length) {
       wrap.innerHTML = _live2ShowOnlyFavorites
@@ -12873,7 +12913,7 @@ function renderLive2Card(m) {
   return `
     <div class="live-card" id="live2Card_${m.id}">
       <div class="live-card-top" style="position:relative;justify-content:center;text-align:center">
-        <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}</span>
+        <span>${m.pais ? `${m.liga || ''} <span style="color:var(--text2);font-weight:400">(${m.pais})</span>` : (m.liga || '')}${m.priority != null ? ` <span style="color:var(--text2);font-weight:400;font-size:9px" title="Prioridade da liga no ranking do UniScore (menor = mais importante)">#${m.priority}</span>` : ''}</span>
         <span id="live2Pin_${m.id}" onclick="event.stopPropagation();toggleLive2Pin('${m.id}')"
           title="${_pinnedLive2.has(String(m.id)) ? 'Remover dos favoritos' : 'Favoritar partida'}"
           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">${_pinnedLive2.has(String(m.id)) ? '⭐' : '☆'}</span>

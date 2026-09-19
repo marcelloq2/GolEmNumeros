@@ -262,6 +262,8 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # Favoritos com alerta de Telegram (15 min antes do jogo) — sem isso cada
         # redeploy apagava os favoritos e o aviso nunca saía.
         pull_file("telegram_favoritos.json", os.path.join(data_dir, "telegram_favoritos.json"), force=True)
+        # Corte de prioridade das ligas no Ao Vivo (campo "Prioridade ≤" na tela)
+        pull_file("ao_vivo_config.json", os.path.join(data_dir, "ao_vivo_config.json"), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)
