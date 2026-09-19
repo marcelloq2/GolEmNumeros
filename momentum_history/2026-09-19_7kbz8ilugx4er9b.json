@@ -1,7 +1,7 @@
 {
   "event_id": "7kbz8ilugx4er9b",
   "date": "2026-09-19",
-  "saved_at": "2026-09-19T16:25:22.210205",
+  "saved_at": "2026-09-19T16:42:43.463228",
   "source": "uniscore",
   "casa": "Nacional Madeira",
   "fora": "Famalicao",
@@ -380,6 +380,22 @@
     {
       "minute": 93,
       "value": 16
+    },
+    {
+      "minute": 94,
+      "value": -30
+    },
+    {
+      "minute": 95,
+      "value": -100
+    },
+    {
+      "minute": 96,
+      "value": -20
+    },
+    {
+      "minute": 97,
+      "value": -100
     }
   ],
   "goals": [
@@ -852,28 +868,28 @@
       "awayValue": 7
     },
     "duels_accuracy": {
-      "home": "40/87",
-      "away": "47/88",
-      "homeValue": 46,
-      "awayValue": 54
+      "home": "41/87",
+      "away": "46/87",
+      "homeValue": 47,
+      "awayValue": 53
     },
     "dispossessed": {
-      "home": "10",
+      "home": "9",
       "away": "4",
-      "homeValue": 10,
+      "homeValue": 9,
       "awayValue": 4
     },
     "duels": {
-      "home": "40",
-      "away": "47",
-      "homeValue": 40,
-      "awayValue": 47
+      "home": "41",
+      "away": "46",
+      "homeValue": 41,
+      "awayValue": 46
     },
     "ground_duels": {
       "home": "68",
-      "away": "69",
+      "away": "68",
       "homeValue": 68,
-      "awayValue": 69
+      "awayValue": 68
     },
     "aerial_duels": {
       "home": "19",
@@ -882,10 +898,10 @@
       "awayValue": 19
     },
     "ground_duels_accuracy": {
-      "home": "32/68",
-      "away": "36/69",
-      "homeValue": 47,
-      "awayValue": 53
+      "home": "33/68",
+      "away": "35/68",
+      "homeValue": 49,
+      "awayValue": 51
     },
     "aerial_duels_accuracy": {
       "home": "8/19",
@@ -906,22 +922,22 @@
       "awayValue": 39
     },
     "tackles": {
-      "home": "14",
-      "away": "18",
-      "homeValue": 14,
-      "awayValue": 18
+      "home": "15",
+      "away": "17",
+      "homeValue": 15,
+      "awayValue": 17
     },
     "tackles_won": {
-      "home": "11/14",
-      "away": "9/18",
-      "homeValue": 79,
-      "awayValue": 50
+      "home": "11/15",
+      "away": "8/17",
+      "homeValue": 73,
+      "awayValue": 47
     },
     "interceptions": {
       "home": "10",
-      "away": "9",
+      "away": "8",
       "homeValue": 10,
-      "awayValue": 9
+      "awayValue": 8
     },
     "recoveries": {
       "home": "55",
@@ -954,10 +970,10 @@
       "awayValue": 11
     },
     "poss_losts": {
-      "home": "112",
-      "away": "103",
-      "homeValue": 112,
-      "awayValue": 103
+      "home": "111",
+      "away": "102",
+      "homeValue": 111,
+      "awayValue": 102
     },
     "ball_possession": {
       "home": "55%",
@@ -1137,28 +1153,28 @@
         "awayValue": 7
       },
       "duels_accuracy": {
-        "home": "40/87",
-        "away": "47/88",
-        "homeValue": 46,
-        "awayValue": 54
+        "home": "41/87",
+        "away": "46/87",
+        "homeValue": 47,
+        "awayValue": 53
       },
       "dispossessed": {
-        "home": "10",
+        "home": "9",
         "away": "4",
-        "homeValue": 10,
+        "homeValue": 9,
         "awayValue": 4
       },
       "duels": {
-        "home": "40",
-        "away": "47",
-        "homeValue": 40,
-        "awayValue": 47
+        "home": "41",
+        "away": "46",
+        "homeValue": 41,
+        "awayValue": 46
       },
       "ground_duels": {
         "home": "68",
-        "away": "69",
+        "away": "68",
         "homeValue": 68,
-        "awayValue": 69
+        "awayValue": 68
       },
       "aerial_duels": {
         "home": "19",
@@ -1167,10 +1183,10 @@
         "awayValue": 19
       },
       "ground_duels_accuracy": {
-        "home": "32/68",
-        "away": "36/69",
-        "homeValue": 47,
-        "awayValue": 53
+        "home": "33/68",
+        "away": "35/68",
+        "homeValue": 49,
+        "awayValue": 51
       },
       "aerial_duels_accuracy": {
         "home": "8/19",
@@ -1191,22 +1207,22 @@
         "awayValue": 39
       },
       "tackles": {
-        "home": "14",
-        "away": "18",
-        "homeValue": 14,
-        "awayValue": 18
+        "home": "15",
+        "away": "17",
+        "homeValue": 15,
+        "awayValue": 17
       },
       "tackles_won": {
-        "home": "11/14",
-        "away": "9/18",
-        "homeValue": 79,
-        "awayValue": 50
+        "home": "11/15",
+        "away": "8/17",
+        "homeValue": 73,
+        "awayValue": 47
       },
       "interceptions": {
         "home": "10",
-        "away": "9",
+        "away": "8",
         "homeValue": 10,
-        "awayValue": 9
+        "awayValue": 8
       },
       "recoveries": {
         "home": "55",
@@ -1239,10 +1255,10 @@
         "awayValue": 11
       },
       "poss_losts": {
-        "home": "112",
-        "away": "103",
-        "homeValue": 112,
-        "awayValue": 103
+        "home": "111",
+        "away": "102",
+        "homeValue": 111,
+        "awayValue": 102
       },
       "ball_possession": {
         "home": "55%",
@@ -1482,9 +1498,9 @@
       },
       "interceptions": {
         "home": "7",
-        "away": "4",
+        "away": "3",
         "homeValue": 7,
-        "awayValue": 4
+        "awayValue": 3
       },
       "recoveries": {
         "home": "29",
@@ -1687,28 +1703,28 @@
         "awayValue": 0
       },
       "duels_accuracy": {
-        "home": "21/46",
-        "away": "25/47",
-        "homeValue": 46,
-        "awayValue": 54
+        "home": "22/46",
+        "away": "24/46",
+        "homeValue": 48,
+        "awayValue": 52
       },
       "dispossessed": {
-        "home": "6",
+        "home": "5",
         "away": "2",
-        "homeValue": 6,
+        "homeValue": 5,
         "awayValue": 2
       },
       "duels": {
-        "home": "21",
-        "away": "25",
-        "homeValue": 21,
-        "awayValue": 25
+        "home": "22",
+        "away": "24",
+        "homeValue": 22,
+        "awayValue": 24
       },
       "ground_duels": {
         "home": "40",
-        "away": "41",
+        "away": "40",
         "homeValue": 40,
-        "awayValue": 41
+        "awayValue": 40
       },
       "aerial_duels": {
         "home": "6",
@@ -1717,10 +1733,10 @@
         "awayValue": 6
       },
       "ground_duels_accuracy": {
-        "home": "18/40",
-        "away": "22/41",
-        "homeValue": 45,
-        "awayValue": 55
+        "home": "19/40",
+        "away": "21/40",
+        "homeValue": 48,
+        "awayValue": 52
       },
       "aerial_duels_accuracy": {
         "home": "3/6",
@@ -1741,16 +1757,16 @@
         "awayValue": 38
       },
       "tackles": {
-        "home": "6",
-        "away": "13",
-        "homeValue": 6,
-        "awayValue": 13
+        "home": "7",
+        "away": "12",
+        "homeValue": 7,
+        "awayValue": 12
       },
       "tackles_won": {
-        "home": "5/6",
-        "away": "5/13",
-        "homeValue": 83,
-        "awayValue": 38
+        "home": "5/7",
+        "away": "4/12",
+        "homeValue": 71,
+        "awayValue": 33
       },
       "interceptions": {
         "home": "3",
@@ -1783,10 +1799,10 @@
         "awayValue": 6
       },
       "poss_losts": {
-        "home": "60",
-        "away": "46",
-        "homeValue": 60,
-        "awayValue": 46
+        "home": "59",
+        "away": "45",
+        "homeValue": 59,
+        "awayValue": 45
       },
       "ball_possession": {
         "home": "52%",
@@ -1797,14 +1813,14 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": -3.065,
-    "h1_avg": -1.674,
-    "h2_avg": -4.426,
-    "home_dominance_pct": 46.2,
+    "overall_avg": -5.515,
+    "h1_avg": 0.312,
+    "h2_avg": -11.224,
+    "home_dominance_pct": 44.3,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 47,
-    "total_points": 93
+    "momentum_swings": 48,
+    "total_points": 97
   },
   "xg": {
     "home": 3.5,
