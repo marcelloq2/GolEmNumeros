@@ -1269,6 +1269,22 @@
     font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text2);
   }
   .live-prox-h2h:empty { display: none; }
+  /* Ritmo por minuto no card (2026-09-19) — chips com os últimos 10 min de cada time */
+  .live-ritmo { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+  .live-ritmo:empty { display: none; }
+  .live-ritmo-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
+    padding: 3px 9px; border-radius: 999px; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); white-space: nowrap; cursor: default;
+  }
+  .live-ritmo-chip .n { font-family: var(--font-mono); color: var(--text); }
+  .live-ritmo-chip .med { font-weight: 500; opacity: .75; font-size: 9px; }
+  .live-ritmo-chip .c { color: #3b82f6; }
+  .live-ritmo-chip .f { color: var(--red); }
+  .live-ritmo-chip.alto-casa { border-color: #3b82f6; background: rgba(59,130,246,.12); }
+  .live-ritmo-chip.alto-fora { border-color: var(--red); background: rgba(239,68,68,.12); }
+  .live-ritmo-chip.muito-casa { border-color: #3b82f6; background: rgba(59,130,246,.25); box-shadow: 0 0 0 1px #3b82f6 inset; }
+  .live-ritmo-chip.muito-fora { border-color: var(--red); background: rgba(239,68,68,.25); box-shadow: 0 0 0 1px var(--red) inset; }
   .live-prox-odds-row { display: flex; justify-content: center; margin-top: 8px; }
   .live-prox-metodo {
     display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 7px 10px;
@@ -9326,6 +9342,9 @@ function renderLive2Card(m) {
              (diferente das sequências pré-jogo logo acima, que continuam só
              no modal Tendências). -->
         <div id="live2LiveIndBadge_${m.id}"></div>
+        <!-- Ritmo por minuto (toques na área, finalizações na área, chances claras) —
+             preenchido por _live2RitmoAtualiza a cada ciclo de pressão -->
+        <div id="live2RitmoWrap_${m.id}" class="live-ritmo"></div>
       </div>
       <!-- Odds ao vivo (pílula 🔴 ODDS AO VIVO) movida pra logo abaixo do
            minuto — pedido do usuário (2026-09-11), antes ficava lá embaixo
@@ -10862,6 +10881,45 @@ let _live2MomentumStartedAt = 0;
 const _LIVE2_MOMENTUM_CONCURRENCY = 6;
 const _LIVE2_MOMENTUM_STUCK_MS = 60000;
 
+// Ritmo por minuto no card (2026-09-19). Limites de "alto"/"muito alto" nos últimos
+// 10 min POR TIME: toques na área calibrados com o histórico gravado (mediana 2,
+// top 10% = 4, top 5% = 6, 638 janelas de 8 jogos); finalizações na área e chances
+// claras ainda sem histórico próprio, começam com valores conservadores — ajuste aqui.
+const _RITMO_DEF = [
+  { key: 'toques_area', ico: '🎯', rot: 'Toques na área',       alto: 4, muito: 6 },
+  { key: 'fin_area',    ico: '📦', rot: 'Finalizações na área', alto: 3, muito: 5 },
+  { key: 'chances',     ico: '⭐', rot: 'Chances claras',       alto: 1, muito: 2 },
+];
+function _live2RitmoHtml(r) {
+  if (!r) return '';
+  const fmt = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+  return _RITMO_DEF.map(d => {
+    const it = r[d.key];
+    if (!it || (it.casa + it.fora) <= 0) return '';
+    const tem = it.j_casa != null && it.j_fora != null;
+    const c = tem ? it.j_casa : it.med_casa, f = tem ? it.j_fora : it.med_fora;
+    if (c == null || f == null) return '';
+    const maior = Math.max(c, f);
+    const lado = c > f ? 'casa' : f > c ? 'fora' : '';
+    let cls = '';
+    if (tem && lado) cls = maior >= d.muito ? ` muito-${lado}` : maior >= d.alto ? ` alto-${lado}` : '';
+    const dica = `${d.rot}\n` +
+      (tem ? `Últimos ${it.j_min} min: ${fmt(c)} × ${fmt(f)}\n` : 'Coletando os últimos 10 min…\n') +
+      `Média por minuto: ${fmt(it.med_casa ?? 0)} × ${fmt(it.med_fora ?? 0)}\n` +
+      `Total no jogo: ${it.casa} × ${it.fora}`;
+    const numeros = tem
+      ? `<span class="n"><span class="c">${fmt(c)}</span> × <span class="f">${fmt(f)}</span></span>`
+      : `<span class="n"><span class="c">${fmt(c)}</span> × <span class="f">${fmt(f)}</span><span class="med">/min</span></span>`;
+    return `<span class="live-ritmo-chip${cls}" title="${dica}">${d.ico} ${d.rot} ${numeros}</span>`;
+  }).join('');
+}
+function _live2RitmoAtualiza(matchId, ritmo) {
+  const el = document.getElementById(`live2RitmoWrap_${matchId}`);
+  if (!el) return;
+  const html = _live2RitmoHtml(ritmo);
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
 async function _loadLive2Momentum(matches) {
   const presoFaz = _live2MomentumRunning && (Date.now() - _live2MomentumStartedAt) > _LIVE2_MOMENTUM_STUCK_MS;
   if (_live2MomentumRunning && !presoFaz) return; // ciclo anterior ainda rodando — não empilha outro
@@ -10888,6 +10946,7 @@ async function _loadLive2Momentum(matches) {
           }
           const data   = await res.json();
           const points = data.graphPoints || [];
+          _live2RitmoAtualiza(m.id, data.ritmo);
           if (points.length) {
             // Só recria o canvas se o número de pontos mudou (novo dado de fato) —
             // redesenhar o mesmo gráfico do zero a cada ciclo de 20s causava um

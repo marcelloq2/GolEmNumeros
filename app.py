@@ -4449,6 +4449,10 @@ _STAT_NAME_CANDIDATES = {
     "toques_area": ["Touches in Box", "Touches In Box", "touches_in_box"],
     "bloqueados":  ["Blocked Shots", "blockedShots"],
     "defesas":     ["Saves", "Goalkeeper Saves"],
+    # Indicadores de RITMO do card (2026-09-19): finalizações de dentro da área e
+    # chances claras, junto dos toques na área que já eram guardados.
+    "fin_area":    ["Shots Inside Box", "shots_inside_box"],
+    "chances":     ["Big Chances", "big_chances"],
 }
 
 
@@ -4473,6 +4477,44 @@ def _stats_history_point(stats_live, xg_live, ts, minuto):
         ponto[f"{key}_casa"] = h
         ponto[f"{key}_fora"] = a
     return ponto
+
+
+_RITMO_METRICAS = ("toques_area", "fin_area", "chances")
+_RITMO_JANELA_MIN = 10       # janela dos "últimos N minutos"
+_RITMO_SPAN_MIN = 4          # observado por menos que isso, a janela não vale
+
+
+def _ritmo_do_historico(event_id):
+    """Ritmo por minuto de toques na área, finalizações de dentro da área e chances
+    claras, calculado do histórico que _process_momentum já acumula a cada consulta
+    (zero requisição nova). Só o TOTAL acumulado vem da fonte; o "por minuto" sai da
+    diferença entre pontos. A janela usa o MINUTO DE JOGO (não o relógio), então o
+    intervalo de 15 min não conta como jogo parado. Devolve None sem histórico."""
+    with _stats_history_lock:
+        pts = list(_stats_history.get(event_id, []))
+    if not pts:
+        return None
+    ult = pts[-1]
+    minuto = ult.get("minuto")
+    out = {}
+    for key in _RITMO_METRICAS:
+        c, f = ult.get(f"{key}_casa"), ult.get(f"{key}_fora")
+        if c is None or f is None:
+            continue
+        item = {"casa": c, "fora": f}
+        if minuto and minuto > 0:
+            item["med_casa"] = round(c / minuto, 2)
+            item["med_fora"] = round(f / minuto, 2)
+        if minuto is not None:
+            base = next((p for p in pts if p.get("minuto") is not None
+                         and p["minuto"] >= minuto - _RITMO_JANELA_MIN
+                         and p.get(f"{key}_casa") is not None), None)
+            if base is not None and minuto - base["minuto"] >= _RITMO_SPAN_MIN:
+                item["j_casa"] = round(c - base[f"{key}_casa"], 1)
+                item["j_fora"] = round(f - base[f"{key}_fora"], 1)
+                item["j_min"] = minuto - base["minuto"]
+        out[key] = item
+    return out or None
 
 
 def _stats_history_prune():
@@ -4817,18 +4859,19 @@ def api_radar_momentum(event_id):
 
     _ao_vivo_ativo["ts"] = time.time()   # alguém está com o Ao Vivo aberto (ver monitor de fundo)
     data = _process_momentum(event_id, casa, fora, liga)
+    ritmo = _ritmo_do_historico(event_id)
     if data and data.get("graphPoints"):
         _momentum_last_good_remember(event_id, data)
-        return jsonify(data)
+        return jsonify({**data, "ritmo": ritmo})
     # Falha da fonte (429/timeout) ou jogo sem dado agora: serve o último gráfico
     # bom em vez de erro — o site trocava o gráfico que já estava na tela por
     # "sem dados de pressão" (2026-09-19).
     fb = _momentum_last_good_get(event_id)
     if fb is not None:
-        return jsonify({**fb, "stale": True})
+        return jsonify({**fb, "stale": True, "ritmo": ritmo})
     if data is None:
         return jsonify({"error": "Sem dados do SofaScore"}), 503
-    return jsonify(data)
+    return jsonify({**data, "ritmo": ritmo})
 
 
 # Último mapa de chutes bom de cada jogo (2026-09-19). O Ao Vivo só mostra jogo
