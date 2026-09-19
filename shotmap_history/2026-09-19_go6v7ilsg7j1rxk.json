@@ -1,0 +1,234 @@
+{
+  "event_id": "go6v7ilsg7j1rxk",
+  "date": "2026-09-19",
+  "casa": "Trabzonspor",
+  "fora": "Galatasaray",
+  "liga": "Superliga",
+  "score": {
+    "home": 4,
+    "away": 0
+  },
+  "total_shots": 20,
+  "shotmap": [
+    {
+      "id": "2972287431",
+      "minute": 51,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Bardakçı",
+      "x": 8.2,
+      "y": 59.8
+    },
+    {
+      "id": "2972286015",
+      "minute": 50,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Sallai",
+      "x": 16.7,
+      "y": 64
+    },
+    {
+      "id": "2972249847",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leao",
+      "x": 14,
+      "y": 31
+    },
+    {
+      "id": "2972247505",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Salah",
+      "x": 12.8,
+      "y": 53.4
+    },
+    {
+      "id": "2972245013",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Franculino",
+      "x": 7.3,
+      "y": 48.7
+    },
+    {
+      "id": "2972242593",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leao",
+      "x": 24,
+      "y": 28.2
+    },
+    {
+      "id": "2972239923",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "N.Saviolo",
+      "x": 14,
+      "y": 29.8
+    },
+    {
+      "id": "2972236681",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gul",
+      "x": 4.3,
+      "y": 70.1
+    },
+    {
+      "id": "2972236055",
+      "minute": 37,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Jakobs",
+      "x": 6.1,
+      "y": 31.3
+    },
+    {
+      "id": "2972236351",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Gul",
+      "x": 5.5,
+      "y": 52.6
+    },
+    {
+      "id": "2972232927",
+      "minute": 34,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leao",
+      "x": 19.5,
+      "y": 28
+    },
+    {
+      "id": "2972214535",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sané",
+      "x": 18.9,
+      "y": 47.4
+    },
+    {
+      "id": "2972211341",
+      "minute": 18,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Sánchez",
+      "x": 5.1,
+      "y": 49.3
+    },
+    {
+      "id": "2972204321",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Gabriel",
+      "x": 21.6,
+      "y": 31.3
+    },
+    {
+      "id": "2972196087",
+      "minute": 9,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Salah",
+      "x": 9.8,
+      "y": 53.1
+    },
+    {
+      "id": "2972186729",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Salah",
+      "x": 14.4,
+      "y": 49.7
+    },
+    {
+      "id": "2972304321",
+      "minute": 63,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Sané",
+      "x": 25.9,
+      "y": 58.5
+    },
+    {
+      "id": "2972302133",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Leao",
+      "x": 13.6,
+      "y": 33.8
+    },
+    {
+      "id": "2972317803",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Onuachu",
+      "x": 4.6,
+      "y": 48.7
+    },
+    {
+      "id": "2972324139",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Salah",
+      "x": 9.4,
+      "y": 63.6
+    }
+  ]
+}
