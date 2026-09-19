@@ -214,24 +214,8 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
     return False
 
 
-# True só depois que o pull de backtest2.db no boot confirma sucesso. Enquanto
-# for False, push_file_bg RECUSA subir backtest2.db (ver guard lá embaixo) —
-# sem essa trava, um pull que falhasse silenciosamente deixava o container
-# rodando com um banco vazio/velho, e o primeiro push depois sobrescrevia o
-# backup bom no GitHub com esse estado pequeno. Foi exatamente isso que
-# apagou dado real de verdade (achado investigando com o usuário em
-# 2026-08-25) — o tamanho do arquivo na branch 'data' caiu de ~2.4MB pra
-# ~900KB de um commit pro outro, sem nenhum push nosso no meio.
-_backtest2_db_synced_ok = False
-
-
-def backtest2_db_sync_ok() -> bool:
-    return _backtest2_db_synced_ok
-
-
 def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap_dir: str = None):
     """Restaura todos os dados do GitHub ao iniciar o servidor."""
-    global _backtest2_db_synced_ok
     if not is_configured():
         print("[github] GITHUB_TOKEN não configurado — persistência desabilitada.")
         return
@@ -251,14 +235,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # motivo pra esperar a fila de milhares de arquivos grandes primeiro.
         for fname in ("predictions_full.json", "predictions.json"):
             pull_file(fname, os.path.join(data_dir, fname), force=True)
-        # backtest2.db (SQLite do Backtest 2/CS acumulado): sempre baixa a
-        # versão mais recente — sem isso, cada redeploy no Railway apagava o
-        # disco local e o histórico acumulado voltava a zero.
-        _backtest2_db_synced_ok = pull_file("backtest2.db", os.path.join(data_dir, "backtest2.db"), force=True)
-        if not _backtest2_db_synced_ok:
-            print("[github] ⚠ Não deu pra confirmar a restauração de backtest2.db — "
-                  "pushes desse arquivo ficam BLOQUEADOS até o próximo boot bem-sucedido, "
-                  "pra não arriscar sobrescrever o backup bom no GitHub com um estado ruim.")
         # Favoritos com alerta de Telegram (15 min antes do jogo) — sem isso cada
         # redeploy apagava os favoritos e o aviso nunca saía.
         pull_file("telegram_favoritos.json", os.path.join(data_dir, "telegram_favoritos.json"), force=True)
