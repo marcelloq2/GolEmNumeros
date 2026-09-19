@@ -1,0 +1,300 @@
+{
+  "event_id": "ykcv4illw61ww5u",
+  "date": "2026-09-19",
+  "casa": "Brighton",
+  "fora": "Arsenal",
+  "liga": "Premier League",
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "total_shots": 26,
+  "shotmap": [
+    {
+      "id": "2971965145",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Kostoulas",
+      "x": 24.4,
+      "y": 58.1
+    },
+    {
+      "id": "2971964327",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Saka",
+      "x": 7.9,
+      "y": 45.3
+    },
+    {
+      "id": "2971964321",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Odegaard",
+      "x": 15,
+      "y": 66.7
+    },
+    {
+      "id": "2971963703",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Boscagli",
+      "x": 27.5,
+      "y": 46.5
+    },
+    {
+      "id": "2971948851",
+      "minute": 40,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ayari",
+      "x": 4.9,
+      "y": 68.7
+    },
+    {
+      "id": "2971937227",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Kostoulas",
+      "x": 25.4,
+      "y": 57.3
+    },
+    {
+      "id": "2971926293",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Groß",
+      "x": 20.6,
+      "y": 69.3
+    },
+    {
+      "id": "2971900293",
+      "minute": 20,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Calafiori",
+      "x": 12.3,
+      "y": 40.5
+    },
+    {
+      "id": "2971868253",
+      "minute": 8,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Ayari",
+      "x": 8.9,
+      "y": 57.1
+    },
+    {
+      "id": "2971866003",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Kostoulas",
+      "x": 15.7,
+      "y": 72.4
+    },
+    {
+      "id": "2971856289",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Kadıoğlu",
+      "x": 24,
+      "y": 60.2
+    },
+    {
+      "id": "2972000637",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Kostoulas",
+      "x": 19.4,
+      "y": 66.2
+    },
+    {
+      "id": "2972013033",
+      "minute": 57,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "C.Andrés",
+      "x": 2.8,
+      "y": 53.3
+    },
+    {
+      "id": "2972007541",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Konsa",
+      "x": 5.4,
+      "y": 50.5
+    },
+    {
+      "id": "2972036105",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Struijk",
+      "x": 4,
+      "y": 54.7
+    },
+    {
+      "id": "2972050503",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Saka",
+      "x": 5.4,
+      "y": 71.4
+    },
+    {
+      "id": "2972044959",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Calafiori",
+      "x": 7.6,
+      "y": 39.6
+    },
+    {
+      "id": "2972052139",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "C.Andrés",
+      "x": 54.5,
+      "y": 82.7
+    },
+    {
+      "id": "2972051725",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Havertz",
+      "x": 4.6,
+      "y": 48.3
+    },
+    {
+      "id": "2972056607",
+      "minute": 78,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Havertz",
+      "x": 13.2,
+      "y": 52.6
+    },
+    {
+      "id": "2972059871",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Groß",
+      "x": 8.1,
+      "y": 32.7
+    },
+    {
+      "id": "2972061853",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Rutter",
+      "x": 9.2,
+      "y": 36.2
+    },
+    {
+      "id": "2972061799",
+      "minute": 80,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "De Cuyper",
+      "x": 20.4,
+      "y": 60.2
+    },
+    {
+      "id": "2972084395",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "post_right",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Yalcouyé",
+      "x": 4.3,
+      "y": 68.6
+    },
+    {
+      "id": "2972084165",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "O'Riley",
+      "x": 8.2,
+      "y": 50.9
+    },
+    {
+      "id": "2972094717",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Zubimendi",
+      "x": 11.6,
+      "y": 55.8
+    }
+  ]
+}
