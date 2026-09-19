@@ -1,0 +1,322 @@
+{
+  "event_id": "7kbz8ilurk6er9b",
+  "date": "2026-09-19",
+  "casa": "Portsmouth",
+  "fora": "Blackburn",
+  "liga": "Championship",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2972011939",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Morishita",
+      "x": 8.8,
+      "y": 62.3
+    },
+    {
+      "id": "2972006421",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Segecic",
+      "x": 18.4,
+      "y": 56.3
+    },
+    {
+      "id": "2972006283",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "R.Kavuma-McQueen",
+      "x": 15.8,
+      "y": 51.2
+    },
+    {
+      "id": "2972004591",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Pack",
+      "x": 21.3,
+      "y": 52.9
+    },
+    {
+      "id": "2972004391",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "R.Kavuma-McQueen",
+      "x": 6.2,
+      "y": 30.3
+    },
+    {
+      "id": "2972000565",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Meghoma",
+      "x": 21.3,
+      "y": 36.6
+    },
+    {
+      "id": "2971998255",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "R.Kavuma-McQueen",
+      "x": 13.2,
+      "y": 33.4
+    },
+    {
+      "id": "2971998073",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Segecic",
+      "x": 14.2,
+      "y": 37.9
+    },
+    {
+      "id": "2971966161",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "Dia",
+      "x": 12.1,
+      "y": 39.4
+    },
+    {
+      "id": "2971964457",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Segecic",
+      "x": 17.9,
+      "y": 44.3
+    },
+    {
+      "id": "2971953753",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "R.Kavuma-McQueen",
+      "x": 16.4,
+      "y": 41.6
+    },
+    {
+      "id": "2971943231",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Pickering",
+      "x": 7.5,
+      "y": 33.7
+    },
+    {
+      "id": "2971930743",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Dia",
+      "x": 8.4,
+      "y": 50.5
+    },
+    {
+      "id": "2971918623",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Shade",
+      "x": 14,
+      "y": 44.2
+    },
+    {
+      "id": "2971896559",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "R.Kavuma-McQueen",
+      "x": 20.9,
+      "y": 57.6
+    },
+    {
+      "id": "2971895647",
+      "minute": 18,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Afolayan",
+      "x": 7.1,
+      "y": 60.2
+    },
+    {
+      "id": "2971881637",
+      "minute": 13,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Kavuma-McQueen",
+      "x": 10.9,
+      "y": 35.1
+    },
+    {
+      "id": "2971875425",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Afolayan",
+      "x": 15,
+      "y": 29.9
+    },
+    {
+      "id": "2971858767",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Swanson",
+      "x": 15.3,
+      "y": 51.6
+    },
+    {
+      "id": "2971852381",
+      "minute": 1,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Cantwell",
+      "x": 10.3,
+      "y": 71
+    },
+    {
+      "id": "2972032349",
+      "minute": 66,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "throw_in",
+      "player": "R.Kavuma-McQueen",
+      "x": 10.8,
+      "y": 33.3
+    },
+    {
+      "id": "2972021841",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Morsy",
+      "x": 19.9,
+      "y": 64.2
+    },
+    {
+      "id": "2972017877",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Afolayan",
+      "x": 11.6,
+      "y": 59.3
+    },
+    {
+      "id": "2972049333",
+      "minute": 74,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "other_body_part",
+      "situation": "fast_break",
+      "player": "Bishop",
+      "x": 5.7,
+      "y": 54
+    },
+    {
+      "id": "2972049235",
+      "minute": 74,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "R.Kavuma-McQueen",
+      "x": 13.7,
+      "y": 66.3
+    },
+    {
+      "id": "2972075691",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Fevrier",
+      "x": 14.7,
+      "y": 33.6
+    },
+    {
+      "id": "2972054269",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "R.Kavuma-McQueen",
+      "x": 6.5,
+      "y": 68.2
+    },
+    {
+      "id": "2972054181",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "R.Kavuma-McQueen",
+      "x": 13.8,
+      "y": 61.5
+    }
+  ]
+}
