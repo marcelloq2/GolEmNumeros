@@ -1,7 +1,7 @@
 {
   "event_id": "n97akmln2n0mwnv",
   "date": "2026-09-19",
-  "saved_at": "2026-09-19T16:59:14.930359",
+  "saved_at": "2026-09-19T17:06:28.331199",
   "source": "uniscore",
   "casa": "Austria Lustenau",
   "fora": "Rheindorf Altach",
@@ -445,8 +445,8 @@
       "bodyPart": "right_foot",
       "situation": "assisted",
       "player": "Diawara",
-      "x": 10.9,
-      "y": 45.7
+      "x": 9.4,
+      "y": 49.1
     },
     {
       "id": "2972149991",
@@ -672,9 +672,9 @@
   "statistics": {
     "xg_expected_goals": {
       "home": "1.19",
-      "away": "1.01",
+      "away": "1.02",
       "homeValue": 1.19,
-      "awayValue": 1.01
+      "awayValue": 1.02
     },
     "big_chances": {
       "home": "2",
@@ -951,9 +951,9 @@
     "ALL": {
       "xg_expected_goals": {
         "home": "1.19",
-        "away": "1.01",
+        "away": "1.02",
         "homeValue": 1.19,
-        "awayValue": 1.01
+        "awayValue": 1.02
       },
       "big_chances": {
         "home": "2",
@@ -1483,9 +1483,9 @@
     "2ND": {
       "xg_expected_goals": {
         "home": "0.63",
-        "away": "0.78",
+        "away": "0.79",
         "homeValue": 0.63,
-        "awayValue": 0.78
+        "awayValue": 0.79
       },
       "big_chances": {
         "home": "1",
@@ -1775,87 +1775,6 @@
     "ou_over": "1.00",
     "ou_under": "1.8"
   },
-  "odds_history": [
-    {
-      "ts": 1789836512.268601,
-      "minuto": 108,
-      "casa": 1.01,
-      "empate": 29.0,
-      "fora": 126.0,
-      "ou_line": "2.5",
-      "ou_over": 3.45,
-      "ou_under": 1.3
-    },
-    {
-      "ts": 1789836604.8192048,
-      "minuto": 110,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 401.0,
-      "ou_line": "2.5",
-      "ou_over": 5.0,
-      "ou_under": 1.17
-    },
-    {
-      "ts": 1789836682.0242329,
-      "minuto": 111,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    },
-    {
-      "ts": 1789836766.7128625,
-      "minuto": 112,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    },
-    {
-      "ts": 1789836855.4731216,
-      "minuto": 114,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    },
-    {
-      "ts": 1789836939.9307618,
-      "minuto": 115,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    },
-    {
-      "ts": 1789837016.1803157,
-      "minuto": 116,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    },
-    {
-      "ts": 1789837092.9173675,
-      "minuto": 118,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "2.5",
-      "ou_over": 1.98,
-      "ou_under": 1.83
-    }
-  ],
+  "odds_history": [],
   "stats_history": []
 }
