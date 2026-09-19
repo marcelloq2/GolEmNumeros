@@ -2859,7 +2859,7 @@ SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
 # ficam de fora de propósito — são chamados pelo script local
 # (upload_backup.py) via UPLOAD_TOKEN próprio, não por navegador logado.
 _LOGIN_EXEMPT_PREFIXES = (
-    "/login", "/static/", "/version",
+    "/login", "/static/", "/version", "/favicon.ico",
     "/api/upload-backup", "/api/list-backup", "/api/download-backup",
 )
 
@@ -2908,6 +2908,13 @@ def _exigir_login():
     if session.get("logado"):
         return
     return redirect("/login")
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Ícone do site (GN). Navegadores pedem /favicon.ico por conta própria, então
+    a rota existe além do <link rel="icon"> das páginas."""
+    return send_from_directory("static", "favicon.ico", mimetype="image/vnd.microsoft.icon", max_age=86400)
 
 
 @app.route("/login", methods=["GET", "POST"])
