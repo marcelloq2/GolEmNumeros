@@ -15059,11 +15059,13 @@ async function _loadLive2Momentum(matches) {
               _live2RedrawMomentumFiltrado(m.id);
             }
             _live2RefreshBadges(m.id); // selos são baratos de atualizar — refaz sempre, mesmo sem redesenhar o canvas
-          } else {
+          } else if (!(_live2PointsCache[m.id] && _live2PointsCache[m.id].length)) {
+            // Só mostra "sem dados" se nunca houve gráfico — uma falha passageira
+            // da fonte não pode apagar o que já estava desenhado.
             wrap.innerHTML = `<div style="font-size:9px;color:var(--text2);text-align:center;padding:8px 0">sem dados de pressão ainda</div>`;
           }
         } catch (e) {
-          wrap.innerHTML = '';
+          if (!(_live2PointsCache[m.id] && _live2PointsCache[m.id].length)) wrap.innerHTML = '';
         }
       }));
     }

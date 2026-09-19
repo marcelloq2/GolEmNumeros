@@ -4523,6 +4523,7 @@ def _stats_history_prune():
 # UniScore devolveu 429: o monitor de fundo (o consumidor de menor prioridade —
 # o Ao Vivo é a página principal) para de martelar por 90s pra deixar a cota livre.
 _uniscore_backoff = {"until": 0}
+_ao_vivo_ativo = {"ts": 0}   # atualizado por /api/radar/momentum (definido aqui pra o monitor enxergar)
 
 
 def _process_momentum(event_id, casa="", fora="", liga=""):
@@ -4743,7 +4744,9 @@ def _background_monitor():
                     data = _process_momentum(m["id"], m["casa"], m["fora"], m["liga"])
                     if data and data.get("finished"):
                         print(f"[monitor] ✓ Encerrado e salvo: {m['casa']} x {m['fora']}")
-                    time.sleep(2)
+                    # Com alguém no Ao Vivo agora, o monitor (menor prioridade) anda
+                    # mais devagar pra não disputar a cota do UniScore com a tela.
+                    time.sleep(6 if time.time() - _ao_vivo_ativo["ts"] < 90 else 2)
             else:
                 print(f"[monitor] {len(live_list)} ao vivo, todos já salvos ou sem jogos.")
         except Exception as e:
@@ -4811,6 +4814,31 @@ threading.Thread(
 # configurado, antes do resto do módulo terminar de carregar).
 
 
+# Último retorno bom de pressão por jogo (só pra servir quando a fonte falha) e
+# marca de "tem usuário com o Ao Vivo aberto agora" (o monitor de fundo, que é o
+# consumidor de menor prioridade, desacelera enquanto isso é verdade).
+_momentum_last_good = {}   # event_id -> {"ts":, "data":}
+_momentum_last_good_lock = threading.Lock()
+_MOMENTUM_LAST_GOOD_MAX_AGE = 30 * 60
+
+
+def _momentum_last_good_remember(event_id, data):
+    now = time.time()
+    with _momentum_last_good_lock:
+        _momentum_last_good[event_id] = {"ts": now, "data": data}
+        if len(_momentum_last_good) > 400:
+            for k in [k for k, v in _momentum_last_good.items() if now - v["ts"] > _MOMENTUM_LAST_GOOD_MAX_AGE]:
+                _momentum_last_good.pop(k, None)
+
+
+def _momentum_last_good_get(event_id):
+    with _momentum_last_good_lock:
+        v = _momentum_last_good.get(event_id)
+    if v and time.time() - v["ts"] < _MOMENTUM_LAST_GOOD_MAX_AGE:
+        return v["data"]
+    return None
+
+
 @app.route("/api/radar/momentum/<event_id>")
 def api_radar_momentum(event_id):
     """Busca dados de Attack Momentum do SofaScore via Playwright.
@@ -4822,7 +4850,17 @@ def api_radar_momentum(event_id):
     fora = flask_req.args.get("fora", "")
     liga = flask_req.args.get("liga", "")
 
+    _ao_vivo_ativo["ts"] = time.time()   # alguém está com o Ao Vivo aberto (ver monitor de fundo)
     data = _process_momentum(event_id, casa, fora, liga)
+    if data and data.get("graphPoints"):
+        _momentum_last_good_remember(event_id, data)
+        return jsonify(data)
+    # Falha da fonte (429/timeout) ou jogo sem dado agora: serve o último gráfico
+    # bom em vez de erro — o site trocava o gráfico que já estava na tela por
+    # "sem dados de pressão" (2026-09-19).
+    fb = _momentum_last_good_get(event_id)
+    if fb is not None:
+        return jsonify({**fb, "stale": True})
     if data is None:
         return jsonify({"error": "Sem dados do SofaScore"}), 503
     return jsonify(data)
