@@ -3447,7 +3447,30 @@ def _live_2t_indicadores(gol_casa_ht, gol_fora_ht, gol_casa_ft, gol_fora_ft):
         "margem": abs(margem_casa),
     }
 
+# Uma busca por vez (2026-09-19): sem isso, cada requisição que achava o cache de
+# 30s vencido refazia a varredura inteira — com o Ao Vivo atualizando a cada 20s e
+# a varredura levando vários segundos, elas se empilhavam. Quem chega com uma em
+# andamento recebe a lista anterior (marcada stale) em vez de esperar/duplicar.
+_radar_live_lock = threading.Lock()
+
+
 def _radar_fetch_live_matches():
+    """Lista de jogos ao vivo (UniScore) — ver _radar_fetch_live_matches_impl."""
+    if time.time() - _uniscore_full_cache["ts"] < 30 and _uniscore_full_cache["live"]:
+        live = _uniscore_full_cache["live"]
+        return {"live": live, "total": len(live)}
+    if not _radar_live_lock.acquire(blocking=False):
+        prev = _uniscore_full_cache["live"]
+        if prev and time.time() - _uniscore_full_cache["ts"] < 600:
+            return {"live": prev, "total": len(prev), "stale": True}
+        _radar_live_lock.acquire()
+    try:
+        return _radar_fetch_live_matches_impl()
+    finally:
+        _radar_live_lock.release()
+
+
+def _radar_fetch_live_matches_impl():
     """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
     sem o jsonify) — extraída pra ser reaproveitada por outros consumidores
     internos, não só pelo endpoint público /api/radar/live."""
@@ -3464,54 +3487,31 @@ def _radar_fetch_live_matches():
 
     live = []
     all_by_id = {}
-    for locale in _UNISCORE_LOCALES:
-        page = 1
-        while True:
-            try:
-                r = http_req.post(
-                    f"{_UNISCORE_API}/sport/football/events/live-v2/locale/{locale}",
-                    headers=_UNISCORE_HEADERS,
-                    json={"page": page},
-                    params={"language": "pt-BR"},
-                    timeout=12,
-                )
-                if r.status_code not in (200, 201):
-                    break
-                data   = r.json().get("data", {})
-                events = data.get("events", [])
-                pag    = data.get("pagination", {})
-                for e in events:
-                    if e.get("status", {}).get("type") != "inprogress":
-                        continue
-                    eid = e["id"]
-                    if eid in all_by_id:
-                        continue
-                    hs  = e.get("homeScore", {}) or {}
-                    aws = e.get("awayScore", {}) or {}
-                    all_by_id[eid] = {
-                        "id":        eid,
-                        "casa":      e.get("homeTeam", {}).get("name", ""),
-                        "fora":      e.get("awayTeam", {}).get("name", ""),
-                        "liga":      e.get("tournament", {}).get("name", ""),
-                        "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
-                        "priority":  e.get("tournament", {}).get("priority"),
-                        "tempo":     e.get("status", {}).get("description", ""),
-                        "minuto":    _uniscore_minuto(e),
-                        "golCasaFt": hs.get("current", 0),
-                        "golForaFt": aws.get("current", 0),
-                        "golCasaHt": hs.get("period1", 0),
-                        "golForaHt": aws.get("period1", 0),
-                        "cartaoCasa": 0,
-                        "cartaoFora": 0,
-                    }
-                if not pag.get("hasNextPage"):
-                    break
-                page += 1
-                if page > 5:
-                    break
-            except Exception as e:
-                print(f"[live] Erro locale={locale}: {e}")
-                break
+    for events in _uniscore_live_events_raw():
+        for e in events:
+            if e.get("status", {}).get("type") != "inprogress":
+                continue
+            eid = e["id"]
+            if eid in all_by_id:
+                continue
+            hs  = e.get("homeScore", {}) or {}
+            aws = e.get("awayScore", {}) or {}
+            all_by_id[eid] = {
+                "id":        eid,
+                "casa":      e.get("homeTeam", {}).get("name", ""),
+                "fora":      e.get("awayTeam", {}).get("name", ""),
+                "liga":      e.get("tournament", {}).get("name", ""),
+                "pais":      e.get("tournament", {}).get("category", {}).get("name", ""),
+                "priority":  e.get("tournament", {}).get("priority"),
+                "tempo":     e.get("status", {}).get("description", ""),
+                "minuto":    _uniscore_minuto(e),
+                "golCasaFt": hs.get("current", 0),
+                "golForaFt": aws.get("current", 0),
+                "golCasaHt": hs.get("period1", 0),
+                "golForaHt": aws.get("period1", 0),
+                "cartaoCasa": 0,
+                "cartaoFora": 0,
+            }
 
     live = list(all_by_id.values())
     print(f"[live] {len(live)} jogos ao vivo retornados")
@@ -3755,8 +3755,15 @@ _sofa_live_lock  = threading.Lock()
 
 import unicodedata
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=60000)
 def _norm(s: str) -> str:
-    """Normaliza string: minúsculo, sem acento, sem caracteres especiais."""
+    """Normaliza string: minúsculo, sem acento, sem caracteres especiais.
+    Memoizada (2026-09-19): o cruzamento de nomes do Ao Vivo (centenas de jogos x
+    centenas de jogos do Painel, a cada 30s) chamava isso ~15 milhões de vezes por
+    atualização com os MESMOS textos, prendendo a CPU do servidor por 10 a 20s."""
     s = s.lower().strip()
     s = unicodedata.normalize("NFD", s)
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
@@ -3786,25 +3793,31 @@ def _name_match(a: str, b: str) -> bool:
     if na in nb or nb in na:
         return True
 
+    words_a, core_a, short_a = _name_features(na)
+    words_b, core_b, short_b = _name_features(nb)
+
     # 3. Palavras com >= 3 chars em comum (anterior era >= 4)
-    words_a = {w for w in na.split() if len(w) >= 3}
-    words_b = {w for w in nb.split() if len(w) >= 3}
     if words_a & words_b:
         return True
 
     # 4. Palavras sem sufixos genéricos — evita falso positivo por "FC"/"Sporting"
-    core_a = _strip_suffixes(words_a)
-    core_b = _strip_suffixes(words_b)
     if core_a and core_b and core_a & core_b:
         return True
 
     # 5. Nomes curtos (≤ 4 chars): exige igualdade exata entre os tokens curtos
-    short_a = {w for w in na.split() if len(w) <= 4}
-    short_b = {w for w in nb.split() if len(w) <= 4}
     if short_a and short_b and short_a == short_b and len(short_a) >= 1:
         return True
 
     return False
+
+
+@lru_cache(maxsize=60000)
+def _name_features(na: str):
+    """(palavras >=3 chars, essas sem sufixos genéricos, palavras <=4 chars) de um
+    nome já normalizado — calculado uma vez por nome, não a cada comparação."""
+    toks = na.split()
+    words = frozenset(w for w in toks if len(w) >= 3)
+    return words, frozenset(_strip_suffixes(words)), frozenset(w for w in toks if len(w) <= 4)
 
 
 def _get_sofa_live_events():
@@ -3907,42 +3920,27 @@ def _get_uniscore_live_matches():
         _uniscore_fetch_lock.release()
 
 
-def _get_uniscore_live_matches_fetch(prev, prev_ts):
-    all_by_id = {}
-    for locale in _UNISCORE_LOCALES:
-        page = 1
+def _uniscore_live_events_raw():
+    """Eventos ao vivo do UniScore de cada locale ([lista por locale], na ordem de
+    _UNISCORE_LOCALES). Os 7 locales são buscados em PARALELO (2026-09-19): em
+    sequência levava de 19 a 28s por varredura, e todo pedido do Ao Vivo que
+    pegava o cache vencido esperava isso tudo."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def um_locale(locale):
+        out, page = [], 1
         while True:
             try:
                 r = http_req.post(
                     f"{_UNISCORE_API}/sport/football/events/live-v2/locale/{locale}",
-                    headers=_UNISCORE_HEADERS,
-                    json={"page": page},
-                    params={"language": "pt-BR"},
-                    timeout=12,
+                    headers=_UNISCORE_HEADERS, json={"page": page},
+                    params={"language": "pt-BR"}, timeout=12,
                 )
                 if r.status_code not in (200, 201):
                     break
-                data      = r.json().get("data", {})
-                events    = data.get("events", [])
-                pag       = data.get("pagination", {})
-                for e in events:
-                    if e.get("status", {}).get("type") == "inprogress":
-                        eid = e["id"]
-                        if eid not in all_by_id:
-                            all_by_id[eid] = {
-                                "id":     eid,
-                                "homeId": e.get("homeTeam", {}).get("id", ""),
-                                "awayId": e.get("awayTeam", {}).get("id", ""),
-                                "home":   e.get("homeTeam", {}).get("name", ""),
-                                "away":   e.get("awayTeam", {}).get("name", ""),
-                                # Liga e "priority" (posição da liga no ranking mundial
-                                # do UniScore: 12 = La Liga, 1000 = sem ranking) — 2026-09-19,
-                                # pra medir depois quais ligas costumam ter mapa de chutes.
-                                "liga":     (e.get("tournament") or {}).get("name", "") or "",
-                                "pais":     ((e.get("tournament") or {}).get("country") or {}).get("name", "") or "",
-                                "priority": (e.get("tournament") or {}).get("priority"),
-                            }
-                if not pag.get("hasNextPage"):
+                data = r.json().get("data") or {}
+                out.extend(data.get("events") or [])
+                if not (data.get("pagination") or {}).get("hasNextPage"):
                     break
                 page += 1
                 if page > 5:   # safety cap
@@ -3950,6 +3948,34 @@ def _get_uniscore_live_matches_fetch(prev, prev_ts):
             except Exception as e:
                 print(f"[uniscore] Erro live locale={locale} page={page}: {e}")
                 break
+        return out
+
+    with ThreadPoolExecutor(max_workers=len(_UNISCORE_LOCALES)) as ex:
+        return list(ex.map(um_locale, _UNISCORE_LOCALES))
+
+
+def _get_uniscore_live_matches_fetch(prev, prev_ts):
+    all_by_id = {}
+    for events in _uniscore_live_events_raw():
+        for e in events:
+            if e.get("status", {}).get("type") != "inprogress":
+                continue
+            eid = e["id"]
+            if eid in all_by_id:
+                continue
+            all_by_id[eid] = {
+                "id":     eid,
+                "homeId": e.get("homeTeam", {}).get("id", ""),
+                "awayId": e.get("awayTeam", {}).get("id", ""),
+                "home":   e.get("homeTeam", {}).get("name", ""),
+                "away":   e.get("awayTeam", {}).get("name", ""),
+                # Liga e "priority" (posição da liga no ranking mundial
+                # do UniScore: 12 = La Liga, 1000 = sem ranking) — 2026-09-19,
+                # pra medir depois quais ligas costumam ter mapa de chutes.
+                "liga":     (e.get("tournament") or {}).get("name", "") or "",
+                "pais":     ((e.get("tournament") or {}).get("country") or {}).get("name", "") or "",
+                "priority": (e.get("tournament") or {}).get("priority"),
+            }
 
     matches = list(all_by_id.values())
     print(f"[uniscore] {len(matches)} partidas ao vivo (todos os locales)")
@@ -4036,26 +4062,51 @@ def _fetch_uniscore_graph(uni_match):
 
 
 def _fetch_uniscore_graph_impl(uni_match):
+    from concurrent.futures import ThreadPoolExecutor
     uniscore_id = uni_match["id"]
     home_id     = uni_match.get("homeId", "")
     away_id     = uni_match.get("awayId", "")
 
+    # As 5 chamadas de um jogo (gráfico, gols, estatísticas, chutes e detalhes)
+    # saem EM PARALELO (2026-09-19): em sequência cada jogo levava de 4 a 10s, e
+    # com 30 cards na tela a fila passava dos 12s que o site espera — os últimos
+    # cards ficavam em "sem dados de pressão ainda".
+    ev_url = f"{_UNISCORE_API}/football/event/{uniscore_id}"
+    pedidos = {
+        "graph": (f"{ev_url}/graph", 12, None),
+        "inc":   (f"{ev_url}/incidents", 12, None),
+        "shot":  (f"{ev_url}/shotmap", 12, None),
+        "ev":    (ev_url, 10, {"language": "pt-BR"}),
+    }
+    if home_id and away_id:
+        pedidos["stats"] = (f"{ev_url}/home/{home_id}/away/{away_id}/statistics", 12, None)
+
+    def _get(url, timeout, params):
+        try:
+            return http_req.get(url, headers=_UNISCORE_HEADERS, params=params, timeout=timeout)
+        except Exception as e:
+            return e
+
+    with ThreadPoolExecutor(max_workers=len(pedidos)) as ex:
+        futs = {k: ex.submit(_get, *v) for k, v in pedidos.items()}
+        resp = {k: f.result() for k, f in futs.items()}
+
+    def _ok(k):
+        x = resp.get(k)
+        return x if x is not None and not isinstance(x, Exception) else None
+
     # Graph (momentum)
-    r = http_req.get(
-        f"{_UNISCORE_API}/football/event/{uniscore_id}/graph",
-        headers=_UNISCORE_HEADERS, timeout=12,
-    )
+    r = resp["graph"]
+    if isinstance(r, Exception):
+        raise r
     r.raise_for_status()
     pts = r.json().get("data", {}).get("graphPoints", [])
 
     # Incidents (gols)
     goals = []
     try:
-        ri = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}/incidents",
-            headers=_UNISCORE_HEADERS, timeout=12,
-        )
-        if ri.status_code == 200:
+        ri = _ok("inc")
+        if ri is not None and ri.status_code == 200:
             for inc in ri.json().get("data", {}).get("incidents", []):
                 if inc.get("incidentType") == "goal":
                     player     = inc.get("player") or inc.get("scorer") or {}
@@ -4074,11 +4125,8 @@ def _fetch_uniscore_graph_impl(uni_match):
     statistics_periods = {}
     if home_id and away_id:
         try:
-            rs = http_req.get(
-                f"{_UNISCORE_API}/football/event/{uniscore_id}/home/{home_id}/away/{away_id}/statistics",
-                headers=_UNISCORE_HEADERS, timeout=12,
-            )
-            if rs.status_code == 200:
+            rs = _ok("stats")
+            if rs is not None and rs.status_code == 200:
                 stats_list = rs.json().get("data", {}).get("statistics", [])
                 statistics_periods = _uniscore_stats_to_flat(stats_list)
                 print(f"[uniscore] Estatísticas: {list(statistics_periods.keys())}")
@@ -4088,12 +4136,9 @@ def _fetch_uniscore_graph_impl(uni_match):
     # Shotmap
     shotmap = []
     try:
-        rsm = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}/shotmap",
-            headers=_UNISCORE_HEADERS, timeout=12,
-        )
-        if rsm.status_code == 200:
-            raw_shots = rsm.json().get("data", {}).get("shotmap", [])
+        rsm = _ok("shot")
+        if rsm is not None and rsm.status_code == 200:
+            raw_shots = (rsm.json().get("data") or {}).get("shotmap") or []
             shotmap = [
                 {
                     "id":        s.get("id"),
@@ -4116,13 +4161,13 @@ def _fetch_uniscore_graph_impl(uni_match):
     finished = False
     score_h  = None
     score_a  = None
+    # (antes score_ht_* só nasciam dentro do `if` abaixo: se a chamada de detalhes
+    # falhasse, o return quebrava com UnboundLocalError e o card ficava sem pressão)
+    score_ht_h = None
+    score_ht_a = None
     try:
-        re = http_req.get(
-            f"{_UNISCORE_API}/football/event/{uniscore_id}",
-            headers=_UNISCORE_HEADERS,
-            params={"language": "pt-BR"}, timeout=10,
-        )
-        if re.status_code == 200:
+        re = _ok("ev")
+        if re is not None and re.status_code == 200:
             ev_data  = re.json().get("data", {}).get("event", {})
             status   = ev_data.get("status", {})
             finished = status.get("type") == "finished"
