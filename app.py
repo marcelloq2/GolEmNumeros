@@ -3245,7 +3245,10 @@ def _ao_vivo_filtra_por_prioridade(matches, fav_ids=(), fav_nomes=()):
     vis, ocultos = [], []
     for m in matches:
         (vis if _prio_de(m) <= pmax or favorito(m) else ocultos).append(m)
-    vis.sort(key=_prio_de)   # estável
+    # Mais importante primeiro; dentro da mesma prioridade, jogo com link da Betfair
+    # ou da Bolsa de Aposta (ícones B/$) antes dos sem link — é onde dá pra operar
+    # com certeza. Estável: o resto mantém a ordem da fonte.
+    vis.sort(key=lambda m: (_prio_de(m), 0 if (m.get("link_betfair") or m.get("link_bolsa")) else 1))
     return vis, ocultos
 
 

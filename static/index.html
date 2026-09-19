@@ -2481,6 +2481,8 @@
           <span id="live2CutNote" style="font-size:10px;color:var(--text2)"></span>
           <button class="live-refresh-btn" id="live2ShowAllBtn" onclick="_live2ToggleShowAll()"
             title="Por padrão a Ao Vivo processa só as 60 primeiras partidas pra não sobrecarregar o servidor em dias com muito jogo — clique pra ver todas mesmo assim">👁 Mostrar todos</button>
+          <button class="live-refresh-btn" id="live2SoComLinkBtn" onclick="_live2ToggleSoComLink()"
+            title="Mostra só os jogos que têm o ícone B (Betfair) ou $ (Bolsa de Aposta). Atenção: a lista de links vem de um site terceiro e não cobre todas as ligas (ex: Championship inglesa fica sem ícone mesmo estando na Betfair). Favoritos aparecem sempre.">🅱 Só com B/$</button>
           <button class="live-refresh-btn" id="live2OrdemAscBtn" onclick="_live2SetOrdemMinuto('asc')" title="Ordenar por minuto — crescente (jogo mais no começo primeiro)">▲ Minuto</button>
           <button class="live-refresh-btn" id="live2OrdemDescBtn" onclick="_live2SetOrdemMinuto('desc')" title="Ordenar por minuto — decrescente (jogo mais perto do fim primeiro)">▼ Minuto</button>
           <button class="live-refresh-btn" onclick="loadLive2Matches()" title="Atualizar">↻</button>
@@ -8597,6 +8599,15 @@ let _live2RenderedIds = [];
 // proporção, sem mudar a velocidade de 20s que o usuário já tinha pedido).
 const _LIVE2_MAX_MATCHES_DEFAULT = 30;
 let _live2ShowAllMatches = false;
+// "Só com B/$" (2026-09-19): esconde jogo sem link da Betfair/Bolsa. Desligado por
+// padrão e guardado no navegador; favoritos ignoram o filtro.
+let _live2SoComLink = false;
+try { _live2SoComLink = localStorage.getItem('live2SoComLink') === '1'; } catch (e) {}
+function _live2ToggleSoComLink() {
+  _live2SoComLink = !_live2SoComLink;
+  try { localStorage.setItem('live2SoComLink', _live2SoComLink ? '1' : '0'); } catch (e) {}
+  loadLive2Matches();
+}
 
 // "Aba" Favoritos ao lado do título Ao Vivo — filtra a mesma grade pra só as
 // partidas com ⭐ (toggleLive2Pin/_pinnedLive2, já usado pra ordenar favoritos
@@ -9090,8 +9101,15 @@ async function loadLive2Matches() {
 
     // Corta pro teto ANTES de qualquer busca de dado (momentum/shotmap/escalação/
     // etc.) — é isso que reduz a carga de verdade, não só o que aparece na tela.
-    const totalAoVivo = matchesFiltradas.length;
-    const allMatchesLimited = _live2ShowAllMatches ? matchesFiltradas : matchesFiltradas.slice(0, _LIVE2_MAX_MATCHES_DEFAULT);
+    const btnLink = document.getElementById('live2SoComLinkBtn');
+    if (btnLink) btnLink.classList.toggle('active', _live2SoComLink);
+    const semLinkOcultos = _live2SoComLink
+      ? matchesFiltradas.filter(m => !(m.link_betfair || m.link_bolsa) && !_pinnedLive2.has(String(m.id))).length : 0;
+    const matchesComLink = _live2SoComLink
+      ? matchesFiltradas.filter(m => m.link_betfair || m.link_bolsa || _pinnedLive2.has(String(m.id)))
+      : matchesFiltradas;
+    const totalAoVivo = matchesComLink.length;
+    const allMatchesLimited = _live2ShowAllMatches ? matchesComLink : matchesComLink.slice(0, _LIVE2_MAX_MATCHES_DEFAULT);
     const cortado = !_live2ShowAllMatches && totalAoVivo > _LIVE2_MAX_MATCHES_DEFAULT;
 
     // Só mostra partidas com mapa de chutes confirmado — as demais continuam sendo
@@ -9109,6 +9127,7 @@ async function loadLive2Matches() {
     if (cutNote) cutNote.textContent = [
       cortado ? `mostrando as ${_LIVE2_MAX_MATCHES_DEFAULT} primeiras de ${totalAoVivo} ao vivo` : '',
       _live2Ocultos ? `${_live2Ocultos} ocultos por prioridade` : '',
+      semLinkOcultos ? `${semLinkOcultos} sem B/$ ocultos` : '',
     ].filter(Boolean).join(' · ');
 
     if (!matches.length) {
