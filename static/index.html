@@ -3019,20 +3019,30 @@ async function _live2FetchAndRenderProximos(silent) {
   const body = document.getElementById('live2StatsModalBody');
   if (!silent) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
-    const r = await fetch('/api/painel/matches?escopo=proximos&limite=60');
+    const r = await fetch('/api/painel/matches?escopo=proximos&limite=150');
     const data = await r.json();
     const now = Date.now() / 1000;
     const todos = (data.leagues || []).flatMap(lg => (lg.matches || []).map(m => ({ ...m, _liga: lg.league_name })));
-    const proximos = todos
+    const agendados = todos
       .filter(m => m.time === 'Agendado' && m.ts && m.ts > now)
       .sort((a, b) => a.ts - b.ts);
+    // Só entram jogos com os indicadores (odds 1X2 e média de gols dos dois times) —
+    // pedido do usuário (2026-09-19): card cheio de "-" não ajuda. Favoritados ficam
+    // sempre (senão não haveria como desfavoritar um jogo que perdeu dado).
+    const completo = m => m.odd_1 && m.odd_x && m.odd_2 && m.casa_gf_avg != null && m.fora_gf_avg != null;
+    const proximos = agendados.filter(m => completo(m) || _proximosPinned[m.event_id]);
+    const semDados = agendados.length - proximos.length;
     if (!proximos.length) {
-      body.innerHTML = `<div class="live-loading">Nenhum jogo agendado encontrado agora.</div>`;
+      body.innerHTML = `<div class="live-loading">${agendados.length
+        ? 'Nenhum jogo com odds e médias de gols por enquanto — esses dados carregam em 1 a 2 minutos depois que o servidor reinicia.'
+        : 'Nenhum jogo agendado encontrado agora.'}</div>`;
       return;
     }
     const TETO = 40;
     const cortado = proximos.length > TETO;
-    const nota = cortado ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">mostrando os ${TETO} mais próximos de ${proximos.length}</div>` : '';
+    const ocultosTxt = semDados > 0 ? ` · ${semDados} sem odds/médias de gols ocultos` : '';
+    const nota = (cortado || semDados > 0)
+      ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">${cortado ? `mostrando os ${TETO} mais próximos de ${proximos.length} com dados` : `${proximos.length} jogo(s) com dados`}${ocultosTxt}</div>` : '';
     const mostrados = proximos.slice(0, TETO);
     mostrados.forEach(m => { _proximosById[m.event_id] = m; });
     // Reenvia os favoritos ao servidor a cada atualização, com a foto atual do
