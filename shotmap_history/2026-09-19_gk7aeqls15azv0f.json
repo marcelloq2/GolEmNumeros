@@ -1,0 +1,333 @@
+{
+  "event_id": "gk7aeqls15azv0f",
+  "date": "2026-09-19",
+  "casa": "Istra 1961",
+  "fora": "HNK Gorica",
+  "liga": "Primeira Liga",
+  "score": {
+    "home": 0,
+    "away": 1
+  },
+  "total_shots": 29,
+  "shotmap": [
+    {
+      "id": "2972386449",
+      "minute": 73,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Bogojević",
+      "x": 12.8,
+      "y": 38.8
+    },
+    {
+      "id": "2972380537",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "other_body_part",
+      "situation": "corner",
+      "player": "Miettinen",
+      "x": 4.6,
+      "y": 47.9
+    },
+    {
+      "id": "2972380203",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "N.Šepić",
+      "x": 12.3,
+      "y": 30.7
+    },
+    {
+      "id": "2972360067",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "R.Kumar",
+      "x": 13.6,
+      "y": 45.6
+    },
+    {
+      "id": "2972358683",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Isaac",
+      "x": 26.5,
+      "y": 47.3
+    },
+    {
+      "id": "2972327157",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Ahmeti",
+      "x": 16,
+      "y": 49.3
+    },
+    {
+      "id": "2972326335",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Brodić",
+      "x": 21.5,
+      "y": 31.2
+    },
+    {
+      "id": "2972324905",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "R.Kumar",
+      "x": 13.2,
+      "y": 60.3
+    },
+    {
+      "id": "2972322087",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Mauric",
+      "x": 21.7,
+      "y": 37.4
+    },
+    {
+      "id": "2972309027",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "N.Šepić",
+      "x": 21.7,
+      "y": 29.7
+    },
+    {
+      "id": "2972307457",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Ahmeti",
+      "x": 22.4,
+      "y": 25.9
+    },
+    {
+      "id": "2972302451",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "N.Šepić",
+      "x": 12.6,
+      "y": 25.2
+    },
+    {
+      "id": "2972297961",
+      "minute": 20,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L.Vrzic",
+      "x": 9.1,
+      "y": 33.3
+    },
+    {
+      "id": "2972290291",
+      "minute": 15,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Hrvatin",
+      "x": 9.5,
+      "y": 72.9
+    },
+    {
+      "id": "2972274975",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Doumbia",
+      "x": 19,
+      "y": 46.3
+    },
+    {
+      "id": "2972271801",
+      "minute": 2,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Brodić",
+      "x": 21.1,
+      "y": 34.5
+    },
+    {
+      "id": "2972398503",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "D.Stevanović",
+      "x": 12.1,
+      "y": 51.5
+    },
+    {
+      "id": "2972397723",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Pranjić",
+      "x": 26.8,
+      "y": 24.1
+    },
+    {
+      "id": "2972397239",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Frederiksen",
+      "x": 14.6,
+      "y": 60.5
+    },
+    {
+      "id": "2972411461",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Pranjić",
+      "x": 18.2,
+      "y": 44.3
+    },
+    {
+      "id": "2972408453",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Ukich",
+      "x": 22.5,
+      "y": 65.7
+    },
+    {
+      "id": "2972407285",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "P. Mijic",
+      "x": 9,
+      "y": 45.5
+    },
+    {
+      "id": "2972406605",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "L.Vrzic",
+      "x": 11.6,
+      "y": 68.7
+    },
+    {
+      "id": "2972405923",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "P. Mijic",
+      "x": 10,
+      "y": 52.1
+    },
+    {
+      "id": "2972415199",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "other_body_part",
+      "situation": "corner",
+      "player": "R.Kumar",
+      "x": 11.9,
+      "y": 56.1
+    },
+    {
+      "id": "2972414761",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Isaac",
+      "x": 10.3,
+      "y": 65.4
+    },
+    {
+      "id": "2972413793",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "N.Šepić",
+      "x": 26.9,
+      "y": 54.6
+    },
+    {
+      "id": "2972413679",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Frederiksen",
+      "x": 2.5,
+      "y": 44.8
+    },
+    {
+      "id": "2972420643",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "J.Pranjić",
+      "x": 13.2,
+      "y": 26.8
+    }
+  ]
+}
