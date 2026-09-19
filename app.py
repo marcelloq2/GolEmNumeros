@@ -1666,8 +1666,9 @@ def _power_icon(value, higher_is_better, bom, ruim):
 
 def _compute_power_index(standings_rows):
     """Porta de _today2PowerRankingRows (index.html) — Índice de Ataque/Defesa
-    de cada time = gols marcados/sofridos por jogo ÷ média da liga. Só devolve
-    time com >= 5 jogos na tabela (amostra pequena demais falseia a média).
+    de cada time = gols marcados/sofridos por jogo ÷ média da liga. Ícones só com
+    >= 5 jogos na tabela (amostra pequena demais falseia); pos/gf_avg/ga_avg saem
+    desde o 1º jogo.
     Retorna {team_normalizado: {"ataque": icone, "defesa": icone, "pos": posição,
     "gf_avg": gols marcados/jogo, "ga_avg": gols sofridos/jogo}}.
     "pos"/"gf_avg"/"ga_avg" (2026-09-13, pedido do usuário: mostrar posição e
@@ -1697,13 +1698,22 @@ def _compute_power_index(standings_rows):
     media_ga = sum(p["ga"] / p["jogos"] for p in parsed) / len(parsed)
     out = {}
     for p in parsed:
-        if p["jogos"] < 5 or not p["team"]:
+        if not p["team"]:
             continue
-        ataque = (p["gf"] / p["jogos"]) / media_gf if media_gf > 0 else 0
-        defesa = (p["ga"] / p["jogos"]) / media_ga if media_ga > 0 else 0
+        # Posição e média de gols aparecem desde o 1º jogo (2026-09-19: no começo da
+        # temporada a liga inteira ficava sem NADA por ter times com 4 jogos, ex:
+        # Bundesliga em 4 rodadas); só os ícones de Ataque/Defesa, que comparam com a
+        # média da liga, continuam exigindo 5 jogos (amostra menor falseia).
+        if p["jogos"] >= 5:
+            ataque = (p["gf"] / p["jogos"]) / media_gf if media_gf > 0 else 0
+            defesa = (p["ga"] / p["jogos"]) / media_ga if media_ga > 0 else 0
+            ic_ataque = _power_icon(ataque, True, 1.05, 0.90)
+            ic_defesa = _power_icon(defesa, False, 0.95, 1.10)
+        else:
+            ic_ataque = ic_defesa = None
         out[p["team"].strip().lower()] = {
-            "ataque": _power_icon(ataque, True, 1.05, 0.90),
-            "defesa": _power_icon(defesa, False, 0.95, 1.10),
+            "ataque": ic_ataque,
+            "defesa": ic_defesa,
             "pos": p["pos"] or None,
             "gf_avg": round(p["gf"] / p["jogos"], 1),
             "ga_avg": round(p["ga"] / p["jogos"], 1),
