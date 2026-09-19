@@ -3238,6 +3238,50 @@ def _radar_tira_encerrados(live):
     return vivos
 
 
+def _radar_atualiza_placar(live):
+    """Usa o placar do Flashscore quando ele está À FRENTE do UniScore.
+    Medido em 2026-09-19: dos jogos ao vivo que existem nas duas fontes, 26% estavam
+    com o placar atrasado no UniScore (até 2 gols de diferença, ex: 0-1 no site
+    enquanto o jogo estava 2-1), principalmente em ligas médias e pequenas — o feed
+    ao vivo do UniScore demora a refletir gol. Gol só soma, então o placar com mais
+    gols em cada lado é o mais recente: só substitui quando o do Flashscore é maior
+    ou igual nos dois lados e maior em algum (nunca reduz o placar). O casamento é
+    pelo nome dos dois times (_nome_forte) com o jogo AO VIVO do Flashscore."""
+    try:
+        fs = [m for m in _fs_all_matches() if str(m.get("status")) == "2"]
+    except Exception:
+        return live
+    if not fs:
+        return live
+
+    def num(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    trocados = 0
+    for m in live:
+        uh, ua = m.get("golCasaFt"), m.get("golForaFt")
+        if uh is None or ua is None:
+            continue
+        casa, fora = m.get("casa") or "", m.get("fora") or ""
+        for c in fs:
+            fh, fa = num(c.get("home_score")), num(c.get("away_score"))
+            if fh is None or fa is None:
+                continue
+            if not (fh >= uh and fa >= ua and (fh > uh or fa > ua)):
+                continue      # só interessa se o Flashscore está à frente
+            if _nome_forte(casa, c["home"]) and _nome_forte(fora, c["away"]):
+                m["golCasaFt"], m["golForaFt"] = fh, fa
+                m["placar_fonte"] = "flashscore"
+                trocados += 1
+                break
+    if trocados:
+        print(f"[live] {trocados} placar(es) atualizado(s) com o Flashscore (UniScore atrasado)")
+    return live
+
+
 def _radar_fetch_live_matches_impl():
     """Busca a lista de jogos ao vivo via UniScore (mesma lógica de sempre, só
     sem o jsonify) — extraída pra ser reaproveitada por outros consumidores
@@ -3284,6 +3328,7 @@ def _radar_fetch_live_matches_impl():
     live = list(all_by_id.values())
     print(f"[live] {len(live)} jogos ao vivo retornados")
     live = _radar_tira_encerrados(live)
+    live = _radar_atualiza_placar(live)
 
     # Mesmo link direto pra Betfair Exchange / Bolsa de Aposta usado no Painel
     # Principal (ver _find_radar_links) — aqui não temos horário de início (o
