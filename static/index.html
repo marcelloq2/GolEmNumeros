@@ -12748,7 +12748,14 @@ async function loadLive2Matches() {
     </div>`;
   }
   try {
-    const res  = await fetch('/api/radar/live');
+    // Manda os favoritos junto pro servidor: favorito nunca é cortado pela
+    // prioridade da liga (ids = já favoritados aqui; favn = favoritados em
+    // Próximos Jogos, que ainda casam pelo nome quando o jogo começar).
+    const favParams = new URLSearchParams();
+    if (_pinnedLive2.size) favParams.set('fav', [..._pinnedLive2].join(','));
+    const favNomes = Object.values(_proximosPinned).filter(f => f && f.home && f.away).map(f => [f.home, f.away]);
+    if (favNomes.length) favParams.set('favn', JSON.stringify(favNomes));
+    const res  = await fetch('/api/radar/live' + (favParams.toString() ? '?' + favParams : ''));
     const data = await res.json();
     _live2PrioAtualiza(data);
     _live2AutoPinFromProximos(data.live || []);

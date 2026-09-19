@@ -3616,12 +3616,40 @@ def _ao_vivo_priority_max():
         return _ao_vivo_cfg["priority_max"]
 
 
-def _ao_vivo_filtra_por_prioridade(matches):
-    """[jogos visíveis ordenados por prioridade, jogos ocultos]."""
+def _ao_vivo_filtra_por_prioridade(matches, fav_ids=(), fav_nomes=()):
+    """[jogos visíveis ordenados por prioridade, jogos ocultos].
+    Favoritos passam SEMPRE, qualquer que seja a prioridade da liga: `fav_ids` são
+    IDs de jogos já favoritados no Ao Vivo, `fav_nomes` são pares (casa, fora) de
+    jogos favoritados em Próximos Jogos que ainda vão entrar ao vivo (o ID do
+    Flashscore não é o do UniScore, então casa pelo nome)."""
     pmax = _ao_vivo_priority_max()
-    vis = sorted((m for m in matches if _prio_de(m) <= pmax), key=_prio_de)   # sorted é estável
-    ocultos = [m for m in matches if _prio_de(m) > pmax]
+    fav_ids = set(fav_ids)
+
+    def favorito(m):
+        if str(m.get("id")) in fav_ids:
+            return True
+        return any(_name_match(m.get("casa") or "", h) and _name_match(m.get("fora") or "", a)
+                   for h, a in fav_nomes)
+
+    vis, ocultos = [], []
+    for m in matches:
+        (vis if _prio_de(m) <= pmax or favorito(m) else ocultos).append(m)
+    vis.sort(key=_prio_de)   # estável
     return vis, ocultos
+
+
+def _ao_vivo_favoritos_da_requisicao():
+    """Lê ?fav=id1,id2 e ?favn=[["casa","fora"],...] mandados pelo site (limitados)."""
+    ids = [x.strip() for x in (request.args.get("fav") or "").split(",") if x.strip()][:80]
+    nomes = []
+    try:
+        bruto = json.loads(request.args.get("favn") or "[]")
+        for par in bruto[:40]:
+            if isinstance(par, (list, tuple)) and len(par) == 2 and par[0] and par[1]:
+                nomes.append((str(par[0])[:120], str(par[1])[:120]))
+    except Exception:
+        pass
+    return ids, nomes
 
 
 @app.route("/api/ao-vivo/config", methods=["GET", "POST"])
@@ -3648,7 +3676,8 @@ def api_radar_live():
     ligas dentro do corte de prioridade, da mais importante pra menos."""
     res = _radar_fetch_live_matches()
     todos = res.get("live") or []
-    vis, ocultos = _ao_vivo_filtra_por_prioridade(todos)
+    fav_ids, fav_nomes = _ao_vivo_favoritos_da_requisicao()
+    vis, ocultos = _ao_vivo_filtra_por_prioridade(todos, fav_ids, fav_nomes)
     resumo = {}
     for m in ocultos:
         k = (m.get("liga") or "", m.get("pais") or "", _prio_de(m))
