@@ -8,8 +8,19 @@
     "home": 0,
     "away": 0
   },
-  "total_shots": 25,
+  "total_shots": 26,
   "shotmap": [
+    {
+      "id": "2972106037",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Serrano",
+      "x": 12,
+      "y": 62.1
+    },
     {
       "id": "2972100715",
       "minute": 83,
@@ -119,6 +130,17 @@
       "player": "Berenguer",
       "x": 26.6,
       "y": 29.7
+    },
+    {
+      "id": "2972049391",
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Iñaki",
+      "x": 14.6,
+      "y": 72
     },
     {
       "id": "2972033747",
@@ -273,17 +295,6 @@
       "player": "Navarro",
       "x": 6.9,
       "y": 66.7
-    },
-    {
-      "id": "2972106037",
-      "minute": 89,
-      "isHome": true,
-      "shotType": "block",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "Serrano",
-      "x": 12,
-      "y": 62.1
     }
   ]
 }
