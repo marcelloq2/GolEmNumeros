@@ -1,0 +1,333 @@
+{
+  "event_id": "6hqac9lu6051vme",
+  "date": "2026-09-19",
+  "casa": "Sampdoria",
+  "fora": "Catanzaro",
+  "liga": "Serie B",
+  "score": {
+    "home": 2,
+    "away": 1
+  },
+  "total_shots": 29,
+  "shotmap": [
+    {
+      "id": "2972205735",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "S.Giovane",
+      "x": 13.3,
+      "y": 43.9
+    },
+    {
+      "id": "2972198599",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "E.Pecorino",
+      "x": 6.4,
+      "y": 40.9
+    },
+    {
+      "id": "2972197403",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "F.D.Francesco",
+      "x": 21.7,
+      "y": 56.9
+    },
+    {
+      "id": "2972186831",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "T.Begic",
+      "x": 7,
+      "y": 56.3
+    },
+    {
+      "id": "2972184993",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "E.Pecorino",
+      "x": 14.7,
+      "y": 52.8
+    },
+    {
+      "id": "2972181159",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Pecorino",
+      "x": 8.8,
+      "y": 53.3
+    },
+    {
+      "id": "2972176809",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Pafundi",
+      "x": 29.7,
+      "y": 61.4
+    },
+    {
+      "id": "2972165209",
+      "minute": 68,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Insigne",
+      "x": 23.2,
+      "y": 35.4
+    },
+    {
+      "id": "2972158083",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Abildgaard",
+      "x": 7.1,
+      "y": 48.7
+    },
+    {
+      "id": "2972155893",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 13.3,
+      "y": 67.9
+    },
+    {
+      "id": "2972149493",
+      "minute": 58,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lauritsen",
+      "x": 8.8,
+      "y": 54.5
+    },
+    {
+      "id": "2972146551",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Insigne",
+      "x": 9.4,
+      "y": 38.9
+    },
+    {
+      "id": "2972144287",
+      "minute": 54,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Abildgaard",
+      "x": 9.9,
+      "y": 42.7
+    },
+    {
+      "id": "2972140927",
+      "minute": 51,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 9.4,
+      "y": 59.9
+    },
+    {
+      "id": "2972137955",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Abildgaard",
+      "x": 9,
+      "y": 42.8
+    },
+    {
+      "id": "2972136785",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Cicconi",
+      "x": 14.6,
+      "y": 33.9
+    },
+    {
+      "id": "2972136573",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lauritsen",
+      "x": 7.7,
+      "y": 40.5
+    },
+    {
+      "id": "2972112323",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "own_goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Gartenmann",
+      "x": 94.8,
+      "y": 53.7
+    },
+    {
+      "id": "2972108419",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Insigne",
+      "x": 23.8,
+      "y": 56
+    },
+    {
+      "id": "2972104109",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Iemmello",
+      "x": 20.7,
+      "y": 33.4
+    },
+    {
+      "id": "2972100097",
+      "minute": 36,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "N.Mosti",
+      "x": 14.3,
+      "y": 37.1
+    },
+    {
+      "id": "2972098373",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "N.Mosti",
+      "x": 13.6,
+      "y": 59.7
+    },
+    {
+      "id": "2972098325",
+      "minute": 35,
+      "isHome": false,
+      "shotType": "post_right",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Iemmello",
+      "x": 10.6,
+      "y": 31.3
+    },
+    {
+      "id": "2972089959",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Makoumbou",
+      "x": 20.1,
+      "y": 70
+    },
+    {
+      "id": "2972087131",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "post_right",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Abildgaard",
+      "x": 12.1,
+      "y": 56
+    },
+    {
+      "id": "2972071225",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Verschaeren",
+      "x": 18.4,
+      "y": 46.4
+    },
+    {
+      "id": "2972069781",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Henderson",
+      "x": 8.8,
+      "y": 58.3
+    },
+    {
+      "id": "2972066257",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Insigne",
+      "x": 12.5,
+      "y": 30.9
+    },
+    {
+      "id": "2972065509",
+      "minute": 20,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "N'Dri Koffi",
+      "x": 5.2,
+      "y": 46.9
+    }
+  ]
+}
