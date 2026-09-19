@@ -8850,32 +8850,45 @@ _live_odds_pool = ThreadPoolExecutor(max_workers=8)
 _BT2_MATCHES_MAX_CANDIDATOS = 60
 
 
+_BT2_LIVE_MAX_CANDIDATOS = 60
+
+
 def _bt2_matches_candidatos(include_finished=False):
-    """Jogos de hoje candidatos pros filtros (Metodologias/Parâmetros/Análise) —
-    por padrão só agendados ("1"), já que os filtros dependem de odds. Passando
-    include_finished=True, também inclui encerrados ("3") — as odds continuam
-    disponíveis na Flashscore mesmo depois do jogo acabar (campo "opening" é a
-    odd de abertura, "value" fica com o último valor antes do jogo travar)."""
-    statuses = ("1", "3") if include_finished else ("1",)
+    """Jogos de hoje pra quem o servidor mantém odds quentes em segundo plano: os
+    _BT2_MATCHES_MAX_CANDIDATOS próximos por horário (agendados de verdade).
+    Com include_finished=True (nome antigo, mantido pelo chamador) entram também os
+    jogos AO VIVO agora, pro Ao Vivo mostrar as odds deles.
+
+    CORREÇÃO (2026-09-19): com include_finished=True esta função pegava agendados
+    E ENCERRADOS e cortava os 60 primeiros por horário — como os encerrados do dia
+    (900+) têm horário anterior, as 60 vagas ficavam TODAS com jogos já acabados
+    (medido: 60 de 60 encerrados, nenhum por começar), e os Próximos Jogos nunca
+    tinham odds (\"1 - X - 2 -\"), além de gastar 60 jogos x 6 mercados x 3 casas a
+    cada 5 min à toa. Encerrados não entram mais."""
     now_ts = time.time()
 
     def _still_scheduled(m):
-        # Correção central (2026-09-04, mesmo bug achado pelo usuário no
-        # Raio-X): jogo de liga menor às vezes fica preso em status "1"
-        # (Agendado) mesmo horas depois do apito — o Flashscore não
-        # atualiza. Sem essa checagem, um jogo assim (kickoff_ts bem no
-        # passado) ordena pra FRENTE de tudo (menor timestamp) e rouba vaga
-        # dos 60 candidatos de verdade, degradando a cobertura de odds.
-        if m.get("status") != "1":
-            return True
+        # Jogo de liga menor às vezes fica preso em status "1" (Agendado) mesmo
+        # horas depois do apito — o Flashscore não atualiza. Sem essa checagem, um
+        # jogo assim (kickoff_ts no passado) ordena pra FRENTE e rouba vaga.
         try:
             return float(m.get("kickoff_ts") or 0) > now_ts
         except (TypeError, ValueError):
             return True
 
-    candidatos = [m for m in _fs_all_matches() if m.get("status") in statuses and _still_scheduled(m)]
-    candidatos.sort(key=lambda m: m.get("kickoff_ts") or "")
-    return candidatos[:_BT2_MATCHES_MAX_CANDIDATOS]
+    def _ts(m):
+        try:
+            return float(m.get("kickoff_ts") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    todos = _fs_all_matches()
+    futuros = sorted((m for m in todos if m.get("status") == "1" and _still_scheduled(m)), key=_ts)
+    candidatos = futuros[:_BT2_MATCHES_MAX_CANDIDATOS]
+    if include_finished:
+        ao_vivo = sorted((m for m in todos if m.get("status") == "2"), key=_ts)
+        candidatos += ao_vivo[:_BT2_LIVE_MAX_CANDIDATOS]
+    return candidatos
 
 
 _TODAY2_ODDS_SNAPSHOT_TTL = 300  # 5min — odds mudam pouco em poucos minutos
@@ -8900,7 +8913,10 @@ def _today2_odds_snapshot(force=False):
 
     def _fetch_one(m):
         try:
-            _, markets = _fs_odds_all_markets_any_bookmaker(m["id"], pool=_bt2_matches_market_pool)
+            # Só 1X2 e Over/Under: são os únicos que a tela usa (cards do Ao Vivo e
+            # Próximos). Antes buscava os 6 mercados x até 3 casas por jogo.
+            _, markets = _fs_odds_all_markets_any_bookmaker(
+                m["id"], pool=_bt2_matches_market_pool, markets_wanted=["1x2", "over_under"])
         except Exception:
             markets = {}
         return m, markets
