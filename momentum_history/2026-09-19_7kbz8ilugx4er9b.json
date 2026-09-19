@@ -1,7 +1,7 @@
 {
   "event_id": "7kbz8ilugx4er9b",
   "date": "2026-09-19",
-  "saved_at": "2026-09-19T16:23:20.407545",
+  "saved_at": "2026-09-19T16:25:22.210205",
   "source": "uniscore",
   "casa": "Nacional Madeira",
   "fora": "Famalicao",
@@ -418,6 +418,17 @@
   },
   "shotmap": [
     {
+      "id": "2972130089",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "C.Labidi",
+      "x": 9.3,
+      "y": 50.7
+    },
+    {
       "id": "2972124905",
       "minute": 87,
       "isHome": false,
@@ -669,24 +680,13 @@
       "player": "G.Koutsias",
       "x": 14.1,
       "y": 43.8
-    },
-    {
-      "id": "2972130089",
-      "minute": 90,
-      "isHome": true,
-      "shotType": "miss",
-      "bodyPart": "head",
-      "situation": "corner",
-      "player": "C.Labidi",
-      "x": 9.3,
-      "y": 50.7
     }
   ],
   "statistics": {
     "xg_expected_goals": {
-      "home": "1.19",
+      "home": "1.24",
       "away": "1.45",
-      "homeValue": 1.19,
+      "homeValue": 1.24,
       "awayValue": 1.45
     },
     "big_chances": {
@@ -969,9 +969,9 @@
   "statistics_periods": {
     "ALL": {
       "xg_expected_goals": {
-        "home": "1.19",
+        "home": "1.24",
         "away": "1.45",
-        "homeValue": 1.19,
+        "homeValue": 1.24,
         "awayValue": 1.45
       },
       "big_chances": {
@@ -1531,9 +1531,9 @@
     },
     "2ND": {
       "xg_expected_goals": {
-        "home": "1.17",
+        "home": "1.22",
         "away": "0.68",
-        "homeValue": 1.17,
+        "homeValue": 1.22,
         "awayValue": 0.68
       },
       "big_chances": {
@@ -1830,76 +1830,6 @@
     "ou_over": "1.93",
     "ou_under": "1.93"
   },
-  "odds_history": [
-    {
-      "ts": 1789834910.4333432,
-      "minuto": 111,
-      "casa": 201.0,
-      "empate": 51.0,
-      "fora": 1.0,
-      "ou_line": "4.5",
-      "ou_over": 3.25,
-      "ou_under": 1.35
-    },
-    {
-      "ts": 1789834986.8897798,
-      "minuto": 113,
-      "casa": 201.0,
-      "empate": 51.0,
-      "fora": 1.0,
-      "ou_line": "4.5",
-      "ou_over": 3.25,
-      "ou_under": 1.35
-    }
-  ],
-  "stats_history": [
-    {
-      "ts": 1789834770.2474551,
-      "minuto": 91,
-      "xg_casa": 2.9,
-      "xg_fora": 4.22,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 18.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789834839.3011708,
-      "minuto": 92,
-      "xg_casa": 2.9,
-      "xg_fora": 4.22,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 18.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789834913.541646,
-      "minuto": 92,
-      "xg_casa": 2.9,
-      "xg_fora": 4.22,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 18.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    }
-  ]
+  "odds_history": [],
+  "stats_history": []
 }
