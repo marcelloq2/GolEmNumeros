@@ -1,7 +1,7 @@
 {
   "event_id": "54cvbml3hjc2vp4",
   "date": "2026-09-19",
-  "saved_at": "2026-09-19T15:57:57.899060",
+  "saved_at": "2026-09-19T16:02:30.076858",
   "source": "uniscore",
   "casa": "OH Leuven",
   "fora": "LaLouviere",
@@ -420,6 +420,127 @@
   },
   "shotmap": [
     {
+      "id": "2972102999",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Gruber",
+      "x": 29.8,
+      "y": 37.7
+    },
+    {
+      "id": "2972089283",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Balikwisha",
+      "x": 7,
+      "y": 67
+    },
+    {
+      "id": "2972086067",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Lakomy",
+      "x": 6,
+      "y": 31.3
+    },
+    {
+      "id": "2972067791",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Gruber",
+      "x": 26,
+      "y": 63.4
+    },
+    {
+      "id": "2972052095",
+      "minute": 72,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Mirisola",
+      "x": 11.5,
+      "y": 55.6
+    },
+    {
+      "id": "2972040257",
+      "minute": 67,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Nkoa",
+      "x": 9.3,
+      "y": 45.5
+    },
+    {
+      "id": "2972039967",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Nkoa",
+      "x": 3.4,
+      "y": 56.4
+    },
+    {
+      "id": "2972039487",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "Gruber",
+      "x": 31.5,
+      "y": 38.5
+    },
+    {
+      "id": "2972031913",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mirisola",
+      "x": 12.7,
+      "y": 55.2
+    },
+    {
+      "id": "2972017095",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Isah",
+      "x": 13.3,
+      "y": 60.5
+    },
+    {
+      "id": "2972016835",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Faye",
+      "x": 9.1,
+      "y": 57.6
+    },
+    {
       "id": "2971971207",
       "minute": 45,
       "isHome": true,
@@ -484,124 +605,14 @@
       "player": "Dussenne",
       "x": 13.1,
       "y": 45.2
-    },
-    {
-      "id": "2972016835",
-      "minute": 55,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "head",
-      "situation": "corner",
-      "player": "Faye",
-      "x": 9.1,
-      "y": 57.6
-    },
-    {
-      "id": "2972017095",
-      "minute": 55,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "right_foot",
-      "situation": "corner",
-      "player": "Isah",
-      "x": 13.3,
-      "y": 60.5
-    },
-    {
-      "id": "2972031913",
-      "minute": 62,
-      "isHome": true,
-      "shotType": "block",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
-      "player": "Mirisola",
-      "x": 12.7,
-      "y": 55.2
-    },
-    {
-      "id": "2972040257",
-      "minute": 67,
-      "isHome": false,
-      "shotType": "save",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "Nkoa",
-      "x": 9.3,
-      "y": 45.5
-    },
-    {
-      "id": "2972039967",
-      "minute": 66,
-      "isHome": false,
-      "shotType": "save",
-      "bodyPart": "right_foot",
-      "situation": "set_piece",
-      "player": "Nkoa",
-      "x": 3.4,
-      "y": 56.4
-    },
-    {
-      "id": "2972039487",
-      "minute": 66,
-      "isHome": false,
-      "shotType": "block",
-      "bodyPart": "left_foot",
-      "situation": "free_kick",
-      "player": "Gruber",
-      "x": 31.5,
-      "y": 38.5
-    },
-    {
-      "id": "2972052095",
-      "minute": 72,
-      "isHome": true,
-      "shotType": "block",
-      "bodyPart": "right_foot",
-      "situation": "fast_break",
-      "player": "Mirisola",
-      "x": 11.5,
-      "y": 55.6
-    },
-    {
-      "id": "2972067791",
-      "minute": 79,
-      "isHome": false,
-      "shotType": "miss",
-      "bodyPart": "left_foot",
-      "situation": "free_kick",
-      "player": "Gruber",
-      "x": 26,
-      "y": 63.4
-    },
-    {
-      "id": "2972089283",
-      "minute": 89,
-      "isHome": true,
-      "shotType": "goal",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
-      "player": "Balikwisha",
-      "x": 7,
-      "y": 67
-    },
-    {
-      "id": "2972086067",
-      "minute": 87,
-      "isHome": true,
-      "shotType": "miss",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "Lakomy",
-      "x": 6,
-      "y": 31.3
     }
   ],
   "statistics": {
     "xg_expected_goals": {
       "home": "0.92",
-      "away": "0.50",
+      "away": "0.52",
       "homeValue": 0.92,
-      "awayValue": 0.5
+      "awayValue": 0.52
     },
     "big_chances": {
       "home": "1",
@@ -611,9 +622,9 @@
     },
     "shots": {
       "home": "10",
-      "away": "6",
+      "away": "7",
       "homeValue": 10,
-      "awayValue": 6
+      "awayValue": 7
     },
     "shots_on_target": {
       "home": "4",
@@ -623,9 +634,9 @@
     },
     "blocked_shots": {
       "home": "3",
-      "away": "3",
+      "away": "4",
       "homeValue": 3,
-      "awayValue": 3
+      "awayValue": 4
     },
     "corner_kicks": {
       "home": "3",
@@ -659,9 +670,9 @@
     },
     "passes": {
       "home": "435",
-      "away": "487",
+      "away": "488",
       "homeValue": 435,
-      "awayValue": 487
+      "awayValue": 488
     },
     "red_cards": {
       "home": "0",
@@ -683,9 +694,9 @@
     },
     "shots_outside_box": {
       "home": "1",
-      "away": "2",
+      "away": "3",
       "homeValue": 1,
-      "awayValue": 2
+      "awayValue": 3
     },
     "big_chances_missed": {
       "home": "1",
@@ -694,9 +705,9 @@
       "awayValue": 1
     },
     "touches_in_box": {
-      "home": "18",
+      "home": "19",
       "away": "18",
-      "homeValue": 18,
+      "homeValue": 19,
       "awayValue": 18
     },
     "fouled_in_final_third": {
@@ -707,9 +718,9 @@
     },
     "passes_accuracy": {
       "home": "343/435",
-      "away": "401/487",
+      "away": "403/488",
       "homeValue": 79,
-      "awayValue": 82
+      "awayValue": 83
     },
     "throw_in": {
       "home": "27",
@@ -719,21 +730,21 @@
     },
     "final_third_entries": {
       "home": "70",
-      "away": "59",
+      "away": "60",
       "homeValue": 70,
-      "awayValue": 59
+      "awayValue": 60
     },
     "pass_in_final_third": {
       "home": "112",
-      "away": "106",
+      "away": "107",
       "homeValue": 112,
-      "awayValue": 106
+      "awayValue": 107
     },
     "pass_in_final_third_accuracy": {
       "home": "61/112",
-      "away": "64/106",
+      "away": "66/107",
       "homeValue": 54,
-      "awayValue": 60
+      "awayValue": 62
     },
     "long_balls": {
       "home": "68",
@@ -754,28 +765,28 @@
       "awayValue": 40
     },
     "duels_accuracy": {
-      "home": "64/122",
-      "away": "60/122",
+      "home": "63/122",
+      "away": "59/121",
       "homeValue": 52,
       "awayValue": 48
     },
     "dispossessed": {
-      "home": "13",
-      "away": "12",
-      "homeValue": 13,
-      "awayValue": 12
+      "home": "14",
+      "away": "11",
+      "homeValue": 14,
+      "awayValue": 11
     },
     "duels": {
-      "home": "64",
-      "away": "60",
-      "homeValue": 64,
-      "awayValue": 60
+      "home": "63",
+      "away": "59",
+      "homeValue": 63,
+      "awayValue": 59
     },
     "ground_duels": {
       "home": "92",
-      "away": "92",
+      "away": "91",
       "homeValue": 92,
-      "awayValue": 92
+      "awayValue": 91
     },
     "aerial_duels": {
       "home": "30",
@@ -784,10 +795,10 @@
       "awayValue": 30
     },
     "ground_duels_accuracy": {
-      "home": "53/92",
-      "away": "41/92",
-      "homeValue": 58,
-      "awayValue": 42
+      "home": "52/92",
+      "away": "40/91",
+      "homeValue": 57,
+      "awayValue": 43
     },
     "aerial_duels_accuracy": {
       "home": "11/30",
@@ -808,16 +819,16 @@
       "awayValue": 26
     },
     "tackles": {
-      "home": "30",
-      "away": "23",
-      "homeValue": 30,
-      "awayValue": 23
+      "home": "29",
+      "away": "22",
+      "homeValue": 29,
+      "awayValue": 22
     },
     "tackles_won": {
-      "home": "19/30",
-      "away": "17/23",
-      "homeValue": 63,
-      "awayValue": 74
+      "home": "18/29",
+      "away": "16/22",
+      "homeValue": 62,
+      "awayValue": 73
     },
     "interceptions": {
       "home": "14",
@@ -862,10 +873,10 @@
       "awayValue": 12
     },
     "poss_losts": {
-      "home": "142",
-      "away": "145",
-      "homeValue": 142,
-      "awayValue": 145
+      "home": "143",
+      "away": "143",
+      "homeValue": 143,
+      "awayValue": 143
     },
     "ball_possession": {
       "home": "47%",
@@ -878,9 +889,9 @@
     "ALL": {
       "xg_expected_goals": {
         "home": "0.92",
-        "away": "0.50",
+        "away": "0.52",
         "homeValue": 0.92,
-        "awayValue": 0.5
+        "awayValue": 0.52
       },
       "big_chances": {
         "home": "1",
@@ -890,9 +901,9 @@
       },
       "shots": {
         "home": "10",
-        "away": "6",
+        "away": "7",
         "homeValue": 10,
-        "awayValue": 6
+        "awayValue": 7
       },
       "shots_on_target": {
         "home": "4",
@@ -902,9 +913,9 @@
       },
       "blocked_shots": {
         "home": "3",
-        "away": "3",
+        "away": "4",
         "homeValue": 3,
-        "awayValue": 3
+        "awayValue": 4
       },
       "corner_kicks": {
         "home": "3",
@@ -938,9 +949,9 @@
       },
       "passes": {
         "home": "435",
-        "away": "487",
+        "away": "488",
         "homeValue": 435,
-        "awayValue": 487
+        "awayValue": 488
       },
       "red_cards": {
         "home": "0",
@@ -962,9 +973,9 @@
       },
       "shots_outside_box": {
         "home": "1",
-        "away": "2",
+        "away": "3",
         "homeValue": 1,
-        "awayValue": 2
+        "awayValue": 3
       },
       "big_chances_missed": {
         "home": "1",
@@ -973,9 +984,9 @@
         "awayValue": 1
       },
       "touches_in_box": {
-        "home": "18",
+        "home": "19",
         "away": "18",
-        "homeValue": 18,
+        "homeValue": 19,
         "awayValue": 18
       },
       "fouled_in_final_third": {
@@ -986,9 +997,9 @@
       },
       "passes_accuracy": {
         "home": "343/435",
-        "away": "401/487",
+        "away": "403/488",
         "homeValue": 79,
-        "awayValue": 82
+        "awayValue": 83
       },
       "throw_in": {
         "home": "27",
@@ -998,21 +1009,21 @@
       },
       "final_third_entries": {
         "home": "70",
-        "away": "59",
+        "away": "60",
         "homeValue": 70,
-        "awayValue": 59
+        "awayValue": 60
       },
       "pass_in_final_third": {
         "home": "112",
-        "away": "106",
+        "away": "107",
         "homeValue": 112,
-        "awayValue": 106
+        "awayValue": 107
       },
       "pass_in_final_third_accuracy": {
         "home": "61/112",
-        "away": "64/106",
+        "away": "66/107",
         "homeValue": 54,
-        "awayValue": 60
+        "awayValue": 62
       },
       "long_balls": {
         "home": "68",
@@ -1033,28 +1044,28 @@
         "awayValue": 40
       },
       "duels_accuracy": {
-        "home": "64/122",
-        "away": "60/122",
+        "home": "63/122",
+        "away": "59/121",
         "homeValue": 52,
         "awayValue": 48
       },
       "dispossessed": {
-        "home": "13",
-        "away": "12",
-        "homeValue": 13,
-        "awayValue": 12
+        "home": "14",
+        "away": "11",
+        "homeValue": 14,
+        "awayValue": 11
       },
       "duels": {
-        "home": "64",
-        "away": "60",
-        "homeValue": 64,
-        "awayValue": 60
+        "home": "63",
+        "away": "59",
+        "homeValue": 63,
+        "awayValue": 59
       },
       "ground_duels": {
         "home": "92",
-        "away": "92",
+        "away": "91",
         "homeValue": 92,
-        "awayValue": 92
+        "awayValue": 91
       },
       "aerial_duels": {
         "home": "30",
@@ -1063,10 +1074,10 @@
         "awayValue": 30
       },
       "ground_duels_accuracy": {
-        "home": "53/92",
-        "away": "41/92",
-        "homeValue": 58,
-        "awayValue": 42
+        "home": "52/92",
+        "away": "40/91",
+        "homeValue": 57,
+        "awayValue": 43
       },
       "aerial_duels_accuracy": {
         "home": "11/30",
@@ -1087,16 +1098,16 @@
         "awayValue": 26
       },
       "tackles": {
-        "home": "30",
-        "away": "23",
-        "homeValue": 30,
-        "awayValue": 23
+        "home": "29",
+        "away": "22",
+        "homeValue": 29,
+        "awayValue": 22
       },
       "tackles_won": {
-        "home": "19/30",
-        "away": "17/23",
-        "homeValue": 63,
-        "awayValue": 74
+        "home": "18/29",
+        "away": "16/22",
+        "homeValue": 62,
+        "awayValue": 73
       },
       "interceptions": {
         "home": "14",
@@ -1141,10 +1152,10 @@
         "awayValue": 12
       },
       "poss_losts": {
-        "home": "142",
-        "away": "145",
-        "homeValue": 142,
-        "awayValue": 145
+        "home": "143",
+        "away": "143",
+        "homeValue": 143,
+        "awayValue": 143
       },
       "ball_possession": {
         "home": "47%",
@@ -1404,9 +1415,9 @@
     "2ND": {
       "xg_expected_goals": {
         "home": "0.63",
-        "away": "0.50",
+        "away": "0.52",
         "homeValue": 0.63,
-        "awayValue": 0.5
+        "awayValue": 0.52
       },
       "big_chances": {
         "home": "1",
@@ -1416,9 +1427,9 @@
       },
       "shots": {
         "home": "4",
-        "away": "6",
+        "away": "7",
         "homeValue": 4,
-        "awayValue": 6
+        "awayValue": 7
       },
       "shots_on_target": {
         "home": "1",
@@ -1428,9 +1439,9 @@
       },
       "blocked_shots": {
         "home": "2",
-        "away": "3",
+        "away": "4",
         "homeValue": 2,
-        "awayValue": 3
+        "awayValue": 4
       },
       "corner_kicks": {
         "home": "0",
@@ -1464,9 +1475,9 @@
       },
       "passes": {
         "home": "182",
-        "away": "257",
+        "away": "258",
         "homeValue": 182,
-        "awayValue": 257
+        "awayValue": 258
       },
       "red_cards": {
         "home": "0",
@@ -1488,9 +1499,9 @@
       },
       "shots_outside_box": {
         "home": "0",
-        "away": "2",
+        "away": "3",
         "homeValue": 0,
-        "awayValue": 2
+        "awayValue": 3
       },
       "big_chances_missed": {
         "home": "1",
@@ -1499,9 +1510,9 @@
         "awayValue": 1
       },
       "touches_in_box": {
-        "home": "7",
+        "home": "8",
         "away": "12",
-        "homeValue": 7,
+        "homeValue": 8,
         "awayValue": 12
       },
       "fouled_in_final_third": {
@@ -1512,7 +1523,7 @@
       },
       "passes_accuracy": {
         "home": "145/182",
-        "away": "213/257",
+        "away": "215/258",
         "homeValue": 80,
         "awayValue": 83
       },
@@ -1524,21 +1535,21 @@
       },
       "final_third_entries": {
         "home": "27",
-        "away": "33",
+        "away": "34",
         "homeValue": 27,
-        "awayValue": 33
+        "awayValue": 34
       },
       "pass_in_final_third": {
         "home": "42",
-        "away": "64",
+        "away": "65",
         "homeValue": 42,
-        "awayValue": 64
+        "awayValue": 65
       },
       "pass_in_final_third_accuracy": {
         "home": "23/42",
-        "away": "39/64",
+        "away": "41/65",
         "homeValue": 55,
-        "awayValue": 61
+        "awayValue": 63
       },
       "long_balls": {
         "home": "30",
@@ -1559,28 +1570,28 @@
         "awayValue": 42
       },
       "duels_accuracy": {
-        "home": "33/68",
-        "away": "37/68",
-        "homeValue": 49,
-        "awayValue": 51
+        "home": "32/68",
+        "away": "36/67",
+        "homeValue": 47,
+        "awayValue": 53
       },
       "dispossessed": {
-        "home": "8",
-        "away": "6",
-        "homeValue": 8,
-        "awayValue": 6
+        "home": "9",
+        "away": "5",
+        "homeValue": 9,
+        "awayValue": 5
       },
       "duels": {
-        "home": "33",
-        "away": "37",
-        "homeValue": 33,
-        "awayValue": 37
+        "home": "32",
+        "away": "36",
+        "homeValue": 32,
+        "awayValue": 36
       },
       "ground_duels": {
         "home": "50",
-        "away": "50",
+        "away": "49",
         "homeValue": 50,
-        "awayValue": 50
+        "awayValue": 49
       },
       "aerial_duels": {
         "home": "18",
@@ -1589,10 +1600,10 @@
         "awayValue": 18
       },
       "ground_duels_accuracy": {
-        "home": "26/50",
-        "away": "26/50",
-        "homeValue": 52,
-        "awayValue": 48
+        "home": "25/50",
+        "away": "25/49",
+        "homeValue": 50,
+        "awayValue": 50
       },
       "aerial_duels_accuracy": {
         "home": "7/18",
@@ -1613,16 +1624,16 @@
         "awayValue": 23
       },
       "tackles": {
-        "home": "17",
-        "away": "14",
-        "homeValue": 17,
-        "awayValue": 14
+        "home": "16",
+        "away": "13",
+        "homeValue": 16,
+        "awayValue": 13
       },
       "tackles_won": {
-        "home": "10/17",
-        "away": "11/14",
-        "homeValue": 59,
-        "awayValue": 79
+        "home": "9/16",
+        "away": "10/13",
+        "homeValue": 56,
+        "awayValue": 77
       },
       "interceptions": {
         "home": "6",
@@ -1661,10 +1672,10 @@
         "awayValue": 9
       },
       "poss_losts": {
-        "home": "62",
-        "away": "78",
-        "homeValue": 62,
-        "awayValue": 78
+        "home": "63",
+        "away": "76",
+        "homeValue": 63,
+        "awayValue": 76
       },
       "ball_possession": {
         "home": "41%",
@@ -1685,8 +1696,8 @@
     "total_points": 97
   },
   "xg": {
-    "home": 3.69,
-    "away": 2.53,
+    "home": 3.7,
+    "away": 2.56,
     "source": "estimated",
     "fields_used": [
       "shots_on_target",
@@ -1701,350 +1712,13 @@
     "n_fields": 8
   },
   "opening_odds": {
-    "h": "1.08",
-    "x": "8.00",
-    "a": "81.00",
+    "h": "2.00",
+    "x": "3.30",
+    "a": "3.40",
     "ou_line": "2.5",
-    "ou_over": "5.25",
-    "ou_under": "1.12"
+    "ou_over": "1.98",
+    "ou_under": "1.83"
   },
   "odds_history": [],
-  "stats_history": [
-    {
-      "ts": 1789830428.7074337,
-      "minuto": 48,
-      "xg_casa": 2.2,
-      "xg_fora": 0.38,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 11.0,
-      "toques_area_fora": 6.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789830522.674503,
-      "minuto": 48,
-      "xg_casa": 2.2,
-      "xg_fora": 0.39,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 11.0,
-      "toques_area_fora": 6.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789830593.3791237,
-      "minuto": 49,
-      "xg_casa": 2.22,
-      "xg_fora": 0.41,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 11.0,
-      "toques_area_fora": 6.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789830795.922247,
-      "minuto": 52,
-      "xg_casa": 2.25,
-      "xg_fora": 0.46,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 11.0,
-      "toques_area_fora": 6.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789830949.5386138,
-      "minuto": 55,
-      "xg_casa": 2.28,
-      "xg_fora": 0.49,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 12.0,
-      "toques_area_fora": 8.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831057.3415587,
-      "minuto": 57,
-      "xg_casa": 2.31,
-      "xg_fora": 0.65,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 13.0,
-      "toques_area_fora": 9.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831395.3822894,
-      "minuto": 62,
-      "xg_casa": 2.36,
-      "xg_fora": 0.82,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 13.0,
-      "toques_area_fora": 12.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831515.0606976,
-      "minuto": 65,
-      "xg_casa": 2.48,
-      "xg_fora": 0.87,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 14.0,
-      "toques_area_fora": 13.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831636.9738786,
-      "minuto": 67,
-      "xg_casa": 2.49,
-      "xg_fora": 0.93,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 14.0,
-      "toques_area_fora": 13.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831823.9816186,
-      "minuto": 70,
-      "xg_casa": 2.52,
-      "xg_fora": 1.8,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 14.0,
-      "toques_area_fora": 15.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789831992.3360991,
-      "minuto": 73,
-      "xg_casa": 2.53,
-      "xg_fora": 1.8,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 14.0,
-      "toques_area_fora": 15.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832079.2283943,
-      "minuto": 74,
-      "xg_casa": 2.91,
-      "xg_fora": 2.24,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 14.0,
-      "toques_area_fora": 15.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832161.734537,
-      "minuto": 74,
-      "xg_casa": 3.01,
-      "xg_fora": 2.24,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 15.0,
-      "toques_area_fora": 15.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832286.5929854,
-      "minuto": 76,
-      "xg_casa": 3.02,
-      "xg_fora": 2.27,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 15.0,
-      "toques_area_fora": 15.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832594.63758,
-      "minuto": 82,
-      "xg_casa": 3.05,
-      "xg_fora": 2.39,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 15.0,
-      "toques_area_fora": 16.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832714.4592245,
-      "minuto": 84,
-      "xg_casa": 3.06,
-      "xg_fora": 2.42,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 15.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832833.0178416,
-      "minuto": 86,
-      "xg_casa": 3.06,
-      "xg_fora": 2.42,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 15.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789832953.8924937,
-      "minuto": 88,
-      "xg_casa": 3.19,
-      "xg_fora": 2.43,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 16.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789833069.3367002,
-      "minuto": 90,
-      "xg_casa": 3.63,
-      "xg_fora": 2.44,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 17.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789833133.6527236,
-      "minuto": 92,
-      "xg_casa": 3.63,
-      "xg_fora": 2.44,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 17.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    },
-    {
-      "ts": 1789833243.0152462,
-      "minuto": 93,
-      "xg_casa": 3.64,
-      "xg_fora": 2.44,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 17.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null
-    }
-  ]
+  "stats_history": []
 }
