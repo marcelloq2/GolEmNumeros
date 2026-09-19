@@ -1,0 +1,333 @@
+{
+  "event_id": "4m9appl6wxher6b",
+  "date": "2026-09-19",
+  "casa": "Gil Vicente",
+  "fora": "Maritimo",
+  "liga": "Primeira Liga",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "total_shots": 29,
+  "shotmap": [
+    {
+      "id": "2972133357",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ayuma",
+      "x": 7.7,
+      "y": 59.1
+    },
+    {
+      "id": "2972129091",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Julião",
+      "x": 3.2,
+      "y": 66.9
+    },
+    {
+      "id": "2972125583",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Buatu",
+      "x": 9.3,
+      "y": 48.1
+    },
+    {
+      "id": "2972124699",
+      "minute": 86,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "J.Fernandes",
+      "x": 23.5,
+      "y": 62.2
+    },
+    {
+      "id": "2972116203",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Bassouamina",
+      "x": 14.2,
+      "y": 39.1
+    },
+    {
+      "id": "2972108655",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Martins",
+      "x": 10.7,
+      "y": 44
+    },
+    {
+      "id": "2972107675",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Souza",
+      "x": 24.9,
+      "y": 66
+    },
+    {
+      "id": "2972095823",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "S.Garcia",
+      "x": 22.5,
+      "y": 43.4
+    },
+    {
+      "id": "2972093997",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Lausen",
+      "x": 30.3,
+      "y": 36.8
+    },
+    {
+      "id": "2972088289",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "S.Garcia",
+      "x": 9.8,
+      "y": 28
+    },
+    {
+      "id": "2972064047",
+      "minute": 49,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Martins",
+      "x": 12.1,
+      "y": 32.1
+    },
+    {
+      "id": "2972061589",
+      "minute": 48,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Prioste",
+      "x": 29.6,
+      "y": 42.4
+    },
+    {
+      "id": "2972019257",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Garcia",
+      "x": 16.1,
+      "y": 34.2
+    },
+    {
+      "id": "2972057403",
+      "minute": 46,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Dominguez",
+      "x": 13.3,
+      "y": 47.2
+    },
+    {
+      "id": "2972015885",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "G.Martins",
+      "x": 14.7,
+      "y": 32.7
+    },
+    {
+      "id": "2972011465",
+      "minute": 44,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Szalai",
+      "x": 3.9,
+      "y": 58.6
+    },
+    {
+      "id": "2972009985",
+      "minute": 43,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Butzke",
+      "x": 4.9,
+      "y": 28.6
+    },
+    {
+      "id": "2972008513",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S.Garcia",
+      "x": 25.2,
+      "y": 44.3
+    },
+    {
+      "id": "2972002759",
+      "minute": 40,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Moreira",
+      "x": 28.5,
+      "y": 33
+    },
+    {
+      "id": "2972000029",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Guzzo",
+      "x": 5,
+      "y": 42
+    },
+    {
+      "id": "2971998445",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Souza",
+      "x": 10.9,
+      "y": 67.5
+    },
+    {
+      "id": "2971985103",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Souza",
+      "x": 13.8,
+      "y": 55.7
+    },
+    {
+      "id": "2971983815",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Garcia",
+      "x": 27.5,
+      "y": 50.1
+    },
+    {
+      "id": "2971983089",
+      "minute": 27,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gilbert",
+      "x": 11.4,
+      "y": 65.3
+    },
+    {
+      "id": "2971971153",
+      "minute": 18,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Correia",
+      "x": 32.7,
+      "y": 54.1
+    },
+    {
+      "id": "2971962621",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Hernandez",
+      "x": 8.6,
+      "y": 54.8
+    },
+    {
+      "id": "2971954735",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Danilović",
+      "x": 23.3,
+      "y": 71.8
+    },
+    {
+      "id": "2971952219",
+      "minute": 10,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Tejón",
+      "x": 17,
+      "y": 27
+    },
+    {
+      "id": "2971943941",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Souza",
+      "x": 8.5,
+      "y": 56
+    }
+  ]
+}
