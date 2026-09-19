@@ -1,0 +1,311 @@
+{
+  "event_id": "b1ta1ll5l3rqvff",
+  "date": "2026-09-19",
+  "casa": "Sporting Cristal",
+  "fora": "Atletico Grau",
+  "liga": "Ligue 1",
+  "score": {
+    "home": 3,
+    "away": 1
+  },
+  "total_shots": 27,
+  "shotmap": [
+    {
+      "id": "2972458037",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vásquez",
+      "x": 10.6,
+      "y": 49.4
+    },
+    {
+      "id": "2972456055",
+      "minute": 3,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Lutiger",
+      "x": 8.6,
+      "y": 51.1
+    },
+    {
+      "id": "2972454939",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Sosa",
+      "x": 12.3,
+      "y": 64.6
+    },
+    {
+      "id": "2972462687",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Hoyos",
+      "x": 21.8,
+      "y": 29.4
+    },
+    {
+      "id": "2972463797",
+      "minute": 12,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Hoyos",
+      "x": 8.7,
+      "y": 36.8
+    },
+    {
+      "id": "2972468565",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Hoyos",
+      "x": 20.8,
+      "y": 59.1
+    },
+    {
+      "id": "2972472461",
+      "minute": 26,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Iberico",
+      "x": 3,
+      "y": 55
+    },
+    {
+      "id": "2972473349",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S.González",
+      "x": 22.5,
+      "y": 62
+    },
+    {
+      "id": "2972472983",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "D.Rodríguez",
+      "x": 12.2,
+      "y": 61.5
+    },
+    {
+      "id": "2972474511",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Lavandeira",
+      "x": 22.1,
+      "y": 67.9
+    },
+    {
+      "id": "2972476617",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Hoyos",
+      "x": 7.9,
+      "y": 60.3
+    },
+    {
+      "id": "2972476913",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.González",
+      "x": 14.3,
+      "y": 70.4
+    },
+    {
+      "id": "2972472801",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Alfaro",
+      "x": 9.5,
+      "y": 32.7
+    },
+    {
+      "id": "2972479103",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Hoyos",
+      "x": 9.5,
+      "y": 57.5
+    },
+    {
+      "id": "2972479435",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Fernández",
+      "x": 18.5,
+      "y": 36.8
+    },
+    {
+      "id": "2972478401",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Barreto",
+      "x": 13.2,
+      "y": 34
+    },
+    {
+      "id": "2972490105",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Hoyos",
+      "x": 7.5,
+      "y": 42.3
+    },
+    {
+      "id": "2972497031",
+      "minute": 65,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "M.Castro",
+      "x": 26.7,
+      "y": 44.5
+    },
+    {
+      "id": "2972499639",
+      "minute": 73,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Ruidíaz",
+      "x": 11,
+      "y": 55.5
+    },
+    {
+      "id": "2972500447",
+      "minute": 76,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Ruidíaz",
+      "x": 28.6,
+      "y": 53.4
+    },
+    {
+      "id": "2972500373",
+      "minute": 75,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Yotún",
+      "x": 21.4,
+      "y": 68.5
+    },
+    {
+      "id": "2972502253",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Gabriel",
+      "x": 21.4,
+      "y": 32.4
+    },
+    {
+      "id": "2972502217",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "S.González",
+      "x": 21.8,
+      "y": 40.6
+    },
+    {
+      "id": "2972503179",
+      "minute": 84,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Távara",
+      "x": 25.1,
+      "y": 56.3
+    },
+    {
+      "id": "2972505547",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Gabriel",
+      "x": 5.8,
+      "y": 33.7
+    },
+    {
+      "id": "2972505083",
+      "minute": 89,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "R.Ruidíaz",
+      "x": 8.9,
+      "y": 44.2
+    },
+    {
+      "id": "2972505279",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "R.Ruidíaz",
+      "x": 29.4,
+      "y": 58.8
+    }
+  ]
+}
