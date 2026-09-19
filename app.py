@@ -3831,6 +3831,12 @@ def _get_uniscore_live_matches_fetch(prev, prev_ts):
                                 "awayId": e.get("awayTeam", {}).get("id", ""),
                                 "home":   e.get("homeTeam", {}).get("name", ""),
                                 "away":   e.get("awayTeam", {}).get("name", ""),
+                                # Liga e "priority" (posição da liga no ranking mundial
+                                # do UniScore: 12 = La Liga, 1000 = sem ranking) — 2026-09-19,
+                                # pra medir depois quais ligas costumam ter mapa de chutes.
+                                "liga":     (e.get("tournament") or {}).get("name", "") or "",
+                                "pais":     ((e.get("tournament") or {}).get("country") or {}).get("name", "") or "",
+                                "priority": (e.get("tournament") or {}).get("priority"),
                             }
                 if not pag.get("hasNextPage"):
                     break
@@ -3870,7 +3876,8 @@ def _find_uniscore_id(casa, fora):
                 print(f"[uniscore] Match: {m['home']} vs {m['away']} id={m['id']}")
             except UnicodeEncodeError:
                 pass
-            return {"id": m["id"], "homeId": m["homeId"], "awayId": m["awayId"]}
+            return {"id": m["id"], "homeId": m["homeId"], "awayId": m["awayId"],
+                    "liga": m.get("liga", ""), "pais": m.get("pais", ""), "priority": m.get("priority")}
     if matches:
         sample = [(m["home"], m["away"]) for m in matches[:5]]
         try:
@@ -4341,7 +4348,8 @@ def _extract_score(goals: list) -> dict:
 def _build_save_payload(
     event_id, casa, fora, liga,
     graph_points, goals, stats_flat, stats_periods,
-    opening_odds, source, shotmap=None, odds_history=None, stats_history=None
+    opening_odds, source, shotmap=None, odds_history=None, stats_history=None,
+    liga_priority=None, pais=""
 ) -> dict:
     """Monta o payload completo para salvar no momentum_history."""
     today = datetime.now().strftime("%Y-%m-%d")
@@ -4354,6 +4362,10 @@ def _build_save_payload(
         "casa":      casa,
         "fora":      fora,
         "liga":      liga,
+        # Posição da liga no ranking do UniScore (menor = mais importante; 1000 =
+        # sem ranking) e país — base pra descobrir que tipo de liga tem chutes.
+        "liga_priority": liga_priority,
+        "pais":      pais,
         # Dados brutos
         "graphPoints":        graph_points,
         "goals":              goals,
@@ -4644,8 +4656,10 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
                 with _stats_history_lock:
                     stats_hist = list(_stats_history.get(event_id, []))
 
+                liga = liga or uni_match.get("liga") or ""
                 payload = _build_save_payload(
                     event_id=event_id,
+                    liga_priority=uni_match.get("priority"), pais=uni_match.get("pais", ""),
                     casa=casa, fora=fora, liga=liga,
                     graph_points=pts,
                     goals=udata.get("goals", []),
