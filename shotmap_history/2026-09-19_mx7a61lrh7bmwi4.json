@@ -1,0 +1,322 @@
+{
+  "event_id": "mx7a61lrh7bmwi4",
+  "date": "2026-09-19",
+  "casa": "Ascoli",
+  "fora": "Avellino",
+  "liga": "Serie B",
+  "score": {
+    "home": 3,
+    "away": 1
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2972374819",
+      "minute": 86,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "A.Silipo",
+      "x": 8.6,
+      "y": 65.8
+    },
+    {
+      "id": "2972370085",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Venturi",
+      "x": 24.8,
+      "y": 48.7
+    },
+    {
+      "id": "2972354709",
+      "minute": 72,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "A.Silipo",
+      "x": 18.9,
+      "y": 66.7
+    },
+    {
+      "id": "2972348041",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "T.Milanese",
+      "x": 13.6,
+      "y": 56.3
+    },
+    {
+      "id": "2972347997",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "N.Rizzo",
+      "x": 10,
+      "y": 46.2
+    },
+    {
+      "id": "2972347939",
+      "minute": 67,
+      "isHome": true,
+      "shotType": "post_left",
+      "bodyPart": "left_foot",
+      "situation": "free_kick",
+      "player": "A.Silipo",
+      "x": 27.2,
+      "y": 40.6
+    },
+    {
+      "id": "2972343631",
+      "minute": 63,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Bolsius",
+      "x": 24.8,
+      "y": 27.6
+    },
+    {
+      "id": "2972340207",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "R.Russo",
+      "x": 28,
+      "y": 80
+    },
+    {
+      "id": "2972325159",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "own_goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "P.Enrici",
+      "x": 95.1,
+      "y": 52.8
+    },
+    {
+      "id": "2972299689",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Cheddira",
+      "x": 16,
+      "y": 52.8
+    },
+    {
+      "id": "2972293731",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Brunori",
+      "x": 7.9,
+      "y": 42.8
+    },
+    {
+      "id": "2972286827",
+      "minute": 39,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Silipo",
+      "x": 22.5,
+      "y": 71.4
+    },
+    {
+      "id": "2972285563",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Cheddira",
+      "x": 10.7,
+      "y": 70.7
+    },
+    {
+      "id": "2972279935",
+      "minute": 34,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Russo",
+      "x": 15.9,
+      "y": 31.5
+    },
+    {
+      "id": "2972279053",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "R.Russo",
+      "x": 24.5,
+      "y": 31.2
+    },
+    {
+      "id": "2972276631",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "M.Brunori",
+      "x": 7.2,
+      "y": 49
+    },
+    {
+      "id": "2972273599",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "M.Brunori",
+      "x": 12.6,
+      "y": 58.4
+    },
+    {
+      "id": "2972271687",
+      "minute": 28,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Guiebre",
+      "x": 15.7,
+      "y": 32.5
+    },
+    {
+      "id": "2972269167",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L. Di Maggio",
+      "x": 23.8,
+      "y": 59.1
+    },
+    {
+      "id": "2972268665",
+      "minute": 25,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "M.Curado",
+      "x": 6,
+      "y": 62.6
+    },
+    {
+      "id": "2972267965",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "S.D'Uffizi",
+      "x": 10.7,
+      "y": 41.2
+    },
+    {
+      "id": "2972267927",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Silipo",
+      "x": 6.7,
+      "y": 61.8
+    },
+    {
+      "id": "2972264127",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "B.Moruzzi",
+      "x": 18.3,
+      "y": 49.3
+    },
+    {
+      "id": "2972261745",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "P.Enrici",
+      "x": 22.5,
+      "y": 23.3
+    },
+    {
+      "id": "2972261519",
+      "minute": 19,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Besaggio",
+      "x": 12.5,
+      "y": 34.2
+    },
+    {
+      "id": "2972259539",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Russo",
+      "x": 9.8,
+      "y": 60
+    },
+    {
+      "id": "2972382175",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Guiebre",
+      "x": 18.2,
+      "y": 29.7
+    },
+    {
+      "id": "2972380769",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "L.Pandolfi",
+      "x": 7.7,
+      "y": 33.1
+    }
+  ]
+}
