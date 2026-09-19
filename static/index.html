@@ -3685,6 +3685,16 @@ function _painelMethTabsHtml() {
     </div>`;
 }
 
+// Odd justa = 1 / taxa de acerto (a odd em que apostar seria "no zero a zero" nessa taxa).
+// Verde quando a odd média praticada pelo tipster está acima dela (tem margem), vermelho quando abaixo.
+function _painelOddJustaHtml(taxa, oddMedia, rotulo) {
+  if (taxa == null || !(taxa > 0)) return `<div class="painel-meth-stat"><span class="v">--</span><span class="l">${rotulo}</span></div>`;
+  const justa = 1 / taxa;
+  const om = parseFloat(oddMedia);
+  const cor = isNaN(om) ? '' : (om >= justa ? 'color:var(--green)' : 'color:var(--red)');
+  return `<div class="painel-meth-stat" title="Odd justa = 1 ÷ taxa de acerto (${Math.round(taxa * 100)}%). Só vale a pena entrar em odd MAIOR que ela."><span class="v" style="${cor}">${justa.toFixed(2)}</span><span class="l">${rotulo}</span></div>`;
+}
+
 let _painelProfitStatCache = {}; // uid -> profit acumulado (u) já calculado, pra mostrar na linha do ranking
 let _painelDrawdownStatCache = {}; // uid -> { maxWinStreak, maxLossStreak } já calculado, pra mostrar na linha do ranking
 
@@ -3730,6 +3740,7 @@ function _painelLoadMethodologiesList() {
                 <div class="painel-meth-stat"><span class="v">${bm.label}</span><span class="l">Melhor mercado</span></div>
                 <div class="painel-meth-stat"><span class="v">${Math.round(bm.pct * 100)}%</span><span class="l">Acerto</span></div>
                 <div class="painel-meth-stat"><span class="v">${bm.wins}/${bm.total}</span><span class="l">Palpites</span></div>
+                ${_painelOddJustaHtml(bm.pct, null, 'Odd Justa')}
               ` : `<div class="painel-meth-stat"><span class="v">--</span><span class="l">Dados insuficientes</span></div>`}
             </div>`;
           return _painelMethItemShell(u, statsHtml);
@@ -3760,6 +3771,7 @@ function _painelLoadMethodologiesList() {
             <div class="painel-meth-stat"><span class="v">${profit != null ? (profit >= 0 ? '+' : '') + Math.round(profit * 100) + '%' : '--'}</span><span class="l">ROI</span></div>
             <div class="painel-meth-stat"><span class="v">${tips != null ? tips : '-'}</span><span class="l">Palpites</span></div>
             <div class="painel-meth-stat"><span class="v">${avo != null ? avo : '-'}</span><span class="l">Odd Média</span></div>
+            ${_painelOddJustaHtml(winrate, avo, 'Odd Justa')}
             <div class="painel-meth-stat" id="painelMethProfitStat_${u.uid}" title="Profit acumulado (stake fixo de 1 por dica encerrada)">
               <span class="v" style="${cachedProfit != null ? (cachedProfit >= 0 ? 'color:var(--green)' : 'color:var(--red)') : ''}">${cachedProfit != null ? (cachedProfit >= 0 ? '+' : '') + cachedProfit.toFixed(2) + 'u' : '--'}</span><span class="l">Profit</span>
             </div>
