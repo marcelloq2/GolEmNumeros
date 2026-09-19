@@ -233,8 +233,6 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # ficavam nulos/vazios até o próximo boot ter sorte de terminar tudo.
         # Configs pequenas (poucos KB) restauram em milissegundos — não tem
         # motivo pra esperar a fila de milhares de arquivos grandes primeiro.
-        for fname in ("predictions_full.json", "predictions.json"):
-            pull_file(fname, os.path.join(data_dir, fname), force=True)
         # Favoritos com alerta de Telegram (15 min antes do jogo) — sem isso cada
         # redeploy apagava os favoritos e o aviso nunca saía.
         pull_file("telegram_favoritos.json", os.path.join(data_dir, "telegram_favoritos.json"), force=True)
