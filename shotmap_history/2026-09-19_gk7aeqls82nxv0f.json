@@ -1,0 +1,278 @@
+{
+  "event_id": "gk7aeqls82nxv0f",
+  "date": "2026-09-19",
+  "casa": "Celta Vigo",
+  "fora": "Racing Santander",
+  "liga": "La Liga",
+  "score": {
+    "home": 4,
+    "away": 0
+  },
+  "total_shots": 24,
+  "shotmap": [
+    {
+      "id": "2972214931",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vicente",
+      "x": 9.5,
+      "y": 33.9
+    },
+    {
+      "id": "2972206061",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Moriba",
+      "x": 18.7,
+      "y": 51.8
+    },
+    {
+      "id": "2972204061",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Lago",
+      "x": 3.9,
+      "y": 61.2
+    },
+    {
+      "id": "2972203373",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Rueda",
+      "x": 7.2,
+      "y": 63.9
+    },
+    {
+      "id": "2972198973",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Vicente",
+      "x": 13.2,
+      "y": 23.5
+    },
+    {
+      "id": "2972196735",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Vicente",
+      "x": 22.6,
+      "y": 42.7
+    },
+    {
+      "id": "2972194281",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Jutglà",
+      "x": 14.4,
+      "y": 72.7
+    },
+    {
+      "id": "2972188033",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "penalty",
+      "player": "H.González",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2972180689",
+      "minute": 26,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "García",
+      "x": 21.7,
+      "y": 38.4
+    },
+    {
+      "id": "2972240553",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Parra",
+      "x": 33.3,
+      "y": 52.3
+    },
+    {
+      "id": "2972261557",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Zabiri",
+      "x": 13.9,
+      "y": 28.6
+    },
+    {
+      "id": "2972260531",
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Jutglà",
+      "x": 52.6,
+      "y": 64.4
+    },
+    {
+      "id": "2972270641",
+      "minute": 69,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Roman",
+      "x": 24.9,
+      "y": 32.2
+    },
+    {
+      "id": "2972276551",
+      "minute": 73,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Salinas",
+      "x": 12.2,
+      "y": 53.2
+    },
+    {
+      "id": "2972277623",
+      "minute": 74,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Roman",
+      "x": 22.4,
+      "y": 45.7
+    },
+    {
+      "id": "2972281979",
+      "minute": 77,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Parra",
+      "x": 24.7,
+      "y": 60.7
+    },
+    {
+      "id": "2972282995",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Durán",
+      "x": 7.3,
+      "y": 51
+    },
+    {
+      "id": "2972286531",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Luque",
+      "x": 20.4,
+      "y": 63
+    },
+    {
+      "id": "2972289253",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Núñez",
+      "x": 20.1,
+      "y": 66.6
+    },
+    {
+      "id": "2972291527",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Guliashvili",
+      "x": 7.3,
+      "y": 46.6
+    },
+    {
+      "id": "2972298263",
+      "minute": 88,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Villalibre",
+      "x": 14.1,
+      "y": 43.9
+    },
+    {
+      "id": "2972299197",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Burcio",
+      "x": 4.1,
+      "y": 55.9
+    },
+    {
+      "id": "2972303263",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Durán",
+      "x": 10.4,
+      "y": 62.7
+    },
+    {
+      "id": "2972301813",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Durán",
+      "x": 12.3,
+      "y": 25.5
+    }
+  ]
+}
