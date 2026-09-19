@@ -1,0 +1,322 @@
+{
+  "event_id": "7xdat6l3vxs6v72",
+  "date": "2026-09-19",
+  "casa": "Millonarios",
+  "fora": "Boyaca Chico",
+  "liga": "Primeira A",
+  "score": {
+    "home": 3,
+    "away": 0
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2972369573",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Viveros",
+      "x": 21.3,
+      "y": 55.7
+    },
+    {
+      "id": "2972368547",
+      "minute": 16,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "F.Chaverra",
+      "x": 14,
+      "y": 27.6
+    },
+    {
+      "id": "2972366207",
+      "minute": 14,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Ruíz",
+      "x": 10.8,
+      "y": 68.5
+    },
+    {
+      "id": "2972359399",
+      "minute": 9,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Contreras",
+      "x": 11.2,
+      "y": 61.2
+    },
+    {
+      "id": "2972348349",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Ureña",
+      "x": 19.1,
+      "y": 45.2
+    },
+    {
+      "id": "2972384739",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Barreiro",
+      "x": 9,
+      "y": 40.6
+    },
+    {
+      "id": "2972385107",
+      "minute": 29,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "F.Chaverra",
+      "x": 6.8,
+      "y": 59.3
+    },
+    {
+      "id": "2972389367",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ruíz",
+      "x": 23.5,
+      "y": 59
+    },
+    {
+      "id": "2972391697",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Viveros",
+      "x": 20.6,
+      "y": 48.2
+    },
+    {
+      "id": "2972398555",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "E.Sarria",
+      "x": 15,
+      "y": 49
+    },
+    {
+      "id": "2972430511",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "D.Silva",
+      "x": 12,
+      "y": 38.9
+    },
+    {
+      "id": "2972428823",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Cabrera",
+      "x": 22.2,
+      "y": 67
+    },
+    {
+      "id": "2972434725",
+      "minute": 56,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Mena",
+      "x": 6.1,
+      "y": 47.8
+    },
+    {
+      "id": "2972444733",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Estupiñán",
+      "x": 6.7,
+      "y": 50.1
+    },
+    {
+      "id": "2972442033",
+      "minute": 62,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "F.Chaverra",
+      "x": 22.8,
+      "y": 42.2
+    },
+    {
+      "id": "2972441077",
+      "minute": 61,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Estupiñán",
+      "x": 11.3,
+      "y": 54.6
+    },
+    {
+      "id": "2972447753",
+      "minute": 67,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S.Mera",
+      "x": 28,
+      "y": 52.1
+    },
+    {
+      "id": "2972450769",
+      "minute": 69,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Estupiñán",
+      "x": 10.8,
+      "y": 56.7
+    },
+    {
+      "id": "2972451985",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "other_body_part",
+      "situation": "assisted",
+      "player": "Estupiñán",
+      "x": 8.7,
+      "y": 55.1
+    },
+    {
+      "id": "2972456539",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D.Silva",
+      "x": 18.1,
+      "y": 48.7
+    },
+    {
+      "id": "2972451819",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "F.Chaverra",
+      "x": 4.3,
+      "y": 33.6
+    },
+    {
+      "id": "2972458965",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Ruíz",
+      "x": 24.3,
+      "y": 61.8
+    },
+    {
+      "id": "2972461313",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "S.Valencia",
+      "x": 21.1,
+      "y": 10.7
+    },
+    {
+      "id": "2972463479",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "F.Cifuentes",
+      "x": 22.9,
+      "y": 56.9
+    },
+    {
+      "id": "2972467029",
+      "minute": 88,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Y.Pino",
+      "x": 23.6,
+      "y": 33.7
+    },
+    {
+      "id": "2972464231",
+      "minute": 83,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "S.Mera",
+      "x": 23.8,
+      "y": 75.4
+    },
+    {
+      "id": "2972468613",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Valencia",
+      "x": 15.9,
+      "y": 24.4
+    },
+    {
+      "id": "2972471015",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Estupiñán",
+      "x": 20,
+      "y": 45.8
+    }
+  ]
+}
