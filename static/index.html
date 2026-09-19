@@ -7294,7 +7294,7 @@ function loadPainelMatches() {
       if (container) container.innerHTML = `<div class="live-loading">Erro ao carregar jogos: ${err}</div>`;
     });
 }
-
+
 
 // ── MAPA DE SUGESTÕES — mercados tradicionais ───────────────────────────────
 // Mesmo modelo do Placar Contra: sem sugestão própria calculada aqui — só
@@ -8990,67 +8990,67 @@ function _profitTeamRowsFromSection(tabs, tabIdx, teamHome, limit) {
   return { teamName, rows };
 }
 // cache em memória — só refetch se clicar "Recalcular"// -1 = desc, 1 = asc// índice da metodologia selecionada pro gráfico de linha
-
 
-
-
+
+
+
 // sempre 'geral' agora — o toggle "Só com valor" foi removido
-
-
-
-
-
-
-
-
+
+
+
+
+
+
+
+
 
 function _bt2EscXml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-
-
+
+
 // { "marketKey||selection": {loading, matches} }
-
-
-
-
+
+
+
+
 // -1 = desc, 1 = asc// -1 = nada selecionado ainda (só depois de clicar num padrão)
-// 'recente' | 'acumulado'
-
-
-
+// 'recente' | 'acumulado'
+
+
+
 // 'geral' | 'valor' — 'valor' = placares que NUNCA ocorreram na amostra (0 acertos), igual ao resumo "Placares mais improváveis" de Placares Corretos
-
-
-
-
-
-
-
-
+
+
+
+
+
+
+
+
 // pattern completo (com segment_rate/baseline_rate) da linha clicada
-
-
+
+
 // { bucket: {loading, matches} }
-
+
 // 1 = asc, -1 = desc
-
-
-// { [bucket]: odd_media_hoje } — carregado à parte, não bloqueia os padrões
-
-
-
-
-
+
+
+// { [bucket]: odd_media_hoje } — carregado à parte, não bloqueia os padrões
+
+
+
+
+
 // 1 = asc (padrão do backend: lift mais baixo primeiro = sinal mais forte), -1 = desc// lista atualmente renderizada (pós-sort) — usada pelo clique da linha
-
-
-
-
-
-
-
-
+
+
+
+
+
+
+
+
 
 // ── ABA JOGO — estatísticas dos últimos jogos de cada time (mesma fonte do H2H) ──────
 let _today2JogoScope = {}; // { [matchId]: 0|1|2 } — Geral/Casa/Fora, igual às outras abas
