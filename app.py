@@ -3770,13 +3770,40 @@ _uniscore_lock    = threading.Lock()
 
 _UNISCORE_LOCALES = ["BR", "EU", "AS", "AF", "NA", "SA", "OC"]
 
+# Uma busca por vez (2026-09-19). Antes, cada thread que achava o cache vencido
+# refazia a varredura inteira (7 locales x até 5 páginas, sequencial) ao mesmo
+# tempo que as outras; e quando o UniScore respondia 429 a lista vinha vazia e
+# ERA cacheada por 2 min (ou nem cacheada, no caso de _uni_events_today) — cada
+# chamada seguinte repetia tudo de novo, o que só piorava o 429 e deixava o Ao
+# Vivo sem pressão/odds ("carregando…"). Agora: quem chega com a busca já em
+# andamento usa a lista anterior (se houver) em vez de esperar/duplicar, e
+# resultado vazio nunca substitui uma lista boa recente.
+_uniscore_fetch_lock = threading.Lock()
+_UNISCORE_STALE_MAX = 10 * 60   # lista antiga ainda serve de reserva por até 10 min
+
+
 def _get_uniscore_live_matches():
     """Busca TODAS as partidas ao vivo do UniScore (todos os locales + paginação).
     Cache de 2 minutos. Retorna lista de {id, homeId, awayId, home, away}."""
     with _uniscore_lock:
         if time.time() - _uniscore_cache["ts"] < 120:
             return _uniscore_cache["matches"]
+        prev, prev_ts = _uniscore_cache["matches"], _uniscore_cache["ts"]
 
+    if not _uniscore_fetch_lock.acquire(blocking=False):
+        if prev and time.time() - prev_ts < _UNISCORE_STALE_MAX:
+            return prev            # outra thread já está buscando: não duplica
+        _uniscore_fetch_lock.acquire()
+    try:
+        with _uniscore_lock:       # quem esperava o lock encontra o cache já preenchido
+            if time.time() - _uniscore_cache["ts"] < 120:
+                return _uniscore_cache["matches"]
+        return _get_uniscore_live_matches_fetch(prev, prev_ts)
+    finally:
+        _uniscore_fetch_lock.release()
+
+
+def _get_uniscore_live_matches_fetch(prev, prev_ts):
     all_by_id = {}
     for locale in _UNISCORE_LOCALES:
         page = 1
@@ -3816,6 +3843,11 @@ def _get_uniscore_live_matches():
 
     matches = list(all_by_id.values())
     print(f"[uniscore] {len(matches)} partidas ao vivo (todos os locales)")
+    if not matches and prev and time.time() - prev_ts < _UNISCORE_STALE_MAX:
+        # Busca falhou (429/rede): mantém a lista anterior e tenta de novo em ~20s
+        with _uniscore_lock:
+            _uniscore_cache["ts"] = time.time() - 100
+        return prev
     with _uniscore_lock:
         _uniscore_cache["ts"]      = time.time()
         _uniscore_cache["matches"] = matches
@@ -4476,6 +4508,11 @@ def _stats_history_prune():
         _stats_history.pop(eid, None)
 
 
+# UniScore devolveu 429: o monitor de fundo (o consumidor de menor prioridade —
+# o Ao Vivo é a página principal) para de martelar por 90s pra deixar a cota livre.
+_uniscore_backoff = {"until": 0}
+
+
 def _process_momentum(event_id, casa="", fora="", liga=""):
     """Busca momentum exclusivamente via UniScore (busca por nome de time).
     Cache de 30s (reduzido de 90s a pedido do usuário, 2026-09-01, pra deixar
@@ -4663,6 +4700,8 @@ def _process_momentum(event_id, casa="", fora="", liga=""):
 
     except Exception as e:
         print(f"[momentum] Erro UniScore event {event_id}: {e}")
+        if "429" in str(e):
+            _uniscore_backoff["until"] = time.time() + 90
         return None
 
 
@@ -4684,6 +4723,9 @@ def _background_monitor():
             if pendentes:
                 print(f"[monitor] {len(live_list)} ao vivo, {len(pendentes)} ainda não salvos — verificando...")
                 for m in pendentes:
+                    espera = _uniscore_backoff["until"] - time.time()
+                    if espera > 0:
+                        time.sleep(espera)
                     data = _process_momentum(m["id"], m["casa"], m["fora"], m["liga"])
                     if data and data.get("finished"):
                         print(f"[monitor] ✓ Encerrado e salvo: {m['casa']} x {m['fora']}")
@@ -7474,10 +7516,33 @@ def _uni_events_today():
     a combinação — senão a maioria dos jogos ao vivo não é encontrada pra enriquecimento.
     Todas as chamadas (locale × fonte) rodam em PARALELO — sequencial chegava a travar
     dezenas de segundos numa única busca. Cache de 30s."""
+    global _uni_events_cache
+    ttl = lambda c: 30 if c["data"] else 10     # falha (lista vazia) só vale 10s
+    c = _uni_events_cache
+    if time.time() - c["ts"] < ttl(c):
+        return c["data"]
+    # Uma busca por vez (ver comentário em _uniscore_fetch_lock): sem isso, com o
+    # UniScore em 429 cada chamada disparava 14 buscas paralelas de novo.
+    if not _uni_events_fetch_lock.acquire(blocking=False):
+        if c["data"] and time.time() - c["ts"] < _UNISCORE_STALE_MAX:
+            return c["data"]
+        _uni_events_fetch_lock.acquire()
+    try:
+        c = _uni_events_cache
+        if time.time() - c["ts"] < ttl(c):
+            return c["data"]
+        return _uni_events_today_fetch()
+    finally:
+        _uni_events_fetch_lock.release()
+
+
+_uni_events_fetch_lock = threading.Lock()
+
+
+def _uni_events_today_fetch():
     from concurrent.futures import ThreadPoolExecutor
     global _uni_events_cache
-    if time.time() - _uni_events_cache["ts"] < 30 and _uni_events_cache["data"]:
-        return _uni_events_cache["data"]
+    prev = _uni_events_cache
     today = datetime.now().strftime("%Y-%m-%d")
     all_by_id = {}
     lock = threading.Lock()
@@ -7518,8 +7583,11 @@ def _uni_events_today():
                 pass
 
     events = list(all_by_id.values())
-    _uni_events_cache = {"ts": time.time(), "data": events}
     print(f"[uniscore] {len(events)} eventos de hoje (ao vivo + agendados, todos os locales, em paralelo)")
+    if not events and prev["data"] and time.time() - prev["ts"] < _UNISCORE_STALE_MAX:
+        _uni_events_cache = {"ts": time.time() - 20, "data": prev["data"]}   # mantém a lista boa, retenta em ~10s
+        return prev["data"]
+    _uni_events_cache = {"ts": time.time(), "data": events}
     return events
 
 
