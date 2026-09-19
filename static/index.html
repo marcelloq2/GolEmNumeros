@@ -3015,6 +3015,20 @@ function openTipstersFromHeader() {
 // já cancela ele ao fechar QUALQUER modal (mesma função usada por todos).
 let _live2ProximosRefreshInterval = null;
 
+// Filtro "Só com B/$" dos Próximos Jogos (ligado por padrão, guardado no navegador).
+let _proximosSoComLink = true;
+try { _proximosSoComLink = localStorage.getItem('proximosSoComLink') !== '0'; } catch (e) {}
+function _proximosBarraHtml() {
+  return `<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:2px 0 10px;font-size:11px;color:var(--text2);cursor:pointer" title="Mostra só os jogos que têm o ícone B (Betfair) ou $ (Bolsa de Aposta). A lista de links vem de um site terceiro e não cobre todas as ligas.">
+    <input type="checkbox" ${_proximosSoComLink ? 'checked' : ''} onchange="_proximosToggleSoComLink(this.checked)" style="cursor:pointer">
+    <span><b>B</b> / <b>$</b> — só jogos com link da Betfair ou da Bolsa</span></label>`;
+}
+function _proximosToggleSoComLink(on) {
+  _proximosSoComLink = !!on;
+  try { localStorage.setItem('proximosSoComLink', on ? '1' : '0'); } catch (e) {}
+  _live2FetchAndRenderProximos(false);
+}
+
 async function _live2FetchAndRenderProximos(silent) {
   const body = document.getElementById('live2StatsModalBody');
   if (!silent) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
@@ -3030,17 +3044,19 @@ async function _live2FetchAndRenderProximos(silent) {
     // pedido do usuário (2026-09-19): card cheio de "-" não ajuda. Favoritados ficam
     // sempre (senão não haveria como desfavoritar um jogo que perdeu dado).
     const completo = m => m.odd_1 && m.odd_x && m.odd_2 && m.casa_gf_avg != null && m.fora_gf_avg != null;
-    const proximos = agendados.filter(m => completo(m) || _proximosPinned[m.event_id]);
+    // "Só com B/$" (2026-09-19): só jogos com link da Betfair e/ou da Bolsa de Aposta
+    const temLink = m => !!(m.link_betfair || m.link_bolsa);
+    const proximos = agendados.filter(m => _proximosPinned[m.event_id] || (completo(m) && (!_proximosSoComLink || temLink(m))));
     const semDados = agendados.length - proximos.length;
     if (!proximos.length) {
       body.innerHTML = `<div class="live-loading">${agendados.length
-        ? 'Nenhum jogo com odds e médias de gols por enquanto — esses dados carregam em 1 a 2 minutos depois que o servidor reinicia.'
-        : 'Nenhum jogo agendado encontrado agora.'}</div>`;
+        ? `Nenhum jogo com odds e médias de gols${_proximosSoComLink ? ' e com B/$' : ''} por enquanto — os dados carregam em 1 a 2 minutos depois que o servidor reinicia.`
+        : 'Nenhum jogo agendado encontrado agora.'}</div>${_proximosBarraHtml()}`;
       return;
     }
     const TETO = 40;
     const cortado = proximos.length > TETO;
-    const ocultosTxt = semDados > 0 ? ` · ${semDados} sem odds/médias de gols ocultos` : '';
+    const ocultosTxt = semDados > 0 ? ` · ${semDados} ocultos (sem odds/médias de gols${_proximosSoComLink ? ' ou sem B/$' : ''})` : '';
     const nota = (cortado || semDados > 0)
       ? `<div style="text-align:center;font-size:10px;color:var(--text2);padding:6px 0 2px">${cortado ? `mostrando os ${TETO} mais próximos de ${proximos.length} com dados` : `${proximos.length} jogo(s) com dados`}${ocultosTxt}</div>` : '';
     const mostrados = proximos.slice(0, TETO);
@@ -3057,7 +3073,7 @@ async function _live2FetchAndRenderProximos(silent) {
     // Não redesenha a lista enquanto o usuário digita a metodologia (perderia o foco/texto)
     const digitando = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('live-prox-metodo');
     if (digitando) { reenviarFavoritos(); return; }
-    body.innerHTML = mostrados.map(_live2ProximoRowHtml).join('') + nota;
+    body.innerHTML = _proximosBarraHtml() + mostrados.map(_live2ProximoRowHtml).join('') + nota;
     // Forma recente + confronto direto (2026-09-14, pedido do usuário: "3,4"
     // da lista de estatísticas sugeridas) — reaproveita _live2AutoLoadForms,
     // a MESMA busca H2H por nome já usada no Ao Vivo, zero rota nova. Só
@@ -3294,6 +3310,10 @@ function _live2ProximoRowHtml(m) {
           title="${_proximosPinned[m.event_id] ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar'}">${_proximosPinned[m.event_id] ? '⭐' : '☆'}</span>
         <span class="live-prox-time">${hora}</span>
         <span class="live-prox-liga">${_bt2EscXml(m._liga || '')}</span>
+        ${(m.link_betfair || m.link_bolsa) ? `<span class="painel-plat-icons" style="margin-left:8px">
+          ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange">B</a>` : ''}
+          ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta">$</a>` : ''}
+        </span>` : ''}
       </div>
       <div class="live-prox-h2h-row"><span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span></div>
       ${teamRow(m.home_logo, m.home, m.casa_pos, `live2FormWrapCasa_${m.event_id}`, formaCasaHtml, m.casa_ataque_icon, m.casa_defesa_icon, m.casa_gf_avg, m.casa_ga_avg, 'casa')}
