@@ -3203,7 +3203,7 @@ def _radar_fetch_live_matches_impl():
 # GitHub pra sobreviver a deploy.
 AO_VIVO_CFG_FILE = os.path.join(DATA_DIR, "ao_vivo_config.json")
 _AO_VIVO_PRIORITY_PADRAO = 200
-_ao_vivo_cfg = {"priority_max": None}
+_ao_vivo_cfg = {"priority_max": None, "modo": "top"}
 _ao_vivo_cfg_lock = threading.Lock()
 
 
@@ -3215,36 +3215,135 @@ def _prio_de(m):
         return 1000
 
 
+def _ao_vivo_cfg_carrega():
+    """Lê o arquivo de configuração 1x (sob o lock do chamador)."""
+    if _ao_vivo_cfg["priority_max"] is not None:
+        return
+    pmax, modo = _AO_VIVO_PRIORITY_PADRAO, "top"
+    try:
+        with open(AO_VIVO_CFG_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        pmax = min(1000, max(1, int(d.get("priority_max"))))
+        if d.get("modo") in ("top", "prioridade"):
+            modo = d["modo"]
+    except Exception:
+        pass
+    _ao_vivo_cfg["priority_max"], _ao_vivo_cfg["modo"] = pmax, modo
+
+
 def _ao_vivo_priority_max():
     with _ao_vivo_cfg_lock:
-        if _ao_vivo_cfg["priority_max"] is None:
-            try:
-                with open(AO_VIVO_CFG_FILE, "r", encoding="utf-8") as f:
-                    v = int(json.load(f).get("priority_max"))
-                _ao_vivo_cfg["priority_max"] = min(1000, max(1, v))
-            except Exception:
-                _ao_vivo_cfg["priority_max"] = _AO_VIVO_PRIORITY_PADRAO
+        _ao_vivo_cfg_carrega()
         return _ao_vivo_cfg["priority_max"]
+
+
+def _ao_vivo_modo():
+    """'top' = só ligas do Top Scores do Livesport (padrão, pedido do usuário em
+    2026-09-19); 'prioridade' = ligas até o corte de priority do UniScore."""
+    with _ao_vivo_cfg_lock:
+        _ao_vivo_cfg_carrega()
+        return _ao_vivo_cfg["modo"]
+
+
+# ── Top Scores do Livesport (futebol) ─────────────────────────────────────────
+# A aba "Top Scores" do Livesport/Flashscore lê o feed fm_<dia>_<fuso>_<idioma>_1
+# (sem login, mesmo tipo de feed que o site já usa): blocos "SA" abrem um esporte
+# (1 = futebol), "ZA" abrem uma liga e "AA" são os jogos dela. Hoje o futebol dessa
+# lista são as ligas marcadas "t" no feed (Premier League, LaLiga, Serie A,
+# Bundesliga, Ligue 1, Brasileirão...). O ID do jogo no Flashscore não é o do
+# UniScore (que fornece pressão/chutes), então o casamento é pelo NOME dos times.
+_TOP_SCORES_URL = "https://global.flashscore.ninja/729/x/feed/fm_0_-3_pt-br_1"
+_TOP_SCORES_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.livesport.com/",
+    "x-fsign": "SW9D1eZo",
+}
+_TOP_SCORES_TTL = 5 * 60
+_top_scores_cache = {"ts": 0, "jogos": None, "ligas": []}
+_top_scores_lock = threading.Lock()
+
+
+def _top_scores_parse(texto):
+    """(jogos, ligas) do futebol: jogos = [(liga, casa, fora)], ligas = [nomes]."""
+    def kv(bloco):
+        return dict(x.split("÷", 1) for x in bloco.split("¬") if "÷" in x)
+    esporte, liga, jogos, ligas = None, "", [], []
+    for bloco in (b for b in texto.split("~") if b.strip()):
+        if bloco.startswith("SA÷"):
+            esporte = bloco.split("÷", 1)[1].strip("¬ ")
+        elif bloco.startswith("ZA÷") and esporte == "1":
+            liga = kv(bloco).get("ZA", "")
+            ligas.append(liga)
+        elif bloco.startswith("AA÷") and esporte == "1":
+            d = kv(bloco)
+            if d.get("AE") and d.get("AF"):
+                jogos.append((liga, d["AE"], d["AF"]))
+    return jogos, ligas
+
+
+def _top_scores_futebol():
+    """Jogos de futebol do Top Scores ([(liga, casa, fora)]) ou None se a fonte
+    nunca respondeu (aí o Ao Vivo cai pro corte por prioridade em vez de esconder tudo).
+    Cache de 5 min; em falha, mantém a última lista boa."""
+    with _top_scores_lock:
+        c = _top_scores_cache
+        if c["jogos"] is not None and time.time() - c["ts"] < _TOP_SCORES_TTL:
+            return c["jogos"]
+    try:
+        r = http_req.get(_TOP_SCORES_URL, headers=_TOP_SCORES_HEADERS, timeout=10)
+        r.raise_for_status()
+        jogos, ligas = _top_scores_parse(r.text)
+        if not jogos and not ligas:
+            raise ValueError("feed sem futebol")
+        with _top_scores_lock:
+            _top_scores_cache.update({"ts": time.time(), "jogos": jogos, "ligas": ligas})
+        return jogos
+    except Exception as e:
+        print(f"[top-scores] falha ao ler o feed: {e}")
+        with _top_scores_lock:
+            if _top_scores_cache["jogos"] is not None:
+                _top_scores_cache["ts"] = time.time() - _TOP_SCORES_TTL + 60   # tenta de novo em 1 min
+            return _top_scores_cache["jogos"]
+
+
+def _top_scores_ligas():
+    with _top_scores_lock:
+        return list(_top_scores_cache["ligas"])
 
 
 def _ao_vivo_filtra_por_prioridade(matches, fav_ids=(), fav_nomes=()):
     """[jogos visíveis ordenados por prioridade, jogos ocultos].
-    Favoritos passam SEMPRE, qualquer que seja a prioridade da liga: `fav_ids` são
-    IDs de jogos já favoritados no Ao Vivo, `fav_nomes` são pares (casa, fora) de
-    jogos favoritados em Próximos Jogos que ainda vão entrar ao vivo (o ID do
-    Flashscore não é o do UniScore, então casa pelo nome)."""
+    Critério: modo 'top' = só jogos que estão no Top Scores do Livesport; modo
+    'prioridade' = liga até o corte de priority. Favoritos passam SEMPRE, qualquer
+    que seja a liga: `fav_ids` são IDs de jogos já favoritados no Ao Vivo,
+    `fav_nomes` são pares (casa, fora) de jogos favoritados em Próximos Jogos que
+    ainda vão entrar ao vivo (o ID do Flashscore não é o do UniScore, então casa
+    pelo nome)."""
     pmax = _ao_vivo_priority_max()
     fav_ids = set(fav_ids)
+    top = _top_scores_futebol() if _ao_vivo_modo() == "top" else None
+    usar_top = top is not None
+    if _ao_vivo_modo() == "top" and not usar_top:
+        print("[top-scores] sem lista disponível — usando o corte por prioridade")
+
+    def nomes(m):
+        return (m.get("casa") or m.get("home") or ""), (m.get("fora") or m.get("away") or "")
 
     def favorito(m):
         if str(m.get("id")) in fav_ids:
             return True
-        return any(_name_match(m.get("casa") or "", h) and _name_match(m.get("fora") or "", a)
-                   for h, a in fav_nomes)
+        c, f = nomes(m)
+        return any(_name_match(c, h) and _name_match(f, a) for h, a in fav_nomes)
+
+    def dentro(m):
+        if usar_top:
+            c, f = nomes(m)
+            return any(_name_match(c, h) and _name_match(f, a) for _, h, a in top)
+        return _prio_de(m) <= pmax
 
     vis, ocultos = [], []
     for m in matches:
-        (vis if _prio_de(m) <= pmax or favorito(m) else ocultos).append(m)
+        (vis if dentro(m) or favorito(m) else ocultos).append(m)
     # Mais importante primeiro; dentro da mesma prioridade, jogo com link da Betfair
     # ou da Bolsa de Aposta (ícones B/$) antes dos sem link — é onde dá pra operar
     # com certeza. Estável: o resto mantém a ordem da fonte.
@@ -3270,18 +3369,25 @@ def _ao_vivo_favoritos_da_requisicao():
 def api_ao_vivo_config():
     if request.method == "POST":
         d = request.get_json(silent=True) or {}
-        try:
-            v = int(d.get("priority_max"))
-        except (TypeError, ValueError):
-            return jsonify({"ok": False, "error": "priority_max inválido"}), 400
-        if not 1 <= v <= 1000:
-            return jsonify({"ok": False, "error": "priority_max deve ficar entre 1 e 1000"}), 400
+        pmax = _ao_vivo_priority_max()
+        modo = _ao_vivo_modo()
+        if d.get("priority_max") is not None:
+            try:
+                pmax = int(d.get("priority_max"))
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "priority_max inválido"}), 400
+            if not 1 <= pmax <= 1000:
+                return jsonify({"ok": False, "error": "priority_max deve ficar entre 1 e 1000"}), 400
+        if d.get("modo") is not None:
+            if d.get("modo") not in ("top", "prioridade"):
+                return jsonify({"ok": False, "error": "modo deve ser 'top' ou 'prioridade'"}), 400
+            modo = d["modo"]
         with _ao_vivo_cfg_lock:
-            _ao_vivo_cfg["priority_max"] = v
+            _ao_vivo_cfg["priority_max"], _ao_vivo_cfg["modo"] = pmax, modo
             with open(AO_VIVO_CFG_FILE, "w", encoding="utf-8") as f:
-                json.dump({"priority_max": v}, f)
+                json.dump({"priority_max": pmax, "modo": modo}, f)
         github_storage.push_file_bg(AO_VIVO_CFG_FILE, "ao_vivo_config.json")
-    return jsonify({"ok": True, "priority_max": _ao_vivo_priority_max()})
+    return jsonify({"ok": True, "priority_max": _ao_vivo_priority_max(), "modo": _ao_vivo_modo()})
 
 
 @app.route("/api/radar/live")
@@ -3300,6 +3406,7 @@ def api_radar_live():
                      for k, n in sorted(resumo.items(), key=lambda kv: (kv[0][2], kv[0][0]))]
     return jsonify({**res, "live": vis, "total": len(vis), "total_ao_vivo": len(todos),
                     "ocultos": len(ocultos), "priority_max": _ao_vivo_priority_max(),
+                    "modo": _ao_vivo_modo(), "top_scores_ligas": _top_scores_ligas(),
                     "ligas_ocultas": ligas_ocultas})
 
 

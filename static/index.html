@@ -2472,7 +2472,9 @@
                    color:var(--accent2);font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer;
                    text-transform:uppercase;letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📖 Guia</button>
           <span class="live-count-badge" id="live2CountBadge">0</span>
-          <label title="Só aparecem (e são gravadas) as ligas com prioridade até esse número — menor = liga mais importante no ranking do UniScore (ex: 11 Premier League, 20 Championship, 200 ligas médias). A lista das ligas ocultas com o número de cada uma está no botão Competições."
+          <button class="live-refresh-btn" id="live2ModoBtn" onclick="_live2ToggleModo()"
+            title="Ligado: só aparecem (e são gravados) os jogos das ligas que estão na aba Top Scores do Livesport hoje. Desligado: vale o corte de prioridade ao lado. Favoritos aparecem sempre.">🏆 Top Scores</button>
+          <label id="live2PrioLabel" title="Só aparecem (e são gravadas) as ligas com prioridade até esse número — menor = liga mais importante no ranking do UniScore (ex: 11 Premier League, 20 Championship, 200 ligas médias). A lista das ligas ocultas com o número de cada uma está no botão Competições."
             style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.2px;white-space:nowrap">
             🏷 Prioridade ≤
             <input id="live2PrioInput" type="number" min="1" max="1000" value="200" onchange="_live2SetPriorityMax(this.value)"
@@ -8816,9 +8818,22 @@ let _live2LeagueFilter = new Set(); // vazio = sem filtro, mostra todas
 // Corte por prioridade da liga (2026-09-19) — o servidor já entrega só as ligas
 // dentro do corte, em ordem de importância; aqui só guardamos o que ele diz
 // (corte atual, quantos jogos ficaram de fora e quais ligas) e deixamos mudar.
-let _live2PrioMax = 200, _live2Ocultos = 0, _live2LigasOcultas = [];
+let _live2PrioMax = 200, _live2Ocultos = 0, _live2LigasOcultas = [], _live2Modo = 'top', _live2TopLigas = [];
+async function _live2ToggleModo() {
+  const novo = _live2Modo === 'top' ? 'prioridade' : 'top';
+  try {
+    await fetch('/api/ao-vivo/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modo: novo }) });
+  } catch (e) {}
+  loadLive2Matches();
+}
 function _live2PrioAtualiza(data) {
   if (data.priority_max != null) _live2PrioMax = data.priority_max;
+  if (data.modo) _live2Modo = data.modo;
+  _live2TopLigas = data.top_scores_ligas || [];
+  const btnModo = document.getElementById('live2ModoBtn');
+  if (btnModo) btnModo.classList.toggle('active', _live2Modo === 'top');
+  const lblPrio = document.getElementById('live2PrioLabel');
+  if (lblPrio) lblPrio.style.opacity = _live2Modo === 'top' ? '0.4' : '1';
   _live2Ocultos = data.ocultos || 0;
   _live2LigasOcultas = data.ligas_ocultas || [];
   const inp = document.getElementById('live2PrioInput');
@@ -8875,7 +8890,9 @@ function _live2RenderLeaguePanel() {
     </div>
     ${_live2LigasOcultas.length ? `
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">Ocultas (prioridade acima de ${_live2PrioMax}) — mude o número "Prioridade ≤" na barra pra incluir</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">${_live2Modo === 'top'
+        ? `Ocultas (fora do Top Scores de hoje${_live2TopLigas.length ? ': ' + _live2TopLigas.map(_bt2EscXml).join(', ') : ''}) — desligue o botão 🏆 Top Scores pra usar o corte de prioridade`
+        : `Ocultas (prioridade acima de ${_live2PrioMax}) — mude o número "Prioridade ≤" na barra pra incluir`}</div>
       ${_live2LigasOcultas.map(l => `
         <div style="display:flex;gap:6px;font-size:10px;color:var(--text2);padding:1px 0">
           <span style="flex:1">${_bt2EscXml(l.liga)}${l.pais ? ` (${_bt2EscXml(l.pais)})` : ''}</span>
@@ -9126,7 +9143,7 @@ async function loadLive2Matches() {
     const cutNote = document.getElementById('live2CutNote');
     if (cutNote) cutNote.textContent = [
       cortado ? `mostrando as ${_LIVE2_MAX_MATCHES_DEFAULT} primeiras de ${totalAoVivo} ao vivo` : '',
-      _live2Ocultos ? `${_live2Ocultos} ocultos por prioridade` : '',
+      _live2Ocultos ? `${_live2Ocultos} ocultos ${_live2Modo === 'top' ? '(fora do Top Scores)' : 'por prioridade'}` : '',
       semLinkOcultos ? `${semLinkOcultos} sem B/$ ocultos` : '',
     ].filter(Boolean).join(' · ');
 
