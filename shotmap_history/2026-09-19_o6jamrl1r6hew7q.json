@@ -8,7 +8,7 @@
     "home": 2,
     "away": 1
   },
-  "total_shots": 32,
+  "total_shots": 33,
   "shotmap": [
     {
       "id": "2972099755",
@@ -18,8 +18,8 @@
       "bodyPart": "right_foot",
       "situation": "assisted",
       "player": "Iroegbunam",
-      "x": 18.3,
-      "y": 73.3
+      "x": 19.7,
+      "y": 70.1
     },
     {
       "id": "2972093717",
@@ -29,16 +29,16 @@
       "bodyPart": "left_foot",
       "situation": "corner",
       "player": "J.Gelhardt",
-      "x": 15.9,
-      "y": 60.1
+      "x": 17.9,
+      "y": 62.4
     },
     {
       "id": "2972093369",
       "minute": 90,
       "isHome": false,
       "shotType": "block",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
+      "bodyPart": "left_foot",
+      "situation": "corner",
       "player": "J.Gelhardt",
       "x": 22.4,
       "y": 61.5
@@ -53,6 +53,17 @@
       "player": " Douath",
       "x": 23.9,
       "y": 56.2
+    },
+    {
+      "id": "2972112253",
+      "minute": 89,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Wissa",
+      "x": 28.8,
+      "y": 48.4
     },
     {
       "id": "2972080151",
@@ -70,7 +81,7 @@
       "minute": 84,
       "isHome": false,
       "shotType": "block",
-      "bodyPart": "right_foot",
+      "bodyPart": "left_foot",
       "situation": "assisted",
       "player": "J.Gelhardt",
       "x": 13.1,
