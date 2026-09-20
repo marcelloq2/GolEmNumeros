@@ -1,0 +1,267 @@
+{
+  "event_id": "hesv5yld0wq0whu",
+  "date": "2026-09-20",
+  "casa": "Rhode Island",
+  "fora": "Miami FC",
+  "liga": "USL Championship",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 23,
+  "shotmap": [
+    {
+      "id": "2972623811",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Fuson",
+      "x": 26.8,
+      "y": 37.3
+    },
+    {
+      "id": "2972621189",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "C.Navarro",
+      "x": 9.9,
+      "y": 60
+    },
+    {
+      "id": "2972621165",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "C.Navarro",
+      "x": 10.4,
+      "y": 59.6
+    },
+    {
+      "id": "2972608133",
+      "minute": 57,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Soñora",
+      "x": 29.6,
+      "y": 28.9
+    },
+    {
+      "id": "2972607763",
+      "minute": 57,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Milesi",
+      "x": 7.1,
+      "y": 27.3
+    },
+    {
+      "id": "2972606361",
+      "minute": 55,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "A.Milesi",
+      "x": 19.1,
+      "y": 29.8
+    },
+    {
+      "id": "2972599155",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "C.Navarro",
+      "x": 10.8,
+      "y": 54.5
+    },
+    {
+      "id": "2972599047",
+      "minute": 49,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "A.Rocha",
+      "x": 26.6,
+      "y": 45.2
+    },
+    {
+      "id": "2972596589",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Scardina",
+      "x": 17.2,
+      "y": 52.7
+    },
+    {
+      "id": "2972572515",
+      "minute": 36,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "K.Yao",
+      "x": 5.9,
+      "y": 59.9
+    },
+    {
+      "id": "2972570405",
+      "minute": 34,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M.Tunbridge",
+      "x": 11.3,
+      "y": 62.8
+    },
+    {
+      "id": "2972569625",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "S.Korzeniowski",
+      "x": 14,
+      "y": 31.9
+    },
+    {
+      "id": "2972564679",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Rocha",
+      "x": 4.8,
+      "y": 52.1
+    },
+    {
+      "id": "2972564545",
+      "minute": 25,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "J.Soñora",
+      "x": 18.7,
+      "y": 50.9
+    },
+    {
+      "id": "2972562293",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "Zubaidi",
+      "x": 1.3,
+      "y": 43
+    },
+    {
+      "id": "2972559613",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "R.Tori",
+      "x": 3.8,
+      "y": 42.4
+    },
+    {
+      "id": "2972555325",
+      "minute": 12,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Afonso",
+      "x": 18.9,
+      "y": 46.4
+    },
+    {
+      "id": "2972554541",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "J.Soñora",
+      "x": 14.8,
+      "y": 30.9
+    },
+    {
+      "id": "2972551623",
+      "minute": 8,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "R.d.Costa",
+      "x": 17.6,
+      "y": 56.2
+    },
+    {
+      "id": "2972637349",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "d.atkinson",
+      "x": 15,
+      "y": 37.1
+    },
+    {
+      "id": "2972639083",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Korzeniowski",
+      "x": 14.5,
+      "y": 54.2
+    },
+    {
+      "id": "2972638751",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "D. Mello",
+      "x": 7.3,
+      "y": 66.1
+    },
+    {
+      "id": "2972622223",
+      "minute": 76,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "S.Korzeniowski",
+      "x": 11.9,
+      "y": 50.4
+    }
+  ]
+}
