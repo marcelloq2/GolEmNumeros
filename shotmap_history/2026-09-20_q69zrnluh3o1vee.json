@@ -1,0 +1,322 @@
+{
+  "event_id": "q69zrnluh3o1vee",
+  "date": "2026-09-20",
+  "casa": "New England Rev",
+  "fora": "Orlando City",
+  "liga": "Major League Soccer",
+  "score": {
+    "home": 4,
+    "away": 1
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2972629515",
+      "minute": 82,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gerbet",
+      "x": 20.8,
+      "y": 60
+    },
+    {
+      "id": "2972627213",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Miller",
+      "x": 23,
+      "y": 49.1
+    },
+    {
+      "id": "2972625705",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Feingold",
+      "x": 20.1,
+      "y": 67.9
+    },
+    {
+      "id": "2972625053",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Miller",
+      "x": 12.2,
+      "y": 69.5
+    },
+    {
+      "id": "2972615527",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Angulo",
+      "x": 7.1,
+      "y": 44
+    },
+    {
+      "id": "2972614733",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Atuesta",
+      "x": 27.7,
+      "y": 33.2
+    },
+    {
+      "id": "2972612677",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Miller",
+      "x": 14.3,
+      "y": 42.7
+    },
+    {
+      "id": "2972609093",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Pašalić",
+      "x": 31.3,
+      "y": 30
+    },
+    {
+      "id": "2972607833",
+      "minute": 53,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Brekalo",
+      "x": 33.1,
+      "y": 57.9
+    },
+    {
+      "id": "2972602705",
+      "minute": 48,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Ojeda",
+      "x": 10.9,
+      "y": 64.9
+    },
+    {
+      "id": "2972585715",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Polster",
+      "x": 27.9,
+      "y": 60.8
+    },
+    {
+      "id": "2972601029",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Raines",
+      "x": 29.1,
+      "y": 50.7
+    },
+    {
+      "id": "2972582945",
+      "minute": 44,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Yueill",
+      "x": 21.2,
+      "y": 31.8
+    },
+    {
+      "id": "2972582397",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Turgeman",
+      "x": 7.2,
+      "y": 27.3
+    },
+    {
+      "id": "2972580049",
+      "minute": 41,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Miller",
+      "x": 3,
+      "y": 65.8
+    },
+    {
+      "id": "2972575031",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Gil",
+      "x": 13.9,
+      "y": 41.1
+    },
+    {
+      "id": "2972574293",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Turgeman",
+      "x": 12.1,
+      "y": 50.9
+    },
+    {
+      "id": "2972568633",
+      "minute": 28,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "Pašalić",
+      "x": 1.6,
+      "y": 33.3
+    },
+    {
+      "id": "2972566331",
+      "minute": 24,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Gil",
+      "x": 26.2,
+      "y": 65.3
+    },
+    {
+      "id": "2972564867",
+      "minute": 22,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Ojeda",
+      "x": 18.2,
+      "y": 46.9
+    },
+    {
+      "id": "2972563499",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Gil",
+      "x": 24.1,
+      "y": 54.7
+    },
+    {
+      "id": "2972558249",
+      "minute": 11,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Miller",
+      "x": 18.8,
+      "y": 72.4
+    },
+    {
+      "id": "2972556367",
+      "minute": 9,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ellis",
+      "x": 19.4,
+      "y": 36.4
+    },
+    {
+      "id": "2972554429",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Turgeman",
+      "x": 29.2,
+      "y": 29.3
+    },
+    {
+      "id": "2972628805",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Dike",
+      "x": 7.1,
+      "y": 55
+    },
+    {
+      "id": "2972634701",
+      "minute": 88,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "penalty",
+      "player": "Ojeda",
+      "x": 11.5,
+      "y": 50
+    },
+    {
+      "id": "2972640717",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Gil",
+      "x": 8.1,
+      "y": 48.4
+    },
+    {
+      "id": "2972638865",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Miller",
+      "x": 13.1,
+      "y": 66.6
+    }
+  ]
+}
