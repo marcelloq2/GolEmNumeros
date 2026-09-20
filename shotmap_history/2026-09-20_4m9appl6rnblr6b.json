@@ -8,8 +8,19 @@
     "home": 2,
     "away": 1
   },
-  "total_shots": 33,
+  "total_shots": 35,
   "shotmap": [
+    {
+      "id": "2972611023",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "set_piece",
+      "player": "C.Torres",
+      "x": 13.6,
+      "y": 47
+    },
     {
       "id": "2972593811",
       "minute": 74,
@@ -40,8 +51,8 @@
       "bodyPart": "right_foot",
       "situation": "regular",
       "player": "Aboukoura",
-      "x": 13.9,
-      "y": 30.6
+      "x": 12.2,
+      "y": 36.2
     },
     {
       "id": "2972593173",
@@ -170,7 +181,7 @@
       "isHome": false,
       "shotType": "miss",
       "bodyPart": "right_foot",
-      "situation": "assisted",
+      "situation": "fast_break",
       "player": "E.Iii",
       "x": 12.7,
       "y": 31.8
@@ -275,10 +286,21 @@
       "y": 51.7
     },
     {
+      "id": "2972614841",
+      "minute": 31,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Donovan",
+      "x": 8.7,
+      "y": 40.6
+    },
+    {
       "id": "2972544647",
       "minute": 31,
       "isHome": true,
-      "shotType": "block",
+      "shotType": "miss",
       "bodyPart": "right_foot",
       "situation": "assisted",
       "player": "r.serrano",
