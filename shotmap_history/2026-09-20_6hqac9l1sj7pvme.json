@@ -1,0 +1,322 @@
+{
+  "event_id": "6hqac9l1sj7pvme",
+  "date": "2026-09-20",
+  "casa": "Emelec",
+  "fora": "Libertad",
+  "liga": "LigaPro Serie A",
+  "score": {
+    "home": 1,
+    "away": 2
+  },
+  "total_shots": 28,
+  "shotmap": [
+    {
+      "id": "2972629081",
+      "minute": 61,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "J.Bravo",
+      "x": 7.4,
+      "y": 54.5
+    },
+    {
+      "id": "2972628645",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Cortez",
+      "x": 10.3,
+      "y": 12.5
+    },
+    {
+      "id": "2972622945",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "L.Fragozo",
+      "x": 4.9,
+      "y": 54.8
+    },
+    {
+      "id": "2972622237",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Cevallos",
+      "x": 4.3,
+      "y": 45.4
+    },
+    {
+      "id": "2972622191",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "L.Fragozo",
+      "x": 8.7,
+      "y": 29.2
+    },
+    {
+      "id": "2972600775",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Chere",
+      "x": 6.4,
+      "y": 40.4
+    },
+    {
+      "id": "2972599227",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "c.valencia",
+      "x": 25.7,
+      "y": 64.8
+    },
+    {
+      "id": "2972593203",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Arce",
+      "x": 30.8,
+      "y": 33
+    },
+    {
+      "id": "2972590875",
+      "minute": 35,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "R. Paredes",
+      "x": 5.7,
+      "y": 65
+    },
+    {
+      "id": "2972592173",
+      "minute": 32,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Arce",
+      "x": 4.4,
+      "y": 54.6
+    },
+    {
+      "id": "2972584467",
+      "minute": 26,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "R. Paredes",
+      "x": 2.7,
+      "y": 38.8
+    },
+    {
+      "id": "2972582983",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "R. Paredes",
+      "x": 4.2,
+      "y": 56.7
+    },
+    {
+      "id": "2972580445",
+      "minute": 22,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leguizamón",
+      "x": 14.8,
+      "y": 62.6
+    },
+    {
+      "id": "2972580093",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Cortez",
+      "x": 20.2,
+      "y": 15.3
+    },
+    {
+      "id": "2972575791",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Cortez",
+      "x": 15.4,
+      "y": 59.3
+    },
+    {
+      "id": "2972565757",
+      "minute": 4,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ruíz",
+      "x": 22.1,
+      "y": 36.3
+    },
+    {
+      "id": "2972564837",
+      "minute": 2,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Cevallos",
+      "x": 7.5,
+      "y": 54.5
+    },
+    {
+      "id": "2972637603",
+      "minute": 71,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "A.Mina",
+      "x": 7.5,
+      "y": 55.7
+    },
+    {
+      "id": "2972639433",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Fragozo",
+      "x": 17.3,
+      "y": 17.9
+    },
+    {
+      "id": "2972643853",
+      "minute": 81,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Nápoli",
+      "x": 34.7,
+      "y": 62.7
+    },
+    {
+      "id": "2972641689",
+      "minute": 77,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Fragozo",
+      "x": 13.3,
+      "y": 30.1
+    },
+    {
+      "id": "2972637163",
+      "minute": 70,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Leguizamón",
+      "x": 6.7,
+      "y": 39.4
+    },
+    {
+      "id": "2972645539",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Batalla",
+      "x": 22.9,
+      "y": 29.8
+    },
+    {
+      "id": "2972649161",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "B.Caicedo",
+      "x": 7.5,
+      "y": 54.9
+    },
+    {
+      "id": "2972648959",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "E.Pineda",
+      "x": 26.7,
+      "y": 54.6
+    },
+    {
+      "id": "2972646073",
+      "minute": 85,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "B.Caicedo",
+      "x": 5.6,
+      "y": 37.1
+    },
+    {
+      "id": "2972653089",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "post_left",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "Cevallos",
+      "x": 21.8,
+      "y": 62.9
+    },
+    {
+      "id": "2972652005",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Valverde",
+      "x": 24.6,
+      "y": 35.2
+    }
+  ]
+}
