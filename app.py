@@ -2294,6 +2294,18 @@ def api_painel_matches():
     date_str = request.args.get("date") or None  # "YYYY-MM-DD"
     dados = _painel_fetch_matches_flashscore(force=force, date_str=date_str)
     escopo = request.args.get("escopo")
+    ids_pedidos = {i for i in (request.args.get("ids") or "").split(",") if i.strip()}
+    if ids_pedidos:
+        # Aba Padrões: só os jogos pedidos por event_id (poucas dezenas de KB em vez de ~360 KB do escopo ao_vivo).
+        por_liga = {}
+        for lg in dados.get("leagues", []):
+            ms = [m for m in lg.get("matches", []) if m.get("event_id") in ids_pedidos]
+            if ms:
+                por_liga[lg.get("league_name")] = ms
+        out = {k: v for k, v in dados.items() if k != "leagues"}
+        out["leagues"] = [{"league_name": n, "matches": ms} for n, ms in por_liga.items()]
+        out["escopo"] = "ids"
+        return jsonify(out)
     if escopo not in ("ao_vivo", "proximos"):
         return jsonify(dados)
     # A resposta completa tem ~1800 jogos (1,5 MB). O Ao Vivo pedia ela inteira a

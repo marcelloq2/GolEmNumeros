@@ -2109,6 +2109,7 @@
   .padr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; justify-content: center; }
   .padr-pill { background: var(--green); color: #04270f; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 3px 9px; cursor: help; }
   .padr-sem { font-size: 10.5px; color: var(--text2); }
+  .padr-odds { padding-bottom: 8px; }
   .padr-linha-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 6px; }
   .padr-est-btns { display: inline-flex; gap: 6px; flex-wrap: wrap; }
   .padr-est-n { background: var(--red); color: #fff; border-radius: 999px; font-size: 9.5px; padding: 0 6px; margin-left: 5px; font-family: var(--font-mono); }
@@ -14606,7 +14607,11 @@ const _padrPor = {
 };
 let _padrRegras = _padrPor[_padrEst].regras;           // regras da estratégia selecionada
 let _padrInfo = _padrPor[_padrEst].info;
-let _padrContagem = { under: 0, over05ht: 0 };         // jogos em operação agora, por estratégia
+let _padrContagem = { under: 0, over05ht: 0 };
+let _padrOddsMap = {};           // event_id do Flashscore -> jogo do Painel (odds pré-jogo + ao vivo)
+let _padrOddsIds = '';
+let _padrOddsTs = 0;             // quando as odds foram lidas com sucesso (o servidor só renova a cada ~60 s: não adianta pedir antes)
+let _padrOddsOk = false;         // false = não deu pra ler as odds agora (site desligado, erro...)         // jogos em operação agora, por estratégia
 let _padrJogos = [];
 const _padrDados = {};          // id do jogo -> { entries, eventos, erro }
 let _padrTimer = null;
@@ -14780,7 +14785,8 @@ async function padrAtualiza() {
     }
     _padrJogos = d.jogos || [];
     if (d.ts) _padrRelogioOffset = d.ts - Date.now() / 1000;
-    await Promise.all(_padrJogos.map(_padrBuscaMomentum));
+    // as odds correm em paralelo com os gráficos e NUNCA seguram a tela: se demorarem (servidor frio), o card sai sem odds
+    await Promise.all([..._padrJogos.map(_padrBuscaMomentum), currentView === 'padroes' ? _padrCarregaOdds() : null]);
     const itensPor = {};
     Object.keys(_PADR_EST).forEach(e => {
       itensPor[e] = _padrCalcItens(e);
@@ -14796,6 +14802,45 @@ async function padrAtualiza() {
   } catch (e) {
     if (currentView === 'padroes') document.getElementById('padrGrid').innerHTML = '<div class="live-loading">Erro ao carregar os jogos.</div>';
   } finally { _padrBusy = false; }
+}
+
+// Odds dos jogos: o mesmo pacote que o Ao Vivo já usa (/api/painel/matches, filtrado por ids), que o servidor mantém
+// pronto em memória — então é 1 leitura por ciclo, sem consulta nova a site nenhum. O id do jogo no Top Scores é o
+// mesmo id do Flashscore, então o casamento é direto (sem adivinhar pelo nome).
+async function _padrCarregaOdds() {
+  if (!_siteLigado) { _padrOddsOk = false; _padrOddsMap = {}; return; }
+  const idsAtuais = _padrJogos.map(j => j.id).join(',');
+  if (_padrOddsOk && Date.now() - _padrOddsTs < 55000 && idsAtuais === _padrOddsIds) return;
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const ids = _padrJogos.map(j => j.id).join(',');
+    if (!ids) { _padrOddsOk = true; return; }
+    const r = await fetch('/api/painel/matches?ids=' + encodeURIComponent(ids), { signal: ctl.signal });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    const mapa = {};
+    (d.leagues || []).forEach(lg => (lg.matches || []).forEach(m => { if (m.event_id) mapa[m.event_id] = m; }));
+    _padrOddsMap = mapa; _padrOddsOk = true; _padrOddsTs = Date.now(); _padrOddsIds = ids;
+  } catch (e) { _padrOddsOk = false; } finally { clearTimeout(t); }
+}
+
+function _padrOddsHtml(pm) {
+  if (!pm) return _padrOddsOk ? '<div class="padr-sem" style="text-align:center;padding:4px 0">sem odds para este jogo</div>' : '';
+  let html = '';
+  try { html += _live2OddsLiveHtml(pm.live_odds); } catch (e) {}
+  if (pm.odd_1 || pm.odd_x || pm.odd_2 || pm.odd_over || pm.odd_under) {
+    const ln = pm.ou_line ? ' ' + pm.ou_line : '';
+    html += `<div style="text-align:center;font-size:9px;font-weight:700;color:var(--text2);padding-top:4px">ODDS PRÉ-JOGO</div>
+    <div class="live-card-odds-row">
+      <div class="live-card-odds-cell"><span class="live-card-odds-label">1</span><span class="live-card-odds-val o1">${pm.odd_1 || '-'}</span></div>
+      <div class="live-card-odds-cell"><span class="live-card-odds-label">X</span><span class="live-card-odds-val ox">${pm.odd_x || '-'}</span></div>
+      <div class="live-card-odds-cell"><span class="live-card-odds-label">2</span><span class="live-card-odds-val o2">${pm.odd_2 || '-'}</span></div>
+      <div class="live-card-odds-cell"><span class="live-card-odds-label">Over${ln}</span><span class="live-card-odds-val oover">${pm.odd_over || '-'}</span></div>
+      <div class="live-card-odds-cell"><span class="live-card-odds-label">Under${ln}</span><span class="live-card-odds-val ounder">${pm.odd_under || '-'}</span></div>
+    </div>`;
+  }
+  return html || (_padrOddsOk ? '<div class="padr-sem" style="text-align:center;padding:4px 0">sem odds para este jogo</div>' : '');
 }
 
 // mesma conferência de _padroes_avalia (app.py)
@@ -14931,6 +14976,7 @@ function _padrRenderGrid(itensPre) {
         </div>
         <div class="padr-badges">${badges}</div>
       </div>
+      <div class="padr-odds">${_padrOddsHtml(_padrOddsMap[j.id])}</div>
       <div class="padr-chart-wrap"><canvas id="padrCv_${_padrEsc(j.id)}"></canvas></div>
     </div>`;
   }).join('');
