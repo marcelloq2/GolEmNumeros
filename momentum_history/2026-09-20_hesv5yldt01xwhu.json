@@ -1,7 +1,7 @@
 {
   "event_id": "hesv5yldt01xwhu",
   "date": "2026-09-20",
-  "saved_at": "2026-09-20T01:04:37.003726",
+  "saved_at": "2026-09-20T01:05:55.844450",
   "source": "uniscore",
   "casa": "Atlas",
   "fora": "Pumas UNAM",
@@ -399,7 +399,11 @@
     },
     {
       "minute": 98,
-      "value": 100
+      "value": 66
+    },
+    {
+      "minute": 99,
+      "value": -100
     }
   ],
   "goals": [
@@ -424,15 +428,15 @@
   },
   "shotmap": [
     {
-      "id": "2972606415",
-      "minute": 85,
+      "id": "2972615317",
+      "minute": 90,
       "isHome": true,
-      "shotType": "miss",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
-      "player": "R. Mmaee",
-      "x": 7.5,
-      "y": 54.5
+      "shotType": "post_right",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Zaldívar",
+      "x": 8.5,
+      "y": 50.9
     },
     {
       "id": "2972606381",
@@ -752,24 +756,13 @@
       "player": "V.Arteaga",
       "x": 18,
       "y": 57.3
-    },
-    {
-      "id": "2972615317",
-      "minute": 90,
-      "isHome": true,
-      "shotType": "block",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "Zaldívar",
-      "x": 9.5,
-      "y": 52.5
     }
   ],
   "statistics": {
     "xg_expected_goals": {
-      "home": "2.40",
+      "home": "2.58",
       "away": "0.81",
-      "homeValue": 2.4,
+      "homeValue": 2.58,
       "awayValue": 0.81
     },
     "big_chances": {
@@ -1040,9 +1033,9 @@
   "statistics_periods": {
     "ALL": {
       "xg_expected_goals": {
-        "home": "2.40",
+        "home": "2.58",
         "away": "0.81",
-        "homeValue": 2.4,
+        "homeValue": 2.58,
         "awayValue": 0.81
       },
       "big_chances": {
@@ -1572,9 +1565,9 @@
     },
     "2ND": {
       "xg_expected_goals": {
-        "home": "0.61",
+        "home": "0.79",
         "away": "0.10",
-        "homeValue": 0.61,
+        "homeValue": 0.79,
         "awayValue": 0.1
       },
       "big_chances": {
@@ -1832,14 +1825,14 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 5.204,
+    "overall_avg": 3.798,
     "h1_avg": 8.0,
-    "h2_avg": 2.408,
-    "home_dominance_pct": 49.0,
+    "h2_avg": -0.32,
+    "home_dominance_pct": 48.5,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 46,
-    "total_points": 98
+    "momentum_swings": 47,
+    "total_points": 99
   },
   "xg": {
     "home": 5.7,
@@ -1866,106 +1859,5 @@
     "ou_under": "1.9"
   },
   "odds_history": [],
-  "stats_history": [
-    {
-      "ts": 1789865588.0835724,
-      "minuto": 86,
-      "xg_casa": 4.97,
-      "xg_fora": 2.99,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 36.0,
-      "toques_area_fora": 21.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 14.0,
-      "fin_area_fora": 7.0,
-      "chances_casa": 3.0,
-      "chances_fora": 1.0
-    },
-    {
-      "ts": 1789865706.6033764,
-      "minuto": 89,
-      "xg_casa": 5.26,
-      "xg_fora": 3.01,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 38.0,
-      "toques_area_fora": 21.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 16.0,
-      "fin_area_fora": 7.0,
-      "chances_casa": 3.0,
-      "chances_fora": 1.0
-    },
-    {
-      "ts": 1789865826.5152915,
-      "minuto": 90,
-      "xg_casa": 5.17,
-      "xg_fora": 3.01,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 37.0,
-      "toques_area_fora": 21.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 15.0,
-      "fin_area_fora": 7.0,
-      "chances_casa": 3.0,
-      "chances_fora": 1.0
-    },
-    {
-      "ts": 1789865963.4986336,
-      "minuto": 93,
-      "xg_casa": 5.18,
-      "xg_fora": 3.01,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 37.0,
-      "toques_area_fora": 21.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 15.0,
-      "fin_area_fora": 7.0,
-      "chances_casa": 3.0,
-      "chances_fora": 1.0
-    },
-    {
-      "ts": 1789866175.5655107,
-      "minuto": 97,
-      "xg_casa": 5.18,
-      "xg_fora": 3.02,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 37.0,
-      "toques_area_fora": 21.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 15.0,
-      "fin_area_fora": 7.0,
-      "chances_casa": 3.0,
-      "chances_fora": 1.0
-    }
-  ]
+  "stats_history": []
 }
