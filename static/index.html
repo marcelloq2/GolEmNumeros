@@ -2113,6 +2113,11 @@
   .padr-op.entrada { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); border: 1px solid var(--green); }
   .padr-op.saida { background: var(--red); color: #fff; border: 1px solid var(--red); }
   .padr-op-sub { font-size: 10px; font-weight: 400; opacity: .9; margin-top: 2px; }
+  #padrToasts { position: fixed; top: 64px; right: 14px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; max-width: min(360px, 92vw); }
+  .padr-toast { border-radius: 10px; padding: 10px 12px; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.25); }
+  .padr-toast.entrada { background: #087f44; }
+  .padr-toast.saida { background: #c62828; }
+  .padr-toast small { display: block; font-weight: 400; margin-top: 3px; opacity: .92; }
   .padr-op.atraso { background: color-mix(in srgb, #f59e0b 20%, transparent); color: #f59e0b; border: 1px solid #f59e0b; }
   .padr-card-saida { border-color: var(--red); border-left-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
   .padr-chart-wrap { padding: 0; background: #00141c; }
@@ -2549,6 +2554,7 @@
 
   <!-- PADRÕES (2026-09-19) — jogos do Top Scores ao vivo com o gráfico do Livesport e os padrões
        importados do txt (ver o bloco "Aba Padrões" no script) -->
+  <div id="padrToasts"></div>
   <div id="padroesWrapper" style="display:none;flex:1;overflow:auto;flex-direction:column;background:var(--bg)">
     <div class="padr-bar">
       <span class="padr-title"><span class="live-pulse-dot"></span>Padrões · Top Scores ao vivo</span>
@@ -2556,6 +2562,7 @@
       <input type="file" id="padrFile" accept=".txt,text/plain" style="display:none" onchange="padrImportar(this)">
       <button class="live-refresh-btn" id="padrRestBtn" style="display:none" onclick="padrRestaurar()">↩ Restaurar anterior</button>
       <button class="live-refresh-btn" id="padrTgBtn" onclick="padrToggleTelegram()" title="Avisos no Telegram quando um padrão bate num jogo do Top Scores — funciona com o site fechado">🔔 Telegram: desligado</button>
+      <button class="live-refresh-btn" id="padrAvisoBtn" onclick="padrToggleAvisos()" title="Toca um som, mostra uma notificação e pisca o título da aba quando surge uma ENTRADA ou uma SAÍDA — funciona também se você estiver em outra aba do site (a página precisa ficar aberta)">🔊 Avisos aqui: desligado</button>
       <button class="live-refresh-btn" id="padrSoAtivoBtn" onclick="padrToggleSoAtivo()" title="Mostrar só os jogos em operação (padrão batendo) ou com saída recente">✔ Só em operação / saída</button>
       <span class="live-count-badge" id="padrCount">0</span>
       <button class="live-refresh-btn" onclick="padrAtualiza()" title="Atualizar">↻</button>
@@ -3021,7 +3028,7 @@ function switchView(view, btn) {
   live2Panel.classList.remove('active');
   painelWrapper.style.display = 'none';
   padroesWrapper.style.display = 'none';
-  clearInterval(_padrTimer);
+  if (!_padrAvisosOn) { clearInterval(_padrTimer); _padrTimer = null; }
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -14624,6 +14631,8 @@ function _padrRenderBarra() {
     tg.textContent = `🔔 Telegram: ${on ? 'ligado' : 'desligado'}`;
     tg.classList.toggle('active', on);
   }
+  const av = document.getElementById('padrAvisoBtn');
+  if (av) { av.textContent = `🔊 Avisos aqui: ${_padrAvisosOn ? 'ligado' : 'desligado'}`; av.classList.toggle('active', _padrAvisosOn); }
   const so = document.getElementById('padrSoAtivoBtn');
   if (so) so.classList.toggle('active', _padrSoAtivo);
   const box = document.getElementById('padrRegrasBox');
@@ -14714,24 +14723,26 @@ async function _padrBuscaMomentum(j) {
 }
 
 async function padrAtualiza() {
-  if (_padrBusy || currentView !== 'padroes') return;
+  if (_padrBusy || (currentView !== 'padroes' && !_padrAvisosOn)) return;
   _padrBusy = true;
   try {
     const d = await (await fetch('/api/padroes/jogos')).json();
     if (!d.ok) {
-      document.getElementById('padrGrid').innerHTML = `<div class="live-loading">${_padrEsc(d.error || 'Top Scores indisponível agora.')}</div>`;
+      if (currentView === 'padroes') document.getElementById('padrGrid').innerHTML = `<div class="live-loading">${_padrEsc(d.error || 'Top Scores indisponível agora.')}</div>`;
       return;
     }
     _padrJogos = d.jogos || [];
     if (d.ts) _padrRelogioOffset = d.ts - Date.now() / 1000;
     await Promise.all(_padrJogos.map(_padrBuscaMomentum));
-    _padrRenderGrid();
+    const itens = _padrCalcItens();
+    _padrDetectaAvisos(itens);
+    if (currentView === 'padroes') _padrRenderGrid(itens);
     const cont = document.getElementById('padrCount');
     if (cont) cont.textContent = _padrJogos.length;
     const t = document.getElementById('padrHora');
     if (t) t.textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
   } catch (e) {
-    document.getElementById('padrGrid').innerHTML = '<div class="live-loading">Erro ao carregar os jogos.</div>';
+    if (currentView === 'padroes') document.getElementById('padrGrid').innerHTML = '<div class="live-loading">Erro ao carregar os jogos.</div>';
   } finally { _padrBusy = false; }
 }
 
@@ -14803,10 +14814,8 @@ function _padrCorridas(entries, eventos, casaId, regras) {
 
 const _PADR_MOTIVO = { padrao: 'o padrão deixou de bater', gol: 'saiu gol', tempo: 'fim do tempo' };
 
-function _padrRenderGrid() {
-  const grid = document.getElementById('padrGrid');
-  if (!grid) return;
-  const itens = _padrJogos.map(j => {
+function _padrCalcItens() {
+  return _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
     const av = _padrAvalia(d.entries, j.gc, j.gf, _padrRegras);
     const minReal = j.ini ? (j.estagio === '12' ? 1 : 46) + Math.max(0, Math.floor((Date.now() / 1000 + _padrRelogioOffset - j.ini) / 60)) : null;
@@ -14817,6 +14826,12 @@ function _padrRenderGrid() {
     const recente = !corr.aberta && ult && av && ult.estagioSaida === av.estagio && av.min - ult.saida <= 4;
     return { j, d, av, corr, ult, recente, minReal, atraso, velho, prio: corr.aberta ? 2 : (recente ? 1 : 0) };
   });
+}
+
+function _padrRenderGrid(itensPre) {
+  const grid = document.getElementById('padrGrid');
+  if (!grid) return;
+  const itens = itensPre || _padrCalcItens();
   let lista = _padrSoAtivo ? itens.filter(x => x.prio > 0) : itens;
   lista.sort((a, b) => b.prio - a.prio || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
   if (!lista.length) {
@@ -15013,6 +15028,100 @@ function _padrDesenha(cv, j, d, corr) {
     hit.barras.forEach(b => { if (Math.abs(b.x - mx) < step / 2 && (!best || Math.abs(b.x - mx) < Math.abs(best.x - mx))) best = b; });
     cv.title = best ? `Minuto ${best.m}: ${best.v >= 0 ? 'casa' : 'visitante'} ${Math.abs(best.v).toFixed(2)}` : '';
   };
+}
+
+// ── Avisos no navegador: som + notificação + título piscando + faixa na tela ──────────────
+// Entrada = surgiu uma operação nova em algum jogo; saída = uma operação fechou (padrão deixou de bater,
+// saiu gol ou acabou o tempo). A 1ª leitura de cada jogo é só "linha de base" (não avisa o que já estava lá).
+// Com o botão ligado a aba continua conferindo em segundo plano (a cada 30 s) mesmo se você estiver em outra aba do site.
+let _padrAvisosOn = false;
+try { _padrAvisosOn = localStorage.getItem('padrAvisos') === '1'; } catch (e) {}
+let _padrAudio = null;
+const _padrVisto = {};           // id do jogo -> Set de chaves já vistas ("a<estágio>-<entrada>" aberta / "f<...>" fechada)
+const _padrTituloOrig = document.title;
+let _padrTituloTimer = null;
+
+function _padrBeep(tipo) {
+  if (!_padrAvisosOn) return;
+  try {
+    _padrAudio = _padrAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (_padrAudio.state === 'suspended') _padrAudio.resume();
+    const t0 = _padrAudio.currentTime;
+    // entrada: dois tons subindo (suave); saída: três tons descendo (mais grave e insistente)
+    const notas = tipo === 'entrada' ? [[660, 0], [880, 0.17]] : [[880, 0], [660, 0.2], [440, 0.4], [440, 0.6]];
+    notas.forEach(([f, d]) => {
+      const o = _padrAudio.createOscillator(), g = _padrAudio.createGain();
+      o.type = tipo === 'entrada' ? 'sine' : 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + d);
+      g.gain.exponentialRampToValueAtTime(tipo === 'entrada' ? 0.25 : 0.18, t0 + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.16);
+      o.connect(g); g.connect(_padrAudio.destination); o.start(t0 + d); o.stop(t0 + d + 0.18);
+    });
+  } catch (e) {}
+}
+
+function _padrAviso(tipo, titulo, corpo) {
+  _padrBeep(tipo);
+  const box = document.getElementById('padrToasts');
+  if (box) {
+    const t = document.createElement('div');
+    t.className = 'padr-toast ' + tipo;
+    t.innerHTML = `${_padrEsc(titulo)}<small>${_padrEsc(corpo)}</small>`;
+    t.onclick = () => t.remove();
+    box.appendChild(t);
+    setTimeout(() => t.remove(), 25000);
+  }
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') new Notification(titulo, { body: corpo, tag: 'padr-' + Date.now() });
+  } catch (e) {}
+  if (document.hidden) {                       // título piscando até você voltar pra aba
+    clearInterval(_padrTituloTimer);
+    let alt = false;
+    _padrTituloTimer = setInterval(() => { document.title = alt ? _padrTituloOrig : titulo; alt = !alt; }, 900);
+    const parar = () => { clearInterval(_padrTituloTimer); document.title = _padrTituloOrig; document.removeEventListener('visibilitychange', parar); };
+    document.addEventListener('visibilitychange', parar);
+  }
+}
+
+function _padrDetectaAvisos(itens) {
+  if (!_padrAvisosOn) return;
+  itens.forEach(({ j, corr, av, velho }) => {
+    if (velho || !_padrRegras.length) return;
+    const atual = new Set();
+    corr.fechadas.forEach(o => atual.add(`f${o.estagio}-${o.entrada}`));
+    if (corr.aberta) atual.add(`a${corr.aberta.estagio}-${corr.aberta.entrada}`);
+    const visto = _padrVisto[j.id];
+    if (!visto) { _padrVisto[j.id] = atual; return; }        // 1ª leitura do jogo: só linha de base
+    const nome = `${j.casa} x ${j.fora}`, placar = `${j.gc ?? 0}-${j.gf ?? 0}`;
+    if (corr.aberta && !visto.has(`a${corr.aberta.estagio}-${corr.aberta.entrada}`)) {
+      _padrAviso('entrada', `🟢 ENTRADA — ${nome}`, `${placar} · padrão ${corr.aberta.regrasEntrada.join(', ')} bateu no minuto ${corr.aberta.entrada}' — sem gol no próximo minuto. Eu aviso a saída.`);
+    }
+    corr.fechadas.forEach(o => {
+      const k = `f${o.estagio}-${o.entrada}`;
+      if (visto.has(k)) return;
+      const motivo = _PADR_MOTIVO[o.motivo];
+      const relampago = !visto.has(`a${o.estagio}-${o.entrada}`);
+      _padrAviso('saida', `🔴 SAIR — ${nome}`, `${placar} · ${motivo} (minuto ${o.saida}')` + (relampago ? ` · entrou aos ${o.entrada}' e já saiu (não deu tempo de avisar a entrada)` : ` · entrou aos ${o.entrada}'`));
+    });
+    atual.forEach(k => visto.add(k));
+  });
+}
+
+async function padrToggleAvisos() {
+  _padrAvisosOn = !_padrAvisosOn;
+  try { localStorage.setItem('padrAvisos', _padrAvisosOn ? '1' : '0'); } catch (e) {}
+  if (_padrAvisosOn) {
+    try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
+    _padrBeep('entrada');                       // teste: também libera o áudio do navegador
+    if (!_padrTimer) { await _padrCarregaRegras(); padrAtualiza(); _padrTimer = setInterval(padrAtualiza, 30000); }
+  }
+  _padrRenderBarra();
+}
+document.addEventListener('click', () => { if (_padrAudio && _padrAudio.state === 'suspended') _padrAudio.resume(); });
+if (_padrAvisosOn) {                             // recarregou a página com os avisos ligados: volta a conferir em segundo plano
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(async () => { await _padrCarregaRegras(); padrAtualiza(); clearInterval(_padrTimer); _padrTimer = setInterval(padrAtualiza, 30000); }, 4000);
+  });
 }
 </script>
 <style>.hidden { display: none !important; }</style>
