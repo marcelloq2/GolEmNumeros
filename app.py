@@ -10972,12 +10972,59 @@ def _padroes_avalia(entries, gc, gf, regras):
     return info, batem
 
 
-_padroes_estado = {}        # (event_id, regra) -> {"ativo": bool, "ultimo": ts}
-_padroes_ult_msg = {}       # event_id -> ts do último aviso
-_padroes_envios = deque(maxlen=200)   # ts dos avisos (limite por hora)
-_PAD_COOLDOWN_REGRA = 10 * 60
-_PAD_COOLDOWN_JOGO = 5 * 60
+_PAD_TIPOS_GOL = ("goal", "penalty_goal", "own_goal")
+
+
+def _padroes_corridas(entries, eventos, casa_id, regras):
+    """Reconstrói do histórico do jogo as "operações": cada corrida é um trecho seguido de minutos em que
+    algum padrão bateu. Entrada = 1º minuto do trecho; SAÍDA = 1º minuto em que ele deixa de bater, ou
+    o minuto em que sai gol (motivo "gol"), ou o fim do tempo (motivo "tempo"; minuto fora da faixa das
+    regras). Devolve (fechadas, aberta|None). Mesmo cálculo em JS (_padrCorridas) — mudou aqui, mude lá."""
+    validas = [e for e in (entries or [])
+               if (e.get("timeFrame") or {}).get("eventStage") in (12, 13) and isinstance(e.get("momentumValue"), (int, float))]
+    gols = []
+    for ev in eventos or []:
+        tf = ev.get("timeFrame") or {}
+        t = (ev.get("type") or {}).get("type")
+        if t in _PAD_TIPOS_GOL and tf.get("eventStage") in (12, 13):
+            lado = "casa" if ev.get("teamId") == casa_id else "fora"
+            if t == "own_goal":
+                lado = "fora" if lado == "casa" else "casa"
+            gols.append(((tf["eventStage"], int(tf.get("elapsedMinute") or 0) + 1), lado))
+    fechadas, atual = [], None
+    for i, e in enumerate(validas):
+        tf = e["timeFrame"]
+        s, m = tf["eventStage"], int(tf.get("elapsedMinute") or 0) + 1
+        chave = (s, m)
+        if atual is not None and any(k == chave for k, _ in gols):
+            atual.update(saida=m, estagio_saida=s, motivo="gol", aberta=False)
+            fechadas.append(atual)
+            atual = None
+            continue
+        gc = sum(1 for k, l in gols if k <= chave and l == "casa")
+        gf = sum(1 for k, l in gols if k <= chave and l == "fora")
+        info, batem = _padroes_avalia(validas[:i + 1], gc, gf, regras)
+        if batem:
+            if atual is None:
+                atual = {"entrada": m, "estagio": s, "regras_entrada": list(batem), "regras": list(batem), "aberta": True}
+            else:
+                atual["regras"] = list(batem)
+        elif atual is not None:
+            fora = info is not None and ((info["estagio"] == 12 and not 1 <= info["min"] <= 44)
+                                         or (info["estagio"] == 13 and not 46 <= info["min"] <= 89))
+            atual.update(saida=m, estagio_saida=s, motivo="tempo" if fora else "padrao", aberta=False)
+            fechadas.append(atual)
+            atual = None
+    return fechadas, atual
+
+
+_padroes_estado = {}        # event_id -> {(estagio, entrada)} corridas já tratadas (avisadas ou descartadas)
+_padroes_ops = {}           # event_id -> operação AVISADA que ainda está aberta {"estagio","entrada","j"}
+_padroes_ult_msg = {}       # event_id -> ts do último aviso de ENTRADA
+_padroes_envios = deque(maxlen=200)   # ts dos avisos de entrada (limite por hora)
+_PAD_COOLDOWN_JOGO = 3 * 60           # entre 2 avisos de ENTRADA do mesmo jogo (a saída nunca é retida)
 _PAD_MAX_HORA = 40
+_PAD_ENTRADA_VELHA = 4                # não avisa entrada de operação que começou há mais de N minutos de jogo
 
 
 def _padroes_momentum(event_id):
@@ -10986,17 +11033,24 @@ def _padroes_momentum(event_id):
                      params={"_hash": "mmts", "eventId": event_id, "providerId": 7})
     r.raise_for_status()
     d = ((r.json().get("data") or {}).get("findMatchMomentumStatsByMatchId") or {})
-    return ((d.get("momentum") or {}).get("entries")) or []
+    return ((d.get("momentum") or {}).get("entries")) or [], ((d.get("matchEvents") or {}).get("entries")) or []
 
 
-def _padroes_msg(j, info, regras_batem):
+def _padroes_cab(j, minuto):
     import html as _html
     esc = lambda v: _html.escape(str(v))
     placar = f"{j['gc']}-{j['gf']}" if j.get("gc") is not None and j.get("gf") is not None else "?"
-    linhas = [f"📊 <b>Padrão ativo — sem gol no próximo minuto</b>",
-              f"⚽ <b>{esc(j['casa'])} {placar} {esc(j['fora'])}</b> · {info['min']}'"]
+    linhas = [f"⚽ <b>{esc(j['casa'])} {placar} {esc(j['fora'])}</b> · {minuto}'"]
     if j.get("liga"):
         linhas.append(f"🏆 {esc(j['liga'])}")
+    return linhas
+
+
+def _padroes_msg(j, minuto, entrada, regras_batem):
+    import html as _html
+    esc = lambda v: _html.escape(str(v))
+    linhas = ["📊 <b>ENTRADA — padrão ativo: sem gol no próximo minuto</b>"] + _padroes_cab(j, minuto)
+    linhas.append(f"🟢 Entrada no minuto {entrada}'. Eu aviso a <b>SAÍDA</b> quando o padrão deixar de bater.")
     linhas.append("")
     for r in regras_batem:
         linhas.append(f"• <b>{esc(r['id'])}</b> ({esc(r['confianca'])}): {esc(r['descricao'])}")
@@ -11005,60 +11059,96 @@ def _padroes_msg(j, info, regras_batem):
     return "\n".join(linhas)
 
 
+def _padroes_msg_saida(j, minuto, entrada, saida, motivo):
+    titulo = {"padrao": "🔴 <b>SAIR DA OPERAÇÃO — o padrão deixou de bater</b>",
+              "gol": "⚽ <b>SAIU GOL — operação encerrada</b>",
+              "tempo": "⏹ <b>FIM DO TEMPO — feche a operação</b>"}.get(motivo, "🔴 <b>SAIR DA OPERAÇÃO</b>")
+    linhas = [titulo] + _padroes_cab(j, minuto)
+    linhas.append(f"Entrou aos {entrada}' · saída no minuto {saida}'")
+    return "\n".join(linhas)
+
+
+def _padroes_manda(token, chat, msg):
+    try:
+        if _tg_send_message(token, chat, msg).get("ok"):
+            return True
+        print("[padroes] Telegram recusou o aviso")
+    except Exception as e:
+        print(f"[padroes] erro enviando aviso: {e}")
+    return False
+
+
 def _padroes_alerta_tick():
+    """Devolve True se há operação aberta (o loop então confere de 30 em 30 s, pra saída não atrasar)."""
     if not _padroes_cfg()["alerta_telegram"]:
-        return
+        return bool(_padroes_ops)
     with _padroes_lock:
         ativo = _padroes_ler(PADROES_FILE)
     regras = (ativo or {}).get("regras") or []
     if not regras:
-        return
+        return bool(_padroes_ops)
     token, chat = _tg_creds()
     if not token or not chat:
-        return
+        return bool(_padroes_ops)
     jogos = [j for j in _padroes_jogos_ao_vivo() if j.get("estagio") in ("12", "13") and j.get("id")]
     vivos = {j["id"] for j in jogos}
-    for k in [k for k in _padroes_estado if k[0] not in vivos]:
-        del _padroes_estado[k]
-    for k in [k for k in _padroes_ult_msg if k not in vivos]:
-        del _padroes_ult_msg[k]
+    # jogo que saiu do ar (intervalo/fim) com operação aberta: avisa a saída por fim de tempo
+    for eid in [e for e in _padroes_ops if e not in vivos]:
+        op = _padroes_ops.pop(eid)
+        _padroes_manda(token, chat, _padroes_msg_saida(op["j"], "?", op["entrada"], "?", "tempo"))
+    for eid in [e for e in _padroes_estado if e not in vivos]:
+        del _padroes_estado[eid]
+    for eid in [e for e in _padroes_ult_msg if e not in vivos]:
+        del _padroes_ult_msg[eid]
     if not jogos:
-        return
+        return bool(_padroes_ops)
     por_id = {r["id"]: r for r in regras}
     with ThreadPoolExecutor(max_workers=3) as pool:
         resultados = list(pool.map(lambda j: (j, _pad_try(lambda: _padroes_momentum(j["id"]))), jogos))
     agora = time.time()
-    for j, entries in resultados:
-        if not entries:
+    for j, dados in resultados:
+        if not dados or not dados[0]:
             continue
-        info, batem = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
-        if info is None:
-            continue
-        novos = []
-        for rid in por_id:
-            est = _padroes_estado.setdefault((j["id"], rid), {"ativo": False, "ultimo": 0})
-            if rid in batem:
-                if not est["ativo"] and agora - est["ultimo"] >= _PAD_COOLDOWN_REGRA:
-                    novos.append(por_id[rid])
-                    est["ultimo"] = agora
-                est["ativo"] = True
+        entries, eventos = dados
+        fechadas, aberta = _padroes_corridas(entries, eventos, j.get("casa_id"), regras)
+        info, _ = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
+        minuto = info["min"] if info else "?"
+        eid = j["id"]
+        op = _padroes_ops.get(eid)
+        if op:
+            chave = (op["estagio"], op["entrada"])
+            fechou = next((c for c in fechadas if (c["estagio"], c["entrada"]) == chave), None)
+            if fechou:
+                _padroes_manda(token, chat, _padroes_msg_saida(j, minuto, op["entrada"], fechou["saida"], fechou["motivo"]))
+                del _padroes_ops[eid]
+            elif not aberta or (aberta["estagio"], aberta["entrada"]) != chave:
+                _padroes_manda(token, chat, _padroes_msg_saida(j, minuto, op["entrada"], minuto, "padrao"))
+                del _padroes_ops[eid]
             else:
-                est["ativo"] = False
-        if not novos or agora - _padroes_ult_msg.get(j["id"], 0) < _PAD_COOLDOWN_JOGO:
+                continue                       # continua em operação
+        if aberta is None:
             continue
+        chave = (aberta["estagio"], aberta["entrada"])
+        vistas = _padroes_estado.setdefault(eid, set())
+        if chave in vistas:
+            continue
+        if isinstance(minuto, int) and info and aberta["estagio"] == info["estagio"] and minuto - aberta["entrada"] > _PAD_ENTRADA_VELHA:
+            vistas.add(chave)                  # trecho antigo demais pra valer avisar entrada agora
+            continue
+        if agora - _padroes_ult_msg.get(eid, 0) < _PAD_COOLDOWN_JOGO:
+            continue                           # tenta de novo no próximo ciclo
         while _padroes_envios and agora - _padroes_envios[0] > 3600:
             _padroes_envios.popleft()
         if len(_padroes_envios) >= _PAD_MAX_HORA:
             print("[padroes] limite de avisos por hora atingido")
-            return
-        try:
-            if _tg_send_message(token, chat, _padroes_msg(j, info, novos)).get("ok"):
-                _padroes_ult_msg[j["id"]] = agora
-                _padroes_envios.append(agora)
-            else:
-                print(f"[padroes] Telegram recusou o aviso do jogo {j['id']}")
-        except Exception as e:
-            print(f"[padroes] erro enviando aviso: {e}")
+            continue
+        avisar = [por_id[r] for r in aberta["regras_entrada"] if r in por_id]
+        if _padroes_manda(token, chat, _padroes_msg(j, minuto, aberta["entrada"], avisar)):
+            vistas.add(chave)
+            _padroes_ult_msg[eid] = agora
+            _padroes_envios.append(agora)
+            _padroes_ops[eid] = {"estagio": aberta["estagio"], "entrada": aberta["entrada"], "j": j}
+    return bool(_padroes_ops)
 
 
 def _pad_try(fn):
@@ -11070,12 +11160,14 @@ def _pad_try(fn):
 
 def _padroes_alerta_loop():
     _github_sync_done.wait(timeout=120)
+    espera = 60
     while True:
         try:
-            _padroes_alerta_tick()
+            espera = 30 if _padroes_alerta_tick() else 60
         except Exception as e:
             print(f"[padroes] {e}")
-        time.sleep(60)
+            espera = 60
+        time.sleep(espera)
 
 
 threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()

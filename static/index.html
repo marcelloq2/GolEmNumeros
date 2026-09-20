@@ -2109,6 +2109,11 @@
   .padr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; justify-content: center; }
   .padr-pill { background: var(--green); color: #04270f; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 3px 9px; cursor: help; }
   .padr-sem { font-size: 10.5px; color: var(--text2); }
+  .padr-op { width: 100%; text-align: center; font-size: 12px; font-weight: 800; border-radius: 8px; padding: 7px 10px; }
+  .padr-op.entrada { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); border: 1px solid var(--green); }
+  .padr-op.saida { background: var(--red); color: #fff; border: 1px solid var(--red); }
+  .padr-op-sub { font-size: 10px; font-weight: 400; opacity: .9; margin-top: 2px; }
+  .padr-card-saida { border-color: var(--red); border-left-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
   .padr-chart-wrap { padding: 0; background: #00141c; }
   .padr-chart-wrap canvas { display: block; width: 100%; }
 </style>
@@ -2550,7 +2555,7 @@
       <input type="file" id="padrFile" accept=".txt,text/plain" style="display:none" onchange="padrImportar(this)">
       <button class="live-refresh-btn" id="padrRestBtn" style="display:none" onclick="padrRestaurar()">↩ Restaurar anterior</button>
       <button class="live-refresh-btn" id="padrTgBtn" onclick="padrToggleTelegram()" title="Avisos no Telegram quando um padrão bate num jogo do Top Scores — funciona com o site fechado">🔔 Telegram: desligado</button>
-      <button class="live-refresh-btn" id="padrSoAtivoBtn" onclick="padrToggleSoAtivo()" title="Mostrar só os jogos em que algum padrão está batendo agora">✔ Só com padrão ativo</button>
+      <button class="live-refresh-btn" id="padrSoAtivoBtn" onclick="padrToggleSoAtivo()" title="Mostrar só os jogos em operação (padrão batendo) ou com saída recente">✔ Só em operação / saída</button>
       <span class="live-count-badge" id="padrCount">0</span>
       <button class="live-refresh-btn" onclick="padrAtualiza()" title="Atualizar">↻</button>
       <span class="padr-mini" id="padrHora"></span>
@@ -14676,7 +14681,7 @@ async function padrToggleTelegram() {
     const aviso = baixas === _padrRegras.length
       ? `Todas as ${baixas} regras estão com confiança BAIXA (com a base atual, o acaso produz resultado parecido). Os avisos vão chegar mesmo assim, mas trate como hipótese.\n\n`
       : '';
-    if (!confirm(aviso + 'Ligar os avisos no Telegram? O servidor confere os jogos do Top Scores ao vivo a cada minuto, mesmo com o site fechado (no máximo 1 aviso por jogo a cada 5 min e 40 por hora).')) return;
+    if (!confirm(aviso + 'Ligar os avisos no Telegram? O servidor confere os jogos do Top Scores ao vivo a cada minuto, mesmo com o site fechado (no máximo 1 aviso de ENTRADA por jogo a cada 3 min e 40 por hora; o aviso de SAÍDA sempre chega).')) return;
   }
   try {
     const d = await (await fetch('/api/padroes/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alerta_telegram: liga }) })).json();
@@ -14753,28 +14758,81 @@ function _padrAvalia(entries, gc, gf, regras) {
 }
 
 // ── cards ────────────────────────────────────────────────────────────────────
+// Operações: trechos seguidos de minutos em que algum padrão bateu. Entrada = 1º minuto do trecho;
+// SAÍDA = 1º minuto em que deixa de bater, ou o minuto do gol, ou o fim do tempo. Mesmo cálculo de
+// _padroes_corridas em app.py (que manda a saída no Telegram) — mudou lá, mude aqui.
+function _padrCorridas(entries, eventos, casaId, regras) {
+  const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
+  const gols = [];
+  (eventos || []).forEach(ev => {
+    const tf = ev.timeFrame || {}, t = ev.type && ev.type.type;
+    if (['goal', 'penalty_goal', 'own_goal'].includes(t) && (tf.eventStage === 12 || tf.eventStage === 13)) {
+      let casa = ev.teamId === casaId;
+      if (t === 'own_goal') casa = !casa;
+      gols.push({ s: tf.eventStage, m: (tf.elapsedMinute || 0) + 1, casa });
+    }
+  });
+  const ate = (g, s, m) => g.s < s || (g.s === s && g.m <= m);
+  const fechadas = [];
+  let atual = null;
+  validas.forEach((e, i) => {
+    const tf = e.timeFrame, s = tf.eventStage, m = (tf.elapsedMinute || 0) + 1;
+    if (atual && gols.some(g => g.s === s && g.m === m)) {
+      Object.assign(atual, { saida: m, estagioSaida: s, motivo: 'gol', aberta: false });
+      fechadas.push(atual); atual = null;
+      return;
+    }
+    const gc = gols.filter(g => ate(g, s, m) && g.casa).length, gf = gols.filter(g => ate(g, s, m) && !g.casa).length;
+    const info = _padrAvalia(validas.slice(0, i + 1), gc, gf, regras);
+    const batem = info ? info.batem.map(r => r.id) : [];
+    if (batem.length) {
+      if (!atual) atual = { entrada: m, estagio: s, regrasEntrada: batem.slice(), regras: batem.slice(), aberta: true };
+      else atual.regras = batem.slice();
+    } else if (atual) {
+      const fora = info && ((info.estagio === 12 && !(info.min >= 1 && info.min <= 44)) || (info.estagio === 13 && !(info.min >= 46 && info.min <= 89)));
+      Object.assign(atual, { saida: m, estagioSaida: s, motivo: fora ? 'tempo' : 'padrao', aberta: false });
+      fechadas.push(atual); atual = null;
+    }
+  });
+  return { fechadas, aberta: atual };
+}
+
+const _PADR_MOTIVO = { padrao: 'o padrão deixou de bater', gol: 'saiu gol', tempo: 'fim do tempo' };
+
 function _padrRenderGrid() {
   const grid = document.getElementById('padrGrid');
   if (!grid) return;
   const itens = _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
-    return { j, d, av: _padrAvalia(d.entries, j.gc, j.gf, _padrRegras) };
+    const av = _padrAvalia(d.entries, j.gc, j.gf, _padrRegras);
+    const corr = _padrRegras.length ? _padrCorridas(d.entries, d.eventos, j.casa_id, _padrRegras) : { fechadas: [], aberta: null };
+    const ult = corr.fechadas.length ? corr.fechadas[corr.fechadas.length - 1] : null;
+    const recente = !corr.aberta && ult && av && ult.estagioSaida === av.estagio && av.min - ult.saida <= 4;
+    return { j, d, av, corr, ult, recente, prio: corr.aberta ? 2 : (recente ? 1 : 0) };
   });
-  let lista = _padrSoAtivo ? itens.filter(x => x.av && x.av.batem.length) : itens;
-  lista.sort((a, b) => ((b.av ? b.av.batem.length : 0) > 0) - ((a.av ? a.av.batem.length : 0) > 0) || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
+  let lista = _padrSoAtivo ? itens.filter(x => x.prio > 0) : itens;
+  lista.sort((a, b) => b.prio - a.prio || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
   if (!lista.length) {
-    grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo com padrão ativo neste minuto.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
+    grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo em operação (nem com saída recente) agora.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
     return;
   }
-  grid.innerHTML = lista.map(({ j, d, av }) => {
+  grid.innerHTML = lista.map(({ j, d, av, corr, ult, recente, prio }) => {
     const ativos = av ? av.batem : [];
-    const badges = !_padrRegras.length
-      ? '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>'
-      : ativos.length
-        ? ativos.map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)} · sem gol no próximo minuto</span>`).join('')
-        : `<div class="padr-sem">${av ? 'Nenhum padrão ativo neste minuto' : (d.erro ? 'Gráfico indisponível para este jogo' : 'Carregando...')}</div>`;
+    let badges = '';
+    if (!_padrRegras.length) badges = '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>';
+    else if (corr.aberta) {
+      badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — sem gol no próximo minuto
+        <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>` +
+        ativos.map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('');
+    } else if (recente) {
+      badges = `<div class="padr-op saida">🔴 SAIR AGORA — ${_PADR_MOTIVO[ult.motivo]} (minuto ${ult.saida}')
+        <div class="padr-op-sub">Entrou aos ${ult.entrada}' · saída no minuto ${ult.saida}'</div></div>`;
+    } else {
+      badges = `<div class="padr-sem">${av ? 'Nenhum padrão ativo neste minuto' : (d.erro ? 'Gráfico indisponível para este jogo' : 'Carregando...')}</div>` +
+        (ult ? `<div class="padr-sem">Última operação: entrou aos ${ult.entrada}', saiu no minuto ${ult.saida}' (${_PADR_MOTIVO[ult.motivo]})</div>` : '');
+    }
     const dados = av ? `casa ${Math.max(av.v, 0).toFixed(2)} · visitante ${Math.max(-av.v, 0).toFixed(2)}` : '';
-    return `<div class="live-card padr-card ${ativos.length ? 'padr-card-ativo' : ''}" id="padrCard_${_padrEsc(j.id)}" style="cursor:default">
+    return `<div class="live-card padr-card ${corr.aberta ? 'padr-card-ativo' : (recente ? 'padr-card-saida' : '')}" id="padrCard_${_padrEsc(j.id)}" style="cursor:default">
       <div class="live-card-top" style="justify-content:center;text-align:center"><span>${_padrEsc(j.liga)}</span></div>
       <div class="live-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -14790,9 +14848,9 @@ function _padrRenderGrid() {
       <div class="padr-chart-wrap"><canvas id="padrCv_${_padrEsc(j.id)}"></canvas></div>
     </div>`;
   }).join('');
-  lista.forEach(({ j, d }) => {
+  lista.forEach(({ j, d, corr }) => {
     const cv = document.getElementById('padrCv_' + j.id);
-    if (cv) _padrDesenha(cv, j, d);
+    if (cv) _padrDesenha(cv, j, d, corr);
   });
 }
 
@@ -14802,7 +14860,7 @@ function _padrRenderGrid() {
 // pontilhadas (pontos de 2 px a cada 5 px) em ±1,0, ícones num selo quadrado arredondado 19x19 com
 // fio até a barra, escudo + sigla de cada time nas pontas, rótulos 15' 30' 45' / 60' 75' 90'.
 // Desenhado em coordenadas do print (DW x DH) e escalado pra largura do card.
-const _PADR_DW = 607, _PADR_DH = 224;
+const _PADR_DW = 607, _PADR_DH = 238;
 const _padrImgs = {};
 function _padrImg(nome, cb) {
   if (!nome) return null;
@@ -14853,7 +14911,7 @@ function _padrChip(c, x, y, img, cod, fs) {
   }
 }
 
-function _padrDesenha(cv, j, d) {
+function _padrDesenha(cv, j, d, corr) {
   const wrap = cv.parentElement, W = Math.max(wrap.clientWidth || 520, 300), dpr = window.devicePixelRatio || 1;
   const s = W / _PADR_DW, H = Math.round(_PADR_DH * s), fs = Math.max(12, 10.5 / s);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -14871,11 +14929,11 @@ function _padrDesenha(cv, j, d) {
   const P = [{ x0, w: w1, ini: 1, est: 12 }, { x0: x0 + w1 + gap, w: w2, ini: 46, est: 13 }];
   const pTop = 31, pBot = 188, mid = (pTop + pBot) / 2, hm = 53.5;
   const X = (p, m) => p.x0 + step * (m - p.ini + 0.5);
-  const redraw = () => { try { _padrDesenha(cv, j, d); } catch (e) {} };
+  const redraw = () => { try { _padrDesenha(cv, j, d, corr); } catch (e) {} };
 
   // pontas: escudo + sigla do time (casa em cima, visitante embaixo) e o título do gráfico
   _padrChip(c, x0, 14, _padrImg(j.casa_img, redraw), j.casa_cod, fs);
-  _padrChip(c, x0, 206, _padrImg(j.fora_img, redraw), j.fora_cod, fs);
+  _padrChip(c, x0, 220, _padrImg(j.fora_img, redraw), j.fora_cod, fs);
   c.font = `700 ${fs}px ${_PADR_FONTE}`; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = '#e7eaf3';
   const titulo = 'Termômetro da Partida', tw = c.measureText(titulo).width, xr = DW - x0;
   c.fillText(titulo, xr, 14.5);
@@ -14896,7 +14954,7 @@ function _padrDesenha(cv, j, d) {
       hit.barras.push({ x, m, v });
     });
     c.fillStyle = '#d1dce2'; c.font = `700 ${fs}px ${_PADR_FONTE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    (p.est === 12 ? [15, 30, 45] : [60, 75, 90]).forEach(m => c.fillText(m + "'", Math.min(X(p, m), p.x0 + p.w - 9), 206.5));
+    (p.est === 12 ? [15, 30, 45] : [60, 75, 90]).forEach(m => c.fillText(m + "'", Math.min(X(p, m), p.x0 + p.w - 9), 220.5));
   });
 
   evs.forEach(e => {
@@ -14914,10 +14972,30 @@ function _padrDesenha(cv, j, d) {
     hit.eventos.push({ x, y, txt: `${e.timeFrame.displayTime || m + "'"} — ${rot} (${casa ? j.casa : j.fora})` });
   });
 
-  // minuto atual: pequeno marcador verde logo abaixo do painel (o Livesport não tem; serve pra achar o "agora")
+  // minuto atual: pequeno marcador logo abaixo do painel (o Livesport não tem; serve pra achar o "agora")
   if (ent.length) {
     const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
-    c.fillStyle = '#00e676'; c.beginPath(); c.moveTo(x - 3.5, pBot + 6); c.lineTo(x + 3.5, pBot + 6); c.lineTo(x, pBot + 1); c.closePath(); c.fill();
+    c.fillStyle = '#e7eaf3'; c.beginPath(); c.moveTo(x - 3, pBot + 5); c.lineTo(x + 3, pBot + 5); c.lineTo(x, pBot + 1); c.closePath(); c.fill();
+  }
+  // operações (padrão batendo): faixa verde sob o painel da entrada até a saída (ou até agora, se aberta);
+  // saída = "x" vermelho no minuto em que o padrão deixou de bater / saiu gol / acabou o tempo
+  if (corr) {
+    const ultimo = ent.length ? ent[ent.length - 1] : null;
+    const todas = corr.fechadas.concat(corr.aberta ? [corr.aberta] : []);
+    todas.forEach(o => {
+      const p = P[o.estagio === 12 ? 0 : 1], xa = X(p, o.entrada);
+      const fimMin = o.aberta ? (ultimo ? minDe(ultimo) : o.entrada) : o.saida, ps = P[(o.aberta ? o.estagio : o.estagioSaida) === 12 ? 0 : 1];
+      const xb = X(ps, fimMin);
+      c.fillStyle = o.aberta ? '#00e676' : '#1f8f57';
+      c.fillRect(xa, pBot + 8, Math.max(xb - xa, 3), 3);
+      c.fillStyle = '#00e676'; c.beginPath(); c.moveTo(xa - 3, pBot + 13); c.lineTo(xa + 3, pBot + 13); c.lineTo(xa, pBot + 8); c.closePath(); c.fill();
+      hit.eventos.push({ x: xa, y: pBot + 10, txt: `Entrada no minuto ${o.entrada}'` });
+      if (!o.aberta) {
+        c.strokeStyle = '#ff5449'; c.lineWidth = 1.8; c.beginPath();
+        c.moveTo(xb - 3.5, pBot + 6.5); c.lineTo(xb + 3.5, pBot + 13.5); c.moveTo(xb + 3.5, pBot + 6.5); c.lineTo(xb - 3.5, pBot + 13.5); c.stroke();
+        hit.eventos.push({ x: xb, y: pBot + 10, txt: `SAÍDA no minuto ${o.saida}' — ${_PADR_MOTIVO[o.motivo]}` });
+      }
+    });
   }
   cv.onmousemove = ev => {
     const r = cv.getBoundingClientRect(), mx = (ev.clientX - r.left) / s, my = (ev.clientY - r.top) / s;
