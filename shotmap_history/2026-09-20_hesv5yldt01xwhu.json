@@ -8,18 +8,18 @@
     "home": 1,
     "away": 1
   },
-  "total_shots": 31,
+  "total_shots": 30,
   "shotmap": [
     {
-      "id": "2972606415",
-      "minute": 85,
+      "id": "2972615317",
+      "minute": 90,
       "isHome": true,
-      "shotType": "miss",
-      "bodyPart": "right_foot",
-      "situation": "assisted",
-      "player": "R. Mmaee",
-      "x": 7.5,
-      "y": 54.5
+      "shotType": "post_right",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Zaldívar",
+      "x": 8.5,
+      "y": 50.9
     },
     {
       "id": "2972606381",
@@ -339,17 +339,6 @@
       "player": "V.Arteaga",
       "x": 18,
       "y": 57.3
-    },
-    {
-      "id": "2972615317",
-      "minute": 90,
-      "isHome": true,
-      "shotType": "block",
-      "bodyPart": "left_foot",
-      "situation": "assisted",
-      "player": "Zaldívar",
-      "x": 9.5,
-      "y": 52.5
     }
   ]
 }
