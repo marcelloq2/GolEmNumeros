@@ -11263,7 +11263,6 @@ def _padroes_alerta_loop():
 
 
 threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()
-threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()
 
 
 
