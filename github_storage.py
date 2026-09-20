@@ -2,7 +2,7 @@
 GitHub Storage — persiste backtest/ e momentum_history/ na branch 'data' do GitHub.
 Garante que os dados não se percam quando o Railway reinicia ou faz redeploy.
 """
-import os, base64, threading
+import os, base64, threading, json
 import requests as http_req
 from datetime import datetime
 
@@ -214,6 +214,25 @@ def pull_file(remote_path: str, local_path: str, force: bool = False) -> bool:
     return False
 
 
+_estado_pesado = {"pendente": False}
+
+
+def pesado_pendente() -> bool:
+    """True se o boot pulou a restauração pesada (site desligado) e ela ainda não rodou."""
+    if _estado_pesado["pendente"]:
+        _estado_pesado["pendente"] = False
+        return True
+    return False
+
+
+def _site_desligado(data_dir: str) -> bool:
+    try:
+        with open(os.path.join(data_dir, "site_estado.json"), "r", encoding="utf-8") as f:
+            return not json.load(f).get("ligado", True)
+    except Exception:
+        return False
+
+
 def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap_dir: str = None):
     """Restaura todos os dados do GitHub ao iniciar o servidor."""
     if not is_configured():
@@ -242,6 +261,20 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         for _nome in ("padroes_regras.json", "padroes_regras_anterior.json", "padroes_regras_over05ht.json",
                       "padroes_regras_anterior_over05ht.json", "padroes_config.json"):
             pull_file(_nome, os.path.join(data_dir, _nome), force=True)
+        # Chave geral desligada: pula o resto (cache, Power Ranking e os diretórios grandes). Volta quando ligar.
+        if _site_desligado(data_dir):
+            _estado_pesado["pendente"] = True
+            print("[github] Site DESLIGADO — pulando a restauração pesada (roda quando você ligar).")
+            return
+        sync_pesado(momentum_dir, backtest_dir, data_dir, shotmap_dir)
+        return
+    except Exception as e:
+        print(f"[github] Erro na restauração: {e}")
+
+
+def sync_pesado(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap_dir: str = None):
+    """Parte pesada da restauração (caches + diretórios grandes) — separada pra poder rodar só ao ligar o site."""
+    try:
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)

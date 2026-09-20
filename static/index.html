@@ -2459,6 +2459,10 @@
        só que renderizado com HTML/JS próprios (prefixo live2) -->
   <div class="live-panel" id="live2Panel">
     <div class="live-grid-view active" id="live2GridView" style="width:100%">
+      <div id="siteOffBanner" style="display:none;background:color-mix(in srgb, var(--red) 18%, transparent);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:12px 16px;margin:10px 14px 0;font-size:13px;font-weight:800;text-align:center">
+        ⏻ SITE DESLIGADO — nada está sendo consultado nem gravado.
+        <div style="font-size:11px;font-weight:400;margin-top:3px">Clique em <b>⏻ Site</b> para ligar. A aba <b>Padrões</b> continua funcionando normalmente.</div>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;flex-wrap:wrap;row-gap:6px;background:var(--bg2);border-bottom:1px solid var(--border)">
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
           <span style="font-size:12px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px"><span class="live-pulse-dot"></span>Ao Vivo</span>
@@ -2527,6 +2531,8 @@
           </span>
         </span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px">
+          <button class="live-refresh-btn" id="siteToggleBtn" onclick="siteToggle()"
+            title="Chave geral do site: DESLIGADO = o servidor não consulta nem grava NADA (Flashscore, UniScore, GitHub, Telegram dos favoritos...) e não gasta Railway. Só a aba Padrões continua funcionando. O estado fica no servidor: vale com o site fechado.">⏻ Site: ...</button>
           <button onclick="openAppGuia('aovivo')" title="Guia da aba Ao Vivo"
             style="background:var(--bg3);border:1px solid var(--accent2);border-radius:999px;
                    color:var(--accent2);font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer;
@@ -3100,6 +3106,7 @@ function _proximosToggleSoComLink(on) {
 }
 
 async function _live2FetchAndRenderProximos(silent) {
+  if (!_siteLigado) return;
   const body = document.getElementById('live2StatsModalBody');
   if (!silent) body.innerHTML = `<div class="live-loading"><div class="spinner"></div>Carregando...</div>`;
   try {
@@ -9208,6 +9215,7 @@ function _live2ToggleShowAll() {
 }
 
 async function loadLive2Matches() {
+  if (!_siteLigado) return;
   const wrap = document.getElementById('live2GridWrap');
   if (!wrap) return;
   if (!live2MatchesCache.length) {
@@ -15185,6 +15193,41 @@ if (_padrAvisosOn) {                             // recarregou a página com os 
     setTimeout(async () => { await _padrCarregaRegras(); padrAtualiza(); clearInterval(_padrTimer); _padrTimer = setInterval(padrAtualiza, 30000); }, 4000);
   });
 }
+
+// ── Chave geral liga/desliga do site (2026-09-20) ─────────────────────────────────────────
+// Desligado: o servidor para todos os processos de fundo e as rotas /api/* (menos Padrões) respondem 503.
+// O estado vive no servidor (vale com o site fechado); aqui só espelha o botão e para de pedir dados.
+let _siteLigado = true;
+function _siteAplica(lig) {
+  const mudou = lig !== _siteLigado;
+  _siteLigado = lig;
+  const b = document.getElementById('siteToggleBtn');
+  if (b) { b.textContent = lig ? '⏻ Site: ligado' : '⏻ Site: DESLIGADO'; b.classList.toggle('active', lig); b.style.borderColor = lig ? '' : 'var(--red)'; b.style.color = lig ? '' : 'var(--red)'; }
+  const bn = document.getElementById('siteOffBanner');
+  if (bn) bn.style.display = lig ? 'none' : 'block';
+  if (!lig) {
+    clearInterval(_live2AutoRefresh);
+    const g = document.getElementById('live2GridWrap');
+    if (g && mudou) g.innerHTML = '';
+  } else if (mudou && typeof currentView !== 'undefined' && currentView === 'live2') {
+    clearInterval(_live2AutoRefresh);
+    loadLive2Matches();
+    _live2AutoRefresh = setInterval(loadLive2Matches, 20000);
+  }
+}
+async function siteSyncEstado() {
+  try { const d = await (await fetch('/api/site/estado')).json(); if (d && typeof d.ligado === 'boolean') _siteAplica(d.ligado); } catch (e) {}
+}
+async function siteToggle() {
+  const liga = !_siteLigado;
+  if (!liga && !confirm('Desligar o site? O servidor para de consultar e gravar tudo (jogos ao vivo, odds, base de partidas, avisos dos favoritos...) e isso continua assim mesmo com o site fechado, até você ligar de novo. A aba Padrões continua funcionando.')) return;
+  try {
+    const d = await (await fetch('/api/site/estado', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ligado: liga }) })).json();
+    if (d && d.ok) _siteAplica(d.ligado);
+  } catch (e) { alert('Não consegui falar com o servidor. Nada foi alterado.'); }
+}
+siteSyncEstado();
+setInterval(siteSyncEstado, 60000);
 </script>
 <style>.hidden { display: none !important; }</style>
 

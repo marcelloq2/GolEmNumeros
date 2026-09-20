@@ -59,6 +59,48 @@ os.makedirs(SHOTMAP_DIR,  exist_ok=True)
 os.makedirs(MAPA_CACHE_DIR, exist_ok=True)
 os.makedirs(FORCA_HISTORY_DIR, exist_ok=True)
 
+# ── Chave geral liga/desliga do site (2026-09-20) ────────────────────────────────
+# Pedido do usuário pra economizar no Railway: com o site DESLIGADO nenhum processo de fundo
+# consulta outro site ou base (Flashscore, UniScore, Livesport, GitHub, Telegram...) e as rotas
+# /api/* respondem 503, EXCETO a aba Padrões (/api/padroes*, que continua funcionando com os
+# avisos que o usuário deixou ligados) e a própria chave (/api/site/*). O estado fica NO SERVIDOR
+# (arquivo + GitHub): sobrevive a site fechado e a redeploy. Os loops só param no topo de cada
+# volta (_site_gate); ao religar acordam sozinhos em até 5 s.
+SITE_ESTADO_FILE = os.path.join(DATA_DIR, "site_estado.json")
+_site_estado = {"ligado": True, "alterado_em": ""}
+_site_lock = threading.Lock()
+
+
+def _site_carrega():
+    try:
+        with open(SITE_ESTADO_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        _site_estado["ligado"] = bool(d.get("ligado", True))
+        _site_estado["alterado_em"] = str(d.get("alterado_em") or "")
+    except Exception:
+        pass
+
+
+def _site_ligado():
+    return _site_estado["ligado"]
+
+
+def _site_gate():
+    """Trava a thread de fundo enquanto o site está desligado (volta sozinha ao religar)."""
+    while not _site_estado["ligado"]:
+        time.sleep(5)
+
+
+# Lê o estado ANTES de qualquer thread de fundo nascer (1 arquivo pequeno do GitHub): se ficou
+# desligado, o boot também não gasta com a restauração pesada.
+try:
+    github_storage.pull_file("site_estado.json", SITE_ESTADO_FILE, force=True)
+except Exception as _e:
+    print(f"[site] não consegui ler o estado do GitHub: {_e}")
+_site_carrega()
+if not _site_estado["ligado"]:
+    print("[site] DESLIGADO (chave geral) — nada de fundo vai consultar fontes externas até você ligar.")
+
 # ── Cache em memória dos arquivos de momentum_history — evita reler e reparsear os
 # +2000 arquivos do disco a cada busca de padrão (aba Análise/CS do Ao Vivo).
 # Reaproveita o que já foi parseado; só relê arquivos novos ou modificados (por mtime).
@@ -1214,6 +1256,7 @@ def _get_radar_futebol_links():
 
 def _radar_links_loop():
     while True:
+        _site_gate()
         try:
             _radar_links_atualiza()
         except Exception as e:
@@ -1509,6 +1552,7 @@ def _painel_odds_prewarm_loop():
     o Filtro de Metodologias (o único outro lugar que aquece esse cache)."""
     _github_sync_done.wait(timeout=120)
     while True:
+        _site_gate()
         try:
             _today2_odds_snapshot(force=True)
         except Exception as e:
@@ -1612,6 +1656,7 @@ _painel_ht_lock = threading.Lock()
 def _painel_ht_prewarm_loop():
     _github_sync_done.wait(timeout=120)
     while True:
+        _site_gate()
         try:
             # _fs_all_matches() sozinho só cobre 1 dia do feed (UTC) — igual ao
             # bug já corrigido no Painel principal (ver _fs_all_matches_brt),
@@ -1954,6 +1999,7 @@ def _painel_shift_prewarm_loop():
     global _painel_shift_done
     _github_sync_done.wait(timeout=120)
     while True:
+        _site_gate()
         try:
             now_brt = datetime.utcnow() + _BRT_OFFSET
             for dia_offset in (-1, 0):
@@ -2971,6 +3017,38 @@ def _exigir_login():
     if session.get("logado"):
         return
     return redirect("/login")
+
+
+# Com o site desligado só passam: a aba Padrões, a própria chave e o teste do Telegram.
+_SITE_OFF_PERMITIDOS = ("/api/padroes", "/api/site/", "/api/telegram/teste")
+
+
+@app.before_request
+def _site_desligado_bloqueia():
+    if _site_estado["ligado"]:
+        return
+    p = request.path
+    if not p.startswith("/api/") or p.startswith(_SITE_OFF_PERMITIDOS):
+        return
+    return jsonify({"ok": False, "desligado": True,
+                    "error": "Site desligado — ligue pelo botão ⏻ na aba Ao Vivo."}), 503
+
+
+@app.route("/api/site/estado", methods=["GET", "POST"])
+def api_site_estado():
+    if request.method == "POST":
+        liga = bool((request.get_json(silent=True) or {}).get("ligado"))
+        with _site_lock:
+            mudou = liga != _site_estado["ligado"]
+            _site_estado["ligado"] = liga
+            _site_estado["alterado_em"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+            with open(SITE_ESTADO_FILE, "w", encoding="utf-8") as f:
+                json.dump(_site_estado, f)
+        github_storage.push_file_bg(SITE_ESTADO_FILE, "site_estado.json")
+        if liga and mudou and github_storage.pesado_pendente():
+            threading.Thread(target=_site_sync_pesado, daemon=True, name="SiteSyncPesado").start()
+        print(f"[site] {'LIGADO' if liga else 'DESLIGADO'} pela chave geral")
+    return jsonify({"ok": True, "ligado": _site_estado["ligado"], "alterado_em": _site_estado["alterado_em"]})
 
 
 @app.route("/favicon.ico")
@@ -4841,6 +4919,7 @@ def _background_monitor():
     print("[monitor] Thread de monitoramento iniciada.")
     time.sleep(60)  # Aguarda Flask subir
     while True:
+        _site_gate()
         try:
             today     = datetime.now().strftime("%Y-%m-%d")
             live_list = _fetch_live_matches_for_monitor()
@@ -4853,6 +4932,7 @@ def _background_monitor():
             if pendentes:
                 print(f"[monitor] {len(live_list)} ao vivo, {len(pendentes)} ainda não salvos — verificando...")
                 for m in pendentes:
+                    _site_gate()
                     espera = _uniscore_backoff["until"] - time.time()
                     if espera > 0:
                         time.sleep(espera)
@@ -4883,9 +4963,25 @@ _github_sync_done = threading.Event()
 def _github_sync_on_startup_then_flag():
     try:
         github_storage.sync_on_startup(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR)
-        github_storage.pull_directory("forca_history", FORCA_HISTORY_DIR)
+        if _site_ligado():
+            github_storage.pull_directory("forca_history", FORCA_HISTORY_DIR)
     finally:
         _github_sync_done.set()
+
+
+def _github_pull_mapa_se_ligado():
+    if _site_ligado():
+        github_storage.pull_directory("mapa_cache", MAPA_CACHE_DIR)
+
+
+def _site_sync_pesado():
+    """Ao LIGAR depois de um boot com o site desligado: restaura o que ficou pra trás."""
+    try:
+        github_storage.sync_pesado(MOMENTUM_DIR, BACKTEST_DIR, DATA_DIR, SHOTMAP_DIR)
+        github_storage.pull_directory("forca_history", FORCA_HISTORY_DIR)
+        github_storage.pull_directory("mapa_cache", MAPA_CACHE_DIR)
+    except Exception as e:
+        print(f"[site] erro na restauração ao ligar: {e}")
 
 
 threading.Thread(
@@ -4899,8 +4995,7 @@ threading.Thread(
 # do dia (mesmo problema do backtest2.db, resolvido do mesmo jeito: sempre baixa
 # a versão mais recente do GitHub, sobrescrevendo qualquer coisa local).
 threading.Thread(
-    target=github_storage.pull_directory,
-    args=("mapa_cache", MAPA_CACHE_DIR),
+    target=_github_pull_mapa_se_ligado,
     daemon=True,
     name="GitHubSyncMapa"
 ).start()
@@ -9344,6 +9439,7 @@ def _live_odds_prewarm_loop():
     (usado só sob demanda pelo gráfico "Price Lines" — ver comentário acima)."""
     _github_sync_done.wait(timeout=120)
     while True:
+        _site_gate()
         try:
             fs_matches = _fs_all_matches_brt(_brt_today())
             live_ids = [m["id"] for m in fs_matches if m.get("status") == "2" and m.get("id")]
@@ -10473,6 +10569,7 @@ def _tg_scheduler():
     """Background thread: envio diário no horário configurado."""
     sent_today = None
     while True:
+        _site_gate()
         try:
             cfg = _tg_load_config()
             now       = datetime.now()
@@ -10705,6 +10802,7 @@ def _fav_alerta_tick():
 def _fav_alerta_loop():
     _github_sync_done.wait(timeout=120)   # espera restaurar o arquivo do GitHub antes do 1º ciclo
     while True:
+        _site_gate()
         try:
             _fav_alerta_tick()
         except Exception as e:
