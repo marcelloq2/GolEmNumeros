@@ -14710,18 +14710,25 @@ async function padrImportar(input) {
   const f = input.files && input.files[0];
   input.value = '';
   if (!f) return;
-  const a = _padrInfo.ativo;
-  if (a && !confirm(`[${_PADR_EST[_padrEst].nome}] Já existe um arquivo valendo (${a.arquivo}, ${a.n_regras} regras, importado em ${a.importado_em}).\n\nO arquivo novo (${f.name}) vai SUBSTITUIR esse. O atual fica guardado e dá pra voltar em "Restaurar anterior".\n\nContinuar?`)) return;
   let texto = '';
   try { texto = await f.text(); } catch (e) { _padrMsg('Não consegui ler o arquivo.', false); return; }
+  // A importação distribui sozinha: cada regra vai para a aba da sua metodologia (pelo "alvo"), então um txt combinado
+  // configura tudo de uma vez, importado em qualquer aba.
+  const alvoEst = { sem_gol_proximo_minuto: 'under', gol_ate_intervalo: 'over05ht', sem_gol_apos_80: 'under80' };
+  const contagem = {};
+  (texto.match(/^\s*alvo\s*=\s*\S+/gim) || []).forEach(l => { const e = alvoEst[l.split('=')[1].trim()]; if (e) contagem[e] = (contagem[e] || 0) + 1; });
+  const dest = Object.keys(contagem);
+  const jaTem = dest.filter(e => _padrPor[e].info.ativo);
+  if (jaTem.length && !confirm(`O arquivo ${f.name} tem regras de: ` + dest.map(e => `${_PADR_EST[e].nome} (${contagem[e]})`).join(', ') + `.\n\nCada uma vai para a sua aba e SUBSTITUI o que está valendo lá:\n` +
+    jaTem.map(e => `• ${_PADR_EST[e].nome}: ${_padrPor[e].info.ativo.arquivo} (${_padrPor[e].info.ativo.n_regras} regras)`).join('\n') + `\n\nO que estava valendo fica guardado e dá pra voltar em "Restaurar anterior".\n\nContinuar?`)) return;
   try {
-    const r = await fetch('/api/padroes/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, arquivo: f.name, estrategia: _padrEst }) });
+    const r = await fetch('/api/padroes/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, arquivo: f.name, estrategia: _padrEst, auto: true }) });
     const d = await r.json();
     if (!d.ok) {
       _padrMsg(`<b>${_padrEsc(d.error || 'Erro ao importar')}</b>` + ((d.erros || []).length ? '<ul>' + d.erros.map(e => `<li>${_padrEsc(e)}</li>`).join('') + '</ul>' : ''), false);
       return;
     }
-    _padrMsg(`✔ Importado em <b>${_PADR_EST[_padrEst].nome}</b>: <b>${d.regras.length}</b> regra(s) de ${_padrEsc(f.name)}. Já estão valendo.`, true);
+    _padrMsg(`✔ Importado de ${_padrEsc(f.name)} — já está valendo: ` + Object.values(d.estrategias || {}).map(x => `<b>${_padrEsc(x.nome)}</b> (${x.n_regras} regra${x.n_regras === 1 ? '' : 's'})`).join(' · '), true);
     await _padrCarregaRegras();
     _padrRenderGrid();
   } catch (e) { _padrMsg('Falha de rede ao importar. Nada foi alterado.', false); }

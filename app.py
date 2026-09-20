@@ -11005,20 +11005,39 @@ def api_padroes():
                     "telegram_ok": bool(token and chat)})
 
 
-@app.route("/api/padroes/importar", methods=["POST"])
-def api_padroes_importar():
-    d = request.get_json(silent=True) or {}
-    est = _padroes_est(d.get("estrategia"))
-    texto = str(d.get("texto") or "")
-    if len(texto) > _PAD_MAX_TEXTO:
-        return jsonify({"ok": False, "error": "Arquivo grande demais."}), 400
-    regras, erros = _padroes_parse(texto, est)
-    if erros or not regras:
-        # Nada é alterado: o arquivo que já estava valendo continua valendo.
-        return jsonify({"ok": False, "error": "Arquivo não importado — o anterior continua valendo.", "erros": erros}), 400
+def _padroes_divide(texto):
+    """Separa um txt COMBINADO por metodologia, olhando o "alvo" de cada regra. Devolve (cabecalho, {est: linhas}, erros)."""
+    alvo_est = {v["alvo"]: k for k, v in _PAD_ESTRATEGIAS.items()}
+    cab, blocos, atual = [], [], None
+    for ln in str(texto or "").splitlines():
+        s = ln.strip()
+        if re.match(r"^REGRA\s+\S+\s*$", s, re.I):
+            atual = {"linhas": [ln], "alvo": None, "id": s.split()[1]}
+            blocos.append(atual)
+            continue
+        if atual is None:
+            cab.append(ln)
+            continue
+        atual["linhas"].append(ln)
+        if s.lower().startswith("alvo") and "=" in s:
+            atual["alvo"] = s.split("=", 1)[1].strip()
+    grupos, erros = {}, []
+    for ln in cab:
+        if ln.strip() and not ln.strip().startswith("#"):
+            erros.append(f"texto fora de uma 'REGRA Rxx': {ln.strip()[:60]}")
+    for b in blocos:
+        est = alvo_est.get(b["alvo"])
+        if not est:
+            erros.append(f"Regra {b['id']}: alvo '{b['alvo']}' não reconhecido (use {' / '.join(alvo_est)})")
+            continue
+        grupos.setdefault(est, []).extend(b["linhas"])
+    return cab, grupos, erros[:30]
+
+
+def _padroes_salva(est, regras, texto, arquivo):
+    """Grava as regras da estratégia (a versão que estava valendo vira a "anterior")."""
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
-    novo = {"meta": {"arquivo": str(d.get("arquivo") or "padroes.txt")[:120], "importado_em": agora},
-            "regras": regras, "texto": texto}
+    novo = {"meta": {"arquivo": str(arquivo or "padroes.txt")[:120], "importado_em": agora}, "regras": regras, "texto": texto}
     (arq, nome), (arq_ant, nome_ant) = _padroes_arq(est), _padroes_arq(est, True)
     with _padroes_lock:
         atual = _padroes_ler(arq)
@@ -11026,6 +11045,42 @@ def api_padroes_importar():
             _padroes_grava(arq_ant, atual, nome_ant)
         _padroes_grava(arq, novo, nome)
     _padroes_limpa_estado(est)
+    return novo
+
+
+@app.route("/api/padroes/importar", methods=["POST"])
+def api_padroes_importar():
+    d = request.get_json(silent=True) or {}
+    est = _padroes_est(d.get("estrategia"))
+    texto = str(d.get("texto") or "")
+    if len(texto) > _PAD_MAX_TEXTO:
+        return jsonify({"ok": False, "error": "Arquivo grande demais."}), 400
+    if d.get("auto"):
+        # Importação que distribui sozinha: cada regra vai para a aba da SUA metodologia (pelo "alvo"), então um txt combinado
+        # configura tudo de uma vez. É tudo ou nada: se qualquer regra tiver erro, NADA muda e o que estava valendo continua.
+        cab, grupos, erros = _padroes_divide(texto)
+        if not grupos and not erros:
+            erros.append("Nenhuma 'REGRA Rxx' encontrada no arquivo.")
+        prontos = {}
+        for e, linhas in grupos.items():
+            txt_g = "\n".join(cab + linhas)
+            regras, err = _padroes_parse(txt_g, e)
+            if err:
+                erros += [f"[{_PAD_ESTRATEGIAS[e]['nome']}] {x}" for x in err]
+            else:
+                prontos[e] = (regras, txt_g)
+        if erros or not prontos:
+            return jsonify({"ok": False, "error": "Arquivo não importado — o que estava valendo continua valendo.", "erros": erros[:30]}), 400
+        resumo = {}
+        for e, (regras, txt_g) in prontos.items():
+            _padroes_salva(e, regras, txt_g, d.get("arquivo"))
+            resumo[e] = {"nome": _PAD_ESTRATEGIAS[e]["nome"], "n_regras": len(regras)}
+        return jsonify({"ok": True, "estrategias": resumo})
+    regras, erros = _padroes_parse(texto, est)
+    if erros or not regras:
+        # Nada é alterado: o arquivo que já estava valendo continua valendo.
+        return jsonify({"ok": False, "error": "Arquivo não importado — o anterior continua valendo.", "erros": erros}), 400
+    novo = _padroes_salva(est, regras, texto, d.get("arquivo"))
     return jsonify({"ok": True, "estrategia": est, "ativo": _padroes_meta(novo), "regras": regras})
 
 
