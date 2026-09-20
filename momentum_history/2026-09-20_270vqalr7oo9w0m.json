@@ -1,7 +1,7 @@
 {
   "event_id": "270vqalr7oo9w0m",
   "date": "2026-09-20",
-  "saved_at": "2026-09-20T00:55:08.008959",
+  "saved_at": "2026-09-20T01:09:50.099264",
   "source": "uniscore",
   "casa": "Atletico San Luis",
   "fora": "Necaxa",
@@ -392,6 +392,10 @@
     {
       "minute": 96,
       "value": 60
+    },
+    {
+      "minute": 97,
+      "value": -100
     }
   ],
   "goals": [
@@ -503,8 +507,8 @@
       "bodyPart": "right_foot",
       "situation": "assisted",
       "player": "R.Martínez",
-      "x": 26.2,
-      "y": 70.3
+      "x": 24.7,
+      "y": 68.3
     },
     {
       "id": "2972587235",
@@ -525,8 +529,8 @@
       "bodyPart": "left_foot",
       "situation": "corner",
       "player": "M.Zaleta",
-      "x": 29.7,
-      "y": 38.7
+      "x": 29,
+      "y": 44
     },
     {
       "id": "2972585803",
@@ -613,8 +617,8 @@
       "bodyPart": "right_foot",
       "situation": "regular",
       "player": "C.Andrade",
-      "x": 97.9,
-      "y": 50.6
+      "x": 97.1,
+      "y": 51.3
     },
     {
       "id": "2972570039",
@@ -685,10 +689,10 @@
   ],
   "statistics": {
     "xg_expected_goals": {
-      "home": "2.02",
-      "away": "0.55",
-      "homeValue": 2.02,
-      "awayValue": 0.55
+      "home": "2.01",
+      "away": "0.56",
+      "homeValue": 2.01,
+      "awayValue": 0.56
     },
     "big_chances": {
       "home": "5",
@@ -964,10 +968,10 @@
   "statistics_periods": {
     "ALL": {
       "xg_expected_goals": {
-        "home": "2.02",
-        "away": "0.55",
-        "homeValue": 2.02,
-        "awayValue": 0.55
+        "home": "2.01",
+        "away": "0.56",
+        "homeValue": 2.01,
+        "awayValue": 0.56
       },
       "big_chances": {
         "home": "5",
@@ -1485,9 +1489,9 @@
     "2ND": {
       "xg_expected_goals": {
         "home": "1.58",
-        "away": "0.18",
+        "away": "0.19",
         "homeValue": 1.58,
-        "awayValue": 0.18
+        "awayValue": 0.19
       },
       "big_chances": {
         "home": "4",
@@ -1762,14 +1766,14 @@
     }
   },
   "pressure_summary": {
-    "overall_avg": 8.0,
+    "overall_avg": 6.887,
     "h1_avg": 24.833,
-    "h2_avg": -8.833,
-    "home_dominance_pct": 52.1,
+    "h2_avg": -10.694,
+    "home_dominance_pct": 51.5,
     "max_home": 100,
     "max_away": 100,
-    "momentum_swings": 42,
-    "total_points": 96
+    "momentum_swings": 43,
+    "total_points": 97
   },
   "xg": {
     "home": 5.52,
@@ -1795,38 +1799,6 @@
     "ou_over": "1.93",
     "ou_under": "1.88"
   },
-  "odds_history": [
-    {
-      "ts": 1789865702.707111,
-      "minuto": 115,
-      "casa": 1.0,
-      "empate": 51.0,
-      "fora": 451.0,
-      "ou_line": "4.5",
-      "ou_over": 8.1,
-      "ou_under": 1.09
-    }
-  ],
-  "stats_history": [
-    {
-      "ts": 1789865588.2098234,
-      "minuto": 95,
-      "xg_casa": 5.52,
-      "xg_fora": 3.07,
-      "escanteios_casa": null,
-      "escanteios_fora": null,
-      "chutes_alvo_casa": null,
-      "chutes_alvo_fora": null,
-      "toques_area_casa": 24.0,
-      "toques_area_fora": 18.0,
-      "bloqueados_casa": null,
-      "bloqueados_fora": null,
-      "defesas_casa": null,
-      "defesas_fora": null,
-      "fin_area_casa": 9.0,
-      "fin_area_fora": 8.0,
-      "chances_casa": 5.0,
-      "chances_fora": 1.0
-    }
-  ]
+  "odds_history": [],
+  "stats_history": []
 }
