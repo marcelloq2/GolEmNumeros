@@ -10925,10 +10925,25 @@ def _padroes_jogos_ao_vivo():
         return list(jogos)
 
 
+def _padroes_min_real(j, agora=None):
+    """Minuto do RELÓGIO do jogo (feed: início do tempo atual em "ini"). O gráfico do Livesport pode
+    vir atrasado — a comparação entre os dois é o que protege os padrões de rodar em dado velho."""
+    ini = j.get("ini")
+    base = {"12": 1, "13": 46}.get(j.get("estagio"))
+    if not ini or base is None:
+        return None
+    return base + max(0, int(((agora or time.time()) - ini) // 60))
+
+
+_PAD_ATRASO_MAX = 2      # minutos de atraso do gráfico acima dos quais o padrão NÃO é avaliado
+
+
 @app.route("/api/padroes/jogos")
 def api_padroes_jogos():
     try:
-        return jsonify({"ok": True, "jogos": _padroes_jogos_ao_vivo(), "ts": int(time.time())})
+        agora = time.time()
+        jogos = [{**j, "min_real": _padroes_min_real(j, agora)} for j in _padroes_jogos_ao_vivo()]
+        return jsonify({"ok": True, "jogos": jogos, "ts": int(agora)})
     except Exception as e:
         return jsonify({"ok": False, "error": f"Top Scores indisponível ({type(e).__name__})", "jogos": []}), 502
 
@@ -11030,7 +11045,7 @@ _PAD_ENTRADA_VELHA = 4                # não avisa entrada de operação que com
 def _padroes_momentum(event_id):
     r = http_req.get("https://global.ds.lsapp.eu/pq_graphql", timeout=12,
                      headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.livesport.com/"},
-                     params={"_hash": "mmts", "eventId": event_id, "providerId": 7})
+                     params={"_hash": "mmts", "eventId": event_id, "providerId": 7, "_": int(time.time() // 15)})
     r.raise_for_status()
     d = ((r.json().get("data") or {}).get("findMatchMomentumStatsByMatchId") or {})
     return ((d.get("momentum") or {}).get("entries")) or [], ((d.get("matchEvents") or {}).get("entries")) or []
@@ -11115,6 +11130,14 @@ def _padroes_alerta_tick():
         minuto = info["min"] if info else "?"
         eid = j["id"]
         op = _padroes_ops.get(eid)
+        mreal = _padroes_min_real(j, agora)
+        if info and mreal is not None and info["estagio"] == (12 if j.get("estagio") == "12" else 13) and mreal - info["min"] > _PAD_ATRASO_MAX:
+            # gráfico velho: não avalia padrão nenhum (nem entrada, nem saída) com dado que não é de agora
+            if op and not op.get("aviso_atraso"):
+                op["aviso_atraso"] = True
+                _padroes_manda(token, chat, "⚠️ <b>Sem dados novos do gráfico</b> — o último minuto lido é "
+                               f"{info['min']}' e o jogo está no {mreal}'. Confira a saída da operação (entrou aos {op['entrada']}') manualmente.")
+            continue
         if op:
             chave = (op["estagio"], op["entrada"])
             fechou = next((c for c in fechadas if (c["estagio"], c["entrada"]) == chave), None)

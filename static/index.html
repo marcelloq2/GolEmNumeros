@@ -2113,6 +2113,7 @@
   .padr-op.entrada { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); border: 1px solid var(--green); }
   .padr-op.saida { background: var(--red); color: #fff; border: 1px solid var(--red); }
   .padr-op-sub { font-size: 10px; font-weight: 400; opacity: .9; margin-top: 2px; }
+  .padr-op.atraso { background: color-mix(in srgb, #f59e0b 20%, transparent); color: #f59e0b; border: 1px solid #f59e0b; }
   .padr-card-saida { border-color: var(--red); border-left-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
   .padr-chart-wrap { padding: 0; background: #00141c; }
   .padr-chart-wrap canvas { display: block; width: 100%; }
@@ -14576,6 +14577,8 @@ let _padrJogos = [];
 const _padrDados = {};          // id do jogo -> { entries, eventos, erro }
 let _padrTimer = null;
 let _padrBusy = false;
+let _padrRelogioOffset = 0;      // segundos: relógio do servidor - relógio deste navegador
+const _PADR_ATRASO_MAX = 2;       // mesmo limite de _PAD_ATRASO_MAX (app.py)
 let _padrSoAtivo = false;
 try { _padrSoAtivo = localStorage.getItem('padrSoAtivo') === '1'; } catch (e) {}
 const _PADR_LS_URL = 'https://global.ds.lsapp.eu/pq_graphql';
@@ -14700,7 +14703,7 @@ function padrToggleSoAtivo() {
 // ── dados dos jogos ──────────────────────────────────────────────────────────
 async function _padrBuscaMomentum(j) {
   try {
-    const r = await fetch(`${_PADR_LS_URL}?_hash=mmts&eventId=${encodeURIComponent(j.id)}&providerId=7`);
+    const r = await fetch(`${_PADR_LS_URL}?_hash=mmts&eventId=${encodeURIComponent(j.id)}&providerId=7&_=${Math.floor(Date.now() / 15000)}`);
     const d = await r.json();
     const n = ((d || {}).data || {}).findMatchMomentumStatsByMatchId || {};
     const ent = (n.momentum || {}).entries;
@@ -14720,6 +14723,7 @@ async function padrAtualiza() {
       return;
     }
     _padrJogos = d.jogos || [];
+    if (d.ts) _padrRelogioOffset = d.ts - Date.now() / 1000;
     await Promise.all(_padrJogos.map(_padrBuscaMomentum));
     _padrRenderGrid();
     const cont = document.getElementById('padrCount');
@@ -14805,10 +14809,13 @@ function _padrRenderGrid() {
   const itens = _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
     const av = _padrAvalia(d.entries, j.gc, j.gf, _padrRegras);
-    const corr = _padrRegras.length ? _padrCorridas(d.entries, d.eventos, j.casa_id, _padrRegras) : { fechadas: [], aberta: null };
+    const minReal = j.ini ? (j.estagio === '12' ? 1 : 46) + Math.max(0, Math.floor((Date.now() / 1000 + _padrRelogioOffset - j.ini) / 60)) : null;
+    const atraso = (av && minReal != null && av.estagio === (j.estagio === '12' ? 12 : 13)) ? minReal - av.min : 0;
+    const velho = atraso > _PADR_ATRASO_MAX;
+    const corr = (_padrRegras.length && !velho) ? _padrCorridas(d.entries, d.eventos, j.casa_id, _padrRegras) : { fechadas: [], aberta: null };
     const ult = corr.fechadas.length ? corr.fechadas[corr.fechadas.length - 1] : null;
     const recente = !corr.aberta && ult && av && ult.estagioSaida === av.estagio && av.min - ult.saida <= 4;
-    return { j, d, av, corr, ult, recente, prio: corr.aberta ? 2 : (recente ? 1 : 0) };
+    return { j, d, av, corr, ult, recente, minReal, atraso, velho, prio: corr.aberta ? 2 : (recente ? 1 : 0) };
   });
   let lista = _padrSoAtivo ? itens.filter(x => x.prio > 0) : itens;
   lista.sort((a, b) => b.prio - a.prio || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
@@ -14816,10 +14823,11 @@ function _padrRenderGrid() {
     grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo em operação (nem com saída recente) agora.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
     return;
   }
-  grid.innerHTML = lista.map(({ j, d, av, corr, ult, recente, prio }) => {
+  grid.innerHTML = lista.map(({ j, d, av, corr, ult, recente, minReal, atraso, velho, prio }) => {
     const ativos = av ? av.batem : [];
     let badges = '';
-    if (!_padrRegras.length) badges = '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>';
+    if (velho) badges = `<div class="padr-op atraso">⚠ Gráfico atrasado ${atraso} min — padrão NÃO avaliado<div class="padr-op-sub">Último minuto do gráfico: ${av.min}' · relógio do jogo: ${minReal}'. Não confie em entrada/saída até normalizar.</div></div>`;
+    else if (!_padrRegras.length) badges = '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>';
     else if (corr.aberta) {
       badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — sem gol no próximo minuto
         <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>` +
@@ -14841,7 +14849,7 @@ function _padrRenderGrid() {
           <div class="live-card-team" style="justify-content:flex-end;text-align:right"><span class="tname" title="${_padrEsc(j.fora)}">${_padrEsc(j.fora)}</span></div>
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px">
-          <span class="live-pulse-dot"></span><div class="live-card-meta" style="margin-top:0">${av ? _padrEsc(av.texto) : (j.estagio === '13' ? '2º tempo' : '1º tempo')}${dados ? ` <span class="padr-mini" style="margin-left:6px">${dados}</span>` : ''}</div>
+          <span class="live-pulse-dot"></span><div class="live-card-meta" style="margin-top:0">${minReal != null ? minReal + "'" : (av ? _padrEsc(av.texto) : (j.estagio === '13' ? '2º tempo' : '1º tempo'))}${av ? ` <span class="padr-mini" style="margin-left:6px">gráfico até ${av.min}'${dados ? ' · ' + dados : ''}</span>` : ''}</div>
         </div>
         <div class="padr-badges">${badges}</div>
       </div>
