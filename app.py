@@ -10918,7 +10918,9 @@ def _padroes_jogos_ao_vivo():
                 jogos.append({"id": kv.get("AA"), "casa": kv["AE"], "fora": kv["AF"], "liga": liga,
                               "estagio": kv.get("AC"), "ini": num(kv.get("AO")),
                               "gc": num(kv.get("AG")), "gf": num(kv.get("AH")),
-                              "casa_id": kv.get("PX"), "fora_id": kv.get("PY")})
+                              "casa_id": kv.get("PX"), "fora_id": kv.get("PY"),
+                              "casa_cod": kv.get("WM"), "fora_cod": kv.get("WN"),
+                              "casa_img": kv.get("OA"), "fora_img": kv.get("OB")})
         _padroes_jogos_cache.update({"ts": time.time(), "jogos": jogos})
         return list(jogos)
 

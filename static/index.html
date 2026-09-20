@@ -2102,14 +2102,14 @@
   .padr-conf { font-size: 10px; font-weight: 700; color: var(--green); margin-left: 6px; }
   .padr-conf.baixa { color: var(--red); }
   .padr-mini { font-size: 10px; color: var(--text2); font-weight: 400; }
-  #padrGrid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  #padrGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 640px)); }
   .padr-card { cursor: default; }
   .padr-card:hover { transform: none; }
   .padr-card-ativo { border-color: var(--green); border-left-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
   .padr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; justify-content: center; }
   .padr-pill { background: var(--green); color: #04270f; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 3px 9px; cursor: help; }
   .padr-sem { font-size: 10.5px; color: var(--text2); }
-  .padr-chart-wrap { padding: 4px 8px 10px; }
+  .padr-chart-wrap { padding: 0; background: #00141c; }
   .padr-chart-wrap canvas { display: block; width: 100%; }
 </style>
 </head>
@@ -14796,83 +14796,135 @@ function _padrRenderGrid() {
   });
 }
 
-// ── gráfico no estilo do Termômetro da Partida (Livesport) ───────────────────
-// Dois painéis (1º/2º tempo), barras brancas pra cima = casa, cinzas pra baixo =
-// visitante, linhas pontilhadas em ±1, ícones de gol/pênalti/gol contra/cartão vermelho.
-function _padrIcone(c, x, y, tipo) {
-  if (tipo === 'red_card' || tipo === 'yellow_red_card') {
-    c.fillStyle = tipo === 'red_card' ? '#e5342f' : '#f0602a';
-    c.beginPath(); c.roundRect ? c.roundRect(x - 5, y - 7, 10, 14, 2) : c.rect(x - 5, y - 7, 10, 14); c.fill();
-    return;
+// ── gráfico igual ao "Termômetro da Partida" do Livesport ────────────────────────
+// Medidas tiradas dos prints reais do usuário (607 px de largura, jpg): painéis #0f2d37 sobre fundo
+// #00141c, barras brancas (#f8fdfd) = casa e cinzas (#7f8386) = visitante com 72% do passo, linhas
+// pontilhadas (pontos de 2 px a cada 5 px) em ±1,0, ícones num selo quadrado arredondado 19x19 com
+// fio até a barra, escudo + sigla de cada time nas pontas, rótulos 15' 30' 45' / 60' 75' 90'.
+// Desenhado em coordenadas do print (DW x DH) e escalado pra largura do card.
+const _PADR_DW = 607, _PADR_DH = 224;
+const _padrImgs = {};
+function _padrImg(nome, cb) {
+  if (!nome) return null;
+  let e = _padrImgs[nome];
+  if (!e) {
+    const im = new Image();
+    e = _padrImgs[nome] = { im, ok: false, cbs: [] };
+    im.onload = () => { e.ok = true; e.cbs.splice(0).forEach(f => f()); };
+    im.src = 'https://static.flashscore.com/res/image/data/' + encodeURIComponent(nome);
   }
-  c.fillStyle = tipo === 'own_goal' ? '#a3232f' : '#f4f7f8';
-  c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.fill();
-  c.fillStyle = tipo === 'own_goal' ? '#fff' : '#101c22';
+  if (!e.ok && cb) e.cbs.push(cb);
+  return e.ok ? e.im : null;
+}
+function _padrRR(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
+const _PADR_FONTE = 'Roboto, "Segoe UI", Helvetica, Arial, sans-serif';
+
+function _padrBola(c, x, y, cor) {
+  c.strokeStyle = cor; c.lineWidth = 1.1;
+  c.beginPath(); c.arc(x, y, 6.3, 0, Math.PI * 2); c.stroke();
   c.beginPath();
-  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; c.lineTo(x + Math.cos(a) * 3.8, y + Math.sin(a) * 3.8); }
-  c.closePath(); c.fill();
-  c.strokeStyle = c.fillStyle; c.lineWidth = 1;
-  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; c.beginPath(); c.moveTo(x + Math.cos(a) * 3.8, y + Math.sin(a) * 3.8); c.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); c.stroke(); }
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; c.lineTo(x + Math.cos(a) * 2.6, y + Math.sin(a) * 2.6); }
+  c.closePath(); c.stroke();
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+    c.beginPath(); c.moveTo(x + Math.cos(a) * 2.6, y + Math.sin(a) * 2.6); c.lineTo(x + Math.cos(a) * 6.3, y + Math.sin(a) * 6.3); c.stroke();
+  }
+}
+
+function _padrSelo(c, x, y, tipo) {
+  c.fillStyle = '#010d14'; _padrRR(c, x - 9.5, y - 9.5, 19, 19, 4); c.fill();
+  c.strokeStyle = '#3c5a64'; c.lineWidth = 1; _padrRR(c, x - 9, y - 9, 18, 18, 3.6); c.stroke();
+  if (tipo === 'red_card' || tipo === 'yellow_red_card') {
+    c.fillStyle = tipo === 'red_card' ? '#f24b3f' : '#f0602a';
+    _padrRR(c, x - 4, y - 6, 8, 12, 1.2); c.fill();
+  } else {
+    _padrBola(c, x, y, tipo === 'own_goal' ? '#f0605a' : '#e9f1f4');
+  }
+}
+
+function _padrChip(c, x, y, img, cod, fs) {
+  c.fillStyle = '#ffffff'; _padrRR(c, x, y - 10, 20, 20, 4); c.fill();
+  if (img) c.drawImage(img, x + 2, y - 8, 16, 16);
+  if (cod) {
+    c.font = `700 ${fs}px ${_PADR_FONTE}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+    const w = c.measureText(cod).width + 14;
+    c.fillStyle = '#0c2832'; _padrRR(c, x + 23, y - 10, w, 20, 4); c.fill();
+    c.fillStyle = '#eaf2f5'; c.fillText(cod, x + 30, y + 0.5);
+  }
 }
 
 function _padrDesenha(cv, j, d) {
-  const wrap = cv.parentElement, W = Math.max(wrap.clientWidth || 340, 240), H = 196, dpr = window.devicePixelRatio || 1;
-  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const wrap = cv.parentElement, W = Math.max(wrap.clientWidth || 520, 300), dpr = window.devicePixelRatio || 1;
+  const s = W / _PADR_DW, H = Math.round(_PADR_DH * s), fs = Math.max(12, 10.5 / s);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
   const c = cv.getContext('2d');
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  c.clearRect(0, 0, W, H);
+  c.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+  const DW = _PADR_DW, DH = _PADR_DH;
+  c.fillStyle = '#00141c'; c.fillRect(0, 0, DW, DH);
   const ent = (d.entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
   const evs = (d.eventos || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13));
   const minDe = e => (e.timeFrame.elapsedMinute || 0) + 1;
   const max1 = Math.max(45, ...ent.filter(e => e.timeFrame.eventStage === 12).map(minDe), ...evs.filter(e => e.timeFrame.eventStage === 12).map(minDe));
   const max2 = Math.max(90, ...ent.filter(e => e.timeFrame.eventStage === 13).map(minDe), ...evs.filter(e => e.timeFrame.eventStage === 13).map(minDe));
-  const n1 = max1, n2 = max2 - 45;
-  const pad = 4, gap = 8, avail = W - 2 * pad - gap;
-  const w1 = avail * n1 / (n1 + n2), w2 = avail - w1;
-  const P = [{ x0: pad, w: w1, ini: 1, n: n1, est: 12 }, { x0: pad + w1 + gap, w: w2, ini: 46, n: n2, est: 13 }];
-  const yTop = 28, yBot = H - 46, mid = (yTop + yBot) / 2, hm = (yBot - yTop) / 2 - 2;
-  const X = (p, m) => p.x0 + p.w / p.n * (m - p.ini + 0.5);
+  const n1 = max1, n2 = max2 - 45, gap = 8, x0 = 21, avail = DW - 2 * x0 - gap;
+  const step = avail / (n1 + n2), w1 = step * n1, w2 = step * n2;
+  const P = [{ x0, w: w1, ini: 1, est: 12 }, { x0: x0 + w1 + gap, w: w2, ini: 46, est: 13 }];
+  const pTop = 31, pBot = 188, mid = (pTop + pBot) / 2, hm = 53.5;
+  const X = (p, m) => p.x0 + step * (m - p.ini + 0.5);
+  const redraw = () => { try { _padrDesenha(cv, j, d); } catch (e) {} };
+
+  // pontas: escudo + sigla do time (casa em cima, visitante embaixo) e o título do gráfico
+  _padrChip(c, x0, 14, _padrImg(j.casa_img, redraw), j.casa_cod, fs);
+  _padrChip(c, x0, 206, _padrImg(j.fora_img, redraw), j.fora_cod, fs);
+  c.font = `700 ${fs}px ${_PADR_FONTE}`; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = '#e7eaf3';
+  const titulo = 'Termômetro da Partida', tw = c.measureText(titulo).width, xr = DW - x0;
+  c.fillText(titulo, xr, 14.5);
+  c.fillStyle = '#e7eaf3';   // ícone de barras (3 colunas) antes do título
+  [[0, 4], [4, 9], [8, 6]].forEach(([dx, h]) => c.fillRect(xr - tw - 17 + dx, 14.5 + 5 - h, 2.4, h));
+
   const hit = { barras: [], eventos: [] };
   P.forEach(p => {
-    c.fillStyle = '#132229';
-    c.beginPath(); c.roundRect ? c.roundRect(p.x0, 2, p.w, H - 4, 6) : c.rect(p.x0, 2, p.w, H - 4); c.fill();
-    c.setLineDash([2, 3]); c.strokeStyle = 'rgba(255,255,255,.30)'; c.lineWidth = 1;
-    c.beginPath(); c.moveTo(p.x0 + 2, mid - hm); c.lineTo(p.x0 + p.w - 2, mid - hm); c.moveTo(p.x0 + 2, mid + hm); c.lineTo(p.x0 + p.w - 2, mid + hm); c.stroke();
-    c.setLineDash([]); c.strokeStyle = 'rgba(255,255,255,.14)';
-    c.beginPath(); c.moveTo(p.x0 + 2, mid); c.lineTo(p.x0 + p.w - 2, mid); c.stroke();
-    c.fillStyle = '#8fa3ab'; c.font = '10px system-ui, sans-serif'; c.textAlign = 'center';
-    (p.est === 12 ? [15, 30, 45] : [60, 75, 90]).forEach(m => c.fillText(m + "'", Math.min(X(p, m), p.x0 + p.w - 9), H - 8));
-    const step = p.w / p.n, bw = Math.max(1.4, step * 0.66);
+    c.fillStyle = '#0f2d37'; c.fillRect(p.x0, pTop, p.w, pBot - pTop);
+    c.setLineDash([2, 3]); c.strokeStyle = '#3c5a64'; c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(p.x0, mid - hm); c.lineTo(p.x0 + p.w, mid - hm); c.moveTo(p.x0, mid + hm); c.lineTo(p.x0 + p.w, mid + hm); c.stroke();
+    c.setLineDash([]);
+    const bw = step * 0.72;
     ent.filter(e => e.timeFrame.eventStage === p.est).forEach(e => {
-      const m = minDe(e), v = e.momentumValue, x = X(p, m), h = Math.min(Math.abs(v), 1.1) * hm;
-      c.fillStyle = v >= 0 ? '#f2f6f7' : '#77878e';
-      if (v >= 0) c.fillRect(x - bw / 2, mid - h, bw, h); else c.fillRect(x - bw / 2, mid, bw, h);
+      const m = minDe(e), v = e.momentumValue, x = X(p, m), h = Math.min(Math.abs(v), 1.15) * hm;
+      if (v >= 0) { c.fillStyle = '#f8fdfd'; c.fillRect(x - bw / 2, mid - h, bw, h); }
+      else { c.fillStyle = '#7f8386'; c.fillRect(x - bw / 2, mid, bw, h); }
       hit.barras.push({ x, m, v });
     });
+    c.fillStyle = '#d1dce2'; c.font = `700 ${fs}px ${_PADR_FONTE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    (p.est === 12 ? [15, 30, 45] : [60, 75, 90]).forEach(m => c.fillText(m + "'", Math.min(X(p, m), p.x0 + p.w - 9), 206.5));
   });
-  // minuto atual: fio verde fino sobre a última barra
-  if (ent.length) {
-    const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
-    c.strokeStyle = 'rgba(0,230,118,.85)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x, yTop - 6); c.lineTo(x, yBot + 6); c.stroke();
-  }
-  const nomeCasa = j.casa, nomeFora = j.fora;
+
   evs.forEach(e => {
     const tipo = e.type && e.type.type, p = P[e.timeFrame.eventStage === 12 ? 0 : 1], m = minDe(e);
     let casa = e.teamId === j.casa_id;
-    if (tipo === 'own_goal') casa = !casa;        // o ícone aparece do lado de quem se beneficiou
-    const x = X(p, m), y = casa ? 15 : H - 31;
-    c.strokeStyle = 'rgba(255,255,255,.35)'; c.setLineDash([1, 2]); c.beginPath();
-    c.moveTo(x, casa ? y + 9 : y - 9); c.lineTo(x, casa ? yTop : yBot); c.stroke(); c.setLineDash([]);
-    _padrIcone(c, x, y, tipo);
+    if (tipo === 'own_goal') casa = !casa;        // o selo aparece do lado de quem se beneficiou
+    const x = X(p, m), y = casa ? pTop + 5.5 : pBot - 5.5;
+    const b = hit.barras.find(o => o.m === m && (o.x === x));
+    const ponta = b && ((casa && b.v > 0) || (!casa && b.v < 0)) ? Math.min(Math.abs(b.v), 1.15) * hm : 0;
+    c.strokeStyle = '#4d6b76'; c.lineWidth = 1; c.beginPath();
+    if (casa) { c.moveTo(x, y + 9.5); c.lineTo(x, mid - ponta); } else { c.moveTo(x, y - 9.5); c.lineTo(x, mid + ponta); }
+    c.stroke();
+    _padrSelo(c, x, y, tipo);
     const rot = { goal: 'Gol', penalty_goal: 'Gol de pênalti', own_goal: 'Gol contra', red_card: 'Cartão vermelho', yellow_red_card: 'Segundo amarelo (vermelho)' }[tipo] || 'Evento';
-    hit.eventos.push({ x, y, txt: `${e.timeFrame.displayTime || m + "'"} — ${rot} (${casa ? nomeCasa : nomeFora})` });
+    hit.eventos.push({ x, y, txt: `${e.timeFrame.displayTime || m + "'"} — ${rot} (${casa ? j.casa : j.fora})` });
   });
+
+  // minuto atual: pequeno marcador verde logo abaixo do painel (o Livesport não tem; serve pra achar o "agora")
+  if (ent.length) {
+    const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
+    c.fillStyle = '#00e676'; c.beginPath(); c.moveTo(x - 3.5, pBot + 6); c.lineTo(x + 3.5, pBot + 6); c.lineTo(x, pBot + 1); c.closePath(); c.fill();
+  }
   cv.onmousemove = ev => {
-    const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    const r = cv.getBoundingClientRect(), mx = (ev.clientX - r.left) / s, my = (ev.clientY - r.top) / s;
     const e = hit.eventos.find(o => Math.hypot(o.x - mx, o.y - my) < 12);
     if (e) { cv.title = e.txt; return; }
     let best = null;
-    hit.barras.forEach(b => { if (Math.abs(b.x - mx) < 3 && (!best || Math.abs(b.x - mx) < Math.abs(best.x - mx))) best = b; });
+    hit.barras.forEach(b => { if (Math.abs(b.x - mx) < step / 2 && (!best || Math.abs(b.x - mx) < Math.abs(best.x - mx))) best = b; });
     cv.title = best ? `Minuto ${best.m}: ${best.v >= 0 ? 'casa' : 'visitante'} ${Math.abs(best.v).toFixed(2)}` : '';
   };
 }
