@@ -260,7 +260,8 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         # Padrões importados do txt (aba Padrões): a regra valendo, a anterior (reserva) e a config do alerta
         for _nome in ("padroes_regras.json", "padroes_regras_anterior.json", "padroes_regras_over05ht.json",
                       "padroes_regras_anterior_over05ht.json", "padroes_regras_under80.json",
-                      "padroes_regras_anterior_under80.json", "padroes_config.json"):
+                      "padroes_regras_anterior_under80.json", "padroes_regras_primeiro_gol.json",
+                      "padroes_regras_anterior_primeiro_gol.json", "padroes_config.json"):
             pull_file(_nome, os.path.join(data_dir, _nome), force=True)
         # Chave geral desligada: pula o resto (cache, Power Ranking e os diretórios grandes). Volta quando ligar.
         if _site_desligado(data_dir):

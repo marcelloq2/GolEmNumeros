@@ -14599,6 +14599,7 @@ const _PADR_EST = {
   under: { nome: 'Scalping Under Limite', alvo: 'sem gol no próximo minuto', arquivo: 'padroes.txt' },
   over05ht: { nome: 'Over 0.5 HT', alvo: 'gol até o intervalo', arquivo: 'padroes_over05ht.txt' },
   under80: { nome: "Under depois dos 80'", alvo: "sem gol depois dos 80'", arquivo: 'padroes_under80.txt' },
+  primeiro_gol: { nome: 'Primeiro gol', alvo: '1º gol da partida', arquivo: 'padroes_primeiro_gol.txt' },
 };
 let _padrEst = 'under';
 try { const e = localStorage.getItem('padrEst'); if (_PADR_EST[e]) _padrEst = e; } catch (e) {}
@@ -14606,10 +14607,11 @@ const _padrPor = {
   under: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
   over05ht: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
   under80: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
+  primeiro_gol: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
 };
 let _padrRegras = _padrPor[_padrEst].regras;           // regras da estratégia selecionada
 let _padrInfo = _padrPor[_padrEst].info;
-let _padrContagem = { under: 0, over05ht: 0, under80: 0 };
+let _padrContagem = { under: 0, over05ht: 0, under80: 0, primeiro_gol: 0 };
 let _padrOddsMap = {};           // event_id do Flashscore -> jogo do Painel (odds pré-jogo + ao vivo)
 let _padrOddsIds = '';
 let _padrOddsTs = 0;             // quando as odds foram lidas com sucesso (o servidor só renova a cada ~60 s: não adianta pedir antes)
@@ -14714,7 +14716,7 @@ async function padrImportar(input) {
   try { texto = await f.text(); } catch (e) { _padrMsg('Não consegui ler o arquivo.', false); return; }
   // A importação distribui sozinha: cada regra vai para a aba da sua metodologia (pelo "alvo"), então um txt combinado
   // configura tudo de uma vez, importado em qualquer aba.
-  const alvoEst = { sem_gol_proximo_minuto: 'under', gol_ate_intervalo: 'over05ht', sem_gol_apos_80: 'under80' };
+  const alvoEst = { sem_gol_proximo_minuto: 'under', gol_ate_intervalo: 'over05ht', sem_gol_apos_80: 'under80', primeiro_gol_casa: 'primeiro_gol', primeiro_gol_fora: 'primeiro_gol' };
   const contagem = {};
   (texto.match(/^\s*alvo\s*=\s*\S+/gim) || []).forEach(l => { const e = alvoEst[l.split('=')[1].trim()]; if (e) contagem[e] = (contagem[e] || 0) + 1; });
   const dest = Object.keys(contagem);
@@ -15016,6 +15018,126 @@ function _padrU80Avisos(itens) {
 }
 let _padrJogosPorId = {};
 
+
+// ── Primeiro gol (casa ou visitante) ─────────────────────────────────────────────────────────
+// Regras de UM lado, no minuto atual, com o jogo ainda 0-0: "o 1º gol da partida vai ser desse lado". O lado vem do alvo
+// (primeiro_gol_casa / primeiro_gol_fora). Mesma conta de _padroes_avalia_pg (app.py, que manda o aviso no Telegram).
+function _padrAvaliaPG(entries, gc, gf, regras) {
+  const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
+  if (!validas.length) return null;
+  const ult = validas[validas.length - 1], tf = ult.timeFrame;
+  const est = tf.eventStage, m = (tf.elapsedMinute || 0) + 1;
+  const info = { min: m, estagio: est, v: ult.momentumValue, texto: tf.displayTime || (m + "'"), batem: [] };
+  if ((est === 12 && !(m >= 1 && m <= 44)) || (est === 13 && !(m >= 46 && m <= 89))) return info;
+  if (gc !== 0 || gf !== 0) return info;
+  const ini = est === 12 ? 1 : 46, fase = est === 12 ? '1T' : '2T';
+  const porMin = {};
+  validas.forEach(e => { if (e.timeFrame.eventStage === est) { const v = e.momentumValue; porMin[(e.timeFrame.elapsedMinute || 0) + 1] = [Math.max(v, 0), Math.max(-v, 0)]; } });
+  const janela = (lado, k, dif) => {
+    if (m - k + 1 < ini) return null;
+    let soma = 0;
+    for (let mm = m - k + 1; mm <= m; mm++) {
+      const p = porMin[mm];
+      if (!p) return null;
+      soma += dif ? (lado === 'casa' ? p[0] - p[1] : p[1] - p[0]) : (lado === 'casa' ? p[0] : p[1]);
+    }
+    return soma / k;
+  };
+  for (const r of regras) {
+    if (r.fase !== fase || (r.min_ini != null && !(m >= r.min_ini && m <= r.min_fim))) continue;
+    const lado = r.lado, cur = porMin[m];
+    let x = null;
+    if (r.medida === 'lado_m') x = cur ? (lado === 'casa' ? cur[0] : cur[1]) : null;
+    else if (r.medida === 'lado_5') x = janela(lado, 5, false);
+    else if (r.medida === 'lado_10') x = janela(lado, 10, false);
+    else if (r.medida === 'dif_5') x = janela(lado, 5, true);
+    else if (r.medida === 'dif_10') x = janela(lado, 10, true);
+    else { const ant = porMin[m - 1]; x = (m - 1 >= ini && ant && cur) ? (lado === 'casa' ? cur[0] - ant[0] : cur[1] - ant[1]) : null; }
+    if (x === null) continue;
+    if (r.op === '>=' ? x >= r.limite - 1e-9 : x <= r.limite + 1e-9) info.batem.push(r);
+  }
+  return info;
+}
+
+function _padrCalcItensPG() {
+  const regras = _padrPor.primeiro_gol.regras;
+  return _padrJogos.map(j => {
+    const d = _padrDados[j.id] || { entries: [], eventos: [] };
+    const av = _padrAvalia(d.entries, j.gc, j.gf, []);
+    const minReal = _padrMinReal(j);
+    const atraso = (av && minReal != null && av.estagio === (j.estagio === '12' ? 12 : 13)) ? minReal - av.min : 0;
+    const velho = atraso > _PADR_ATRASO_MAX;
+    const lados = ['casa', 'fora'], corrs = {};
+    lados.forEach(l => {
+      const rs = regras.filter(r => r.lado === l);
+      corrs[l] = (rs.length && !velho) ? _padrCorridas(d.entries, d.eventos, j.casa_id, rs, _padrAvaliaPG, l) : { fechadas: [], aberta: null };
+    });
+    const abertas = lados.filter(l => corrs[l].aberta).map(l => ({ ...corrs[l].aberta, lado: l }));
+    const fechadas = lados.flatMap(l => corrs[l].fechadas.map(o => ({ ...o, lado: l })));
+    fechadas.sort((a, b) => (a.estagioSaida - b.estagioSaida) || (a.saida - b.saida));
+    const recentes = lados.map(l => {
+      const ult = corrs[l].fechadas[corrs[l].fechadas.length - 1];
+      return (!corrs[l].aberta && ult && av && ult.estagioSaida === av.estagio && av.min - ult.saida <= 4) ? { ...ult, lado: l } : null;
+    }).filter(Boolean);
+    const cur = (!velho && regras.length) ? _padrAvaliaPG(d.entries, j.gc, j.gf, regras) : null;
+    const corr = { fechadas, aberta: abertas[0] || null, abertas, est: 'primeiro_gol' };
+    return { j, d, av, corr, ult: null, recente: recentes.length > 0, recentes, minReal, atraso, velho, pgBatem: cur ? cur.batem : [],
+             prio: abertas.length ? 2 : (recentes.length ? 1 : 0) };
+  });
+}
+
+function _padrPGBadges(it) {
+  const { j, velho, atraso, av, minReal, corr, recentes, pgBatem } = it;
+  const regras = _padrPor.primeiro_gol.regras;
+  if (!regras.length) return `<div class="padr-sem">Importe o txt de ${_PADR_EST.primeiro_gol.nome} (padroes_primeiro_gol.txt) para ver quando os padrões batem.</div>`;
+  const nomeLado = l => l === 'casa' ? 'CASA' : 'VISITANTE';
+  const pills = l => pgBatem.filter(r => r.lado === l).map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('');
+  const partes = [];
+  corr.abertas.forEach(o => partes.push(`<div class="padr-op entrada">🟢 EM OPERAÇÃO — 1º gol da ${nomeLado(o.lado)} (desde o minuto ${o.entrada}')
+    <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>${pills(o.lado)}`));
+  recentes.forEach(o => {
+    if (o.motivo === 'gol') {
+      const ganhou = o.golLado === o.lado;
+      partes.push(ganhou
+        ? `<div class="padr-op entrada">✅ SAIU O 1º GOL DA ${nomeLado(o.lado)} — operação batida (minuto ${o.saida}')<div class="padr-op-sub">Entrou aos ${o.entrada}'</div></div>`
+        : `<div class="padr-op saida">❌ O 1º GOL FOI DO ${o.golLado === 'casa' ? 'CASA' : 'VISITANTE'} — operação de ${nomeLado(o.lado)} perdida (minuto ${o.saida}')<div class="padr-op-sub">Entrou aos ${o.entrada}'</div></div>`);
+    } else if (o.motivo === 'tempo') partes.push(`<div class="padr-op saida">⏹ FIM DO TEMPO — 1º gol da ${nomeLado(o.lado)}: feche a operação<div class="padr-op-sub">Entrou aos ${o.entrada}' · sem gol</div></div>`);
+    else partes.push(`<div class="padr-op saida">🔴 SAIR AGORA — 1º gol da ${nomeLado(o.lado)}: o padrão deixou de bater (minuto ${o.saida}')<div class="padr-op-sub">Entrou aos ${o.entrada}' · saída no minuto ${o.saida}'</div></div>`);
+  });
+  if (!partes.length) partes.push(`<div class="padr-sem">${(j.gc || j.gf) ? 'Já saiu gol — o "primeiro gol" não é mais possível neste jogo' : (av ? 'Nenhum padrão ativo neste minuto' : 'Carregando...')}</div>`);
+  return partes.join('');
+}
+
+// avisos no navegador do Primeiro gol: entrada por lado, e a saída (padrão perdeu / gol batido ou perdido / fim do tempo)
+const _padrPGVisto = {};
+function _padrPGAvisos(itens) {
+  itens.forEach(({ j, corr, velho }) => {
+    if (velho || !_padrPor.primeiro_gol.regras.length) return;
+    const atual = new Set();
+    corr.fechadas.forEach(o => atual.add(`f${o.lado}${o.estagio}-${o.entrada}`));
+    corr.abertas.forEach(o => atual.add(`a${o.lado}${o.estagio}-${o.entrada}`));
+    const visto = _padrPGVisto[j.id];
+    if (!visto) { _padrPGVisto[j.id] = atual; return; }
+    const nome = `${j.casa} x ${j.fora}`, placar = `${j.gc ?? 0}-${j.gf ?? 0}`, NL = l => l === 'casa' ? 'CASA' : 'VISITANTE';
+    corr.abertas.forEach(o => {
+      if (!visto.has(`a${o.lado}${o.estagio}-${o.entrada}`))
+        _padrAviso('entrada', `⚽ ENTRADA 1º gol da ${NL(o.lado)} — ${nome}`, `${placar} · padrão ${o.regrasEntrada.join(', ')} bateu no minuto ${o.entrada}'. Eu aviso a saída.`);
+    });
+    corr.fechadas.forEach(o => {
+      if (visto.has(`f${o.lado}${o.estagio}-${o.entrada}`)) return;
+      const relampago = !visto.has(`a${o.lado}${o.estagio}-${o.entrada}`);
+      const extra = relampago ? ` · entrou aos ${o.entrada}' e já saiu` : ` · entrou aos ${o.entrada}'`;
+      if (o.motivo === 'gol') {
+        const ganhou = o.golLado === o.lado;
+        _padrAviso(ganhou ? 'entrada' : 'saida', `${ganhou ? '✅ 1º GOL BATIDO' : '❌ 1º GOL PERDIDO'} (${NL(o.lado)}) — ${nome}`,
+          `${placar} · o 1º gol foi ${o.golLado === 'casa' ? 'da casa' : 'do visitante'} (minuto ${o.saida}')${extra}`);
+      } else if (o.motivo === 'tempo') _padrAviso('saida', `⏹ FIM DO TEMPO — 1º gol da ${NL(o.lado)} — ${nome}`, `${placar} · sem gol${extra}`);
+      else _padrAviso('saida', `🔴 SAIR — 1º gol da ${NL(o.lado)} — ${nome}`, `${placar} · o padrão deixou de bater (minuto ${o.saida}')${extra}`);
+    });
+    atual.forEach(k => visto.add(k));
+  });
+}
+
 // mesma conferência de _padroes_avalia (app.py)
 function _padrAvalia(entries, gc, gf, regras) {
   const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
@@ -15047,7 +15169,8 @@ function _padrAvalia(entries, gc, gf, regras) {
 // Operações: trechos seguidos de minutos em que algum padrão bateu. Entrada = 1º minuto do trecho;
 // SAÍDA = 1º minuto em que deixa de bater, ou o minuto do gol, ou o fim do tempo. Mesmo cálculo de
 // _padroes_corridas em app.py (que manda a saída no Telegram) — mudou lá, mude aqui.
-function _padrCorridas(entries, eventos, casaId, regras) {
+function _padrCorridas(entries, eventos, casaId, regras, avalia, lado) {
+  avalia = avalia || _padrAvalia;
   const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
   const gols = [];
   (eventos || []).forEach(ev => {
@@ -15064,15 +15187,16 @@ function _padrCorridas(entries, eventos, casaId, regras) {
   validas.forEach((e, i) => {
     const tf = e.timeFrame, s = tf.eventStage, m = (tf.elapsedMinute || 0) + 1;
     if (atual && gols.some(g => g.s === s && g.m === m)) {
-      Object.assign(atual, { saida: m, estagioSaida: s, motivo: 'gol', aberta: false });
+      const gg = gols.find(g => g.s === s && g.m === m);
+      Object.assign(atual, { saida: m, estagioSaida: s, motivo: 'gol', aberta: false, golLado: gg ? (gg.casa ? 'casa' : 'fora') : null });
       fechadas.push(atual); atual = null;
       return;
     }
     const gc = gols.filter(g => ate(g, s, m) && g.casa).length, gf = gols.filter(g => ate(g, s, m) && !g.casa).length;
-    const info = _padrAvalia(validas.slice(0, i + 1), gc, gf, regras);
+    const info = avalia(validas.slice(0, i + 1), gc, gf, regras);
     const batem = info ? info.batem.map(r => r.id) : [];
     if (batem.length) {
-      if (!atual) atual = { entrada: m, estagio: s, regrasEntrada: batem.slice(), regras: batem.slice(), aberta: true };
+      if (!atual) atual = { entrada: m, estagio: s, regrasEntrada: batem.slice(), regras: batem.slice(), aberta: true, lado: lado || null };
       else atual.regras = batem.slice();
     } else if (atual) {
       const fora = info && ((info.estagio === 12 && !(info.min >= 1 && info.min <= 44)) || (info.estagio === 13 && !(info.min >= 46 && info.min <= 89)));
@@ -15092,6 +15216,7 @@ function _padrMotivo(est, m) {
 function _padrCalcItens(est) {
   est = est || _padrEst;
   if (est === 'under80') return _padrCalcItensU80();
+  if (est === 'primeiro_gol') return _padrCalcItensPG();
   const regras = _padrPor[est].regras;
   return _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
@@ -15123,6 +15248,7 @@ function _padrRenderGrid(itensPre) {
     let badges = '';
     if (velho) badges = `<div class="padr-op atraso">⚠ Gráfico atrasado ${atraso} min — padrão NÃO avaliado<div class="padr-op-sub">Último minuto do gráfico: ${av.min}' · relógio do jogo: ${minReal}'. Não confie em entrada/saída até normalizar.</div></div>`;
     else if (_padrEst === 'under80') badges = _padrU80Badges(it);
+    else if (_padrEst === 'primeiro_gol') badges = _padrPGBadges(it);
     else if (!_padrRegras.length) badges = `<div class="padr-sem">Importe o txt de ${_PADR_EST[_padrEst].nome} para ver quando os padrões batem.</div>`;
     else if (corr.aberta) {
       badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — ${_PADR_EST[_padrEst].alvo}
@@ -15296,7 +15422,7 @@ function _padrDesenha(cv, j, d, corr) {
   // saída = "x" vermelho no minuto em que o padrão deixou de bater / saiu gol / acabou o tempo
   if (corr) {
     const ultimo = ent.length ? ent[ent.length - 1] : null;
-    const todas = corr.fechadas.concat(corr.aberta ? [corr.aberta] : []);
+    const todas = corr.fechadas.concat(corr.abertas || (corr.aberta ? [corr.aberta] : []));
     todas.forEach(o => {
       const p = P[o.estagio === 12 ? 0 : 1], xa = X(p, o.entrada);
       const fimMin = o.aberta ? (ultimo ? minDe(ultimo) : o.entrada) : o.saida, ps = P[(o.aberta ? o.estagio : o.estagioSaida) === 12 ? 0 : 1];
@@ -15305,7 +15431,7 @@ function _padrDesenha(cv, j, d, corr) {
       c.fillRect(xa, pBot + 8, Math.max(xb - xa, 3), 3);
       c.fillStyle = '#00e676'; c.beginPath(); c.moveTo(xa - 3, pBot + 13); c.lineTo(xa + 3, pBot + 13); c.lineTo(xa, pBot + 8); c.closePath(); c.fill();
       hit.eventos.push({ x: xa, y: pBot + 10, txt: `Entrada no minuto ${o.entrada}'` });
-      if (!o.aberta && corr.est === 'over05ht' && o.motivo === 'gol') {
+      if (!o.aberta && ((corr.est === 'over05ht' && o.motivo === 'gol') || (corr.est === 'primeiro_gol' && o.motivo === 'gol' && o.golLado === o.lado))) {
         c.fillStyle = '#00e676'; c.beginPath(); c.arc(xb, pBot + 10, 4, 0, Math.PI * 2); c.fill();
         hit.eventos.push({ x: xb, y: pBot + 10, txt: `GOL no minuto ${o.saida}' — over 0.5 HT batido` });
       } else if (!o.aberta) {
@@ -15382,6 +15508,7 @@ function _padrAviso(tipo, titulo, corpo) {
 function _padrDetectaAvisos(est, itens) {
   if (!_padrAvisosOn) return;
   if (est === 'under80') { _padrU80Avisos(itens); return; }
+  if (est === 'primeiro_gol') { _padrPGAvisos(itens); return; }
   const rotulo = _PADR_EST[est].nome;
   itens.forEach(({ j, corr, av, velho }) => {
     if (velho || !_padrPor[est].regras.length) return;

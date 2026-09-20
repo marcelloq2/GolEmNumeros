@@ -10855,6 +10855,12 @@ _PAD_ESTRATEGIAS = {
                             "gols_ate_80", "vermelhos_ate_80", "so_placar"),
                 "placares": ("qualquer", "empate", "um_gol", "dois_ou_mais")},
 }
+# Primeiro gol: padrão de barras de UM lado (casa ou visitante) com o jogo ainda 0-0 -> o 1º gol da partida sai desse lado.
+# O lado vem do alvo de cada regra (primeiro_gol_casa / primeiro_gol_fora); as duas metades tocam separadas (pg_casa / pg_fora).
+_PAD_ESTRATEGIAS["primeiro_gol"] = {
+    "nome": "Primeiro gol", "alvo": "primeiro_gol_casa", "alvos": ("primeiro_gol_casa", "primeiro_gol_fora"),
+    "sufixo": "_primeiro_gol", "fases": ("1T", "2T"),
+    "medidas": ("lado_m", "lado_5", "lado_10", "dif_5", "dif_10", "delta_lado"), "placares": ("0-0",)}
 _PAD_ODD_MIN_U80 = 1.50          # odd do Under precisa ser MAIOR que isso (critério 2 do Under depois dos 80')
 _PAD_U80_JANELA = (80, 85)       # minutos do relógio em que a entrada ainda pode ser sugerida
 PADROES_CFG_FILE = os.path.join(DATA_DIR, "padroes_config.json")
@@ -10885,6 +10891,7 @@ def _padroes_parse(texto, est="under"):
     Campo opcional "minuto = 16-30" restringe a regra a essa faixa de minutos de jogo."""
     est = _padroes_est(est)
     alvo_ok = _PAD_ESTRATEGIAS[est]["alvo"]
+    alvos_ok = _PAD_ESTRATEGIAS[est].get("alvos", (alvo_ok,))
     fases_ok = _PAD_ESTRATEGIAS[est].get("fases", _PAD_FASES)
     medidas_ok = _PAD_ESTRATEGIAS[est].get("medidas", _PAD_MEDIDAS)
     placares_ok = _PAD_ESTRATEGIAS[est].get("placares", _PAD_PLACARES)
@@ -10908,8 +10915,8 @@ def _padroes_parse(texto, est="under"):
             prob.append(f"condicao '{r.get('condicao', '')}' inválida (ex: <= 0.15)")
         if placar not in placares_ok:
             prob.append(f"placar '{placar}' inválido (use {'/'.join(placares_ok)})")
-        if alvo != alvo_ok:
-            prob.append(f"alvo '{alvo}' não vale para {_PAD_ESTRATEGIAS[est]['nome']} (use {alvo_ok})")
+        if alvo not in alvos_ok:
+            prob.append(f"alvo '{alvo}' não vale para {_PAD_ESTRATEGIAS[est]['nome']} (use {' ou '.join(alvos_ok)})")
         if est == "over05ht" and fase != "1T":
             prob.append("Over 0.5 HT só vale no 1º tempo (fase = 1T)")
         faixa = re.match(r"^(\d{1,2})\s*-\s*(\d{1,2})$", r.get("minuto", "")) if r.get("minuto") else None
@@ -10925,6 +10932,7 @@ def _padroes_parse(texto, est="under"):
             "id": rid, "fase": fase, "medida": medida, "op": cond.group(1), "limite": float(cond.group(2)),
             "placar": placar, "alvo": alvo, "descricao": r.get("descricao", "")[:300],
             "min_ini": int(faixa.group(1)) if faixa else None, "min_fim": int(faixa.group(2)) if faixa else None,
+            "lado": ("casa" if alvo.endswith("_casa") else "fora") if est == "primeiro_gol" else None,
             "confianca": (r.get("confianca") or "baixa")[:20],
             "estat": (("minutos que bateram: " + r["minutos_bateram"]) if r.get("minutos_bateram")
                       else ("partidas que bateram: " + r["jogos_que_bateram"]) if r.get("jogos_que_bateram") else "")[:200], "treino": (r.get("treino") or "")[:120],
@@ -10979,11 +10987,11 @@ def _padroes_cfg():
     except Exception:
         d = {}
     return {"alerta_telegram": bool(d.get("alerta_telegram")), "alerta_over05ht": bool(d.get("alerta_over05ht")),
-            "alerta_under80": bool(d.get("alerta_under80"))}
+            "alerta_under80": bool(d.get("alerta_under80")), "alerta_primeiro_gol": bool(d.get("alerta_primeiro_gol"))}
 
 
 def _padroes_alerta_on(cfg, est):
-    return cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80"}[est]]
+    return cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80", "primeiro_gol": "alerta_primeiro_gol"}[est]]
 
 
 def _padroes_meta(d):
@@ -11007,7 +11015,7 @@ def api_padroes():
 
 def _padroes_divide(texto):
     """Separa um txt COMBINADO por metodologia, olhando o "alvo" de cada regra. Devolve (cabecalho, {est: linhas}, erros)."""
-    alvo_est = {v["alvo"]: k for k, v in _PAD_ESTRATEGIAS.items()}
+    alvo_est = {a: k for k, v in _PAD_ESTRATEGIAS.items() for a in v.get("alvos", (v["alvo"],))}
     cab, blocos, atual = [], [], None
     for ln in str(texto or "").splitlines():
         s = ln.strip()
@@ -11105,7 +11113,7 @@ def api_padroes_config():
     est = _padroes_est(d.get("estrategia"))
     with _padroes_lock:
         cfg = _padroes_cfg()
-        cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80"}[est]] = bool(d.get("alerta_telegram"))
+        cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80", "primeiro_gol": "alerta_primeiro_gol"}[est]] = bool(d.get("alerta_telegram"))
         _padroes_grava(PADROES_CFG_FILE, cfg, "padroes_config.json")
     return jsonify({"ok": True, "estrategia": est, "config": {"alerta_telegram": _padroes_alerta_on(cfg, est)}})
 
@@ -11212,7 +11220,67 @@ def _padroes_avalia(entries, gc, gf, regras):
 _PAD_TIPOS_GOL = ("goal", "penalty_goal", "own_goal")
 
 
-def _padroes_corridas(entries, eventos, casa_id, regras):
+def _padroes_avalia_pg(entries, gc, gf, regras):
+    """Primeiro gol: confere as regras de UM lado no MINUTO ATUAL (última barra) com o jogo ainda 0-0. Cada regra traz o "lado"
+    (casa/fora) e as medidas são do time do lado (lado_m, lado_5, lado_10, dif_5, dif_10, delta_lado). Mesmas contas de
+    descobrir_primeiro_gol.py e de _padrAvaliaPG (JS) — mudou aqui, mude lá. Devolve (info ou None, [ids das regras que batem])."""
+    validas = [e for e in (entries or [])
+               if (e.get("timeFrame") or {}).get("eventStage") in (12, 13) and isinstance(e.get("momentumValue"), (int, float))]
+    if not validas:
+        return None, []
+    ult = validas[-1]
+    tf = ult["timeFrame"]
+    estagio, m = tf["eventStage"], int(tf.get("elapsedMinute") or 0) + 1
+    info = {"min": m, "estagio": estagio, "v": float(ult["momentumValue"])}
+    if (estagio == 12 and not 1 <= m <= 44) or (estagio == 13 and not 46 <= m <= 89):
+        return info, []
+    if gc != 0 or gf != 0:
+        return info, []
+    ini = 1 if estagio == 12 else 46
+    por_min = {}
+    for e in validas:
+        t2 = e["timeFrame"]
+        if t2["eventStage"] == estagio:
+            v = float(e["momentumValue"])
+            por_min[int(t2.get("elapsedMinute") or 0) + 1] = (max(v, 0.0), max(-v, 0.0))
+    fase = "1T" if estagio == 12 else "2T"
+
+    def janela(lado, k, dif):
+        if m - k + 1 < ini or any((mm not in por_min) for mm in range(m - k + 1, m + 1)):
+            return None
+        vals = []
+        for mm in range(m - k + 1, m + 1):
+            c, f = por_min[mm]
+            vals.append((c - f) if (dif and lado == "casa") else (f - c) if dif else (c if lado == "casa" else f))
+        return sum(vals) / len(vals)
+
+    batem = []
+    for r in regras:
+        if r.get("fase") != fase or (r.get("min_ini") is not None and not r["min_ini"] <= m <= r["min_fim"]):
+            continue
+        lado, med = r["lado"], r["medida"]
+        c, f = por_min.get(m, (None, None))
+        if med == "lado_m":
+            x = c if lado == "casa" else f
+        elif med == "lado_5":
+            x = janela(lado, 5, False)
+        elif med == "lado_10":
+            x = janela(lado, 10, False)
+        elif med == "dif_5":
+            x = janela(lado, 5, True)
+        elif med == "dif_10":
+            x = janela(lado, 10, True)
+        else:                                            # delta_lado
+            ant = por_min.get(m - 1)
+            x = ((c if lado == "casa" else f) - (ant[0] if lado == "casa" else ant[1])) if (m - 1 >= ini and ant and c is not None) else None
+        if x is None:
+            continue
+        if (x >= r["limite"] - 1e-9) if r["op"] == ">=" else (x <= r["limite"] + 1e-9):
+            batem.append(r["id"])
+    return info, batem
+
+
+def _padroes_corridas(entries, eventos, casa_id, regras, avalia=None, lado_run=None):
     """Reconstrói do histórico do jogo as "operações": cada corrida é um trecho seguido de minutos em que
     algum padrão bateu. Entrada = 1º minuto do trecho; SAÍDA = 1º minuto em que ele deixa de bater, ou
     o minuto em que sai gol (motivo "gol"), ou o fim do tempo (motivo "tempo"; minuto fora da faixa das
@@ -11234,16 +11302,16 @@ def _padroes_corridas(entries, eventos, casa_id, regras):
         s, m = tf["eventStage"], int(tf.get("elapsedMinute") or 0) + 1
         chave = (s, m)
         if atual is not None and any(k == chave for k, _ in gols):
-            atual.update(saida=m, estagio_saida=s, motivo="gol", aberta=False)
+            atual.update(saida=m, estagio_saida=s, motivo="gol", aberta=False, gol_lado=next((l for k, l in gols if k == chave), None))
             fechadas.append(atual)
             atual = None
             continue
         gc = sum(1 for k, l in gols if k <= chave and l == "casa")
         gf = sum(1 for k, l in gols if k <= chave and l == "fora")
-        info, batem = _padroes_avalia(validas[:i + 1], gc, gf, regras)
+        info, batem = (avalia or _padroes_avalia)(validas[:i + 1], gc, gf, regras)
         if batem:
             if atual is None:
-                atual = {"entrada": m, "estagio": s, "regras_entrada": list(batem), "regras": list(batem), "aberta": True}
+                atual = {"entrada": m, "estagio": s, "regras_entrada": list(batem), "regras": list(batem), "aberta": True, "lado": lado_run}
             else:
                 atual["regras"] = list(batem)
         elif atual is not None:
@@ -11393,6 +11461,8 @@ _PAD_TEXTOS = {
     "under": {"entrada": "📊 <b>ENTRADA — Scalping Under Limite: sem gol no próximo minuto</b>",
               "gol": "⚽ <b>SAIU GOL — operação encerrada</b>",
               "tempo": "⏹ <b>FIM DO TEMPO — feche a operação</b>"},
+    "pg_casa": {"entrada": "⚽ <b>ENTRADA — 1º GOL DA CASA: padrão ativo</b>", "gol": "", "tempo": "⏹ <b>FIM DO TEMPO — sem gol, operação encerrada</b>"},
+    "pg_fora": {"entrada": "⚽ <b>ENTRADA — 1º GOL DO VISITANTE: padrão ativo</b>", "gol": "", "tempo": "⏹ <b>FIM DO TEMPO — sem gol, operação encerrada</b>"},
     "under80": {"entrada": "🕗 <b>ENTRADA SUGERIDA — Under depois dos 80'</b>",
                 "gol": "⚽ <b>SAIU GOL depois dos 80' — operação encerrada</b>",
                 "tempo": "🏁 <b>FIM DE JOGO — sem gol depois dos 80': Under batido ✅</b>"},
@@ -11402,9 +11472,20 @@ _PAD_TEXTOS = {
 }
 
 
+def _padroes_est_base(est):
+    """pg_casa / pg_fora são as duas metades da estratégia "primeiro_gol"."""
+    return "primeiro_gol" if est.startswith("pg_") else est
+
+
+def _padroes_nome_est(est):
+    if est.startswith("pg_"):
+        return "Primeiro gol (" + ("casa" if est == "pg_casa" else "visitante") + ")"
+    return _PAD_ESTRATEGIAS[est]["nome"]
+
+
 def _padroes_limpa_estado(est):
     for d in (_padroes_estado, _padroes_ops, _padroes_ult_msg):
-        for k in [k for k in d if k[0] == est]:
+        for k in [k for k in d if _padroes_est_base(k[0]) == est]:
             del d[k]
 
 
@@ -11440,7 +11521,15 @@ def _padroes_msg(est, j, minuto, entrada, regras_batem):
     return "\n".join(linhas)
 
 
-def _padroes_msg_saida(est, j, minuto, entrada, saida, motivo):
+def _padroes_msg_saida(est, j, minuto, entrada, saida, motivo, gol_lado=None):
+    if est.startswith("pg_") and motivo == "gol":
+        meu = est.split("_")[1]
+        nome_lado = "DA CASA" if gol_lado == "casa" else "DO VISITANTE"
+        titulo = (f"✅ <b>SAIU O 1º GOL {nome_lado} — operação batida</b>" if gol_lado == meu
+                  else f"❌ <b>O 1º GOL FOI {nome_lado} — operação perdida</b>")
+        linhas = [titulo] + _padroes_cab(j, minuto)
+        linhas.append(f"Entrou aos {entrada}' · gol no minuto {saida}'")
+        return "\n".join(linhas)
     titulo = {"padrao": "🔴 <b>SAIR DA OPERAÇÃO — o padrão deixou de bater</b>",
               "gol": _PAD_TEXTOS[est]["gol"], "tempo": _PAD_TEXTOS[est]["tempo"]}.get(motivo, "🔴 <b>SAIR DA OPERAÇÃO</b>")
     linhas = [titulo] + _padroes_cab(j, minuto)
@@ -11462,8 +11551,10 @@ def _padroes_tick_jogo(est, regras, j, dados, token, chat, agora):
     """Confere UM jogo para UMA estratégia: avisa entrada, saída (padrão/gol/fim do tempo) ou dado atrasado."""
     por_id = {r["id"]: r for r in regras}
     entries, eventos = dados
-    fechadas, aberta = _padroes_corridas(entries, eventos, j.get("casa_id"), regras)
-    info, _ = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
+    avalia = _padroes_avalia_pg if est.startswith("pg_") else _padroes_avalia
+    lado = est.split("_")[1] if est.startswith("pg_") else None
+    fechadas, aberta = _padroes_corridas(entries, eventos, j.get("casa_id"), regras, avalia, lado)
+    info, _ = avalia(entries, j.get("gc"), j.get("gf"), regras)
     minuto = info["min"] if info else "?"
     eid = j["id"]
     k = (est, eid)
@@ -11475,13 +11566,13 @@ def _padroes_tick_jogo(est, regras, j, dados, token, chat, agora):
             op["aviso_atraso"] = True
             _padroes_manda(token, chat, "⚠️ <b>Sem dados novos do gráfico</b> — o último minuto lido é "
                            f"{info['min']}' e o jogo está no {mreal}'. Confira a saída da operação de "
-                           f"{_PAD_ESTRATEGIAS[est]['nome']} (entrou aos {op['entrada']}') manualmente.")
+                           f"{_padroes_nome_est(est)} (entrou aos {op['entrada']}') manualmente.")
         return
     if op:
         chave = (op["estagio"], op["entrada"])
         fechou = next((c for c in fechadas if (c["estagio"], c["entrada"]) == chave), None)
         if fechou:
-            _padroes_manda(token, chat, _padroes_msg_saida(est, j, minuto, op["entrada"], fechou["saida"], fechou["motivo"]))
+            _padroes_manda(token, chat, _padroes_msg_saida(est, j, minuto, op["entrada"], fechou["saida"], fechou["motivo"], fechou.get("gol_lado")))
             del _padroes_ops[k]
         elif not aberta or (aberta["estagio"], aberta["entrada"]) != chave:
             _padroes_manda(token, chat, _padroes_msg_saida(est, j, minuto, op["entrada"], minuto, "padrao"))
@@ -11573,7 +11664,7 @@ def _padroes_alerta_tick():
             ativo = _padroes_ler(_padroes_arq(est)[0])
         if (ativo or {}).get("regras"):
             ativas[est] = ativo["regras"]
-    for k in [k for k in _padroes_ops if k[0] not in ativas]:
+    for k in [k for k in _padroes_ops if _padroes_est_base(k[0]) not in ativas]:
         del _padroes_ops[k]                    # aviso desligado ou regras removidas: some sem mandar nada
     if not ativas:
         return bool(_padroes_ops)
@@ -11610,6 +11701,11 @@ def _padroes_alerta_tick():
         for est, regras in ativas.items():
             if est == "under80":
                 _padroes_tick_jogo_u80(regras, j, dados, token, chat, agora)
+            elif est == "primeiro_gol":
+                for lado in ("casa", "fora"):
+                    rs = [r for r in regras if r.get("lado") == lado]
+                    if rs:
+                        _padroes_tick_jogo("pg_" + lado, rs, j, dados, token, chat, agora)
             else:
                 _padroes_tick_jogo(est, regras, j, dados, token, chat, agora)
     return bool(_padroes_ops)
