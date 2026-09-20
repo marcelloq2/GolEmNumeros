@@ -15069,6 +15069,7 @@ function _padrAviso(tipo, titulo, corpo) {
     t.innerHTML = `${_padrEsc(titulo)}<small>${_padrEsc(corpo)}</small>`;
     t.onclick = () => t.remove();
     box.appendChild(t);
+    while (box.children.length > 5) box.firstChild.remove();
     setTimeout(() => t.remove(), 25000);
   }
   try {
