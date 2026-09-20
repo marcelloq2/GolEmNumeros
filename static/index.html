@@ -2109,6 +2109,9 @@
   .padr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; justify-content: center; }
   .padr-pill { background: var(--green); color: #04270f; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 3px 9px; cursor: help; }
   .padr-sem { font-size: 10.5px; color: var(--text2); }
+  .padr-linha-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 6px; }
+  .padr-est-btns { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .padr-est-n { background: var(--red); color: #fff; border-radius: 999px; font-size: 9.5px; padding: 0 6px; margin-left: 5px; font-family: var(--font-mono); }
   .padr-op { width: 100%; text-align: center; font-size: 12px; font-weight: 800; border-radius: 8px; padding: 7px 10px; }
   .padr-op.entrada { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); border: 1px solid var(--green); }
   .padr-op.saida { background: var(--red); color: #fff; border: 1px solid var(--red); }
@@ -2568,7 +2571,10 @@
       <button class="live-refresh-btn" onclick="padrAtualiza()" title="Atualizar">↻</button>
       <span class="padr-mini" id="padrHora"></span>
     </div>
-    <div class="padr-status" id="padrStatus"></div>
+    <div class="padr-linha-status">
+      <span class="padr-est-btns" id="padrEstBtns"></span>
+      <span class="padr-status" id="padrStatus"></span>
+    </div>
     <div class="padr-msg" id="padrMsg" style="display:none"></div>
     <div id="padrRegrasBox"></div>
     <div class="live-grid-wrap" id="padrGrid"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>
@@ -14578,8 +14584,21 @@ document.addEventListener('DOMContentLoaded', () => {
 // importar outro). A conferência das regras no minuto atual (_padrAvalia) é a
 // mesma de _padroes_avalia em app.py, que manda o aviso no Telegram com o site
 // fechado — mudou lá, mude aqui.
-let _padrRegras = [];
-let _padrInfo = { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false };
+// Duas estratégias, cada uma com o SEU txt importado e o seu aviso de Telegram:
+//   under = Scalping Under Limite (sem gol no próximo minuto) | over05ht = Over 0.5 HT (gol até o intervalo)
+const _PADR_EST = {
+  under: { nome: 'Scalping Under Limite', alvo: 'sem gol no próximo minuto', arquivo: 'padroes.txt' },
+  over05ht: { nome: 'Over 0.5 HT', alvo: 'gol até o intervalo', arquivo: 'padroes_over05ht.txt' },
+};
+let _padrEst = 'under';
+try { const e = localStorage.getItem('padrEst'); if (_PADR_EST[e]) _padrEst = e; } catch (e) {}
+const _padrPor = {
+  under: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
+  over05ht: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
+};
+let _padrRegras = _padrPor[_padrEst].regras;           // regras da estratégia selecionada
+let _padrInfo = _padrPor[_padrEst].info;
+let _padrContagem = { under: 0, over05ht: 0 };         // jogos em operação agora, por estratégia
 let _padrJogos = [];
 const _padrDados = {};          // id do jogo -> { entries, eventos, erro }
 let _padrTimer = null;
@@ -14601,24 +14620,44 @@ async function padrInit() {
   _padrTimer = setInterval(padrAtualiza, 30000);
 }
 
+function _padrSync() { _padrRegras = _padrPor[_padrEst].regras; _padrInfo = _padrPor[_padrEst].info; }
+
 async function _padrCarregaRegras() {
   try {
-    const d = await (await fetch('/api/padroes')).json();
-    if (d.ok) {
-      _padrRegras = d.regras || [];
-      _padrInfo = { ativo: d.ativo, anterior: d.anterior, config: d.config || { alerta_telegram: false }, telegram_ok: !!d.telegram_ok };
-    }
+    const res = await Promise.all(Object.keys(_PADR_EST).map(e => fetch('/api/padroes?estrategia=' + e).then(r => r.json())));
+    Object.keys(_PADR_EST).forEach((e, i) => {
+      const d = res[i];
+      if (d && d.ok) _padrPor[e] = { regras: d.regras || [], info: { ativo: d.ativo, anterior: d.anterior, config: d.config || { alerta_telegram: false }, telegram_ok: !!d.telegram_ok } };
+    });
   } catch (e) { /* mantém o que já tinha */ }
+  _padrSync();
   _padrRenderBarra();
+}
+
+function padrSelecionaEst(e) {
+  if (!_PADR_EST[e] || e === _padrEst) return;
+  _padrEst = e;
+  try { localStorage.setItem('padrEst', e); } catch (x) {}
+  _padrSync();
+  _padrMsg('', true);
+  _padrRenderBarra();
+  _padrRenderGrid(_padrCalcItens());
 }
 
 function _padrRenderBarra() {
   const a = _padrInfo.ativo;
+  const eb = document.getElementById('padrEstBtns');
+  if (eb) {
+    eb.innerHTML = Object.keys(_PADR_EST).map(e => {
+      const n = _padrContagem[e] || 0, nr = _padrPor[e].regras.length;
+      return `<button class="live-refresh-btn ${e === _padrEst ? 'active' : ''}" onclick="padrSelecionaEst('${e}')" title="${_PADR_EST[e].nome}: ${nr} regra(s) importada(s) · alvo: ${_PADR_EST[e].alvo}">${_PADR_EST[e].nome}${n ? `<span class="padr-est-n" title="jogos em operação agora">${n}</span>` : ''}</button>`;
+    }).join('');
+  }
   const st = document.getElementById('padrStatus');
   if (st) {
     st.innerHTML = a
       ? `📄 <b>${_padrEsc(a.arquivo)}</b> · importado em ${_padrEsc(a.importado_em)} · <b>${a.n_regras}</b> regra(s) valendo até você importar outro arquivo`
-      : 'Nenhum arquivo de padrões importado ainda — clique em <b>Importar txt</b> e escolha o padroes.txt.';
+      : `Nenhum arquivo de <b>${_PADR_EST[_padrEst].nome}</b> importado ainda — clique em <b>Importar txt</b> e escolha o ${_PADR_EST[_padrEst].arquivo}.`;
   }
   const rb = document.getElementById('padrRestBtn');
   if (rb) {
@@ -14637,9 +14676,9 @@ function _padrRenderBarra() {
   if (so) so.classList.toggle('active', _padrSoAtivo);
   const box = document.getElementById('padrRegrasBox');
   if (box) {
-    box.innerHTML = _padrRegras.length ? `<details class="padr-regras"><summary>Ver as ${_padrRegras.length} regras importadas</summary>` +
+    box.innerHTML = _padrRegras.length ? `<details class="padr-regras"><summary>Ver as ${_padrRegras.length} regras de ${_PADR_EST[_padrEst].nome}</summary>` +
       _padrRegras.map(r => `<div class="padr-regra"><b>${_padrEsc(r.id)}</b> <span class="padr-conf ${r.confianca === 'baixa' ? 'baixa' : ''}">confiança ${_padrEsc(r.confianca)}</span>
-        <div>${_padrEsc(r.descricao)}</div>
+        <div>${_padrEsc(r.descricao)}${r.min_ini != null ? ` <span class="padr-mini">(só dos minutos ${r.min_ini} a ${r.min_fim})</span>` : ''}</div>
         <div class="padr-mini">${_padrEsc(r.estat)}${r.treino ? ` · treino: ${_padrEsc(r.treino)}` : ''}${r.teste ? ` · teste: ${_padrEsc(r.teste)}` : ''}</div></div>`).join('') + '</details>' : '';
   }
 }
@@ -14657,17 +14696,17 @@ async function padrImportar(input) {
   input.value = '';
   if (!f) return;
   const a = _padrInfo.ativo;
-  if (a && !confirm(`Já existe um arquivo valendo (${a.arquivo}, ${a.n_regras} regras, importado em ${a.importado_em}).\n\nO arquivo novo (${f.name}) vai SUBSTITUIR esse. O atual fica guardado e dá pra voltar em "Restaurar anterior".\n\nContinuar?`)) return;
+  if (a && !confirm(`[${_PADR_EST[_padrEst].nome}] Já existe um arquivo valendo (${a.arquivo}, ${a.n_regras} regras, importado em ${a.importado_em}).\n\nO arquivo novo (${f.name}) vai SUBSTITUIR esse. O atual fica guardado e dá pra voltar em "Restaurar anterior".\n\nContinuar?`)) return;
   let texto = '';
   try { texto = await f.text(); } catch (e) { _padrMsg('Não consegui ler o arquivo.', false); return; }
   try {
-    const r = await fetch('/api/padroes/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, arquivo: f.name }) });
+    const r = await fetch('/api/padroes/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, arquivo: f.name, estrategia: _padrEst }) });
     const d = await r.json();
     if (!d.ok) {
       _padrMsg(`<b>${_padrEsc(d.error || 'Erro ao importar')}</b>` + ((d.erros || []).length ? '<ul>' + d.erros.map(e => `<li>${_padrEsc(e)}</li>`).join('') + '</ul>' : ''), false);
       return;
     }
-    _padrMsg(`✔ Importado: <b>${d.regras.length}</b> regra(s) de ${_padrEsc(f.name)}. Já estão valendo.`, true);
+    _padrMsg(`✔ Importado em <b>${_PADR_EST[_padrEst].nome}</b>: <b>${d.regras.length}</b> regra(s) de ${_padrEsc(f.name)}. Já estão valendo.`, true);
     await _padrCarregaRegras();
     _padrRenderGrid();
   } catch (e) { _padrMsg('Falha de rede ao importar. Nada foi alterado.', false); }
@@ -14677,7 +14716,7 @@ async function padrRestaurar() {
   const an = _padrInfo.anterior;
   if (!an || !confirm(`Voltar para o arquivo anterior (${an.arquivo}, ${an.n_regras} regras, importado em ${an.importado_em})? O que está valendo agora vira o "anterior".`)) return;
   try {
-    const d = await (await fetch('/api/padroes/restaurar', { method: 'POST' })).json();
+    const d = await (await fetch('/api/padroes/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estrategia: _padrEst }) })).json();
     _padrMsg(d.ok ? '✔ Arquivo anterior restaurado.' : _padrEsc(d.error || 'Erro'), !!d.ok);
     await _padrCarregaRegras();
     _padrRenderGrid();
@@ -14693,10 +14732,10 @@ async function padrToggleTelegram() {
     const aviso = baixas === _padrRegras.length
       ? `Todas as ${baixas} regras estão com confiança BAIXA (com a base atual, o acaso produz resultado parecido). Os avisos vão chegar mesmo assim, mas trate como hipótese.\n\n`
       : '';
-    if (!confirm(aviso + 'Ligar os avisos no Telegram? O servidor confere os jogos do Top Scores ao vivo a cada minuto, mesmo com o site fechado (no máximo 1 aviso de ENTRADA por jogo a cada 3 min e 40 por hora; o aviso de SAÍDA sempre chega).')) return;
+    if (!confirm(aviso + 'Ligar os avisos de ' + _PADR_EST[_padrEst].nome + ' no Telegram? O servidor confere os jogos do Top Scores ao vivo a cada minuto, mesmo com o site fechado (no máximo 1 aviso de ENTRADA por jogo a cada 3 min e 40 por hora; o aviso de SAÍDA sempre chega).')) return;
   }
   try {
-    const d = await (await fetch('/api/padroes/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alerta_telegram: liga }) })).json();
+    const d = await (await fetch('/api/padroes/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alerta_telegram: liga, estrategia: _padrEst }) })).json();
     if (d.ok) _padrInfo.config = d.config;
   } catch (e) {}
   _padrRenderBarra();
@@ -14734,9 +14773,14 @@ async function padrAtualiza() {
     _padrJogos = d.jogos || [];
     if (d.ts) _padrRelogioOffset = d.ts - Date.now() / 1000;
     await Promise.all(_padrJogos.map(_padrBuscaMomentum));
-    const itens = _padrCalcItens();
-    _padrDetectaAvisos(itens);
-    if (currentView === 'padroes') _padrRenderGrid(itens);
+    const itensPor = {};
+    Object.keys(_PADR_EST).forEach(e => {
+      itensPor[e] = _padrCalcItens(e);
+      _padrDetectaAvisos(e, itensPor[e]);
+      _padrContagem[e] = itensPor[e].filter(x => x.corr.aberta).length;
+    });
+    _padrRenderBarra();
+    if (currentView === 'padroes') _padrRenderGrid(itensPor[_padrEst]);
     const cont = document.getElementById('padrCount');
     if (cont) cont.textContent = _padrJogos.length;
     const t = document.getElementById('padrHora');
@@ -14765,6 +14809,7 @@ function _padrAvalia(entries, gc, gf, regras) {
   }
   for (const r of regras) {
     if (!(r.fase === 'todo' || r.fase === faseJogo) || !ok.has(r.placar)) continue;
+    if (r.min_ini != null && !(m >= r.min_ini && m <= r.min_fim)) continue;
     const x = feats[r.medida];
     if (x == null) continue;
     if (r.op === '>=' ? x >= r.limite - 1e-9 : x <= r.limite + 1e-9) info.batem.push(r);
@@ -14813,15 +14858,22 @@ function _padrCorridas(entries, eventos, casaId, regras) {
 }
 
 const _PADR_MOTIVO = { padrao: 'o padrão deixou de bater', gol: 'saiu gol', tempo: 'fim do tempo' };
+function _padrMotivo(est, m) {
+  if (est === 'over05ht') return { padrao: 'o padrão deixou de bater', gol: 'saiu gol — over 0.5 HT batido', tempo: 'fim do 1º tempo sem gol' }[m];
+  return _PADR_MOTIVO[m];
+}
 
-function _padrCalcItens() {
+function _padrCalcItens(est) {
+  est = est || _padrEst;
+  const regras = _padrPor[est].regras;
   return _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
-    const av = _padrAvalia(d.entries, j.gc, j.gf, _padrRegras);
+    const av = _padrAvalia(d.entries, j.gc, j.gf, regras);
     const minReal = j.ini ? (j.estagio === '12' ? 1 : 46) + Math.max(0, Math.floor((Date.now() / 1000 + _padrRelogioOffset - j.ini) / 60)) : null;
     const atraso = (av && minReal != null && av.estagio === (j.estagio === '12' ? 12 : 13)) ? minReal - av.min : 0;
     const velho = atraso > _PADR_ATRASO_MAX;
-    const corr = (_padrRegras.length && !velho) ? _padrCorridas(d.entries, d.eventos, j.casa_id, _padrRegras) : { fechadas: [], aberta: null };
+    const corr = (regras.length && !velho) ? _padrCorridas(d.entries, d.eventos, j.casa_id, regras) : { fechadas: [], aberta: null };
+    corr.est = est;
     const ult = corr.fechadas.length ? corr.fechadas[corr.fechadas.length - 1] : null;
     const recente = !corr.aberta && ult && av && ult.estagioSaida === av.estagio && av.min - ult.saida <= 4;
     return { j, d, av, corr, ult, recente, minReal, atraso, velho, prio: corr.aberta ? 2 : (recente ? 1 : 0) };
@@ -14842,20 +14894,23 @@ function _padrRenderGrid(itensPre) {
     const ativos = av ? av.batem : [];
     let badges = '';
     if (velho) badges = `<div class="padr-op atraso">⚠ Gráfico atrasado ${atraso} min — padrão NÃO avaliado<div class="padr-op-sub">Último minuto do gráfico: ${av.min}' · relógio do jogo: ${minReal}'. Não confie em entrada/saída até normalizar.</div></div>`;
-    else if (!_padrRegras.length) badges = '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>';
+    else if (!_padrRegras.length) badges = `<div class="padr-sem">Importe o txt de ${_PADR_EST[_padrEst].nome} para ver quando os padrões batem.</div>`;
     else if (corr.aberta) {
-      badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — sem gol no próximo minuto
+      badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — ${_PADR_EST[_padrEst].alvo}
         <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>` +
         ativos.map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('');
     } else if (recente) {
-      badges = `<div class="padr-op saida">🔴 SAIR AGORA — ${_PADR_MOTIVO[ult.motivo]} (minuto ${ult.saida}')
+      const ganhou = _padrEst === 'over05ht' && ult.motivo === 'gol';
+      badges = ganhou
+        ? `<div class="padr-op entrada">✅ GOL — Over 0.5 HT batido (minuto ${ult.saida}')<div class="padr-op-sub">Entrou aos ${ult.entrada}' · operação encerrada</div></div>`
+        : `<div class="padr-op saida">🔴 ${ult.motivo === 'gol' ? 'GOL — operação encerrada' : ult.motivo === 'tempo' ? 'FIM DO TEMPO — feche a operação' : 'SAIR AGORA'} — ${_padrMotivo(_padrEst, ult.motivo)} (minuto ${ult.saida}')
         <div class="padr-op-sub">Entrou aos ${ult.entrada}' · saída no minuto ${ult.saida}'</div></div>`;
     } else {
       badges = `<div class="padr-sem">${av ? 'Nenhum padrão ativo neste minuto' : (d.erro ? 'Gráfico indisponível para este jogo' : 'Carregando...')}</div>` +
-        (ult ? `<div class="padr-sem">Última operação: entrou aos ${ult.entrada}', saiu no minuto ${ult.saida}' (${_PADR_MOTIVO[ult.motivo]})</div>` : '');
+        (ult ? `<div class="padr-sem">Última operação: entrou aos ${ult.entrada}', saiu no minuto ${ult.saida}' (${_padrMotivo(_padrEst, ult.motivo)})</div>` : '');
     }
     const dados = av ? `casa ${Math.max(av.v, 0).toFixed(2)} · visitante ${Math.max(-av.v, 0).toFixed(2)}` : '';
-    return `<div class="live-card padr-card ${corr.aberta ? 'padr-card-ativo' : (recente ? 'padr-card-saida' : '')}" id="padrCard_${_padrEsc(j.id)}" style="cursor:default">
+    return `<div class="live-card padr-card ${corr.aberta ? 'padr-card-ativo' : (recente ? (_padrEst === 'over05ht' && ult.motivo === 'gol' ? 'padr-card-ativo' : 'padr-card-saida') : '')}" id="padrCard_${_padrEsc(j.id)}" style="cursor:default">
       <div class="live-card-top" style="justify-content:center;text-align:center"><span>${_padrEsc(j.liga)}</span></div>
       <div class="live-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -15013,10 +15068,13 @@ function _padrDesenha(cv, j, d, corr) {
       c.fillRect(xa, pBot + 8, Math.max(xb - xa, 3), 3);
       c.fillStyle = '#00e676'; c.beginPath(); c.moveTo(xa - 3, pBot + 13); c.lineTo(xa + 3, pBot + 13); c.lineTo(xa, pBot + 8); c.closePath(); c.fill();
       hit.eventos.push({ x: xa, y: pBot + 10, txt: `Entrada no minuto ${o.entrada}'` });
-      if (!o.aberta) {
+      if (!o.aberta && corr.est === 'over05ht' && o.motivo === 'gol') {
+        c.fillStyle = '#00e676'; c.beginPath(); c.arc(xb, pBot + 10, 4, 0, Math.PI * 2); c.fill();
+        hit.eventos.push({ x: xb, y: pBot + 10, txt: `GOL no minuto ${o.saida}' — over 0.5 HT batido` });
+      } else if (!o.aberta) {
         c.strokeStyle = '#ff5449'; c.lineWidth = 1.8; c.beginPath();
         c.moveTo(xb - 3.5, pBot + 6.5); c.lineTo(xb + 3.5, pBot + 13.5); c.moveTo(xb + 3.5, pBot + 6.5); c.lineTo(xb - 3.5, pBot + 13.5); c.stroke();
-        hit.eventos.push({ x: xb, y: pBot + 10, txt: `SAÍDA no minuto ${o.saida}' — ${_PADR_MOTIVO[o.motivo]}` });
+        hit.eventos.push({ x: xb, y: pBot + 10, txt: `SAÍDA no minuto ${o.saida}' — ${_padrMotivo(corr.est, o.motivo)}` });
       }
     });
   }
@@ -15084,25 +15142,28 @@ function _padrAviso(tipo, titulo, corpo) {
   }
 }
 
-function _padrDetectaAvisos(itens) {
+function _padrDetectaAvisos(est, itens) {
   if (!_padrAvisosOn) return;
+  const rotulo = _PADR_EST[est].nome;
   itens.forEach(({ j, corr, av, velho }) => {
-    if (velho || !_padrRegras.length) return;
+    if (velho || !_padrPor[est].regras.length) return;
     const atual = new Set();
     corr.fechadas.forEach(o => atual.add(`f${o.estagio}-${o.entrada}`));
     if (corr.aberta) atual.add(`a${corr.aberta.estagio}-${corr.aberta.entrada}`);
-    const visto = _padrVisto[j.id];
-    if (!visto) { _padrVisto[j.id] = atual; return; }        // 1ª leitura do jogo: só linha de base
+    const kv = est + ':' + j.id;
+    const visto = _padrVisto[kv];
+    if (!visto) { _padrVisto[kv] = atual; return; }        // 1ª leitura do jogo: só linha de base
     const nome = `${j.casa} x ${j.fora}`, placar = `${j.gc ?? 0}-${j.gf ?? 0}`;
     if (corr.aberta && !visto.has(`a${corr.aberta.estagio}-${corr.aberta.entrada}`)) {
-      _padrAviso('entrada', `🟢 ENTRADA — ${nome}`, `${placar} · padrão ${corr.aberta.regrasEntrada.join(', ')} bateu no minuto ${corr.aberta.entrada}' — sem gol no próximo minuto. Eu aviso a saída.`);
+      _padrAviso('entrada', `🟢 ENTRADA ${rotulo} — ${nome}`, `${placar} · padrão ${corr.aberta.regrasEntrada.join(', ')} bateu no minuto ${corr.aberta.entrada}' — ${_PADR_EST[est].alvo}. Eu aviso a saída.`);
     }
     corr.fechadas.forEach(o => {
       const k = `f${o.estagio}-${o.entrada}`;
       if (visto.has(k)) return;
-      const motivo = _PADR_MOTIVO[o.motivo];
+      const motivo = _padrMotivo(est, o.motivo);
+      const vitoria = est === 'over05ht' && o.motivo === 'gol';
       const relampago = !visto.has(`a${o.estagio}-${o.entrada}`);
-      _padrAviso('saida', `🔴 SAIR — ${nome}`, `${placar} · ${motivo} (minuto ${o.saida}')` + (relampago ? ` · entrou aos ${o.entrada}' e já saiu (não deu tempo de avisar a entrada)` : ` · entrou aos ${o.entrada}'`));
+      _padrAviso(vitoria ? 'entrada' : 'saida', `${vitoria ? '✅ GOL' : '🔴 SAIR'} ${rotulo} — ${nome}`, `${placar} · ${motivo} (minuto ${o.saida}')` + (relampago ? ` · entrou aos ${o.entrada}' e já saiu (não deu tempo de avisar a entrada)` : ` · entrou aos ${o.entrada}'`));
     });
     atual.forEach(k => visto.add(k));
   });

@@ -10729,22 +10729,42 @@ threading.Thread(target=_fav_alerta_loop, daemon=True, name="FavAlerta15min").st
 #      num jogo do Top Scores. Desligado por padrão (botão na aba).
 # Formato do txt: blocos "REGRA Rxx" com linhas "chave = valor" (ver padroes.txt
 # gerado pelo descobrir_padroes.py). Linhas com # são comentário.
-PADROES_FILE = os.path.join(DATA_DIR, "padroes_regras.json")
-PADROES_ANT_FILE = os.path.join(DATA_DIR, "padroes_regras_anterior.json")
+# Duas estratégias, cada uma com o SEU txt importado (o novo substitui o antigo da mesma estratégia):
+#   under    = "Scalping Under Limite": padrão de barras -> NÃO sai gol no minuto seguinte (alvo sem_gol_proximo_minuto)
+#   over05ht = "Over 0.5 HT": padrão de barras no 1º tempo -> sai gol até o intervalo (alvo gol_ate_intervalo)
+# Os arquivos do "under" mantêm os nomes originais (o que já estava salvo continua valendo).
+_PAD_ESTRATEGIAS = {
+    "under": {"nome": "Scalping Under Limite", "alvo": "sem_gol_proximo_minuto", "sufixo": ""},
+    "over05ht": {"nome": "Over 0.5 HT", "alvo": "gol_ate_intervalo", "sufixo": "_over05ht"},
+}
 PADROES_CFG_FILE = os.path.join(DATA_DIR, "padroes_config.json")
 _padroes_lock = threading.Lock()
+
+
+def _padroes_est(v):
+    return v if v in _PAD_ESTRATEGIAS else "under"
+
+
+def _padroes_arq(est, anterior=False):
+    """(caminho local, nome no GitHub) do arquivo de regras da estratégia (ou da versão anterior)."""
+    suf = _PAD_ESTRATEGIAS[_padroes_est(est)]["sufixo"]
+    nome = f"padroes_regras{'_anterior' if anterior else ''}{suf}.json"
+    return os.path.join(DATA_DIR, nome), nome
+
 
 _PAD_MEDIDAS = ("casa_m", "fora_m", "dom_m", "soma_m", "dif_m", "delta_dom")
 _PAD_FASES = ("todo", "1T", "2T")
 _PAD_PLACARES = ("qualquer", "0-0", "empate", "um_lado_vence")
-_PAD_ALVOS = ("sem_gol_proximo_minuto",)
 _PAD_MAX_REGRAS = 200
 _PAD_MAX_TEXTO = 400_000
 _PAD_RE_COND = re.compile(r"^(>=|<=)\s*(-?\d+(?:\.\d+)?)$")
 
 
-def _padroes_parse(texto):
-    """(regras, erros). Só aceita o formato do minuto atual -> sem gol no minuto seguinte."""
+def _padroes_parse(texto, est="under"):
+    """(regras, erros). Formato do minuto atual; o alvo aceito depende da estratégia (ver _PAD_ESTRATEGIAS).
+    Campo opcional "minuto = 16-30" restringe a regra a essa faixa de minutos de jogo."""
+    est = _padroes_est(est)
+    alvo_ok = _PAD_ESTRATEGIAS[est]["alvo"]
     regras, erros, ids = [], [], set()
     atual = {"r": None}
 
@@ -10765,8 +10785,13 @@ def _padroes_parse(texto):
             prob.append(f"condicao '{r.get('condicao', '')}' inválida (ex: <= 0.15)")
         if placar not in _PAD_PLACARES:
             prob.append(f"placar '{placar}' inválido (use {'/'.join(_PAD_PLACARES)})")
-        if alvo not in _PAD_ALVOS:
-            prob.append(f"alvo '{alvo}' não suportado (só sem_gol_proximo_minuto)")
+        if alvo != alvo_ok:
+            prob.append(f"alvo '{alvo}' não vale para {_PAD_ESTRATEGIAS[est]['nome']} (use {alvo_ok})")
+        if est == "over05ht" and fase != "1T":
+            prob.append("Over 0.5 HT só vale no 1º tempo (fase = 1T)")
+        faixa = re.match(r"^(\d{1,2})\s*-\s*(\d{1,2})$", r.get("minuto", "")) if r.get("minuto") else None
+        if r.get("minuto") and (not faixa or not 1 <= int(faixa.group(1)) <= int(faixa.group(2)) <= 90):
+            prob.append(f"minuto '{r.get('minuto')}' inválido (ex: 16-30)")
         if rid in ids:
             prob.append("id repetido")
         if prob:
@@ -10776,6 +10801,7 @@ def _padroes_parse(texto):
         regras.append({
             "id": rid, "fase": fase, "medida": medida, "op": cond.group(1), "limite": float(cond.group(2)),
             "placar": placar, "alvo": alvo, "descricao": r.get("descricao", "")[:300],
+            "min_ini": int(faixa.group(1)) if faixa else None, "min_fim": int(faixa.group(2)) if faixa else None,
             "confianca": (r.get("confianca") or "baixa")[:20],
             "estat": ("minutos que bateram: " + r["minutos_bateram"])[:200] if r.get("minutos_bateram") else "", "treino": (r.get("treino") or "")[:120],
             "teste": (r.get("teste") or "")[:120],
@@ -10822,12 +10848,17 @@ def _padroes_grava(path, dados, remoto):
 
 
 def _padroes_cfg():
+    """Avisos do Telegram ligados por estratégia. (Chave antiga "alerta_telegram" = Scalping Under Limite.)"""
     try:
         with open(PADROES_CFG_FILE, "r", encoding="utf-8") as f:
             d = json.load(f)
-        return {"alerta_telegram": bool(d.get("alerta_telegram"))}
     except Exception:
-        return {"alerta_telegram": False}
+        d = {}
+    return {"alerta_telegram": bool(d.get("alerta_telegram")), "alerta_over05ht": bool(d.get("alerta_over05ht"))}
+
+
+def _padroes_alerta_on(cfg, est):
+    return cfg["alerta_telegram"] if est == "under" else cfg["alerta_over05ht"]
 
 
 def _padroes_meta(d):
@@ -10839,55 +10870,64 @@ def _padroes_meta(d):
 
 @app.route("/api/padroes")
 def api_padroes():
+    est = _padroes_est(request.args.get("estrategia"))
     with _padroes_lock:
-        atual, ant = _padroes_ler(PADROES_FILE), _padroes_ler(PADROES_ANT_FILE)
+        atual, ant = _padroes_ler(_padroes_arq(est)[0]), _padroes_ler(_padroes_arq(est, True)[0])
     token, chat = _tg_creds()
-    return jsonify({"ok": True, "ativo": _padroes_meta(atual), "regras": (atual or {}).get("regras") or [],
-                    "anterior": _padroes_meta(ant), "config": _padroes_cfg(), "telegram_ok": bool(token and chat)})
+    cfg = _padroes_cfg()
+    return jsonify({"ok": True, "estrategia": est, "ativo": _padroes_meta(atual), "regras": (atual or {}).get("regras") or [],
+                    "anterior": _padroes_meta(ant), "config": {"alerta_telegram": _padroes_alerta_on(cfg, est)},
+                    "telegram_ok": bool(token and chat)})
 
 
 @app.route("/api/padroes/importar", methods=["POST"])
 def api_padroes_importar():
     d = request.get_json(silent=True) or {}
+    est = _padroes_est(d.get("estrategia"))
     texto = str(d.get("texto") or "")
     if len(texto) > _PAD_MAX_TEXTO:
         return jsonify({"ok": False, "error": "Arquivo grande demais."}), 400
-    regras, erros = _padroes_parse(texto)
+    regras, erros = _padroes_parse(texto, est)
     if erros or not regras:
         # Nada é alterado: o arquivo que já estava valendo continua valendo.
         return jsonify({"ok": False, "error": "Arquivo não importado — o anterior continua valendo.", "erros": erros}), 400
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     novo = {"meta": {"arquivo": str(d.get("arquivo") or "padroes.txt")[:120], "importado_em": agora},
             "regras": regras, "texto": texto}
+    (arq, nome), (arq_ant, nome_ant) = _padroes_arq(est), _padroes_arq(est, True)
     with _padroes_lock:
-        atual = _padroes_ler(PADROES_FILE)
+        atual = _padroes_ler(arq)
         if atual:
-            _padroes_grava(PADROES_ANT_FILE, atual, "padroes_regras_anterior.json")
-        _padroes_grava(PADROES_FILE, novo, "padroes_regras.json")
-    _padroes_estado.clear()
-    return jsonify({"ok": True, "ativo": _padroes_meta(novo), "regras": regras})
+            _padroes_grava(arq_ant, atual, nome_ant)
+        _padroes_grava(arq, novo, nome)
+    _padroes_limpa_estado(est)
+    return jsonify({"ok": True, "estrategia": est, "ativo": _padroes_meta(novo), "regras": regras})
 
 
 @app.route("/api/padroes/restaurar", methods=["POST"])
 def api_padroes_restaurar():
+    est = _padroes_est((request.get_json(silent=True) or {}).get("estrategia"))
+    (arq, nome), (arq_ant, nome_ant) = _padroes_arq(est), _padroes_arq(est, True)
     with _padroes_lock:
-        atual, ant = _padroes_ler(PADROES_FILE), _padroes_ler(PADROES_ANT_FILE)
+        atual, ant = _padroes_ler(arq), _padroes_ler(arq_ant)
         if not ant:
             return jsonify({"ok": False, "error": "Não há versão anterior guardada."}), 400
-        _padroes_grava(PADROES_FILE, ant, "padroes_regras.json")
+        _padroes_grava(arq, ant, nome)
         if atual:
-            _padroes_grava(PADROES_ANT_FILE, atual, "padroes_regras_anterior.json")
-    _padroes_estado.clear()
-    return jsonify({"ok": True, "ativo": _padroes_meta(ant), "regras": ant.get("regras") or []})
+            _padroes_grava(arq_ant, atual, nome_ant)
+    _padroes_limpa_estado(est)
+    return jsonify({"ok": True, "estrategia": est, "ativo": _padroes_meta(ant), "regras": ant.get("regras") or []})
 
 
 @app.route("/api/padroes/config", methods=["POST"])
 def api_padroes_config():
     d = request.get_json(silent=True) or {}
-    cfg = {"alerta_telegram": bool(d.get("alerta_telegram"))}
+    est = _padroes_est(d.get("estrategia"))
     with _padroes_lock:
+        cfg = _padroes_cfg()
+        cfg["alerta_telegram" if est == "under" else "alerta_over05ht"] = bool(d.get("alerta_telegram"))
         _padroes_grava(PADROES_CFG_FILE, cfg, "padroes_config.json")
-    return jsonify({"ok": True, "config": cfg})
+    return jsonify({"ok": True, "estrategia": est, "config": {"alerta_telegram": _padroes_alerta_on(cfg, est)}})
 
 
 # Jogos ao vivo do Top Scores (mesmo feed do filtro do Ao Vivo, com id do Livesport
@@ -10979,6 +11019,8 @@ def _padroes_avalia(entries, gc, gf, regras):
     for r in regras:
         if r["fase"] not in ("todo", fase_jogo) or r["placar"] not in placar_ok:
             continue
+        if r.get("min_ini") is not None and not r["min_ini"] <= m <= r["min_fim"]:
+            continue
         x = feats.get(r["medida"])
         if x is None:
             continue
@@ -11033,13 +11075,28 @@ def _padroes_corridas(entries, eventos, casa_id, regras):
     return fechadas, atual
 
 
-_padroes_estado = {}        # event_id -> {(estagio, entrada)} corridas já tratadas (avisadas ou descartadas)
-_padroes_ops = {}           # event_id -> operação AVISADA que ainda está aberta {"estagio","entrada","j"}
-_padroes_ult_msg = {}       # event_id -> ts do último aviso de ENTRADA
+_padroes_estado = {}        # (estratégia, event_id) -> {(estagio, entrada)} corridas já tratadas (avisadas ou descartadas)
+_padroes_ops = {}           # (estratégia, event_id) -> operação AVISADA ainda aberta {"estagio","entrada","j"}
+_padroes_ult_msg = {}       # (estratégia, event_id) -> ts do último aviso de ENTRADA
 _padroes_envios = deque(maxlen=200)   # ts dos avisos de entrada (limite por hora)
 _PAD_COOLDOWN_JOGO = 3 * 60           # entre 2 avisos de ENTRADA do mesmo jogo (a saída nunca é retida)
 _PAD_MAX_HORA = 40
 _PAD_ENTRADA_VELHA = 4                # não avisa entrada de operação que começou há mais de N minutos de jogo
+
+_PAD_TEXTOS = {
+    "under": {"entrada": "📊 <b>ENTRADA — Scalping Under Limite: sem gol no próximo minuto</b>",
+              "gol": "⚽ <b>SAIU GOL — operação encerrada</b>",
+              "tempo": "⏹ <b>FIM DO TEMPO — feche a operação</b>"},
+    "over05ht": {"entrada": "📈 <b>ENTRADA — Over 0.5 HT: padrão ativo (gol até o intervalo)</b>",
+                 "gol": "✅ <b>SAIU GOL — over 0.5 HT batido, operação encerrada</b>",
+                 "tempo": "⏹ <b>FIM DO 1º TEMPO — sem gol, operação encerrada</b>"},
+}
+
+
+def _padroes_limpa_estado(est):
+    for d in (_padroes_estado, _padroes_ops, _padroes_ult_msg):
+        for k in [k for k in d if k[0] == est]:
+            del d[k]
 
 
 def _padroes_momentum(event_id):
@@ -11061,10 +11118,10 @@ def _padroes_cab(j, minuto):
     return linhas
 
 
-def _padroes_msg(j, minuto, entrada, regras_batem):
+def _padroes_msg(est, j, minuto, entrada, regras_batem):
     import html as _html
     esc = lambda v: _html.escape(str(v))
-    linhas = ["📊 <b>ENTRADA — padrão ativo: sem gol no próximo minuto</b>"] + _padroes_cab(j, minuto)
+    linhas = [_PAD_TEXTOS[est]["entrada"]] + _padroes_cab(j, minuto)
     linhas.append(f"🟢 Entrada no minuto {entrada}'. Eu aviso a <b>SAÍDA</b> quando o padrão deixar de bater.")
     linhas.append("")
     for r in regras_batem:
@@ -11074,10 +11131,9 @@ def _padroes_msg(j, minuto, entrada, regras_batem):
     return "\n".join(linhas)
 
 
-def _padroes_msg_saida(j, minuto, entrada, saida, motivo):
+def _padroes_msg_saida(est, j, minuto, entrada, saida, motivo):
     titulo = {"padrao": "🔴 <b>SAIR DA OPERAÇÃO — o padrão deixou de bater</b>",
-              "gol": "⚽ <b>SAIU GOL — operação encerrada</b>",
-              "tempo": "⏹ <b>FIM DO TEMPO — feche a operação</b>"}.get(motivo, "🔴 <b>SAIR DA OPERAÇÃO</b>")
+              "gol": _PAD_TEXTOS[est]["gol"], "tempo": _PAD_TEXTOS[est]["tempo"]}.get(motivo, "🔴 <b>SAIR DA OPERAÇÃO</b>")
     linhas = [titulo] + _padroes_cab(j, minuto)
     linhas.append(f"Entrou aos {entrada}' · saída no minuto {saida}'")
     return "\n".join(linhas)
@@ -11093,14 +11149,74 @@ def _padroes_manda(token, chat, msg):
     return False
 
 
+def _padroes_tick_jogo(est, regras, j, dados, token, chat, agora):
+    """Confere UM jogo para UMA estratégia: avisa entrada, saída (padrão/gol/fim do tempo) ou dado atrasado."""
+    por_id = {r["id"]: r for r in regras}
+    entries, eventos = dados
+    fechadas, aberta = _padroes_corridas(entries, eventos, j.get("casa_id"), regras)
+    info, _ = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
+    minuto = info["min"] if info else "?"
+    eid = j["id"]
+    k = (est, eid)
+    op = _padroes_ops.get(k)
+    mreal = _padroes_min_real(j, agora)
+    if info and mreal is not None and info["estagio"] == (12 if j.get("estagio") == "12" else 13) and mreal - info["min"] > _PAD_ATRASO_MAX:
+        # gráfico velho: não avalia padrão nenhum (nem entrada, nem saída) com dado que não é de agora
+        if op and not op.get("aviso_atraso"):
+            op["aviso_atraso"] = True
+            _padroes_manda(token, chat, "⚠️ <b>Sem dados novos do gráfico</b> — o último minuto lido é "
+                           f"{info['min']}' e o jogo está no {mreal}'. Confira a saída da operação de "
+                           f"{_PAD_ESTRATEGIAS[est]['nome']} (entrou aos {op['entrada']}') manualmente.")
+        return
+    if op:
+        chave = (op["estagio"], op["entrada"])
+        fechou = next((c for c in fechadas if (c["estagio"], c["entrada"]) == chave), None)
+        if fechou:
+            _padroes_manda(token, chat, _padroes_msg_saida(est, j, minuto, op["entrada"], fechou["saida"], fechou["motivo"]))
+            del _padroes_ops[k]
+        elif not aberta or (aberta["estagio"], aberta["entrada"]) != chave:
+            _padroes_manda(token, chat, _padroes_msg_saida(est, j, minuto, op["entrada"], minuto, "padrao"))
+            del _padroes_ops[k]
+        else:
+            return                             # continua em operação
+    if aberta is None:
+        return
+    chave = (aberta["estagio"], aberta["entrada"])
+    vistas = _padroes_estado.setdefault(k, set())
+    if chave in vistas:
+        return
+    if isinstance(minuto, int) and info and aberta["estagio"] == info["estagio"] and minuto - aberta["entrada"] > _PAD_ENTRADA_VELHA:
+        vistas.add(chave)                      # trecho antigo demais pra valer avisar entrada agora
+        return
+    if agora - _padroes_ult_msg.get(k, 0) < _PAD_COOLDOWN_JOGO:
+        return                                 # tenta de novo no próximo ciclo
+    while _padroes_envios and agora - _padroes_envios[0] > 3600:
+        _padroes_envios.popleft()
+    if len(_padroes_envios) >= _PAD_MAX_HORA:
+        print("[padroes] limite de avisos por hora atingido")
+        return
+    avisar = [por_id[r] for r in aberta["regras_entrada"] if r in por_id]
+    if _padroes_manda(token, chat, _padroes_msg(est, j, minuto, aberta["entrada"], avisar)):
+        vistas.add(chave)
+        _padroes_ult_msg[k] = agora
+        _padroes_envios.append(agora)
+        _padroes_ops[k] = {"estagio": aberta["estagio"], "entrada": aberta["entrada"], "j": j}
+
+
 def _padroes_alerta_tick():
     """Devolve True se há operação aberta (o loop então confere de 30 em 30 s, pra saída não atrasar)."""
-    if not _padroes_cfg()["alerta_telegram"]:
-        return bool(_padroes_ops)
-    with _padroes_lock:
-        ativo = _padroes_ler(PADROES_FILE)
-    regras = (ativo or {}).get("regras") or []
-    if not regras:
+    cfg = _padroes_cfg()
+    ativas = {}
+    for est in _PAD_ESTRATEGIAS:
+        if not _padroes_alerta_on(cfg, est):
+            continue
+        with _padroes_lock:
+            ativo = _padroes_ler(_padroes_arq(est)[0])
+        if (ativo or {}).get("regras"):
+            ativas[est] = ativo["regras"]
+    for k in [k for k in _padroes_ops if k[0] not in ativas]:
+        del _padroes_ops[k]                    # aviso desligado ou regras removidas: some sem mandar nada
+    if not ativas:
         return bool(_padroes_ops)
     token, chat = _tg_creds()
     if not token or not chat:
@@ -11108,69 +11224,22 @@ def _padroes_alerta_tick():
     jogos = [j for j in _padroes_jogos_ao_vivo() if j.get("estagio") in ("12", "13") and j.get("id")]
     vivos = {j["id"] for j in jogos}
     # jogo que saiu do ar (intervalo/fim) com operação aberta: avisa a saída por fim de tempo
-    for eid in [e for e in _padroes_ops if e not in vivos]:
-        op = _padroes_ops.pop(eid)
-        _padroes_manda(token, chat, _padroes_msg_saida(op["j"], "?", op["entrada"], "?", "tempo"))
-    for eid in [e for e in _padroes_estado if e not in vivos]:
-        del _padroes_estado[eid]
-    for eid in [e for e in _padroes_ult_msg if e not in vivos]:
-        del _padroes_ult_msg[eid]
+    for k in [k for k in _padroes_ops if k[1] not in vivos]:
+        op = _padroes_ops.pop(k)
+        _padroes_manda(token, chat, _padroes_msg_saida(k[0], op["j"], "?", op["entrada"], "?", "tempo"))
+    for d in (_padroes_estado, _padroes_ult_msg):
+        for k in [k for k in d if k[1] not in vivos]:
+            del d[k]
     if not jogos:
         return bool(_padroes_ops)
-    por_id = {r["id"]: r for r in regras}
     with ThreadPoolExecutor(max_workers=3) as pool:
         resultados = list(pool.map(lambda j: (j, _pad_try(lambda: _padroes_momentum(j["id"]))), jogos))
     agora = time.time()
     for j, dados in resultados:
         if not dados or not dados[0]:
             continue
-        entries, eventos = dados
-        fechadas, aberta = _padroes_corridas(entries, eventos, j.get("casa_id"), regras)
-        info, _ = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
-        minuto = info["min"] if info else "?"
-        eid = j["id"]
-        op = _padroes_ops.get(eid)
-        mreal = _padroes_min_real(j, agora)
-        if info and mreal is not None and info["estagio"] == (12 if j.get("estagio") == "12" else 13) and mreal - info["min"] > _PAD_ATRASO_MAX:
-            # gráfico velho: não avalia padrão nenhum (nem entrada, nem saída) com dado que não é de agora
-            if op and not op.get("aviso_atraso"):
-                op["aviso_atraso"] = True
-                _padroes_manda(token, chat, "⚠️ <b>Sem dados novos do gráfico</b> — o último minuto lido é "
-                               f"{info['min']}' e o jogo está no {mreal}'. Confira a saída da operação (entrou aos {op['entrada']}') manualmente.")
-            continue
-        if op:
-            chave = (op["estagio"], op["entrada"])
-            fechou = next((c for c in fechadas if (c["estagio"], c["entrada"]) == chave), None)
-            if fechou:
-                _padroes_manda(token, chat, _padroes_msg_saida(j, minuto, op["entrada"], fechou["saida"], fechou["motivo"]))
-                del _padroes_ops[eid]
-            elif not aberta or (aberta["estagio"], aberta["entrada"]) != chave:
-                _padroes_manda(token, chat, _padroes_msg_saida(j, minuto, op["entrada"], minuto, "padrao"))
-                del _padroes_ops[eid]
-            else:
-                continue                       # continua em operação
-        if aberta is None:
-            continue
-        chave = (aberta["estagio"], aberta["entrada"])
-        vistas = _padroes_estado.setdefault(eid, set())
-        if chave in vistas:
-            continue
-        if isinstance(minuto, int) and info and aberta["estagio"] == info["estagio"] and minuto - aberta["entrada"] > _PAD_ENTRADA_VELHA:
-            vistas.add(chave)                  # trecho antigo demais pra valer avisar entrada agora
-            continue
-        if agora - _padroes_ult_msg.get(eid, 0) < _PAD_COOLDOWN_JOGO:
-            continue                           # tenta de novo no próximo ciclo
-        while _padroes_envios and agora - _padroes_envios[0] > 3600:
-            _padroes_envios.popleft()
-        if len(_padroes_envios) >= _PAD_MAX_HORA:
-            print("[padroes] limite de avisos por hora atingido")
-            continue
-        avisar = [por_id[r] for r in aberta["regras_entrada"] if r in por_id]
-        if _padroes_manda(token, chat, _padroes_msg(j, minuto, aberta["entrada"], avisar)):
-            vistas.add(chave)
-            _padroes_ult_msg[eid] = agora
-            _padroes_envios.append(agora)
-            _padroes_ops[eid] = {"estagio": aberta["estagio"], "entrada": aberta["entrada"], "j": j}
+        for est, regras in ativas.items():
+            _padroes_tick_jogo(est, regras, j, dados, token, chat, agora)
     return bool(_padroes_ops)
 
 
@@ -11193,6 +11262,7 @@ def _padroes_alerta_loop():
         time.sleep(espera)
 
 
+threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()
 threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()
 
 
