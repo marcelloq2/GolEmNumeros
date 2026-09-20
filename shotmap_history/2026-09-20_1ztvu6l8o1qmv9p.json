@@ -1,0 +1,102 @@
+{
+  "event_id": "1ztvu6l8o1qmv9p",
+  "date": "2026-09-20",
+  "casa": "Detroit City",
+  "fora": "Pittsburgh Riverhounds",
+  "liga": "USL Championship",
+  "score": {
+    "home": 1,
+    "away": 0
+  },
+  "total_shots": 8,
+  "shotmap": [
+    {
+      "id": "2972606001",
+      "minute": 87,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "M. Rodriguez",
+      "x": 26.4,
+      "y": 58.4
+    },
+    {
+      "id": "2972595521",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C.Niang",
+      "x": 13.6,
+      "y": 75
+    },
+    {
+      "id": "2972592445",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "K.Williams",
+      "x": 4.3,
+      "y": 53.8
+    },
+    {
+      "id": "2972581031",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "M. Rodriguez",
+      "x": 11.6,
+      "y": 33.9
+    },
+    {
+      "id": "2972578631",
+      "minute": 56,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "D.Abdoulaye",
+      "x": 25.2,
+      "y": 65.7
+    },
+    {
+      "id": "2972555877",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "A.Dikwa",
+      "x": 15.4,
+      "y": 56
+    },
+    {
+      "id": "2972531301",
+      "minute": 11,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Mertz",
+      "x": 25.9,
+      "y": 63.7
+    },
+    {
+      "id": "2972527125",
+      "minute": 6,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "J.Cedeno",
+      "x": 29.7,
+      "y": 77.3
+    }
+  ]
+}
