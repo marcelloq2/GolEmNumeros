@@ -10715,6 +10715,371 @@ def _fav_alerta_loop():
 threading.Thread(target=_fav_alerta_loop, daemon=True, name="FavAlerta15min").start()
 
 
+# ── Padrões de barras (aba "Padrões") — 2026-09-19 ────────────────────────────
+# O usuário estuda no PC dele (painel_local, prints do gráfico "Termômetro da
+# Partida" do Livesport) padrões do tipo "com estas barras no minuto atual, NÃO
+# sai gol no minuto seguinte" e exporta um padroes.txt. Aqui:
+#   1) o txt é importado e guardado NO SERVIDOR (arquivo + GitHub) e vale até o
+#      usuário importar outro — o novo SUBSTITUI o antigo (o anterior fica de
+#      reserva pra "Restaurar anterior");
+#   2) a aba mostra os jogos do Top Scores ao vivo com o gráfico (o navegador
+#      busca o gráfico direto no Livesport: custo zero pro Railway) e marca os
+#      padrões que estão batendo naquele minuto;
+#   3) um loop leve avisa no Telegram (com o site fechado) quando um padrão bate
+#      num jogo do Top Scores. Desligado por padrão (botão na aba).
+# Formato do txt: blocos "REGRA Rxx" com linhas "chave = valor" (ver padroes.txt
+# gerado pelo descobrir_padroes.py). Linhas com # são comentário.
+PADROES_FILE = os.path.join(DATA_DIR, "padroes_regras.json")
+PADROES_ANT_FILE = os.path.join(DATA_DIR, "padroes_regras_anterior.json")
+PADROES_CFG_FILE = os.path.join(DATA_DIR, "padroes_config.json")
+_padroes_lock = threading.Lock()
+
+_PAD_MEDIDAS = ("casa_m", "fora_m", "dom_m", "soma_m", "dif_m", "delta_dom")
+_PAD_FASES = ("todo", "1T", "2T")
+_PAD_PLACARES = ("qualquer", "0-0", "empate", "um_lado_vence")
+_PAD_ALVOS = ("sem_gol_proximo_minuto",)
+_PAD_MAX_REGRAS = 200
+_PAD_MAX_TEXTO = 400_000
+_PAD_RE_COND = re.compile(r"^(>=|<=)\s*(-?\d+(?:\.\d+)?)$")
+
+
+def _padroes_parse(texto):
+    """(regras, erros). Só aceita o formato do minuto atual -> sem gol no minuto seguinte."""
+    regras, erros, ids = [], [], set()
+    atual = {"r": None}
+
+    def fecha():
+        r = atual["r"]
+        atual["r"] = None
+        if r is None:
+            return
+        rid, ln = r.get("id"), r.get("_linha")
+        prob = []
+        fase, medida, placar = r.get("fase", ""), r.get("medida", ""), r.get("placar", "")
+        alvo, cond = r.get("alvo", ""), _PAD_RE_COND.match(r.get("condicao", ""))
+        if fase not in _PAD_FASES:
+            prob.append(f"fase '{fase}' inválida (use {'/'.join(_PAD_FASES)})")
+        if medida not in _PAD_MEDIDAS:
+            prob.append(f"medida '{medida}' não reconhecida (use {'/'.join(_PAD_MEDIDAS)})")
+        if not cond:
+            prob.append(f"condicao '{r.get('condicao', '')}' inválida (ex: <= 0.15)")
+        if placar not in _PAD_PLACARES:
+            prob.append(f"placar '{placar}' inválido (use {'/'.join(_PAD_PLACARES)})")
+        if alvo not in _PAD_ALVOS:
+            prob.append(f"alvo '{alvo}' não suportado (só sem_gol_proximo_minuto)")
+        if rid in ids:
+            prob.append("id repetido")
+        if prob:
+            erros.append(f"Regra {rid} (linha {ln}): " + "; ".join(prob))
+            return
+        ids.add(rid)
+        regras.append({
+            "id": rid, "fase": fase, "medida": medida, "op": cond.group(1), "limite": float(cond.group(2)),
+            "placar": placar, "alvo": alvo, "descricao": r.get("descricao", "")[:300],
+            "confianca": (r.get("confianca") or "baixa")[:20],
+            "estat": ("minutos que bateram: " + r["minutos_bateram"])[:200] if r.get("minutos_bateram") else "", "treino": (r.get("treino") or "")[:120],
+            "teste": (r.get("teste") or "")[:120],
+        })
+
+    for n, lin in enumerate(str(texto or "").splitlines(), 1):
+        s = lin.strip()
+        if not s or s.startswith("#"):
+            continue
+        m = re.match(r"^REGRA\s+(\S+)\s*$", s, re.I)
+        if m:
+            fecha()
+            atual["r"] = {"id": m.group(1)[:20], "_linha": n}
+            continue
+        if atual["r"] is None:
+            erros.append(f"linha {n}: texto fora de uma 'REGRA Rxx'")
+            continue
+        if "=" not in s:
+            erros.append(f"linha {n}: esperado 'chave = valor'")
+            continue
+        k, v = s.split("=", 1)
+        atual["r"][k.strip().lower()] = v.strip()
+    fecha()
+    if not regras and not erros:
+        erros.append("Nenhuma 'REGRA Rxx' encontrada no arquivo.")
+    if len(regras) > _PAD_MAX_REGRAS:
+        erros.append(f"Regras demais ({len(regras)}); o máximo é {_PAD_MAX_REGRAS}.")
+    return regras, erros[:30]
+
+
+def _padroes_ler(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) and isinstance(d.get("regras"), list) else None
+    except Exception:
+        return None
+
+
+def _padroes_grava(path, dados, remoto):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False)
+    github_storage.push_file_bg(path, remoto)
+
+
+def _padroes_cfg():
+    try:
+        with open(PADROES_CFG_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return {"alerta_telegram": bool(d.get("alerta_telegram"))}
+    except Exception:
+        return {"alerta_telegram": False}
+
+
+def _padroes_meta(d):
+    if not d:
+        return None
+    m = d.get("meta") or {}
+    return {"arquivo": m.get("arquivo", ""), "importado_em": m.get("importado_em", ""), "n_regras": len(d.get("regras") or [])}
+
+
+@app.route("/api/padroes")
+def api_padroes():
+    with _padroes_lock:
+        atual, ant = _padroes_ler(PADROES_FILE), _padroes_ler(PADROES_ANT_FILE)
+    token, chat = _tg_creds()
+    return jsonify({"ok": True, "ativo": _padroes_meta(atual), "regras": (atual or {}).get("regras") or [],
+                    "anterior": _padroes_meta(ant), "config": _padroes_cfg(), "telegram_ok": bool(token and chat)})
+
+
+@app.route("/api/padroes/importar", methods=["POST"])
+def api_padroes_importar():
+    d = request.get_json(silent=True) or {}
+    texto = str(d.get("texto") or "")
+    if len(texto) > _PAD_MAX_TEXTO:
+        return jsonify({"ok": False, "error": "Arquivo grande demais."}), 400
+    regras, erros = _padroes_parse(texto)
+    if erros or not regras:
+        # Nada é alterado: o arquivo que já estava valendo continua valendo.
+        return jsonify({"ok": False, "error": "Arquivo não importado — o anterior continua valendo.", "erros": erros}), 400
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    novo = {"meta": {"arquivo": str(d.get("arquivo") or "padroes.txt")[:120], "importado_em": agora},
+            "regras": regras, "texto": texto}
+    with _padroes_lock:
+        atual = _padroes_ler(PADROES_FILE)
+        if atual:
+            _padroes_grava(PADROES_ANT_FILE, atual, "padroes_regras_anterior.json")
+        _padroes_grava(PADROES_FILE, novo, "padroes_regras.json")
+    _padroes_estado.clear()
+    return jsonify({"ok": True, "ativo": _padroes_meta(novo), "regras": regras})
+
+
+@app.route("/api/padroes/restaurar", methods=["POST"])
+def api_padroes_restaurar():
+    with _padroes_lock:
+        atual, ant = _padroes_ler(PADROES_FILE), _padroes_ler(PADROES_ANT_FILE)
+        if not ant:
+            return jsonify({"ok": False, "error": "Não há versão anterior guardada."}), 400
+        _padroes_grava(PADROES_FILE, ant, "padroes_regras.json")
+        if atual:
+            _padroes_grava(PADROES_ANT_FILE, atual, "padroes_regras_anterior.json")
+    _padroes_estado.clear()
+    return jsonify({"ok": True, "ativo": _padroes_meta(ant), "regras": ant.get("regras") or []})
+
+
+@app.route("/api/padroes/config", methods=["POST"])
+def api_padroes_config():
+    d = request.get_json(silent=True) or {}
+    cfg = {"alerta_telegram": bool(d.get("alerta_telegram"))}
+    with _padroes_lock:
+        _padroes_grava(PADROES_CFG_FILE, cfg, "padroes_config.json")
+    return jsonify({"ok": True, "config": cfg})
+
+
+# Jogos ao vivo do Top Scores (mesmo feed do filtro do Ao Vivo, com id do Livesport
+# — é o id que o gráfico usa). Cache curto + trava: várias abas abertas não multiplicam a busca.
+_padroes_jogos_cache = {"ts": 0, "jogos": []}
+_padroes_jogos_lock = threading.Lock()
+
+
+def _padroes_jogos_ao_vivo():
+    with _padroes_jogos_lock:
+        if time.time() - _padroes_jogos_cache["ts"] < 20:
+            return list(_padroes_jogos_cache["jogos"])
+        r = http_req.get(_TOP_SCORES_URL, headers=_TOP_SCORES_HEADERS, timeout=10)
+        r.raise_for_status()
+        esporte, liga, jogos = None, "", []
+        for bloco in (b for b in r.text.split("~") if b.strip()):
+            kv = dict(x.split("÷", 1) for x in bloco.split("¬") if "÷" in x)
+            if bloco.startswith("SA÷"):
+                esporte = bloco.split("÷", 1)[1].strip("¬ ")
+            elif bloco.startswith("ZA÷") and esporte == "1":
+                liga = kv.get("ZA", "")
+            elif bloco.startswith("AA÷") and esporte == "1" and kv.get("AB") == "2" and kv.get("AE") and kv.get("AF"):
+                def num(v):
+                    try:
+                        return int(v)
+                    except (TypeError, ValueError):
+                        return None
+                jogos.append({"id": kv.get("AA"), "casa": kv["AE"], "fora": kv["AF"], "liga": liga,
+                              "estagio": kv.get("AC"), "ini": num(kv.get("AO")),
+                              "gc": num(kv.get("AG")), "gf": num(kv.get("AH")),
+                              "casa_id": kv.get("PX"), "fora_id": kv.get("PY")})
+        _padroes_jogos_cache.update({"ts": time.time(), "jogos": jogos})
+        return list(jogos)
+
+
+@app.route("/api/padroes/jogos")
+def api_padroes_jogos():
+    try:
+        return jsonify({"ok": True, "jogos": _padroes_jogos_ao_vivo(), "ts": int(time.time())})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Top Scores indisponível ({type(e).__name__})", "jogos": []}), 502
+
+
+def _padroes_avalia(entries, gc, gf, regras):
+    """Confere as regras no MINUTO ATUAL (última barra do gráfico).
+    Devolve (info do minuto ou None, [ids das regras que batem]). O mesmo cálculo existe em JS na
+    aba (_padrAvalia) — mudou aqui, mude lá."""
+    validas = [e for e in (entries or [])
+               if (e.get("timeFrame") or {}).get("eventStage") in (12, 13) and isinstance(e.get("momentumValue"), (int, float))]
+    if not validas:
+        return None, []
+    ult = validas[-1]
+    tf = ult["timeFrame"]
+    estagio, em = tf["eventStage"], int(tf.get("elapsedMinute") or 0)
+    m, v = em + 1, float(ult["momentumValue"])
+    prev = next((e for e in validas if e["timeFrame"]["eventStage"] == estagio
+                 and int(e["timeFrame"].get("elapsedMinute") or 0) == em - 1), None)
+    feats = {"casa_m": max(v, 0.0), "fora_m": max(-v, 0.0), "dom_m": abs(v), "soma_m": abs(v), "dif_m": v,
+             "delta_dom": (abs(v) - abs(float(prev["momentumValue"]))) if prev else None}
+    info = {"min": m, "estagio": estagio, "v": v}
+    if estagio == 12 and not 1 <= m <= 44:
+        return info, []
+    if estagio == 13 and not 46 <= m <= 89:
+        return info, []
+    fase_jogo = "1T" if estagio == 12 else "2T"
+    if gc is None or gf is None:
+        placar_ok = {"qualquer"}
+    else:
+        placar_ok = {"qualquer"} | ({"0-0"} if gc == 0 and gf == 0 else set()) \
+            | ({"empate"} if gc == gf else {"um_lado_vence"})
+    batem = []
+    for r in regras:
+        if r["fase"] not in ("todo", fase_jogo) or r["placar"] not in placar_ok:
+            continue
+        x = feats.get(r["medida"])
+        if x is None:
+            continue
+        if (x >= r["limite"] - 1e-9) if r["op"] == ">=" else (x <= r["limite"] + 1e-9):
+            batem.append(r["id"])
+    return info, batem
+
+
+_padroes_estado = {}        # (event_id, regra) -> {"ativo": bool, "ultimo": ts}
+_padroes_ult_msg = {}       # event_id -> ts do último aviso
+_padroes_envios = deque(maxlen=200)   # ts dos avisos (limite por hora)
+_PAD_COOLDOWN_REGRA = 10 * 60
+_PAD_COOLDOWN_JOGO = 5 * 60
+_PAD_MAX_HORA = 40
+
+
+def _padroes_momentum(event_id):
+    r = http_req.get("https://global.ds.lsapp.eu/pq_graphql", timeout=12,
+                     headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.livesport.com/"},
+                     params={"_hash": "mmts", "eventId": event_id, "providerId": 7})
+    r.raise_for_status()
+    d = ((r.json().get("data") or {}).get("findMatchMomentumStatsByMatchId") or {})
+    return ((d.get("momentum") or {}).get("entries")) or []
+
+
+def _padroes_msg(j, info, regras_batem):
+    import html as _html
+    esc = lambda v: _html.escape(str(v))
+    placar = f"{j['gc']}-{j['gf']}" if j.get("gc") is not None and j.get("gf") is not None else "?"
+    linhas = [f"📊 <b>Padrão ativo — sem gol no próximo minuto</b>",
+              f"⚽ <b>{esc(j['casa'])} {placar} {esc(j['fora'])}</b> · {info['min']}'"]
+    if j.get("liga"):
+        linhas.append(f"🏆 {esc(j['liga'])}")
+    linhas.append("")
+    for r in regras_batem:
+        linhas.append(f"• <b>{esc(r['id'])}</b> ({esc(r['confianca'])}): {esc(r['descricao'])}")
+        if r.get("estat"):
+            linhas.append(f"    {esc(r['estat'])}")
+    return "\n".join(linhas)
+
+
+def _padroes_alerta_tick():
+    if not _padroes_cfg()["alerta_telegram"]:
+        return
+    with _padroes_lock:
+        ativo = _padroes_ler(PADROES_FILE)
+    regras = (ativo or {}).get("regras") or []
+    if not regras:
+        return
+    token, chat = _tg_creds()
+    if not token or not chat:
+        return
+    jogos = [j for j in _padroes_jogos_ao_vivo() if j.get("estagio") in ("12", "13") and j.get("id")]
+    vivos = {j["id"] for j in jogos}
+    for k in [k for k in _padroes_estado if k[0] not in vivos]:
+        del _padroes_estado[k]
+    for k in [k for k in _padroes_ult_msg if k not in vivos]:
+        del _padroes_ult_msg[k]
+    if not jogos:
+        return
+    por_id = {r["id"]: r for r in regras}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        resultados = list(pool.map(lambda j: (j, _pad_try(lambda: _padroes_momentum(j["id"]))), jogos))
+    agora = time.time()
+    for j, entries in resultados:
+        if not entries:
+            continue
+        info, batem = _padroes_avalia(entries, j.get("gc"), j.get("gf"), regras)
+        if info is None:
+            continue
+        novos = []
+        for rid in por_id:
+            est = _padroes_estado.setdefault((j["id"], rid), {"ativo": False, "ultimo": 0})
+            if rid in batem:
+                if not est["ativo"] and agora - est["ultimo"] >= _PAD_COOLDOWN_REGRA:
+                    novos.append(por_id[rid])
+                    est["ultimo"] = agora
+                est["ativo"] = True
+            else:
+                est["ativo"] = False
+        if not novos or agora - _padroes_ult_msg.get(j["id"], 0) < _PAD_COOLDOWN_JOGO:
+            continue
+        while _padroes_envios and agora - _padroes_envios[0] > 3600:
+            _padroes_envios.popleft()
+        if len(_padroes_envios) >= _PAD_MAX_HORA:
+            print("[padroes] limite de avisos por hora atingido")
+            return
+        try:
+            if _tg_send_message(token, chat, _padroes_msg(j, info, novos)).get("ok"):
+                _padroes_ult_msg[j["id"]] = agora
+                _padroes_envios.append(agora)
+            else:
+                print(f"[padroes] Telegram recusou o aviso do jogo {j['id']}")
+        except Exception as e:
+            print(f"[padroes] erro enviando aviso: {e}")
+
+
+def _pad_try(fn):
+    try:
+        return fn()
+    except Exception:
+        return None
+
+
+def _padroes_alerta_loop():
+    _github_sync_done.wait(timeout=120)
+    while True:
+        try:
+            _padroes_alerta_tick()
+        except Exception as e:
+            print(f"[padroes] {e}")
+        time.sleep(60)
+
+
+threading.Thread(target=_padroes_alerta_loop, daemon=True, name="PadroesAlerta").start()
+
+
+
 @app.route("/api/favoritos/proximos", methods=["POST"])
 def api_favoritos_proximos():
     """O site avisa quando o usuário favorita/desfavorita um jogo em Próximos

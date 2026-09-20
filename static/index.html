@@ -2087,6 +2087,30 @@
        valendo por cima disso — o card compacto dele (280-320px) já cabe. */
     .live-grid-wrap { grid-template-columns: minmax(0, 1fr); }
   }
+  /* ── Aba Padrões (2026-09-19) ── */
+  #padroesWrapper { padding: 14px; box-sizing: border-box; gap: 10px; }
+  .padr-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; }
+  .padr-title { font-size: 12px; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
+  .padr-status { font-size: 11px; color: var(--text2); }
+  .padr-msg { font-size: 12px; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--border); }
+  .padr-msg.ok { border-color: var(--green); color: var(--green); }
+  .padr-msg.erro { border-color: var(--red); color: var(--red); }
+  .padr-msg ul { margin: 6px 0 0 16px; padding: 0; }
+  .padr-regras { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 12px; }
+  .padr-regras summary { cursor: pointer; font-weight: 700; color: var(--text2); }
+  .padr-regra { padding: 7px 0; border-top: 1px solid var(--border); margin-top: 7px; }
+  .padr-conf { font-size: 10px; font-weight: 700; color: var(--green); margin-left: 6px; }
+  .padr-conf.baixa { color: var(--red); }
+  .padr-mini { font-size: 10px; color: var(--text2); font-weight: 400; }
+  #padrGrid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  .padr-card { cursor: default; }
+  .padr-card:hover { transform: none; }
+  .padr-card-ativo { border-color: var(--green); border-left-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+  .padr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; justify-content: center; }
+  .padr-pill { background: var(--green); color: #04270f; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 3px 9px; cursor: help; }
+  .padr-sem { font-size: 10.5px; color: var(--text2); }
+  .padr-chart-wrap { padding: 4px 8px 10px; }
+  .padr-chart-wrap canvas { display: block; width: 100%; }
 </style>
 </head>
 <body>
@@ -2116,6 +2140,7 @@
          dessa aba estar visível — continua funcionando normalmente. -->
     <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)" style="display:none">🏠 Painel Principal</button>
     <button class="nav-tab active" id="navTabLive2" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
+    <button class="nav-tab" id="navTabPadroes" onclick="switchView('padroes', this)">📊 Padrões</button>
   </div>
   <!-- Sair (2026-09-12) — só faz sentido quando o site está com senha ativa
        (SITE_PASSWORD configurada no Railway); sem isso /logout também não
@@ -2515,6 +2540,26 @@
     </div>
   </div>
 
+
+  <!-- PADRÕES (2026-09-19) — jogos do Top Scores ao vivo com o gráfico do Livesport e os padrões
+       importados do txt (ver o bloco "Aba Padrões" no script) -->
+  <div id="padroesWrapper" style="display:none;flex:1;overflow:auto;flex-direction:column;background:var(--bg)">
+    <div class="padr-bar">
+      <span class="padr-title"><span class="live-pulse-dot"></span>Padrões · Top Scores ao vivo</span>
+      <button class="live-refresh-btn" onclick="document.getElementById('padrFile').click()" title="Importar o padroes.txt (o novo arquivo substitui o que está valendo)">📥 Importar txt</button>
+      <input type="file" id="padrFile" accept=".txt,text/plain" style="display:none" onchange="padrImportar(this)">
+      <button class="live-refresh-btn" id="padrRestBtn" style="display:none" onclick="padrRestaurar()">↩ Restaurar anterior</button>
+      <button class="live-refresh-btn" id="padrTgBtn" onclick="padrToggleTelegram()" title="Avisos no Telegram quando um padrão bate num jogo do Top Scores — funciona com o site fechado">🔔 Telegram: desligado</button>
+      <button class="live-refresh-btn" id="padrSoAtivoBtn" onclick="padrToggleSoAtivo()" title="Mostrar só os jogos em que algum padrão está batendo agora">✔ Só com padrão ativo</button>
+      <span class="live-count-badge" id="padrCount">0</span>
+      <button class="live-refresh-btn" onclick="padrAtualiza()" title="Atualizar">↻</button>
+      <span class="padr-mini" id="padrHora"></span>
+    </div>
+    <div class="padr-status" id="padrStatus"></div>
+    <div class="padr-msg" id="padrMsg" style="display:none"></div>
+    <div id="padrRegrasBox"></div>
+    <div class="live-grid-wrap" id="padrGrid"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>
+  </div>
 
   <div id="today2DetailOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) closeToday2Detail()">
     <div class="painel-modal-box" style="max-width:900px">
@@ -2965,9 +3010,12 @@ function switchView(view, btn) {
 
   const live2Panel    = document.getElementById('live2Panel');
   const painelWrapper = document.getElementById('painelWrapper');
+  const padroesWrapper = document.getElementById('padroesWrapper');
   // Oculta tudo (as abas Hoje, Hoje 2 e Favoritos foram removidas em 2026-09-19)
   live2Panel.classList.remove('active');
   painelWrapper.style.display = 'none';
+  padroesWrapper.style.display = 'none';
+  clearInterval(_padrTimer);
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
   clearInterval(_live2AutoRefresh);
@@ -2978,6 +3026,9 @@ function switchView(view, btn) {
     _painelBuildOddsFilterBar();
     loadPainelMatches();
     _painelAutoRefresh = setInterval(loadPainelMatches, 60000);
+  } else if (view === 'padroes') {
+    padroesWrapper.style.display = 'flex';
+    padrInit();
   } else if (view === 'live2') {
     live2Panel.classList.add('active');
     loadLive2Matches();
@@ -14504,6 +14555,327 @@ document.addEventListener('DOMContentLoaded', () => {
   switchView('live2', document.getElementById('navTabLive2'));
   _painelExportUpdateBadge();
 });
+
+// ── Aba "Padrões" (2026-09-19) ─────────────────────────────────────────────────
+// Jogos do Top Scores ao vivo + gráfico de pressão do Livesport ("Termômetro da
+// Partida") desenhado aqui no navegador. O gráfico é buscado DIRETO no Livesport
+// (o servidor de lá libera CORS), então esta aba não gasta recurso do Railway além
+// da lista de jogos (1 chamada por atualização, cacheada 20s no servidor).
+// Os padrões vêm do txt que o usuário importa (guardado no servidor até ele
+// importar outro). A conferência das regras no minuto atual (_padrAvalia) é a
+// mesma de _padroes_avalia em app.py, que manda o aviso no Telegram com o site
+// fechado — mudou lá, mude aqui.
+let _padrRegras = [];
+let _padrInfo = { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false };
+let _padrJogos = [];
+const _padrDados = {};          // id do jogo -> { entries, eventos, erro }
+let _padrTimer = null;
+let _padrBusy = false;
+let _padrSoAtivo = false;
+try { _padrSoAtivo = localStorage.getItem('padrSoAtivo') === '1'; } catch (e) {}
+const _PADR_LS_URL = 'https://global.ds.lsapp.eu/pq_graphql';
+
+function _padrEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function padrInit() {
+  await _padrCarregaRegras();
+  padrAtualiza();
+  clearInterval(_padrTimer);
+  _padrTimer = setInterval(padrAtualiza, 30000);
+}
+
+async function _padrCarregaRegras() {
+  try {
+    const d = await (await fetch('/api/padroes')).json();
+    if (d.ok) {
+      _padrRegras = d.regras || [];
+      _padrInfo = { ativo: d.ativo, anterior: d.anterior, config: d.config || { alerta_telegram: false }, telegram_ok: !!d.telegram_ok };
+    }
+  } catch (e) { /* mantém o que já tinha */ }
+  _padrRenderBarra();
+}
+
+function _padrRenderBarra() {
+  const a = _padrInfo.ativo;
+  const st = document.getElementById('padrStatus');
+  if (st) {
+    st.innerHTML = a
+      ? `📄 <b>${_padrEsc(a.arquivo)}</b> · importado em ${_padrEsc(a.importado_em)} · <b>${a.n_regras}</b> regra(s) valendo até você importar outro arquivo`
+      : 'Nenhum arquivo de padrões importado ainda — clique em <b>Importar txt</b> e escolha o padroes.txt.';
+  }
+  const rb = document.getElementById('padrRestBtn');
+  if (rb) {
+    rb.style.display = _padrInfo.anterior ? '' : 'none';
+    rb.title = _padrInfo.anterior ? `Voltar para ${_padrInfo.anterior.arquivo} (importado em ${_padrInfo.anterior.importado_em}, ${_padrInfo.anterior.n_regras} regras)` : '';
+  }
+  const tg = document.getElementById('padrTgBtn');
+  if (tg) {
+    const on = !!(_padrInfo.config && _padrInfo.config.alerta_telegram);
+    tg.textContent = `🔔 Telegram: ${on ? 'ligado' : 'desligado'}`;
+    tg.classList.toggle('active', on);
+  }
+  const so = document.getElementById('padrSoAtivoBtn');
+  if (so) so.classList.toggle('active', _padrSoAtivo);
+  const box = document.getElementById('padrRegrasBox');
+  if (box) {
+    box.innerHTML = _padrRegras.length ? `<details class="padr-regras"><summary>Ver as ${_padrRegras.length} regras importadas</summary>` +
+      _padrRegras.map(r => `<div class="padr-regra"><b>${_padrEsc(r.id)}</b> <span class="padr-conf ${r.confianca === 'baixa' ? 'baixa' : ''}">confiança ${_padrEsc(r.confianca)}</span>
+        <div>${_padrEsc(r.descricao)}</div>
+        <div class="padr-mini">${_padrEsc(r.estat)}${r.treino ? ` · treino: ${_padrEsc(r.treino)}` : ''}${r.teste ? ` · teste: ${_padrEsc(r.teste)}` : ''}</div></div>`).join('') + '</details>' : '';
+  }
+}
+
+function _padrMsg(html, ok) {
+  const el = document.getElementById('padrMsg');
+  if (!el) return;
+  el.innerHTML = html;
+  el.className = 'padr-msg ' + (ok ? 'ok' : 'erro');
+  el.style.display = html ? 'block' : 'none';
+}
+
+async function padrImportar(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  const a = _padrInfo.ativo;
+  if (a && !confirm(`Já existe um arquivo valendo (${a.arquivo}, ${a.n_regras} regras, importado em ${a.importado_em}).\n\nO arquivo novo (${f.name}) vai SUBSTITUIR esse. O atual fica guardado e dá pra voltar em "Restaurar anterior".\n\nContinuar?`)) return;
+  let texto = '';
+  try { texto = await f.text(); } catch (e) { _padrMsg('Não consegui ler o arquivo.', false); return; }
+  try {
+    const r = await fetch('/api/padroes/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, arquivo: f.name }) });
+    const d = await r.json();
+    if (!d.ok) {
+      _padrMsg(`<b>${_padrEsc(d.error || 'Erro ao importar')}</b>` + ((d.erros || []).length ? '<ul>' + d.erros.map(e => `<li>${_padrEsc(e)}</li>`).join('') + '</ul>' : ''), false);
+      return;
+    }
+    _padrMsg(`✔ Importado: <b>${d.regras.length}</b> regra(s) de ${_padrEsc(f.name)}. Já estão valendo.`, true);
+    await _padrCarregaRegras();
+    _padrRenderGrid();
+  } catch (e) { _padrMsg('Falha de rede ao importar. Nada foi alterado.', false); }
+}
+
+async function padrRestaurar() {
+  const an = _padrInfo.anterior;
+  if (!an || !confirm(`Voltar para o arquivo anterior (${an.arquivo}, ${an.n_regras} regras, importado em ${an.importado_em})? O que está valendo agora vira o "anterior".`)) return;
+  try {
+    const d = await (await fetch('/api/padroes/restaurar', { method: 'POST' })).json();
+    _padrMsg(d.ok ? '✔ Arquivo anterior restaurado.' : _padrEsc(d.error || 'Erro'), !!d.ok);
+    await _padrCarregaRegras();
+    _padrRenderGrid();
+  } catch (e) { _padrMsg('Falha de rede.', false); }
+}
+
+async function padrToggleTelegram() {
+  const liga = !(_padrInfo.config && _padrInfo.config.alerta_telegram);
+  if (liga) {
+    if (!_padrRegras.length) { alert('Importe um arquivo de padrões antes de ligar os avisos.'); return; }
+    if (!_padrInfo.telegram_ok) { alert('O bot do Telegram não está configurado no servidor (faltam TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID).'); return; }
+    const baixas = _padrRegras.filter(r => r.confianca === 'baixa').length;
+    const aviso = baixas === _padrRegras.length
+      ? `Todas as ${baixas} regras estão com confiança BAIXA (com a base atual, o acaso produz resultado parecido). Os avisos vão chegar mesmo assim, mas trate como hipótese.\n\n`
+      : '';
+    if (!confirm(aviso + 'Ligar os avisos no Telegram? O servidor confere os jogos do Top Scores ao vivo a cada minuto, mesmo com o site fechado (no máximo 1 aviso por jogo a cada 5 min e 40 por hora).')) return;
+  }
+  try {
+    const d = await (await fetch('/api/padroes/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alerta_telegram: liga }) })).json();
+    if (d.ok) _padrInfo.config = d.config;
+  } catch (e) {}
+  _padrRenderBarra();
+}
+
+function padrToggleSoAtivo() {
+  _padrSoAtivo = !_padrSoAtivo;
+  try { localStorage.setItem('padrSoAtivo', _padrSoAtivo ? '1' : '0'); } catch (e) {}
+  _padrRenderBarra();
+  _padrRenderGrid();
+}
+
+// ── dados dos jogos ──────────────────────────────────────────────────────────
+async function _padrBuscaMomentum(j) {
+  try {
+    const r = await fetch(`${_PADR_LS_URL}?_hash=mmts&eventId=${encodeURIComponent(j.id)}&providerId=7`);
+    const d = await r.json();
+    const n = ((d || {}).data || {}).findMatchMomentumStatsByMatchId || {};
+    const ent = (n.momentum || {}).entries;
+    _padrDados[j.id] = { entries: ent || [], eventos: (n.matchEvents || {}).entries || [], erro: !ent };
+  } catch (e) {
+    _padrDados[j.id] = { ...(_padrDados[j.id] || { entries: [], eventos: [] }), erro: true };
+  }
+}
+
+async function padrAtualiza() {
+  if (_padrBusy || currentView !== 'padroes') return;
+  _padrBusy = true;
+  try {
+    const d = await (await fetch('/api/padroes/jogos')).json();
+    if (!d.ok) {
+      document.getElementById('padrGrid').innerHTML = `<div class="live-loading">${_padrEsc(d.error || 'Top Scores indisponível agora.')}</div>`;
+      return;
+    }
+    _padrJogos = d.jogos || [];
+    await Promise.all(_padrJogos.map(_padrBuscaMomentum));
+    _padrRenderGrid();
+    const cont = document.getElementById('padrCount');
+    if (cont) cont.textContent = _padrJogos.length;
+    const t = document.getElementById('padrHora');
+    if (t) t.textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
+  } catch (e) {
+    document.getElementById('padrGrid').innerHTML = '<div class="live-loading">Erro ao carregar os jogos.</div>';
+  } finally { _padrBusy = false; }
+}
+
+// mesma conferência de _padroes_avalia (app.py)
+function _padrAvalia(entries, gc, gf, regras) {
+  const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
+  if (!validas.length) return null;
+  const ult = validas[validas.length - 1], tf = ult.timeFrame;
+  const est = tf.eventStage, em = tf.elapsedMinute || 0, m = em + 1, v = ult.momentumValue;
+  const prev = validas.find(e => e.timeFrame.eventStage === est && (e.timeFrame.elapsedMinute || 0) === em - 1);
+  const feats = { casa_m: Math.max(v, 0), fora_m: Math.max(-v, 0), dom_m: Math.abs(v), soma_m: Math.abs(v), dif_m: v,
+                  delta_dom: prev ? Math.abs(v) - Math.abs(prev.momentumValue) : null };
+  const info = { min: m, estagio: est, v, texto: tf.displayTime || (m + "'"), batem: [] };
+  if ((est === 12 && !(m >= 1 && m <= 44)) || (est === 13 && !(m >= 46 && m <= 89))) return info;
+  const faseJogo = est === 12 ? '1T' : '2T';
+  const ok = new Set(['qualquer']);
+  if (gc != null && gf != null) {
+    if (gc === 0 && gf === 0) ok.add('0-0');
+    ok.add(gc === gf ? 'empate' : 'um_lado_vence');
+  }
+  for (const r of regras) {
+    if (!(r.fase === 'todo' || r.fase === faseJogo) || !ok.has(r.placar)) continue;
+    const x = feats[r.medida];
+    if (x == null) continue;
+    if (r.op === '>=' ? x >= r.limite - 1e-9 : x <= r.limite + 1e-9) info.batem.push(r);
+  }
+  return info;
+}
+
+// ── cards ────────────────────────────────────────────────────────────────────
+function _padrRenderGrid() {
+  const grid = document.getElementById('padrGrid');
+  if (!grid) return;
+  const itens = _padrJogos.map(j => {
+    const d = _padrDados[j.id] || { entries: [], eventos: [] };
+    return { j, d, av: _padrAvalia(d.entries, j.gc, j.gf, _padrRegras) };
+  });
+  let lista = _padrSoAtivo ? itens.filter(x => x.av && x.av.batem.length) : itens;
+  lista.sort((a, b) => ((b.av ? b.av.batem.length : 0) > 0) - ((a.av ? a.av.batem.length : 0) > 0) || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
+  if (!lista.length) {
+    grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo com padrão ativo neste minuto.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
+    return;
+  }
+  grid.innerHTML = lista.map(({ j, d, av }) => {
+    const ativos = av ? av.batem : [];
+    const badges = !_padrRegras.length
+      ? '<div class="padr-sem">Importe o txt de padrões para ver quando eles batem.</div>'
+      : ativos.length
+        ? ativos.map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)} · sem gol no próximo minuto</span>`).join('')
+        : `<div class="padr-sem">${av ? 'Nenhum padrão ativo neste minuto' : (d.erro ? 'Gráfico indisponível para este jogo' : 'Carregando...')}</div>`;
+    const dados = av ? `casa ${Math.max(av.v, 0).toFixed(2)} · visitante ${Math.max(-av.v, 0).toFixed(2)}` : '';
+    return `<div class="live-card padr-card ${ativos.length ? 'padr-card-ativo' : ''}" id="padrCard_${_padrEsc(j.id)}" style="cursor:default">
+      <div class="live-card-top" style="justify-content:center;text-align:center"><span>${_padrEsc(j.liga)}</span></div>
+      <div class="live-card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div class="live-card-team" style="justify-content:flex-start"><span class="tname" title="${_padrEsc(j.casa)}">${_padrEsc(j.casa)}</span></div>
+          <div class="live-card-score">${j.gc ?? 0} - ${j.gf ?? 0}</div>
+          <div class="live-card-team" style="justify-content:flex-end;text-align:right"><span class="tname" title="${_padrEsc(j.fora)}">${_padrEsc(j.fora)}</span></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px">
+          <span class="live-pulse-dot"></span><div class="live-card-meta" style="margin-top:0">${av ? _padrEsc(av.texto) : (j.estagio === '13' ? '2º tempo' : '1º tempo')}${dados ? ` <span class="padr-mini" style="margin-left:6px">${dados}</span>` : ''}</div>
+        </div>
+        <div class="padr-badges">${badges}</div>
+      </div>
+      <div class="padr-chart-wrap"><canvas id="padrCv_${_padrEsc(j.id)}"></canvas></div>
+    </div>`;
+  }).join('');
+  lista.forEach(({ j, d }) => {
+    const cv = document.getElementById('padrCv_' + j.id);
+    if (cv) _padrDesenha(cv, j, d);
+  });
+}
+
+// ── gráfico no estilo do Termômetro da Partida (Livesport) ───────────────────
+// Dois painéis (1º/2º tempo), barras brancas pra cima = casa, cinzas pra baixo =
+// visitante, linhas pontilhadas em ±1, ícones de gol/pênalti/gol contra/cartão vermelho.
+function _padrIcone(c, x, y, tipo) {
+  if (tipo === 'red_card' || tipo === 'yellow_red_card') {
+    c.fillStyle = tipo === 'red_card' ? '#e5342f' : '#f0602a';
+    c.beginPath(); c.roundRect ? c.roundRect(x - 5, y - 7, 10, 14, 2) : c.rect(x - 5, y - 7, 10, 14); c.fill();
+    return;
+  }
+  c.fillStyle = tipo === 'own_goal' ? '#a3232f' : '#f4f7f8';
+  c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.fill();
+  c.fillStyle = tipo === 'own_goal' ? '#fff' : '#101c22';
+  c.beginPath();
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; c.lineTo(x + Math.cos(a) * 3.8, y + Math.sin(a) * 3.8); }
+  c.closePath(); c.fill();
+  c.strokeStyle = c.fillStyle; c.lineWidth = 1;
+  for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; c.beginPath(); c.moveTo(x + Math.cos(a) * 3.8, y + Math.sin(a) * 3.8); c.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); c.stroke(); }
+}
+
+function _padrDesenha(cv, j, d) {
+  const wrap = cv.parentElement, W = Math.max(wrap.clientWidth || 340, 240), H = 196, dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, W, H);
+  const ent = (d.entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
+  const evs = (d.eventos || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13));
+  const minDe = e => (e.timeFrame.elapsedMinute || 0) + 1;
+  const max1 = Math.max(45, ...ent.filter(e => e.timeFrame.eventStage === 12).map(minDe), ...evs.filter(e => e.timeFrame.eventStage === 12).map(minDe));
+  const max2 = Math.max(90, ...ent.filter(e => e.timeFrame.eventStage === 13).map(minDe), ...evs.filter(e => e.timeFrame.eventStage === 13).map(minDe));
+  const n1 = max1, n2 = max2 - 45;
+  const pad = 4, gap = 8, avail = W - 2 * pad - gap;
+  const w1 = avail * n1 / (n1 + n2), w2 = avail - w1;
+  const P = [{ x0: pad, w: w1, ini: 1, n: n1, est: 12 }, { x0: pad + w1 + gap, w: w2, ini: 46, n: n2, est: 13 }];
+  const yTop = 28, yBot = H - 46, mid = (yTop + yBot) / 2, hm = (yBot - yTop) / 2 - 2;
+  const X = (p, m) => p.x0 + p.w / p.n * (m - p.ini + 0.5);
+  const hit = { barras: [], eventos: [] };
+  P.forEach(p => {
+    c.fillStyle = '#132229';
+    c.beginPath(); c.roundRect ? c.roundRect(p.x0, 2, p.w, H - 4, 6) : c.rect(p.x0, 2, p.w, H - 4); c.fill();
+    c.setLineDash([2, 3]); c.strokeStyle = 'rgba(255,255,255,.30)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(p.x0 + 2, mid - hm); c.lineTo(p.x0 + p.w - 2, mid - hm); c.moveTo(p.x0 + 2, mid + hm); c.lineTo(p.x0 + p.w - 2, mid + hm); c.stroke();
+    c.setLineDash([]); c.strokeStyle = 'rgba(255,255,255,.14)';
+    c.beginPath(); c.moveTo(p.x0 + 2, mid); c.lineTo(p.x0 + p.w - 2, mid); c.stroke();
+    c.fillStyle = '#8fa3ab'; c.font = '10px system-ui, sans-serif'; c.textAlign = 'center';
+    (p.est === 12 ? [15, 30, 45] : [60, 75, 90]).forEach(m => c.fillText(m + "'", Math.min(X(p, m), p.x0 + p.w - 9), H - 8));
+    const step = p.w / p.n, bw = Math.max(1.4, step * 0.66);
+    ent.filter(e => e.timeFrame.eventStage === p.est).forEach(e => {
+      const m = minDe(e), v = e.momentumValue, x = X(p, m), h = Math.min(Math.abs(v), 1.1) * hm;
+      c.fillStyle = v >= 0 ? '#f2f6f7' : '#77878e';
+      if (v >= 0) c.fillRect(x - bw / 2, mid - h, bw, h); else c.fillRect(x - bw / 2, mid, bw, h);
+      hit.barras.push({ x, m, v });
+    });
+  });
+  // minuto atual: fio verde fino sobre a última barra
+  if (ent.length) {
+    const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
+    c.strokeStyle = 'rgba(0,230,118,.85)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x, yTop - 6); c.lineTo(x, yBot + 6); c.stroke();
+  }
+  const nomeCasa = j.casa, nomeFora = j.fora;
+  evs.forEach(e => {
+    const tipo = e.type && e.type.type, p = P[e.timeFrame.eventStage === 12 ? 0 : 1], m = minDe(e);
+    let casa = e.teamId === j.casa_id;
+    if (tipo === 'own_goal') casa = !casa;        // o ícone aparece do lado de quem se beneficiou
+    const x = X(p, m), y = casa ? 15 : H - 31;
+    c.strokeStyle = 'rgba(255,255,255,.35)'; c.setLineDash([1, 2]); c.beginPath();
+    c.moveTo(x, casa ? y + 9 : y - 9); c.lineTo(x, casa ? yTop : yBot); c.stroke(); c.setLineDash([]);
+    _padrIcone(c, x, y, tipo);
+    const rot = { goal: 'Gol', penalty_goal: 'Gol de pênalti', own_goal: 'Gol contra', red_card: 'Cartão vermelho', yellow_red_card: 'Segundo amarelo (vermelho)' }[tipo] || 'Evento';
+    hit.eventos.push({ x, y, txt: `${e.timeFrame.displayTime || m + "'"} — ${rot} (${casa ? nomeCasa : nomeFora})` });
+  });
+  cv.onmousemove = ev => {
+    const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    const e = hit.eventos.find(o => Math.hypot(o.x - mx, o.y - my) < 12);
+    if (e) { cv.title = e.txt; return; }
+    let best = null;
+    hit.barras.forEach(b => { if (Math.abs(b.x - mx) < 3 && (!best || Math.abs(b.x - mx) < Math.abs(best.x - mx))) best = b; });
+    cv.title = best ? `Minuto ${best.m}: ${best.v >= 0 ? 'casa' : 'visitante'} ${Math.abs(best.v).toFixed(2)}` : '';
+  };
+}
 </script>
 <style>.hidden { display: none !important; }</style>
 

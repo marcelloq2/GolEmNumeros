@@ -238,6 +238,9 @@ def sync_on_startup(momentum_dir: str, backtest_dir: str, data_dir: str, shotmap
         pull_file("telegram_favoritos.json", os.path.join(data_dir, "telegram_favoritos.json"), force=True)
         # Corte de prioridade das ligas no Ao Vivo (campo "Prioridade ≤" na tela)
         pull_file("ao_vivo_config.json", os.path.join(data_dir, "ao_vivo_config.json"), force=True)
+        # Padrões importados do txt (aba Padrões): a regra valendo, a anterior (reserva) e a config do alerta
+        for _nome in ("padroes_regras.json", "padroes_regras_anterior.json", "padroes_config.json"):
+            pull_file(_nome, os.path.join(data_dir, _nome), force=True)
         # Shotmap live cache: restaura cache ao vivo (evita perda de chutes em jogos mid-restart)
         pull_file(".shotmap_cache.json",
                   os.path.join(data_dir, ".shotmap_cache.json"), force=True)

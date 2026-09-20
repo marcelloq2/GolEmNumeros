@@ -29,3 +29,8 @@ upload_backup.py
 
 # Banco local do Backtest 2/CS (dado runtime, recalculado no servidor)
 backtest2.db
+
+# Padrões importados (ficam no servidor + branch data)
+padroes_regras.json
+padroes_regras_anterior.json
+padroes_config.json
