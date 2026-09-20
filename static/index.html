@@ -14600,6 +14600,7 @@ const _PADR_EST = {
   over05ht: { nome: 'Over 0.5 HT', alvo: 'gol até o intervalo', arquivo: 'padroes_over05ht.txt' },
   under80: { nome: "Under depois dos 80'", alvo: "sem gol depois dos 80'", arquivo: 'padroes_under80.txt' },
   primeiro_gol: { nome: 'Primeiro gol', alvo: '1º gol da partida', arquivo: 'padroes_primeiro_gol.txt' },
+  scalping10: { nome: "Scalping Under 10'", alvo: 'sem gol até o minuto 10', arquivo: 'padroes_scalping10.txt' },
 };
 let _padrEst = 'under';
 try { const e = localStorage.getItem('padrEst'); if (_PADR_EST[e]) _padrEst = e; } catch (e) {}
@@ -14608,10 +14609,11 @@ const _padrPor = {
   over05ht: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
   under80: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
   primeiro_gol: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
+  scalping10: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
 };
 let _padrRegras = _padrPor[_padrEst].regras;           // regras da estratégia selecionada
 let _padrInfo = _padrPor[_padrEst].info;
-let _padrContagem = { under: 0, over05ht: 0, under80: 0, primeiro_gol: 0 };
+let _padrContagem = { under: 0, over05ht: 0, under80: 0, primeiro_gol: 0, scalping10: 0 };
 let _padrOddsMap = {};           // event_id do Flashscore -> jogo do Painel (odds pré-jogo + ao vivo)
 let _padrOddsIds = '';
 let _padrOddsTs = 0;             // quando as odds foram lidas com sucesso (o servidor só renova a cada ~60 s: não adianta pedir antes)
@@ -14716,7 +14718,7 @@ async function padrImportar(input) {
   try { texto = await f.text(); } catch (e) { _padrMsg('Não consegui ler o arquivo.', false); return; }
   // A importação distribui sozinha: cada regra vai para a aba da sua metodologia (pelo "alvo"), então um txt combinado
   // configura tudo de uma vez, importado em qualquer aba.
-  const alvoEst = { sem_gol_proximo_minuto: 'under', gol_ate_intervalo: 'over05ht', sem_gol_apos_80: 'under80', primeiro_gol_casa: 'primeiro_gol', primeiro_gol_fora: 'primeiro_gol' };
+  const alvoEst = { sem_gol_proximo_minuto: 'under', gol_ate_intervalo: 'over05ht', sem_gol_apos_80: 'under80', primeiro_gol_casa: 'primeiro_gol', primeiro_gol_fora: 'primeiro_gol', sem_gol_ate_10: 'scalping10' };
   const contagem = {};
   (texto.match(/^\s*alvo\s*=\s*\S+/gim) || []).forEach(l => { const e = alvoEst[l.split('=')[1].trim()]; if (e) contagem[e] = (contagem[e] || 0) + 1; });
   const dest = Object.keys(contagem);
@@ -14800,6 +14802,7 @@ async function padrAtualiza() {
     await Promise.all([..._padrJogos.map(_padrBuscaMomentum), currentView === 'padroes' ? _padrCarregaOdds() : null]);
     _padrJogosPorId = {}; _padrJogos.forEach(j => { _padrJogosPorId[j.id] = j; });
     await _padrAtualizaUnderOdds();
+    await _padrAtualizaOddS10();
     const itensPor = {};
     Object.keys(_PADR_EST).forEach(e => {
       itensPor[e] = _padrCalcItens(e);
@@ -15138,6 +15141,136 @@ function _padrPGAvisos(itens) {
   });
 }
 
+
+// ── Scalping Under nos primeiros 10 minutos ──────────────────────────────────────────────────
+// Critério 1: padrão do txt bate num minuto 2-9 com o jogo 0-0. Critério 2: a odd do Under 2.5 está ACIMA de 2,00.
+// Os dois juntos = indica entrar no Under; a operação vai até o minuto 10 (ou até sair gol). Mesma conta de
+// _padroes_avalia_s10 (app.py, que manda o aviso no Telegram) — mudou lá, mude aqui.
+const _PADR_S10_ODD_MIN = 2.0;
+const _PADR_S10_JANELA = [2, 9];
+const _PADR_S10_FIM = 10;
+const _padrS10Odds = {};                                   // id -> { ts, data }
+let _padrS10Op = {};                                       // id -> { entrada, odd, regras, ts }: operação indicada (guardada no navegador)
+try { _padrS10Op = JSON.parse(localStorage.getItem('padrS10Op') || '{}') || {}; } catch (e) { _padrS10Op = {}; }
+function _padrS10Salva() {
+  const agora = Date.now();
+  Object.keys(_padrS10Op).forEach(id => { if (agora - (_padrS10Op[id].ts || 0) > 3 * 3600 * 1000) delete _padrS10Op[id]; });
+  try { localStorage.setItem('padrS10Op', JSON.stringify(_padrS10Op)); } catch (e) {}
+}
+function _padrAvaliaS10(entries, gc, gf, regras) {
+  const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
+  if (!validas.length) return null;
+  const ult = validas[validas.length - 1], tf = ult.timeFrame;
+  const est = tf.eventStage, m = (tf.elapsedMinute || 0) + 1;
+  const info = { min: m, estagio: est, v: ult.momentumValue, texto: tf.displayTime || (m + "'"), batem: [] };
+  if (est !== 12 || !(m >= 2 && m <= 9) || gc !== 0 || gf !== 0) return info;
+  const porMin = {};
+  validas.forEach(e => { if (e.timeFrame.eventStage === 12) { const v = e.momentumValue; porMin[(e.timeFrame.elapsedMinute || 0) + 1] = [Math.max(v, 0), Math.max(-v, 0)]; } });
+  for (let mm = 1; mm <= m; mm++) if (!porMin[mm]) return info;
+  const dom = {}; let soma = 0, pico = 0;
+  for (let mm = 1; mm <= m; mm++) { dom[mm] = Math.max(porMin[mm][0], porMin[mm][1]); soma += dom[mm]; pico = Math.max(pico, dom[mm]); }
+  const [c, f] = porMin[m];
+  const feats = { casa_m: c, fora_m: f, dom_m: dom[m], dif_m: c - f, delta_dom: dom[m] - dom[m - 1], media_ini: soma / m, pico_ini: pico,
+                  media_ult3: m >= 3 ? (dom[m - 2] + dom[m - 1] + dom[m]) / 3 : null };
+  for (const r of regras) {
+    if (r.fase !== '1T' || (r.min_ini != null && !(m >= r.min_ini && m <= r.min_fim))) continue;
+    const x = feats[r.medida];
+    if (x == null) continue;
+    if (r.op === '>=' ? x >= r.limite - 1e-9 : x <= r.limite + 1e-9) info.batem.push(r);
+  }
+  return info;
+}
+function _padrHouveGol(d, j) {
+  return (j.gc || 0) + (j.gf || 0) > 0 || (d.eventos || []).some(ev => ['goal', 'penalty_goal', 'own_goal'].includes(ev.type && ev.type.type));
+}
+
+// odd do Under 2.5: 1 consulta do servidor por jogo, só quando o padrão já bateu (o servidor guarda 20 s)
+async function _padrAtualizaOddS10() {
+  const regras = _padrPor.scalping10.regras;
+  if (!regras.length) return;
+  const jobs = [];
+  _padrJogos.forEach(j => {
+    const d = _padrDados[j.id], minReal = _padrMinReal(j);
+    if (!d || j.estagio !== '12' || minReal == null || minReal < _PADR_S10_JANELA[0] || minReal > _PADR_S10_JANELA[1] || _padrS10Op[j.id] || _padrHouveGol(d, j)) return;
+    const a = _padrAvaliaS10(d.entries, 0, 0, regras);
+    if (!a || !a.batem.length) return;
+    const c = _padrS10Odds[j.id];
+    if (c && Date.now() - c.ts < 20000) return;
+    jobs.push(fetch(`/api/padroes/under_odd?event_id=${encodeURIComponent(j.id)}&gols=0&linha=2.5`).then(r => r.json())
+      .then(d2 => { _padrS10Odds[j.id] = { ts: Date.now(), data: d2 && d2.ok ? d2 : null }; }).catch(() => {}));
+  });
+  await Promise.all(jobs);
+}
+
+function _padrCalcItensS10() {
+  const regras = _padrPor.scalping10.regras;
+  return _padrJogos.map(j => {
+    const d = _padrDados[j.id] || { entries: [], eventos: [] };
+    const av = _padrAvalia(d.entries, j.gc, j.gf, []);
+    const minReal = _padrMinReal(j);
+    const atraso = (av && minReal != null && av.estagio === (j.estagio === '12' ? 12 : 13)) ? minReal - av.min : 0;
+    const velho = atraso > _PADR_ATRASO_MAX;
+    const houveGol = _padrHouveGol(d, j);
+    const a = regras.length ? _padrAvaliaS10(d.entries, houveGol ? 1 : 0, 0, regras) : null;
+    const batem = a ? a.batem : [];
+    const co = _padrS10Odds[j.id], odd = co ? co.data : null;
+    const dentro = j.estagio === '12' && minReal != null && minReal >= _PADR_S10_JANELA[0] && minReal <= _PADR_S10_JANELA[1];
+    const criterio1 = batem.length > 0 && !houveGol;
+    const criterio2 = !!(odd && odd.value > _PADR_S10_ODD_MIN);
+    let op = _padrS10Op[j.id] || null;
+    if (!op && dentro && criterio1 && criterio2 && !velho) {          // os 2 critérios bateram: indica a entrada (fica guardada até o minuto 10)
+      op = _padrS10Op[j.id] = { entrada: minReal, odd: odd.value, regras: batem.map(r => r.id), ts: Date.now() };
+      _padrS10Salva();
+    }
+    const saida = op ? (houveGol ? 'gol' : ((j.estagio !== '12' || (minReal != null && minReal >= _PADR_S10_FIM)) ? 'tempo' : null)) : null;
+    const emOperacao = !!(op && !saida);
+    const saidaRecente = !!(op && saida && minReal != null && minReal <= _PADR_S10_FIM + 4);
+    const corr = { fechadas: [], aberta: emOperacao ? { entrada: op.entrada, estagio: 12, regrasEntrada: op.regras, regras: op.regras } : null, est: 'scalping10' };
+    return { j, d, av, corr, ult: null, recente: saidaRecente, minReal, atraso, velho, prio: emOperacao ? 2 : (saidaRecente ? 1 : 0),
+             s10: { batem, houveGol, odd, dentro, criterio1, criterio2, op, saida, emOperacao, saidaRecente } };
+  });
+}
+
+function _padrS10Badges(it) {
+  const { j, velho, minReal } = it, s = it.s10;
+  const regras = _padrPor.scalping10.regras;
+  if (!regras.length) return `<div class="padr-sem">Importe o txt de ${_PADR_EST.scalping10.nome} (padroes_scalping10.txt) para ver quando o padrão bate.</div>`;
+  const pills = s.batem.slice(0, 4).map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('')
+    + (s.batem.length > 4 ? `<span class="padr-mini">+${s.batem.length - 4} regras</span>` : '');
+  if (s.op && s.saida === 'gol') return `<div class="padr-op saida">⚽ SAIU GOL — scalping perdido<div class="padr-op-sub">Entrou aos ${s.op.entrada}' com o Under 2.5 @ ${s.op.odd}</div></div>`;
+  if (s.op && s.saida === 'tempo') return `<div class="padr-op saida">⏹ SAIR AGORA — chegou o minuto ${_PADR_S10_FIM}: feche o scalping<div class="padr-op-sub">Entrou aos ${s.op.entrada}' com o Under 2.5 @ ${s.op.odd}</div></div>`;
+  if (s.emOperacao) return `<div class="padr-op entrada">🟢 ENTRADA INDICADA — Under 2.5 @ ${s.op.odd} (entrou aos ${s.op.entrada}')
+    <div class="padr-op-sub">✔ padrão (${_padrEsc(s.op.regras.slice(0, 4).join(', '))}) · ✔ odd &gt; ${_PADR_S10_ODD_MIN.toFixed(2)} · saia no minuto ${_PADR_S10_FIM} (faltam ${Math.max(0, _PADR_S10_FIM - (minReal || 0))} min) ou se sair gol</div></div>`;
+  if (j.estagio !== '12') return `<div class="padr-sem">O Scalping Under 10' só vale nos primeiros minutos do 1º tempo</div>`;
+  if (s.houveGol) return `<div class="padr-sem">Já saiu gol — sem scalping neste jogo</div>`;
+  if (minReal != null && minReal > _PADR_S10_JANELA[1]) return `<div class="padr-sem">Janela de entrada encerrada (minutos ${_PADR_S10_JANELA[0]}–${_PADR_S10_JANELA[1]})</div>`;
+  if (minReal != null && minReal < _PADR_S10_JANELA[0]) return `<div class="padr-sem">⏱ Aguardando os primeiros minutos do jogo</div>`;
+  if (!s.batem.length) return `<div class="padr-sem">Sem padrão neste minuto</div>`;
+  const oddTxt = s.odd ? `o Under 2.5 está em ${s.odd.value}` : 'a odd do Under 2.5 não está disponível agora';
+  return `<div class="padr-op atraso">⏳ Padrão bateu (${_padrEsc(s.batem.slice(0, 4).map(r => r.id).join(', '))}), mas ${oddTxt} — precisa ser maior que ${_PADR_S10_ODD_MIN.toFixed(2)}
+    <div class="padr-op-sub">Critério 1 ✔ padrão · critério 2 ✖ odd. Eu reavalio a cada ciclo até o minuto ${_PADR_S10_JANELA[1]}.</div></div>${pills}`;
+}
+
+// avisos no navegador do Scalping Under 10': entrada indicada, gol (perdido) e minuto 10 (sair)
+const _padrS10Estado = {};
+function _padrS10Avisos(itens) {
+  itens.forEach(({ j, s10, velho }) => {
+    if (velho || !_padrPor.scalping10.regras.length) return;
+    const nome = `${j.casa} x ${j.fora}`, placar = `${j.gc ?? 0}-${j.gf ?? 0}`;
+    let e = _padrS10Estado[j.id];
+    if (!e) { e = _padrS10Estado[j.id] = { entrada: !!s10.op, saida: !!s10.saida }; return; }      // 1ª leitura: linha de base
+    if (s10.op && !e.entrada) {
+      e.entrada = true;
+      _padrAviso('entrada', `⏱ ENTRADA — Scalping Under 10' — ${nome}`, `${placar} · Under 2.5 @ ${s10.op.odd} (> ${_PADR_S10_ODD_MIN.toFixed(2)}) · padrão ${s10.op.regras.slice(0, 4).join(', ')}. Saia no minuto ${_PADR_S10_FIM}.`);
+    }
+    if (s10.op && s10.saida && !e.saida) {
+      e.saida = true;
+      if (s10.saida === 'gol') _padrAviso('saida', `⚽ SAIU GOL — Scalping Under 10' perdido — ${nome}`, `${placar} · operação encerrada.`);
+      else _padrAviso('saida', `⏹ SAIR AGORA — Scalping Under 10' — ${nome}`, `Chegou o minuto ${_PADR_S10_FIM}: feche o scalping (entrou aos ${s10.op.entrada}').`);
+    }
+  });
+}
+
 // mesma conferência de _padroes_avalia (app.py)
 function _padrAvalia(entries, gc, gf, regras) {
   const validas = (entries || []).filter(e => e.timeFrame && (e.timeFrame.eventStage === 12 || e.timeFrame.eventStage === 13) && typeof e.momentumValue === 'number');
@@ -15217,6 +15350,7 @@ function _padrCalcItens(est) {
   est = est || _padrEst;
   if (est === 'under80') return _padrCalcItensU80();
   if (est === 'primeiro_gol') return _padrCalcItensPG();
+  if (est === 'scalping10') return _padrCalcItensS10();
   const regras = _padrPor[est].regras;
   return _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
@@ -15249,6 +15383,7 @@ function _padrRenderGrid(itensPre) {
     if (velho) badges = `<div class="padr-op atraso">⚠ Gráfico atrasado ${atraso} min — padrão NÃO avaliado<div class="padr-op-sub">Último minuto do gráfico: ${av.min}' · relógio do jogo: ${minReal}'. Não confie em entrada/saída até normalizar.</div></div>`;
     else if (_padrEst === 'under80') badges = _padrU80Badges(it);
     else if (_padrEst === 'primeiro_gol') badges = _padrPGBadges(it);
+    else if (_padrEst === 'scalping10') badges = _padrS10Badges(it);
     else if (!_padrRegras.length) badges = `<div class="padr-sem">Importe o txt de ${_PADR_EST[_padrEst].nome} para ver quando os padrões batem.</div>`;
     else if (corr.aberta) {
       badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — ${_PADR_EST[_padrEst].alvo}
@@ -15411,6 +15546,13 @@ function _padrDesenha(cv, j, d, corr) {
     const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
     c.fillStyle = '#e7eaf3'; c.beginPath(); c.moveTo(x - 3, pBot + 5); c.lineTo(x + 3, pBot + 5); c.lineTo(x, pBot + 1); c.closePath(); c.fill();
   }
+  if (corr && corr.est === 'scalping10') {      // linha do minuto 10 (fim do scalping)
+    const x10 = X(P[0], 10);
+    c.setLineDash([3, 3]); c.strokeStyle = '#f59e0b'; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(x10, pTop - 3); c.lineTo(x10, pBot + 3); c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#f59e0b'; c.font = `700 ${Math.max(10, 9 / s)}px ${_PADR_FONTE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText("10'", x10, pBot + 12);
+  }
   if (corr && corr.est === 'under80') {        // linha do minuto 80 (ponto de decisão do Under depois dos 80')
     const x80 = X(P[1], 80);
     c.setLineDash([3, 3]); c.strokeStyle = '#f59e0b'; c.lineWidth = 1.2;
@@ -15509,6 +15651,7 @@ function _padrDetectaAvisos(est, itens) {
   if (!_padrAvisosOn) return;
   if (est === 'under80') { _padrU80Avisos(itens); return; }
   if (est === 'primeiro_gol') { _padrPGAvisos(itens); return; }
+  if (est === 'scalping10') { _padrS10Avisos(itens); return; }
   const rotulo = _PADR_EST[est].nome;
   itens.forEach(({ j, corr, av, velho }) => {
     if (velho || !_padrPor[est].regras.length) return;
