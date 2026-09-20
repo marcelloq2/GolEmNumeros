@@ -10846,7 +10846,17 @@ threading.Thread(target=_fav_alerta_loop, daemon=True, name="FavAlerta15min").st
 _PAD_ESTRATEGIAS = {
     "under": {"nome": "Scalping Under Limite", "alvo": "sem_gol_proximo_minuto", "sufixo": ""},
     "over05ht": {"nome": "Over 0.5 HT", "alvo": "gol_ate_intervalo", "sufixo": "_over05ht"},
+    # Under depois dos 80': avaliado UMA vez por jogo quando chega ao minuto 80, olhando os gráficos da partida inteira;
+    # só sugere entrada se, além do padrão, a odd do Under da linha (gols atuais + 0.5) for MAIOR que _PAD_ODD_MIN_U80.
+    "under80": {"nome": "Under depois dos 80'", "alvo": "sem_gol_apos_80", "sufixo": "_under80",
+                "fases": ("2T",),
+                "medidas": ("media_jogo_dom", "media_1t_dom", "media_2t_dom", "media_ult10_dom", "media_ult5_dom",
+                            "pico_ult10_dom", "n_altas_jogo", "n_altas_ult15", "dif_jogo", "dif_ult10", "tendencia",
+                            "gols_ate_80", "vermelhos_ate_80", "so_placar"),
+                "placares": ("qualquer", "empate", "um_gol", "dois_ou_mais")},
 }
+_PAD_ODD_MIN_U80 = 1.50          # odd do Under precisa ser MAIOR que isso (critério 2 do Under depois dos 80')
+_PAD_U80_JANELA = (80, 85)       # minutos do relógio em que a entrada ainda pode ser sugerida
 PADROES_CFG_FILE = os.path.join(DATA_DIR, "padroes_config.json")
 _padroes_lock = threading.Lock()
 
@@ -10875,6 +10885,9 @@ def _padroes_parse(texto, est="under"):
     Campo opcional "minuto = 16-30" restringe a regra a essa faixa de minutos de jogo."""
     est = _padroes_est(est)
     alvo_ok = _PAD_ESTRATEGIAS[est]["alvo"]
+    fases_ok = _PAD_ESTRATEGIAS[est].get("fases", _PAD_FASES)
+    medidas_ok = _PAD_ESTRATEGIAS[est].get("medidas", _PAD_MEDIDAS)
+    placares_ok = _PAD_ESTRATEGIAS[est].get("placares", _PAD_PLACARES)
     regras, erros, ids = [], [], set()
     atual = {"r": None}
 
@@ -10887,14 +10900,14 @@ def _padroes_parse(texto, est="under"):
         prob = []
         fase, medida, placar = r.get("fase", ""), r.get("medida", ""), r.get("placar", "")
         alvo, cond = r.get("alvo", ""), _PAD_RE_COND.match(r.get("condicao", ""))
-        if fase not in _PAD_FASES:
-            prob.append(f"fase '{fase}' inválida (use {'/'.join(_PAD_FASES)})")
-        if medida not in _PAD_MEDIDAS:
-            prob.append(f"medida '{medida}' não reconhecida (use {'/'.join(_PAD_MEDIDAS)})")
+        if fase not in fases_ok:
+            prob.append(f"fase '{fase}' inválida (use {'/'.join(fases_ok)})")
+        if medida not in medidas_ok:
+            prob.append(f"medida '{medida}' não reconhecida (use {'/'.join(medidas_ok)})")
         if not cond:
             prob.append(f"condicao '{r.get('condicao', '')}' inválida (ex: <= 0.15)")
-        if placar not in _PAD_PLACARES:
-            prob.append(f"placar '{placar}' inválido (use {'/'.join(_PAD_PLACARES)})")
+        if placar not in placares_ok:
+            prob.append(f"placar '{placar}' inválido (use {'/'.join(placares_ok)})")
         if alvo != alvo_ok:
             prob.append(f"alvo '{alvo}' não vale para {_PAD_ESTRATEGIAS[est]['nome']} (use {alvo_ok})")
         if est == "over05ht" and fase != "1T":
@@ -10913,7 +10926,8 @@ def _padroes_parse(texto, est="under"):
             "placar": placar, "alvo": alvo, "descricao": r.get("descricao", "")[:300],
             "min_ini": int(faixa.group(1)) if faixa else None, "min_fim": int(faixa.group(2)) if faixa else None,
             "confianca": (r.get("confianca") or "baixa")[:20],
-            "estat": ("minutos que bateram: " + r["minutos_bateram"])[:200] if r.get("minutos_bateram") else "", "treino": (r.get("treino") or "")[:120],
+            "estat": (("minutos que bateram: " + r["minutos_bateram"]) if r.get("minutos_bateram")
+                      else ("partidas que bateram: " + r["jogos_que_bateram"]) if r.get("jogos_que_bateram") else "")[:200], "treino": (r.get("treino") or "")[:120],
             "teste": (r.get("teste") or "")[:120],
         })
 
@@ -10964,11 +10978,12 @@ def _padroes_cfg():
             d = json.load(f)
     except Exception:
         d = {}
-    return {"alerta_telegram": bool(d.get("alerta_telegram")), "alerta_over05ht": bool(d.get("alerta_over05ht"))}
+    return {"alerta_telegram": bool(d.get("alerta_telegram")), "alerta_over05ht": bool(d.get("alerta_over05ht")),
+            "alerta_under80": bool(d.get("alerta_under80"))}
 
 
 def _padroes_alerta_on(cfg, est):
-    return cfg["alerta_telegram"] if est == "under" else cfg["alerta_over05ht"]
+    return cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80"}[est]]
 
 
 def _padroes_meta(d):
@@ -11035,7 +11050,7 @@ def api_padroes_config():
     est = _padroes_est(d.get("estrategia"))
     with _padroes_lock:
         cfg = _padroes_cfg()
-        cfg["alerta_telegram" if est == "under" else "alerta_over05ht"] = bool(d.get("alerta_telegram"))
+        cfg[{"under": "alerta_telegram", "over05ht": "alerta_over05ht", "under80": "alerta_under80"}[est]] = bool(d.get("alerta_telegram"))
         _padroes_grava(PADROES_CFG_FILE, cfg, "padroes_config.json")
     return jsonify({"ok": True, "estrategia": est, "config": {"alerta_telegram": _padroes_alerta_on(cfg, est)}})
 
@@ -11185,6 +11200,132 @@ def _padroes_corridas(entries, eventos, casa_id, regras):
     return fechadas, atual
 
 
+def _padroes_avalia_u80(entries, eventos, casa_id, regras):
+    """Under depois dos 80': confere as regras UMA vez, com os gráficos da partida inteira até o minuto 80.
+    Mesmas contas de features() em painel_local/descobrir_under80.py e de _padrAvaliaU80 (JS, index.html) — mudou aqui, mude lá.
+    Devolve {"pronto": há barra do minuto 80, "completo", "gc","gf","estado","gol_apos_80","feats","batem":[ids]}."""
+    c, f = [None] * 96, [None] * 96
+    ult2 = 0
+    for e in entries or []:
+        tf = e.get("timeFrame") or {}
+        s, mv = tf.get("eventStage"), e.get("momentumValue")
+        if s not in (12, 13) or not isinstance(mv, (int, float)):
+            continue
+        m, v = int(tf.get("elapsedMinute") or 0) + 1, float(mv)
+        if (s == 12 and 1 <= m <= 44) or (s == 13 and 46 <= m <= 80):
+            c[m], f[m] = max(v, 0.0), max(-v, 0.0)
+        if s == 13 and m > ult2:
+            ult2 = m
+    gc = gf = verm = 0
+    gol_apos = False
+    for ev in eventos or []:
+        tf = ev.get("timeFrame") or {}
+        t, s = (ev.get("type") or {}).get("type"), tf.get("eventStage")
+        if s not in (12, 13):
+            continue
+        m = int(tf.get("elapsedMinute") or 0) + 1
+        ate80 = (s, m) <= (13, 80)
+        if t in _PAD_TIPOS_GOL:
+            if ate80:
+                casa = ev.get("teamId") == casa_id
+                if t == "own_goal":
+                    casa = not casa
+                if casa:
+                    gc += 1
+                else:
+                    gf += 1
+            elif s == 13 and m > 80:
+                gol_apos = True
+        elif t in ("red_card", "yellow_red_card") and ate80:
+            verm += 1
+    dif = abs(gc - gf)
+    estado = "empate" if dif == 0 else ("um_gol" if dif == 1 else "dois_ou_mais")
+    out = {"pronto": ult2 >= 80, "completo": False, "gc": gc, "gf": gf, "estado": estado, "gol_apos_80": gol_apos,
+           "vermelhos": verm, "feats": None, "batem": []}
+    faltam1 = sum(1 for m in range(1, 45) if c[m] is None)
+    faltam2 = sum(1 for m in range(46, 81) if c[m] is None)
+    if faltam1 > 4 or faltam2 > 4:
+        return out
+
+    def media(a):
+        v = [x for x in a if x is not None]
+        return sum(v) / len(v) if v else None
+
+    dom = [None if c[m] is None else max(c[m], f[m]) for m in range(96)]
+    rng = lambda a, b: list(range(a, b + 1))
+    tudo = [dom[m] for m in rng(1, 44) + rng(46, 80)]
+    ult10, ult5, ult15 = [dom[m] for m in rng(71, 80)], [dom[m] for m in rng(76, 80)], [dom[m] for m in rng(66, 80)]
+    c_tudo = [c[m] for m in rng(1, 44) + rng(46, 80)]
+    f_tudo = [f[m] for m in rng(1, 44) + rng(46, 80)]
+    v10 = [x for x in ult10 if x is not None]
+    feats = {
+        "so_placar": 0.0,
+        "media_jogo_dom": media(tudo), "media_1t_dom": media([dom[m] for m in rng(1, 44)]),
+        "media_2t_dom": media([dom[m] for m in rng(46, 80)]),
+        "media_ult10_dom": media(ult10), "media_ult5_dom": media(ult5),
+        "pico_ult10_dom": max(v10) if v10 else None,
+        "n_altas_jogo": float(sum(1 for x in tudo if x is not None and x >= 0.5)),
+        "n_altas_ult15": float(sum(1 for x in ult15 if x is not None and x >= 0.5)),
+        "dif_jogo": None, "dif_ult10": None, "tendencia": None,
+        "gols_ate_80": float(gc + gf), "vermelhos_ate_80": float(verm),
+    }
+    mc, mf = media(c_tudo), media(f_tudo)
+    if mc is not None and mf is not None:
+        feats["dif_jogo"] = mc - mf
+    mc10, mf10 = media([c[m] for m in rng(71, 80)]), media([f[m] for m in rng(71, 80)])
+    if mc10 is not None and mf10 is not None:
+        feats["dif_ult10"] = mc10 - mf10
+    m10, m70 = media(ult10), media([dom[m] for m in rng(46, 70)])
+    if m10 is not None and m70 is not None:
+        feats["tendencia"] = m10 - m70
+    if any(x is None for x in feats.values()):
+        return out
+    out["completo"], out["feats"] = True, feats
+    for r in regras:
+        if r["placar"] != "qualquer" and r["placar"] != estado:
+            continue
+        x = feats.get(r["medida"])
+        if x is None:
+            continue
+        if (x >= r["limite"] - 1e-9) if r["op"] == ">=" else (x <= r["limite"] + 1e-9):
+            out["batem"].append(r["id"])
+    return out
+
+
+_padroes_under_odd_cache = {}        # (event_id, gols) -> (ts, resultado)
+
+
+def _padroes_under_odd(event_id, gols):
+    """Odd do Under da linha "gols atuais + 0.5" (a que vence se NÃO sair mais gol). None se a casa não oferece essa linha.
+    1 consulta ao Flashscore, guardada por 20 s — só é chamada quando o padrão já bateu aos 80'."""
+    chave = (str(event_id), int(gols))
+    agora = time.time()
+    hit = _padroes_under_odd_cache.get(chave)
+    if hit and agora - hit[0] < 20:
+        return hit[1]
+    alvo = int(gols) + 0.5
+    res = None
+    try:
+        ou = _fs_live_odds_ou(str(event_id), target_line=alvo)
+        if ou and ou.get("under") and ou["under"].get("value") is not None and abs(float(ou["line"]) - alvo) < 1e-6:
+            res = {"line": alvo, "value": float(ou["under"]["value"]), "change": ou["under"].get("change")}
+    except Exception:
+        res = None
+    if len(_padroes_under_odd_cache) > 300:
+        _padroes_under_odd_cache.clear()
+    _padroes_under_odd_cache[chave] = (agora, res)
+    return res
+
+
+@app.route("/api/padroes/under_odd")
+def api_padroes_under_odd():
+    try:
+        r = _padroes_under_odd(request.args.get("event_id", ""), int(request.args.get("gols", "0")))
+    except ValueError:
+        return jsonify({"ok": False, "error": "gols inválido"}), 400
+    return jsonify({"ok": bool(r), "odd_min": _PAD_ODD_MIN_U80, **(r or {})})
+
+
 _padroes_estado = {}        # (estratégia, event_id) -> {(estagio, entrada)} corridas já tratadas (avisadas ou descartadas)
 _padroes_ops = {}           # (estratégia, event_id) -> operação AVISADA ainda aberta {"estagio","entrada","j"}
 _padroes_ult_msg = {}       # (estratégia, event_id) -> ts do último aviso de ENTRADA
@@ -11197,6 +11338,9 @@ _PAD_TEXTOS = {
     "under": {"entrada": "📊 <b>ENTRADA — Scalping Under Limite: sem gol no próximo minuto</b>",
               "gol": "⚽ <b>SAIU GOL — operação encerrada</b>",
               "tempo": "⏹ <b>FIM DO TEMPO — feche a operação</b>"},
+    "under80": {"entrada": "🕗 <b>ENTRADA SUGERIDA — Under depois dos 80'</b>",
+                "gol": "⚽ <b>SAIU GOL depois dos 80' — operação encerrada</b>",
+                "tempo": "🏁 <b>FIM DE JOGO — sem gol depois dos 80': Under batido ✅</b>"},
     "over05ht": {"entrada": "📈 <b>ENTRADA — Over 0.5 HT: padrão ativo (gol até o intervalo)</b>",
                  "gol": "✅ <b>SAIU GOL — over 0.5 HT batido, operação encerrada</b>",
                  "tempo": "⏹ <b>FIM DO 1º TEMPO — sem gol, operação encerrada</b>"},
@@ -11313,6 +11457,56 @@ def _padroes_tick_jogo(est, regras, j, dados, token, chat, agora):
         _padroes_ops[k] = {"estagio": aberta["estagio"], "entrada": aberta["entrada"], "j": j}
 
 
+def _padroes_tick_jogo_u80(regras, j, dados, token, chat, agora):
+    """Under depois dos 80': entrada sugerida quando (1) o padrão bate aos 80' E (2) a odd do Under (linha gols+0.5) > _PAD_ODD_MIN_U80."""
+    est = "under80"
+    eid = j["id"]
+    k = (est, eid)
+    entries, eventos = dados
+    r = _padroes_avalia_u80(entries, eventos, j.get("casa_id"), regras)
+    mreal = _padroes_min_real(j, agora)
+    op = _padroes_ops.get(k)
+    if op:
+        if r["gol_apos_80"]:
+            _padroes_manda(token, chat, _padroes_msg_saida(est, j, mreal or "?", op["entrada"], mreal or "?", "gol"))
+            del _padroes_ops[k]
+        return                                     # segue em operação até sair gol ou o jogo acabar
+    vistas = _padroes_estado.setdefault(k, set())
+    if "fim" in vistas or j.get("estagio") != "13" or mreal is None:
+        return
+    if mreal > _PAD_U80_JANELA[1] or r["gol_apos_80"]:
+        vistas.add("fim")                          # janela de entrada acabou (ou já saiu gol): nada a sugerir
+        return
+    if mreal < _PAD_U80_JANELA[0] or not r["pronto"] or not r["completo"] or not r["batem"]:
+        return
+    odd = _padroes_under_odd(eid, r["gc"] + r["gf"])
+    if not odd or not odd["value"] > _PAD_ODD_MIN_U80:
+        return                                     # critério 2 não bateu (ainda): tenta de novo no próximo ciclo
+    while _padroes_envios and agora - _padroes_envios[0] > 3600:
+        _padroes_envios.popleft()
+    if len(_padroes_envios) >= _PAD_MAX_HORA:
+        print("[padroes] limite de avisos por hora atingido")
+        return
+    por_id = {x["id"]: x for x in regras}
+    import html as _html
+    linhas = [_PAD_TEXTOS[est]["entrada"]] + _padroes_cab(j, mreal)
+    extra = f" (+{len(r['batem']) - 4})" if len(r["batem"]) > 4 else ""
+    linhas.append(f"✅ Critério 1 — padrão bateu aos 80': " + ", ".join(_html.escape(i) for i in r["batem"][:4]) + extra)
+    linhas.append(f"✅ Critério 2 — <b>Under {odd['line']:g}</b> paga <b>{odd['value']:g}</b> (mínimo {_PAD_ODD_MIN_U80:g})")
+    linhas.append("Eu aviso se sair gol ou quando o jogo acabar.")
+    linhas.append("")
+    for i in r["batem"][:4]:
+        x = por_id.get(i)
+        if x:
+            linhas.append(f"• <b>{_html.escape(x['id'])}</b> ({_html.escape(x['confianca'])}): {_html.escape(x['descricao'])}")
+            if x.get("estat"):
+                linhas.append(f"    {_html.escape(x['estat'])}")
+    if _padroes_manda(token, chat, "\n".join(linhas)):
+        vistas.add("fim")
+        _padroes_envios.append(agora)
+        _padroes_ops[k] = {"estagio": 13, "entrada": mreal, "j": j}
+
+
 def _padroes_alerta_tick():
     """Devolve True se há operação aberta (o loop então confere de 30 em 30 s, pra saída não atrasar)."""
     cfg = _padroes_cfg()
@@ -11336,20 +11530,33 @@ def _padroes_alerta_tick():
     # jogo que saiu do ar (intervalo/fim) com operação aberta: avisa a saída por fim de tempo
     for k in [k for k in _padroes_ops if k[1] not in vivos]:
         op = _padroes_ops.pop(k)
-        _padroes_manda(token, chat, _padroes_msg_saida(k[0], op["j"], "?", op["entrada"], "?", "tempo"))
+        motivo = "tempo"
+        if k[0] == "under80":                      # confere no gráfico final se saiu gol depois dos 80' antes de dizer que deu certo
+            fim = _pad_try(lambda: _padroes_momentum(k[1]))
+            if fim and _padroes_avalia_u80(fim[0], fim[1], op["j"].get("casa_id"), [])["gol_apos_80"]:
+                motivo = "gol"
+        _padroes_manda(token, chat, _padroes_msg_saida(k[0], op["j"], "?", op["entrada"], "?", motivo))
     for d in (_padroes_estado, _padroes_ult_msg):
         for k in [k for k in d if k[1] not in vivos]:
             del d[k]
     if not jogos:
         return bool(_padroes_ops)
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        resultados = list(pool.map(lambda j: (j, _pad_try(lambda: _padroes_momentum(j["id"]))), jogos))
     agora = time.time()
+    if any(e != "under80" for e in ativas):
+        alvo_jogos = jogos
+    else:                                          # só o Under depois dos 80' ligado: só olha jogos perto dos 78' (ou já em operação)
+        alvo_jogos = [j for j in jogos if ("under80", j["id"]) in _padroes_ops
+                      or (j.get("estagio") == "13" and (_padroes_min_real(j, agora) or 0) >= 78)]
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        resultados = list(pool.map(lambda j: (j, _pad_try(lambda: _padroes_momentum(j["id"]))), alvo_jogos))
     for j, dados in resultados:
         if not dados or not dados[0]:
             continue
         for est, regras in ativas.items():
-            _padroes_tick_jogo(est, regras, j, dados, token, chat, agora)
+            if est == "under80":
+                _padroes_tick_jogo_u80(regras, j, dados, token, chat, agora)
+            else:
+                _padroes_tick_jogo(est, regras, j, dados, token, chat, agora)
     return bool(_padroes_ops)
 
 

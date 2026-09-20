@@ -14598,16 +14598,18 @@ document.addEventListener('DOMContentLoaded', () => {
 const _PADR_EST = {
   under: { nome: 'Scalping Under Limite', alvo: 'sem gol no próximo minuto', arquivo: 'padroes.txt' },
   over05ht: { nome: 'Over 0.5 HT', alvo: 'gol até o intervalo', arquivo: 'padroes_over05ht.txt' },
+  under80: { nome: "Under depois dos 80'", alvo: "sem gol depois dos 80'", arquivo: 'padroes_under80.txt' },
 };
 let _padrEst = 'under';
 try { const e = localStorage.getItem('padrEst'); if (_PADR_EST[e]) _padrEst = e; } catch (e) {}
 const _padrPor = {
   under: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
   over05ht: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
+  under80: { regras: [], info: { ativo: null, anterior: null, config: { alerta_telegram: false }, telegram_ok: false } },
 };
 let _padrRegras = _padrPor[_padrEst].regras;           // regras da estratégia selecionada
 let _padrInfo = _padrPor[_padrEst].info;
-let _padrContagem = { under: 0, over05ht: 0 };
+let _padrContagem = { under: 0, over05ht: 0, under80: 0 };
 let _padrOddsMap = {};           // event_id do Flashscore -> jogo do Painel (odds pré-jogo + ao vivo)
 let _padrOddsIds = '';
 let _padrOddsTs = 0;             // quando as odds foram lidas com sucesso (o servidor só renova a cada ~60 s: não adianta pedir antes)
@@ -14787,6 +14789,8 @@ async function padrAtualiza() {
     if (d.ts) _padrRelogioOffset = d.ts - Date.now() / 1000;
     // as odds correm em paralelo com os gráficos e NUNCA seguram a tela: se demorarem (servidor frio), o card sai sem odds
     await Promise.all([..._padrJogos.map(_padrBuscaMomentum), currentView === 'padroes' ? _padrCarregaOdds() : null]);
+    _padrJogosPorId = {}; _padrJogos.forEach(j => { _padrJogosPorId[j.id] = j; });
+    await _padrAtualizaUnderOdds();
     const itensPor = {};
     Object.keys(_PADR_EST).forEach(e => {
       itensPor[e] = _padrCalcItens(e);
@@ -14842,6 +14846,168 @@ function _padrOddsHtml(pm) {
   }
   return html || (_padrOddsOk ? '<div class="padr-sem" style="text-align:center;padding:4px 0">sem odds para este jogo</div>' : '');
 }
+
+
+// ── Under depois dos 80' ─────────────────────────────────────────────────────────────────────
+// Avaliado UMA vez por jogo, quando chega ao minuto 80, com os gráficos da partida inteira. Só sugere entrada se
+// (1) o padrão do txt bateu E (2) a odd do Under da linha (gols atuais + 0.5) é MAIOR que _PADR_ODD_MIN_U80.
+// Mesma conta de _padroes_avalia_u80 (app.py, que manda o aviso no Telegram) — mudou lá, mude aqui.
+const _PADR_ODD_MIN_U80 = 1.5;
+const _PADR_U80_JANELA = [80, 85];        // minutos do relógio em que a entrada ainda pode ser sugerida
+const _padrU80Odds = {};                  // id do jogo -> { ts, gols, data }
+function _padrMinReal(j) {
+  return j.ini ? (j.estagio === '12' ? 1 : 46) + Math.max(0, Math.floor((Date.now() / 1000 + _padrRelogioOffset - j.ini) / 60)) : null;
+}
+function _padrAvaliaU80(entries, eventos, casaId, regras) {
+  const c = new Array(96).fill(null), f = new Array(96).fill(null);
+  let ult2 = 0;
+  (entries || []).forEach(e => {
+    const tf = e.timeFrame || {}, s = tf.eventStage;
+    if ((s !== 12 && s !== 13) || typeof e.momentumValue !== 'number') return;
+    const m = (tf.elapsedMinute || 0) + 1, v = e.momentumValue;
+    if ((s === 12 && m >= 1 && m <= 44) || (s === 13 && m >= 46 && m <= 80)) { c[m] = Math.max(v, 0); f[m] = Math.max(-v, 0); }
+    if (s === 13 && m > ult2) ult2 = m;
+  });
+  let gc = 0, gf = 0, verm = 0, golApos = false;
+  (eventos || []).forEach(ev => {
+    const tf = ev.timeFrame || {}, t = ev.type && ev.type.type, s = tf.eventStage;
+    if (s !== 12 && s !== 13) return;
+    const m = (tf.elapsedMinute || 0) + 1, ate80 = s < 13 || (s === 13 && m <= 80);
+    if (['goal', 'penalty_goal', 'own_goal'].includes(t)) {
+      if (ate80) { let casa = ev.teamId === casaId; if (t === 'own_goal') casa = !casa; if (casa) gc++; else gf++; }
+      else if (s === 13 && m > 80) golApos = true;
+    } else if ((t === 'red_card' || t === 'yellow_red_card') && ate80) verm++;
+  });
+  const dif = Math.abs(gc - gf), estado = dif === 0 ? 'empate' : (dif === 1 ? 'um_gol' : 'dois_ou_mais');
+  const out = { pronto: ult2 >= 80, completo: false, gc, gf, estado, gol_apos_80: golApos, vermelhos: verm, feats: null, batem: [] };
+  const rng = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
+  const faltam1 = rng(1, 44).filter(m => c[m] === null).length, faltam2 = rng(46, 80).filter(m => c[m] === null).length;
+  if (faltam1 > 4 || faltam2 > 4) return out;
+  const media = a => { const v = a.filter(x => x !== null); return v.length ? v.reduce((p, q) => p + q, 0) / v.length : null; };
+  const dom = c.map((x, m) => x === null ? null : Math.max(x, f[m]));
+  const m144 = rng(1, 44).concat(rng(46, 80));
+  const tudo = m144.map(m => dom[m]), ult10 = rng(71, 80).map(m => dom[m]), ult5 = rng(76, 80).map(m => dom[m]), ult15 = rng(66, 80).map(m => dom[m]);
+  const v10 = ult10.filter(x => x !== null);
+  const feats = {
+    so_placar: 0,
+    media_jogo_dom: media(tudo), media_1t_dom: media(rng(1, 44).map(m => dom[m])), media_2t_dom: media(rng(46, 80).map(m => dom[m])),
+    media_ult10_dom: media(ult10), media_ult5_dom: media(ult5), pico_ult10_dom: v10.length ? Math.max(...v10) : null,
+    n_altas_jogo: tudo.filter(x => x !== null && x >= 0.5).length, n_altas_ult15: ult15.filter(x => x !== null && x >= 0.5).length,
+    dif_jogo: null, dif_ult10: null, tendencia: null, gols_ate_80: gc + gf, vermelhos_ate_80: verm,
+  };
+  const mc = media(m144.map(m => c[m])), mf = media(m144.map(m => f[m]));
+  if (mc !== null && mf !== null) feats.dif_jogo = mc - mf;
+  const mc10 = media(rng(71, 80).map(m => c[m])), mf10 = media(rng(71, 80).map(m => f[m]));
+  if (mc10 !== null && mf10 !== null) feats.dif_ult10 = mc10 - mf10;
+  const m10 = media(ult10), m70 = media(rng(46, 70).map(m => dom[m]));
+  if (m10 !== null && m70 !== null) feats.tendencia = m10 - m70;
+  if (Object.values(feats).some(x => x === null)) return out;
+  out.completo = true; out.feats = feats;
+  for (const r of regras) {
+    if (r.placar !== 'qualquer' && r.placar !== estado) continue;
+    const x = feats[r.medida];
+    if (x == null) continue;
+    if (r.op === '>=' ? x >= r.limite - 1e-9 : x <= r.limite + 1e-9) out.batem.push(r.id);
+  }
+  return out;
+}
+
+// Odd do Under (linha gols+0.5): 1 consulta do servidor por jogo, só quando o padrão já bateu aos 80' (o servidor guarda 20 s)
+async function _padrAtualizaUnderOdds() {
+  const regras = _padrPor.under80.regras;
+  if (!regras.length) return;
+  const jobs = [];
+  _padrJogos.forEach(j => {
+    const d = _padrDados[j.id];
+    const minReal = _padrMinReal(j);
+    if (!d || j.estagio !== '13' || minReal == null || minReal < _PADR_U80_JANELA[0] || minReal > _PADR_U80_JANELA[1]) return;
+    const u = _padrAvaliaU80(d.entries, d.eventos, j.casa_id, regras);
+    if (!(u.pronto && u.completo && u.batem.length && !u.gol_apos_80)) return;
+    const gols = u.gc + u.gf, c = _padrU80Odds[j.id];
+    if (c && c.gols === gols && Date.now() - c.ts < 20000) return;
+    jobs.push(fetch(`/api/padroes/under_odd?event_id=${encodeURIComponent(j.id)}&gols=${gols}`).then(r => r.json())
+      .then(d2 => { _padrU80Odds[j.id] = { ts: Date.now(), gols, data: d2 && d2.ok ? d2 : null }; }).catch(() => {}));
+  });
+  await Promise.all(jobs);
+}
+
+function _padrCalcItensU80() {
+  const regras = _padrPor.under80.regras;
+  return _padrJogos.map(j => {
+    const d = _padrDados[j.id] || { entries: [], eventos: [] };
+    const av = _padrAvalia(d.entries, j.gc, j.gf, []);
+    const minReal = _padrMinReal(j);
+    const atraso = (av && minReal != null && av.estagio === (j.estagio === '12' ? 12 : 13)) ? minReal - av.min : 0;
+    const velho = atraso > _PADR_ATRASO_MAX;
+    const u = regras.length ? _padrAvaliaU80(d.entries, d.eventos, j.casa_id, regras) : { pronto: false, completo: false, batem: [], gc: 0, gf: 0, gol_apos_80: false };
+    const co = _padrU80Odds[j.id];
+    const odd = (co && co.gols === u.gc + u.gf) ? co.data : null;
+    const dentro = j.estagio === '13' && minReal != null && minReal >= _PADR_U80_JANELA[0] && minReal <= _PADR_U80_JANELA[1];
+    const criterio1 = !!(u.pronto && u.completo && u.batem.length && !u.gol_apos_80);
+    const criterio2 = !!(odd && odd.value > _PADR_ODD_MIN_U80);
+    const sugerida = !!(dentro && criterio1 && criterio2 && !velho);
+    const corr = { fechadas: [], aberta: sugerida ? { entrada: 80, estagio: 13, regrasEntrada: u.batem.slice(), regras: u.batem.slice() } : null, est: 'under80' };
+    return { j, d, av, corr, ult: null, recente: false, minReal, atraso, velho, u, odd, dentro, criterio1, criterio2, sugerida,
+             prio: sugerida ? 2 : (dentro && criterio1 && !velho ? 1 : 0) };
+  });
+}
+
+function _padrU80Badges(it) {
+  const { j, u, odd, minReal, dentro, criterio1, criterio2, sugerida } = it;
+  const regras = _padrPor.under80.regras;
+  if (!regras.length) return `<div class="padr-sem">Importe o txt de ${_PADR_EST.under80.nome} (padroes_under80.txt) para ver quando o padrão bate.</div>`;
+  const resumo = u.batem.length > 4 ? u.batem.slice(0, 4).join(', ') + ` +${u.batem.length - 4}` : u.batem.join(', ');
+  const pills = u.batem.slice(0, 4).map(id => { const r = regras.find(x => x.id === id) || {}; return `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(id)}</span>`; }).join('');
+  const placar = `${u.gc}-${u.gf}`;
+  const maisPills = u.batem.length > 4 ? `<span class="padr-mini" title="${_padrEsc(u.batem.join(', '))}">+${u.batem.length - 4} regras</span>` : '';
+  if (j.estagio !== '13' || minReal == null) return `<div class="padr-sem">${j.estagio === '12' ? '1º tempo — o Under depois dos 80\' só é avaliado no 2º tempo' : 'Aguardando o 2º tempo'}</div>`;
+  if (u.gol_apos_80) return `<div class="padr-op saida">⚽ Saiu gol depois dos 80' — sem entrada<div class="padr-op-sub">Placar aos 80': ${placar}</div></div>`;
+  if (minReal < _PADR_U80_JANELA[0]) return `<div class="padr-sem">⏱ Aguardando o minuto 80 — faltam ${_PADR_U80_JANELA[0] - minReal} min</div>`;
+  if (!u.pronto) return `<div class="padr-sem">Esperando o gráfico do minuto 80 chegar do Livesport...</div>`;
+  if (!u.completo) return `<div class="padr-sem">Gráfico da partida incompleto — não dá para avaliar o padrão</div>`;
+  if (!u.batem.length) return `<div class="padr-sem">Sem padrão aos 80' (placar ${placar}) — nenhuma regra bateu</div>`;
+  if (sugerida) {
+    return `<div class="padr-op entrada">🟢 ENTRADA SUGERIDA — Under ${odd.line} @ ${odd.value}
+      <div class="padr-op-sub">✔ padrão bateu aos 80' (${resumo}) · ✔ odd ${odd.value} &gt; ${_PADR_ODD_MIN_U80.toFixed(2)} · placar ${placar}</div></div>${pills}${maisPills}`;
+  }
+  if (!dentro) return `<div class="padr-sem">Janela de entrada encerrada (${_PADR_U80_JANELA[0]}'–${_PADR_U80_JANELA[1]}')</div>${pills}`;
+  const oddTxt = odd ? `Under ${odd.line} está em ${odd.value}` : `a odd do Under ${u.gc + u.gf + 0.5} não está disponível agora`;
+  return `<div class="padr-op atraso">⏳ Padrão bateu (${resumo}), mas ${oddTxt} — precisa ser maior que ${_PADR_ODD_MIN_U80.toFixed(2)}
+    <div class="padr-op-sub">Critério 1 ✔ padrão · critério 2 ✖ odd. Eu reavalio a cada ciclo até o minuto ${_PADR_U80_JANELA[1]}.</div></div>${pills}${maisPills}`;
+}
+
+// avisos no navegador do Under depois dos 80': entrada sugerida, gol depois da entrada e fim de jogo
+const _padrU80Estado = {};                // id -> { avisou, golAvisado, nome, placar }
+function _padrU80Avisos(itens) {
+  const vivos = new Set(itens.map(x => x.j.id));
+  itens.forEach(({ j, u, odd, sugerida, velho }) => {
+    if (velho || !_padrPor.under80.regras.length) return;
+    const nome = `${j.casa} x ${j.fora}`, placar = `${u.gc}-${u.gf}`;
+    let s = _padrU80Estado[j.id];
+    if (!s) { s = _padrU80Estado[j.id] = { avisou: sugerida, golAvisado: false, nome, primeira: true }; return; }   // 1ª leitura: linha de base
+    s.nome = nome;
+    if (sugerida && !s.avisou) {
+      s.avisou = true;
+      _padrAviso('entrada', `🕗 ENTRADA — Under depois dos 80' — ${nome}`, `${placar} · Under ${odd.line} @ ${odd.value} (> ${_PADR_ODD_MIN_U80.toFixed(2)}) · padrão ${u.batem.slice(0, 4).join(', ')}${u.batem.length > 4 ? ' +' + (u.batem.length - 4) : ''} bateu aos 80'. Eu aviso se sair gol ou quando acabar.`);
+    }
+    if (s.avisou && u.gol_apos_80 && !s.golAvisado) {
+      s.golAvisado = true;
+      _padrAviso('saida', `⚽ SAIU GOL — Under depois dos 80' — ${nome}`, `${placar} · operação encerrada.`);
+    }
+  });
+  Object.keys(_padrU80Estado).forEach(id => {       // jogo saiu da lista (acabou): confere o gráfico final
+    const s = _padrU80Estado[id];
+    if (vivos.has(id) || !s.avisou || s.golAvisado || s.fim) return;
+    s.fim = true;
+    fetch(`${_PADR_LS_URL}?_hash=mmts&eventId=${encodeURIComponent(id)}&providerId=7&_=${Math.floor(Date.now() / 15000)}`).then(r => r.json()).then(d => {
+      const n = ((d || {}).data || {}).findMatchMomentumStatsByMatchId || {};
+      const fim = _padrAvaliaU80((n.momentum || {}).entries, (n.matchEvents || {}).entries, (_padrJogosPorId[id] || {}).casa_id, []);
+      if (fim.gol_apos_80) _padrAviso('saida', `⚽ SAIU GOL — Under depois dos 80' — ${s.nome}`, 'Saiu gol depois dos 80\'. Operação encerrada.');
+      else _padrAviso('entrada', `🏁 FIM — Under depois dos 80' batido ✅ — ${s.nome}`, "Sem gol depois dos 80'. (confira o resultado final)");
+    }).catch(() => {});
+  });
+}
+let _padrJogosPorId = {};
 
 // mesma conferência de _padroes_avalia (app.py)
 function _padrAvalia(entries, gc, gf, regras) {
@@ -14918,6 +15084,7 @@ function _padrMotivo(est, m) {
 
 function _padrCalcItens(est) {
   est = est || _padrEst;
+  if (est === 'under80') return _padrCalcItensU80();
   const regras = _padrPor[est].regras;
   return _padrJogos.map(j => {
     const d = _padrDados[j.id] || { entries: [], eventos: [] };
@@ -14943,10 +15110,12 @@ function _padrRenderGrid(itensPre) {
     grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo em operação (nem com saída recente) agora.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
     return;
   }
-  grid.innerHTML = lista.map(({ j, d, av, corr, ult, recente, minReal, atraso, velho, prio }) => {
+  grid.innerHTML = lista.map((it) => {
+    const { j, d, av, corr, ult, recente, minReal, atraso, velho, prio } = it;
     const ativos = av ? av.batem : [];
     let badges = '';
     if (velho) badges = `<div class="padr-op atraso">⚠ Gráfico atrasado ${atraso} min — padrão NÃO avaliado<div class="padr-op-sub">Último minuto do gráfico: ${av.min}' · relógio do jogo: ${minReal}'. Não confie em entrada/saída até normalizar.</div></div>`;
+    else if (_padrEst === 'under80') badges = _padrU80Badges(it);
     else if (!_padrRegras.length) badges = `<div class="padr-sem">Importe o txt de ${_PADR_EST[_padrEst].nome} para ver quando os padrões batem.</div>`;
     else if (corr.aberta) {
       badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — ${_PADR_EST[_padrEst].alvo}
@@ -15109,6 +15278,13 @@ function _padrDesenha(cv, j, d, corr) {
     const u = ent[ent.length - 1], p = P[u.timeFrame.eventStage === 12 ? 0 : 1], x = X(p, minDe(u));
     c.fillStyle = '#e7eaf3'; c.beginPath(); c.moveTo(x - 3, pBot + 5); c.lineTo(x + 3, pBot + 5); c.lineTo(x, pBot + 1); c.closePath(); c.fill();
   }
+  if (corr && corr.est === 'under80') {        // linha do minuto 80 (ponto de decisão do Under depois dos 80')
+    const x80 = X(P[1], 80);
+    c.setLineDash([3, 3]); c.strokeStyle = '#f59e0b'; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(x80, pTop - 3); c.lineTo(x80, pBot + 3); c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#f59e0b'; c.font = `700 ${Math.max(10, 9 / s)}px ${_PADR_FONTE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText("80'", x80, pBot + 12);
+  }
   // operações (padrão batendo): faixa verde sob o painel da entrada até a saída (ou até agora, se aberta);
   // saída = "x" vermelho no minuto em que o padrão deixou de bater / saiu gol / acabou o tempo
   if (corr) {
@@ -15198,6 +15374,7 @@ function _padrAviso(tipo, titulo, corpo) {
 
 function _padrDetectaAvisos(est, itens) {
   if (!_padrAvisosOn) return;
+  if (est === 'under80') { _padrU80Avisos(itens); return; }
   const rotulo = _PADR_EST[est].nome;
   itens.forEach(({ j, corr, av, velho }) => {
     if (velho || !_padrPor[est].regras.length) return;
