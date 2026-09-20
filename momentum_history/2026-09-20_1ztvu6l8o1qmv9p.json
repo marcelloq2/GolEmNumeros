@@ -1,7 +1,7 @@
 {
   "event_id": "1ztvu6l8o1qmv9p",
   "date": "2026-09-20",
-  "saved_at": "2026-09-20T01:10:33.276828",
+  "saved_at": "2026-09-20T01:25:37.196126",
   "source": "uniscore",
   "casa": "Detroit City",
   "fora": "Pittsburgh Riverhounds",
@@ -429,7 +429,7 @@
       "isHome": true,
       "shotType": "save",
       "bodyPart": "right_foot",
-      "situation": "assisted",
+      "situation": "regular",
       "player": "C.Niang",
       "x": 13.6,
       "y": 75
@@ -503,9 +503,9 @@
   ],
   "statistics": {
     "xg_expected_goals": {
-      "home": "0.64",
+      "home": "0.67",
       "away": "0.13",
-      "homeValue": 0.64,
+      "homeValue": 0.67,
       "awayValue": 0.13
     },
     "big_chances": {
@@ -563,9 +563,9 @@
       "awayValue": 2
     },
     "passes": {
-      "home": "468",
+      "home": "469",
       "away": "371",
-      "homeValue": 468,
+      "homeValue": 469,
       "awayValue": 371
     },
     "yellow_cards": {
@@ -605,21 +605,21 @@
       "awayValue": 6
     },
     "passes_accuracy": {
-      "home": "372/468",
+      "home": "367/469",
       "away": "252/371",
-      "homeValue": 79,
+      "homeValue": 78,
       "awayValue": 68
     },
     "throw_in": {
-      "home": "21",
+      "home": "22",
       "away": "35",
-      "homeValue": 21,
+      "homeValue": 22,
       "awayValue": 35
     },
     "final_third_entries": {
-      "home": "61",
+      "home": "62",
       "away": "87",
-      "homeValue": 61,
+      "homeValue": 62,
       "awayValue": 87
     },
     "pass_in_final_third": {
@@ -629,34 +629,34 @@
       "awayValue": 117
     },
     "pass_in_final_third_accuracy": {
-      "home": "66/110",
+      "home": "64/110",
       "away": "54/117",
-      "homeValue": 60,
+      "homeValue": 58,
       "awayValue": 46
     },
     "long_balls": {
-      "home": "86",
+      "home": "88",
       "away": "68",
-      "homeValue": 86,
+      "homeValue": 88,
       "awayValue": 68
     },
     "long_balls_accuracy": {
-      "home": "42/86",
+      "home": "41/88",
       "away": "20/68",
-      "homeValue": 49,
+      "homeValue": 47,
       "awayValue": 29
     },
     "crosses_accuracy": {
-      "home": "3/12",
+      "home": "2/12",
       "away": "1/14",
-      "homeValue": 25,
+      "homeValue": 17,
       "awayValue": 7
     },
     "duels_accuracy": {
-      "home": "69/113",
-      "away": "46/111",
-      "homeValue": 61,
-      "awayValue": 39
+      "home": "68/113",
+      "away": "45/113",
+      "homeValue": 60,
+      "awayValue": 40
     },
     "dispossessed": {
       "home": "7",
@@ -665,34 +665,34 @@
       "awayValue": 3
     },
     "duels": {
-      "home": "69",
-      "away": "46",
-      "homeValue": 69,
-      "awayValue": 46
+      "home": "68",
+      "away": "45",
+      "homeValue": 68,
+      "awayValue": 45
     },
     "ground_duels": {
-      "home": "53",
+      "home": "54",
       "away": "54",
-      "homeValue": 53,
+      "homeValue": 54,
       "awayValue": 54
     },
     "aerial_duels": {
-      "home": "60",
-      "away": "57",
-      "homeValue": 60,
-      "awayValue": 57
+      "home": "59",
+      "away": "59",
+      "homeValue": 59,
+      "awayValue": 59
     },
     "ground_duels_accuracy": {
-      "home": "29/53",
+      "home": "30/54",
       "away": "24/54",
-      "homeValue": 55,
-      "awayValue": 45
+      "homeValue": 56,
+      "awayValue": 44
     },
     "aerial_duels_accuracy": {
-      "home": "40/60",
-      "away": "22/57",
-      "homeValue": 67,
-      "awayValue": 33
+      "home": "38/59",
+      "away": "21/59",
+      "homeValue": 64,
+      "awayValue": 36
     },
     "dribble": {
       "home": "10",
@@ -761,10 +761,10 @@
       "awayValue": 10
     },
     "poss_losts": {
-      "home": "143",
-      "away": "170",
-      "homeValue": 143,
-      "awayValue": 170
+      "home": "150",
+      "away": "172",
+      "homeValue": 150,
+      "awayValue": 172
     },
     "ball_possession": {
       "home": "56%",
@@ -776,9 +776,9 @@
   "statistics_periods": {
     "ALL": {
       "xg_expected_goals": {
-        "home": "0.64",
+        "home": "0.67",
         "away": "0.13",
-        "homeValue": 0.64,
+        "homeValue": 0.67,
         "awayValue": 0.13
       },
       "big_chances": {
@@ -836,9 +836,9 @@
         "awayValue": 2
       },
       "passes": {
-        "home": "468",
+        "home": "469",
         "away": "371",
-        "homeValue": 468,
+        "homeValue": 469,
         "awayValue": 371
       },
       "yellow_cards": {
@@ -878,21 +878,21 @@
         "awayValue": 6
       },
       "passes_accuracy": {
-        "home": "372/468",
+        "home": "367/469",
         "away": "252/371",
-        "homeValue": 79,
+        "homeValue": 78,
         "awayValue": 68
       },
       "throw_in": {
-        "home": "21",
+        "home": "22",
         "away": "35",
-        "homeValue": 21,
+        "homeValue": 22,
         "awayValue": 35
       },
       "final_third_entries": {
-        "home": "61",
+        "home": "62",
         "away": "87",
-        "homeValue": 61,
+        "homeValue": 62,
         "awayValue": 87
       },
       "pass_in_final_third": {
@@ -902,34 +902,34 @@
         "awayValue": 117
       },
       "pass_in_final_third_accuracy": {
-        "home": "66/110",
+        "home": "64/110",
         "away": "54/117",
-        "homeValue": 60,
+        "homeValue": 58,
         "awayValue": 46
       },
       "long_balls": {
-        "home": "86",
+        "home": "88",
         "away": "68",
-        "homeValue": 86,
+        "homeValue": 88,
         "awayValue": 68
       },
       "long_balls_accuracy": {
-        "home": "42/86",
+        "home": "41/88",
         "away": "20/68",
-        "homeValue": 49,
+        "homeValue": 47,
         "awayValue": 29
       },
       "crosses_accuracy": {
-        "home": "3/12",
+        "home": "2/12",
         "away": "1/14",
-        "homeValue": 25,
+        "homeValue": 17,
         "awayValue": 7
       },
       "duels_accuracy": {
-        "home": "69/113",
-        "away": "46/111",
-        "homeValue": 61,
-        "awayValue": 39
+        "home": "68/113",
+        "away": "45/113",
+        "homeValue": 60,
+        "awayValue": 40
       },
       "dispossessed": {
         "home": "7",
@@ -938,34 +938,34 @@
         "awayValue": 3
       },
       "duels": {
-        "home": "69",
-        "away": "46",
-        "homeValue": 69,
-        "awayValue": 46
+        "home": "68",
+        "away": "45",
+        "homeValue": 68,
+        "awayValue": 45
       },
       "ground_duels": {
-        "home": "53",
+        "home": "54",
         "away": "54",
-        "homeValue": 53,
+        "homeValue": 54,
         "awayValue": 54
       },
       "aerial_duels": {
-        "home": "60",
-        "away": "57",
-        "homeValue": 60,
-        "awayValue": 57
+        "home": "59",
+        "away": "59",
+        "homeValue": 59,
+        "awayValue": 59
       },
       "ground_duels_accuracy": {
-        "home": "29/53",
+        "home": "30/54",
         "away": "24/54",
-        "homeValue": 55,
-        "awayValue": 45
+        "homeValue": 56,
+        "awayValue": 44
       },
       "aerial_duels_accuracy": {
-        "home": "40/60",
-        "away": "22/57",
-        "homeValue": 67,
-        "awayValue": 33
+        "home": "38/59",
+        "away": "21/59",
+        "homeValue": 64,
+        "awayValue": 36
       },
       "dribble": {
         "home": "10",
@@ -1034,10 +1034,10 @@
         "awayValue": 10
       },
       "poss_losts": {
-        "home": "143",
-        "away": "170",
-        "homeValue": 143,
-        "awayValue": 170
+        "home": "150",
+        "away": "172",
+        "homeValue": 150,
+        "awayValue": 172
       },
       "ball_possession": {
         "home": "56%",
@@ -1290,9 +1290,9 @@
     },
     "2ND": {
       "xg_expected_goals": {
-        "home": "0.62",
+        "home": "0.65",
         "away": "0.00",
-        "homeValue": 0.62,
+        "homeValue": 0.65,
         "awayValue": 0
       },
       "big_chances": {
@@ -1350,9 +1350,9 @@
         "awayValue": 2
       },
       "passes": {
-        "home": "151",
+        "home": "152",
         "away": "201",
-        "homeValue": 151,
+        "homeValue": 152,
         "awayValue": 201
       },
       "yellow_cards": {
@@ -1392,21 +1392,21 @@
         "awayValue": 4
       },
       "passes_accuracy": {
-        "home": "115/151",
+        "home": "110/152",
         "away": "134/201",
-        "homeValue": 76,
+        "homeValue": 72,
         "awayValue": 67
       },
       "throw_in": {
-        "home": "8",
+        "home": "9",
         "away": "23",
-        "homeValue": 8,
+        "homeValue": 9,
         "awayValue": 23
       },
       "final_third_entries": {
-        "home": "28",
+        "home": "29",
         "away": "43",
-        "homeValue": 28,
+        "homeValue": 29,
         "awayValue": 43
       },
       "pass_in_final_third": {
@@ -1416,34 +1416,34 @@
         "awayValue": 58
       },
       "pass_in_final_third_accuracy": {
-        "home": "30/47",
+        "home": "28/47",
         "away": "28/58",
-        "homeValue": 64,
+        "homeValue": 60,
         "awayValue": 48
       },
       "long_balls": {
-        "home": "39",
+        "home": "41",
         "away": "35",
-        "homeValue": 39,
+        "homeValue": 41,
         "awayValue": 35
       },
       "long_balls_accuracy": {
-        "home": "16/39",
+        "home": "15/41",
         "away": "11/35",
-        "homeValue": 41,
+        "homeValue": 37,
         "awayValue": 31
       },
       "crosses_accuracy": {
-        "home": "2/8",
+        "home": "1/8",
         "away": "0/9",
-        "homeValue": 25,
+        "homeValue": 13,
         "awayValue": 0
       },
       "duels_accuracy": {
-        "home": "41/60",
-        "away": "21/58",
-        "homeValue": 68,
-        "awayValue": 32
+        "home": "40/60",
+        "away": "20/60",
+        "homeValue": 67,
+        "awayValue": 33
       },
       "dispossessed": {
         "home": "2",
@@ -1452,34 +1452,34 @@
         "awayValue": 2
       },
       "duels": {
-        "home": "41",
-        "away": "21",
-        "homeValue": 41,
-        "awayValue": 21
+        "home": "40",
+        "away": "20",
+        "homeValue": 40,
+        "awayValue": 20
       },
       "ground_duels": {
-        "home": "25",
+        "home": "26",
         "away": "26",
-        "homeValue": 25,
+        "homeValue": 26,
         "awayValue": 26
       },
       "aerial_duels": {
-        "home": "35",
-        "away": "32",
-        "homeValue": 35,
-        "awayValue": 32
+        "home": "34",
+        "away": "34",
+        "homeValue": 34,
+        "awayValue": 34
       },
       "ground_duels_accuracy": {
-        "home": "16/25",
+        "home": "17/26",
         "away": "9/26",
-        "homeValue": 64,
-        "awayValue": 36
+        "homeValue": 65,
+        "awayValue": 35
       },
       "aerial_duels_accuracy": {
-        "home": "25/35",
-        "away": "12/32",
-        "homeValue": 71,
-        "awayValue": 29
+        "home": "23/34",
+        "away": "11/34",
+        "homeValue": 68,
+        "awayValue": 32
       },
       "dribble": {
         "home": "4",
@@ -1548,10 +1548,10 @@
         "awayValue": 5
       },
       "poss_losts": {
-        "home": "63",
-        "away": "101",
-        "homeValue": 63,
-        "awayValue": 101
+        "home": "70",
+        "away": "103",
+        "homeValue": 70,
+        "awayValue": 103
       },
       "ball_possession": {
         "home": "43%",
