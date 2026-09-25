@@ -1660,6 +1660,11 @@
   .painel-ou-pill { color: var(--text2) }
   .painel-ou-pill .over { color: var(--green); font-family: var(--font-mono); font-weight: 700 }
   .painel-ou-pill .under { color: var(--yellow); font-family: var(--font-mono); font-weight: 700 }
+  /* Ambas Marcam / BTTS (2026-09-24) — mesma ideia do O/U acima: de jogo inteiro,
+     sem lado casa/fora, então entra na mesma linha compartilhada. */
+  .painel-btts-pill { color: var(--text2) }
+  .painel-btts-pill .sim { color: var(--green); font-family: var(--font-mono); font-weight: 700 }
+  .painel-btts-pill .nao { color: var(--yellow); font-family: var(--font-mono); font-weight: 700 }
   .painel-match-card-bottom {
     display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px;
   }
@@ -1685,6 +1690,7 @@
   .painel-plat-icon:hover { filter: brightness(1.15); transform: scale(1.08); }
   .painel-plat-betfair { background: #ffb80c; color: #05262b; }
   .painel-plat-bolsa { background: #17a94c; color: #fff; }
+  .painel-plat-radar { background: #2b6fe0; color: #fff; font-size: 11px; }
   .painel-match-minute { color: var(--red); font-weight: 700; font-size: var(--text-sm); }
   /* Faixa lateral pulsante nos jogos AO VIVO — referência de "no ar" de
      transmissão, pra diferenciar da massa de jogos agendados/encerrados em
@@ -3362,6 +3368,13 @@ function _live2ProximoRowHtml(m) {
   // sumido tudo quando a pílula desaparecia por completo).
   const oddCell = (label, val, cls) => `<span class="painel-1x2-cell${cls ? ' ' + cls : ''}"><b>${label}</b> ${val ?? '-'}</span>`;
   const odds1x2Html = `<span class="painel-1x2-group">${oddCell('1', m.odd_1, 'home')}${oddCell('X', m.odd_x, '')}${oddCell('2', m.odd_2, 'away')}</span>`;
+  // Over/Under e Ambas Marcam (2026-09-24, pedido do usuário) — mesmos campos
+  // que o Painel Principal já usa (odd_over/odd_under/ou_line, odd_btts_sim/
+  // odd_btts_nao), já vêm no mesmo /api/painel/matches, zero busca nova.
+  const ouHtml = (m.odd_over != null && m.odd_under != null)
+    ? `<span class="painel-ou-pill" title="Over/Under ${m.ou_line ?? ''}">O/U${m.ou_line != null ? ' ' + m.ou_line : ''}: <span class="over">${m.odd_over}</span>/<span class="under">${m.odd_under}</span></span>` : '';
+  const bttsHtml = (m.odd_btts_sim != null && m.odd_btts_nao != null)
+    ? `<span class="painel-btts-pill" title="Ambas as equipes marcam">BTTS: <span class="sim">${m.odd_btts_sim}</span>/<span class="nao">${m.odd_btts_nao}</span></span>` : '';
   // Cada time é seu próprio card empilhado (2026-09-18, redesenho mobile) —
   // escudo + nome + posição numa linha alta (nome tem espaço de verdade,
   // nunca mais compete por largura com forma/ícones/gols), forma + ícones
@@ -3388,15 +3401,17 @@ function _live2ProximoRowHtml(m) {
           title="${_proximosPinned[m.event_id] ? 'Remover dos favoritos' : 'Favoritar — entra favoritado no Ao Vivo quando o jogo começar'}">${_proximosPinned[m.event_id] ? '⭐' : '☆'}</span>
         <span class="live-prox-time">${hora}</span>
         <span class="live-prox-liga">${_bt2EscXml(m._liga || '')}</span>
-        ${(m.link_betfair || m.link_bolsa) ? `<span class="painel-plat-icons" style="margin-left:8px">
+        ${(m.link_betfair || m.link_bolsa || m.link_radar) ? `<span class="painel-plat-icons" style="margin-left:8px">
           ${m.link_betfair ? `<a href="${m.link_betfair}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-betfair" title="Abrir no Betfair Exchange">B</a>` : ''}
           ${m.link_bolsa ? `<a href="${m.link_bolsa}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-bolsa" title="Abrir na Bolsa de Aposta">$</a>` : ''}
+          ${m.link_radar ? `<a href="${m.link_radar}" target="_blank" rel="noopener" class="painel-plat-icon painel-plat-radar" title="Abrir no RadarFutebol">R</a>` : ''}
         </span>` : ''}
       </div>
       <div class="live-prox-h2h-row"><span id="live2ProxConfronto_${m.event_id}" class="live-prox-h2h">${confrontoHtml}</span></div>
       ${teamRow(m.home_logo, m.home, m.casa_pos, `live2FormWrapCasa_${m.event_id}`, formaCasaHtml, m.casa_ataque_icon, m.casa_defesa_icon, m.casa_gf_avg, m.casa_ga_avg, 'casa')}
       ${teamRow(m.away_logo, m.away, m.fora_pos, `live2FormWrapFora_${m.event_id}`, formaForaHtml, m.fora_ataque_icon, m.fora_defesa_icon, m.fora_gf_avg, m.fora_ga_avg, 'visitante')}
       <div class="live-prox-odds-row">${odds1x2Html}</div>
+      ${(ouHtml || bttsHtml) ? `<div class="live-prox-odds-row" style="margin-top:4px;gap:14px;flex-wrap:wrap">${ouHtml}${bttsHtml}</div>` : ''}
       <input class="live-prox-metodo" type="text" maxlength="120" placeholder="Metodologia (vai no aviso do Telegram)"
         value="${_bt2EscXml((_proximosPinned[m.event_id] || {}).metodologia || '')}"
         oninput="_proximosSetMetodo('${m.event_id}', this.value)">

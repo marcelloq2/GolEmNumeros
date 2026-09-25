@@ -1713,6 +1713,7 @@ def _fs_extract_odds_fields(markets):
     m1x2 = markets.get("1x2") or {}
     ou = _melhor_linha(markets.get("over_under") or {}, 2.5) or {}
     ah = _melhor_linha(markets.get("handicap_asiatico") or {}, 0.0) or {}
+    ambos = markets.get("ambos_marcam") or {}
 
     return {
         "odd_1": _num((m1x2.get("home") or {}).get("value")),
@@ -1724,6 +1725,8 @@ def _fs_extract_odds_fields(markets):
         "ah_line": _num((ah.get("handicap") or {}).get("value")),
         "ah_home": _num((ah.get("home") or {}).get("value")),
         "ah_away": _num((ah.get("away") or {}).get("value")),
+        "odd_btts_sim": _num((ambos.get("yes") or {}).get("value")),
+        "odd_btts_nao": _num((ambos.get("no") or {}).get("value")),
     }
 
 
