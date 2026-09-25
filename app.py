@@ -11836,6 +11836,180 @@ def _pad_try(fn):
         return None
 
 
+# ── Coleta automática de momentum pra treinar os padrões (2026-09-26) ────────
+# Até aqui, a base de padrões (base_lida.json) só crescia com o usuário tirando
+# print do gráfico do Livesport à mão e rodando o painel_local (leitor_grafico.py
+# + ler_todas.py). O servidor já sabe buscar esse MESMO gráfico direto da API do
+# Livesport (_padroes_momentum, hoje usada só pro monitor ao vivo/Telegram) —
+# inclusive depois que o jogo termina (testado num jogo já encerrado: os 100
+# pontos do momentum, do 1' ao 90+6', vieram certinho, e os 2 gols bateram com
+# o placar real). Este loop fecha o ciclo sozinho: acompanha os jogos do Top
+# Scores, e quando um jogo que estava ao vivo termina, busca o momentum inteiro
+# dele e guarda no MESMO formato que ler_todas.py grava em base_lida.json — sem
+# imagem, sem o usuário abrir nada. Sinal casa/fora vem do MESMO critério que o
+# JS ao vivo já usa (_padrBuscaMomentum/porMin no index.html): momentumValue
+# positivo = casa, negativo = visitante (max(v,0) / max(-v,0)).
+#
+# Fica num arquivo PRÓPRIO (padroes_auto_base.json, não mexe em base_lida.json,
+# que é a base "oficial" dos prints) — pra usar essa base nova, é só apontar os
+# scripts descobrir_*.py do painel_local pra ela (ou juntar as duas antes de
+# rodar). Faz backup no GitHub que nem backtest2.db (github_storage.push_file_bg),
+# senão um restart do Railway apagaria tudo que foi coletado sozinho.
+#
+# NÃO passa por _site_gate() de propósito — mesma exceção que _padroes_alerta_loop
+# já tem (pedido do usuário: a aba Padrões não pode ser prejudicada pela chave
+# geral do site).
+PADROES_AUTO_BASE_FILE = os.path.join(DATA_DIR, "padroes_auto_base.json")
+_padroes_auto_lock = threading.Lock()
+_padroes_auto_watch = {}   # event_id -> dados do jogo, enquanto ele estiver "ao vivo" (AB=2) no Top Scores
+
+
+def _padroes_auto_resumo(eventos):
+    """Réplica exata de resumo_jogo() do painel_local/ler_todas.py — mesma lógica,
+    só que a partir de eventos que vieram do Livesport em vez de imagem lida."""
+    ev = [e for e in eventos if e["tipo"] == "gol"]
+    verm = [e for e in eventos if e["tipo"] == "vermelho"]
+
+    def g(lado, painel=None):
+        return sorted(e["min"] for e in ev if e["lado"] == lado and (painel is None or e["painel"] == painel))
+
+    casa, fora = g("casa"), g("fora")
+    g1 = sorted(e["min"] for e in ev if e["painel"] == 1)
+    g2 = sorted(e["min"] for e in ev if e["painel"] == 2)
+    return {
+        "gols_casa": len(casa), "gols_fora": len(fora), "placar_lido": f"{len(casa)}-{len(fora)}",
+        "gols_1t": len(g1), "gols_2t": len(g2), "total_gols": len(ev),
+        "min_gols_casa": casa, "min_gols_fora": fora, "min_gols_1t": g1, "min_gols_2t": g2,
+        "primeiro_gol": (min(ev, key=lambda e: (e["painel"], e["min"]))["min"] if ev else None),
+        "primeiro_gol_lado": (min(ev, key=lambda e: (e["painel"], e["min"]))["lado"] if ev else None),
+        "vermelhos": [{"min": e["min"], "lado": e["lado"], "painel": e["painel"]} for e in verm],
+        "over05_ht": int(len(g1) >= 1), "over15_ht": int(len(g1) >= 2),
+        "over05_ft": int(len(ev) >= 1), "over15_ft": int(len(ev) >= 2), "over25_ft": int(len(ev) >= 3),
+        "btts": int(len(casa) >= 1 and len(fora) >= 1),
+    }
+
+
+def _padroes_auto_scan_feed():
+    """Igual _padroes_jogos_ao_vivo, mas devolve TODOS os status (não só ao vivo) —
+    só assim dá pra perceber quando um jogo que estava sendo vigiado terminou."""
+    r = http_req.get(_TOP_SCORES_URL, headers=_TOP_SCORES_HEADERS, timeout=10)
+    r.raise_for_status()
+    esporte, liga, jogos = None, "", []
+    for bloco in (b for b in r.text.split("~") if b.strip()):
+        kv = dict(x.split("÷", 1) for x in bloco.split("¬") if "÷" in x)
+        if bloco.startswith("SA÷"):
+            esporte = bloco.split("÷", 1)[1].strip("¬ ")
+        elif bloco.startswith("ZA÷") and esporte == "1":
+            liga = kv.get("ZA", "")
+        elif bloco.startswith("AA÷") and esporte == "1" and kv.get("AE") and kv.get("AF"):
+            jogos.append({"id": kv.get("AA"), "status": kv.get("AB"), "casa": kv["AE"], "fora": kv["AF"],
+                          "liga": liga, "casa_id": kv.get("PX"), "fora_id": kv.get("PY"),
+                          "gc": kv.get("AG"), "gf": kv.get("AH")})
+    return jogos
+
+
+def _padroes_auto_coleta_jogo(event_id, info, jogo_final):
+    momentum, matchevents = _padroes_momentum(event_id)
+    if not momentum or len(momentum) < 20:
+        print(f"[padroes-auto] {info.get('casa')} x {info.get('fora')}: momentum vazio/curto demais, ignorando")
+        return
+
+    barras = []
+    for e in momentum:
+        tf = e.get("timeFrame") or {}
+        estagio = tf.get("eventStage")
+        if estagio not in (12, 13) or not isinstance(e.get("momentumValue"), (int, float)):
+            continue
+        painel = 1 if estagio == 12 else 2
+        minuto = (tf.get("elapsedMinute") or 0) + 1
+        v = float(e["momentumValue"])
+        barras.append([painel, minuto, max(v, 0.0), max(-v, 0.0)])
+
+    casa_id, fora_id = info.get("casa_id"), info.get("fora_id")
+    eventos = []
+    for e in matchevents:
+        tipo_ls = ((e.get("type") or {}).get("type") or "").lower()
+        if "goal" in tipo_ls:
+            tipo = "gol"
+        elif "red" in tipo_ls:
+            tipo = "vermelho"
+        else:
+            continue
+        tf = e.get("timeFrame") or {}
+        estagio = tf.get("eventStage")
+        if estagio not in (12, 13):
+            continue
+        lado = "casa" if e.get("teamId") == casa_id else ("fora" if e.get("teamId") == fora_id else None)
+        if lado is None:
+            continue
+        eventos.append({"painel": 1 if estagio == 12 else 2, "min": (tf.get("elapsedMinute") or 0) + 1,
+                        "lado": lado, "tipo": tipo})
+
+    gc = (jogo_final or {}).get("gc") or info.get("gc")
+    gf = (jogo_final or {}).get("gf") or info.get("gf")
+    chave = f"auto_{event_id}"
+    entrada = {
+        "arquivo": chave, "hash": event_id, "origem": "auto_livesport",
+        "casa": info.get("casa", ""), "fora": info.get("fora", ""), "liga": info.get("liga", ""),
+        "data": datetime.now().strftime("%Y-%m-%d"),
+        "placar_real": f"{gc}-{gf}" if gc is not None and gf is not None else "",
+        "barras": barras, "eventos": eventos, "resumo": _padroes_auto_resumo(eventos),
+    }
+    with _padroes_auto_lock:
+        base = {}
+        if os.path.exists(PADROES_AUTO_BASE_FILE):
+            try:
+                base = json.load(open(PADROES_AUTO_BASE_FILE, encoding="utf-8"))
+            except Exception:
+                base = {}
+        base[chave] = entrada
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump(base, open(PADROES_AUTO_BASE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        total = len(base)
+    print(f"[padroes-auto] Coletado: {info.get('casa')} {gc}-{gf} {info.get('fora')} "
+          f"({len(barras)} minutos, {len(eventos)} eventos) — base agora com {total} jogos")
+    if github_storage.is_configured():
+        github_storage.push_file_bg(PADROES_AUTO_BASE_FILE, "padroes_auto_base.json")
+
+
+def _padroes_auto_tick():
+    try:
+        jogos = _padroes_auto_scan_feed()
+    except Exception as e:
+        print(f"[padroes-auto] Erro lendo Top Scores: {e}")
+        return
+    vistos = {j["id"]: j for j in jogos}
+    with _padroes_auto_lock:
+        for j in jogos:
+            if j["status"] == "2" and j["id"] not in _padroes_auto_watch:
+                _padroes_auto_watch[j["id"]] = j
+        terminados = [eid for eid in _padroes_auto_watch if vistos.get(eid, {}).get("status") != "2"]
+        encerrados = {eid: _padroes_auto_watch.pop(eid) for eid in terminados}
+    for eid, info in encerrados.items():
+        try:
+            _padroes_auto_coleta_jogo(eid, info, vistos.get(eid))
+        except Exception as e:
+            print(f"[padroes-auto] Erro coletando {eid} ({info.get('casa')} x {info.get('fora')}): {e}")
+
+
+def _padroes_auto_loop():
+    _github_sync_done.wait(timeout=120)
+    if github_storage.is_configured():
+        try:
+            github_storage.pull_file("padroes_auto_base.json", PADROES_AUTO_BASE_FILE)
+        except Exception as e:
+            print(f"[padroes-auto] Erro restaurando base do GitHub: {e}")
+    while True:
+        try:
+            _padroes_auto_tick()
+        except Exception as e:
+            print(f"[padroes-auto] {e}")
+        time.sleep(45)
+
+
+threading.Thread(target=_padroes_auto_loop, daemon=True, name="PadroesAutoColeta").start()
+
+
 def _padroes_alerta_loop():
     _github_sync_done.wait(timeout=120)
     espera = 60
