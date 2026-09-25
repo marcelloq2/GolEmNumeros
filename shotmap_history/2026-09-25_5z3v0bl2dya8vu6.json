@@ -1,0 +1,256 @@
+{
+  "event_id": "5z3v0bl2dya8vu6",
+  "date": "2026-09-25",
+  "casa": "Suécia",
+  "fora": "Romênia",
+  "liga": "Liga das Nações da UEFA",
+  "score": {
+    "home": 2,
+    "away": 1
+  },
+  "total_shots": 22,
+  "shotmap": [
+    {
+      "id": "2974557271",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Nanasi",
+      "x": 20.2,
+      "y": 32.1
+    },
+    {
+      "id": "2974562179",
+      "minute": 14,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Munteanu",
+      "x": 7.3,
+      "y": 60.7
+    },
+    {
+      "id": "2974565473",
+      "minute": 20,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Isak",
+      "x": 9.6,
+      "y": 64.2
+    },
+    {
+      "id": "2974571015",
+      "minute": 29,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Man",
+      "x": 10.1,
+      "y": 53.6
+    },
+    {
+      "id": "2974572601",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Marin",
+      "x": 30.2,
+      "y": 45.5
+    },
+    {
+      "id": "2974572423",
+      "minute": 31,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "Hagi",
+      "x": 17.9,
+      "y": 36.4
+    },
+    {
+      "id": "2974573665",
+      "minute": 33,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Man",
+      "x": 16.9,
+      "y": 49.7
+    },
+    {
+      "id": "2974576851",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Bergvall",
+      "x": 24.1,
+      "y": 62.9
+    },
+    {
+      "id": "2974576827",
+      "minute": 38,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Isak",
+      "x": 19.7,
+      "y": 47.6
+    },
+    {
+      "id": "2974577831",
+      "minute": 40,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Rațiu",
+      "x": 27.1,
+      "y": 69
+    },
+    {
+      "id": "2974579441",
+      "minute": 42,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Isak",
+      "x": 12.1,
+      "y": 26.1
+    },
+    {
+      "id": "2974579825",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Gyökeres",
+      "x": 4.1,
+      "y": 57.3
+    },
+    {
+      "id": "2974579783",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Bergvall",
+      "x": 23.5,
+      "y": 26.2
+    },
+    {
+      "id": "2974593345",
+      "minute": 52,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Stroud",
+      "x": 8.1,
+      "y": 34.5
+    },
+    {
+      "id": "2974594123",
+      "minute": 53,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Stroud",
+      "x": 21.6,
+      "y": 32.6
+    },
+    {
+      "id": "2974596805",
+      "minute": 59,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "Hagi",
+      "x": 29.9,
+      "y": 47.3
+    },
+    {
+      "id": "2974599613",
+      "minute": 64,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Svensson",
+      "x": 8.6,
+      "y": 59.4
+    },
+    {
+      "id": "2974605017",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Man",
+      "x": 8.6,
+      "y": 57.6
+    },
+    {
+      "id": "2974606413",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Mihăilă",
+      "x": 28,
+      "y": 56.1
+    },
+    {
+      "id": "2974608635",
+      "minute": 78,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Ayari",
+      "x": 27.6,
+      "y": 57.9
+    },
+    {
+      "id": "2974609795",
+      "minute": 79,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Walemark",
+      "x": 18.1,
+      "y": 69.7
+    },
+    {
+      "id": "2974611259",
+      "minute": 81,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Stanciu",
+      "x": 20.5,
+      "y": 70
+    }
+  ]
+}
