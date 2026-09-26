@@ -2093,28 +2093,6 @@
        valendo por cima disso — o card compacto dele (280-320px) já cabe. */
     .live-grid-wrap { grid-template-columns: minmax(0, 1fr); }
   }
-  /* ── Aba Dados Extras (2026-09-25) ── */
-  .extras-srctab { font-family: var(--font-mono); font-size: var(--text-sm); padding: 9px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; background: var(--bg3); color: var(--text2); cursor: pointer; }
-  .extras-srctab.active { background: var(--bg2); color: var(--green); border-color: var(--green); font-weight: 700; }
-  .extras-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-  .extras-panel h3 { font-size: var(--text-lg); margin-bottom: 10px; color: var(--text); }
-  .extras-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .extras-tab { font-family: var(--font-mono); font-size: var(--text-sm); padding: 7px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); cursor: pointer; }
-  .extras-tab.active { background: var(--green); color: #04270f; border-color: var(--green); font-weight: 700; }
-  .extras-btn { background: var(--green); color: #04270f; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 700; font-size: var(--text-sm); cursor: pointer; font-family: inherit; }
-  .extras-select, .extras-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: var(--text-sm); font-family: inherit; min-width: 160px; }
-  .extras-status { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text2); margin: 8px 0; min-height: 16px; }
-  .extras-status.ok { color: var(--green); }
-  .extras-status.err { color: var(--red); }
-  .extras-meta-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .extras-pill { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--bg3); border: 1px solid var(--border); border-radius: 99px; padding: 4px 10px; color: var(--text2); }
-  .extras-pill b { color: var(--text); }
-  .extras-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
-  .extras-table-wrap table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
-  .extras-table-wrap th, .extras-table-wrap td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .extras-table-wrap th { background: var(--bg3); color: var(--text2); font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; }
-  .extras-pre { background: var(--bg); color: var(--text2); border-radius: 8px; padding: 12px; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; overflow: auto; max-height: 420px; border: 1px solid var(--border); }
-  .extras-error-box { background: rgba(255,84,73,0.1); border: 1px solid var(--red); border-radius: 8px; padding: 10px 12px; font-size: var(--text-sm); color: var(--text); }
   /* ── Aba Padrões (2026-09-19) ── */
   #padroesWrapper { padding: 14px; box-sizing: border-box; gap: 10px; }
   .padr-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; }
@@ -2184,7 +2162,6 @@
     <button class="nav-tab" id="navTabPainel" onclick="switchView('painel', this)" style="display:none">🏠 Painel Principal</button>
     <button class="nav-tab active" id="navTabLive2" onclick="switchView('live2', this)">🔴 Ao Vivo</button>
     <button class="nav-tab" id="navTabPadroes" onclick="switchView('padroes', this)">📊 Padrões</button>
-    <button class="nav-tab" id="navTabExtras" onclick="switchView('extras', this)">🧩 Dados Extras</button>
   </div>
   <!-- Sair (2026-09-12) — só faz sentido quando o site está com senha ativa
        (SITE_PASSWORD configurada no Railway); sem isso /logout também não
@@ -2614,138 +2591,6 @@
     <div class="padr-msg" id="padrMsg" style="display:none"></div>
     <div id="padrRegrasBox"></div>
     <div class="live-grid-wrap" id="padrGrid"><div class="live-loading"><div class="spinner"></div>Carregando...</div></div>
-  </div>
-
-  <!-- Aba "Dados Extras" (2026-09-25) — dump cru de 3 fontes externas via a
-       lib EasySoccerData (SofaScore/Promiedos/FBref), pra o usuário explorar
-       e organizar manualmente depois. Só chamadas sob demanda (clique),
-       sem auto-refresh — ver switchView. -->
-  <div id="extrasWrapper" style="display:none;flex:1;overflow:auto;flex-direction:column;background:var(--bg);padding:16px 18px 60px">
-    <div style="max-width:1100px;margin:0 auto;width:100%">
-      <h2 style="font-family:var(--font-display);font-size:var(--text-2xl);margin-bottom:6px">Dados Extras — EasySoccerData</h2>
-      <p style="color:var(--text2);font-size:var(--text-base);line-height:1.5;max-width:82ch;margin-bottom:14px">
-        Dump cru de 3 fontes externas (SofaScore, Promiedos, FBref), sem curadoria — pra você organizar depois. Todos os botões fazem chamadas reais e ao vivo pro backend (que embrulha a lib <code>EasySoccerData</code>).
-      </p>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:var(--text-sm);color:var(--text2);line-height:1.5;margin-bottom:16px">
-        <b style="color:var(--red)">FBref:</b> o Cloudflare do fbref.com bloqueia o IP do servidor (403 mesmo com impersonation de Chrome) — botão fica na aba pra deixar isso visível, mas normalmente vai dar erro.
-      </div>
-
-      <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--border)">
-        <div class="extras-srctab active" data-src="sofascore" onclick="_extrasSwitchSrc('sofascore', this)">SofaScore</div>
-        <div class="extras-srctab" data-src="promiedos" onclick="_extrasSwitchSrc('promiedos', this)">Promiedos</div>
-        <div class="extras-srctab" data-src="fbref" onclick="_extrasSwitchSrc('fbref', this)">FBref</div>
-      </div>
-
-      <div id="extras-src-sofascore" class="extras-srcpanel" style="display:block">
-        <div class="extras-panel">
-          <h3>1. Partidas ao vivo</h3>
-          <div class="extras-row">
-            <button class="extras-btn" onclick="_extrasLoadLive()">Buscar partidas ao vivo</button>
-            <select id="extrasMatchPicker" class="extras-select" onchange="_extrasPickMatch()"><option>— busque ao vivo primeiro —</option></select>
-          </div>
-          <div class="extras-status" id="extrasLiveStatus"></div>
-          <div id="extrasLiveResult"></div>
-        </div>
-
-        <div class="extras-panel">
-          <h3>2. Detalhes da partida selecionada</h3>
-          <div class="extras-row" id="extrasMatchTabs">
-            <div class="extras-tab" data-fn="event">Evento</div>
-            <div class="extras-tab" data-fn="incidents">Incidentes</div>
-            <div class="extras-tab" data-fn="stats">Estatísticas</div>
-            <div class="extras-tab" data-fn="lineups">Escalações</div>
-            <div class="extras-tab" data-fn="shots">Shotmap</div>
-            <div class="extras-tab" data-fn="comments">Comentários</div>
-            <div class="extras-tab" data-fn="top_players">Destaques</div>
-          </div>
-          <div class="extras-status" id="extrasMatchStatus"></div>
-          <div id="extrasMatchResult"></div>
-        </div>
-
-        <div class="extras-panel">
-          <h3>3. Time / jogador (time da casa da partida selecionada)</h3>
-          <div class="extras-row" id="extrasTeamTabs">
-            <div class="extras-tab" data-fn="team">Time (dados completos)</div>
-            <div class="extras-tab" data-fn="team_players">Elenco</div>
-            <div class="extras-tab" data-fn="team_events">Últimos jogos</div>
-            <div class="extras-tab" data-fn="player">1º jogador do elenco</div>
-          </div>
-          <div class="extras-status" id="extrasTeamStatus"></div>
-          <div id="extrasTeamResult"></div>
-        </div>
-
-        <div class="extras-panel">
-          <h3>4. Busca</h3>
-          <div class="extras-row">
-            <input class="extras-input" id="extrasSearchQ" value="Real Madrid">
-            <select class="extras-select" id="extrasSearchType">
-              <option value="TEAM">Time</option>
-              <option value="PLAYER">Jogador</option>
-              <option value="TOURNAMENT">Campeonato</option>
-              <option value="EVENT">Partida</option>
-            </select>
-            <button class="extras-btn" onclick="_extrasSearch()">Buscar</button>
-          </div>
-          <div class="extras-status" id="extrasSearchStatus"></div>
-          <div id="extrasSearchResult"></div>
-        </div>
-
-        <div class="extras-panel">
-          <h3>5. Campeonatos por continente + tabela/artilharia</h3>
-          <div class="extras-row">
-            <select class="extras-select" id="extrasCatPicker">
-              <option value="SOUTH_AMERICA">América do Sul</option>
-              <option value="EUROPE">Europa</option>
-              <option value="AFRICA">África</option>
-              <option value="ASIA">Ásia</option>
-              <option value="NORTH_AMERICA">América do Norte</option>
-              <option value="WORLD">Mundial</option>
-              <option value="OCEANIA">Oceania</option>
-            </select>
-            <button class="extras-btn" onclick="_extrasLoadTours()">Listar campeonatos</button>
-            <select class="extras-select" id="extrasTourPicker"><option>— liste primeiro —</option></select>
-          </div>
-          <div class="extras-status" id="extrasTourStatus"></div>
-          <div id="extrasTourResult"></div>
-          <div class="extras-row" id="extrasTourTabs" style="margin-top:10px">
-            <div class="extras-tab" data-fn="tournament_seasons">Temporadas</div>
-            <div class="extras-tab" data-fn="tournament_standings">Tabela</div>
-            <div class="extras-tab" data-fn="tournament_top_teams">Times artilheiros</div>
-            <div class="extras-tab" data-fn="tournament_top_players">Jogadores artilheiros</div>
-            <div class="extras-tab" data-fn="tournament_events">Últimos jogos</div>
-          </div>
-          <div class="extras-status" id="extrasTourDeepStatus"></div>
-          <div id="extrasTourDeepResult"></div>
-        </div>
-      </div>
-
-      <div id="extras-src-promiedos" class="extras-srcpanel" style="display:none">
-        <div class="extras-panel">
-          <h3>Promiedos — jogos do dia por liga</h3>
-          <div class="extras-row">
-            <button class="extras-btn" onclick="_extrasLoadProm()">Buscar jogos de hoje</button>
-            <select id="extrasPromMatchPicker" class="extras-select" onchange="_extrasPromPick()"><option>— busque primeiro —</option></select>
-          </div>
-          <div class="extras-status" id="extrasPromStatus"></div>
-          <div id="extrasPromResult"></div>
-          <div class="extras-row" style="margin-top:10px">
-            <div class="extras-tab" onclick="_extrasPromMatchDetail()">Detalhe completo da partida</div>
-            <div class="extras-tab" onclick="_extrasPromTourDetail()">Detalhe do campeonato</div>
-          </div>
-          <div class="extras-status" id="extrasPromDeepStatus"></div>
-          <div id="extrasPromDeepResult"></div>
-        </div>
-      </div>
-
-      <div id="extras-src-fbref" class="extras-srcpanel" style="display:none">
-        <div class="extras-panel">
-          <h3>FBref</h3>
-          <button class="extras-btn" onclick="_extrasFbref()">Tentar get_matchs() ao vivo</button>
-          <div class="extras-status" id="extrasFbrefStatus"></div>
-          <div id="extrasFbrefResult"></div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div id="today2DetailOverlay" class="painel-modal-overlay" style="display:none" onclick="if(event.target===this) closeToday2Detail()">
@@ -3198,12 +3043,10 @@ function switchView(view, btn) {
   const live2Panel    = document.getElementById('live2Panel');
   const painelWrapper = document.getElementById('painelWrapper');
   const padroesWrapper = document.getElementById('padroesWrapper');
-  const extrasWrapper = document.getElementById('extrasWrapper');
   // Oculta tudo (as abas Hoje, Hoje 2 e Favoritos foram removidas em 2026-09-19)
   live2Panel.classList.remove('active');
   painelWrapper.style.display = 'none';
   padroesWrapper.style.display = 'none';
-  extrasWrapper.style.display = 'none';
   if (!_padrAvisosOn) { clearInterval(_padrTimer); _padrTimer = null; }
   clearInterval(_tempoInterval);
   clearInterval(_sidebarTempoInterval);
@@ -3218,11 +3061,6 @@ function switchView(view, btn) {
   } else if (view === 'padroes') {
     padroesWrapper.style.display = 'flex';
     padrInit();
-  } else if (view === 'extras') {
-    extrasWrapper.style.display = 'flex';
-    // Sem fetch automático aqui de propósito — só quando o usuário clicar
-    // nos botões (ver [[feedback_ao_vivo_prioridade]]: nunca competir por
-    // recursos do servidor com a aba Ao Vivo).
   } else if (view === 'live2') {
     live2Panel.classList.add('active');
     loadLive2Matches();
@@ -14802,256 +14640,6 @@ let _padrBusy = false;
 let _padrRelogioOffset = 0;      // segundos: relógio do servidor - relógio deste navegador
 const _PADR_ATRASO_MAX = 2;       // mesmo limite de _PAD_ATRASO_MAX (app.py)
 let _padrSoAtivo = false;
-// ─────────────────────────────────────────────────────────────────────────
-// Aba "Dados Extras" (2026-09-25) — dump cru de SofaScore/Promiedos/FBref
-// via a lib EasySoccerData no backend (/api/extras/*). Só sob demanda.
-// ─────────────────────────────────────────────────────────────────────────
-let _extrasLiveData = null;
-let _extrasSelectedEvent = null;
-let _extrasTourList = null;
-let _extrasLastSeasonId = null;
-let _extrasPromData = null;
-let _extrasSelectedPromMatch = null;
-let _extrasSelectedPromTour = null;
-
-function _extrasSwitchSrc(src, el) {
-  document.querySelectorAll('.extras-srctab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.extras-srcpanel').forEach(p => p.style.display = 'none');
-  el.classList.add('active');
-  document.getElementById('extras-src-' + src).style.display = 'block';
-}
-
-function _extrasSetStatus(id, msg, cls) {
-  const el = document.getElementById(id);
-  el.className = 'extras-status' + (cls ? ' ' + cls : '');
-  el.textContent = msg;
-}
-
-function _extrasFindBestMeta(obj, depth, best) {
-  best = best || { score: -1, obj: null };
-  if (!obj || typeof obj !== 'object' || depth > 2) return best;
-  if (!Array.isArray(obj)) {
-    let score = 0;
-    for (const k in obj) { if (typeof obj[k] !== 'object' || obj[k] === null) score++; }
-    if (score > best.score) best = { score, obj };
-  }
-  const items = Array.isArray(obj) ? obj : Object.values(obj);
-  for (const v of items) { if (v && typeof v === 'object') _extrasFindBestMeta(v, depth + 1, best); }
-  return best;
-}
-
-function _extrasFindObjectArray(obj, depth) {
-  depth = depth || 0;
-  if (depth > 3 || !obj || typeof obj !== 'object') return null;
-  if (Array.isArray(obj)) {
-    if (obj.length && typeof obj[0] === 'object' && obj[0] !== null) return obj;
-    return null;
-  }
-  const vals = Object.values(obj);
-  const allObjects = vals.length && vals.every(v => v && typeof v === 'object' && !Array.isArray(v));
-  if (allObjects && Object.keys(obj).length > 1) {
-    return Object.entries(obj).map(([k, v]) => ({ chave: k, ...v }));
-  }
-  for (const v of vals) {
-    const r = _extrasFindObjectArray(v, depth + 1);
-    if (r) return r;
-  }
-  return null;
-}
-
-function _extrasRenderTable(rows) {
-  const cols = [...new Set(rows.flatMap(r => Object.keys(r)))]
-    .filter(c => rows.some(r => r[c] !== null && typeof r[c] !== 'object'))
-    .slice(0, 10);
-  let html = '<div class="extras-table-wrap"><table><thead><tr>' + cols.map(c => `<th>${_padrEsc(c)}</th>`).join('') + '</tr></thead><tbody>';
-  for (const r of rows.slice(0, 60)) {
-    html += '<tr>' + cols.map(c => `<td>${r[c] === null || r[c] === undefined ? '' : _padrEsc(String(r[c]).slice(0, 60))}</td>`).join('') + '</tr>';
-  }
-  html += '</tbody></table></div>';
-  if (rows.length > 60) html += `<p style="color:var(--text2);font-size:var(--text-xs);padding:6px 0">mostrando 60 de ${rows.length}</p>`;
-  return html;
-}
-
-function _extrasRenderResult(containerId, data) {
-  const el = document.getElementById(containerId);
-  if (data === null || data === undefined) { el.innerHTML = '<div style="color:var(--text2);padding:14px;text-align:center">sem dados</div>'; return; }
-  let html = '';
-  const meta = _extrasFindBestMeta(data, 0).obj;
-  if (meta && !Array.isArray(data)) {
-    const pills = Object.entries(meta).filter(([k, v]) => v !== null && typeof v !== 'object').slice(0, 14);
-    if (pills.length) {
-      html += '<div class="extras-meta-pills">' + pills.map(([k, v]) => `<span class="extras-pill">${_padrEsc(k)}: <b>${_padrEsc(String(v).slice(0, 40))}</b></span>`).join('') + '</div>';
-    }
-  }
-  const arr = _extrasFindObjectArray(data);
-  if (arr && arr.length) html += _extrasRenderTable(arr);
-  html += `<pre class="extras-pre">${_padrEsc(JSON.stringify(data, null, 2)).slice(0, 20000)}</pre>`;
-  el.innerHTML = html;
-}
-
-async function _extrasCallApi(path, statusId, resultId) {
-  _extrasSetStatus(statusId, 'chamando ' + path + ' …');
-  try {
-    const r = await fetch(path);
-    const j = await r.json();
-    if (!j.ok) {
-      _extrasSetStatus(statusId, 'erro real da API: ' + j.error, 'err');
-      document.getElementById(resultId).innerHTML = `<div class="extras-error-box">${_padrEsc(j.error)}</div>`;
-      return null;
-    }
-    _extrasSetStatus(statusId, 'ok — ' + path, 'ok');
-    _extrasRenderResult(resultId, j.data);
-    return j.data;
-  } catch (e) {
-    _extrasSetStatus(statusId, 'falha de conexão: ' + e.message, 'err');
-    return null;
-  }
-}
-
-async function _extrasLoadLive() {
-  const data = await _extrasCallApi('/api/extras/sofascore/live', 'extrasLiveStatus', 'extrasLiveResult');
-  _extrasLiveData = data;
-  const picker = document.getElementById('extrasMatchPicker');
-  picker.innerHTML = '';
-  if (data && data.length) {
-    for (const ev of data) {
-      const opt = document.createElement('option');
-      opt.value = ev.id;
-      opt.textContent = `${ev.home_team.name} ${ev.home_score.current} x ${ev.away_score.current} ${ev.away_team.name} (${ev.tournament.name})`;
-      picker.appendChild(opt);
-    }
-    _extrasSelectedEvent = data[0];
-    picker.value = data[0].id;
-  }
-}
-function _extrasPickMatch() {
-  const id = document.getElementById('extrasMatchPicker').value;
-  if (_extrasLiveData) _extrasSelectedEvent = _extrasLiveData.find(ev => String(ev.id) === id) || null;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const matchTabs = document.getElementById('extrasMatchTabs');
-  if (matchTabs) matchTabs.querySelectorAll('.extras-tab').forEach(t => {
-    t.addEventListener('click', async () => {
-      const id = document.getElementById('extrasMatchPicker').value;
-      if (!id) { _extrasSetStatus('extrasMatchStatus', 'escolha uma partida ao vivo primeiro (passo 1)', 'err'); return; }
-      matchTabs.querySelectorAll('.extras-tab').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      await _extrasCallApi(`/api/extras/sofascore/${t.dataset.fn}/${id}`, 'extrasMatchStatus', 'extrasMatchResult');
-    });
-  });
-
-  const teamTabs = document.getElementById('extrasTeamTabs');
-  if (teamTabs) teamTabs.querySelectorAll('.extras-tab').forEach(t => {
-    t.addEventListener('click', async () => {
-      const id = document.getElementById('extrasMatchPicker').value;
-      if (!id) { _extrasSetStatus('extrasTeamStatus', 'escolha uma partida ao vivo primeiro (passo 1)', 'err'); return; }
-      teamTabs.querySelectorAll('.extras-tab').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      const evData = await _extrasCallApi(`/api/extras/sofascore/event/${id}`, 'extrasTeamStatus', 'extrasTeamResult');
-      if (!evData) return;
-      const teamId = evData.home_team.id;
-      if (t.dataset.fn === 'team') {
-        await _extrasCallApi(`/api/extras/sofascore/team/${teamId}`, 'extrasTeamStatus', 'extrasTeamResult');
-      } else if (t.dataset.fn === 'team_players') {
-        await _extrasCallApi(`/api/extras/sofascore/team_players/${teamId}`, 'extrasTeamStatus', 'extrasTeamResult');
-      } else if (t.dataset.fn === 'team_events') {
-        await _extrasCallApi(`/api/extras/sofascore/team_events/${teamId}`, 'extrasTeamStatus', 'extrasTeamResult');
-      } else if (t.dataset.fn === 'player') {
-        const players = await _extrasCallApi(`/api/extras/sofascore/team_players/${teamId}`, 'extrasTeamStatus', 'extrasTeamResult');
-        if (players && players.length) await _extrasCallApi(`/api/extras/sofascore/player/${players[0].id}`, 'extrasTeamStatus', 'extrasTeamResult');
-      }
-    });
-  });
-
-  const tourTabs = document.getElementById('extrasTourTabs');
-  if (tourTabs) tourTabs.querySelectorAll('.extras-tab').forEach(t => {
-    t.addEventListener('click', async () => {
-      const tid = document.getElementById('extrasTourPicker').value;
-      if (!tid) { _extrasSetStatus('extrasTourDeepStatus', 'liste campeonatos e escolha um primeiro', 'err'); return; }
-      tourTabs.querySelectorAll('.extras-tab').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      if (t.dataset.fn === 'tournament_seasons') {
-        const seasons = await _extrasCallApi(`/api/extras/sofascore/tournament_seasons/${tid}`, 'extrasTourDeepStatus', 'extrasTourDeepResult');
-        if (seasons && seasons.length) _extrasLastSeasonId = seasons[0].id;
-        return;
-      }
-      let sid = _extrasLastSeasonId;
-      if (!sid) {
-        const seasons = await _extrasCallApi(`/api/extras/sofascore/tournament_seasons/${tid}`, 'extrasTourDeepStatus', 'extrasTourDeepResult');
-        if (!seasons || !seasons.length) return;
-        sid = seasons[0].id;
-        _extrasLastSeasonId = sid;
-      }
-      await _extrasCallApi(`/api/extras/sofascore/${t.dataset.fn}/${tid}/${sid}`, 'extrasTourDeepStatus', 'extrasTourDeepResult');
-    });
-  });
-});
-
-async function _extrasSearch() {
-  const q = document.getElementById('extrasSearchQ').value;
-  const type = document.getElementById('extrasSearchType').value;
-  await _extrasCallApi(`/api/extras/sofascore/search?q=${encodeURIComponent(q)}&type=${type}`, 'extrasSearchStatus', 'extrasSearchResult');
-}
-
-async function _extrasLoadTours() {
-  const cat = document.getElementById('extrasCatPicker').value;
-  const data = await _extrasCallApi(`/api/extras/sofascore/tournaments/${cat}`, 'extrasTourStatus', 'extrasTourResult');
-  _extrasTourList = data;
-  _extrasLastSeasonId = null;
-  const picker = document.getElementById('extrasTourPicker');
-  picker.innerHTML = '';
-  if (data && data.length) {
-    for (const t of data) {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.textContent = `${t.name} (id ${t.id})`;
-      picker.appendChild(opt);
-    }
-    picker.value = data[0].id;
-  }
-}
-
-async function _extrasLoadProm() {
-  const data = await _extrasCallApi('/api/extras/promiedos/events', 'extrasPromStatus', 'extrasPromResult');
-  _extrasPromData = data;
-  const picker = document.getElementById('extrasPromMatchPicker');
-  picker.innerHTML = '';
-  if (data && data.length) {
-    for (const ev of data) {
-      for (const m of ev.matches) {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.dataset.tid = ev.league.id;
-        opt.textContent = `${m.home_team.name} x ${m.away_team.name} (${ev.league.name})`;
-        picker.appendChild(opt);
-      }
-    }
-    if (picker.options.length) {
-      picker.value = picker.options[0].value;
-      _extrasSelectedPromMatch = picker.options[0].value;
-      _extrasSelectedPromTour = picker.options[0].dataset.tid;
-    }
-  }
-}
-function _extrasPromPick() {
-  const picker = document.getElementById('extrasPromMatchPicker');
-  _extrasSelectedPromMatch = picker.value;
-  _extrasSelectedPromTour = picker.selectedOptions[0] ? picker.selectedOptions[0].dataset.tid : null;
-}
-async function _extrasPromMatchDetail() {
-  if (!_extrasSelectedPromMatch) { _extrasSetStatus('extrasPromDeepStatus', 'busque os jogos de hoje primeiro', 'err'); return; }
-  await _extrasCallApi(`/api/extras/promiedos/match/${_extrasSelectedPromMatch}`, 'extrasPromDeepStatus', 'extrasPromDeepResult');
-}
-async function _extrasPromTourDetail() {
-  if (!_extrasSelectedPromTour) { _extrasSetStatus('extrasPromDeepStatus', 'busque os jogos de hoje primeiro', 'err'); return; }
-  await _extrasCallApi(`/api/extras/promiedos/tournament/${_extrasSelectedPromTour}`, 'extrasPromDeepStatus', 'extrasPromDeepResult');
-}
-
-async function _extrasFbref() {
-  await _extrasCallApi('/api/extras/fbref/matchs', 'extrasFbrefStatus', 'extrasFbrefResult');
-}
-
 try { _padrSoAtivo = localStorage.getItem('padrSoAtivo') === '1'; } catch (e) {}
 const _PADR_LS_URL = 'https://global.ds.lsapp.eu/pq_graphql';
 
