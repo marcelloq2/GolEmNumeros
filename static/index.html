@@ -14827,116 +14827,65 @@ function _extrasSetStatus(id, msg, cls) {
   el.textContent = msg;
 }
 
-// Formata um valor folha (nunca objeto/array) pra exibição: timestamp unix
-// vira data legível, boolean vira Sim/Não, resto vira string truncada.
-function _extrasFmtLeaf(key, v, maxLen) {
-  maxLen = maxLen || 300;
-  if (v === null || v === undefined || v === '') return '—';
-  if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
-  if (typeof v === 'number' && /timestamp|_at$|date_of_birth|start_time|contract_until/i.test(key) && v > 1e8 && v < 4e9) {
-    try { return `${v} (${new Date(v * 1000).toISOString().slice(0, 16).replace('T', ' ')})`; } catch (e) { /* ignore */ }
+function _extrasFindBestMeta(obj, depth, best) {
+  best = best || { score: -1, obj: null };
+  if (!obj || typeof obj !== 'object' || depth > 2) return best;
+  if (!Array.isArray(obj)) {
+    let score = 0;
+    for (const k in obj) { if (typeof obj[k] !== 'object' || obj[k] === null) score++; }
+    if (score > best.score) best = { score, obj };
   }
-  return _padrEsc(String(v)).slice(0, maxLen);
+  const items = Array.isArray(obj) ? obj : Object.values(obj);
+  for (const v of items) { if (v && typeof v === 'object') _extrasFindBestMeta(v, depth + 1, best); }
+  return best;
 }
 
-// Resumo de 1 objeto aninhado pra usar como valor de coluna numa tabela de
-// lista (não expande tudo, só pega o campo mais "identificador").
-function _extrasDisplayValue(v) {
-  if (v === null || v === undefined) return '—';
-  if (Array.isArray(v)) {
-    if (!v.length) return '[]';
-    if (typeof v[0] !== 'object') return _padrEsc(v.slice(0, 6).join(', '));
-    return `[${v.length} itens]`;
-  }
-  if (typeof v === 'object') {
-    const pick = v.name ?? v.short_name ?? v.description ?? v.text ?? v.slug ?? v.title ?? null;
-    if (pick !== null && pick !== '') return _padrEsc(String(pick));
-    // placeholder vazio comum na lib (ex: player_in/player_out fora de uma
-    // substituição vêm como Player(id=0, name=None, ...)) — mostra "—" em
-    // vez de uma lista de chaves que não ajuda em nada.
-    if (!v.id) return '—';
-    const keys = Object.keys(v);
-    if (!keys.length) return '{}';
-    return `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '…' : ''}}`;
-  }
-  return _extrasFmtLeaf('', v);
-}
-
-// Achata um objeto/array em pares [caminho, valor-folha], recursivo até
-// maxDepth — usado na tabela vertical "Campo/Valor" de um resultado único.
-function _extrasFlatten(obj, prefix, depth, maxDepth, rows) {
-  rows = rows || [];
+function _extrasFindObjectArray(obj, depth) {
   depth = depth || 0;
-  if (obj === null || obj === undefined) { rows.push([prefix || '(valor)', '—']); return rows; }
-  if (typeof obj !== 'object') { rows.push([prefix || '(valor)', _extrasFmtLeaf(prefix, obj)]); return rows; }
-  if (depth >= maxDepth) { rows.push([prefix, _extrasDisplayValue(obj)]); return rows; }
+  if (depth > 3 || !obj || typeof obj !== 'object') return null;
   if (Array.isArray(obj)) {
-    if (!obj.length) { rows.push([prefix, '[]']); return rows; }
-    obj.forEach((v, i) => _extrasFlatten(v, prefix ? `${prefix}[${i}]` : `[${i}]`, depth + 1, maxDepth, rows));
-    return rows;
+    if (obj.length && typeof obj[0] === 'object' && obj[0] !== null) return obj;
+    return null;
   }
-  const keys = Object.keys(obj);
-  if (!keys.length) { rows.push([prefix, '{}']); return rows; }
-  for (const k of keys) _extrasFlatten(obj[k], prefix ? `${prefix}.${k}` : k, depth + 1, maxDepth, rows);
-  return rows;
+  const vals = Object.values(obj);
+  const allObjects = vals.length && vals.every(v => v && typeof v === 'object' && !Array.isArray(v));
+  if (allObjects && Object.keys(obj).length > 1) {
+    return Object.entries(obj).map(([k, v]) => ({ chave: k, ...v }));
+  }
+  for (const v of vals) {
+    const r = _extrasFindObjectArray(v, depth + 1);
+    if (r) return r;
+  }
+  return null;
 }
 
-// Tabela vertical Campo/Valor pra um único objeto (evento, time, jogador,
-// estatísticas, escalação, torneio...) — mostra TUDO que a API devolveu,
-// já em formato legível, sem JSON cru.
-function _extrasRenderFieldTable(data, maxDepth) {
-  const rows = _extrasFlatten(data, '', 0, maxDepth || 5, []);
-  let html = '<div class="extras-table-wrap"><table><thead><tr><th style="width:38%">Campo</th><th>Valor</th></tr></thead><tbody>';
-  for (const [path, val] of rows) {
-    html += `<tr><td style="white-space:normal;color:var(--text2);font-family:var(--font-mono);font-size:var(--text-xs)">${_padrEsc(path)}</td><td style="white-space:normal">${val}</td></tr>`;
-  }
-  html += '</tbody></table></div>';
-  return html;
-}
-
-// Tabela horizontal pra lista de objetos (incidentes, chutes, elenco,
-// busca, tabela de campeonato...) — 1 coluna por campo de topo, valores
-// aninhados viram um resumo legível via _extrasDisplayValue.
-function _extrasRenderArrayTable(list) {
-  const cols = [...new Set(list.flatMap(r => Object.keys(r || {})))].slice(0, 22);
+function _extrasRenderTable(rows) {
+  const cols = [...new Set(rows.flatMap(r => Object.keys(r)))]
+    .filter(c => rows.some(r => r[c] !== null && typeof r[c] !== 'object'))
+    .slice(0, 10);
   let html = '<div class="extras-table-wrap"><table><thead><tr>' + cols.map(c => `<th>${_padrEsc(c)}</th>`).join('') + '</tr></thead><tbody>';
-  for (const r of list.slice(0, 150)) {
-    html += '<tr>' + cols.map(c => {
-      const v = r ? r[c] : undefined;
-      const disp = (v !== null && typeof v === 'object') ? _extrasDisplayValue(v) : _extrasFmtLeaf(c, v);
-      return `<td>${disp}</td>`;
-    }).join('') + '</tr>';
+  for (const r of rows.slice(0, 60)) {
+    html += '<tr>' + cols.map(c => `<td>${r[c] === null || r[c] === undefined ? '' : _padrEsc(String(r[c]).slice(0, 60))}</td>`).join('') + '</tr>';
   }
   html += '</tbody></table></div>';
-  if (list.length > 150) html += `<p style="color:var(--text2);font-size:var(--text-xs);padding:6px 0">mostrando 150 de ${list.length}</p>`;
+  if (rows.length > 60) html += `<p style="color:var(--text2);font-size:var(--text-xs);padding:6px 0">mostrando 60 de ${rows.length}</p>`;
   return html;
-}
-
-function _extrasToggleRaw(btn, dataJson) {
-  const box = btn.nextElementSibling;
-  const show = box.style.display === 'none';
-  box.style.display = show ? 'block' : 'none';
-  btn.textContent = show ? 'Ocultar JSON bruto' : 'Ver JSON bruto';
 }
 
 function _extrasRenderResult(containerId, data) {
   const el = document.getElementById(containerId);
   if (data === null || data === undefined) { el.innerHTML = '<div style="color:var(--text2);padding:14px;text-align:center">sem dados</div>'; return; }
   let html = '';
-  if (Array.isArray(data)) {
-    if (!data.length) {
-      html += '<div style="color:var(--text2);padding:14px;text-align:center">lista vazia</div>';
-    } else if (typeof data[0] === 'object' && data[0] !== null) {
-      html += _extrasRenderArrayTable(data);
-    } else {
-      html += _extrasRenderFieldTable(data);
+  const meta = _extrasFindBestMeta(data, 0).obj;
+  if (meta && !Array.isArray(data)) {
+    const pills = Object.entries(meta).filter(([k, v]) => v !== null && typeof v !== 'object').slice(0, 14);
+    if (pills.length) {
+      html += '<div class="extras-meta-pills">' + pills.map(([k, v]) => `<span class="extras-pill">${_padrEsc(k)}: <b>${_padrEsc(String(v).slice(0, 40))}</b></span>`).join('') + '</div>';
     }
-  } else {
-    html += _extrasRenderFieldTable(data);
   }
-  const rawId = 'raw_' + Math.random().toString(36).slice(2);
-  html += `<button class="extras-tab" style="margin-top:8px" onclick="_extrasToggleRaw(this)">Ver JSON bruto</button>`;
-  html += `<pre class="extras-pre" style="display:none;margin-top:6px">${_padrEsc(JSON.stringify(data, null, 2)).slice(0, 20000)}</pre>`;
+  const arr = _extrasFindObjectArray(data);
+  if (arr && arr.length) html += _extrasRenderTable(arr);
+  html += `<pre class="extras-pre">${_padrEsc(JSON.stringify(data, null, 2)).slice(0, 20000)}</pre>`;
   el.innerHTML = html;
 }
 
