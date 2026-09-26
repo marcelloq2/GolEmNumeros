@@ -10,6 +10,16 @@ from datetime import datetime, timedelta, date
 from bs4 import BeautifulSoup
 import github_storage
 
+# Aba "Dados Extras" (EasySoccerData: SofaScore + Promiedos + FBref) — import
+# defensivo pra um problema de instalação da lib nunca derrubar o site
+# inteiro, só essa aba.
+try:
+    import esd
+    _ESD_IMPORT_ERROR = None
+except Exception as _esd_exc:
+    esd = None
+    _ESD_IMPORT_ERROR = str(_esd_exc)
+
 # O console do Windows usa cp1252 por padrão, que não cobre nomes de time com
 # caracteres como ş/ğ/č/đ (comuns em ligas turcas, balcânicas etc) — qualquer
 # print(f"...{nome_do_time}...") com um desses derrubava a requisição inteira
@@ -12230,6 +12240,275 @@ def api_diario_apagar(op_id):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Aba "Dados Extras" (2026-09-25) — pedido do usuário: "quero tudo que tem
+# nessas api juntas, tudo mesmo, coloque nessa nova aba, que depois organizo".
+# É um dump cru, sem curadoria — o usuário organiza manualmente depois.
+# Embrulha 3 fontes reais via a lib EasySoccerData: SofaScore (rica, ~20
+# endpoints), Promiedos (Argentina/sul-americano, boa cobertura de divisões
+# de base) e FBref (xG/estatística histórica — mas o Cloudflare do FBref
+# bloqueia o IP do Railway, 403 mesmo com impersonation de Chrome; o botão
+# fica na aba mesmo assim pra deixar isso visível/testável ao vivo).
+# Só chamadas sob demanda (clique do usuário) — SEM setInterval, SEM thread
+# de fundo, pra nunca competir por recursos com a aba Ao Vivo
+# (ver [[feedback_ao_vivo_prioridade]]).
+# ---------------------------------------------------------------------------
+_esd_sofascore = esd.SofascoreClient() if esd else None
+_esd_fbref = esd.FBrefClient() if esd else None
+_esd_promiedos = esd.PromiedosClient() if esd else None
+
+
+def _esd_clean(obj, depth=0):
+    import dataclasses, enum as _enum
+    if depth > 6:
+        return str(obj)
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, _enum.Enum):
+        return obj.value
+    if dataclasses.is_dataclass(obj):
+        return {f.name: _esd_clean(getattr(obj, f.name), depth + 1) for f in dataclasses.fields(obj)}
+    if isinstance(obj, (list, tuple)):
+        return [_esd_clean(v, depth + 1) for v in obj]
+    if isinstance(obj, dict):
+        return {k: _esd_clean(v, depth + 1) for k, v in obj.items()}
+    return str(obj)
+
+
+def _esd_ok(data):
+    return jsonify({"ok": True, "data": _esd_clean(data)})
+
+
+def _esd_err(e):
+    return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}"}), 502
+
+
+def _esd_guard():
+    if esd is None:
+        return jsonify({"ok": False, "error": f"lib EasySoccerData não carregou: {_ESD_IMPORT_ERROR}"}), 503
+    return None
+
+
+@app.route("/api/extras/sofascore/live")
+def api_extras_sofascore_live():
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_events(live=True)[:60])
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/event/<int:event_id>")
+def api_extras_sofascore_event(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_event(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/incidents/<int:event_id>")
+def api_extras_sofascore_incidents(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_incidents(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/stats/<int:event_id>")
+def api_extras_sofascore_stats(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_stats(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/lineups/<int:event_id>")
+def api_extras_sofascore_lineups(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_lineups(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/shots/<int:event_id>")
+def api_extras_sofascore_shots(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_shots(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/comments/<int:event_id>")
+def api_extras_sofascore_comments(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_comments(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/top_players/<int:event_id>")
+def api_extras_sofascore_top_players(event_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_match_top_players(event_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/team/<int:team_id>")
+def api_extras_sofascore_team(team_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_team(team_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/team_players/<int:team_id>")
+def api_extras_sofascore_team_players(team_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_team_players(team_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/team_events/<int:team_id>")
+def api_extras_sofascore_team_events(team_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_team_events(team_id, upcoming=False, page=0))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/player/<int:player_id>")
+def api_extras_sofascore_player(player_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_player(player_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/search")
+def api_extras_sofascore_search():
+    if (g := _esd_guard()): return g
+    q = request.args.get("q", "Real Madrid")
+    entity = request.args.get("type", "TEAM")
+    try:
+        entity_type = getattr(esd.SofascoreTypes.EntityType, entity.upper())
+        return _esd_ok(_esd_sofascore.search(q, entity_type))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournaments/<category>")
+def api_extras_sofascore_tournaments(category):
+    if (g := _esd_guard()): return g
+    try:
+        cat = getattr(esd.SofascoreTypes.Category, category.upper())
+        return _esd_ok(_esd_sofascore.get_tournaments(cat))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournament_seasons/<int:tournament_id>")
+def api_extras_sofascore_tournament_seasons(tournament_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_tournament_seasons(tournament_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournament_standings/<int:tournament_id>/<int:season_id>")
+def api_extras_sofascore_tournament_standings(tournament_id, season_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_tournament_standings(tournament_id, season_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournament_top_teams/<int:tournament_id>/<int:season_id>")
+def api_extras_sofascore_tournament_top_teams(tournament_id, season_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_tournament_top_teams(tournament_id, season_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournament_top_players/<int:tournament_id>/<int:season_id>")
+def api_extras_sofascore_tournament_top_players(tournament_id, season_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_tournament_top_players(tournament_id, season_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/sofascore/tournament_events/<int:tournament_id>/<int:season_id>")
+def api_extras_sofascore_tournament_events(tournament_id, season_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_sofascore.get_tournament_events(tournament_id, season_id, upcoming=False, page=0))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/promiedos/events")
+def api_extras_promiedos_events():
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_promiedos.get_events())
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/promiedos/match/<match_id>")
+def api_extras_promiedos_match(match_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_promiedos.get_match(match_id=match_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/promiedos/tournament/<tournament_id>")
+def api_extras_promiedos_tournament(tournament_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_promiedos.get_tournament(tournament_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/promiedos/tournament_matchs/<tournament_id>/<stage_id>")
+def api_extras_promiedos_tournament_matchs(tournament_id, stage_id):
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_promiedos.get_tournament_matchs(tournament_id, stage_id))
+    except Exception as e:
+        return _esd_err(e)
+
+
+@app.route("/api/extras/fbref/matchs")
+def api_extras_fbref_matchs():
+    if (g := _esd_guard()): return g
+    try:
+        return _esd_ok(_esd_fbref.get_matchs())
+    except Exception as e:
+        return _esd_err(e)
 
 
 # Só aqui embaixo (não perto dos outros threading.Thread(...).start() lá em
