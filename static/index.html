@@ -14665,6 +14665,13 @@ function _padrRenderBarra() {
   }
   const av = document.getElementById('padrAvisoBtn');
   if (av) { av.textContent = `🔊 Avisos aqui: ${_padrAvisosOn ? 'ligado' : 'desligado'}`; av.classList.toggle('active', _padrAvisosOn); }
+  const box = document.getElementById('padrRegrasBox');
+  if (box) {
+    const ativas = Object.keys(_PADR_EST).filter(e => _padrPor[e].regras.length);
+    box.innerHTML = ativas.length
+      ? `<span class="padr-status">Metodologias ativas: ` + ativas.map(e => `<b>${_padrEsc(_PADR_EST[e].nome)}</b> (${_padrPor[e].regras.length})`).join(' · ') + `</span>`
+      : `<span class="padr-status">Nenhuma metodologia importada ainda.</span>`;
+  }
 }
 
 function _padrMsg(html, ok) {
