@@ -14849,6 +14849,12 @@ async function _padrCarregaOdds() {
   } catch (e) { _padrOddsOk = false; } finally { clearTimeout(t); }
 }
 
+// odd "justa" (break-even) calculada a partir da taxa de acerto histórica da própria regra — 1/taxa. Não é odd
+// real de casa de apostas nem critério de entrada, só informativo: abaixo dela a aposta tende a dar prejuízo.
+function _padrOddJusta(r) {
+  return (r && r.taxa) ? (1 / r.taxa).toFixed(2) : null;
+}
+
 function _padrOddsHtml(pm) {
   if (!pm) return _padrOddsOk ? '<div class="padr-sem" style="text-align:center;padding:4px 0">sem odds para este jogo</div>' : '';
   let html = '';
@@ -15102,7 +15108,8 @@ function _padrPGBadges(it) {
   const regras = _padrPor.primeiro_gol.regras;
   if (!regras.length) return `<div class="padr-sem">Importe o txt de ${_PADR_EST.primeiro_gol.nome} (padroes_primeiro_gol.txt) para ver quando os padrões batem.</div>`;
   const nomeLado = l => l === 'casa' ? 'CASA' : 'VISITANTE';
-  const pills = l => pgBatem.filter(r => r.lado === l).map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('');
+  const pills = l => pgBatem.filter(r => r.lado === l).map(r => { const oj = _padrOddJusta(r);
+    return `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}${oj ? ` · odd justa ${oj}` : ''}</span>`; }).join('');
   const partes = [];
   corr.abertas.forEach(o => partes.push(`<div class="padr-op entrada">🟢 EM OPERAÇÃO — 1º gol da ${nomeLado(o.lado)} (desde o minuto ${o.entrada}')
     <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>${pills(o.lado)}`));
@@ -15397,7 +15404,8 @@ function _padrRenderGrid(itensPre) {
     else if (corr.aberta) {
       badges = `<div class="padr-op entrada">🟢 EM OPERAÇÃO desde o minuto ${corr.aberta.entrada}' — ${_PADR_EST[_padrEst].alvo}
         <div class="padr-op-sub">Saia se o padrão deixar de bater: eu aviso aqui e no Telegram.</div></div>` +
-        ativos.map(r => `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}</span>`).join('');
+        ativos.map(r => { const oj = _padrEst === 'over05ht' ? _padrOddJusta(r) : null;
+          return `<span class="padr-pill" title="${_padrEsc(r.descricao)}&#10;${_padrEsc(r.estat)}&#10;confiança ${_padrEsc(r.confianca)}">✔ ${_padrEsc(r.id)}${oj ? ` · odd justa ${oj}` : ''}</span>`; }).join('');
     } else if (recente) {
       const ganhou = _padrEst === 'over05ht' && ult.motivo === 'gol';
       badges = ganhou

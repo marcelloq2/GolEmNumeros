@@ -10895,6 +10895,7 @@ _PAD_PLACARES = ("qualquer", "0-0", "empate", "um_lado_vence")
 _PAD_MAX_REGRAS = 200
 _PAD_MAX_TEXTO = 400_000
 _PAD_RE_COND = re.compile(r"^(>=|<=)\s*(-?\d+(?:\.\d+)?)$")
+_PAD_RE_TAXA = re.compile(r"taxa\s*=\s*(\d+(?:\.\d+)?)\s*%")
 
 
 def _padroes_parse(texto, est="under"):
@@ -10939,12 +10940,16 @@ def _padroes_parse(texto, est="under"):
             erros.append(f"Regra {rid} (linha {ln}): " + "; ".join(prob))
             return
         ids.add(rid)
+        # "taxa = 77%" vem embutida no texto de jogos_que_bateram/minutos_bateram (ex: "774 | sem_gol... | taxa = 77% |
+        # normal = 60%") — extrai pra calcular a odd justa (1/taxa) no site, sem precisar de odd real de casa de apostas.
+        _taxa_m = _PAD_RE_TAXA.search(r.get("minutos_bateram") or r.get("jogos_que_bateram") or "")
         regras.append({
             "id": rid, "fase": fase, "medida": medida, "op": cond.group(1), "limite": float(cond.group(2)),
             "placar": placar, "alvo": alvo, "descricao": r.get("descricao", "")[:300],
             "min_ini": int(faixa.group(1)) if faixa else None, "min_fim": int(faixa.group(2)) if faixa else None,
             "lado": ("casa" if alvo.endswith("_casa") else "fora") if est == "primeiro_gol" else None,
             "confianca": (r.get("confianca") or "baixa")[:20],
+            "taxa": (float(_taxa_m.group(1)) / 100) if _taxa_m else None,
             "estat": (("minutos que bateram: " + r["minutos_bateram"]) if r.get("minutos_bateram")
                       else ("partidas que bateram: " + r["jogos_que_bateram"]) if r.get("jogos_que_bateram") else "")[:200], "treino": (r.get("treino") or "")[:120],
             "teste": (r.get("teste") or "")[:120],
