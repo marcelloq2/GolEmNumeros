@@ -14689,9 +14689,7 @@ function _padrRenderBarra() {
   }
   const st = document.getElementById('padrStatus');
   if (st) {
-    st.innerHTML = a
-      ? `📄 <b>${_padrEsc(a.arquivo)}</b> · importado em ${_padrEsc(a.importado_em)} · <b>${a.n_regras}</b> regra(s) valendo até você importar outro arquivo`
-      : `Nenhum arquivo de <b>${_PADR_EST[_padrEst].nome}</b> importado ainda — clique em <b>Importar txt</b> e escolha o ${_PADR_EST[_padrEst].arquivo}.`;
+    st.innerHTML = a ? '' : `Nenhum arquivo de <b>${_PADR_EST[_padrEst].nome}</b> importado ainda — clique em <b>Importar txt</b> e escolha o ${_PADR_EST[_padrEst].arquivo}.`;
   }
   const rb = document.getElementById('padrRestBtn');
   if (rb) {
@@ -14709,12 +14707,7 @@ function _padrRenderBarra() {
   const so = document.getElementById('padrSoAtivoBtn');
   if (so) so.classList.toggle('active', _padrSoAtivo);
   const box = document.getElementById('padrRegrasBox');
-  if (box) {
-    box.innerHTML = _padrRegras.length ? `<details class="padr-regras"><summary>Ver as ${_padrRegras.length} regras de ${_PADR_EST[_padrEst].nome}</summary>` +
-      _padrRegras.map(r => `<div class="padr-regra"><b>${_padrEsc(r.id)}</b> <span class="padr-conf ${r.confianca === 'baixa' ? 'baixa' : ''}">confiança ${_padrEsc(r.confianca)}</span>
-        <div>${_padrEsc(r.descricao)}${r.min_ini != null ? ` <span class="padr-mini">(só dos minutos ${r.min_ini} a ${r.min_fim})</span>` : ''}</div>
-        <div class="padr-mini">${_padrEsc(r.estat)}${r.treino ? ` · treino: ${_padrEsc(r.treino)}` : ''}${r.teste ? ` · teste: ${_padrEsc(r.teste)}` : ''}</div></div>`).join('') + '</details>' : '';
-  }
+  if (box) box.innerHTML = '';
 }
 
 function _padrMsg(html, ok) {
@@ -15386,6 +15379,7 @@ function _padrRenderGrid(itensPre) {
   if (!grid) return;
   const itens = itensPre || _padrCalcItens();
   let lista = _padrSoAtivo ? itens.filter(x => x.prio > 0) : itens;
+  if (_padrEst === 'primeiro_gol') lista = lista.filter(x => x.prio > 0 || !(x.j.gc || x.j.gf));
   lista.sort((a, b) => b.prio - a.prio || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
   if (!lista.length) {
     grid.innerHTML = `<div class="live-loading">${_padrJogos.length ? 'Nenhum jogo em operação (nem com saída recente) agora.' : 'Nenhum jogo do Top Scores ao vivo agora.'}</div>`;
