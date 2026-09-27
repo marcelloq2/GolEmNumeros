@@ -14667,10 +14667,10 @@ function _padrRenderBarra() {
   if (av) { av.textContent = `🔊 Avisos aqui: ${_padrAvisosOn ? 'ligado' : 'desligado'}`; av.classList.toggle('active', _padrAvisosOn); }
   const box = document.getElementById('padrRegrasBox');
   if (box) {
-    const ativas = Object.keys(_PADR_EST).filter(e => _padrPor[e].regras.length);
+    const ativas = Object.keys(_PADR_EST).filter(e => _padrPor[e].regras.some(r => r.confianca === 'media'));
     box.innerHTML = ativas.length
-      ? `<span class="padr-status">Metodologias ativas: ` + ativas.map(e => `<b>${_padrEsc(_PADR_EST[e].nome)}</b> (${_padrPor[e].regras.length})`).join(' · ') + `</span>`
-      : `<span class="padr-status">Nenhuma metodologia importada ainda.</span>`;
+      ? `<span class="padr-status">Metodologias ativas: ` + ativas.map(e => `<b>${_padrEsc(_PADR_EST[e].nome)}</b> (${_padrPor[e].regras.filter(r => r.confianca === 'media').length})`).join(' · ') + `</span>`
+      : `<span class="padr-status">Nenhuma metodologia com confiança validada ainda.</span>`;
   }
 }
 
@@ -15360,7 +15360,7 @@ function _padrBadgesPara(est, it) {
 function _padrRenderGrid(itensPor) {
   const grid = document.getElementById('padrGrid');
   if (!grid) return;
-  const ests = Object.keys(_PADR_EST).filter(e => _padrPor[e].regras.length);
+  const ests = Object.keys(_PADR_EST).filter(e => _padrPor[e].regras.some(r => r.confianca === 'media'));
   const porId = {};
   ests.forEach(est => { porId[est] = {}; (itensPor[est] || []).forEach(it => { porId[est][it.j.id] = it; }); });
   let lista = _padrJogos.map(j => {
