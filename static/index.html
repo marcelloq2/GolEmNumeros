@@ -14689,7 +14689,13 @@ function _padrRenderBarra() {
   }
   const st = document.getElementById('padrStatus');
   if (st) {
-    st.innerHTML = a ? '' : `Nenhum arquivo de <b>${_PADR_EST[_padrEst].nome}</b> importado ainda — clique em <b>Importar txt</b> e escolha o ${_PADR_EST[_padrEst].arquivo}.`;
+    if (a) {
+      const taxas = _padrRegras.map(r => r.taxa).filter(t => typeof t === 'number' && t > 0);
+      const oddMedia = taxas.length ? (1 / (taxas.reduce((s, t) => s + t, 0) / taxas.length)).toFixed(2) : null;
+      st.innerHTML = `📄 <b>Metodologia ativa: ${_padrEsc(a.arquivo)}</b> · ${a.n_regras} regra(s)${oddMedia ? ` · odd justa média ${oddMedia}` : ''}`;
+    } else {
+      st.innerHTML = `Nenhum arquivo de <b>${_PADR_EST[_padrEst].nome}</b> importado ainda — clique em <b>Importar txt</b> e escolha o ${_PADR_EST[_padrEst].arquivo}.`;
+    }
   }
   const rb = document.getElementById('padrRestBtn');
   if (rb) {
