@@ -1,0 +1,333 @@
+{
+  "event_id": "n97akmlnt7j1wnv",
+  "date": "2026-09-27",
+  "casa": "Racing Club",
+  "fora": "Boca Juniors",
+  "liga": "Copa Argentina",
+  "score": {
+    "home": 2,
+    "away": 3
+  },
+  "total_shots": 29,
+  "shotmap": [
+    {
+      "id": "2975590547",
+      "minute": 1,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Ortegoza",
+      "x": 28.7,
+      "y": 29.4
+    },
+    {
+      "id": "2975593181",
+      "minute": 6,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "L.Flores",
+      "x": 12.8,
+      "y": 29.7
+    },
+    {
+      "id": "2975592707",
+      "minute": 5,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Delgado",
+      "x": 16.6,
+      "y": 46
+    },
+    {
+      "id": "2975602653",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "L.Flores",
+      "x": 7,
+      "y": 43.2
+    },
+    {
+      "id": "2975601315",
+      "minute": 19,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Lódico",
+      "x": 0.6,
+      "y": 1.2
+    },
+    {
+      "id": "2975600605",
+      "minute": 18,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Conechny",
+      "x": 23.8,
+      "y": 28.9
+    },
+    {
+      "id": "2975600253",
+      "minute": 17,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "A.Martínez",
+      "x": 4.6,
+      "y": 25.6
+    },
+    {
+      "id": "2975603607",
+      "minute": 23,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "A.Martínez",
+      "x": 14.6,
+      "y": 43.9
+    },
+    {
+      "id": "2975602853",
+      "minute": 21,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "F. Herrera",
+      "x": 8.7,
+      "y": 42.3
+    },
+    {
+      "id": "2975608631",
+      "minute": 33,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "set_piece",
+      "player": "G.Escudero",
+      "x": 7.9,
+      "y": 55
+    },
+    {
+      "id": "2975612371",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "L.Flores",
+      "x": 13.3,
+      "y": 52.2
+    },
+    {
+      "id": "2975611873",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "Blanco",
+      "x": 36.1,
+      "y": 35.8
+    },
+    {
+      "id": "2975610673",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Ascacibar",
+      "x": 11,
+      "y": 57.6
+    },
+    {
+      "id": "2975610527",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "L.Flores",
+      "x": 21.3,
+      "y": 66.6
+    },
+    {
+      "id": "2975612829",
+      "minute": 43,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ortegoza",
+      "x": 23.2,
+      "y": 55.4
+    },
+    {
+      "id": "2975618911",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "A.Martínez",
+      "x": 7.3,
+      "y": 51.6
+    },
+    {
+      "id": "2975618893",
+      "minute": 47,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "L.Pérez",
+      "x": 21.2,
+      "y": 62.6
+    },
+    {
+      "id": "2975618759",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Conechny",
+      "x": 19.9,
+      "y": 34.3
+    },
+    {
+      "id": "2975612067",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Ascacibar",
+      "x": 13.9,
+      "y": 61.2
+    },
+    {
+      "id": "2975623073",
+      "minute": 60,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "A.Martínez",
+      "x": 6,
+      "y": 57.7
+    },
+    {
+      "id": "2975624505",
+      "minute": 65,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Paredes",
+      "x": 3.8,
+      "y": 68.5
+    },
+    {
+      "id": "2975627443",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Paredes",
+      "x": 19.7,
+      "y": 42.2
+    },
+    {
+      "id": "2975626671",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "E.Valencia",
+      "x": 5.2,
+      "y": 52.1
+    },
+    {
+      "id": "2975626535",
+      "minute": 72,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Lozano",
+      "x": 7,
+      "y": 63.6
+    },
+    {
+      "id": "2975629223",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "E.Valencia",
+      "x": 7,
+      "y": 49.9
+    },
+    {
+      "id": "2975634523",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "S.Villa",
+      "x": 17.5,
+      "y": 62.1
+    },
+    {
+      "id": "2975633903",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "E.Valencia",
+      "x": 7.4,
+      "y": 48.7
+    },
+    {
+      "id": "2975633699",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "A.Campo",
+      "x": 33.5,
+      "y": 56.4
+    },
+    {
+      "id": "2975633043",
+      "minute": 90,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Paredes",
+      "x": 25.2,
+      "y": 62.7
+    }
+  ]
+}
