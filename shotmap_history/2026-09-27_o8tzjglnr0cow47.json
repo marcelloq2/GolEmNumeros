@@ -1,0 +1,289 @@
+{
+  "event_id": "o8tzjglnr0cow47",
+  "date": "2026-09-27",
+  "casa": "New York Cosmos",
+  "fora": "Richmond Kickers",
+  "liga": "USL League One",
+  "score": {
+    "home": 2,
+    "away": 2
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2975602649",
+      "minute": 15,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "regular",
+      "player": "P. Spengler",
+      "x": 18.4,
+      "y": 45.8
+    },
+    {
+      "id": "2975605939",
+      "minute": 21,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "l.jawneh",
+      "x": 6.7,
+      "y": 33.8
+    },
+    {
+      "id": "2975610903",
+      "minute": 32,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Z. Vazquez",
+      "x": 14.2,
+      "y": 44
+    },
+    {
+      "id": "2975615639",
+      "minute": 45,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "J.Milovanov",
+      "x": 23.6,
+      "y": 46.1
+    },
+    {
+      "id": "2975601129",
+      "minute": 12,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "P. Spengler",
+      "x": 22.3,
+      "y": 33.3
+    },
+    {
+      "id": "2975597907",
+      "minute": 7,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Guenzatti",
+      "x": 8.6,
+      "y": 42.5
+    },
+    {
+      "id": "2975613569",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "M.Bolduc",
+      "x": 12.2,
+      "y": 63.2
+    },
+    {
+      "id": "2975613127",
+      "minute": 38,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "Freeman",
+      "x": 22.7,
+      "y": 39.5
+    },
+    {
+      "id": "2975620373",
+      "minute": 46,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C·Koffi",
+      "x": 13.2,
+      "y": 42.8
+    },
+    {
+      "id": "2975622995",
+      "minute": 54,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "M.Bolduc",
+      "x": 18.9,
+      "y": 49.9
+    },
+    {
+      "id": "2975622329",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "N.Seufert",
+      "x": 14.3,
+      "y": 34
+    },
+    {
+      "id": "2975622315",
+      "minute": 52,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "T. Pannholzer",
+      "x": 15.3,
+      "y": 40.7
+    },
+    {
+      "id": "2975621869",
+      "minute": 50,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "C·Koffi",
+      "x": 11.6,
+      "y": 25.6
+    },
+    {
+      "id": "2975626761",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "S.Vinberg",
+      "x": 4.3,
+      "y": 48.1
+    },
+    {
+      "id": "2975629649",
+      "minute": 75,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "set_piece",
+      "player": "N.Seufert",
+      "x": 29.8,
+      "y": 60.1
+    },
+    {
+      "id": "2975628779",
+      "minute": 73,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "l.jawneh",
+      "x": 12.6,
+      "y": 76.1
+    },
+    {
+      "id": "2975632587",
+      "minute": 84,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Freeman",
+      "x": 14.4,
+      "y": 54.9
+    },
+    {
+      "id": "2975631809",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "l.jawneh",
+      "x": 20.2,
+      "y": 61.1
+    },
+    {
+      "id": "2975631775",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "J.Milovanov",
+      "x": 21.7,
+      "y": 67.8
+    },
+    {
+      "id": "2975630999",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "T. Pannholzer",
+      "x": 8.5,
+      "y": 28.3
+    },
+    {
+      "id": "2975624975",
+      "minute": 59,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "corner",
+      "player": "P. Spengler",
+      "x": 10.1,
+      "y": 69.4
+    },
+    {
+      "id": "2975633193",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "fast_break",
+      "player": "L. Dourado Pereira",
+      "x": 28.3,
+      "y": 64.1
+    },
+    {
+      "id": "2975632991",
+      "minute": 86,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "free_kick",
+      "player": "a.amer",
+      "x": 17.7,
+      "y": 37.6
+    },
+    {
+      "id": "2975628085",
+      "minute": 70,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "S.Layton",
+      "x": 12.6,
+      "y": 56.7
+    },
+    {
+      "id": "2975635071",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "left_foot",
+      "situation": "penalty",
+      "player": "P. Spengler",
+      "x": 11.5,
+      "y": 50
+    }
+  ]
+}
