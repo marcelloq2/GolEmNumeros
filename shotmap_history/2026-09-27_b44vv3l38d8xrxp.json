@@ -1,0 +1,289 @@
+{
+  "event_id": "b44vv3l38d8xrxp",
+  "date": "2026-09-27",
+  "casa": "Monterey Bay",
+  "fora": "Lexington",
+  "liga": "USL Championship",
+  "score": {
+    "home": 2,
+    "away": 3
+  },
+  "total_shots": 25,
+  "shotmap": [
+    {
+      "id": "2975228677",
+      "minute": 5,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "throw_in",
+      "player": "Z.Farnsworth",
+      "x": 2.7,
+      "y": 48.4
+    },
+    {
+      "id": "2975226385",
+      "minute": 1,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Firmino",
+      "x": 11.4,
+      "y": 47.6
+    },
+    {
+      "id": "2975232577",
+      "minute": 13,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Goodrum",
+      "x": 21.4,
+      "y": 64.2
+    },
+    {
+      "id": "2975234819",
+      "minute": 17,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "regular",
+      "player": "Firmino",
+      "x": 9.2,
+      "y": 41.3
+    },
+    {
+      "id": "2975241571",
+      "minute": 30,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Ross",
+      "x": 12.5,
+      "y": 53.6
+    },
+    {
+      "id": "2975239469",
+      "minute": 26,
+      "isHome": true,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Judson",
+      "x": 22.7,
+      "y": 36.3
+    },
+    {
+      "id": "2975246247",
+      "minute": 42,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Goodrum",
+      "x": 11.9,
+      "y": 56.8
+    },
+    {
+      "id": "2975245719",
+      "minute": 41,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Greene",
+      "x": 19.1,
+      "y": 53.8
+    },
+    {
+      "id": "2975244929",
+      "minute": 39,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "regular",
+      "player": "Goodrum",
+      "x": 15.3,
+      "y": 51.7
+    },
+    {
+      "id": "2975247369",
+      "minute": 45,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Firmino",
+      "x": 16.7,
+      "y": 43.8
+    },
+    {
+      "id": "2975252629",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Burks",
+      "x": 9.7,
+      "y": 35.8
+    },
+    {
+      "id": "2975252457",
+      "minute": 47,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "B.Ferri",
+      "x": 0.3,
+      "y": 99.5
+    },
+    {
+      "id": "2975258825",
+      "minute": 66,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "left_foot",
+      "situation": "fast_break",
+      "player": "Goodrum",
+      "x": 10.5,
+      "y": 36.2
+    },
+    {
+      "id": "2975257819",
+      "minute": 62,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Epps",
+      "x": 2.7,
+      "y": 50.9
+    },
+    {
+      "id": "2975256425",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "left_foot",
+      "situation": "assisted",
+      "player": "Burks",
+      "x": 10.7,
+      "y": 61.7
+    },
+    {
+      "id": "2975256335",
+      "minute": 58,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Brown",
+      "x": 10.6,
+      "y": 39.8
+    },
+    {
+      "id": "2975260627",
+      "minute": 74,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Goodrum",
+      "x": 10.2,
+      "y": 58.1
+    },
+    {
+      "id": "2975259389",
+      "minute": 68,
+      "isHome": false,
+      "shotType": "miss",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Brown",
+      "x": 8.5,
+      "y": 54
+    },
+    {
+      "id": "2975257117",
+      "minute": 60,
+      "isHome": false,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "Goodrum",
+      "x": 8,
+      "y": 53.8
+    },
+    {
+      "id": "2975261907",
+      "minute": 80,
+      "isHome": false,
+      "shotType": "goal",
+      "bodyPart": "right_foot",
+      "situation": "throw_in",
+      "player": "Epps",
+      "x": 9.5,
+      "y": 40.7
+    },
+    {
+      "id": "2975261715",
+      "minute": 79,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "B. de Pina Rodrigues",
+      "x": 18.3,
+      "y": 45.2
+    },
+    {
+      "id": "2975263581",
+      "minute": 85,
+      "isHome": true,
+      "shotType": "goal",
+      "bodyPart": "head",
+      "situation": "assisted",
+      "player": "Otoya",
+      "x": 12.6,
+      "y": 51.2
+    },
+    {
+      "id": "2975262373",
+      "minute": 82,
+      "isHome": true,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "assisted",
+      "player": "Ross",
+      "x": 24.5,
+      "y": 35.1
+    },
+    {
+      "id": "2975265417",
+      "minute": 90,
+      "isHome": true,
+      "shotType": "save",
+      "bodyPart": "head",
+      "situation": "corner",
+      "player": "B.Villasana",
+      "x": 16,
+      "y": 33.3
+    },
+    {
+      "id": "2975264239",
+      "minute": 68,
+      "isHome": false,
+      "shotType": "block",
+      "bodyPart": "right_foot",
+      "situation": "corner",
+      "player": "Goodrum",
+      "x": 13.3,
+      "y": 50
+    }
+  ]
+}
