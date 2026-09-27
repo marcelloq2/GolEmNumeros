@@ -2576,11 +2576,8 @@
       <span class="padr-title"><span class="live-pulse-dot"></span>Padrões · Top Scores ao vivo</span>
       <button class="live-refresh-btn" onclick="document.getElementById('padrFile').click()" title="Importar o padroes.txt (o novo arquivo substitui o que está valendo)">📥 Importar txt</button>
       <input type="file" id="padrFile" accept=".txt,text/plain" style="display:none" onchange="padrImportar(this)">
-      <button class="live-refresh-btn" id="padrRestBtn" style="display:none" onclick="padrRestaurar()">↩ Restaurar anterior</button>
       <button class="live-refresh-btn" id="padrTgBtn" onclick="padrToggleTelegram()" title="Avisos no Telegram quando um padrão bate num jogo do Top Scores — funciona com o site fechado">🔔 Telegram: desligado</button>
       <button class="live-refresh-btn" id="padrAvisoBtn" onclick="padrToggleAvisos()" title="Toca um som, mostra uma notificação e pisca o título da aba quando surge uma ENTRADA ou uma SAÍDA — funciona também se você estiver em outra aba do site (a página precisa ficar aberta)">🔊 Avisos aqui: desligado</button>
-      <button class="live-refresh-btn" id="padrSoAtivoBtn" onclick="padrToggleSoAtivo()" title="Mostrar só os jogos em operação (padrão batendo) ou com saída recente">✔ Só em operação / saída</button>
-      <span class="live-count-badge" id="padrCount">0</span>
       <button class="live-refresh-btn" onclick="padrAtualiza()" title="Atualizar">↻</button>
       <span class="padr-mini" id="padrHora"></span>
     </div>
@@ -14639,8 +14636,6 @@ let _padrTimer = null;
 let _padrBusy = false;
 let _padrRelogioOffset = 0;      // segundos: relógio do servidor - relógio deste navegador
 const _PADR_ATRASO_MAX = 2;       // mesmo limite de _PAD_ATRASO_MAX (app.py)
-let _padrSoAtivo = false;
-try { _padrSoAtivo = localStorage.getItem('padrSoAtivo') === '1'; } catch (e) {}
 const _PADR_LS_URL = 'https://global.ds.lsapp.eu/pq_graphql';
 
 function _padrEsc(s) {
@@ -14689,11 +14684,6 @@ function _padrRenderBarra() {
   }
   const st = document.getElementById('padrStatus');
   if (st) st.innerHTML = '';
-  const rb = document.getElementById('padrRestBtn');
-  if (rb) {
-    rb.style.display = _padrInfo.anterior ? '' : 'none';
-    rb.title = _padrInfo.anterior ? `Voltar para ${_padrInfo.anterior.arquivo} (importado em ${_padrInfo.anterior.importado_em}, ${_padrInfo.anterior.n_regras} regras)` : '';
-  }
   const tg = document.getElementById('padrTgBtn');
   if (tg) {
     const on = !!(_padrInfo.config && _padrInfo.config.alerta_telegram);
@@ -14702,8 +14692,6 @@ function _padrRenderBarra() {
   }
   const av = document.getElementById('padrAvisoBtn');
   if (av) { av.textContent = `🔊 Avisos aqui: ${_padrAvisosOn ? 'ligado' : 'desligado'}`; av.classList.toggle('active', _padrAvisosOn); }
-  const so = document.getElementById('padrSoAtivoBtn');
-  if (so) so.classList.toggle('active', _padrSoAtivo);
   const box = document.getElementById('padrRegrasBox');
   if (box) box.innerHTML = '';
 }
@@ -14744,17 +14732,6 @@ async function padrImportar(input) {
   } catch (e) { _padrMsg('Falha de rede ao importar. Nada foi alterado.', false); }
 }
 
-async function padrRestaurar() {
-  const an = _padrInfo.anterior;
-  if (!an || !confirm(`Voltar para o arquivo anterior (${an.arquivo}, ${an.n_regras} regras, importado em ${an.importado_em})? O que está valendo agora vira o "anterior".`)) return;
-  try {
-    const d = await (await fetch('/api/padroes/restaurar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estrategia: _padrEst }) })).json();
-    _padrMsg(d.ok ? '✔ Arquivo anterior restaurado.' : _padrEsc(d.error || 'Erro'), !!d.ok);
-    await _padrCarregaRegras();
-    _padrRenderGrid();
-  } catch (e) { _padrMsg('Falha de rede.', false); }
-}
-
 async function padrToggleTelegram() {
   const liga = !(_padrInfo.config && _padrInfo.config.alerta_telegram);
   if (liga) {
@@ -14771,13 +14748,6 @@ async function padrToggleTelegram() {
     if (d.ok) _padrInfo.config = d.config;
   } catch (e) {}
   _padrRenderBarra();
-}
-
-function padrToggleSoAtivo() {
-  _padrSoAtivo = !_padrSoAtivo;
-  try { localStorage.setItem('padrSoAtivo', _padrSoAtivo ? '1' : '0'); } catch (e) {}
-  _padrRenderBarra();
-  _padrRenderGrid();
 }
 
 // ── dados dos jogos ──────────────────────────────────────────────────────────
@@ -14817,8 +14787,6 @@ async function padrAtualiza() {
     });
     _padrRenderBarra();
     if (currentView === 'padroes') _padrRenderGrid(itensPor[_padrEst]);
-    const cont = document.getElementById('padrCount');
-    if (cont) cont.textContent = _padrJogos.length;
     const t = document.getElementById('padrHora');
     if (t) t.textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
   } catch (e) {
@@ -15383,7 +15351,7 @@ function _padrRenderGrid(itensPre) {
   const grid = document.getElementById('padrGrid');
   if (!grid) return;
   const itens = itensPre || _padrCalcItens();
-  let lista = _padrSoAtivo ? itens.filter(x => x.prio > 0) : itens;
+  let lista = itens;
   if (_padrEst === 'primeiro_gol') lista = lista.filter(x => x.prio > 0 || !(x.j.gc || x.j.gf));
   lista.sort((a, b) => b.prio - a.prio || ((b.av ? b.av.min : 0) - (a.av ? a.av.min : 0)));
   if (!lista.length) {
