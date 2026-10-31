@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060a0f">
+<title>Gol em Números — Previsões</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Visual próprio do app ("noite de jogo"): estádio escuro, escudos grandes. Não segue o layout do site. */
+:root{--bg:#060a0f;--card:#0e151d;--card2:#141e29;--line:#1f2b38;--txt:#eef3f7;--txt2:#8a9aab;--ok:#22e58a;--no:#ff5a67;--live:#ffb020;--azul:#5aa9e6;--gold:#f0a926;
+ --f-display:'Space Grotesk',system-ui,sans-serif;--f-body:'IBM Plex Sans',system-ui,sans-serif;--f-mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--f-body);font-size:15px;font-variant-numeric:tabular-nums}
+body{padding-bottom:calc(92px + env(safe-area-inset-bottom));min-height:100vh}
+svg.i{width:1em;height:1em;display:inline-block;vertical-align:-.14em;flex-shrink:0}
+button{font-family:inherit;color:inherit}
+/* ── HERO ── */
+.hero{position:relative;overflow:hidden;padding:calc(18px + env(safe-area-inset-top)) 18px 22px;border-bottom:1px solid var(--line)}
+.hero-img{position:absolute;inset:0;background:center/cover no-repeat;opacity:.55}
+.hero-art{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% -10%,rgba(34,229,138,.22),transparent 60%),radial-gradient(60% 50% at 100% 0%,rgba(63,143,196,.18),transparent 70%),linear-gradient(180deg,rgba(6,10,15,.2),var(--bg) 96%)}
+.hero-art svg{position:absolute;inset:0;width:100%;height:100%;opacity:.12}
+.hero>*{position:relative}
+.topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.marca{display:flex;align-items:center;gap:9px;font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.14em;text-transform:uppercase}
+.marca b{color:var(--gold)}
+.marca .bola{width:26px;height:26px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ok)}
+.imp-top{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:rgba(14,21,29,.75);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px}
+.data{margin:18px 0 2px;font-size:13px;color:var(--txt2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.data select{background:rgba(14,21,29,.7);color:var(--txt);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;font-family:inherit}
+.resumo{display:flex;align-items:center;gap:18px;margin-top:10px}
+.anel{position:relative;width:108px;height:108px;flex-shrink:0}
+.anel svg{width:100%;height:100%;transform:rotate(-90deg)}
+.anel .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.anel .c b{font-family:var(--f-mono);font-size:24px;line-height:1}
+.anel .c small{font-size:11px;color:var(--txt2);margin-top:3px}
+.kpis{flex:1;min-width:0}
+.kpi-big{font-family:var(--f-mono);font-weight:700;font-size:34px;line-height:1.05}
+.kpi-sub{font-size:12px;color:var(--txt2);margin-top:2px}
+.kpi-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(14,21,29,.75);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--txt2)}
+.pill b{font-family:var(--f-mono);color:var(--txt)}
+.ok{color:var(--ok)}.no{color:var(--no)}.live{color:var(--live)}.mut{color:var(--txt2)}.azul{color:var(--azul)}
+/* ── LISTA DE CARTÕES (compactos: 2 por linha no celular, até 3 em tela maior) ── */
+main{padding:10px 14px;max-width:980px;margin:0 auto}
+.lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:640px){.lista{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:700px){.hero{padding-left:max(18px,calc(50vw - 490px));padding-right:max(18px,calc(50vw - 490px))}}
+.jogo{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;color:var(--txt)}
+.jogo::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--line)}
+.jogo.ok::before{background:linear-gradient(90deg,var(--ok),transparent)}
+.jogo.no::before{background:linear-gradient(90deg,var(--no),transparent)}
+.jogo.live::before{background:linear-gradient(90deg,var(--live),transparent)}
+.jogo.ok{background:linear-gradient(180deg,rgba(34,229,138,.07),var(--card) 55%)}
+.jogo.no{background:linear-gradient(180deg,rgba(255,90,103,.07),var(--card) 55%)}
+.j-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px 0;font-size:10px;color:var(--txt2);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.j-top span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--no);margin-right:6px;animation:p 1.4s infinite}
+@keyframes p{50%{opacity:.35}}
+.confronto{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:0;padding:8px 3px 4px}
+.time{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0}
+.time img,.time .fb{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+.fb{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--card2);border:1px solid var(--line);font-family:var(--f-display);font-weight:700;color:var(--txt2);font-size:13px}
+.time span{font-family:var(--f-display);font-weight:600;font-size:10.5px;line-height:1.15;word-break:normal;overflow-wrap:anywhere}
+.placar{font-family:var(--f-mono);font-weight:700;font-size:16px;white-space:nowrap;padding:0;letter-spacing:-.06em}
+.placar.x{font-size:13px;color:var(--txt2);font-weight:500;letter-spacing:0}
+.valor{display:flex;gap:4px;flex-wrap:wrap;padding:2px 7px 7px}
+.vtag{font-size:9.5px;border:1px solid var(--line);background:var(--card2);border-radius:8px;padding:3px 6px;color:var(--txt2)}
+.vtag b{font-family:var(--f-mono);color:var(--txt)}
+.vtag.ok{border-color:rgba(34,229,138,.5)}.vtag.no{border-color:rgba(255,90,103,.45)}
+.regras{padding:0 9px 8px;font-size:9.5px;color:var(--txt2);line-height:1.35}
+.regras b{color:var(--azul);font-weight:600}
+.j-foot{margin-top:auto;padding:8px 9px 10px;display:flex;flex-direction:column;align-items:stretch;gap:7px;border-top:1px solid var(--line)}
+.aposta{display:flex;flex-direction:column;gap:2px}
+.aposta small{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+.aposta b{font-family:var(--f-display);font-size:12.5px}
+.aposta b i{font-style:normal;font-family:var(--f-mono);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:4px;font-size:12px}
+.selo{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;padding:6px;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border:1px solid var(--line);color:var(--txt2);background:var(--card2)}
+.selo .v{font-family:var(--f-mono);letter-spacing:0}
+.selo.ok{background:var(--ok);border-color:var(--ok);color:#03150c}
+.selo.no{background:var(--no);border-color:var(--no);color:#1c0407}
+.selo.live{color:var(--live);border-color:var(--live);background:rgba(255,176,32,.1)}
+/* regras do dia / conflitos */
+.dia-info{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:0;flex:1 1 230px}
+.barra-hoje{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin:4px 0 12px}
+.fchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fchip{border:1px solid var(--line);background:var(--card);color:var(--txt2);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.fchip b{font-family:var(--f-mono);color:var(--txt);margin-left:5px}
+.fsel{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:600;max-width:100%;font-family:inherit}
+.fsel.on{border-color:var(--azul);color:var(--azul)}
+.rg-sel{width:100%;font-size:11.5px;color:var(--txt2);line-height:1.4;padding:2px 4px 0}
+.mes{width:100%;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.mes h4{font-family:var(--f-display);font-size:13px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mes h4 span{font-family:var(--f-mono);font-size:15px}
+.mes details summary{cursor:pointer;color:var(--azul);font-size:11.5px;margin-top:6px}
+.mes .dl{display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;border-top:1px solid var(--line);color:var(--txt2)}
+.mes .dl:first-of-type{border-top:0}
+.nuvem{margin:6px 20px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:940px}
+.nuvem summary{cursor:pointer;padding:12px 14px;font-size:13px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:8px}
+.nuvem summary::-webkit-details-marker{display:none}
+.nuvem .cx{padding:0 14px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--txt2);line-height:1.5}
+.nuvem input{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px;font-size:13px;font-family:var(--f-mono);margin:8px 0}
+.nuvem .bt{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+@media (min-width:1000px){.nuvem{margin-left:auto;margin-right:auto}}
+.fchip.on{background:var(--ok);border-color:var(--ok);color:#03150c}.fchip.on b{color:#03150c}
+.dia-info>summary{list-style:none;padding:12px 14px;cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.dia-info>summary::-webkit-details-marker{display:none}
+.dia-info .corpo{padding:0 14px 12px;border-top:1px solid var(--line)}
+.rg{padding:9px 0;border-top:1px solid var(--line);font-size:12.5px;line-height:1.4}
+.rg:first-child{border-top:0}
+.rg small{display:block;color:var(--txt2);font-size:11.5px}
+.sel{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid var(--line);margin-right:4px}
+.sel.VALIDADA{background:var(--ok);border-color:var(--ok);color:#03150c}
+.sel.PROMISSORA{border-color:var(--azul);color:var(--azul)}
+.sel.OBS{border-color:var(--live);color:var(--live)}
+.sel.NAO{border-color:var(--no);color:var(--no)}
+.aviso{border:1px solid var(--live);background:rgba(255,176,32,.08);border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;margin:6px 0 12px}
+/* ── HISTÓRICO DO DIA ── */
+.painel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:12px 0}
+.painel h3{font-family:var(--f-display);font-size:15px;margin-bottom:4px}
+.painel .sub{color:var(--txt2);font-size:12px;margin-bottom:10px;line-height:1.45}
+.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 2px}
+.k{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center}
+.k b{display:block;font-family:var(--f-mono);font-size:16px}
+.k small{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em}
+.curva{width:100%;height:auto;display:block}
+.lin{display:grid;grid-template-columns:44px 1fr 74px;align-items:center;gap:8px;padding:9px 0;font-size:13px;border-top:1px solid var(--line)}
+.lin:first-of-type{border-top:0}
+.lin .t{color:var(--txt2);font-size:12px}
+.lin .j{min-width:0}.lin .j b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.lin .j small{color:var(--txt2);font-size:11px}
+.lin .v{font-family:var(--f-mono);font-weight:700;text-align:right;font-size:12.5px}
+.vazio{text-align:center;color:var(--txt2);padding:46px 18px;line-height:1.65;border:1px dashed var(--line);border-radius:20px;margin-top:20px}
+.vazio svg{font-size:34px;color:var(--ok);margin-bottom:10px;display:block;margin-inline:auto}
+.nota{color:var(--txt2);font-size:11.5px;line-height:1.55;margin:20px 20px}
+/* barra inferior */
+.nav{position:fixed;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:360px;margin:0 auto;display:flex;gap:4px;background:rgba(14,21,29,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:22px;padding:6px;z-index:50}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 2px;border:0;border-radius:16px;background:none;color:var(--txt2);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.02em}
+.nav svg{font-size:20px}
+.nav .on{color:#03150c;background:var(--ok)}
+#toast{position:fixed;left:14px;right:14px;bottom:calc(94px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:11px 15px;display:none;z-index:90;font-size:13px}
+</style>
+</head>
+<body>
+<header class="hero">
+ <div class="hero-img"></div>
+ <div class="hero-art"><svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#fff" stroke-width="1.2"><rect x="20" y="20" width="360" height="180" rx="4"/><path d="M200 20v180"/><circle cx="200" cy="110" r="32"/><rect x="20" y="62" width="52" height="96"/><rect x="328" y="62" width="52" height="96"/></svg></div>
+ <div class="topo"><div class="marca"><span class="bola"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 4.5h-5L8 10z"/></svg></span>Gol em <b>Números</b></div>
+  <label class="imp-top" title="Importar painel_app.json"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg><input id="arq" type="file" accept=".json,application/json" multiple hidden></label></div>
+ <div id="heroConteudo"></div>
+</header>
+<main id="conteudo"></main>
+<p class="nota" id="nota"></p>
+<div id="nuvemBox"></div>
+<input id="arqBkp" type="file" accept=".json,application/json" hidden>
+<div id="toast"></div>
+<nav class="nav">
+ <button id="tHoje" class="on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Hoje</button>
+ <button id="tHist"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/></svg>Histórico</button>
+</nav>
+<script>
+const CHAVE="previsoes_app_v3",COM=0.05;
+let DB={dias:{},info:{},gerado_em:null},aba="hoje",diaSel=null,filtroHoje=null,filtroRegra="";
+const IC={ok:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+ no:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+ espera:'<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'};
+const URL_ESC=id=>`https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png`;
+function carrega(){try{const t=localStorage.getItem(CHAVE);if(t)Object.assign(DB,JSON.parse(t))}catch(e){}if(!DB.dias)DB.dias={};if(!DB.info)DB.info={}}
+function salva(){try{localStorage.setItem(CHAVE,JSON.stringify(DB))}catch(e){aviso("Não consegui guardar no aparelho (armazenamento bloqueado). Os dados somem ao fechar.")}}
+const esc=t=>String(t==null?"":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const u=v=>(v>=0?"+":"")+v.toFixed(2)+"u",pc=v=>(v>=0?"+":"")+v.toFixed(1)+"%",cl=v=>v>=0?"ok":"no",ganho=o=>(o-1)*(1-COM);
+function aviso(t){const e=document.getElementById("toast");e.textContent=t;e.style.display="block";clearTimeout(aviso.t);aviso.t=setTimeout(()=>e.style.display="none",5000)}
+function stats(L){const d=L.filter(p=>p.resultado),ok=d.filter(p=>p.resultado=="acertou").length,lucro=d.reduce((t,p)=>t+(p.lucro||0),0);
+ return {n:L.length,dec:d.length,ok,erro:d.length-ok,pend:L.length-d.length,taxa:d.length?ok/d.length*100:0,lucro,roi:d.length?lucro/d.length*100:0}}
+/* ── Importação ── */
+/* A lista do dia (jogos + conflitos já resolvidos pelo painel) vale a partir da PRIMEIRA importação daquele dia. Importações seguintes do mesmo dia
+   só atualizam resultado/placar/status e o profit do mês das regras; jogos novos ou removidos no arquivo são ignorados. "Recomeçar este dia" libera de novo. */
+function importa(docs){let novas=0,atual=0,ignoradas=0,criados=0;docs.sort((a,b)=>String(a.gerado_em||"").localeCompare(String(b.gerado_em||"")));
+ for(const doc of docs){if(!doc||!Array.isArray(doc.previsoes))throw new Error("arquivo não parece um painel_app.json");
+  const dia0=doc.dia||(doc.previsoes[0]&&doc.previsoes[0].dia);if(!dia0)throw new Error("arquivo sem o dia");
+  const travado=DB.dias[dia0]&&Object.keys(DB.dias[dia0]).length>0;
+  if(!travado){const d=DB.dias[dia0]={};for(const p of doc.previsoes){if(!p.id)continue;d[p.id]=p;novas++}
+   DB.info[dia0]={sem_regra:!!doc.sem_regra,regras:doc.regras_dia||[],conflitos:doc.conflitos||[],criterio:doc.criterio||null,gerado_em:doc.gerado_em||null};criados++}
+  else{const d=DB.dias[dia0];
+   for(const p of doc.previsoes){const ant=d[p.id];if(!ant){ignoradas++;continue}
+    if(p.resultado||!ant.resultado){d[p.id]={...ant,status:p.status,placar:p.placar,resultado:p.resultado,lucro:p.lucro};if(p.resultado&&!ant.resultado)atual++}}
+   const inf=DB.info[dia0]=DB.info[dia0]||{sem_regra:!!doc.sem_regra,regras:[],conflitos:[],criterio:null};
+   for(const r of doc.regras_dia||[]){const x=(inf.regras||[]).find(y=>y.id==r.id);if(x&&r.mes)x.mes=r.mes}
+   inf.gerado_em=doc.gerado_em||inf.gerado_em}
+  DB.gerado_em=doc.gerado_em||DB.gerado_em}
+ salva();return {novas,atual,ignoradas,criados}}
+/* ── Cópia de segurança: guarda TUDO do app (todos os dias, listas, regras, profit do mês) num arquivo; restaura em qualquer aparelho/navegador ── */
+function montaBackup(){return {tipo:"backup_app",versao:3,salvo_em:new Date().toISOString(),DB}}
+function salvaCopia(){const b=montaBackup(),dias=Object.keys(DB.dias).length;if(!dias){aviso("Não há nada para salvar ainda.");return}
+ const a=document.createElement("a"),h=hojeIso();a.href=URL.createObjectURL(new Blob([JSON.stringify(b)],{type:"application/json"}));a.download="backup_gol_em_numeros_"+h+".json";document.body.appendChild(a);a.click();
+ setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);aviso(`Cópia salva: ${dias} dia(s). Guarde o arquivo (Drive, e-mail ou Telegram) para restaurar quando precisar.`)}
+function restauraCopia(b,semPerguntar){if(!b||b.tipo!="backup_app"||!b.DB||!b.DB.dias)throw new Error("esse arquivo não é uma cópia do app");
+ const n=Object.keys(b.DB.dias).length;if(!semPerguntar&&!confirm(`Restaurar a cópia de ${(b.salvo_em||"").slice(0,10)} com ${n} dia(s)? Isso substitui o que está guardado agora neste aparelho.`))return false;
+ DB=Object.assign({dias:{},info:{},gerado_em:null},b.DB);salva();const ds=Object.keys(DB.dias).sort();diaSel=ds[ds.length-1]||null;desenha();aviso(`Cópia restaurada: ${n} dia(s).`);return true}
+const hojeIso=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+document.getElementById("arqBkp").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{restauraCopia(JSON.parse(await f.text()))}catch(err){aviso("Erro ao restaurar: "+err.message)}};
+/* ── Nuvem (GitHub): cópia automática no repositório do site, branch "data" (não dispara deploy). Repositório PÚBLICO: a cópia é visível. ──
+   O token (fine-grained, só neste repositório, permissão Contents: leitura e escrita) é colado pelo usuário e fica só neste aparelho. */
+const NUVEM={repo:"marcelloq2/GolEmNumeros",branch:"data",path:"app_previsoes/backup.json"},CHAVE_GH="previsoes_app_gh";
+const ghToken=()=>{try{return localStorage.getItem(CHAVE_GH)||""}catch(e){return ""}};
+const b64=t=>btoa(unescape(encodeURIComponent(t)));
+async function salvaNuvem(silencioso){const tk=ghToken();
+ if(!tk){if(!silencioso)aviso("Cole o token do GitHub primeiro (caixa \"Nuvem\", no rodapé).");return false}
+ if(!Object.keys(DB.dias).length){if(!silencioso)aviso("Não há nada para salvar ainda.");return false}
+ const url=`https://api.github.com/repos/${NUVEM.repo}/contents/${NUVEM.path}`,h={Authorization:"Bearer "+tk,Accept:"application/vnd.github+json"};
+ try{let sha;const g=await fetch(url+"?ref="+NUVEM.branch,{headers:h});
+  if(g.ok)sha=(await g.json()).sha;else if(g.status!=404)throw new Error("GitHub respondeu "+g.status+(g.status==401?" (token inválido ou vencido)":""));
+  const r=await fetch(url,{method:"PUT",headers:h,body:JSON.stringify({message:"app previsões: cópia "+new Date().toISOString().slice(0,16),content:b64(JSON.stringify(montaBackup())),branch:NUVEM.branch,sha})});
+  if(!r.ok)throw new Error("GitHub respondeu "+r.status+(r.status==403||r.status==404?" (o token precisa da permissão Contents: leitura e escrita neste repositório)":""));
+  DB.nuvem_em=new Date().toISOString();salva();desenhaNuvem();if(!silencioso)aviso("Cópia salva no GitHub.");return true}
+ catch(e){aviso("Nuvem: "+e.message);return false}}
+async function buscaNuvem(auto){try{const r=await fetch(`https://api.github.com/repos/${NUVEM.repo}/contents/${NUVEM.path}?ref=${NUVEM.branch}`,{headers:{Accept:"application/vnd.github.raw+json"}});
+  if(r.status==404){if(!auto)aviso("Ainda não há cópia no GitHub.");return false}if(!r.ok)throw new Error("GitHub respondeu "+r.status);
+  const b=JSON.parse(await r.text());if(auto){restauraCopia(b,true);aviso("Dados recuperados da cópia no GitHub.");return true}return restauraCopia(b)}
+ catch(e){if(!auto)aviso("Nuvem: "+e.message);return false}}
+function guardaToken(){const v=(document.getElementById("inGh").value||"").trim();if(!v){aviso("Cole o token primeiro.");return}try{localStorage.setItem(CHAVE_GH,v)}catch(e){}document.getElementById("inGh").value="";desenhaNuvem();aviso("Token guardado neste aparelho. As próximas importações já salvam na nuvem sozinhas.")}
+function apagaToken(){try{localStorage.removeItem(CHAVE_GH)}catch(e){}desenhaNuvem();aviso("Token removido deste aparelho.")}
+function desenhaNuvem(){const b=document.getElementById("nuvemBox");if(!b)return;const tem=!!ghToken(),em=DB.nuvem_em?new Date(DB.nuvem_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):null;
+ b.innerHTML=`<details class="nuvem"><summary><span>Nuvem (GitHub)</span><span class="${tem?"ok":"mut"}" style="font-weight:400">${tem?(em?"salvo em "+em:"token guardado"):"não configurada"}</span></summary><div class="cx">
+ A cópia vai para o repositório do site (<b>${esc(NUVEM.repo)}</b>, ramo <b>${esc(NUVEM.branch)}</b>) e é <b>pública</b>. Se os dados deste aparelho sumirem, o app busca a cópia lá sozinho.
+ ${tem?`<div>Token guardado neste aparelho. Cada importação salva a cópia automaticamente.</div>`:`<div>Crie um token em github.com/settings/personal-access-tokens (<i>fine-grained</i>): só o repositório <b>${esc(NUVEM.repo)}</b>, permissão <b>Contents: Read and write</b>, com validade. Cole abaixo (ele fica só aqui).</div><input id="inGh" type="password" placeholder="cole o token aqui" autocomplete="off">`}
+ <div class="bt">${tem?"":`<button class="fchip" onclick="guardaToken()">Guardar token</button>`}<button class="fchip" onclick="salvaNuvem(false)">Salvar na nuvem agora</button><button class="fchip" onclick="buscaNuvem(false)">Buscar da nuvem</button>${tem?`<button class="fchip" onclick="apagaToken()">Remover token</button>`:""}</div></div></details>`}
+function recomecaDia(dia){if(!confirm("Descartar a lista deste dia? O próximo arquivo importado vira a nova lista do dia."))return;delete DB.dias[dia];delete DB.info[dia];salva();salvaNuvem(true);const ds=Object.keys(DB.dias).sort();diaSel=ds[ds.length-1]||null;desenha()}
+document.getElementById("arq").onchange=async e=>{const fs=[...e.target.files];e.target.value="";if(!fs.length)return;
+ try{const docs=[];for(const f of fs)docs.push(JSON.parse(await f.text()));if(docs.some(d=>d&&d.tipo=="backup_app")){restauraCopia(docs.find(d=>d.tipo=="backup_app"));return}const r=importa(docs);
+  const dias=Object.keys(DB.dias).sort();diaSel=dias[dias.length-1];salvaNuvem(true);aviso(r.criados?`Lista do dia criada: ${r.novas} previsão(ões). Ela fica fixa até o fim do dia.`:`Resultados atualizados: ${r.atual} jogo(s) encerrado(s) novo(s)${r.ignoradas?` · ${r.ignoradas} indicação(ões) do arquivo ignorada(s): a lista do dia é a da primeira importação`:""}.`);desenha()}
+ catch(err){aviso("Erro ao importar: "+err.message)}};
+/* ── Cartão ── */
+const crest=(id,n)=>id?`<img src="${URL_ESC(id)}" alt="${esc(n)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;fb&quot;>'+this.alt.slice(0,2).toUpperCase()+'</span>'">`:`<span class="fb">${esc(n).slice(0,2).toUpperCase()}</span>`;
+function valorDe(p){if(!p.hist||!p.hist.n)return null;const K=30,pr=(p.hist.ok+K*(1/(1+ganho(p.odd))))/(p.hist.n+K),ev=pr*ganho(p.odd)-(1-pr),om=1+(1/pr-1)/(1-COM);return {ev,oddMin:om,compensa:p.odd>=om}}
+function jogo(p){const ok=p.resultado=="acertou",no=p.resultado=="errou",vivo=p.status=="andamento",canc=p.status=="cancelado";
+ const cls=ok?"ok":no?"no":vivo?"live":"",top=vivo?`<span><i class="dot"></i>ao vivo</span>`:`<span>${esc(p.hora||"")}</span>`;
+ const pl=p.placar?esc(p.placar.replace(/ /g,"").replace("-"," – ")):"VS",v=valorDe(p),rg=p.regras||[];
+ const selo=ok?`<span class="selo ok">${IC.ok} Acertou <span class="v">${u(p.lucro)}</span></span>`:no?`<span class="selo no">${IC.no} Errou <span class="v">${u(p.lucro)}</span></span>`:canc?`<span class="selo">Cancelado</span>`:vivo?`<span class="selo live">Ao vivo</span>`:`<span class="selo">${IC.espera} Aguardando</span>`;
+ const val=v?`<div class="valor"><span class="vtag ${v.compensa?"ok":"no"}" title="Abaixo dessa odd a aposta deixa de compensar">Odd mín. <b>${v.oddMin.toFixed(2)}</b> ${v.compensa?"✓":"✗"}</span><span class="vtag ${v.ev>0?"ok":""}">EV <b>${u(v.ev)}</b></span></div>`:"";
+ const reg=rg.length?`<div class="regras" title="${esc(rg.map(r=>r.mercado+": "+r.curto).join(" | "))}"><b>${rg.length>1?rg.length+" regras":"1 regra"}</b> · ${esc(rg.map(r=>r.mercado).join(" · "))}</div>`:"";
+ return `<article class="jogo ${cls}"><div class="j-top"><span>${esc(p.liga)}</span>${top}</div>
+  <div class="confronto"><div class="time">${crest(p.id_casa,p.casa)}<span>${esc(p.casa)}</span></div><div class="placar ${p.placar?"":"x"}">${pl}</div><div class="time">${crest(p.id_fora,p.fora)}<span>${esc(p.fora)}</span></div></div>
+  ${val}${reg}<div class="j-foot"><div class="aposta"><small>Previsão</small><b>${esc(p.aposta)}<i>${Number(p.odd).toFixed(2)}</i></b></div>${selo}</div></article>`}
+function anel(s){const C=2*Math.PI*44,t=Math.max(s.n,1),a=s.ok/t*C,b=s.erro/t*C;
+ return `<svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="44" fill="none" stroke="#1b2937" stroke-width="10"/><circle cx="54" cy="54" r="44" fill="none" stroke="var(--no)" stroke-width="10" stroke-dasharray="${b} ${C}" stroke-dashoffset="${-a}"/><circle cx="54" cy="54" r="44" fill="none" stroke="var(--ok)" stroke-width="10" stroke-dasharray="${a} ${C}"/></svg>`}
+function heroDia(titulo,s,sub,mostraPend){const dias=Object.keys(DB.dias).sort(),dt=new Date(diaSel+"T12:00:00"),tx=dt.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+ return `<div class="data">${esc(titulo||tx.charAt(0).toUpperCase()+tx.slice(1))} <select id="selDia">${dias.slice().reverse().map(d=>`<option value="${d}"${d==diaSel?" selected":""}>${d.slice(8)}/${d.slice(5,7)}</option>`).join("")}</select></div>
+ <div class="resumo"><div class="anel">${anel(s)}<div class="c"><b>${s.ok}/${s.dec}</b><small>acertos</small></div></div><div class="kpis"><div class="kpi-big ${s.dec?cl(s.lucro):"mut"}">${s.dec?u(s.lucro):"–"}</div><div class="kpi-sub">${sub}</div>
+ <div class="kpi-row"><span class="pill">Taxa <b>${s.dec?s.taxa.toFixed(0)+"%":"–"}</b></span>${mostraPend?`<span class="pill">Aguardando <b class="${s.pend?"live":""}">${s.pend}</b></span>`:`<span class="pill">ROI <b class="${cl(s.roi)}">${s.dec?pc(s.roi):"–"}</b></span>`}</div></div></div>`}
+const vazioMsg=t=>`<div class="vazio"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg>${t}</div>`;
+const classeVer=v=>v=="VALIDADA"?"VALIDADA":v=="PROMISSORA"?"PROMISSORA":v=="EM OBSERVAÇÃO"?"OBS":"NAO";
+/* ── HOJE ── */
+function infoDia(inf){if(!inf)return "";
+ const rg=inf.regras||[],cf=inf.conflitos||[],cr=inf.criterio;
+ if(inf.sem_regra)return `<div class="aviso"><b>Nenhuma regra com chance de ser sorte 0% hoje.</b><br>Nenhuma regra do ranking chegou em 0% de chance de ser sorte, então não há jogos para mostrar hoje.</div>`;
+ return `<details class="dia-info"><summary><span>Regras de hoje (${rg.length})</span><span class="mut" style="font-weight:400;font-size:12px">${cr?cr.max_testes+" testes · sorte 0%":""}</span></summary><div class="corpo">`+
+  rg.map(r=>`<div class="rg"><span class="sel ${classeVer(r.ver)}">${esc(r.ver)}</span><b>${esc(r.mercado)}</b> <span class="mut">· ${r.pass}/${r.total} testes · ${r.n_jogos} jogo(s) · profit geral ${u(r.lucro_total)}${r.mes?` · mês <b class="${cl(r.mes.lucro)}">${u(r.mes.lucro)}</b>`:""}</span><small>${esc(r.curto)}</small></div>`).join("")+
+  (cf.length?`<div class="rg"><b>Conflitos resolvidos (${cf.length})</b><small>Quando regras indicam lados opostos no mesmo jogo, fica só a regra com maior profit geral.</small></div>`+cf.map(c=>`<div class="rg">${esc(c.jogo)}<small>fica: <b class="ok">${esc(c.mantida.lado)}</b> (${esc(c.mantida.regra)}, ${u(c.mantida.lucro_total)}) · saiu: ${c.descartadas.map(d=>esc(d.lado)+" ("+esc(d.regra)+", "+u(d.lucro_total)+")").join(", ")}</small></div>`).join(""):"")+`<div class="rg"><small>A lista do dia fica fixa desde a primeira importação; importar de novo só atualiza resultados.</small><button class="fchip" style="margin-top:6px" onclick="recomecaDia(diaSel)">Recomeçar este dia</button></div></div></details>`}
+function mesHtml(m){if(!m)return "";const [a,mo]=m.ym.split("-").map(Number),nomeMes=new Date(a,mo-1,1).toLocaleDateString("pt-BR",{month:"long"}),dias=m.dias||[];
+ if(!dias.length)return `<div class="mes"><h4>Profit de ${esc(nomeMes)} <span class="mut">sem apostas</span></h4></div>`;
+ const ult=Math.max(...dias.map(x=>+x.d.slice(8))),por={};for(const x of dias)por[+x.d.slice(8)]=x;
+ const W=360,H=86,p=10,pts=[[0,0]];let c=0;for(let d=1;d<=ult;d++){if(por[d])c+=por[d].lucro;pts.push([d,c])}
+ const ys=pts.map(q=>q[1]),mn=Math.min(0,...ys),mx=Math.max(0,...ys),sx=d=>p+d/ult*(W-2*p),sy=v=>H-p-(mx==mn?.5:(v-mn)/(mx-mn))*(H-2*p),lin=pts.map(q=>sx(q[0]).toFixed(1)+","+sy(q[1]).toFixed(1)).join(" "),base=H-p;
+ const svg=`<svg class="curva" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22e58a" stop-opacity=".4"/><stop offset="1" stop-color="#22e58a" stop-opacity=".04"/></linearGradient></defs><polygon points="${lin} ${sx(ult).toFixed(1)},${base} ${sx(0).toFixed(1)},${base}" fill="url(#gm)"/><line x1="${p}" x2="${W-p}" y1="${sy(0).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#4a5a6a" stroke-dasharray="4 4"/><polyline fill="none" stroke="#22e58a" stroke-width="2.2" stroke-linejoin="round" points="${lin}"/></svg>`;
+ return `<div class="mes"><h4>Profit de ${esc(nomeMes)} <span class="${cl(m.lucro)}">${u(m.lucro)}</span></h4><div class="kpi-sub" style="margin-bottom:6px">${m.n} apostas · ${m.ok} acertos (${m.n?Math.round(m.ok/m.n*100):0}%) · zera no dia 01</div>${svg}
+  <details><summary>Dia a dia</summary>${dias.map(x=>`<div class="dl"><span>dia ${x.d.slice(8)}</span><span>${x.ok}/${x.n}</span><b class="${cl(x.lucro)}">${u(x.lucro)}</b></div>`).join("")}</details></div>`}
+function telaDia(){const dias=Object.keys(DB.dias).sort(),h=document.getElementById("heroConteudo");
+ if(!dias.length){h.innerHTML=`<div class="data">Nenhum dia importado ainda</div>`;return vazioMsg("Nenhuma previsão ainda.<br>No painel, clique em <b>📱 Exportar pro app</b>, mande o <b>painel_app.json</b> pro celular e toque no ícone de envio, no topo, para importar.")}
+ if(!diaSel||!DB.dias[diaSel])diaSel=dias[dias.length-1];
+ const L=Object.values(DB.dias[diaSel]).sort((a,b)=>(a.utc||"").localeCompare(b.utc||"")),s=stats(L);
+ h.innerHTML=heroDia(null,s,"profit do dia · 1u por aposta",true);
+ const ST={enc:"encerrado",vivo:"andamento",prox:"pendente"},cont={};for(const k in ST)cont[k]=L.filter(p=>p.status==ST[k]).length;
+ const rinfo=(DB.info[diaSel]&&DB.info[diaSel].regras)||[],cntR={};for(const p of L)for(const r of (p.regras||[]))cntR[r.id]=(cntR[r.id]||0)+1;
+ if(filtroRegra&&!cntR[filtroRegra])filtroRegra="";
+ const ropc=rinfo.filter(r=>cntR[r.id]).sort((a,b)=>b.lucro_total-a.lucro_total),rsel=ropc.find(r=>r.id==filtroRegra);
+ const LF=L.filter(p=>(!filtroHoje||p.status==ST[filtroHoje])&&(!filtroRegra||(p.regras||[]).some(r=>r.id==filtroRegra)));
+ const cur=t=>t.length>46?t.slice(0,45)+"…":t;
+ const chips=L.length?`<div class="fchips">${[["enc","Encerrados"],["vivo","Ao vivo"],["prox","Próximos"]].map(([k,n])=>`<button class="fchip ${filtroHoje==k?"on":""}" onclick="filtroHoje=filtroHoje=='${k}'?null:'${k}';desenha()">${n}<b>${cont[k]}</b></button>`).join("")}`+
+  (ropc.length?`<select class="fsel ${filtroRegra?"on":""}" onchange="filtroRegra=this.value;desenha()" title="Filtrar por regra"><option value="">Todas as regras (${ropc.length})</option>${ropc.map(r=>`<option value="${esc(r.id)}"${r.id==filtroRegra?" selected":""}>${esc(cur(r.mercado+" — "+r.curto))} (${cntR[r.id]})${r.mes?" · mês "+u(r.mes.lucro):""}</option>`).join("")}</select>`:"")+`</div>`:"";
+ const selInfo=rsel?`<div class="rg-sel"><span class="sel ${classeVer(rsel.ver)}">${esc(rsel.ver)}</span><b>${esc(rsel.mercado)}</b> · ${rsel.pass}/${rsel.total} testes · profit geral ${u(rsel.lucro_total)}<br>${esc(rsel.curto)}</div>${mesHtml(rsel.mes)}`:"";
+ return `<div class="barra-hoje">${infoDia(DB.info[diaSel])}${chips}${selInfo}</div>`+(LF.length?`<div class="lista">${LF.map(jogo).join("")}</div>`:(L.length?`<div class="vazio">Nenhum jogo nesse filtro.</div>`:""))}
+/* ── HISTÓRICO DO DIA ── */
+function svgArea(res){const W=360,H=190,p=12,cum=[];let c=0;for(const r of res){c+=r.lucro;cum.push(c)}
+ const pts=[0,...cum],n=pts.length-1,mn=Math.min(...pts),mx=Math.max(...pts),sx=i=>p+(n?i/n:.5)*(W-2*p),sy=v=>H-p-(mx==mn?.5:(v-mn)/(mx-mn))*(H-2*p),base=H-p;
+ const linha=pts.map((v,i)=>sx(i).toFixed(1)+","+sy(v).toFixed(1)).join(" "),area=linha+` ${sx(n).toFixed(1)},${base} ${sx(0).toFixed(1)},${base}`;
+ return `<svg class="curva" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22e58a" stop-opacity=".42"/><stop offset="1" stop-color="#22e58a" stop-opacity=".05"/></linearGradient></defs>
+ <polygon points="${area}" fill="url(#gv)"/><line x1="${p}" x2="${W-p}" y1="${sy(0).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#4a5a6a" stroke-dasharray="5 4"/>
+ <polyline fill="none" stroke="#22e58a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="${linha}"/>
+ ${res.map((r,i)=>`<circle cx="${sx(i+1).toFixed(1)}" cy="${sy(pts[i+1]).toFixed(1)}" r="3.6" fill="${r.resultado=="acertou"?"#22e58a":"#ff5a67"}" stroke="#060a0f" stroke-width="1.2"/>`).join("")}</svg>`}
+function telaHist(){const dias=Object.keys(DB.dias).sort(),h=document.getElementById("heroConteudo");
+ if(!dias.length){h.innerHTML=`<div class="data">Sem histórico ainda</div>`;return vazioMsg("Importe o arquivo do painel para ver o histórico do dia.")}
+ if(!diaSel||!DB.dias[diaSel])diaSel=dias[dias.length-1];
+ const todas=Object.values(DB.dias[diaSel]),res=todas.filter(p=>p.resultado).sort((a,b)=>(a.utc||"").localeCompare(b.utc||"")),S=stats(todas);
+ h.innerHTML=heroDia("Histórico · "+new Date(diaSel+"T12:00:00").toLocaleDateString("pt-BR",{day:"numeric",month:"long"})+" ",S,"profit do dia · 1u por aposta",false);
+ if(!res.length)return `<div class="vazio">Nenhuma aposta encerrada neste dia ainda.<br>Importe de novo quando os jogos terminarem.</div>`;
+ let cR=0,mR=0,cG=0,mG=0,c=0,pk=0,dd=0;
+ for(const r of res){if(r.resultado=="acertou"){cG++;cR=0;mG=Math.max(mG,cG)}else{cR++;cG=0;mR=Math.max(mR,cR)}c+=r.lucro;pk=Math.max(pk,c);dd=Math.max(dd,pk-c)}
+ const oddMed=res.reduce((t,r)=>t+Number(r.odd),0)/res.length;
+ return `<div class="painel"><h3>Lucro acumulado do dia</h3><div class="sub">Aposta a aposta, na ordem dos jogos. Bolinha verde = acertou, vermelha = errou.</div>${svgArea(res)}
+ <div class="kgrid"><div class="k"><small>ROI</small><b class="${cl(S.roi)}">${pc(S.roi)}</b></div><div class="k"><small>Taxa de acerto</small><b>${S.taxa.toFixed(0)}%</b></div><div class="k"><small>Odd média</small><b>${oddMed.toFixed(2)}</b></div>
+ <div class="k"><small>Red máx</small><b class="${mR?"no":"mut"}">${mR}</b></div><div class="k"><small>Green máx</small><b class="${mG?"ok":"mut"}">${mG}</b></div><div class="k"><small>DD máx</small><b class="${dd?"no":"mut"}">${dd?"-"+dd.toFixed(2)+"u":"0"}</b></div></div>
+ <div class="sub" style="margin:8px 0 0">Red máx / Green máx: maior sequência de erros / acertos seguidos. DD máx: maior queda do lucro acumulado, do pico até o vale.</div></div>
+ <div class="painel"><h3>Apostas do dia</h3>`+res.map(r=>`<div class="lin"><span class="t">${esc(r.hora||"")}</span><div class="j"><b>${esc(r.casa)} x ${esc(r.fora)}</b><small>${esc(r.aposta)} @ ${Number(r.odd).toFixed(2)} · ${esc(r.placar||"")}</small></div><span class="v ${r.resultado=="acertou"?"ok":"no"}">${r.resultado=="acertou"?"✓":"✗"} ${u(r.lucro)}</span></div>`).join("")+`</div>`}
+function desenha(){const c=document.getElementById("conteudo");
+ document.getElementById("tHoje").classList.toggle("on",aba=="hoje");document.getElementById("tHist").classList.toggle("on",aba=="hist");
+ c.innerHTML=aba=="hoje"?telaDia():telaHist();
+ document.getElementById("nota").innerHTML=`Cada aposta vale 1 unidade, com a odd gravada na primeira rodada do dia e comissão de 5% sobre o lucro. Mede o que aconteceu com as previsões; não é garantia de lucro futuro.${DB.gerado_em?` Último arquivo importado: ${esc(DB.gerado_em)} — fica guardado neste aparelho até você importar outro.`:""} Escudos: FotMob.<br><button class="fchip" style="margin-top:8px" onclick="salvaCopia()">Salvar cópia de segurança</button> <button class="fchip" style="margin-top:8px" onclick="document.getElementById('arqBkp').click()">Restaurar cópia</button>`;
+ desenhaNuvem();
+ const s=document.getElementById("selDia");if(s)s.onchange=()=>{diaSel=s.value;filtroRegra="";filtroHoje=null;desenha()}}
+document.getElementById("tHoje").onclick=()=>{aba="hoje";desenha();scrollTo(0,0)};
+document.getElementById("tHist").onclick=()=>{aba="hist";desenha();scrollTo(0,0)};
+carrega();desenha();
+if(!Object.keys(DB.dias).length)buscaNuvem(true);   // aparelho vazio (dados apagados / outro aparelho): tenta recuperar a cópia do GitHub
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}   // pede ao navegador pra não apagar os dados guardados
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
